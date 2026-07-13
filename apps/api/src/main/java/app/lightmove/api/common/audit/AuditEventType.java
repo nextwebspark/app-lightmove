@@ -36,6 +36,7 @@ public enum AuditEventType {
 
     // Tenancy
     WORKSPACE_CREATED,
+    WORKSPACE_UPDATED,
     MEMBER_INVITED,
     INVITATION_ACCEPTED,
 
