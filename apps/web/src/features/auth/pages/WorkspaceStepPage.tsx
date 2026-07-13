@@ -8,7 +8,7 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import * as authApi from "../api/authApi";
-import type { JoinableWorkspace, Workspace } from "../api/types";
+import type { JoinableWorkspace, WorkspaceSummary } from "../api/types";
 import {
   COMPANY_SIZES,
   JOB_TITLES,
@@ -198,7 +198,7 @@ function CreateWorkspace({
   onCreated,
 }: {
   /** The workspace they already made, if they came back to this step. See WorkspaceStepPage. */
-  editing: Workspace | null;
+  editing: WorkspaceSummary | null;
   canJoinInstead: boolean;
   onJoinInstead: () => void;
   onCreated: () => Promise<void>;
