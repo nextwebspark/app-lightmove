@@ -113,8 +113,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  /**
+   * Re-reads the session from the server — <b>token first</b>, then user.
+   *
+   * <p>The refresh is not optional, and this is the subtle part. The tenant claims (`wsId`, `role`)
+   * are baked into the access token when it is minted, so anything that changes a user's membership
+   * leaves the token they are holding describing a world that no longer exists. Creating a workspace
+   * mints nothing: the caller still carries a token that says they have none, and the very next
+   * workspace-scoped call — sending the step-3 invites — fails `requireWorkspaceId()`. The same is true
+   * of an admin approving a join request: `/auth/me` would happily report the new workspace while every
+   * request made with the old token was still refused.
+   *
+   * <p>`/auth/refresh` re-reads the membership from the database and mints a token that tells the
+   * truth. Only then is it worth asking who the user is.
+   */
   const reload = useCallback(async () => {
     try {
+      await restoreSession();
       const fresh = await authApi.me();
       setUser(fresh);
       return fresh;

@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button, Card, Logo } from "../../../components/ui";
 import { useAuth } from "../AuthProvider";
 
@@ -10,6 +12,28 @@ import { useAuth } from "../AuthProvider";
  */
 export function PendingApprovalPage() {
   const { user, signOut, reload } = useAuth();
+  const navigate = useNavigate();
+  const [checking, setChecking] = useState(false);
+
+  // The moment the admin says yes, this screen is a lie. Nothing else moves the user off it: the router
+  // is happy to leave an approved member sitting here forever, refreshing a page that has already told
+  // them what they were waiting to hear.
+  useEffect(() => {
+    if (user?.workspace) {
+      navigate("/", { replace: true });
+    }
+  }, [user?.workspace, navigate]);
+
+  const check = async () => {
+    setChecking(true);
+    try {
+      // The redirect is left to the effect above rather than done here, so that it also fires when the
+      // approval arrives by some other route — a session restored on page load, say.
+      await reload();
+    } finally {
+      setChecking(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
@@ -30,7 +54,7 @@ export function PendingApprovalPage() {
           email {user?.email} as soon as they do.
         </p>
 
-        <Button variant="secondary" className="w-full" onClick={() => void reload()}>
+        <Button variant="secondary" className="w-full" loading={checking} onClick={() => void check()}>
           Check again
         </Button>
 

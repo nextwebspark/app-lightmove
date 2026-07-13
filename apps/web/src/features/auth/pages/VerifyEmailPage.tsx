@@ -4,6 +4,7 @@ import { Button, Card, Logo } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
+import { pendingInvite } from "../pendingInvite";
 
 type State = "verifying" | "success" | "failed";
 
@@ -28,6 +29,25 @@ export function VerifyEmailPage() {
    * the second invocation would win the race.
    */
   const attempted = useRef(false);
+
+  /**
+   * Where verifying leaves them, which is wherever they were going before the email interrupted.
+   *
+   * <p>The invitee is the case that has to be handled explicitly: verification was never their errand,
+   * it was a gate on the way to accepting an invitation. Sending them to the join-or-create fork here
+   * would offer them a choice they have already been spared — and the workspace they were invited to
+   * would be sitting one click away, unmentioned.
+   */
+  const nextStop = (): string => {
+    const invite = pendingInvite.peek();
+    if (invite) {
+      return `/auth/accept-invite?token=${encodeURIComponent(invite.token)}`;
+    }
+    if (user?.workspace) {
+      return "/";
+    }
+    return user ? "/signup/workspace" : "/login";
+  };
 
   useEffect(() => {
     if (attempted.current) {
@@ -84,16 +104,7 @@ export function VerifyEmailPage() {
             <h1 className="text-[19px] font-semibold">Email verified</h1>
             <p className="mb-6 mt-2 font-mono text-xs text-text3">Your account is confirmed.</p>
 
-            <Button
-              className="w-full"
-              onClick={() =>
-                // Where they go depends on how far through signup they got, which is exactly what the
-                // reloaded user tells us.
-                navigate(user?.workspace ? "/" : user ? "/signup/workspace" : "/login", {
-                  replace: true,
-                })
-              }
-            >
+            <Button className="w-full" onClick={() => navigate(nextStop(), { replace: true })}>
               Continue
             </Button>
           </>

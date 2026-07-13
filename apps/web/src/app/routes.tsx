@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Logo } from "../components/ui";
 import { useAuth } from "../features/auth/AuthProvider";
+import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
 import { InviteStepPage } from "../features/auth/pages/InviteStepPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
@@ -29,6 +30,12 @@ export function AppRoutes() {
       {/* Public: the link is clicked from an email, in a browser that may have no session at all. */}
       <Route path="/auth/verify" element={<VerifyEmailPage />} />
       <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+
+      {/* Public, and unguarded on purpose: the invitee may have no account, an unverified one, or be
+          signed in as somebody else entirely. The page reads its own state and says which. Guarding it
+          with RequireAuth would bounce a first-time invitee to a login screen for an account they have
+          not got, which is where the invitation used to die. */}
+      <Route path="/auth/accept-invite" element={<AcceptInvitePage />} />
 
       {/* Signed in, but not yet in a workspace. */}
       <Route path="/signup/workspace" element={<RequireAuth><WorkspaceStepPage /></RequireAuth>} />

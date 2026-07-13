@@ -85,6 +85,14 @@ export interface InviteRequest {
   role: WorkspaceRole;
 }
 
+/** What an invitation link says, readable before the invitee has an account. */
+export interface InvitationPreview {
+  email: string;
+  role: WorkspaceRole;
+  workspaceName: string;
+  inviterName: string | null;
+}
+
 /** Which sign-in methods this deployment actually offers. */
 export interface AuthProviders {
   google: boolean;

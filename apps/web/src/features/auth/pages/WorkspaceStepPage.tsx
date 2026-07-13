@@ -8,7 +8,7 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import * as authApi from "../api/authApi";
-import type { JoinableWorkspace } from "../api/types";
+import type { JoinableWorkspace, Workspace } from "../api/types";
 import {
   COMPANY_SIZES,
   JOB_TITLES,
@@ -30,12 +30,19 @@ import {
  * that they should see an executive-search pipeline.
  */
 export function WorkspaceStepPage() {
-  const { reload } = useAuth();
+  const { user, reload } = useAuth();
   const navigate = useNavigate();
+
+  // Already made one, and came back — via the Back button on step 3, or by reopening the tab. This step
+  // *commits*, unlike the mockup's wizard, so returning to it cannot mean "create": it means "correct
+  // what you created". Without this the only thing the form could produce is a 409.
+  const existing = user?.workspace ?? null;
 
   const { data: joinable, isLoading } = useQuery({
     queryKey: ["joinable-workspaces"],
     queryFn: authApi.joinableWorkspaces,
+    // A user who already belongs somewhere is not choosing between workspaces.
+    enabled: !existing,
   });
 
   // Default to joining when their firm is already here — that is almost always what they want, and
@@ -53,7 +60,17 @@ export function WorkspaceStepPage() {
       <Stepper steps={SIGNUP_STEPS} current={2} />
 
       <Card className="w-[480px] max-w-[94vw] [animation-delay:80ms]">
-        {effectiveMode === "join" && joinable && joinable.length > 0 ? (
+        {existing ? (
+          <CreateWorkspace
+            editing={existing}
+            canJoinInstead={false}
+            onJoinInstead={() => {}}
+            onCreated={async () => {
+              await reload();
+              navigate("/signup/invite", { replace: true });
+            }}
+          />
+        ) : effectiveMode === "join" && joinable && joinable.length > 0 ? (
           <JoinExisting
             workspaces={joinable}
             onCreateInstead={() => setMode("create")}
@@ -64,6 +81,7 @@ export function WorkspaceStepPage() {
           />
         ) : (
           <CreateWorkspace
+            editing={null}
             canJoinInstead={!!joinable && joinable.length > 0}
             onJoinInstead={() => setMode("join")}
             onCreated={async () => {
@@ -119,7 +137,9 @@ function JoinExisting({
         {workspaces.map((workspace) => (
           <label
             key={workspace.id}
-            className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${
+            // The radio itself is sr-only (the whole card is the control), so without a focus ring on
+            // the label a keyboard user moving through the list can see nothing move.
+            className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-sky ${
               selected === workspace.id ? "border-amber-btn bg-amber-dim" : "border-line bg-panel2"
             }`}
           >
@@ -159,13 +179,12 @@ function JoinExisting({
         Ask to join
       </Button>
 
-      <button
-        type="button"
-        onClick={onCreateInstead}
-        className="mt-4 w-full text-center text-[12.5px] font-medium text-text3 hover:text-text2 hover:underline"
-      >
+      {/* A real button, not a text link. This is a fork, not an escape hatch: a firm may legitimately
+          run several workspaces, and someone who wants their own must be able to see that they can
+          have one — without it, joining looks like the only way forward. */}
+      <Button variant="secondary" onClick={onCreateInstead} className="mt-2.5 w-full">
         Create a separate workspace instead
-      </button>
+      </Button>
     </>
   );
 }
@@ -173,10 +192,13 @@ function JoinExisting({
 // ── Path B: create your own ─────────────────────────────────────────────────
 
 function CreateWorkspace({
+  editing,
   canJoinInstead,
   onJoinInstead,
   onCreated,
 }: {
+  /** The workspace they already made, if they came back to this step. See WorkspaceStepPage. */
+  editing: Workspace | null;
   canJoinInstead: boolean;
   onJoinInstead: () => void;
   onCreated: () => Promise<void>;
@@ -190,8 +212,9 @@ function CreateWorkspace({
   } = useForm<WorkspaceValues>({
     resolver: zodResolver(workspaceSchema),
     defaultValues: {
-      name: "",
-      companySize: COMPANY_SIZES[1],
+      name: editing?.name ?? "",
+      // The mockup's dropdowns open on their first option; ours were opening on the second.
+      companySize: COMPANY_SIZES[0],
       primaryRegion: REGIONS[0],
       jobTitle: JOB_TITLES[0],
       teamFocus: TEAM_FOCUSES[0],
@@ -201,11 +224,11 @@ function CreateWorkspace({
   const onSubmit = async (values: WorkspaceValues) => {
     setFormError(null);
     try {
-      await authApi.createWorkspace(values);
+      await (editing ? authApi.updateWorkspace(values) : authApi.createWorkspace(values));
       await onCreated();
     } catch (error) {
       setFormError(
-        error instanceof ApiRequestError ? error.problem.detail : "Could not create your workspace.",
+        error instanceof ApiRequestError ? error.problem.detail : "Could not save your workspace.",
       );
     }
   };
@@ -214,7 +237,7 @@ function CreateWorkspace({
     <>
       <h1 className="text-[19px] font-semibold leading-tight">About your organization</h1>
       <p className="mb-6 mt-1 font-mono text-xs text-text3">
-        Step 2 of 3 · this becomes your workspace
+        Step 2 of 3 · {editing ? "update your workspace" : "this becomes your workspace"}
       </p>
 
       <FormError message={formError} />
@@ -275,13 +298,9 @@ function CreateWorkspace({
       </form>
 
       {canJoinInstead && (
-        <button
-          type="button"
-          onClick={onJoinInstead}
-          className="mt-4 w-full text-center text-[12.5px] font-medium text-text3 hover:text-text2 hover:underline"
-        >
+        <Button variant="secondary" onClick={onJoinInstead} className="mt-2.5 w-full">
           Join an existing workspace instead
-        </button>
+        </Button>
       )}
     </>
   );
