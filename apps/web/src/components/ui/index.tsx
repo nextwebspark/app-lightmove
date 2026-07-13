@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import { cn } from "../../lib/cn";
 
 /**
  * The handful of primitives every auth screen is built from.
@@ -8,6 +9,10 @@ import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAt
  *
  * One file, because there are six of them and they are only meaningful together. When this grows past
  * a screenful, split it — not before.
+ *
+ * Every `className` goes through {@link cn}, so a caller can override any default. Concatenating
+ * instead would let the stylesheet's ordering decide who wins, and it does not decide in the caller's
+ * favour: an invite row asking for a 130px select got a full-width one.
  */
 
 // ── Button ──────────────────────────────────────────────────────────────────
@@ -42,8 +47,12 @@ export function Button({
     <button
       {...rest}
       disabled={disabled || loading}
-      className={`flex items-center justify-center gap-2 rounded-lg px-3.5 py-2.5 text-[13.5px] transition
-                  disabled:cursor-not-allowed ${BUTTON_STYLES[variant]} ${className}`}
+      className={cn(
+        "flex items-center justify-center gap-2 rounded-lg px-3.5 py-2.5 text-[13.5px] transition",
+        "disabled:cursor-not-allowed",
+        BUTTON_STYLES[variant],
+        className,
+      )}
     >
       {loading && <Spinner />}
       {children}
@@ -99,12 +108,18 @@ export function Field({
       {children}
 
       {/* The error replaces the hint rather than stacking under it — the mockups leave one line of
-          space here, and two would shift the form. */}
-      {error ? (
-        <span className="mt-1.5 block font-mono text-[11px] text-red">{error}</span>
-      ) : hint ? (
-        <span className="mt-1.5 block font-mono text-[11px] text-text3">{hint}</span>
-      ) : null}
+          space here, and two would shift the form.
+
+          aria-live, because a validation error appears *after* the user has already left the field: a
+          sighted user sees red text arrive, and without this a screen-reader user is told nothing at
+          all and simply finds the form refusing to submit. */}
+      <span aria-live="polite">
+        {error ? (
+          <span className="mt-1.5 block font-mono text-[11px] text-red">{error}</span>
+        ) : hint ? (
+          <span className="mt-1.5 block font-mono text-[11px] text-text3">{hint}</span>
+        ) : null}
+      </span>
     </label>
   );
 }
@@ -115,19 +130,19 @@ const CONTROL =
   "w-full rounded-lg border bg-panel2 px-3 py-2.5 font-mono text-[13px] text-text outline-none " +
   "transition focus:border-sky";
 
-export function Input({ invalid, className = "", ...rest }: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
+export function Input({ invalid, className, ...rest }: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
   return (
     <input
       {...rest}
       aria-invalid={invalid}
-      className={`${CONTROL} ${invalid ? "border-red" : "border-line"} ${className}`}
+      className={cn(CONTROL, invalid ? "border-red" : "border-line", className)}
     />
   );
 }
 
 export function Select({
   invalid,
-  className = "",
+  className,
   children,
   ...rest
 }: SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean }) {
@@ -135,7 +150,7 @@ export function Select({
     <select
       {...rest}
       aria-invalid={invalid}
-      className={`${CONTROL} ${invalid ? "border-red" : "border-line"} ${className}`}
+      className={cn(CONTROL, invalid ? "border-red" : "border-line", className)}
     >
       {children}
     </select>
@@ -144,11 +159,9 @@ export function Select({
 
 // ── Card / Logo ─────────────────────────────────────────────────────────────
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div
-      className={`animate-fade-up rounded-panel border border-line bg-panel p-8 shadow-panel ${className}`}
-    >
+    <div className={cn("animate-fade-up rounded-panel border border-line bg-panel p-8 shadow-panel", className)}>
       {children}
     </div>
   );
