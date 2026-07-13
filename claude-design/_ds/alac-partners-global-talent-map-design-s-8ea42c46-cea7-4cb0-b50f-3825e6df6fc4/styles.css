@@ -1,0 +1,5 @@
+/* ALAC Partners — Global Talent Map · Root stylesheet
+   Import this single file to get all design tokens and base styles.
+   ========================================================================== */
+
+@import url('colors_and_type.css');

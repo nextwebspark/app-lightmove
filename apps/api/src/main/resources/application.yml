@@ -1,0 +1,144 @@
+spring:
+  application:
+    name: lightmove-api
+
+  datasource:
+    # Cloud SQL Java connector: no host in the URL, no IP allowlist, no proxy process to babysit.
+    # Authentication is the caller's Application Default Credentials (`gcloud auth application-default login`).
+    url: jdbc:postgresql:///${DB_NAME:lightmove}?cloudSqlInstance=${CLOUD_SQL_INSTANCE:hak-talent-mapping:us-central1:bright-gcc}&socketFactory=com.google.cloud.sql.postgres.SocketFactory
+    username: ${DB_USER:lm_app}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 10   # bright-gcc is db-f1-micro; its connection ceiling is low.
+      minimum-idle: 2
+
+  jpa:
+    hibernate:
+      # Hibernate does not touch the schema. Not create, not update, not even validate — the running
+      # application has no business inspecting or altering DDL. The schema is defined by hand-written
+      # SQL in db/migration and applied by Flyway, and that is the only thing that ever changes it.
+      #
+      # The test profile turns this back up to `validate`, where a mismatch between the entities and
+      # the migrations becomes a failing build instead of a production surprise. That is the right
+      # place for the check: CI, not startup.
+      ddl-auto: none
+    open-in-view: false       # Lazy loading in a view layer hides N+1 queries. Fail loudly instead.
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+
+  flyway:
+    # Runs the hand-written SQL in db/migration, in order, once each. It generates nothing itself.
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    placeholders:
+      # The Cloud SQL IAM principal granted read access to the schema (see V2). Empty = grant nothing,
+      # which is what a production deployment wants.
+      iam_user: ${DB_IAM_USER:}
+
+  # Google sign-in is NOT configured here on purpose. Spring validates every declared registration at
+  # startup and rejects an empty client-id, so a placeholder block would mean the application refuses
+  # to boot until someone has been to the GCP console. Declaring it only where the credentials actually
+  # exist keeps a fresh clone runnable, and the "Continue with Google" button simply stays hidden.
+  #
+  # To enable it, add this to application-local.yml (or set the env vars in production):
+  #
+  #   spring:
+  #     security:
+  #       oauth2:
+  #         client:
+  #           registration:
+  #             google:
+  #               client-id: xxx.apps.googleusercontent.com
+  #               client-secret: xxx
+  #               scope: openid, email, profile
+
+  threads:
+    virtual:
+      enabled: true           # Java 21 virtual threads: auth endpoints are IO-bound (DB, DNS, email).
+
+server:
+  port: 8080
+  error:
+    include-message: never    # Error bodies are built in GlobalExceptionHandler, not leaked by the container.
+  forward-headers-strategy: native
+
+lightmove:
+  auth:
+    access-token-ttl: 15m
+    refresh-token-ttl: 30d
+    verification-token-ttl: 24h
+    invitation-ttl: 7d
+    # A user's email domain decides their organisation, so an unverified address proves nothing —
+    # anyone could type sara@nextwebspark.com and walk into that firm's workspace. Verification is
+    # what turns a claim to an address into evidence of employment, so it gates workspace access.
+    require-verified-email: true
+    bcrypt-strength: 12
+    jwt:
+      issuer: lightmove
+      private-key-location: ${JWT_PRIVATE_KEY_LOCATION:file:.keys/jwt-private.pem}
+      public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:.keys/jwt-public.pem}
+    cookie:
+      name: lm_refresh
+      path: /api/v1/auth
+      http-only: true
+      secure: true
+      same-site: Strict
+    lockout:
+      max-failed-attempts: 5
+      duration: 15m
+    rate-limit:
+      enabled: true
+      login-attempts-per-minute: 10
+      signup-attempts-per-hour: 5
+      verification-resends-per-hour: 3
+
+  email:
+    provider: ${EMAIL_PROVIDER:log}
+    from-name: LightMove
+    from-address: ${EMAIL_FROM:noreply@lightmove.app}
+    resend:
+      api-key: ${RESEND_API_KEY:}
+    validation:
+      # One DNS lookup. Catches a typo'd domain before it costs us a send, a bounce, and a user who
+      # never gets their link.
+      mx-check-enabled: ${EMAIL_MX_CHECK:true}
+
+      # Refuse gmail/outlook/yahoo/… so signup requires a work address.
+      #
+      # Turning this off has a consequence: the email domain is what groups colleagues together, and
+      # gmail.com groups the entire world. LightMove therefore never offers a Gmail user "the
+      # workspaces on your domain" — that list would be every unrelated customer who also used Gmail.
+      # Consumer signups simply always create a fresh workspace.
+      block-public-domains: ${EMAIL_BLOCK_PUBLIC_DOMAINS:true}
+
+      # Leave unset to use the bundled list (see PublicEmailDomains). Setting it REPLACES that list;
+      # use extra-public-domains to add to it instead.
+      # public-domains: gmail.com,outlook.com
+      extra-public-domains: ${EMAIL_EXTRA_PUBLIC_DOMAINS:}
+
+      block-disposable-domains: ${EMAIL_BLOCK_DISPOSABLE:true}
+      extra-disposable-domains: ${EMAIL_EXTRA_DISPOSABLE:}
+
+  web:
+    base-url: ${WEB_BASE_URL:http://localhost:5173}
+    cors-allowed-origins: ${WEB_CORS_ORIGINS:http://localhost:5173}
+    oauth-success-path: /auth/callback
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: lightmove-api
+
+logging:
+  level:
+    app.lightmove.api: INFO
+    org.springframework.security: INFO

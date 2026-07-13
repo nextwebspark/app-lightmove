@@ -1,0 +1,27 @@
+# --- Secrets: never commit ---
+apps/api/.keys/
+apps/api/src/main/resources/application-local.yml
+.env
+.env.*
+!.env.example
+
+# --- Java / Maven ---
+target/
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/timing.properties
+
+# --- Node ---
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+coverage/
+
+# --- Editors / OS ---
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+*.log

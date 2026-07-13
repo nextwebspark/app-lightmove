@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#f4f5f8;--panel:#ffffff;--panel2:#f7f8fa;--line:#e3e6ee;--line-soft:#edeff5;--text:#1b2230;--text2:#5a6474;--text3:#98a1b3;--amber:#b47708;--amber-btn:#f0b429;--amber-dim:rgba(201,138,10,.10);--sky:#1a73c7;--sky-dim:rgba(26,115,199,.10);--red:#cc3a33;--red-dim:rgba(204,58,51,.08);--green:#1f8f60;--green-dim:rgba(31,143,96,.10);--shadow:0 8px 28px rgba(20,30,50,.10);--mono:'JetBrains Mono',ui-monospace,monospace;--sans:'Inter',system-ui,sans-serif}
+    body.dark{--bg:#0b0d11;--panel:#12151b;--panel2:#171b22;--line:#232833;--line-soft:#1c212b;--text:#e8eaee;--text2:#9aa3b2;--text3:#5f6877;--amber:#f0b429;--amber-dim:rgba(240,180,41,.12);--sky:#5cb3ff;--sky-dim:rgba(92,179,255,.12);--red:#e5534b;--red-dim:rgba(229,83,75,.12);--green:#3fb27f;--green-dim:rgba(63,178,127,.12);--shadow:0 8px 28px rgba(0,0,0,.45)}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+    a{color:var(--sky);text-decoration:none}
+    a:hover{text-decoration:underline}
+    input::placeholder,textarea::placeholder{color:var(--text3)}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  </style>
+</helmet>
+<div data-screen-label="Workspace" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
+
+  <header style="height:46px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px;position:relative;z-index:60">
+    <div style="position:relative">
+      <button onClick="{{ toggleWsMenu }}" style="display:flex;align-items:center;gap:8px;padding:5px 10px 5px 6px;border-radius:8px;background:none;border:none;cursor:pointer;color:var(--text)" style-hover="background:var(--panel2)">
+        <span style="width:22px;height:22px;border-radius:6px;background:#f0b429;color:#141414;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
+        <span style="font:600 13px var(--mono);letter-spacing:.02em">LightMove</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
+      </button>
+      <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;top:40px;left:0;width:268px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:6px;z-index:80">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--line-soft);margin-bottom:6px">
+            <span style="width:30px;height:30px;border-radius:8px;background:#f0b429;color:#141414;display:grid;place-items:center;font:700 13px var(--mono)">L</span>
+            <div>
+              <div style="font:600 13px var(--mono)">LightMove</div>
+              <div style="font:400 11px var(--mono);color:var(--text3)">{{ memberCountLabel }} · Pro plan</div>
+            </div>
+          </div>
+          <button onClick="{{ menuSettings }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v4m0 14v4M4.2 4.2l2.8 2.8m10 10 2.8 2.8M1 12h4m14 0h4M4.2 19.8 7 17m10-10 2.8-2.8"></path></svg>
+            Workspace settings
+          </button>
+          <button onClick="{{ menuMembers }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            Members
+          </button>
+          <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
+          <a href="Login.dc.html" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>
+            Sign out
+          </a>
+        </div>
+      </sc-if>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+      <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky)">YH</span>
+    </div>
+  </header>
+
+  <div style="flex:1;display:flex;gap:14px;padding:0 14px 14px;min-height:0">
+
+    <nav style="width:{{ sideWidth }};flex:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 8px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s ease">
+      <div style="display:{{ groupDisp }};font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:0 10px 6px">Projects</div>
+      <sc-for list="{{ projNav }}" as="it" hint-placeholder-count="2">
+        <button onClick="{{ setView }}" data-view="{{ it.key }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }};border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
+          <span style="display:{{ labelDisp }};white-space:nowrap">{{ it.label }}</span>
+          <span style="display:{{ labelDisp }};margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span>
+        </button>
+      </sc-for>
+      <div style="display:{{ groupDisp }};font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:14px 10px 6px">Workspace</div>
+      <sc-for list="{{ wsNav }}" as="it" hint-placeholder-count="3">
+        <button onClick="{{ setView }}" data-view="{{ it.key }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }};border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
+          <span style="display:{{ labelDisp }};white-space:nowrap">{{ it.label }}</span>
+          <span style="display:{{ labelDisp }};margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span>
+        </button>
+      </sc-for>
+      <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--line-soft)">
+        <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path></svg>
+          <span style="display:{{ labelDisp }};white-space:nowrap">{{ themeLabel }}</span>
+        </button>
+        <button onClick="{{ toggleCollapse }}" title="{{ collapseTitle }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ collapseIcon }}"></path></svg>
+          <span style="display:{{ labelDisp }};white-space:nowrap">Collapse</span>
+        </button>
+      </div>
+    </nav>
+
+    <main style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow-y:auto;min-width:0">
+      <div style="max-width:1160px;margin:0 auto;padding:28px 28px 60px">
+
+        <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:90px 20px 70px;text-align:center;animation:fadeUp .5s ease both">
+            <div style="width:52px;height:52px;border-radius:14px;background:var(--amber-dim);display:grid;place-items:center;margin-bottom:18px">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2ZM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"></path></svg>
+            </div>
+            <div style="font:600 19px var(--sans);margin-bottom:6px">Create your first project</div>
+            <div style="font:400 13px var(--sans);color:var(--text2);max-width:420px;margin-bottom:22px">A project holds one search mandate end to end — brief, company universe, sourcing and candidates.</div>
+            <button onClick="{{ openModal }}" style="display:inline-flex;align-items:center;gap:7px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;font:600 13px var(--sans);padding:9px 16px;border-radius:8px;cursor:pointer" style-hover="filter:brightness(1.05)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
+              New project
+            </button>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:34px;font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">
+              <span>Brief</span><span style="opacity:.5">→</span><span>Universe</span><span style="opacity:.5">→</span><span>Mapping</span><span style="opacity:.5">→</span><span>Shortlist</span>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showProjects }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:18px">
+            <div>
+              <div style="font:600 19px/1.2 var(--sans)">{{ pageTitle }}</div>
+              <div style="color:var(--text3);font:400 12px var(--mono);margin-top:4px">{{ pageSub }}</div>
+            </div>
+            <div style="margin-left:auto;display:flex;gap:8px">
+              <button onClick="{{ openModal }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
+                New project
+              </button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 11px;width:300px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+              <input value="{{ q }}" onInput="{{ onSearch }}" placeholder="Search client or position…" style="background:none;border:none;outline:none;width:100%;font:400 13px var(--mono);color:var(--text)">
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <sc-for list="{{ chips }}" as="c" hint-placeholder-count="6">
+                <button onClick="{{ setChip }}" data-chip="{{ c.key }}" style="padding:5px 11px;border-radius:999px;border:1px solid {{ c.border }};font:500 12px var(--mono);color:{{ c.color }};background:{{ c.bg }};cursor:pointer" style-hover="color:var(--text)">{{ c.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr>
+                <th style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer" onClick="{{ setSort }}" data-key="client">Client <span style="color:var(--amber)">{{ arrowClient }}</span></th>
+                <th style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Position</th>
+                <th style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer" onClick="{{ setSort }}" data-key="stage">Stage <span style="color:var(--amber)">{{ arrowStage }}</span></th>
+                <th style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Health</th>
+                <th style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Team</th>
+                <th style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer" onClick="{{ setSort }}" data-key="date">Target <span style="color:var(--amber)">{{ arrowDate }}</span></th>
+                <th style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Pipeline</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
+                <tr onClick="{{ openRow }}" data-id="{{ r.id }}" style="cursor:pointer" style-hover="background:var(--panel2)">
+                  <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);font:500 12.5px var(--mono);color:var(--text2);white-space:nowrap">{{ r.client }}</td>
+                  <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);white-space:nowrap">
+                    <span style="font:600 13px var(--sans);color:var(--text)">{{ r.pos }}</span>
+                    <span style="display:block;font:400 11px var(--mono);color:var(--text3);margin-top:2px">Lead · {{ r.leadName }}</span>
+                  </td>
+                  <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft)">
+                    <span style="display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:6px;font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;color:{{ r.stageColor }};background:{{ r.stageBg }};border:1px solid {{ r.stageBorder }}">
+                      <span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>
+                      {{ r.stageLabel }}
+                    </span>
+                  </td>
+                  <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft)">
+                    <span style="display:inline-flex;align-items:center;gap:6px;font:500 12px var(--mono);white-space:nowrap;color:{{ r.healthText }}">
+                      <span style="width:7px;height:7px;border-radius:50%;background:{{ r.healthDot }}"></span>
+                      {{ r.healthLabel }}
+                    </span>
+                  </td>
+                  <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft)">
+                    <span style="display:flex">
+                      <sc-for list="{{ r.team }}" as="m" hint-placeholder-count="2">
+                        <span title="{{ m.name }}" style="width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:{{ m.bg }};color:{{ m.fg }};border:2px solid var(--panel);margin-left:{{ m.ml }}">{{ m.initials }}</span>
+                      </sc-for>
+                    </span>
+                  </td>
+                  <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);font:400 12px var(--mono);color:var(--text2);white-space:nowrap">{{ r.dateLabel }}</td>
+                  <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);font:400 12px var(--mono);color:var(--text2);white-space:nowrap"><b style="color:var(--text);font-weight:600">{{ r.cos }}</b> cos · <b style="color:var(--text);font-weight:600">{{ r.cand }}</b> cand</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+          <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:48px;text-align:center;color:var(--text3);font:400 13px var(--mono)">No projects match. Clear filters or create a new project.</div>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ showClients }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:18px">
+            <div>
+              <div style="font:600 19px/1.2 var(--sans)">Clients</div>
+              <div style="color:var(--text3);font:400 12px var(--mono);margin-top:4px">Hiring entity registry · projects inherit these records one-way</div>
+            </div>
+            <div style="margin-left:auto">
+              <button onClick="{{ toastClients }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
+                New client
+              </button>
+            </div>
+          </div>
+          <sc-if value="{{ hasClients }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px">
+              <sc-for list="{{ clients }}" as="c" hint-placeholder-count="4">
+                <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:14px">
+                  <h4 style="font:600 13px var(--mono);margin:0 0 4px">{{ c.name }}</h4>
+                  <p style="font:400 11.5px var(--mono);color:var(--text3);margin:0">{{ c.meta }}</p>
+                  <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+                    <button onClick="{{ toastRecord }}" style="padding:5px 10px;font:500 12px var(--sans);border:1px solid var(--line);border-radius:8px;color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">View record</button>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ noClients }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:48px;text-align:center;color:var(--text3);font:400 13px var(--mono)">No clients yet — a client record is created with your first project.</div>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ showTeam }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:18px">
+            <div>
+              <div style="font:600 19px/1.2 var(--sans)">Team</div>
+              <div style="color:var(--text3);font:400 12px var(--mono);margin-top:4px">{{ teamSub }}</div>
+            </div>
+            <div style="margin-left:auto">
+              <button onClick="{{ toastInvite }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
+                Invite
+              </button>
+            </div>
+          </div>
+          <sc-for list="{{ teamRows }}" as="m" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 8px;border-radius:7px" style-hover="background:var(--panel2)">
+              <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:{{ m.bg }};color:{{ m.fg }}">{{ m.initials }}</span>
+              <div>
+                <div style="font-size:13px">{{ m.name }}</div>
+                <div style="font:400 11px var(--mono);color:var(--text3)">{{ m.role }}</div>
+              </div>
+              <div style="margin-left:auto;font:400 11px var(--mono);color:var(--text3)">{{ m.activeLabel }}</div>
+            </div>
+          </sc-for>
+        </sc-if>
+
+      </div>
+    </main>
+  </div>
+
+  <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;background:rgba(15,20,30,.4);z-index:90"></div>
+    <aside style="position:fixed;top:10px;right:10px;bottom:10px;width:420px;max-width:92vw;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);z-index:95;display:flex;flex-direction:column;animation:fadeUp .22s ease both">
+      <div style="padding:18px 20px 14px;border-bottom:1px solid var(--line-soft);position:relative">
+        <button onClick="{{ closeDrawer }}" aria-label="Close" style="position:absolute;top:14px;right:14px;color:var(--text3);padding:6px;border-radius:6px;background:none;border:none;cursor:pointer" style-hover="color:var(--text);background:var(--panel2)">✕</button>
+        <div style="font:500 11px var(--mono);color:var(--text3);letter-spacing:.08em;text-transform:uppercase">{{ drawer.client }}</div>
+        <div style="font:600 17px var(--sans);margin-top:4px">{{ drawer.pos }}</div>
+      </div>
+      <div style="padding:18px 20px;overflow-y:auto;flex:1">
+        <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:0 0 8px">Pipeline</div>
+        <div style="display:flex;gap:10px">
+          <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
+            <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ drawer.cos }}</b>
+            <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Companies</span>
+          </div>
+          <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
+            <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ drawer.cand }}</b>
+            <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Candidates</span>
+          </div>
+          <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
+            <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ drawer.dateShort }}</b>
+            <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Target</span>
+          </div>
+        </div>
+        <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Stage gates</div>
+        <sc-for list="{{ drawer.gates }}" as="g" hint-placeholder-count="6">
+          <div style="display:flex;align-items:center;gap:10px;padding:7px 0;font:{{ g.font }};color:{{ g.color }}">
+            <span style="width:14px;height:14px;border-radius:50%;border:1.5px solid {{ g.dotBorder }};background:{{ g.dotBg }};flex:none;display:grid;place-items:center">
+              <span style="width:6px;height:6px;border-radius:50%;background:{{ g.dotInner }}"></span>
+            </span>
+            {{ g.label }}
+          </div>
+        </sc-for>
+        <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Team</div>
+        <sc-for list="{{ drawer.members }}" as="m" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:7px" style-hover="background:var(--panel2)">
+            <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:{{ m.bg }};color:{{ m.fg }}">{{ m.initials }}</span>
+            <div>
+              <div style="font-size:13px">{{ m.name }}</div>
+              <div style="font:400 11px var(--mono);color:var(--text3)">{{ m.role }}</div>
+            </div>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+              <sc-if value="{{ m.isLead }}" hint-placeholder-val="{{ false }}">
+                <span style="font:600 10px var(--mono);letter-spacing:.08em;color:var(--amber);background:var(--amber-dim);border-radius:5px;padding:2px 7px">LEAD</span>
+              </sc-if>
+              <button onClick="{{ toggleMember }}" data-mid="{{ m.id }}" aria-label="Toggle {{ m.name }}" style="width:32px;height:18px;border-radius:999px;background:{{ m.tglBg }};position:relative;flex:none;border:none;cursor:pointer;padding:0">
+                <span style="position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:{{ m.tglKnob }};transition:transform .15s;transform:{{ m.tglTransform }}"></span>
+              </button>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="padding:14px 20px;border-top:1px solid var(--line-soft);display:flex;gap:8px">
+        <button onClick="{{ toastArchive }}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Archive</button>
+        <a href="Project.dc.html" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;text-decoration:none" style-hover="filter:brightness(1.05);text-decoration:none">Open project →</a>
+      </div>
+    </aside>
+  </sc-if>
+
+  <sc-if value="{{ modalOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:fixed;inset:0;background:rgba(15,20,30,.4);z-index:100;display:grid;place-items:center">
+      <div onClick="{{ stopClick }}" style="width:440px;max-width:94vw;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:22px;animation:fadeUp .22s ease both">
+        <div style="font:600 16px var(--sans);margin-bottom:16px">New project</div>
+        <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Client</label>
+        <select onChange="{{ draftClient }}" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+          <sc-for list="{{ clientOptions }}" as="c" hint-placeholder-count="3">
+            <option value="{{ c }}">{{ c }}</option>
+          </sc-for>
+        </select>
+        <div style="font:400 11px var(--mono);color:var(--text3);margin-top:6px">Inherits jurisdiction, group structure and off-limits from the client record.</div>
+        <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:14px 0 6px">Position</label>
+        <input onInput="{{ draftPos }}" placeholder="e.g. Chief Financial Officer" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+        <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:14px 0 6px">Lead</label>
+        <select onChange="{{ draftLead }}" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+          <sc-for list="{{ leadOptions }}" as="m" hint-placeholder-count="3">
+            <option value="{{ m.id }}">{{ m.name }}</option>
+          </sc-for>
+        </select>
+        <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:14px 0 6px">Target date</label>
+        <input type="date" onInput="{{ draftDate }}" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
+          <button onClick="{{ closeModal }}" style="display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ createProject }}" style="display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Create project</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toastVisible }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);z-index:120;animation:fadeUp .2s ease both">{{ toastMsg }}</div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;defaultView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;my&quot;,&quot;options&quot;:[&quot;my&quot;,&quot;all&quot;,&quot;clients&quot;,&quot;team&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const fresh = (typeof location !== 'undefined' && location.search.includes('fresh=1')) || !!props.startEmpty;
+    this.MEMBERS = [
+      { id: 'yh', name: 'Yara Haddad', initials: 'YH', role: 'Admin', bg: 'var(--sky-dim)', fg: 'var(--sky)' },
+      { id: 'yi', name: 'Yousef Iman', initials: 'YI', role: 'Consultant', bg: 'var(--amber-dim)', fg: 'var(--amber)' },
+      { id: 'sa', name: 'Sara Al-Mansour', initials: 'SA', role: 'Consultant', bg: 'var(--green-dim)', fg: 'var(--green)' },
+      { id: 'ok', name: 'Omar Khalil', initials: 'OK', role: 'Researcher', bg: 'var(--red-dim)', fg: 'var(--red)' },
+      { id: 'da', name: 'Dana Aboud', initials: 'DA', role: 'Researcher', bg: 'var(--panel2)', fg: 'var(--text2)' },
+    ];
+    this.CLIENTS = [
+      { id: 'mer', name: 'Meridian Energy Group', hq: 'UAE', note: '2 active mandates' },
+      { id: 'alr', name: 'Al Rabie Saudi Foods', hq: 'Saudi Arabia', note: '1 active mandate' },
+      { id: 'bdw', name: 'Bindawood Holding', hq: 'Saudi Arabia', note: '1 active mandate' },
+      { id: 'agt', name: 'Agthia Group', hq: 'UAE', note: '1 delivered' },
+    ];
+    this.STAGES = [
+      { key: 'brief', label: 'Brief', color: 'var(--text2)', bg: 'transparent', border: 'var(--line)' },
+      { key: 'universe', label: 'Universe', color: 'var(--sky)', bg: 'var(--sky-dim)', border: 'transparent' },
+      { key: 'locked', label: 'Universe locked', color: 'var(--sky)', bg: 'transparent', border: 'var(--sky)' },
+      { key: 'mapping', label: 'Mapping', color: 'var(--amber)', bg: 'var(--amber-dim)', border: 'transparent' },
+      { key: 'outreach', label: 'Outreach live', color: 'var(--amber)', bg: 'transparent', border: 'var(--amber)' },
+      { key: 'delivered', label: 'Shortlist delivered', color: 'var(--green)', bg: 'var(--green-dim)', border: 'transparent' },
+      { key: 'closed', label: 'Closed', color: 'var(--text3)', bg: 'transparent', border: 'var(--line-soft)' },
+    ];
+    this.HEALTH = {
+      ok: { dot: 'var(--green)', text: 'var(--text2)', label: 'On track' },
+      risk: { dot: 'var(--amber)', text: 'var(--amber)', label: 'At risk' },
+      off: { dot: 'var(--red)', text: 'var(--red)', label: 'Off track' },
+      done: { dot: 'var(--text3)', text: 'var(--text3)', label: 'Complete' },
+    };
+    const seed = fresh ? [] : [
+      { id: 1, client: 'Meridian Energy Group', pos: 'Chief Financial Officer', stage: 'mapping', lead: 'yh', team: ['yh', 'yi', 'ok'], date: '2026-09-15', cos: 21, cand: 14, health: 'ok' },
+      { id: 2, client: 'Meridian Energy Group', pos: 'VP, Renewables', stage: 'universe', lead: 'sa', team: ['sa', 'da'], date: '2026-10-30', cos: 34, cand: 0, health: 'ok' },
+      { id: 3, client: 'Al Rabie Saudi Foods', pos: 'Chief Human Resources Officer', stage: 'outreach', lead: 'yh', team: ['yh', 'da'], date: '2026-08-07', cos: 18, cand: 22, health: 'risk' },
+      { id: 4, client: 'Bindawood Holding', pos: 'Chief Digital Officer', stage: 'locked', lead: 'yi', team: ['yi', 'ok'], date: '2026-11-20', cos: 27, cand: 0, health: 'ok' },
+      { id: 5, client: 'Al Rabie Saudi Foods', pos: 'Supply Chain Director', stage: 'brief', lead: 'sa', team: ['sa'], date: '2026-12-04', cos: 0, cand: 0, health: 'ok' },
+      { id: 6, client: 'Agthia Group', pos: 'Chief Executive Officer', stage: 'delivered', lead: 'yh', team: ['yh', 'yi', 'sa'], date: '2026-06-01', cos: 42, cand: 31, health: 'done' },
+      { id: 7, client: 'Bindawood Holding', pos: 'Head of eCommerce', stage: 'mapping', lead: 'ok', team: ['ok', 'da'], date: '2026-08-25', cos: 15, cand: 6, health: 'off' },
+    ];
+    this.state = {
+      fresh, projects: seed,
+      view: props.defaultView ?? 'my', q: '', chip: 'active', sortKey: 'date', sortDir: 1,
+      drawerId: null, modalOpen: false, wsMenuOpen: false, dark: false, toast: '',
+      collapsed: (() => { try { return localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) { return false; } })(),
+    };
+    this.draft = {};
+    this.ME = 'yh';
+  }
+
+  componentDidMount() {
+    try {
+      const t = localStorage.getItem('lm-theme');
+      if (t === 'dark') { document.body.classList.add('dark'); this.setState({ dark: true }); }
+    } catch (e) {}
+    this._esc = (e) => { if (e.key === 'Escape') this.setState({ drawerId: null, modalOpen: false, wsMenuOpen: false }); };
+    document.addEventListener('keydown', this._esc);
+  }
+  componentWillUnmount() { document.removeEventListener('keydown', this._esc); }
+
+  member(id) { return this.MEMBERS.find(m => m.id === id); }
+  stageIdx(k) { return this.STAGES.findIndex(s => s.key === k); }
+  fmtDate(d) { return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
+  showToast(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._tx);
+    this._tx = setTimeout(() => this.setState({ toast: '' }), 2200);
+  }
+  members() { return this.state.fresh ? [this.MEMBERS[0]] : this.MEMBERS; }
+  clients() { return this.state.fresh ? [] : this.CLIENTS; }
+
+  filtered() {
+    const { view, chip, q, sortKey, sortDir, projects } = this.state;
+    let rows = projects.filter(p => view === 'all' || p.team.includes(this.ME));
+    if (chip === 'active') rows = rows.filter(p => !['delivered', 'closed'].includes(p.stage));
+    else if (chip !== 'allstages') rows = rows.filter(p => p.stage === chip);
+    if (q) rows = rows.filter(p => (p.client + ' ' + p.pos).toLowerCase().includes(q.toLowerCase()));
+    rows = [...rows].sort((a, b) => {
+      let va, vb;
+      if (sortKey === 'client') { va = a.client; vb = b.client; }
+      else if (sortKey === 'stage') { va = this.stageIdx(a.stage); vb = this.stageIdx(b.stage); }
+      else { va = a.date; vb = b.date; }
+      return (va < vb ? -1 : va > vb ? 1 : 0) * sortDir;
+    });
+    return rows;
+  }
+
+  renderVals() {
+    const st = this.state;
+    const isProjects = st.view === 'my' || st.view === 'all';
+    const rowsRaw = isProjects ? this.filtered() : [];
+    const active = (v) => st.view === v;
+    const navItem = (key, label, icon, count) => ({
+      key, label, icon, count: count === undefined ? '' : String(count),
+      color: active(key) ? 'var(--text)' : 'var(--text2)',
+      bg: active(key) ? 'var(--panel2)' : 'transparent',
+      iconColor: active(key) ? 'var(--amber)' : 'currentColor',
+    });
+    const myCount = st.projects.filter(p => p.team.includes(this.ME) && !['delivered', 'closed'].includes(p.stage)).length;
+    const arrow = (k) => st.sortKey === k ? (st.sortDir === 1 ? '↑' : '↓') : '';
+
+    const rows = rowsRaw.map(p => {
+      const s = this.STAGES[this.stageIdx(p.stage)];
+      const h = this.HEALTH[p.health];
+      return {
+        id: String(p.id), client: p.client, pos: p.pos, leadName: this.member(p.lead).name,
+        stageLabel: s.label, stageColor: s.color, stageBg: s.bg, stageBorder: s.border,
+        healthDot: h.dot, healthText: h.text, healthLabel: h.label,
+        team: p.team.map((id, i) => { const m = this.member(id); return { initials: m.initials, bg: m.bg, fg: m.fg, name: m.name, ml: i === 0 ? '0' : '-7px' }; }),
+        dateLabel: this.fmtDate(p.date), cos: String(p.cos), cand: String(p.cand),
+      };
+    });
+
+    const chips = [['active', 'Active'], ['allstages', 'All stages'], ['universe', 'Universe'], ['mapping', 'Mapping'], ['outreach', 'Outreach'], ['delivered', 'Delivered']].map(([key, label]) => ({
+      key, label,
+      on: st.chip === key,
+      color: st.chip === key ? 'var(--amber)' : 'var(--text2)',
+      bg: st.chip === key ? 'var(--amber-dim)' : 'transparent',
+      border: st.chip === key ? 'var(--amber)' : 'var(--line)',
+    }));
+
+    let drawer = { client: '', pos: '', cos: '', cand: '', dateShort: '', gates: [], members: [] };
+    const dp = st.projects.find(p => p.id === st.drawerId);
+    if (dp) {
+      const cur = this.stageIdx(dp.stage);
+      drawer = {
+        client: dp.client, pos: dp.pos, cos: String(dp.cos), cand: String(dp.cand),
+        dateShort: this.fmtDate(dp.date).slice(0, 6),
+        gates: this.STAGES.filter(s => s.key !== 'closed').map((s, i) => {
+          const done = i < cur, now = i === cur;
+          return {
+            label: s.label,
+            font: now ? '600 12.5px var(--mono)' : '400 12.5px var(--mono)',
+            color: now ? 'var(--amber)' : done ? 'var(--text2)' : 'var(--text3)',
+            dotBorder: done ? 'var(--green)' : now ? 'var(--amber)' : 'var(--line)',
+            dotBg: done ? 'var(--green-dim)' : 'transparent',
+            dotInner: done ? 'var(--green)' : now ? 'var(--amber)' : 'transparent',
+          };
+        }),
+        members: this.MEMBERS.map(m => {
+          const on = dp.team.includes(m.id), isLead = dp.lead === m.id;
+          return {
+            id: m.id, name: m.name, role: m.role, initials: m.initials, bg: m.bg, fg: m.fg, isLead,
+            tglBg: on ? 'var(--amber-btn)' : 'var(--line)',
+            tglKnob: on ? '#141414' : 'var(--text3)',
+            tglTransform: on ? 'translateX(14px)' : 'none',
+          };
+        }),
+      };
+    }
+
+    return {
+      wsMenuOpen: st.wsMenuOpen,
+      memberCountLabel: this.members().length + (this.members().length === 1 ? ' member' : ' members'),
+      themeLabel: st.dark ? 'Light mode' : 'Dark mode',
+      sideWidth: st.collapsed ? '56px' : '240px',
+      labelDisp: st.collapsed ? 'none' : 'inline',
+      groupDisp: st.collapsed ? 'none' : 'block',
+      navJustify: st.collapsed ? 'center' : 'flex-start',
+      collapseIcon: st.collapsed ? 'm13 17 5-5-5-5M6 17l5-5-5-5' : 'm11 17-5-5 5-5M18 17l-5-5 5-5',
+      collapseTitle: st.collapsed ? 'Expand sidebar' : 'Collapse sidebar',
+      toggleCollapse: () => {
+        const collapsed = !this.state.collapsed;
+        try { localStorage.setItem('lm-side-collapsed', collapsed ? '1' : '0'); } catch (e) {}
+        this.setState({ collapsed });
+      },
+      projNav: [
+        navItem('my', 'My projects', 'M12 2a10 10 0 1 0 .01 0M12 8a4 4 0 1 0 .01 0', myCount),
+        navItem('all', 'All projects', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z', st.projects.length),
+      ],
+      wsNav: [
+        navItem('clients', 'Clients', 'M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01', this.clients().length),
+        navItem('team', 'Team', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', this.members().length),
+        { ...navItem('settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z'), count: '' },
+      ],
+      showEmpty: isProjects && st.projects.length === 0,
+      showProjects: isProjects && st.projects.length > 0,
+      showClients: st.view === 'clients',
+      showTeam: st.view === 'team',
+      pageTitle: st.view === 'my' ? 'My projects' : 'All projects',
+      pageSub: rows.length + (rows.length === 1 ? ' project' : ' projects') + ' · workspace LightMove',
+      q: st.q,
+      chips, rows,
+      noResults: rows.length === 0,
+      arrowClient: arrow('client'), arrowStage: arrow('stage'), arrowDate: arrow('date'),
+      clients: this.clients().map(c => ({ name: c.name, meta: c.hq + ' · ' + c.note })),
+      hasClients: this.clients().length > 0,
+      noClients: this.clients().length === 0,
+      teamSub: this.members().length + (this.members().length === 1 ? ' member' : ' members') + ' · roles apply per project',
+      teamRows: this.members().map(m => {
+        const n = this.state.projects.filter(p => p.team.includes(m.id) && !['delivered', 'closed'].includes(p.stage)).length;
+        return { ...m, activeLabel: n + (n === 1 ? ' active project' : ' active projects') };
+      }),
+      drawerOpen: !!dp, drawer,
+      modalOpen: st.modalOpen,
+      clientOptions: (this.clients().length ? this.clients() : this.CLIENTS).map(c => c.name),
+      leadOptions: this.members().map(m => ({ id: m.id, name: m.name })),
+      toastVisible: !!st.toast, toastMsg: st.toast,
+
+      toggleWsMenu: () => this.setState(s => ({ wsMenuOpen: !s.wsMenuOpen })),
+      menuSettings: () => { window.location.href = 'Settings.dc.html?section=general'; },
+      menuMembers: () => this.setState({ wsMenuOpen: false, view: 'team' }),
+      setView: (e) => {
+        const v = e.currentTarget.dataset.view;
+        if (v === 'settings') { window.location.href = 'Settings.dc.html'; return; }
+        this.setState({ view: v, wsMenuOpen: false });
+      },
+      setChip: (e) => this.setState({ chip: e.currentTarget.dataset.chip }),
+      setSort: (e) => {
+        const k = e.currentTarget.dataset.key;
+        this.setState(s => s.sortKey === k ? { sortDir: -s.sortDir } : { sortKey: k, sortDir: 1 });
+      },
+      onSearch: (e) => this.setState({ q: e.target.value }),
+      openRow: (e) => this.setState({ drawerId: +e.currentTarget.dataset.id }),
+      closeDrawer: () => this.setState({ drawerId: null }),
+      toggleMember: (e) => {
+        const mid = e.currentTarget.dataset.mid;
+        const p = this.state.projects.find(x => x.id === this.state.drawerId);
+        if (!p || p.lead === mid) { if (p && p.lead === mid) this.showToast('Lead cannot be removed'); return; }
+        if (p.team.includes(mid)) { p.team = p.team.filter(x => x !== mid); this.showToast(this.member(mid).name + ' removed from project'); }
+        else { p.team = [...p.team, mid]; this.showToast(this.member(mid).name + ' added to project'); }
+        this.forceUpdate();
+      },
+      openModal: () => {
+        this.draft = { client: (this.clients().length ? this.clients() : this.CLIENTS)[0].name, pos: '', lead: this.members()[0].id, date: '' };
+        this.setState({ modalOpen: true });
+      },
+      closeModal: () => this.setState({ modalOpen: false }),
+      stopClick: (e) => e.stopPropagation(),
+      draftClient: (e) => { this.draft.client = e.target.value; },
+      draftPos: (e) => { this.draft.pos = e.target.value; },
+      draftLead: (e) => { this.draft.lead = e.target.value; },
+      draftDate: (e) => { this.draft.date = e.target.value; },
+      createProject: () => {
+        const d = this.draft;
+        if (!d.pos || !d.pos.trim()) { this.showToast('Position title is required'); return; }
+        const proj = { id: Date.now(), client: d.client, pos: d.pos.trim(), stage: 'brief', lead: d.lead, team: [d.lead], date: d.date || '2026-12-31', cos: 0, cand: 0, health: 'ok' };
+        this.setState(s => ({ projects: [proj, ...s.projects], modalOpen: false, chip: 'active' }));
+        this.showToast('Project created — starts at Brief');
+      },
+      toggleTheme: () => {
+        const dark = !this.state.dark;
+        document.body.classList.toggle('dark', dark);
+        try { localStorage.setItem('lm-theme', dark ? 'dark' : 'light'); } catch (e) {}
+        this.setState({ dark });
+      },
+      toastClients: () => this.showToast('Entity registry form — separate build'),
+      toastRecord: () => this.showToast('Opens read-only entity record'),
+      toastInvite: () => this.showToast('Invite flow — see Signup step 3'),
+      toastArchive: () => this.showToast('Archive flow — confirm dialog in real build'),
+    };
+  }
+}
+</script>
+</body>
+</html>

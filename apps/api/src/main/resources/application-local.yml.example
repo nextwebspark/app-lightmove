@@ -1,0 +1,44 @@
+# Copy to application-local.yml (gitignored) and fill in.
+#   cp application-local.yml.example application-local.yml
+#
+# Prerequisite — the Cloud SQL connector authenticates as you:
+#   gcloud auth application-default login
+
+spring:
+  datasource:
+    password: CHANGEME   # `gcloud sql users set-password lm_app --instance=bright-gcc`
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            # console.cloud.google.com → APIs & Services → Credentials → OAuth client ID (Web)
+            # Authorised redirect URI: http://localhost:8080/login/oauth2/code/google
+            client-id: CHANGEME.apps.googleusercontent.com
+            client-secret: CHANGEME
+
+lightmove:
+  auth:
+    # Production allows 5 signups/hour/IP — right for production, useless for a developer creating
+    # half a dozen test accounts in a row. Raised for local only; the limiter itself is unit-tested
+    # rather than verified by hammering a running app.
+    rate-limit:
+      signup-attempts-per-hour: 100
+      login-attempts-per-minute: 100
+      verification-resends-per-hour: 100
+
+    cookie:
+      # Local dev is plain http, and a Secure cookie is dropped by the browser over http.
+      # This is the only place it may be false — production must never override it.
+      secure: false
+      same-site: Lax
+
+  email:
+    # `log` prints the verification link straight to the console: no provider account, no cost,
+    # and signup is fully testable today. Switch to `resend` when you have an API key.
+    provider: log
+
+logging:
+  level:
+    app.lightmove.api: DEBUG
