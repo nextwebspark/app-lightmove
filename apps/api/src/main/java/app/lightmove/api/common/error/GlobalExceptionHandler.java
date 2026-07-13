@@ -35,12 +35,14 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleApiException(ApiException ex, HttpServletRequest request) {
         ErrorCode code = ex.getCode();
 
-        // 4xx is the API working as designed — a caller got something wrong. Only 5xx is our failure,
-        // and only that deserves a stack trace and someone's attention.
+        // A 5xx is our failure and gets a stack trace. A 4xx is the API working as designed, but it is
+        // still the thing an operator is staring at when a user says "it just says 400" — so it gets
+        // one line naming the rule that fired. The code and the URI only; the message may quote input.
         if (code.status().is5xxServerError()) {
             log.error("[{}] {} at {}", code, ex.getMessage(), request.getRequestURI(), ex);
         } else {
-            log.debug("[{}] {} at {}", code, ex.getMessage(), request.getRequestURI());
+            log.info("[{}] {} {} → {}", code, request.getMethod(), request.getRequestURI(), code.status().value());
+            log.debug("[{}] {}", code, ex.getMessage());
         }
 
         return problem(code, code.defaultMessage());
@@ -48,12 +50,16 @@ public class GlobalExceptionHandler {
 
     /** Bean Validation failures, unpacked into a field → message map the form can render inline. */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ProblemDetail handleValidation(MethodArgumentNotValidException ex) {
+    public ProblemDetail handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
         Map<String, String> fieldErrors = new LinkedHashMap<>();
         ex.getBindingResult().getFieldErrors().forEach(error ->
                 // First message per field: a field with three broken constraints still only has room
                 // for one line of red text under it.
                 fieldErrors.putIfAbsent(error.getField(), error.getDefaultMessage()));
+
+        // Field names, never their values — a rejected password is still a password.
+        log.info("[VALIDATION_FAILED] {} {} → 400 on {}",
+                request.getMethod(), request.getRequestURI(), fieldErrors.keySet());
 
         ProblemDetail problem = problem(ErrorCode.VALIDATION_FAILED, ErrorCode.VALIDATION_FAILED.defaultMessage());
         problem.setProperty("fieldErrors", fieldErrors);
