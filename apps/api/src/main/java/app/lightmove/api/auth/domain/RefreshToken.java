@@ -65,7 +65,11 @@ public class RefreshToken {
     @Column(name = "user_agent", length = 512)
     private String userAgent;
 
-    @Column(name = "ip_address", columnDefinition = "inet")
+    // varchar(45), not inet — long enough for an IPv6 address, and matching the schema. The entity used
+    // to claim `inet`, which Postgres will not implicitly cast a bound string to; it was inert only
+    // because Hibernate never touches the DDL (ddl-auto: none), so the lie sat there waiting for someone
+    // to turn generation on and be very confused.
+    @Column(name = "ip_address", length = 45)
     private String ipAddress;
 
     @Column(name = "created_at", nullable = false, updatable = false)
