@@ -9,7 +9,7 @@ import {
 } from "react";
 import { onSessionExpired, restoreSession, setAccessToken } from "../../lib/apiClient";
 import * as authApi from "./api/authApi";
-import type { AuthResponse, User } from "./api/types";
+import type { User } from "./api/types";
 
 /**
  * Who is signed in, for the whole app.
