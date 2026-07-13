@@ -83,6 +83,7 @@ public class OnboardingService {
     @Transactional
     public Workspace createWorkspace(UUID userId, CreateWorkspaceCommand command, HttpServletRequest request) {
         User user = requireUser(userId);
+        requireVerified(user);
         requireNoExistingMembership(userId);
 
         String domain = EmailAddressValidator.domainOf(user.getEmail());
@@ -118,6 +119,7 @@ public class OnboardingService {
     public WorkspaceMember requestToJoin(UUID userId, UUID workspaceId, WorkspaceRole requestedRole,
                                          HttpServletRequest request) {
         User user = requireUser(userId);
+        requireVerified(user);
         requireNoExistingMembership(userId);
 
         Workspace workspace = workspaces.findById(workspaceId)
@@ -236,5 +238,21 @@ public class OnboardingService {
 
     private User requireUser(UUID userId) {
         return users.findById(userId).orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
+    }
+
+    /**
+     * Both ways into an organisation require a proven mailbox.
+     *
+     * <p>The filter chain enforces this too, and this is not redundant with it. The rule is a domain
+     * rule, not a routing rule: it says an unverified address may not be used to claim membership of
+     * the firm it names. A future caller — an admin tool, a migration, a new endpoint someone forgets
+     * to add to the matcher list — reaches this method without passing that chain, and the rule must
+     * still hold. The chain rejects the request; this rejects the operation.
+     */
+    private void requireVerified(User user) {
+        if (!user.isEmailVerified()) {
+            throw new ApiException(ErrorCode.EMAIL_NOT_VERIFIED,
+                    "User %s attempted onboarding with an unverified address".formatted(user.getId()));
+        }
     }
 }
