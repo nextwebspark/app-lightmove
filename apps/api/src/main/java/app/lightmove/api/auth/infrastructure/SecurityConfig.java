@@ -1,6 +1,8 @@
 package app.lightmove.api.auth.infrastructure;
 
 import app.lightmove.api.common.config.LightMoveProperties;
+import org.springframework.boot.actuate.autoconfigure.web.server.ManagementServerProperties;
+import org.springframework.boot.web.server.autoconfigure.ServerProperties;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -51,6 +53,40 @@ import java.util.List;
 public class SecurityConfig {
 
     private static final String API = "/api/v1";
+
+    /**
+     * Chain 0: Actuator, and <b>only</b> on the management port.
+     *
+     * <p>Actuator listens on its own loopback-bound socket (see {@code management.server.port}). Nothing
+     * outside the host can reach it, so a scrape from Prometheus needs no credential — but the app port
+     * must not be opened by the same rule, and matching on path alone would do exactly that:
+     * {@code /actuator/prometheus} is the same path on both sockets. So the matcher checks the port the
+     * request actually arrived on. Metrics are readable on 9090 and refused on 8080.
+     *
+     * <p>The alternative — the tenant's own {@code ROLE_ADMIN}, which is what this used to be — meant
+     * every customer who created a workspace could read our metrics. A workspace role is not a system
+     * role, and no amount of matcher cleverness fixes that; only a different socket does.
+     */
+    @Bean
+    @Order(0)
+    SecurityFilterChain actuatorChain(HttpSecurity http, ServerProperties server,
+                                      ManagementServerProperties management) throws Exception {
+        Integer managementPort = management.getPort();
+        int appPort = server.getPort() == null ? 8080 : server.getPort();
+
+        // Same port for both means Actuator is on the app socket, and this chain must not exist — chain
+        // 2's denyAll is the only correct answer there.
+        if (managementPort == null || managementPort.equals(appPort)) {
+            return http.securityMatcher(request -> false).build();
+        }
+
+        return http
+                .securityMatcher(request -> request.getLocalPort() == managementPort)
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .build();
+    }
 
     /**
      * Chain 1: the cookie-authenticated auth endpoints. CSRF stays ON.
