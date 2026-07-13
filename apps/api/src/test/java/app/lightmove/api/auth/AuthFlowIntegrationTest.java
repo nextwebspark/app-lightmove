@@ -3,6 +3,7 @@ package app.lightmove.api.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -229,6 +230,57 @@ class AuthFlowIntegrationTest {
                 .andReturn();
 
         assertThat(body(offered)).hasSize(1);
+    }
+
+    /**
+     * Going back a step in the wizard.
+     *
+     * <p>Step 2 commits — the workspace is real the moment it is created. So "Back" cannot mean "create
+     * one", it means "correct the one you made", and without an edit endpoint the Back button the mockup
+     * draws could only ever produce "you already have a workspace".
+     */
+    @Test
+    @DisplayName("an admin can correct the workspace they created, without creating a second one")
+    void adminCanEditTheirWorkspace() throws Exception {
+        String alok = verifiedUser("Alok Kumar", alokEmail);
+        createWorkspace(alok, "NextWebSpark Search");
+        String admin = tokenWithWorkspace(alokEmail);
+
+        MvcResult edited = mvc.perform(patch("/api/v1/onboarding/workspace")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"NextWebSpark Executive","companySize":"51-200 people",
+                                 "primaryRegion":"MENA","jobTitle":"Partner","teamFocus":"Board advisory"}
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(body(edited).at("/workspace/name").asText()).isEqualTo("NextWebSpark Executive");
+
+        // Renaming must not re-identify it: the slug is in URLs and in anything anyone bookmarked.
+        assertThat(body(edited).at("/workspace/slug").asText()).startsWith("nextwebspark-search");
+    }
+
+    @Test
+    @DisplayName("a member who is not an admin cannot edit the workspace")
+    void nonAdminCannotEditTheWorkspace() throws Exception {
+        String alok = verifiedUser("Alok Kumar", alokEmail);
+        String workspaceId = createWorkspace(alok, "NextWebSpark Search");
+        String admin = tokenWithWorkspace(alokEmail);
+
+        String sara = verifiedUser("Sara Al-Mansour", saraEmail);
+        requestToJoin(sara, workspaceId, "CONSULTANT");
+        approve(admin, firstPendingMemberId(admin), "CONSULTANT");
+
+        mvc.perform(patch("/api/v1/onboarding/workspace")
+                        .header("Authorization", "Bearer " + tokenWithWorkspace(saraEmail))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Sara's Firm Now","companySize":"1-10 people","primaryRegion":"GCC",
+                                 "jobTitle":"Consultant","teamFocus":"Executive search"}
+                                """))
+                .andExpect(status().isForbidden());
     }
 
     // ── The invitation flow ───────────────────────────────────────────────────
@@ -684,6 +736,16 @@ class AuthFlowIntegrationTest {
                                 {"workspaceId":"%s","requestedRole":"%s"}
                                 """.formatted(workspaceId, role)))
                 .andExpect(status().isAccepted());
+    }
+
+    private void approve(String adminToken, String memberId, String grantedRole) throws Exception {
+        mvc.perform(post("/api/v1/members/" + memberId + "/approve")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"%s"}
+                                """.formatted(grantedRole)))
+                .andExpect(status().isOk());
     }
 
     private String firstPendingMemberId(String adminToken) throws Exception {
