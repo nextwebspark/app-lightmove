@@ -46,11 +46,18 @@ public class RsaKeyProvider {
     private final RSAPublicKey publicKey;
     private final RSAPrivateKey privateKey;
 
-    public RsaKeyProvider(LightMoveProperties.Auth.Jwt config, ResourceLoader resourceLoader) {
+    /**
+     * @param mayGenerate whether a missing keypair is allowed to be conjured. True only in dev and
+     *                    test. See {@link #requireKeysOrGenerate}.
+     */
+    public RsaKeyProvider(LightMoveProperties.Auth.Jwt config, ResourceLoader resourceLoader,
+                          boolean mayGenerate) {
         Resource privateResource = resourceLoader.getResource(config.privateKeyLocation());
         Resource publicResource = resourceLoader.getResource(config.publicKeyLocation());
 
         if (!privateResource.exists() || !publicResource.exists()) {
+            requireKeysOrGenerate(config, mayGenerate);
+
             KeyPair generated = generateAndPersist(config);
             this.publicKey = (RSAPublicKey) generated.getPublic();
             this.privateKey = (RSAPrivateKey) generated.getPrivate();
@@ -60,6 +67,30 @@ public class RsaKeyProvider {
         this.privateKey = readPrivateKey(privateResource);
         this.publicKey = readPublicKey(publicResource);
         log.info("Loaded JWT signing keys from {}", config.privateKeyLocation());
+    }
+
+    /**
+     * Refuses to boot on a generated key outside development.
+     *
+     * <p>Silently generating one is the worst possible failure here, because nothing looks wrong. The
+     * service starts, signs tokens, and works — until it restarts or a second instance comes up with a
+     * different key, at which point every token in flight is rejected and every user is signed out, for
+     * reasons that point nowhere near a missing file. A misconfigured secret mount is an operational
+     * mistake; making it a silent one turns it into an outage nobody can read.
+     *
+     * <p>So: in prod, a missing key is a startup failure. Loud, immediate, and pointing at the cause.
+     */
+    private static void requireKeysOrGenerate(LightMoveProperties.Auth.Jwt config, boolean mayGenerate) {
+        if (!mayGenerate) {
+            throw new IllegalStateException(
+                    "No JWT signing keys at %s / %s. Refusing to generate a throwaway keypair outside "
+                            .formatted(config.privateKeyLocation(), config.publicKeyLocation())
+                            + "dev/test: it would be different on every instance and every restart, "
+                            + "invalidating every token the moment this service scales or redeploys. "
+                            + "Point JWT_PRIVATE_KEY_LOCATION and JWT_PUBLIC_KEY_LOCATION at real keys.");
+        }
+        log.warn("No JWT keys found — generating a development keypair at {}. Never do this in production.",
+                config.privateKeyLocation());
     }
 
     public RSAPublicKey publicKey() {
