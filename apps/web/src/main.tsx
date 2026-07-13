@@ -4,7 +4,11 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { AppRoutes } from "./app/routes";
 import { AuthProvider } from "./features/auth/AuthProvider";
+import { applyStoredTheme } from "./features/theme/useTheme";
 import "./styles/global.css";
+
+// Before the first paint, so a dark-mode user is not flashed a white login screen on the way in.
+applyStoredTheme();
 
 const queryClient = new QueryClient({
   defaultOptions: {
