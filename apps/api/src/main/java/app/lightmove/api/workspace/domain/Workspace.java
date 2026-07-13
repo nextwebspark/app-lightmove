@@ -90,6 +90,22 @@ public class Workspace extends BaseEntity {
     }
 
     /**
+     * Corrects the details the organisation was described with.
+     *
+     * <p>Notably <b>not</b> the slug, and not the email domain. The slug is in URLs and in anything
+     * anyone has bookmarked, so renaming "Acme Search" to "Acme Executive" must not silently break
+     * every link to it; the domain was never the user's to choose in the first place. A workspace can
+     * be re-described. It cannot be re-identified.
+     */
+    public void describe(String name, String companySize, String primaryRegion, String teamFocus) {
+        this.name = name;
+        this.companySize = companySize;
+        this.primaryRegion = primaryRegion;
+        this.teamFocus = teamFocus;
+        this.logoMark = deriveLogoMark(name);
+    }
+
+    /**
      * Whether an address belongs to this organisation.
      *
      * <p>The single place that question is answered, so that signup, invitation and any future

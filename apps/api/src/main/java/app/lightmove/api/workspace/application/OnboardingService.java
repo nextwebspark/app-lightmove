@@ -109,6 +109,40 @@ public class OnboardingService {
     }
 
     /**
+     * Corrects the details of a workspace the caller already runs.
+     *
+     * <p>This exists because signup step 2 <i>commits</i>. The mockup's wizard keeps its steps in the
+     * browser, so its Back button is free; ours creates a real workspace at step 2, and a Back button
+     * that dropped the user on an empty create form would only ever produce "you already have a
+     * workspace". Going back has to mean editing what is already there — which is what a user pressing
+     * Back actually wants, and is a thing they will want again from Settings.
+     *
+     * <p>Admin only, and the role is re-read from the database rather than taken from the caller's JWT:
+     * that claim was minted up to fifteen minutes ago and may since have been revoked.
+     */
+    @Transactional
+    public Workspace updateWorkspace(UUID userId, UUID workspaceId, CreateWorkspaceCommand command,
+                                     HttpServletRequest request) {
+        requireAdmin(userId, workspaceId);
+
+        Workspace workspace = workspaces.findById(workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
+
+        workspace.describe(command.name().trim(), command.companySize(),
+                command.primaryRegion(), command.teamFocus());
+
+        // "Your role" is the person's job title, and it travels with them, not with the workspace.
+        requireUser(userId).setTitle(command.jobTitle());
+
+        audit.event(AuditEventType.WORKSPACE_UPDATED)
+                .actor(userId).workspace(workspaceId).from(request)
+                .detail("name", workspace.getName())
+                .record();
+
+        return workspace;
+    }
+
+    /**
      * Asks to join an existing workspace. Lands as {@link MemberStatus#PENDING_APPROVAL} — no access
      * until an admin says yes.
      *
