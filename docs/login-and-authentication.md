@@ -69,25 +69,35 @@ Same as S2 up to the fork, then they pick **Create a separate workspace instead*
 of a *second* workspace on `acme.com`. This is legitimate and intentional — a firm may run several —
 and it is why `app_lm_workspace.email_domain` has no unique constraint.
 
-### S4 — Admin invites a colleague ⚠️ **incomplete**
+### S4 — Admin invites a colleague
 
-1. Admin calls `POST /onboarding/invitations` (signup step 3, or later from Team).
-   Invitation row, token hashed, email sent containing
-   `{baseUrl}/auth/accept-invite?token=…` — see `InvitationService.java:140`.
-2. Invitee clicks the link → **the SPA has no `/auth/accept-invite` route.** The catch-all sends them
-   to `/`, they have no workspace, they get bounced to login. **The token is silently discarded.**
-3. `POST /onboarding/invitations/accept` exists and works. **Nothing calls it.**
+An invited person **skips the approval queue entirely** and lands `ACTIVE` with the role the admin
+chose. An admin naming a colleague *is* the approval, made up front.
 
-**Consequence:** an invited person signs up as a stranger and lands in the approval queue — the exact
-queue the invitation was supposed to let them skip.
+1. Admin calls `POST /onboarding/invitations` (signup step 3, or later from Team). Invitation row, token
+   hashed, email sent containing `{baseUrl}/auth/accept-invite?token=…`.
+2. Invitee clicks it → `/auth/accept-invite`, which is **public and unguarded**. It reads the invitation
+   with `GET /onboarding/invitations/preview` — **anonymous**, because the invitee usually has no
+   account and must still be shown what they are being offered.
+3. The page handles the five states they can arrive in: no account · signed in as someone else ·
+   unverified · already in a workspace · ready.
+4. `POST /onboarding/invitations/accept` → membership `ACTIVE` immediately.
 
-**What the flow is supposed to do:** an invited user skips the queue entirely and lands **`ACTIVE`**
-with the role the admin chose. An admin naming a colleague *is* the approval, made up front. The
-backend honours this; the frontend never asks it to.
+**Redeeming requires a signed-in, verified user whose address matches the invitation.** An invitee has
+none of that on arrival, so the token is held in `sessionStorage` (`pendingInvite`) across signup and
+the verification click — both full page loads — and **signup pins its email field to the invited
+address**. Let them type another and acceptance refuses them for a mismatch they were never shown.
 
-**To finish it:** add an `AcceptInvitePage` at `/auth/accept-invite`. It must handle the invitee having
-no account yet — carry the token through account creation, then call `accept` — as well as the case
-where they are already signed in.
+Three rules worth keeping straight:
+
+- **A forwarded link admits nobody.** Acceptance checks the account's email against the invited one.
+- **Verification is still required.** Holding the link is not proof of the mailbox — someone who read it
+  over a shoulder has the token and not the inbox.
+- **The invitee never picks their role.** The admin chose it when they sent the invitation.
+
+> This flow was **built backend-first and left unwired** for a while: `accept` existed, no SPA route
+> called it, and every invited person landed in the approval queue they were meant to skip. The
+> frontend is what makes an endpoint a feature.
 
 ### S5 — Returning user logs in
 
@@ -136,14 +146,26 @@ All under `/api/v1`.
 | `GET` | `/auth/me` | bearer | SPA calls on boot to rehydrate |
 | `GET` | `/auth/csrf` | — | **Writes the XSRF cookie.** See the trap below |
 | `GET` | `/auth/providers` | — | `{"google": false}` unless configured |
-| `GET` | `/onboarding/workspaces` | bearer | Workspaces on your email domain → the join/create fork |
-| `POST` | `/onboarding/workspace` | bearer | Creates workspace; caller becomes `ADMIN` |
-| `POST` | `/onboarding/join-requests` | bearer | → `PENDING_APPROVAL` |
-| `POST` | `/onboarding/invitations` | bearer, ADMIN | Bulk invite |
-| `POST` | `/onboarding/invitations/accept` | bearer | **Exists; the SPA never calls it — see S4** |
-| `GET` | `/members/pending` | bearer, ADMIN, **verified** | The approval queue |
+| `GET` | `/onboarding/invitations/preview` | **none** | What an invitation says, to whoever holds the link |
+| `GET` | `/onboarding/workspaces` | bearer | Workspaces on your email domain → the join/create fork. **Unverified allowed** |
+| `POST` | `/onboarding/workspace` | bearer, **verified** | Creates workspace; caller becomes `ADMIN` |
+| `PATCH` | `/onboarding/workspace` | bearer, ADMIN, verified | Corrects it. Name and details only — **never the slug or the domain** |
+| `POST` | `/onboarding/join-requests` | bearer, **verified** | → `PENDING_APPROVAL` |
+| `POST` | `/onboarding/invitations` | bearer, ADMIN, verified | Bulk invite |
+| `POST` | `/onboarding/invitations/accept` | bearer, verified | Lands `ACTIVE` — skips the queue |
+| `GET` | `/members/pending` | bearer, ADMIN, verified | The approval queue |
 | `POST` | `/members/{id}/approve` | bearer, ADMIN | Admin passes the role |
 | `POST` | `/members/{id}/reject` | bearer, ADMIN | |
+
+**Onboarding writes require a verified address; the one onboarding read does not.** The wizard has to
+ask "is my firm already here?" before the user has had a chance to verify — but every *write* acts on
+the claim that you work at the firm your email domain names, and an unverified address is an unproven
+claim. Without that split, anyone could sign up as `victim@realfirm.com`, never open the mailbox, and
+become ADMIN of a workspace bound to a domain that isn't theirs.
+
+**Actuator is not on this port.** It listens on `management.server.port` (9090), bound to loopback;
+`/actuator/**` beyond health and info is `denyAll` on the app port. It used to be `hasRole("ADMIN")` —
+the *tenant* role — so any customer who created a workspace could read our metrics.
 
 ---
 
@@ -280,13 +302,18 @@ origin and the `SameSite` cookie is accepted.
 
 ## Tests
 
-| Suite | Count | What |
-|---|---|---|
-| `AuthFlowIntegrationTest` | 17 | Testcontainers, real Postgres 16. Signup → verify → login → refresh → logout; token reuse revokes the family; lockout; rate limiting; tenant isolation |
-| `EmailAddressValidatorTest` | 8 | Consumer/disposable domain rules, including the `[""]` regression |
-| `apiClient.test.ts` | 7 | Single-flight refresh, CSRF, anonymous restore |
-| `SignupPage.test.tsx` | 4 | Validation rules and server-error mapping |
-| `ui/index.test.tsx` | 3 | Caller's `className` beats the component default |
+**35 backend · 21 frontend.**
+
+| Suite | What |
+|---|---|
+| `AuthFlowIntegrationTest` | Testcontainers, real Postgres 16. Signup → verify → login → refresh → logout; token reuse revokes the family; lockout; rate limiting; tenant isolation. **Unverified users cannot claim a domain**; invited colleagues skip the queue; a forwarded invitation admits nobody; an admin can correct their workspace and a member cannot |
+| `RefreshRotationConcurrencyTest` | Two simultaneous refreshes of one token: one wins, the other is caught as reuse. **Fails without the row lock** — verified by reverting it |
+| `EmailAddressValidatorTest` | Consumer/disposable domain rules, including the `[""]` regression |
+| `apiClient.test.ts` | Single-flight refresh, CSRF, anonymous restore |
+| `SignupPage.test.tsx` | Validation rules and server-error mapping |
+| `AcceptInvitePage.test.tsx` | The states an invitee arrives in; the token survives the signup detour |
+| `WorkspacePage.test.tsx` | The role picker sends the **admin's** choice, not the requested one; no double-approve |
+| `ui/index.test.tsx` | Caller's `className` beats the component default |
 
 ```bash
 cd apps/api && ./mvnw test    # needs Docker (Testcontainers)
@@ -316,6 +343,30 @@ cd apps/web && npx vitest
   hardcoded `w-full` and appended the caller's `w-[130px]` rendered full-width — the invite row's role
   select blew out the layout while the JSX read exactly as intended. Every primitive now routes
   `className` through `cn()` (`clsx` + `tailwind-merge`).
+- **Read-then-write without a lock is not rotation.** `rotate()` checked whether a refresh token was
+  revoked and then burned it. Two concurrent refreshes both read it un-revoked, both minted successors,
+  and **reuse detection never fired** — in precisely the case it exists for, an attacker racing the
+  victim with a stolen token. It now takes `SELECT … FOR UPDATE`
+  (`findByTokenHashForUpdate`). The single-threaded test passed throughout; only a concurrent one
+  catches it.
+- **`X-Forwarded-For` is a list the client writes the front of.** Taking the *leftmost* entry — the
+  obvious reading of "first hop is the client" — lets a caller pick their own rate-limit bucket on every
+  request and sign the audit log with anyone's address. Trustworthy entries are the ones *our* proxies
+  appended, at the right-hand end. See `ClientIpResolver` and `lightmove.web.trusted-proxy-count`
+  (default 0 = ignore the header entirely and use the socket peer).
+- **A generated JWT key is a silent outage.** `RsaKeyProvider` used to generate a throwaway keypair
+  whenever the configured files were missing. In production that boots, signs tokens, and works — until
+  the second instance comes up with a different key and every user is signed out for reasons that point
+  nowhere near a missing file. It now refuses to start outside `local`/`dev`/`test`, **including when no
+  profile is set at all**, which is how a container is usually launched.
+- **The access token carries the tenant claims, so anything that changes membership must re-mint it.**
+  `reload()` re-read `/auth/me` and nothing else — so after creating a workspace the token still said
+  the user belonged to none, and step 3's "Send invites" would fail `requireWorkspaceId()`. `/auth/me`
+  reads the database and would cheerfully report the new workspace while every request still failed.
+  `reload()` now refreshes the token *first*, then reads the user.
+- **`./mvnw compile` can report success on a broken class.** VS Code's Java language server writes its
+  own output into `target/classes`. A missing import surfaced not as a compile error but as a runtime
+  `java.lang.Error: Unresolved compilation problem` inside a 500. Use `clean`.
 
 ### Not a bug in this codebase, but it will cost you an hour
 
@@ -354,10 +405,11 @@ straight to the property and outranks both.
 
 | Gap | Status |
 |---|---|
-| **Invite-accept flow** | Backend done, **SPA route missing** — see S4. The one real hole |
 | Google OAuth | Built, not configured. Needs a GCP OAuth client |
-| Resend | Key wired; needs a **verified domain** before mail reaches anyone |
-| Password reset | `VerificationToken` has a `PASSWORD_RESET` purpose. No endpoint or screen |
+| Resend | Key wired; needs a **verified domain** before mail reaches anyone but the account holder |
+| Password reset | `VerificationToken` has a `PASSWORD_RESET` purpose. No endpoint or screen. The dead `/forgot-password`, `/terms`, `/privacy` links follow from this |
+| App shell | The 46px header, workspace switcher and collapsible sidebar from the mockups need the Project model. `WorkspacePage` is a placeholder; only its empty state is built to spec. The theme toggle lives in its header until the sidebar exists |
 | `ops/cloudsql/harden.sql` | Written, **not run** — it revokes `cloudsqlsuperuser` from `lm_app`, which also blocks Flyway. Needs a separate `lm_migrate` role first |
 | Cloud SQL `bright-gcc` | **Backups disabled**, `sslMode: ALLOW_UNENCRYPTED_AND_ENCRYPTED`. Both must change before this holds real candidate PII |
 | Rate limiter | In-memory Bucket4j — swap for Redis before running more than one instance |
+| `claude-design/_ds/` | A **different product's** design system (ALAC Global Talent Map — Montserrat, `#2563eb`, shadcn), contradicting the `.dc.html` mockups. The implementation follows the `.dc.html` files and ignores `_ds/`. Worth raising with whoever owns the design |
