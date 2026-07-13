@@ -9,6 +9,7 @@ import app.lightmove.api.common.audit.AuditService;
 import app.lightmove.api.common.config.LightMoveProperties;
 import app.lightmove.api.common.error.ApiException;
 import app.lightmove.api.common.error.ErrorCode;
+import app.lightmove.api.common.security.ClientIpResolver;
 import app.lightmove.api.common.security.Tokens;
 import app.lightmove.api.workspace.domain.WorkspaceMember;
 import app.lightmove.api.workspace.domain.WorkspaceRole;
@@ -37,13 +38,15 @@ public class TokenService {
     private final JwtEncoder jwtEncoder;
     private final RefreshTokenRepository refreshTokens;
     private final AuditService audit;
+    private final ClientIpResolver clientIps;
     private final LightMoveProperties.Auth config;
 
     public TokenService(JwtEncoder jwtEncoder, RefreshTokenRepository refreshTokens,
-                        AuditService audit, LightMoveProperties properties) {
+                        AuditService audit, ClientIpResolver clientIps, LightMoveProperties properties) {
         this.jwtEncoder = jwtEncoder;
         this.refreshTokens = refreshTokens;
         this.audit = audit;
+        this.clientIps = clientIps;
         this.config = properties.auth();
     }
 
@@ -91,7 +94,12 @@ public class TokenService {
         Instant now = Instant.now();
         String presentedHash = Tokens.hash(presentedToken);
 
-        RefreshToken existing = refreshTokens.findByTokenHash(presentedHash)
+        // FOR UPDATE, and it has to be. Rotation reads the token, decides it is fresh, then burns it —
+        // and two concurrent refreshes of the same token would both read it un-revoked, both mint a
+        // successor, and reuse detection would never fire. An attacker racing the victim with a stolen
+        // token is not an exotic case; it is the shape of the attack. The lock makes the loser of the
+        // race read the token already revoked, which is exactly what it is.
+        RefreshToken existing = refreshTokens.findByTokenHashForUpdate(presentedHash)
                 .orElseThrow(() -> new ApiException(ErrorCode.REFRESH_TOKEN_INVALID,
                         "No refresh token matches the presented hash"));
 
@@ -206,15 +214,8 @@ public class TokenService {
         return value != null && value.length() > 512 ? value.substring(0, 512) : value;
     }
 
-    private static String clientIp(HttpServletRequest request) {
-        if (request == null) {
-            return null;
-        }
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
+    private String clientIp(HttpServletRequest request) {
+        return clientIps.resolve(request);
     }
 
     /**
