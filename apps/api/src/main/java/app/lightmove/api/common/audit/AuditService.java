@@ -1,6 +1,7 @@
 package app.lightmove.api.common.audit;
 
 import app.lightmove.api.common.logging.CorrelationId;
+import app.lightmove.api.common.security.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.Map;
@@ -18,9 +19,11 @@ import org.springframework.stereotype.Service;
 public class AuditService {
 
     private final AuditEventWriter writer;
+    private final ClientIpResolver clientIps;
 
-    AuditService(AuditEventWriter writer) {
+    AuditService(AuditEventWriter writer, ClientIpResolver clientIps) {
         this.writer = writer;
+        this.clientIps = clientIps;
     }
 
     public Builder event(AuditEventType type) {
@@ -91,9 +94,14 @@ public class AuditService {
             return this;
         }
 
+        /**
+         * The IP is resolved by {@link ClientIpResolver}, not read off {@code X-Forwarded-For} here.
+         * An audit log an attacker can write the "from" address of is worse than none — it is evidence
+         * that points wherever they chose.
+         */
         public Builder from(HttpServletRequest request) {
             if (request != null) {
-                this.ipAddress = clientIp(request);
+                this.ipAddress = service.clientIps.resolve(request);
                 this.userAgent = truncate(request.getHeader("User-Agent"), 512);
             }
             return this;
@@ -102,22 +110,6 @@ public class AuditService {
         public void record() {
             service.record(new AuditEvent(type, outcome, actorUserId, workspaceId, targetType, targetId,
                     ipAddress, userAgent, CorrelationId.current(), Map.copyOf(metadata)));
-        }
-
-        /**
-         * Behind a load balancer the socket address is the balancer's, so the first hop in
-         * X-Forwarded-For is the real client.
-         *
-         * <p>Trustworthy only because the balancer rewrites that header. Exposed directly to the
-         * internet, a client could forge it — which matters here, because this value feeds the rate
-         * limiter's key.
-         */
-        private static String clientIp(HttpServletRequest request) {
-            String forwarded = request.getHeader("X-Forwarded-For");
-            if (forwarded != null && !forwarded.isBlank()) {
-                return forwarded.split(",")[0].trim();
-            }
-            return request.getRemoteAddr();
         }
 
         private static String truncate(String value, int max) {
