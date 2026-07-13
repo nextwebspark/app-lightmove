@@ -24,9 +24,11 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -93,6 +95,28 @@ public class OnboardingController {
     }
 
     /**
+     * Corrects a workspace you already run — which is what "Back" means once step 2 has committed.
+     *
+     * <p>The workspace id comes from the principal, never from the request: {@code requireWorkspaceId()}
+     * is the only supported way to learn which tenant a caller belongs to, and accepting it as a
+     * parameter would let anyone edit anyone's organisation by guessing an id.
+     */
+    @PatchMapping("/workspace")
+    public ResponseEntity<UserResponse> updateWorkspace(@Valid @RequestBody CreateWorkspaceRequest request,
+                                                        HttpServletRequest httpRequest) {
+        AuthPrincipal principal = CurrentUser.require();
+
+        onboarding.updateWorkspace(
+                principal.userId(),
+                principal.requireWorkspaceId(),
+                new CreateWorkspaceCommand(request.name(), request.companySize(),
+                        request.primaryRegion(), request.jobTitle(), request.teamFocus()),
+                httpRequest);
+
+        return ResponseEntity.ok(currentUser(principal));
+    }
+
+    /**
      * Signup step 2, path B — ask to join a workspace you found on your domain.
      *
      * <p>202 Accepted, not 200: nothing has been granted. The membership is pending and carries no
@@ -129,6 +153,20 @@ public class OnboardingController {
 
         int sent = invitations.invite(principal, commands, httpRequest).size();
         return ResponseEntity.ok(new InviteResult(sent));
+    }
+
+    /**
+     * What an invitation link leads to, readable before the invitee has an account.
+     *
+     * <p>Anonymous on purpose — see {@code InvitationService.preview}. Someone arriving from their inbox
+     * has to be told what they are being offered, and the signup form has to know which address the
+     * invitation names so it can pin the field there. Without this the invitee signs up with whatever
+     * address they like, and acceptance then refuses them for an email mismatch they were never shown.
+     */
+    @GetMapping("/invitations/preview")
+    public ResponseEntity<InvitationService.InvitationPreview> previewInvitation(
+            @RequestParam("token") String token) {
+        return ResponseEntity.ok(invitations.preview(token));
     }
 
     /**

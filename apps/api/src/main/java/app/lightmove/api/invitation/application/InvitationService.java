@@ -154,6 +154,48 @@ public class InvitationService {
     }
 
     /**
+     * What an invitation says, to whoever is holding its link — before they have an account, let alone a
+     * session.
+     *
+     * <p>This has to be readable unauthenticated, because the person clicking the link out of their
+     * inbox is usually a stranger to us: they need to see who invited them and to what, and the signup
+     * form needs to know which address the invitation is addressed to so it can fix it there rather
+     * than let them create an account we will then refuse to admit.
+     *
+     * <p>It discloses a workspace name, an inviter's name and the invited address to a caller holding a
+     * 256-bit token that was mailed to that address. Someone with the token has the email; the email
+     * already said all three things.
+     */
+    @Transactional(readOnly = true)
+    public InvitationPreview preview(String plaintextToken) {
+        Invitation invitation = invitations.findByTokenHash(Tokens.hash(plaintextToken))
+                .orElseThrow(() -> ApiException.of(ErrorCode.INVITATION_INVALID));
+
+        if (!invitation.isRedeemable(Instant.now())) {
+            throw ApiException.of(invitation.getExpiresAt().isBefore(Instant.now())
+                    ? ErrorCode.INVITATION_EXPIRED
+                    : ErrorCode.INVITATION_INVALID);
+        }
+
+        Workspace workspace = workspaces.findById(invitation.getWorkspaceId())
+                .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
+
+        String inviterName = users.findById(invitation.getInvitedBy())
+                .map(User::getFullName)
+                .orElse(null);
+
+        return new InvitationPreview(
+                invitation.getEmail(),
+                invitation.getRole(),
+                workspace.getName(),
+                inviterName);
+    }
+
+    /** What the invitee is shown before they sign in. See {@link #preview}. */
+    public record InvitationPreview(String email, WorkspaceRole role, String workspaceName,
+                                    String inviterName) {}
+
+    /**
      * Accepts an invitation. The invitee lands ACTIVE straight away — no approval step, because an
      * admin naming them was the approval.
      *

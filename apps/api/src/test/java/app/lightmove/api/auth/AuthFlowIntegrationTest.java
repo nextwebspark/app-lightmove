@@ -167,6 +167,193 @@ class AuthFlowIntegrationTest {
         assertThat(user.at("/workspace/slug").asText()).startsWith("nextwebspark-search");
     }
 
+    // ── Verification gates the claim to a company domain ──────────────────────
+
+    /**
+     * The trust model in one test.
+     *
+     * <p>Membership of a firm is inferred from an email domain, so an unverified address is an unproven
+     * claim and must buy nothing. Before this was enforced, anyone could sign up as
+     * {@code victim@realfirm.com}, never open the mailbox, and become ADMIN of a workspace bound to
+     * {@code realfirm.com} — squatting a company they have no connection to.
+     */
+    @Test
+    @DisplayName("an unverified user cannot create a workspace on a domain they have not proven")
+    void unverifiedUserCannotClaimADomain() throws Exception {
+        // Signed up, never clicked the link. The token is valid; the address is not proven.
+        String unverified = bearer(signup("Impostor", "impostor@" + domain, PASSWORD));
+
+        mvc.perform(post("/api/v1/onboarding/workspace")
+                        .header("Authorization", unverified)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Squatted Firm","companySize":"11-50 people","primaryRegion":"GCC",
+                                 "jobTitle":"Partner","teamFocus":"Executive search"}
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("an unverified user cannot ask to join a workspace")
+    void unverifiedUserCannotRequestToJoin() throws Exception {
+        String alok = verifiedUser("Alok Kumar", alokEmail);
+        String workspaceId = createWorkspace(alok, "NextWebSpark Search");
+
+        String unverified = bearer(signup("Impostor", "impostor@" + domain, PASSWORD));
+
+        mvc.perform(post("/api/v1/onboarding/join-requests")
+                        .header("Authorization", unverified)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"workspaceId":"%s","requestedRole":"CONSULTANT"}
+                                """.formatted(workspaceId)))
+                .andExpect(status().isForbidden());
+    }
+
+    /**
+     * The read stays open, and deliberately: the wizard has to ask "is my firm already here?" before it
+     * can offer the join-or-create fork, and it asks that before the user has had a chance to verify.
+     * It discloses only workspace names on the caller's own domain.
+     */
+    @Test
+    @DisplayName("an unverified user may still see which workspaces exist on their domain")
+    void unverifiedUserMaySeeTheFork() throws Exception {
+        String alok = verifiedUser("Alok Kumar", alokEmail);
+        createWorkspace(alok, "NextWebSpark Search");
+
+        String unverified = bearer(signup("Newcomer", "newcomer@" + domain, PASSWORD));
+
+        MvcResult offered = mvc.perform(get("/api/v1/onboarding/workspaces")
+                        .header("Authorization", unverified))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(body(offered)).hasSize(1);
+    }
+
+    // ── The invitation flow ───────────────────────────────────────────────────
+
+    /**
+     * The other way in, and the one that skips the queue.
+     *
+     * <p>An admin naming a colleague <i>is</i> the approval, made up front — so an invitee lands ACTIVE
+     * with the role the admin chose, and never sees the waiting screen. The role is the admin's, not the
+     * invitee's: nothing in this flow ever asks them what they would like to be.
+     */
+    @Test
+    @DisplayName("an invited colleague joins immediately, as the role the admin chose")
+    void invitedColleagueSkipsTheApprovalQueue() throws Exception {
+        String alok = verifiedUser("Alok Kumar", alokEmail);
+        createWorkspace(alok, "NextWebSpark Search");
+        String admin = tokenWithWorkspace(alokEmail);
+
+        mvc.perform(post("/api/v1/onboarding/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"email":"%s","role":"CONSULTANT"}]
+                                """.formatted(saraEmail)))
+                .andExpect(status().isOk());
+
+        String inviteToken = email.latestTokenFor(saraEmail);
+
+        // She accepts it as herself: signed up, and with the mailbox proven.
+        String sara = verifiedUser("Sara Al-Mansour", saraEmail);
+
+        MvcResult accepted = mvc.perform(post("/api/v1/onboarding/invitations/accept")
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s"}
+                                """.formatted(inviteToken)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        // In, immediately, as a CONSULTANT — no admin had to act a second time.
+        JsonNode user = body(accepted);
+        assertThat(user.at("/workspace/name").asText()).isEqualTo("NextWebSpark Search");
+        assertThat(user.at("/workspace/role").asText()).isEqualTo("CONSULTANT");
+
+        // And nobody is waiting: the queue an uninvited colleague would have landed in is empty.
+        MvcResult queue = mvc.perform(get("/api/v1/members/pending")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(body(queue)).isEmpty();
+    }
+
+    /**
+     * An invitation is addressed to a person. Forwarding the link must not admit whoever it was
+     * forwarded to — otherwise "invite one colleague" quietly means "invite anyone they know".
+     */
+    @Test
+    @DisplayName("a forwarded invitation does not admit somebody else")
+    void forwardedInvitationIsRefused() throws Exception {
+        String alok = verifiedUser("Alok Kumar", alokEmail);
+        createWorkspace(alok, "NextWebSpark Search");
+        String admin = tokenWithWorkspace(alokEmail);
+
+        mvc.perform(post("/api/v1/onboarding/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"email":"%s","role":"CONSULTANT"}]
+                                """.formatted(saraEmail)))
+                .andExpect(status().isOk());
+
+        String inviteToken = email.latestTokenFor(saraEmail);
+
+        // Omar has the link — Sara forwarded it, or he read it over her shoulder. He is not Sara.
+        String omar = verifiedUser("Omar Khalil", "omar@" + domain);
+
+        mvc.perform(post("/api/v1/onboarding/invitations/accept")
+                        .header("Authorization", "Bearer " + omar)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s"}
+                                """.formatted(inviteToken)))
+                .andExpect(status().isBadRequest());
+    }
+
+    /**
+     * The preview is what makes the flow usable at all: the invitee has no account when they click, so
+     * the SPA must be able to tell them what they were invited to before anyone is authenticated.
+     */
+    @Test
+    @DisplayName("an invitation can be read, unauthenticated, from its link alone")
+    void invitationPreviewIsReadableAnonymously() throws Exception {
+        String alok = verifiedUser("Alok Kumar", alokEmail);
+        createWorkspace(alok, "NextWebSpark Search");
+
+        mvc.perform(post("/api/v1/onboarding/invitations")
+                        .header("Authorization", "Bearer " + tokenWithWorkspace(alokEmail))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"email":"%s","role":"RESEARCHER"}]
+                                """.formatted(saraEmail)))
+                .andExpect(status().isOk());
+
+        // No Authorization header at all — this is a stranger with a link.
+        MvcResult preview = mvc.perform(get("/api/v1/onboarding/invitations/preview")
+                        .param("token", email.latestTokenFor(saraEmail)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode invitation = body(preview);
+        assertThat(invitation.get("email").asText()).isEqualTo(saraEmail);
+        assertThat(invitation.get("role").asText()).isEqualTo("RESEARCHER");
+        assertThat(invitation.get("workspaceName").asText()).isEqualTo("NextWebSpark Search");
+        assertThat(invitation.get("inviterName").asText()).isEqualTo("Alok Kumar");
+    }
+
+    @Test
+    @DisplayName("a garbage invitation token is refused, and says nothing about why")
+    void unknownInvitationTokenIsRefused() throws Exception {
+        mvc.perform(get("/api/v1/onboarding/invitations/preview")
+                        .param("token", "not-a-real-token"))
+                .andExpect(status().isBadRequest());
+    }
+
     // ── The join-request flow ─────────────────────────────────────────────────
 
     @Test

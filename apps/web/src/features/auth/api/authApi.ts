@@ -3,6 +3,7 @@ import type {
   AuthProviders,
   AuthResponse,
   CreateWorkspaceRequest,
+  InvitationPreview,
   InviteRequest,
   JoinableWorkspace,
   LoginRequest,
@@ -75,6 +76,14 @@ export function joinableWorkspaces(): Promise<JoinableWorkspace[]> {
   return request<JoinableWorkspace[]>("/onboarding/workspaces");
 }
 
+/** Editing the workspace you already run — which is what Back means once step 2 has committed. */
+export function updateWorkspace(payload: CreateWorkspaceRequest): Promise<User> {
+  return request<User>("/onboarding/workspace", {
+    method: "PATCH",
+    body: payload,
+  });
+}
+
 export function createWorkspace(payload: CreateWorkspaceRequest): Promise<User> {
   return request<User>("/onboarding/workspace", { method: "POST", body: payload });
 }
@@ -91,6 +100,21 @@ export function invite(invites: InviteRequest[]): Promise<{ sent: number }> {
   return request<{ sent: number }>("/onboarding/invitations", {
     method: "POST",
     body: invites,
+  });
+}
+
+/** Anonymous: the invitee has no session yet, and needs to see what they were invited to. */
+export function previewInvitation(token: string): Promise<InvitationPreview> {
+  return request<InvitationPreview>(
+    `/onboarding/invitations/preview?token=${encodeURIComponent(token)}`,
+    { anonymous: true },
+  );
+}
+
+export function acceptInvitation(token: string): Promise<User> {
+  return request<User>("/onboarding/invitations/accept", {
+    method: "POST",
+    body: { token },
   });
 }
 

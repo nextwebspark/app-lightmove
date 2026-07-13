@@ -6,6 +6,7 @@ import { Button, Card, Field, FormError, Input, Logo } from "../../../components
 import { ApiRequestError } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
+import { pendingInvite } from "../pendingInvite";
 import { signupSchema, type SignupValues } from "../schemas";
 
 /**
@@ -21,6 +22,11 @@ export function SignupPage() {
   const navigate = useNavigate();
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Someone who arrived from an invitation link. Their address is not a free choice: acceptance checks
+  // the account's email against the one invited, so letting them type another here would create an
+  // account the invitation then refuses — for a rule they were never shown.
+  const invite = pendingInvite.peek();
+
   const {
     register,
     handleSubmit,
@@ -28,14 +34,18 @@ export function SignupPage() {
     formState: { errors, isSubmitting },
   } = useForm<SignupValues>({
     resolver: zodResolver(signupSchema),
-    defaultValues: { fullName: "", email: "", password: "" },
+    defaultValues: { fullName: "", email: invite?.email ?? "", password: "" },
   });
 
   const onSubmit = async (values: SignupValues) => {
     setFormError(null);
     try {
       await signUp(values.fullName, values.email, values.password);
-      navigate("/signup/workspace", { replace: true });
+
+      // An invitee has a workspace waiting for them, so they must not be sent through the join-or-create
+      // fork. They still have to verify first — the accept page says so.
+      navigate(invite ? `/auth/accept-invite?token=${encodeURIComponent(invite.token)}` : "/signup/workspace",
+          { replace: true });
     } catch (error) {
       if (!(error instanceof ApiRequestError)) {
         setFormError("Could not reach LightMove. Check your connection and try again.");
@@ -93,13 +103,19 @@ export function SignupPage() {
           <Field
             label="Work email"
             error={errors.email?.message}
-            hint="Your company domain — not a personal address."
+            hint={
+              invite
+                ? "The address your invitation was sent to."
+                : "Your company domain — not a personal address."
+            }
           >
             <Input
               type="email"
               autoComplete="email"
               placeholder="you@firm.com"
               invalid={!!errors.email}
+              readOnly={!!invite}
+              className={invite ? "cursor-not-allowed text-text3" : undefined}
               {...register("email")}
             />
           </Field>
