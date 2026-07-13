@@ -1,9 +1,17 @@
 # --- Secrets: never commit ---
 apps/api/.keys/
 apps/api/src/main/resources/application-local.yml
+apps/api/src/main/resources/application-local.yml.*
+!apps/api/src/main/resources/application-local.yml.example
 .env
 .env.*
 !.env.example
+
+# A copy of a secret is still a secret — .bak/.orig/.tmp of an ignored config is not ignored by its rule.
+*.bak
+*.orig
+*.rej
+*.tmp
 
 # --- Java / Maven ---
 target/
