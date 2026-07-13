@@ -69,5 +69,8 @@ ${IAM_USERS[0]} read access to it.
 
 Then query it as yourself, with no password:
 
-    gcloud sql connect $INSTANCE --user=${IAM_USERS[0]} --database=$DATABASE
+    ./ops/cloudsql/psql.sh
+
+Not 'gcloud sql connect': it prompts for a password, and an IAM principal has not got one — it
+authenticates with an OAuth token. psql.sh runs cloud-sql-proxy --auto-iam-authn, which mints it.
 EOF
