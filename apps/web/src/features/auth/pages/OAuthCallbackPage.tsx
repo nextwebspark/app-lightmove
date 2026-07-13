@@ -17,7 +17,7 @@ import * as authApi from "../api/authApi";
  */
 export function OAuthCallbackPage() {
   const navigate = useNavigate();
-  const { reload } = useAuth();
+  const { adopt } = useAuth();
   const handled = useRef(false);
 
   useEffect(() => {
@@ -40,8 +40,11 @@ export function OAuthCallbackPage() {
 
     void (async () => {
       try {
+        // One round trip. This used to call me(), then reload() — which refreshes and calls me() again:
+        // three requests to learn one thing we were about to be told anyway.
         const user = await authApi.me();
-        await reload();
+        adopt(token, user);
+
         // A Google user who has never onboarded has no workspace, exactly like a password signup.
         navigate(user.workspace ? "/" : "/signup/workspace", { replace: true });
       } catch {
@@ -49,7 +52,7 @@ export function OAuthCallbackPage() {
         navigate("/login?error=OAUTH_FAILED", { replace: true });
       }
     })();
-  }, [navigate, reload]);
+  }, [navigate, adopt]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6">

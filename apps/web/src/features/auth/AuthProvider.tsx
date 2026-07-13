@@ -31,7 +31,7 @@ interface AuthContextValue {
   /** Re-reads the user from the server. Call after anything that changes their workspace or role. */
   reload: () => Promise<User | null>;
   /** Adopts a session established elsewhere — currently the Google OAuth callback. */
-  adopt: (session: AuthResponse) => void;
+  adopt: (token: string, user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -139,9 +139,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const adopt = useCallback((session: AuthResponse) => {
-    setAccessToken(session.accessToken);
-    setUser(session.user);
+  /**
+   * Takes on a session that was established somewhere other than here — currently the Google callback,
+   * which is handed a token by the server rather than exchanging credentials for one.
+   *
+   * <p>Takes the token and user separately rather than an {@code AuthResponse}, because the OAuth
+   * callback never sees one: it is given a bare token in the URL fragment and has to ask who it belongs
+   * to. Making it fabricate a response object to hand back would be a lie for the type's benefit.
+   */
+  const adopt = useCallback((token: string, adopted: User) => {
+    setAccessToken(token);
+    setUser(adopted);
   }, []);
 
   const value = useMemo(
