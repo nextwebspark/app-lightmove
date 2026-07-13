@@ -5,6 +5,7 @@ import app.lightmove.api.common.audit.AuditService;
 import app.lightmove.api.common.config.LightMoveProperties;
 import app.lightmove.api.common.error.ApiException;
 import app.lightmove.api.common.error.ErrorCode;
+import app.lightmove.api.common.security.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
 import java.util.Locale;
@@ -30,11 +31,14 @@ public class RateLimitGuard {
 
     private final RateLimiter limiter;
     private final AuditService audit;
+    private final ClientIpResolver clientIps;
     private final LightMoveProperties.Auth.RateLimit config;
 
-    public RateLimitGuard(RateLimiter limiter, AuditService audit, LightMoveProperties properties) {
+    public RateLimitGuard(RateLimiter limiter, AuditService audit, ClientIpResolver clientIps,
+                          LightMoveProperties properties) {
         this.limiter = limiter;
         this.audit = audit;
+        this.clientIps = clientIps;
         this.config = properties.auth().rateLimit();
     }
 
@@ -80,15 +84,12 @@ public class RateLimitGuard {
         throw ApiException.of(ErrorCode.RATE_LIMITED);
     }
 
-    /** See AuditService: only trustworthy behind a proxy that rewrites X-Forwarded-For. */
-    private static String clientIp(HttpServletRequest request) {
-        if (request == null) {
-            return "unknown";
-        }
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
+    /**
+     * The per-IP budget is only as honest as this value. It used to read the leftmost
+     * {@code X-Forwarded-For} entry, which the caller supplies — so a fresh header meant a fresh bucket,
+     * every request, and the per-IP limit stopped nobody. See {@link ClientIpResolver}.
+     */
+    private String clientIp(HttpServletRequest request) {
+        return clientIps.resolve(request);
     }
 }
