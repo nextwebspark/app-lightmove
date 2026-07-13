@@ -122,6 +122,32 @@ red build rather than a production surprise.)
 Set `DB_IAM_USER` and Flyway's V2 grants that principal read access, so a human can query the database
 with their Google identity and no password.
 
+### The company universe is a copy, not a link
+
+The same instance hosts a second database, **`brightdata`** — the ETL warehouse. It holds the scrape
+sources (`src_linkedin`, `src_zoominfo`, `supabase_company_dnb`, …) and `app_companies`, a built
+projection over them: ~54k companies, the list a consultant actually searches.
+
+`app_lm_companies` is a **copy** of it, refreshed by `ops/cloudsql/sync-companies.sh`. Don't reach for a
+second `DataSource` or `postgres_fdw` — Postgres has no cross-database queries, and a company list that
+can't be joined to a project is not a company list. It is reference data: the pipeline writes it, the
+application only reads it (`harden.sql` reassigns the table to `postgres` and leaves `lm_app` with
+`SELECT`).
+
+The sync goes out through GCS — `gcloud sql export csv` → bucket → `gcloud sql import csv` — which looks
+like a detour and isn't. `brightdata.app_companies` is owned by `postgres` with **no grants at all**, so
+no role you can log in as is able to `SELECT` from it; the export runs server-side as the instance's
+service agent and is authorised by your *gcloud* identity, not by any database password. That agent needs
+`roles/storage.objectAdmin` on the bucket, granted once (the script's header has the command).
+
+The sync **upserts on `(source, source_id)`**, never on `id`. Upstream ids are re-minted on every
+pipeline rebuild, so anything that references a company must reference *our* id — adopt the warehouse's
+and the next rebuild silently repoints every project. Rows that vanish upstream are reported, never
+deleted.
+
+Eventually the pipeline writes into `lightmove` directly and the sync script retires. Nothing about the
+table changes when it does — which is the point of keying it that way now.
+
 ## Architecture
 
 **Package by feature, layered inside**: `api/` (HTTP only) → `application/` (services, transactions) →
@@ -141,3 +167,6 @@ default, so a fresh clone is fully testable with no provider account; `ResendEma
 - React: feature folders. Server state via TanStack Query — don't mirror it into `useState`.
 - Styling: Tailwind utilities over the tokens in `apps/web/src/styles/tokens.css`, which are lifted
   verbatim from the mockups. Change a colour there, not inline.
+
+
+Review will be done by fable or codex
