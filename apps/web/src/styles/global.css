@@ -1,0 +1,59 @@
+@import "./tokens.css";
+
+/* Inter and JetBrains Mono, as specified by every mockup's <helmet>. */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The tokens carry the theme, so a colour transition would make every switch a slow fade of the whole
+   page. Only the background and text animate, and briefly. */
+body,
+body * {
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+::placeholder {
+  color: var(--color-text3);
+}
+
+/* The entrance the mockups give every card and heading. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.5s ease both;
+}
+
+/* Respect the user's wishes. An animation is decoration; motion sickness is not. */
+@media (prefers-reduced-motion: reduce) {
+  body,
+  body *,
+  .animate-fade-up {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -1,0 +1,240 @@
+/* ============================================================================
+   ALAC Partners — Global Talent Map
+   Design Tokens : Colors + Type
+   ----------------------------------------------------------------------------
+   Source of truth: client/src/index.css (Tailwind v4 @theme + shadcn HSL vars)
+   All color channels are stored HSL-triplet style and consumed via hsl().
+   This file restates them as plain CSS custom properties so any HTML artifact
+   can use them without Tailwind. Light is default; .dark flips the palette.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap');
+
+/* JetBrains Mono — woff2 files in fonts/ */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('fonts/JetBrainsMono-Italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('fonts/JetBrainsMono-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('fonts/JetBrainsMono-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('fonts/JetBrainsMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* ---- Type families -------------------------------------------------- */
+  --font-sans: 'Montserrat', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: 'Libre Baskerville', Georgia, 'Times New Roman', serif;
+  /* NOTE: the live app maps --font-serif to Montserrat (headings render in
+     Montserrat 700). Libre Baskerville is loaded but currently unused in product
+     UI — kept here for editorial / report surfaces. See README VISUAL FOUNDATIONS. */
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* ---- Core neutrals (light) ------------------------------------------ */
+  --background: #ffffff;            /* hsl(0 0% 100%)    page */
+  --foreground: #030712;            /* hsl(224 71% 4%)   ink / near-black navy */
+  --card: #ffffff;                  /* surfaces */
+  --card-foreground: #030712;
+  --popover: #ffffff;               /* menus, tooltips bg */
+  --popover-foreground: #030712;
+
+  --muted: #f1f3f5;                 /* hsl(220 14% 96%)  subtle fills */
+  --muted-foreground: #6b7280;      /* hsl(220 9% 46%)   secondary text */
+  --secondary: #f1f3f5;             /* hsl(220 14% 96%) */
+  --secondary-foreground: #6b7280;
+  --accent: #f1f3f5;
+  --accent-foreground: #030712;
+
+  --border: #e4e7ec;                /* hsl(220 13% 91%)  hairlines */
+  --input: #e4e7ec;
+  --ring: #2563eb;                  /* focus ring = primary */
+
+  /* ---- Brand / primary ------------------------------------------------ */
+  --primary: #2563eb;               /* hsl(220 70% 50%)  action blue */
+  --primary-foreground: #f8fafc;    /* hsl(210 40% 98%)  text on primary */
+  --primary-50: #eff4ff;            /* tints used as backgrounds (primary/5..15) */
+  --primary-10: #e0eaff;
+
+  /* ---- Brand ink (logo + map nodes) ----------------------------------- */
+  --ink: #15213a;                   /* hsl(222 47% 11%)  navy slate — logo, default map bubble */
+
+  /* ---- Signature accent: amber-orange --------------------------------- */
+  /* Selection, org-hierarchy connectors, "unlock" pulse, satellite snap.  */
+  --accent-amber: #f59c0b;          /* hsl(35 92% 50%) */
+  --accent-amber-soft: rgba(245, 156, 11, 0.15);
+
+  /* ---- Semantic status ------------------------------------------------ */
+  --success: #059669;               /* emerald-600  Direct / Interested / Verified */
+  --success-fg: #047857;
+  --success-bg: #d1fae5;            /* emerald-100 */
+  --info: #2563eb;                  /* blue        Adjacent sectors */
+  --info-bg: #dbeafe;               /* blue-100 */
+  --warning: #d97706;               /* amber-600   AI Inferred / Concentrated */
+  --warning-bg: #fef3c7;            /* amber-100 */
+  --ai: #7c3aed;                    /* violet-600  AI thinking / Sparkles */
+  --ai-bg: #ede9fe;                 /* violet-100 */
+  --destructive: #ef4444;           /* hsl(0 84% 60%)  Off-Limits / delete */
+  --destructive-foreground: #f8fafc;
+  --destructive-bg: #fee2e2;        /* red-100 */
+
+  /* ---- Map / executive node palette (company dot colors) -------------- */
+  --node-amber: hsl(35 92% 50%);
+  --node-navy: hsl(222 47% 11%);
+  --node-red: hsl(0 84% 60%);
+  --node-green: hsl(142 71% 45%);
+  --node-violet: hsl(262 83% 58%);
+  --node-magenta: hsl(316 73% 52%);
+  --node-orange: hsl(25 95% 53%);
+  --node-sky: hsl(199 89% 48%);
+
+  /* ---- Radii ---------------------------------------------------------- */
+  --radius: 0.5rem;                 /* 8px base */
+  --radius-sm: 0.25rem;             /* 4px */
+  --radius-md: 0.375rem;            /* 6px  buttons, inputs */
+  --radius-lg: 0.5rem;              /* 8px */
+  --radius-xl: 0.75rem;             /* 12px cards */
+  --radius-2xl: 1rem;               /* 16px modals / mode cards */
+  --radius-full: 9999px;            /* pills, badges, toggles */
+
+  /* ---- Elevation ------------------------------------------------------ */
+  --shadow-xs: 0 1px 2px 0 rgba(16, 24, 40, 0.05);
+  --shadow-sm: 0 1px 3px 0 rgba(16, 24, 40, 0.10), 0 1px 2px -1px rgba(16, 24, 40, 0.10);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.10);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.18);
+  --shadow-node: 0 2px 8px rgba(0, 0, 0, 0.10);        /* satellite pill resting */
+  --shadow-node-drag: 0 8px 24px rgba(0, 0, 0, 0.20);  /* satellite pill dragging */
+
+  /* ---- Sidebar (icon rail) ------------------------------------------- */
+  --sidebar: #f1f3f5;
+  --sidebar-foreground: #030712;
+  --sidebar-border: #e4e7ec;
+  --sidebar-accent: #e3e7eb;        /* hsl(220 14% 90%) */
+}
+
+/* ============================================================================
+   DARK MODE  (.dark on <html>) — deep navy. The product ships both modes;
+   the Mapbox globe also swaps to dark-v11 with a starfield.
+   ========================================================================== */
+.dark {
+  --background: #030712;            /* hsl(224 71% 4%) */
+  --foreground: #dbe2ea;            /* hsl(213 31% 91%) */
+  --card: #030712;
+  --card-foreground: #dbe2ea;
+  --popover: #0a0f1f;              /* hsl(224 47% 8%) */
+  --popover-foreground: #dbe2ea;
+
+  --muted: #121826;                /* hsl(215 28% 10%) */
+  --muted-foreground: #828b9c;     /* hsl(218 11% 55%) */
+  --secondary: #121826;
+  --secondary-foreground: #dbe2ea;
+  --accent: #1a2233;               /* hsl(215 28% 14%) */
+  --accent-foreground: #dbe2ea;
+
+  --border: #1a2233;               /* hsl(215 28% 14%) */
+  --input: #1a2233;
+  --ring: #1e293b;
+
+  --primary: #2563eb;              /* unchanged across modes */
+  --primary-foreground: #f8fafc;
+
+  --destructive: #7f1d1d;          /* hsl(0 63% 31%) */
+  --destructive-foreground: #f8fafc;
+
+  --sidebar: #060a16;              /* hsl(224 47% 6%) */
+  --sidebar-foreground: #dbe2ea;
+  --sidebar-border: #1a2233;
+  --sidebar-accent: #161d2b;       /* hsl(215 28% 12%) */
+}
+
+/* ============================================================================
+   SEMANTIC TYPE SCALE
+   The product is dense and utilitarian: 11–14px is the working range, with a
+   bold serif/heavy-sans display only on the landing hero & panel titles.
+   Sizes mirror the Tailwind classes actually used in the codebase.
+   ========================================================================== */
+:root {
+  --text-hero: 2.25rem;     /* 36px  landing "Build your company universe"  font-bold */
+  --text-h1: 1.5rem;        /* 24px  completion / report titles */
+  --text-h2: 1.25rem;       /* 20px  panel company name (font-serif bold) */
+  --text-h3: 1.125rem;      /* 18px  topbar project name (font-bold) */
+  --text-body: 0.875rem;    /* 14px  default body (text-sm) */
+  --text-sm: 0.8125rem;     /* 13px */
+  --text-xs: 0.75rem;       /* 12px  table cells, secondary */
+  --text-2xs: 0.6875rem;    /* 11px  meta, counts */
+  --text-3xs: 0.625rem;     /* 10px  uppercase eyebrows, badges */
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.35;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  --tracking-tight: -0.02em;   /* display headings */
+  --tracking-normal: 0;
+  --tracking-wide: 0.05em;     /* uppercase eyebrows / section headers */
+  --tracking-wider: 0.08em;    /* tiny all-caps labels */
+
+  --weight-light: 300;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+}
+
+/* ---- Ready-made semantic classes ------------------------------------- */
+.t-hero {
+  font-family: var(--font-sans);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-hero);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--foreground);
+}
+.t-h1 { font-family: var(--font-sans); font-weight: 700; font-size: var(--text-h1); line-height: var(--leading-tight); color: var(--foreground); }
+.t-h2 { font-family: var(--font-sans); font-weight: 700; font-size: var(--text-h2); line-height: var(--leading-tight); color: var(--foreground); }
+.t-h3 { font-family: var(--font-sans); font-weight: 700; font-size: var(--text-h3); line-height: var(--leading-snug); color: var(--foreground); }
+.t-body { font-family: var(--font-sans); font-weight: 400; font-size: var(--text-body); line-height: var(--leading-normal); color: var(--foreground); }
+.t-secondary { font-family: var(--font-sans); font-weight: 400; font-size: var(--text-xs); line-height: var(--leading-snug); color: var(--muted-foreground); }
+.t-eyebrow {
+  font-family: var(--font-sans);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-3xs);
+  line-height: 1.2;
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.t-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* Optional editorial serif (reports, big quotes) */
+.t-serif-display {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--foreground);
+}
