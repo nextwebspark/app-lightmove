@@ -18,6 +18,7 @@ import app.lightmove.api.common.security.AuthPrincipal;
 import app.lightmove.api.common.security.CurrentUser;
 import app.lightmove.api.workspace.domain.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpHeaders;
@@ -98,12 +99,28 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(
             @CookieValue(name = "${lightmove.auth.cookie.name}", required = false) String refreshToken,
-            HttpServletRequest httpRequest) {
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
 
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new ApiException(ErrorCode.REFRESH_TOKEN_INVALID, "No refresh cookie on the request");
         }
-        return respond(HttpStatus.OK, auth.refresh(refreshToken, httpRequest));
+
+        try {
+            return respond(HttpStatus.OK, auth.refresh(refreshToken, httpRequest));
+        } catch (ApiException e) {
+            // A refresh token that was rejected is dead — revoked, expired, or rotated away — and it is
+            // never coming back to life. Leave the cookie in place and the browser presents the corpse
+            // again on every page load, forever. Each presentation of a revoked token is, by definition,
+            // reuse: so a single genuine detection becomes an endless stream of TOKEN_REUSE_DETECTED
+            // events, each revoking nothing, and the security log fills with alerts about an attack that
+            // already happened once. That is how a log becomes something people stop reading.
+            //
+            // The header is set before the exception reaches the handler, and the response is not yet
+            // committed, so it survives onto the 401.
+            httpResponse.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.expire().toString());
+            throw e;
+        }
     }
 
     /** Revokes the refresh token and clears the cookie. Idempotent — signing out twice is not an error. */

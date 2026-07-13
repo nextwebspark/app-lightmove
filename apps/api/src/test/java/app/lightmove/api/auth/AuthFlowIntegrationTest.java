@@ -629,6 +629,37 @@ class AuthFlowIntegrationTest {
         assertThat(codeOf(victim)).isEqualTo("REFRESH_TOKEN_REUSED");
     }
 
+    /**
+     * A rejected refresh token is dead, and the response says so by clearing the cookie.
+     *
+     * <p>Without this the browser keeps the corpse and presents it again on every single page load —
+     * and each presentation of a revoked token is, by definition, reuse. One genuine detection becomes
+     * an endless stream of TOKEN_REUSE_DETECTED events, each revoking nothing, until the security log is
+     * mostly noise about an attack that happened once. A log nobody trusts is a log nobody reads.
+     */
+    @Test
+    @DisplayName("a rejected refresh clears the cookie, so the browser stops presenting a dead token")
+    void rejectedRefreshClearsTheCookie() throws Exception {
+        signup("Alok Kumar", alokEmail, PASSWORD);
+        Cookie cookie = refreshCookie(loginRaw(alokEmail, PASSWORD));
+
+        // Kill it the honest way: log out. The cookie in the browser is now worthless.
+        mvc.perform(post("/api/v1/auth/logout").cookie(cookie).with(csrf()))
+                .andExpect(status().isNoContent());
+
+        MvcResult rejected = mvc.perform(post("/api/v1/auth/refresh").cookie(cookie).with(csrf()))
+                .andExpect(status().isUnauthorized())
+                .andReturn();
+
+        Cookie cleared = rejected.getResponse().getCookie("lm_refresh");
+        assertThat(cleared)
+                .as("the 401 must carry a Set-Cookie that expires the dead token")
+                .isNotNull();
+        assertThat(cleared.getMaxAge())
+                .as("Max-Age=0 is what tells the browser to drop it")
+                .isZero();
+    }
+
     @Test
     @DisplayName("logging out revokes the refresh token")
     void logoutRevokesTheSession() throws Exception {
