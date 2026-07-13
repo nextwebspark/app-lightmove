@@ -7,9 +7,12 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
@@ -27,9 +30,25 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 @Configuration
 public class JwtConfig {
 
+    /**
+     * Generating a keypair is a development convenience and is permitted only where it is one.
+     *
+     * <p>Which profiles count is decided here rather than inside the provider, because "am I in
+     * production" is a question about how the application was started, not about keys.
+     */
+    private static final Set<String> PROFILES_THAT_MAY_GENERATE_KEYS = Set.of("local", "dev", "test");
+
     @Bean
-    RsaKeyProvider rsaKeyProvider(LightMoveProperties properties, ResourceLoader resourceLoader) {
-        return new RsaKeyProvider(properties.auth().jwt(), resourceLoader);
+    RsaKeyProvider rsaKeyProvider(LightMoveProperties properties, ResourceLoader resourceLoader,
+                                  Environment environment) {
+        List<String> active = List.of(environment.getActiveProfiles());
+
+        // No profile at all is `java -jar` with nothing set — which is how a production container is
+        // usually launched, and exactly the case that must not quietly generate its own keys.
+        boolean mayGenerate = !active.isEmpty()
+                && PROFILES_THAT_MAY_GENERATE_KEYS.containsAll(active);
+
+        return new RsaKeyProvider(properties.auth().jwt(), resourceLoader, mayGenerate);
     }
 
     @Bean
