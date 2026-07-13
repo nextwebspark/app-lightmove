@@ -87,6 +87,46 @@ describe("apiClient", () => {
     expect(refreshCalls).toHaveLength(1);
   });
 
+  /**
+   * The same failure, one scope wider — and it is not hypothetical: it signed a real session out during
+   * local testing.
+   *
+   * The in-module guard above dedupes refreshes within one page. A second *tab* is a second JS context
+   * with its own module state and the same cookie jar, so both tabs boot, both read the same refresh
+   * cookie, and both refresh. One wins; the other presents a token that was rotated away a few
+   * milliseconds earlier, the server reads that as a stolen token being replayed, and revokes the whole
+   * family. Opening a second tab logged you out of both.
+   *
+   * Web Locks are cross-tab, which is the scope that matters. This asserts the refresh actually goes
+   * through one — a lock nobody takes is decoration.
+   */
+  it("takes a cross-tab lock before refreshing, so a second tab cannot trip theft detection", async () => {
+    const held: string[] = [];
+    const locks = {
+      request: vi.fn(async (name: string, work: () => Promise<unknown>) => {
+        held.push(name);
+        return work();
+      }),
+    };
+    vi.stubGlobal("navigator", { ...navigator, locks });
+
+    setAccessToken("expired");
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.includes("/auth/refresh")) {
+        return json(200, { accessToken: "fresh" });
+      }
+      const authorized = (init?.headers as Record<string, string>)?.Authorization === "Bearer fresh";
+      return authorized ? json(200, { ok: true }) : json(401, { code: "UNAUTHORIZED", detail: "expired" });
+    });
+
+    await request("/a");
+
+    expect(locks.request).toHaveBeenCalledOnce();
+    expect(held).toEqual(["lm-refresh"]);
+
+    vi.unstubAllGlobals();
+  });
+
   it("sends the CSRF header on cookie-authenticated routes", async () => {
     fetchMock.mockResolvedValueOnce(json(204, null));
 

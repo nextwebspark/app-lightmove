@@ -65,12 +65,35 @@ export class ApiRequestError extends Error {
  */
 let refreshInFlight: Promise<string> | null = null;
 
+/**
+ * The same problem again, one level up: **other tabs**.
+ *
+ * `refreshInFlight` dedupes within one page. It cannot see a second tab, which is a second JS context
+ * with its own module state — and both tabs share one cookie jar. Open the app twice and both boot,
+ * both read the same refresh cookie, and both POST /auth/refresh before either response has rotated it.
+ * One wins. The other presents a token that has just been rotated away, the server correctly reads that
+ * as a replayed stolen token, and **revokes the whole family** — signing you out of both tabs, for
+ * doing nothing but opening a second tab.
+ *
+ * The Web Locks API is cross-tab, which is exactly the scope needed. Whoever holds the lock refreshes;
+ * the other tab waits, and by the time it runs, the rotated cookie is already in the shared jar — so
+ * its own refresh presents the *new* token and rotates legitimately.
+ *
+ * Not a fallback worth agonising over: `navigator.locks` is in every browser we support. Where it is
+ * missing we run unlocked, which is exactly today's behaviour.
+ */
+function withRefreshLock<T>(work: () => Promise<T>): Promise<T> {
+  return navigator.locks?.request
+    ? navigator.locks.request("lm-refresh", work)
+    : work();
+}
+
 async function refreshAccessToken(): Promise<string> {
   if (refreshInFlight) {
     return refreshInFlight;
   }
 
-  refreshInFlight = (async () => {
+  refreshInFlight = withRefreshLock(async () => {
     try {
       // The refresh endpoint is CSRF-protected, because it authenticates with a cookie the browser
       // attaches automatically — including on a request another site provoked. The double-submit
@@ -95,10 +118,10 @@ async function refreshAccessToken(): Promise<string> {
       accessToken = null;
       onSessionLost?.();
       throw error;
-    } finally {
-      refreshInFlight = null;
     }
-  })();
+  }).finally(() => {
+    refreshInFlight = null;
+  });
 
   return refreshInFlight;
 }
