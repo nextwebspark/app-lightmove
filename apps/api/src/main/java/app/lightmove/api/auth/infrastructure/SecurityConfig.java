@@ -8,9 +8,12 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.authorization.AuthorizationDecision;
+import org.springframework.security.authorization.AuthorizationManager;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -117,7 +120,8 @@ public class SecurityConfig {
                                  OAuth2LoginSuccessHandler oauthSuccessHandler,
                                  ObjectProvider<ClientRegistrationRepository> clientRegistrations,
                                  LightMoveProperties properties) throws Exception {
-        boolean requireVerified = properties.auth().requireVerifiedEmail();
+        AuthorizationManager<RequestAuthorizationContext> verified =
+                verifiedEmail(properties.auth().requireVerifiedEmail());
 
         http
                 .cors(c -> c.configurationSource(cors))
@@ -127,29 +131,43 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // Liveness only. Everything else Actuator exposes — metrics, prometheus, env —
+                        // lives on the management port (see application.yml) and is not routed here at
+                        // all. It used to be hasRole("ADMIN"), which is the *tenant* role every
+                        // workspace creator is granted: any customer could scrape our metrics.
+                        // A workspace role must never double as a system-admin role.
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
-                        .requestMatchers("/actuator/**").hasRole("ADMIN")
+                        .requestMatchers("/actuator/**").denyAll()
 
                         // Google sign-in. Spring owns these paths.
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
 
-                        // Onboarding: reachable by a user who has signed up but has no workspace yet —
-                        // so it cannot require a workspace role, because they do not have one. This is
-                        // the only authenticated area open to a user with no tenant.
-                        .requestMatchers(API + "/onboarding/**").authenticated()
+                        // Anonymous: the person clicking an invitation link out of their inbox has no
+                        // account yet, and must still be shown what they are being offered. The 256-bit
+                        // token in the URL is the credential, and it was mailed to the address the
+                        // preview names.
+                        .requestMatchers(HttpMethod.GET, API + "/onboarding/invitations/preview").permitAll()
 
-                        // Everything that touches tenant data. Verification is enforced here, not as a
-                        // courtesy: a user's email domain is what puts them in an organisation, so an
-                        // unverified address is an unproven claim. Without this line anyone could sign
-                        // up as sara@nextwebspark.com and read that firm's pipeline.
-                        .requestMatchers(API + "/**")
-                        .access((authentication, context) -> {
-                            var auth2 = authentication.get();
-                            boolean ok = auth2 != null && auth2.isAuthenticated()
-                                    && (!requireVerified || auth2.getAuthorities().stream()
-                                    .anyMatch(a -> JwtPrincipalConverter.VERIFIED_AUTHORITY.equals(a.getAuthority())));
-                            return new org.springframework.security.authorization.AuthorizationDecision(ok);
-                        })
+                        // The one onboarding *read*, and it stays open to an unverified user on purpose:
+                        // it answers "is my firm already here?", which the wizard must ask before it can
+                        // offer the join-or-create fork. It discloses only workspace names on the
+                        // caller's own email domain.
+                        .requestMatchers(HttpMethod.GET, API + "/onboarding/workspaces").authenticated()
+
+                        // Onboarding *writes*. These need a verified address, because every one of them
+                        // acts on the claim that you work at the firm your email domain names — and an
+                        // unverified address is an unproven claim. Without this, anyone could sign up as
+                        // victim@realfirm.com, never open the mailbox, and become ADMIN of a workspace
+                        // bound to realfirm.com.
+                        //
+                        // They cannot require a workspace role: the caller has no workspace yet. That is
+                        // the whole point of onboarding, and it is why these need their own rule rather
+                        // than falling through to the tenant-data one below.
+                        .requestMatchers(API + "/onboarding/**").access(verified)
+
+                        // Everything that touches tenant data.
+                        .requestMatchers(API + "/**").access(verified)
 
                         .anyRequest().authenticated())
 
@@ -169,6 +187,29 @@ public class SecurityConfig {
         }
 
         return http.build();
+    }
+
+    /**
+     * Authenticated, and — unless the deployment has opted out — holding a verified email address.
+     *
+     * <p>This guards two different things for the same reason. Tenant data, obviously. But also the
+     * onboarding <i>writes</i>, which are what bind a user to an organisation in the first place: the
+     * email domain is our only evidence that someone works at a firm, and an unverified address is an
+     * unproven claim. Let an unverified user through and they can sign up as
+     * {@code victim@realfirm.com}, never open the mailbox, and become ADMIN of a workspace bound to a
+     * domain that isn't theirs.
+     *
+     * <p>Extracted rather than inlined at each matcher so there is exactly one definition of "verified"
+     * to get wrong.
+     */
+    private static AuthorizationManager<RequestAuthorizationContext> verifiedEmail(boolean required) {
+        return (authentication, context) -> {
+            var auth = authentication.get();
+            boolean ok = auth != null && auth.isAuthenticated()
+                    && (!required || auth.getAuthorities().stream()
+                    .anyMatch(a -> JwtPrincipalConverter.VERIFIED_AUTHORITY.equals(a.getAuthority())));
+            return new AuthorizationDecision(ok);
+        };
     }
 
     /**

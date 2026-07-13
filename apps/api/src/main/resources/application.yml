@@ -127,6 +127,18 @@ lightmove:
     oauth-success-path: /auth/callback
 
 management:
+  # Actuator listens on its own port, bound to loopback — it is not reachable from the internet at all.
+  #
+  # It used to sit on the application port behind hasRole("ADMIN"), which is the *tenant* role: every
+  # workspace creator is granted it. That made /actuator/prometheus and /actuator/metrics readable by
+  # any customer who signed up. A workspace role must never double as a system-admin role, so the two
+  # are now separated by the only boundary that cannot be confused — a different socket.
+  #
+  # Prometheus scrapes :9090 from inside the network. On the app port, /actuator/** beyond health and
+  # info is denyAll (SecurityConfig).
+  server:
+    port: ${MANAGEMENT_PORT:9090}
+    address: ${MANAGEMENT_ADDRESS:127.0.0.1}
   endpoints:
     web:
       exposure:
