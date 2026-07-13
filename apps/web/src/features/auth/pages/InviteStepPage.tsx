@@ -5,7 +5,7 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import * as authApi from "../api/authApi";
 import type { WorkspaceRole } from "../api/types";
-import { INVITE_ROLES } from "../schemas";
+import { INVITE_ROLES, inviteSchema } from "../schemas";
 
 interface InviteRow {
   id: number;
@@ -32,9 +32,18 @@ export function InviteStepPage() {
   ]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rowErrors, setRowErrors] = useState<Map<number, string>>(new Map());
 
-  const update = (id: number, patch: Partial<InviteRow>) =>
+  const update = (id: number, patch: Partial<InviteRow>) => {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+    // Clear the complaint as soon as they start fixing it, rather than making them submit to find out.
+    setRowErrors((current) => {
+      if (!current.has(id)) return current;
+      const next = new Map(current);
+      next.delete(id);
+      return next;
+    });
+  };
 
   const addRow = () =>
     setRows((current) => [...current, { id: Date.now(), email: "", role: "CONSULTANT" }]);
@@ -43,6 +52,23 @@ export function InviteStepPage() {
     setRows((current) => current.filter((row) => row.id !== id));
 
   const finish = async () => {
+    // A typo'd address is not a harmless mistake here: the invitation is sent, the colleague never
+    // receives it, and the admin has no way of knowing. The rule was already written in `inviteSchema`
+    // and simply never applied — this form did no client-side validation at all.
+    const parsed = inviteSchema.safeParse({ invites: rows });
+    if (!parsed.success) {
+      const failures = new Map<number, string>();
+      for (const issue of parsed.error.issues) {
+        const index = issue.path[1];
+        if (typeof index === "number") {
+          failures.set(rows[index].id, issue.message);
+        }
+      }
+      setRowErrors(failures);
+      return;
+    }
+    setRowErrors(new Map());
+
     // Blank rows are just an empty form, not an error. The mockup starts with two of them, and
     // refusing to continue because the user did not fill them in would be absurd.
     const filled = rows
@@ -68,7 +94,14 @@ export function InviteStepPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
       <Logo />
-      <Stepper steps={SIGNUP_STEPS} current={3} />
+
+      {/* Step 2 only. Step 1 created the account — there is nothing there to go back and change. */}
+      <Stepper
+        steps={SIGNUP_STEPS}
+        current={3}
+        backableSteps={[2]}
+        onGoBack={() => navigate("/signup/workspace")}
+      />
 
       <Card className="w-[480px] max-w-[94vw] [animation-delay:80ms]">
         <h1 className="text-[19px] font-semibold leading-tight">Invite your team</h1>
@@ -80,13 +113,14 @@ export function InviteStepPage() {
 
         <div className="mb-3 flex flex-col gap-2">
           {rows.map((row) => (
-            <div key={row.id} className="flex items-center gap-2">
+            <div key={row.id} className="flex flex-wrap items-center gap-2">
               <Input
                 type="email"
                 value={row.email}
                 onChange={(event) => update(row.id, { email: event.target.value })}
                 placeholder="colleague@firm.com"
                 aria-label="Colleague's email"
+                invalid={rowErrors.has(row.id)}
                 className="min-w-0 flex-1"
               />
 
@@ -108,10 +142,14 @@ export function InviteStepPage() {
                 onClick={() => removeRow(row.id)}
                 disabled={rows.length === 1}
                 aria-label={`Remove ${row.email || "this invite"}`}
-                className="shrink-0 rounded-md p-1.5 text-text3 transition hover:text-red disabled:opacity-30 disabled:hover:text-text3"
+                className="shrink-0 rounded-md p-1.5 text-text3 outline-none transition hover:text-red focus-visible:ring-2 focus-visible:ring-sky disabled:opacity-30 disabled:hover:text-text3"
               >
                 ✕
               </button>
+
+              {rowErrors.has(row.id) && (
+                <span className="w-full font-mono text-[11px] text-red">{rowErrors.get(row.id)}</span>
+              )}
             </div>
           ))}
         </div>
@@ -129,9 +167,22 @@ export function InviteStepPage() {
 
         <Notice>Invitees get access to projects you add them to — roles apply per project.</Notice>
 
-        <Button onClick={finish} loading={submitting} className="w-full">
-          Send invites &amp; finish
-        </Button>
+        {/* Back beside Continue, as the mockup has it. It is safe here only because step 2 now edits the
+            workspace it already created rather than trying to create a second one. */}
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="secondary"
+            className="shrink-0"
+            disabled={submitting}
+            onClick={() => navigate("/signup/workspace")}
+          >
+            Back
+          </Button>
+
+          <Button onClick={finish} loading={submitting} className="flex-1">
+            Send invites &amp; finish
+          </Button>
+        </div>
 
         <button
           type="button"

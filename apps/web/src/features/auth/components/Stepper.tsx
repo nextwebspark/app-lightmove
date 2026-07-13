@@ -21,18 +21,29 @@ export function Stepper({
   steps,
   current,
   onGoBack,
+  backableSteps,
 }: {
   steps: Step[];
   current: number;
   /** Omitted when going back is not possible — e.g. once the account has actually been created. */
   onGoBack?: (step: number) => void;
+  /**
+   * Which completed steps may actually be returned to. Defaults to all of them.
+   *
+   * <p>"Completed" and "revisitable" are not the same thing, and conflating them is how a signup wizard
+   * offers someone a door that opens onto a wall. Step 1 is the case: it created an account, and there
+   * is nothing to go back and do differently — so it is a tick, not a link, and must not present itself
+   * as one.
+   */
+  backableSteps?: number[];
 }) {
   return (
     <nav aria-label="Signup progress" className="flex animate-fade-up items-center [animation-delay:40ms]">
       {steps.map((step, index) => {
         const done = step.n < current;
         const active = step.n === current;
-        const canGoBack = done && !!onGoBack;
+        const canGoBack =
+          done && !!onGoBack && (backableSteps ? backableSteps.includes(step.n) : true);
 
         return (
           <div key={step.n} className="flex items-center">
@@ -46,9 +57,9 @@ export function Stepper({
             <button
               type="button"
               disabled={!canGoBack}
-              onClick={() => canGoBack && onGoBack(step.n)}
+              onClick={() => canGoBack && onGoBack?.(step.n)}
               aria-current={active ? "step" : undefined}
-              className="flex items-center gap-2 disabled:cursor-default"
+              className="flex items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-sky disabled:cursor-default"
             >
               <span
                 className={`grid size-6 place-items-center rounded-full border font-mono text-[11px] font-semibold ${
