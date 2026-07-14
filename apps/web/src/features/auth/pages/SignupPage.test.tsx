@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -21,13 +22,17 @@ vi.mock("react-router-dom", async (importOriginal) => ({
  * product's rules, and the error mapping is where a rejected signup becomes a dead end or a fixable one.
  */
 describe("SignupPage", () => {
+  // AuthProvider drops the query cache on every identity change, so it needs a client — the same one
+  // the real app gives it. Signing in must not leave the previous user's server state behind.
   const renderPage = () =>
     render(
-      <MemoryRouter>
-        <AuthProvider>
-          <SignupPage />
-        </AuthProvider>
-      </MemoryRouter>,
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <AuthProvider>
+            <SignupPage />
+          </AuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
   beforeEach(() => {
@@ -74,7 +79,8 @@ describe("SignupPage", () => {
         title: null,
         avatarUrl: null,
         emailVerified: false,
-    onboardingHeld: false,
+        onboardingHeld: false,
+        awaitingApproval: false,
         workspace: null,
       },
     });

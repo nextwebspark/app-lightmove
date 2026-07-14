@@ -76,6 +76,9 @@ export function joinableWorkspaces(): Promise<JoinableWorkspace[]> {
   return request<JoinableWorkspace[]>("/onboarding/workspaces");
 }
 
+/** Shared, so step 1's prefetch cannot drift from the key step 2 reads — a miss would only look slow. */
+export const JOINABLE_WORKSPACES_KEY = ["joinable-workspaces"] as const;
+
 /** Editing the workspace you already run — which is what Back means once step 2 has committed. */
 export function updateWorkspace(payload: CreateWorkspaceRequest): Promise<User> {
   return request<User>("/onboarding/workspace", {

@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
-import { Button, Card, Field, FormError, Input, Logo, Notice, Select } from "../../../components/ui";
+import { Button, Card, Field, FormError, Input, Logo, Notice, Select, Spinner } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
@@ -39,7 +39,7 @@ export function WorkspaceStepPage() {
   const existing = user?.workspace ?? null;
 
   const { data: joinable, isLoading } = useQuery({
-    queryKey: ["joinable-workspaces"],
+    queryKey: authApi.JOINABLE_WORKSPACES_KEY,
     queryFn: authApi.joinableWorkspaces,
     // A user who already belongs somewhere is not choosing between workspaces.
     enabled: !existing,
@@ -50,17 +50,21 @@ export function WorkspaceStepPage() {
   const [mode, setMode] = useState<"join" | "create" | null>(null);
   const effectiveMode = mode ?? (joinable && joinable.length > 0 ? "join" : "create");
 
-  if (isLoading) {
-    return <Centered>Checking your organization…</Centered>;
-  }
-
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
       <Logo />
       <Stepper steps={SIGNUP_STEPS} current={2} />
 
+      {/* Coming from step 1 this never shows — it prefetches under its own button. This is for a cold
+          landing: a refresh, a restored tab. The shell stays up even then, because returning a loading
+          *page* tore the wizard down to a bare logo and rebuilt it, which read as leaving the flow. */}
       <Card className="w-[480px] max-w-[94vw] [animation-delay:80ms]">
-        {existing ? (
+        {isLoading ? (
+          <div className="grid min-h-[320px] place-items-center gap-3 text-text3">
+            <Spinner />
+            <p className="font-mono text-xs">Checking your organization…</p>
+          </div>
+        ) : existing ? (
           <CreateWorkspace
             editing={existing}
             canJoinInstead={false}
@@ -78,7 +82,7 @@ export function WorkspaceStepPage() {
               const fresh = await reload();
               // An unverified user's request has not reached the admin's queue — it is held until they
               // confirm their address. "Waiting for approval" would be a lie: nobody has been asked yet.
-              navigate(fresh?.emailVerified ? "/signup/pending" : "/signup/verify", { replace: true });
+              navigate(fresh?.awaitingApproval ? "/signup/pending" : "/signup/verify", { replace: true });
             }}
           />
         ) : (
@@ -307,14 +311,5 @@ function CreateWorkspace({
         </Button>
       )}
     </>
-  );
-}
-
-function Centered({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6">
-      <Logo />
-      <p className="font-mono text-xs text-text3">{children}</p>
-    </div>
   );
 }

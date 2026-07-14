@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import {
   createContext,
   useCallback,
@@ -39,6 +40,16 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  /**
+   * Server state belongs to whoever was signed in when it was fetched, so it dies with them. Otherwise
+   * the cache outlives the session and the next user in this tab is served the last one's data.
+   *
+   * <p>Called *before* setUser, so the new user's first render sees an empty cache rather than the
+   * previous user's answers.
+   */
+  const startFreshSession = useCallback(() => queryClient.clear(), [queryClient]);
 
   /**
    * Restore the session on boot.
@@ -80,27 +91,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * stopped watching. This is how it tells the UI.
    */
   useEffect(() => {
-    onSessionExpired(() => setUser(null));
-  }, []);
-
-  const signIn = useCallback(async (email: string, password: string) => {
-    const session = await authApi.login({ email, password });
-    setUser(session.user);
-    return session.user;
-  }, []);
-
-  const signUp = useCallback(async (fullName: string, email: string, password: string) => {
-    const session = await authApi.signup({
-      fullName,
-      email,
-      password,
-      // The form will not submit without the box ticked; sending it explicitly keeps the server the
-      // one that decides, rather than trusting the button to have been disabled.
-      termsAccepted: true,
+    onSessionExpired(() => {
+      startFreshSession();
+      setUser(null);
     });
-    setUser(session.user);
-    return session.user;
-  }, []);
+  }, [startFreshSession]);
+
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      const session = await authApi.login({ email, password });
+      startFreshSession();
+      setUser(session.user);
+      return session.user;
+    },
+    [startFreshSession],
+  );
+
+  const signUp = useCallback(
+    async (fullName: string, email: string, password: string) => {
+      const session = await authApi.signup({
+        fullName,
+        email,
+        password,
+        // The form will not submit without the box ticked; sending it explicitly keeps the server the
+        // one that decides, rather than trusting the button to have been disabled.
+        termsAccepted: true,
+      });
+      startFreshSession();
+      setUser(session.user);
+      return session.user;
+    },
+    [startFreshSession],
+  );
 
   const signOut = useCallback(async () => {
     try {
@@ -109,9 +131,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Even if the call failed, this browser is done with the session. Clearing locally regardless
       // means a network blip cannot leave someone stuck looking at a page they meant to leave.
       setAccessToken(null);
+      startFreshSession();
       setUser(null);
     }
-  }, []);
+  }, [startFreshSession]);
 
   /**
    * Re-reads the session from the server — <b>token first</b>, then user.
@@ -147,10 +170,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * callback never sees one: it is given a bare token in the URL fragment and has to ask who it belongs
    * to. Making it fabricate a response object to hand back would be a lie for the type's benefit.
    */
-  const adopt = useCallback((token: string, adopted: User) => {
-    setAccessToken(token);
-    setUser(adopted);
-  }, []);
+  const adopt = useCallback(
+    (token: string, adopted: User) => {
+      setAccessToken(token);
+      startFreshSession();
+      setUser(adopted);
+    },
+    [startFreshSession],
+  );
 
   const value = useMemo(
     () => ({ user, loading, signIn, signUp, signOut, reload, adopt }),

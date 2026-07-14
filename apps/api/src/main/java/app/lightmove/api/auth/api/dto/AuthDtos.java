@@ -98,7 +98,17 @@ public final class AuthDtos {
              * onboarding" from "has finished it and is waiting on their inbox", and would drop the second
              * user back on an empty form they have already filled in.
              */
-            boolean onboardingHeld
+            boolean onboardingHeld,
+
+            /**
+             * True when the user asked to join an existing workspace and an admin has not yet decided.
+             * This, and only this, is what "waiting for approval" means.
+             *
+             * <p>Sent rather than left to the SPA to infer. Inferring it from a verified address stranded
+             * anyone who verified before finishing the wizard: an approval screen for a request they never
+             * made, on a domain with no admin who could ever grant it.
+             */
+            boolean awaitingApproval
     ) {}
 
     public record WorkspaceSummary(

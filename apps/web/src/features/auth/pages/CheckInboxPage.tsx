@@ -29,9 +29,14 @@ export function CheckInboxPage() {
     if (!user) return;
     if (user.workspace) {
       navigate("/", { replace: true });
-    } else if (user.emailVerified) {
-      // Verified, but no workspace: they asked to *join* one, and an admin has yet to decide.
+    } else if (user.awaitingApproval) {
+      // Their held join request has reached the admin's queue. Now the approval screen is the truth.
       navigate("/signup/pending", { replace: true });
+    } else if (user.emailVerified) {
+      // Verified with nothing held and nothing asked for — they verified before finishing the wizard.
+      // Send them back to it. Leaving them here strands them on a page telling them to check an inbox
+      // they have already checked.
+      navigate("/signup/workspace", { replace: true });
     }
   }, [user, navigate]);
 

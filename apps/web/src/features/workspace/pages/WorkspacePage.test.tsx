@@ -35,6 +35,7 @@ describe("WorkspacePage — the approval queue", () => {
     avatarUrl: null,
     emailVerified: true,
     onboardingHeld: false,
+    awaitingApproval: false,
     workspace: {
       id: "w1",
       name: "NextWebSpark Search",

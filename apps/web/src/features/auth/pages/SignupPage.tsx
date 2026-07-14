@@ -1,10 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { Button, Card, Field, FormError, Input, Logo } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
+import * as authApi from "../api/authApi";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import { pendingInvite } from "../pendingInvite";
 import { signupSchema, type SignupValues } from "../schemas";
@@ -20,6 +22,7 @@ import { signupSchema, type SignupValues } from "../schemas";
 export function SignupPage() {
   const { signUp } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [formError, setFormError] = useState<string | null>(null);
 
   // Someone who arrived from an invitation link. Their address is not a free choice: acceptance checks
@@ -44,8 +47,22 @@ export function SignupPage() {
 
       // An invitee has a workspace waiting for them, so they must not be sent through the join-or-create
       // fork. They still have to verify first — the accept page says so.
-      navigate(invite ? `/auth/accept-invite?token=${encodeURIComponent(invite.token)}` : "/signup/workspace",
-          { replace: true });
+      if (invite) {
+        navigate(`/auth/accept-invite?token=${encodeURIComponent(invite.token)}`, { replace: true });
+        return;
+      }
+
+      // Step 2 cannot offer the join-or-create fork until it knows whether the firm is already here, so
+      // the wait exists either way; the only choice is where to spend it. Spending it here keeps the user
+      // on the page they submitted, watching the button they pressed. Navigating first meant step 2
+      // replaced the wizard with a loading screen, which read as being bounced out of the flow.
+      // prefetchQuery does not throw — on failure step 2 simply asks again itself.
+      await queryClient.prefetchQuery({
+        queryKey: authApi.JOINABLE_WORKSPACES_KEY,
+        queryFn: authApi.joinableWorkspaces,
+      });
+
+      navigate("/signup/workspace", { replace: true });
     } catch (error) {
       if (!(error instanceof ApiRequestError)) {
         setFormError("Could not reach LightMove. Check your connection and try again.");

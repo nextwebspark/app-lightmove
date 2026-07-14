@@ -76,15 +76,19 @@ function AnonymousOnly({ children }: { children: ReactNode }) {
 /**
  * Where a signed-in user actually belongs, given what is true of them right now.
  *
- * Three states share `workspace: null` and they are not the same place. Someone who has not started
- * onboarding needs the wizard. Someone who *finished* it while unverified needs their inbox, not an
- * empty form they have already filled in. And someone verified but still workspace-less asked to join
- * one and is waiting on an admin.
+ * Three states share `workspace: null` and they are not the same place. Someone who asked to join a
+ * workspace is waiting on an admin. Someone who *finished* the wizard while unverified needs their
+ * inbox, not an empty form they have already filled in. Everyone else has not started, and needs the
+ * wizard — which is also where a user whose domain has no workspace creates the first one.
+ *
+ * Each branch reads the state that defines it. Inferring the approval screen from `emailVerified`
+ * instead stranded anyone who verified before finishing the wizard: they were shown an approval screen
+ * for a request they never made, on a domain with no admin who could ever grant it.
  */
-function homeFor(user: { workspace: unknown; onboardingHeld: boolean; emailVerified: boolean }) {
+function homeFor(user: { workspace: unknown; onboardingHeld: boolean; awaitingApproval: boolean }) {
   if (user.workspace) return "/";
+  if (user.awaitingApproval) return "/signup/pending";
   if (user.onboardingHeld) return "/signup/verify";
-  if (user.emailVerified) return "/signup/pending";
   return "/signup/workspace";
 }
 

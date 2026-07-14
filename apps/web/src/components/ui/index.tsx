@@ -60,7 +60,8 @@ export function Button({
   );
 }
 
-function Spinner() {
+/** Exported so a rare unavoidable wait can borrow the button's spinner rather than invent a second one. */
+export function Spinner() {
   return (
     <svg
       className="size-3.5 animate-spin"

@@ -280,6 +280,50 @@ class AuthFlowIntegrationTest {
                 .andExpect(jsonPath("$.length()").value(1));
     }
 
+    /**
+     * Verifying your address is not asking anyone for anything.
+     *
+     * <p>{@code awaitingApproval} is what puts a user on the approval screen, and only a join request may
+     * set it. The SPA used to infer it from {@code emailVerified} instead, on the reasoning that a
+     * verified user must already have been through the wizard — true only because signup left everyone
+     * unverified. Verifying straight from the inbox, before the wizard, was enough to break it: the user
+     * was shown an approval screen for a request they never made, on a domain with no workspace and so no
+     * admin who could ever approve them, and could not get back to creating one.
+     */
+    @Test
+    @DisplayName("verifying without asking to join leaves the user free to create a workspace")
+    void verifyingIsNotARequestToJoin() throws Exception {
+        signup("Alok Kumar", alokEmail, PASSWORD);
+        MvcResult verified = mvc.perform(post("/api/v1/auth/verify")
+                        .param("token", email.latestTokenFor(alokEmail)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        // Verified, in no workspace, and waiting on nobody — the wizard is where they belong.
+        assertThat(body(verified).get("emailVerified").asBoolean()).isTrue();
+        assertThat(body(verified).get("awaitingApproval").asBoolean()).isFalse();
+
+        // And the proof that it is not merely cosmetic: they can still create the workspace.
+        createWorkspace(login(alokEmail), "NextWebSpark Search");
+    }
+
+    /** Asking to join, however, does set it — and that is the one thing that may. */
+    @Test
+    @DisplayName("a pending join request is what awaitingApproval means")
+    void askingToJoinAwaitsApproval() throws Exception {
+        createWorkspace(verifiedUser("Alok Kumar", alokEmail), "NextWebSpark Search");
+
+        String saraToken = verifiedUser("Sara Ahmed", saraEmail);
+        requestToJoin(saraToken, onlyWorkspaceIdOnTheDomain("Bearer " + saraToken), "CONSULTANT");
+
+        MvcResult me = mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + saraToken))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(body(me).get("awaitingApproval").asBoolean()).isTrue();
+        assertThat(body(me).at("/workspace/id").asString("")).isEmpty();
+    }
+
     /** The id of the one workspace on the caller's domain, as the wizard's fork would show it. */
     private String onlyWorkspaceIdOnTheDomain(String bearerHeader) throws Exception {
         MvcResult fork = mvc.perform(get("/api/v1/onboarding/workspaces")

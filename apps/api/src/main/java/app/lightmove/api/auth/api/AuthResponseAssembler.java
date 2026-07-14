@@ -5,9 +5,11 @@ import app.lightmove.api.auth.api.dto.AuthDtos.UserResponse;
 import app.lightmove.api.auth.api.dto.AuthDtos.WorkspaceSummary;
 import app.lightmove.api.auth.application.TokenPair;
 import app.lightmove.api.auth.domain.User;
+import app.lightmove.api.workspace.domain.MemberStatus;
 import app.lightmove.api.workspace.domain.Workspace;
 import app.lightmove.api.workspace.domain.WorkspaceMember;
 import app.lightmove.api.workspace.infrastructure.PendingOnboardingRepository;
+import app.lightmove.api.workspace.infrastructure.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.infrastructure.WorkspaceRepository;
 import org.springframework.stereotype.Component;
 
@@ -22,10 +24,13 @@ public class AuthResponseAssembler {
 
     private final WorkspaceRepository workspaces;
     private final PendingOnboardingRepository pending;
+    private final WorkspaceMemberRepository members;
 
-    public AuthResponseAssembler(WorkspaceRepository workspaces, PendingOnboardingRepository pending) {
+    public AuthResponseAssembler(WorkspaceRepository workspaces, PendingOnboardingRepository pending,
+                                 WorkspaceMemberRepository members) {
         this.workspaces = workspaces;
         this.pending = pending;
+        this.members = members;
     }
 
     public AuthResponse assemble(TokenPair tokens, User user, WorkspaceMember membership) {
@@ -46,7 +51,18 @@ public class AuthResponseAssembler {
                 workspaceSummary(membership),
                 // Only meaningful for an unverified user: verifying materialises the wizard, so a
                 // verified one never has anything held.
-                !user.isEmailVerified() && pending.findByUserId(user.getId()).isPresent());
+                !user.isEmailVerified() && pending.findByUserId(user.getId()).isPresent(),
+                awaitingApproval(user));
+    }
+
+    /**
+     * They asked to join a workspace and an admin has not answered yet.
+     *
+     * <p>Read from the membership row rather than inferred, because a join request is the only thing that
+     * can create one — signing up cannot, and neither can verifying an address.
+     */
+    private boolean awaitingApproval(User user) {
+        return members.findByUserIdAndStatus(user.getId(), MemberStatus.PENDING_APPROVAL).isPresent();
     }
 
     /** Null when the user has signed up but not yet created their organisation. */

@@ -41,6 +41,16 @@ export interface User {
    * back to an empty form they have already filled in.
    */
   onboardingHeld: boolean;
+
+  /**
+   * They asked to join an existing workspace and an admin has not decided yet. The only thing that puts
+   * anyone on the approval screen.
+   *
+   * Not to be inferred from `emailVerified`: proving your mailbox is not asking anyone for anything, and
+   * a user who verified before finishing the wizard would be shown an approval screen for a request they
+   * never made — with no way back to creating the workspace they came for.
+   */
+  awaitingApproval: boolean;
 }
 
 export interface AuthResponse {
