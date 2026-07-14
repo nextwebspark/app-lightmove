@@ -13,6 +13,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.ServletRequestBindingException;
@@ -116,6 +117,23 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleNoResource(NoResourceFoundException ex, HttpServletRequest request) {
         log.debug("No resource at {} {}", request.getMethod(), request.getRequestURI());
         return problem(ErrorCode.NOT_FOUND, ErrorCode.NOT_FOUND.defaultMessage());
+    }
+
+    /**
+     * The route exists, but not for that verb — a browser opening {@code /api/v1/auth/signup} in the
+     * address bar, say, which is a GET of a POST-only endpoint.
+     *
+     * <p>Same reasoning as {@link #handleNoResource}: without this it lands in the catch-all and is
+     * reported as a <b>500 INTERNAL_ERROR</b>, complete with an ERROR-level stack trace. That is a lie
+     * twice over — nothing on our side is broken, and the client is told to retry a request that can
+     * never succeed instead of being told to fix its verb.
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ProblemDetail handleMethodNotSupported(HttpRequestMethodNotSupportedException ex,
+                                                  HttpServletRequest request) {
+        log.debug("Method {} not supported at {} (supported: {})",
+                request.getMethod(), request.getRequestURI(), ex.getSupportedHttpMethods());
+        return problem(ErrorCode.METHOD_NOT_ALLOWED, ErrorCode.METHOD_NOT_ALLOWED.defaultMessage());
     }
 
     /**

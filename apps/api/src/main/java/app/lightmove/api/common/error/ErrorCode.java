@@ -79,6 +79,9 @@ public enum ErrorCode {
     /** No route and no file at that path. Says nothing about what does exist. */
     NOT_FOUND(HttpStatus.NOT_FOUND, "Not found"),
 
+    /** The route exists; it does not answer to that verb. A GET of a POST-only endpoint lands here. */
+    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "That method is not supported on this endpoint"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

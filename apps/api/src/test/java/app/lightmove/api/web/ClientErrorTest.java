@@ -47,4 +47,16 @@ class ClientErrorTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
+
+    /**
+     * Signup is POST-only, and opening its URL in a browser address bar is a GET. The route exists, so
+     * this is not a 404 — and nothing on our side broke, so it is certainly not the 500 it used to be.
+     */
+    @Test
+    @DisplayName("the wrong verb on a real route is a 405, not a 500")
+    void wrongMethodIsMethodNotAllowed() throws Exception {
+        mvc.perform(get("/api/v1/auth/signup"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
+    }
 }
