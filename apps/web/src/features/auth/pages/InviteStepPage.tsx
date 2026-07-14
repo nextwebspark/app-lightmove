@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Card, FormError, Input, Logo, Notice, Select } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
+import { useAuth } from "../AuthProvider";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import * as authApi from "../api/authApi";
 import type { WorkspaceRole } from "../api/types";
@@ -25,6 +26,7 @@ interface InviteRow {
  */
 export function InviteStepPage() {
   const navigate = useNavigate();
+  const { user, reload } = useAuth();
 
   const [rows, setRows] = useState<InviteRow[]>([
     { id: 1, email: "", role: "CONSULTANT" },
@@ -75,16 +77,23 @@ export function InviteStepPage() {
       .filter((row) => row.email.trim() !== "")
       .map((row) => ({ email: row.email.trim(), role: row.role }));
 
+    // Where the wizard ends. An unverified user has no workspace to land in — theirs is held until
+    // they confirm their address — so "/" would only bounce them back into step 2.
+    const done = user?.workspace ? "/" : "/signup/verify";
+
     if (filled.length === 0) {
-      navigate("/", { replace: true });
+      navigate(done, { replace: true });
       return;
     }
 
     setSubmitting(true);
     setError(null);
     try {
+      // Held, not sent, while unverified: they go out with the workspace, when it is created. An
+      // account nobody has confirmed must not be able to make LightMove email five strangers.
       await authApi.invite(filled);
-      navigate("/", { replace: true });
+      await reload();
+      navigate(done, { replace: true });
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.problem.detail : "Could not send the invitations.");
       setSubmitting(false);

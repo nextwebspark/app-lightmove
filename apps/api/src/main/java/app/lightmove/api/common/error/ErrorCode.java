@@ -69,6 +69,16 @@ public enum ErrorCode {
 
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Too many requests. Please slow down"),
 
+    /**
+     * The CSRF token was missing or did not match. Distinct from FORBIDDEN on purpose: the SPA recovers
+     * from this by re-fetching {@code /auth/csrf} and retrying, and it cannot recover from "you lack
+     * permission". Reporting them as the same thing turns a self-healing case into a dead end.
+     */
+    CSRF_TOKEN_INVALID(HttpStatus.FORBIDDEN, "Your session needs refreshing. Please try again"),
+
+    /** No route and no file at that path. Says nothing about what does exist. */
+    NOT_FOUND(HttpStatus.NOT_FOUND, "Not found"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

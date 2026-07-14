@@ -1,0 +1,205 @@
+name: Deploy
+
+# Push to main, CI green, and the service is updated. Nothing else deploys.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+  # The escape hatch, and it earns its keep twice.
+  #
+  # GitHub only fires `workflow_run` for a workflow file that is already on the DEFAULT branch — so on
+  # the very first merge, when this file arrives *with* the merge, the trigger is at best racing itself.
+  # A green CI and no deploy, with nothing to click, is a bad way to meet your own pipeline.
+  #
+  # It is also how you redeploy a revision without an empty commit, which is what a rollback usually
+  # turns out to need.
+  workflow_dispatch:
+
+# Two deploys of different commits racing each other would leave whichever finished last serving,
+# which is not necessarily the newer one. Queue them.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  SERVICE: lightmove
+  REGION: us-central1
+  AR_REPO: lightmove
+  DATABASE: lightmove
+  CLOUD_SQL_INSTANCE: hak-talent-mapping:us-central1:bright-gcc
+
+jobs:
+  deploy:
+    # A red CI run must not deploy — workflow_run fires on failure too, so this cannot be omitted.
+    # A manual dispatch has no workflow_run to inspect, and is a deliberate act by someone who can see
+    # the CI result for themselves.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write   # mints the OIDC token that Workload Identity Federation trades for GCP creds
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The commit CI actually passed on — not whatever is at the head of main by now. On a manual
+          # dispatch there is no such commit, so fall back to the ref that was dispatched.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      # Keyless. No JSON service-account key exists, so there is none to leak or rotate.
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      # ── Build ────────────────────────────────────────────────────────────────
+      # Tagged with the git SHA, never `latest`. You must be able to say which commit is serving, and
+      # roll back to a specific one — `latest` can answer neither question.
+      - name: Build and push
+        id: build
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          IMAGE="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/${AR_REPO}/${SERVICE}:${SHA}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      # ── Migrate ──────────────────────────────────────────────────────────────
+      # Before the new revision goes live, and never inside the container (FLYWAY_ENABLED=false there).
+      #
+      # A migration that fails here fails the deploy, and the previous revision keeps serving. That is
+      # the whole reason this is a step and not something the application does to itself at boot, where
+      # a bad migration crash-loops production and you can roll back the image but not the schema.
+      #
+      # It runs as lm_app for now, and as lm_migrate once ops/cloudsql/create-migrate-role.sh has been
+      # applied — the role split is what finally takes DDL away from the runtime role.
+      - name: Fetch migration credentials
+        id: secrets
+        uses: google-github-actions/get-secretmanager-secrets@v2
+        with:
+          secrets: |-
+            flyway_password:${{ vars.GCP_PROJECT }}/lightmove-flyway-password
+
+      - name: Migrate the database
+        env:
+          FLYWAY_PASSWORD: ${{ steps.secrets.outputs.flyway_password }}
+        run: |
+          curl -sSL -o cloud-sql-proxy \
+            https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
+          chmod +x cloud-sql-proxy
+          ./cloud-sql-proxy --port 5432 "${CLOUD_SQL_INSTANCE}" &
+          for _ in $(seq 1 30); do nc -z 127.0.0.1 5432 && break; sleep 1; done
+
+          # iam_user is empty on purpose: V2__grant_iam_access.sql then no-ops, which is what a
+          # production database wants. Humans read it with their own Google identity via psql.sh.
+          # lm_app today, lm_migrate once ops/cloudsql/create-migrate-role.sh has been applied. The role
+          # split is what removes DDL from the runtime role; until then this is still a *deploy* step
+          # rather than a boot step, which is the half that matters most — a bad migration fails the
+          # deploy and the previous revision keeps serving.
+          docker run --rm --network host \
+            -v "$PWD/apps/api/src/main/resources/db/migration:/flyway/sql:ro" \
+            redgate/flyway:11 \
+            -url="jdbc:postgresql://127.0.0.1:5432/${DATABASE}" \
+            -user="${{ vars.DB_MIGRATE_USER || 'lm_app' }}" \
+            -password="${FLYWAY_PASSWORD}" \
+            -baselineOnMigrate=true \
+            -placeholders.iam_user= \
+            -connectRetries=5 \
+            migrate
+
+      # ── Deploy ───────────────────────────────────────────────────────────────
+      # WEB_BASE_URL has to be the service's own URL, which does not exist until the service does. On the
+      # very first deploy we therefore fall back to a placeholder and correct it below; on every deploy
+      # after that the URL is already known and this is a single revision.
+      - name: Resolve the service URL
+        id: url
+        run: |
+          URL=$(gcloud run services describe "$SERVICE" --region "$REGION" \
+                  --format='value(status.url)' 2>/dev/null || true)
+          echo "known=${URL}" >> "$GITHUB_OUTPUT"
+          echo "url=${URL:-http://localhost:8080}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to Cloud Run
+        env:
+          IMAGE: ${{ steps.build.outputs.image }}
+          BASE_URL: ${{ steps.url.outputs.url }}
+        run: |
+          # Google sign-in is wired only when it is actually configured. Spring validates every declared
+          # registration at startup and REJECTS an empty client-id, so passing these through blank would
+          # mean the service refuses to boot rather than simply not offering the button.
+          OAUTH_ENV=""
+          OAUTH_SECRETS=""
+          if [ -n "${{ vars.GOOGLE_OAUTH_CLIENT_ID }}" ]; then
+            OAUTH_ENV="|SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID=${{ vars.GOOGLE_OAUTH_CLIENT_ID }}"
+            OAUTH_ENV="${OAUTH_ENV}|SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_SCOPE=openid,email,profile"
+            # Set explicitly rather than letting Spring derive it from X-Forwarded-Host. One less thing
+            # that can be quietly wrong behind a proxy, and Google rejects a redirect_uri mismatch with
+            # an error that names neither.
+            OAUTH_ENV="${OAUTH_ENV}|SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_REDIRECT_URI=${BASE_URL}/login/oauth2/code/google"
+            OAUTH_SECRETS=",SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET=lightmove-google-oauth-client-secret:latest"
+          fi
+
+          # Same for Resend: EMAIL_PROVIDER=resend without a key fails fast at startup, by design. Until
+          # a sending domain is verified, the provider stays `log` and the secret is not mounted at all
+          # (an unmounted secret with no version is the difference between a deploy and a failed deploy).
+          EMAIL_PROVIDER="${{ vars.EMAIL_PROVIDER || 'log' }}"
+          EMAIL_SECRETS=""
+          if [ "$EMAIL_PROVIDER" = "resend" ]; then
+            EMAIL_SECRETS=",RESEND_API_KEY=lightmove-resend-api-key:latest"
+          fi
+
+          # ^|^ separates on | rather than a comma, because WEB_CORS_ORIGINS and the OAuth scope are both
+          # comma-lists. It must be a character no value contains — @ is wrong, because EMAIL_FROM is an email
+          # address and gcloud would split it mid-way and reject the domain half as a malformed entry.
+          gcloud run deploy "$SERVICE" \
+            --image "$IMAGE" \
+            --region "$REGION" \
+            --service-account "${{ vars.GCP_RUNTIME_SA }}" \
+            --allow-unauthenticated \
+            --min-instances 0 \
+            --max-instances 2 \
+            --cpu 1 --memory 1Gi --cpu-boost \
+            --concurrency 80 \
+            --timeout 60s \
+            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@lightmove.app' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem${OAUTH_ENV}" \
+            --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}"
+
+      # First deploy only: the service now has a URL, and it is not the placeholder we booted with.
+      # Verification emails and the OAuth redirect are built from WEB_BASE_URL, so this cannot be left.
+      - name: Correct WEB_BASE_URL on first deploy
+        if: steps.url.outputs.known == ''
+        run: |
+          URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
+          gcloud run services update "$SERVICE" --region "$REGION" \
+            --update-env-vars "^|^WEB_BASE_URL=${URL}|WEB_CORS_ORIGINS=${URL}"
+          echo "::notice::Service URL is ${URL}. Every deploy from here on resolves it automatically and takes one revision. If you enable Google sign-in, add ${URL}/login/oauth2/code/google to the OAuth client's authorised redirect URIs."
+
+      # ── Prove it actually works ──────────────────────────────────────────────
+      # `gcloud run deploy` succeeding means the revision started, not that it serves. These three assert
+      # the properties that this deployment exists to preserve.
+      - name: Smoke test
+        run: |
+          URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
+
+          echo "health"
+          curl -fsS --retry 5 --retry-delay 3 "$URL/actuator/health" > /dev/null
+
+          echo "the SPA is in the image and served at the root"
+          curl -fsS "$URL/" | grep -q '<div id="root">'
+
+          echo "metrics are NOT public (Actuator shares the app port here)"
+          [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/actuator/prometheus")" = "401" ]
+
+          echo "the API is still shut to anonymous callers"
+          [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/v1/onboarding/workspaces")" = "401" ]
+
+          echo "::notice::Deployed ${{ github.event.workflow_run.head_sha || github.sha }} to ${URL}"

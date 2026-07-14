@@ -16,11 +16,14 @@ import app.lightmove.api.invitation.application.InviteCommand;
 import app.lightmove.api.workspace.application.CreateWorkspaceCommand;
 import app.lightmove.api.workspace.application.OnboardingService;
 import app.lightmove.api.workspace.application.WorkspaceSummaries;
+import app.lightmove.api.workspace.domain.PendingOnboarding;
+import app.lightmove.api.workspace.domain.Workspace;
 import app.lightmove.api.workspace.domain.WorkspaceMember;
 import app.lightmove.api.workspace.domain.WorkspaceRole;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -85,13 +88,21 @@ public class OnboardingController {
                                                         HttpServletRequest httpRequest) {
         AuthPrincipal principal = CurrentUser.require();
 
-        onboarding.createWorkspace(
+        Optional<Workspace> created = onboarding.createWorkspace(
                 principal.userId(),
                 new CreateWorkspaceCommand(request.name(), request.companySize(),
                         request.primaryRegion(), request.jobTitle(), request.teamFocus()),
                 httpRequest);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(currentUser(principal));
+        // 202 when the user has not verified their address yet: their answers are held and the workspace
+        // is created when they click the link in their inbox. Nothing exists on their firm's domain until
+        // then — see PendingOnboarding for why that matters.
+        //
+        // The body says so too, and has to: the SPA's request helper returns the parsed body and never
+        // the status. `workspace` is null and `emailVerified` is false, which is not an omission — it is
+        // the truth, and it is what the wizard routes on.
+        HttpStatus status = created.isPresent() ? HttpStatus.CREATED : HttpStatus.ACCEPTED;
+        return ResponseEntity.status(status).body(currentUser(principal));
     }
 
     /**
@@ -106,12 +117,20 @@ public class OnboardingController {
                                                         HttpServletRequest httpRequest) {
         AuthPrincipal principal = CurrentUser.require();
 
-        onboarding.updateWorkspace(
-                principal.userId(),
-                principal.requireWorkspaceId(),
-                new CreateWorkspaceCommand(request.name(), request.companySize(),
-                        request.primaryRegion(), request.jobTitle(), request.teamFocus()),
-                httpRequest);
+        CreateWorkspaceCommand command = new CreateWorkspaceCommand(
+                request.name(), request.companySize(), request.primaryRegion(),
+                request.jobTitle(), request.teamFocus());
+
+        // No workspace yet means the wizard is still being held, waiting on verification — so "Back" is
+        // editing a draft, and createWorkspace already upserts it. This is the case the old comment on
+        // updateWorkspace complained about: step 2 used to commit, so going back had to mean editing a
+        // real workspace. It no longer commits, and the special case dissolves.
+        if (!principal.hasWorkspace()) {
+            onboarding.createWorkspace(principal.userId(), command, httpRequest);
+            return ResponseEntity.accepted().body(currentUser(principal));
+        }
+
+        onboarding.updateWorkspace(principal.userId(), principal.requireWorkspaceId(), command, httpRequest);
 
         return ResponseEntity.ok(currentUser(principal));
     }
@@ -146,9 +165,21 @@ public class OnboardingController {
                                                HttpServletRequest httpRequest) {
         AuthPrincipal principal = CurrentUser.require();
 
-        List<InviteCommand> commands = requests.stream()
+        // Held, not sent, while the user is unverified — they have no workspace to invite anyone into,
+        // and "email these five people on my say-so" is precisely the action an unproven account must
+        // not be able to take. They go out when the workspace is created at verification.
+        List<PendingOnboarding.PendingInvite> held = requests.stream()
                 // The mockup's dropdown defaults to Consultant; an omitted role must not become null.
-                .map(r -> new InviteCommand(r.email(), r.role() == null ? WorkspaceRole.CONSULTANT : r.role()))
+                .map(r -> new PendingOnboarding.PendingInvite(
+                        r.email(), r.role() == null ? WorkspaceRole.CONSULTANT : r.role()))
+                .toList();
+
+        if (onboarding.holdInvitations(principal.userId(), held)) {
+            return ResponseEntity.accepted().body(new InviteResult(held.size()));
+        }
+
+        List<InviteCommand> commands = held.stream()
+                .map(i -> new InviteCommand(i.email(), i.role()))
                 .toList();
 
         int sent = invitations.invite(principal, commands, httpRequest).size();

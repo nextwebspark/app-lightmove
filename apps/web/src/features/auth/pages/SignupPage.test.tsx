@@ -74,6 +74,7 @@ describe("SignupPage", () => {
         title: null,
         avatarUrl: null,
         emailVerified: false,
+    onboardingHeld: false,
         workspace: null,
       },
     });

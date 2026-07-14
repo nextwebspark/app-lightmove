@@ -85,6 +85,7 @@ describe("AcceptInvitePage", () => {
       title: null,
       avatarUrl: null,
       emailVerified: true,
+    onboardingHeld: false,
       workspace: null,
     });
 

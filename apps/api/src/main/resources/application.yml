@@ -9,7 +9,11 @@ spring:
     username: ${DB_USER:lm_app}
     password: ${DB_PASSWORD}
     hikari:
-      maximum-pool-size: 10   # bright-gcc is db-f1-micro; its connection ceiling is low.
+      # bright-gcc is db-f1-micro; its connection ceiling is low (~25) and the brightdata ETL shares it.
+      # This is per *instance*, so the real ceiling is pool × Cloud Run max-instances — which is why the
+      # deployed service runs a smaller pool than a laptop does. Exhaust it and you take down the
+      # neighbours, not just yourself.
+      maximum-pool-size: ${DB_POOL_MAX:10}
       minimum-idle: 2
 
   jpa:
@@ -29,7 +33,18 @@ spring:
 
   flyway:
     # Runs the hand-written SQL in db/migration, in order, once each. It generates nothing itself.
-    enabled: true
+    #
+    # On at boot for local development and the test suite, where "clone it and run it" is the whole
+    # point. OFF in the deployed service, where migrating at boot is wrong twice over:
+    #
+    #   - it forces lm_app — the *runtime* role, the one on the other end of any SQL injection we ever
+    #     ship — to hold CREATE ON SCHEMA public forever. ops/cloudsql/harden.sql revokes exactly that,
+    #     and cannot be applied while the application migrates itself.
+    #   - a bad migration should fail a deploy step and leave the previous revision serving. At boot it
+    #     crash-loops production instead, and you can roll back an image but not a schema.
+    #
+    # Deployed, Flyway runs as lm_migrate from the deploy pipeline, before the new revision goes live.
+    enabled: ${FLYWAY_ENABLED:true}
     locations: classpath:db/migration
     baseline-on-migrate: true
     placeholders:
@@ -59,7 +74,7 @@ spring:
       enabled: true           # Java 21 virtual threads: auth endpoints are IO-bound (DB, DNS, email).
 
 server:
-  port: 8080
+  port: ${PORT:8080}          # Cloud Run injects PORT and expects the container to honour it.
   error:
     include-message: never    # Error bodies are built in GlobalExceptionHandler, not leaked by the container.
   forward-headers-strategy: native
@@ -136,9 +151,15 @@ management:
   #
   # Prometheus scrapes :9090 from inside the network. On the app port, /actuator/** beyond health and
   # info is denyAll (SecurityConfig).
+  #
+  # Cloud Run routes exactly ONE port into a container, so a loopback socket on 9090 is unreachable —
+  # and with it, any health endpoint at all. There we set MANAGEMENT_PORT=8080: Actuator moves onto the
+  # app socket, SecurityConfig's chain 0 stands itself down, and chain 3 permits health and info while
+  # denying everything else. Metrics stay shut; only the fence moves, from the socket to the matcher.
+  #
+  # `address` is deliberately NOT here — see the profile block at the end of this file.
   server:
     port: ${MANAGEMENT_PORT:9090}
-    address: ${MANAGEMENT_ADDRESS:127.0.0.1}
   endpoints:
     web:
       exposure:
@@ -146,6 +167,10 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+      # Splits health into /actuator/health/liveness and /readiness. Cloud Run's startup probe wants
+      # readiness: an instance that booted but cannot reach Postgres must not be sent traffic.
+      probes:
+        enabled: true
   metrics:
     tags:
       application: lightmove-api
@@ -154,3 +179,23 @@ logging:
   level:
     app.lightmove.api: INFO
     org.springframework.security: INFO
+
+---
+# The management socket's loopback binding — and it can only live here, under a profile.
+#
+# Spring Boot refuses to start when `management.server.address` is set while Actuator shares the
+# application's port. It tests whether the *property exists*, not what it holds, so there is no value —
+# not empty, not null — that opts out of the check. The key must be absent.
+#
+# Cloud Run routes one port into a container, so there Actuator has to share 8080, so there the key must
+# not exist. Which leaves exactly one place it can be set: a deployment that really does run a separate
+# management port. Today that is local development, where 9090 stays bound to loopback and Actuator is
+# unreachable from outside the machine — the property this arrangement exists to preserve.
+spring:
+  config:
+    activate:
+      on-profile: local
+
+management:
+  server:
+    address: 127.0.0.1

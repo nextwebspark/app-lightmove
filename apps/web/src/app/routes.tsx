@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Logo } from "../components/ui";
 import { useAuth } from "../features/auth/AuthProvider";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
+import { CheckInboxPage } from "../features/auth/pages/CheckInboxPage";
 import { InviteStepPage } from "../features/auth/pages/InviteStepPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
@@ -39,7 +40,11 @@ export function AppRoutes() {
 
       {/* Signed in, but not yet in a workspace. */}
       <Route path="/signup/workspace" element={<RequireAuth><WorkspaceStepPage /></RequireAuth>} />
-      <Route path="/signup/invite" element={<RequireWorkspace><InviteStepPage /></RequireWorkspace>} />
+      {/* RequireAuth, not RequireWorkspace: an unverified user has no workspace yet — theirs is held
+          until they confirm their address — and is still entitled to finish their own signup. Guarding
+          this with RequireWorkspace bounced them straight back to step 2, in a loop. */}
+      <Route path="/signup/invite" element={<RequireAuth><InviteStepPage /></RequireAuth>} />
+      <Route path="/signup/verify" element={<RequireAuth><CheckInboxPage /></RequireAuth>} />
       <Route path="/signup/pending" element={<RequireAuth><PendingApprovalPage /></RequireAuth>} />
 
       <Route path="/" element={<RequireWorkspace><WorkspacePage /></RequireWorkspace>} />
@@ -63,9 +68,24 @@ function AnonymousOnly({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
 
   if (loading) return <Booting />;
-  if (user) return <Navigate to={user.workspace ? "/" : "/signup/workspace"} replace />;
+  if (user) return <Navigate to={homeFor(user)} replace />;
 
   return <>{children}</>;
+}
+
+/**
+ * Where a signed-in user actually belongs, given what is true of them right now.
+ *
+ * Three states share `workspace: null` and they are not the same place. Someone who has not started
+ * onboarding needs the wizard. Someone who *finished* it while unverified needs their inbox, not an
+ * empty form they have already filled in. And someone verified but still workspace-less asked to join
+ * one and is waiting on an admin.
+ */
+function homeFor(user: { workspace: unknown; onboardingHeld: boolean; emailVerified: boolean }) {
+  if (user.workspace) return "/";
+  if (user.onboardingHeld) return "/signup/verify";
+  if (user.emailVerified) return "/signup/pending";
+  return "/signup/workspace";
 }
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -94,7 +114,7 @@ function RequireWorkspace({ children }: { children: ReactNode }) {
 
   if (loading) return <Booting />;
   if (!user) return <Navigate to="/login" replace />;
-  if (!user.workspace) return <Navigate to="/signup/workspace" replace />;
+  if (!user.workspace) return <Navigate to={homeFor(user)} replace />;
 
   return <>{children}</>;
 }

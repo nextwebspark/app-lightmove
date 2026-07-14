@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.IntegrationTest;
@@ -174,16 +175,23 @@ class AuthFlowIntegrationTest {
      * The trust model in one test.
      *
      * <p>Membership of a firm is inferred from an email domain, so an unverified address is an unproven
-     * claim and must buy nothing. Before this was enforced, anyone could sign up as
-     * {@code victim@realfirm.com}, never open the mailbox, and become ADMIN of a workspace bound to
-     * {@code realfirm.com} — squatting a company they have no connection to.
+     * claim and must buy nothing. Anyone can sign up as {@code victim@realfirm.com}; nobody may become
+     * ADMIN of a workspace bound to {@code realfirm.com} by doing so.
+     *
+     * <p>Note what is asserted, and what is not. The request is <b>accepted</b> — refusing it stranded a
+     * user in the middle of their own signup, which is what this used to do. What must not happen is that
+     * anything comes into <i>existence</i>: the assertion that matters is the second one, that the
+     * squatted firm does not appear on the domain. A real employee of that firm, signing up next, must
+     * not be shown an impostor's organisation as "your firm is already here" — and then wait forever for
+     * an approval from an admin who can never verify.
      */
     @Test
-    @DisplayName("an unverified user cannot create a workspace on a domain they have not proven")
+    @DisplayName("an unverified user's workspace does not exist until they verify")
     void unverifiedUserCannotClaimADomain() throws Exception {
         // Signed up, never clicked the link. The token is valid; the address is not proven.
         String unverified = bearer(signup("Impostor", "impostor@" + domain, PASSWORD));
 
+        // Accepted, not refused: they may finish their own wizard.
         mvc.perform(post("/api/v1/onboarding/workspace")
                         .header("Authorization", unverified)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -191,16 +199,64 @@ class AuthFlowIntegrationTest {
                                 {"name":"Squatted Firm","companySize":"11-50 people","primaryRegion":"GCC",
                                  "jobTitle":"Partner","teamFocus":"Executive search"}
                                 """))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isAccepted())
+                // No workspace on the response, because there is no workspace.
+                .andExpect(jsonPath("$.workspace").doesNotExist());
+
+        // And this is the line that matters: nothing on the domain. The squatted firm is not merely
+        // hidden behind a filter — it does not exist to be filtered.
+        MvcResult fork = mvc.perform(get("/api/v1/onboarding/workspaces")
+                        .header("Authorization", unverified))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(body(fork)).isEmpty();
     }
 
+    /** And it comes into existence the moment they prove the mailbox — not before, and not never. */
     @Test
-    @DisplayName("an unverified user cannot ask to join a workspace")
-    void unverifiedUserCannotRequestToJoin() throws Exception {
-        String alok = verifiedUser("Alok Kumar", alokEmail);
-        String workspaceId = createWorkspace(alok, "NextWebSpark Search");
+    @DisplayName("verifying materialises the workspace the wizard was holding")
+    void verifyingMaterialisesTheHeldWorkspace() throws Exception {
+        String unverified = bearer(signup("Alok Kumar", alokEmail, PASSWORD));
 
-        String unverified = bearer(signup("Impostor", "impostor@" + domain, PASSWORD));
+        mvc.perform(post("/api/v1/onboarding/workspace")
+                        .header("Authorization", unverified)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"NextWebSpark Search","companySize":"11-50 people",
+                                 "primaryRegion":"GCC","jobTitle":"Partner","teamFocus":"Executive search"}
+                                """))
+                .andExpect(status().isAccepted());
+
+        MvcResult verified = mvc.perform(post("/api/v1/auth/verify")
+                        .param("token", email.latestTokenFor(alokEmail)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        // The click that verified the email is the click that created the organisation.
+        JsonNode user = body(verified);
+        assertThat(user.get("emailVerified").asBoolean()).isTrue();
+        assertThat(user.at("/workspace/name").asText()).isEqualTo("NextWebSpark Search");
+        assertThat(user.at("/workspace/role").asText()).isEqualTo("ADMIN");
+        assertThat(user.at("/workspace/emailDomain").asText()).isEqualTo(domain);
+    }
+
+    /**
+     * The same rule on the other branch of step 2: the request may be made, but it must not reach an
+     * admin's approval queue until the address behind it is proven. An admin deciding on a stranger is
+     * deciding on the strength of an email domain — so that domain had better be evidence.
+     */
+    @Test
+    @DisplayName("an unverified join request does not reach the admin's queue until they verify")
+    void unverifiedUserCannotRequestToJoin() throws Exception {
+        createWorkspace(verifiedUser("Alok Kumar", alokEmail), "NextWebSpark Search");
+        // Re-issued, because the token he was holding was minted before the workspace existed and
+        // carries no tenant claim — so it cannot read the workspace's own approval queue.
+        String admin = tokenWithWorkspace(alokEmail);
+
+        String impostorEmail = "impostor@" + domain;
+        String unverified = bearer(signup("Impostor", impostorEmail, PASSWORD));
+        String workspaceId = onlyWorkspaceIdOnTheDomain(unverified);
 
         mvc.perform(post("/api/v1/onboarding/join-requests")
                         .header("Authorization", unverified)
@@ -208,7 +264,28 @@ class AuthFlowIntegrationTest {
                         .content("""
                                 {"workspaceId":"%s","requestedRole":"CONSULTANT"}
                                 """.formatted(workspaceId)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isAccepted());
+
+        // Nothing in the queue. The admin is not asked to judge an unproven address.
+        mvc.perform(get("/api/v1/members/pending").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+
+        // They verify, and only now does the admin have something to decide.
+        mvc.perform(post("/api/v1/auth/verify").param("token", email.latestTokenFor(impostorEmail)))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/v1/members/pending").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    /** The id of the one workspace on the caller's domain, as the wizard's fork would show it. */
+    private String onlyWorkspaceIdOnTheDomain(String bearerHeader) throws Exception {
+        MvcResult fork = mvc.perform(get("/api/v1/onboarding/workspaces")
+                        .header("Authorization", bearerHeader))
+                .andReturn();
+        return body(fork).get(0).get("id").asText();
     }
 
     /**

@@ -5,6 +5,7 @@ import app.lightmove.api.auth.domain.User;
 import app.lightmove.api.auth.domain.VerificationToken;
 import app.lightmove.api.auth.infrastructure.UserRepository;
 import app.lightmove.api.auth.infrastructure.VerificationTokenRepository;
+import app.lightmove.api.auth.domain.EmailVerifiedEvent;
 import app.lightmove.api.common.audit.AuditEventType;
 import app.lightmove.api.common.audit.AuditService;
 import app.lightmove.api.common.config.LightMoveProperties;
@@ -20,6 +21,7 @@ import java.time.Instant;
 import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,16 +44,19 @@ public class VerificationService {
     private final EmailTemplates templates;
     private final AuditService audit;
     private final LightMoveProperties properties;
+    private final ApplicationEventPublisher events;
 
     public VerificationService(UserRepository users, VerificationTokenRepository tokens,
                                EmailSender emailSender, EmailTemplates templates,
-                               AuditService audit, LightMoveProperties properties) {
+                               AuditService audit, LightMoveProperties properties,
+                               ApplicationEventPublisher events) {
         this.users = users;
         this.tokens = tokens;
         this.emailSender = emailSender;
         this.templates = templates;
         this.audit = audit;
         this.properties = properties;
+        this.events = events;
     }
 
     /**
@@ -119,6 +124,15 @@ public class VerificationService {
 
         log.info("Email verified for user {}", user.getId());
         audit.event(AuditEventType.EMAIL_VERIFIED).actor(user.getId()).from(request).record();
+
+        // The signup wizard, if they filled it in before verifying, becomes real here — the workspace is
+        // created, or the join request reaches an admin's queue. Published rather than called: what
+        // happens next belongs to the workspace feature, and auth has no business knowing it exists.
+        //
+        // Synchronous, so it commits with this transaction. A user who clicks their link and lands in a
+        // verified account with no organisation, because a background listener failed quietly, has
+        // nowhere to go and no way to retry.
+        events.publishEvent(new EmailVerifiedEvent(user.getId(), request));
 
         return user;
     }

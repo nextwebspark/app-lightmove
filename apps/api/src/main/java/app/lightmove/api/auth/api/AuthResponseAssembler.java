@@ -7,6 +7,7 @@ import app.lightmove.api.auth.application.TokenPair;
 import app.lightmove.api.auth.domain.User;
 import app.lightmove.api.workspace.domain.Workspace;
 import app.lightmove.api.workspace.domain.WorkspaceMember;
+import app.lightmove.api.workspace.infrastructure.PendingOnboardingRepository;
 import app.lightmove.api.workspace.infrastructure.WorkspaceRepository;
 import org.springframework.stereotype.Component;
 
@@ -20,9 +21,11 @@ import org.springframework.stereotype.Component;
 public class AuthResponseAssembler {
 
     private final WorkspaceRepository workspaces;
+    private final PendingOnboardingRepository pending;
 
-    public AuthResponseAssembler(WorkspaceRepository workspaces) {
+    public AuthResponseAssembler(WorkspaceRepository workspaces, PendingOnboardingRepository pending) {
         this.workspaces = workspaces;
+        this.pending = pending;
     }
 
     public AuthResponse assemble(TokenPair tokens, User user, WorkspaceMember membership) {
@@ -40,7 +43,10 @@ public class AuthResponseAssembler {
                 user.getTitle(),
                 user.getAvatarUrl(),
                 user.isEmailVerified(),
-                workspaceSummary(membership));
+                workspaceSummary(membership),
+                // Only meaningful for an unverified user: verifying materialises the wizard, so a
+                // verified one never has anything held.
+                !user.isEmailVerified() && pending.findByUserId(user.getId()).isPresent());
     }
 
     /** Null when the user has signed up but not yet created their organisation. */

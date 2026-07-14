@@ -4,18 +4,24 @@ import app.lightmove.api.auth.domain.User;
 import app.lightmove.api.auth.infrastructure.UserRepository;
 import app.lightmove.api.common.audit.AuditEventType;
 import app.lightmove.api.common.audit.AuditService;
+import app.lightmove.api.common.config.LightMoveProperties;
 import app.lightmove.api.common.error.ApiException;
 import app.lightmove.api.common.error.ErrorCode;
 import app.lightmove.api.email.EmailAddressValidator;
 import app.lightmove.api.workspace.domain.MemberStatus;
+import app.lightmove.api.workspace.domain.PendingOnboarding;
+import app.lightmove.api.workspace.domain.PendingOnboardingKind;
 import app.lightmove.api.workspace.domain.Workspace;
 import app.lightmove.api.workspace.domain.WorkspaceMember;
 import app.lightmove.api.workspace.domain.WorkspaceRole;
 import app.lightmove.api.workspace.domain.WorkspaceStatus;
+import app.lightmove.api.workspace.infrastructure.PendingOnboardingRepository;
 import app.lightmove.api.workspace.infrastructure.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.infrastructure.WorkspaceRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,17 +48,23 @@ public class OnboardingService {
 
     private final WorkspaceRepository workspaces;
     private final WorkspaceMemberRepository members;
+    private final PendingOnboardingRepository pending;
     private final UserRepository users;
     private final EmailAddressValidator emailValidator;
     private final AuditService audit;
+    private final LightMoveProperties properties;
 
     public OnboardingService(WorkspaceRepository workspaces, WorkspaceMemberRepository members,
-                             UserRepository users, EmailAddressValidator emailValidator, AuditService audit) {
+                             PendingOnboardingRepository pending, UserRepository users,
+                             EmailAddressValidator emailValidator, AuditService audit,
+                             LightMoveProperties properties) {
         this.workspaces = workspaces;
         this.members = members;
+        this.pending = pending;
         this.users = users;
         this.emailValidator = emailValidator;
         this.audit = audit;
+        this.properties = properties;
     }
 
     /**
@@ -74,18 +86,43 @@ public class OnboardingService {
     }
 
     /**
-     * Creates a workspace and makes its creator an ADMIN.
+     * Signup step 2, path A — "create my own".
      *
-     * <p>The domain is taken from the user's own address, never from the request — that is the
+     * <p>Creates the workspace if the user has verified their address. If they have not, the wizard is
+     * <b>held</b> and an empty Optional comes back: they carry on to step 3, and the workspace is
+     * created the moment they click the link in their inbox.
+     *
+     * <p>The holding is not politeness about a half-finished form. The email domain is our only evidence
+     * that someone works at a firm, so a workspace bound to {@code goldmansachs.com} must not exist
+     * because somebody typed that address into a signup form and never opened the mailbox. If it did,
+     * every real employee of that firm would later be shown the impostor's organisation as "your firm is
+     * already here" — and asking to join it would leave them pending forever, because its only admin can
+     * never verify. Nothing on the domain exists until the mailbox is proved.
+     *
+     * <p>The domain itself is taken from the user's own address, never from the request — that is the
      * difference between recording which firm a workspace belongs to and letting anyone claim any
-     * company's domain by typing it into a form.
+     * company's by typing it into a form.
+     *
+     * @return the workspace, or empty if it is waiting on email verification.
      */
     @Transactional
-    public Workspace createWorkspace(UUID userId, CreateWorkspaceCommand command, HttpServletRequest request) {
+    public Optional<Workspace> createWorkspace(UUID userId, CreateWorkspaceCommand command,
+                                               HttpServletRequest request) {
         User user = requireUser(userId);
-        requireVerified(user);
         requireNoExistingMembership(userId);
 
+        if (!user.isEmailVerified()) {
+            holdCreate(userId, command);
+            log.info("Held workspace creation for unverified user {}", userId);
+            return Optional.empty();
+        }
+
+        return Optional.of(commitCreate(user, command, request));
+    }
+
+    /** The act itself, once someone is entitled to it. Reached from step 2, or from verification. */
+    private Workspace commitCreate(User user, CreateWorkspaceCommand command, HttpServletRequest request) {
+        UUID userId = user.getId();
         String domain = EmailAddressValidator.domainOf(user.getEmail());
         String slug = SlugGenerator.from(command.name(), workspaces::existsBySlug);
 
@@ -150,10 +187,10 @@ public class OnboardingService {
      * which is what stops someone walking in and declaring themselves an ADMIN.
      */
     @Transactional
-    public WorkspaceMember requestToJoin(UUID userId, UUID workspaceId, WorkspaceRole requestedRole,
-                                         HttpServletRequest request) {
+    public Optional<WorkspaceMember> requestToJoin(UUID userId, UUID workspaceId,
+                                                   WorkspaceRole requestedRole,
+                                                   HttpServletRequest request) {
         User user = requireUser(userId);
-        requireVerified(user);
         requireNoExistingMembership(userId);
 
         Workspace workspace = workspaces.findById(workspaceId)
@@ -161,6 +198,9 @@ public class OnboardingService {
 
         // You may only ask to join a workspace on your own domain. Without this, anyone could enumerate
         // workspace ids and pepper unrelated firms with join requests.
+        //
+        // Checked even for the held case: a request that could never be granted should be refused now,
+        // not silently stored and refused in three days' time when they finally click the link.
         //
         // Served as 403 rather than 404 only because they had to have been shown this id to reach here;
         // a stranger guessing ids gets nothing useful either way.
@@ -178,6 +218,19 @@ public class OnboardingService {
             });
         });
 
+        // Held, for the same reason a creation is: an admin's approval queue is not a place to put
+        // people who have not shown they read the mailbox they claim as their evidence of employment.
+        if (!user.isEmailVerified()) {
+            holdJoin(userId, workspaceId, requestedRole);
+            log.info("Held join request from unverified user {} for workspace {}", userId, workspaceId);
+            return Optional.empty();
+        }
+
+        return Optional.of(commitJoin(userId, workspaceId, requestedRole, request));
+    }
+
+    private WorkspaceMember commitJoin(UUID userId, UUID workspaceId, WorkspaceRole requestedRole,
+                                       HttpServletRequest request) {
         WorkspaceMember member = members.save(
                 WorkspaceMember.requestToJoin(workspaceId, userId, requestedRole));
 
@@ -188,6 +241,118 @@ public class OnboardingService {
                 .record();
 
         return member;
+    }
+
+    /**
+     * Step 3 — the invitations, held with the rest of the wizard when there is no workspace yet.
+     *
+     * @return false when they were sent immediately (the user is verified and has a workspace), true
+     *         when they were held until verification.
+     */
+    @Transactional
+    public boolean holdInvitations(UUID userId, List<PendingOnboarding.PendingInvite> invites) {
+        User user = requireUser(userId);
+        if (user.isEmailVerified()) {
+            return false;
+        }
+        // Held rather than sent, because "send an email to these five people" is an action LightMove
+        // takes on the user's word — and their word is exactly what has not been checked yet. An
+        // unverified account must not be able to make us mail strangers.
+        //
+        // They belong to the organisation being created, so there must be one. A user who reached step 3
+        // without a held CREATE has nothing to invite anyone into; nothing is stored, and the invitations
+        // are simply not sent — which is already true, and is what the 202 says.
+        pending.findByUserId(userId)
+                .filter(held -> held.getKind() == PendingOnboardingKind.CREATE)
+                .ifPresentOrElse(
+                        held -> held.holdInvitations(invites),
+                        () -> log.warn("Invitations from user {} with no held organisation — dropped", userId));
+        return true;
+    }
+
+    /**
+     * The moment the wizard becomes real: the user has proved the mailbox, so what they asked for at
+     * step 2 can now be done in their name.
+     *
+     * <p>Deliberately forgiving. Verification is the user's act and must succeed — if the held intent
+     * can no longer be honoured (it expired, they joined somewhere else in the meantime, the workspace
+     * they wanted to join has since been deleted), the intent is dropped and verification still stands.
+     * The alternative is a user who clicks a valid link and is told their email could not be verified,
+     * for reasons that have nothing to do with their email.
+     *
+     * @return the invitations to send, now that there is a workspace to send them for. Empty unless a
+     *         CREATE was materialised.
+     */
+    @Transactional
+    public Optional<Materialised> materialise(UUID userId, HttpServletRequest request) {
+        PendingOnboarding held = pending.findByUserId(userId).orElse(null);
+        if (held == null) {
+            return Optional.empty();
+        }
+
+        pending.delete(held);
+
+        if (held.isExpired(Instant.now())) {
+            log.info("Discarding an expired held wizard for user {}", userId);
+            return Optional.empty();
+        }
+        if (members.findByUserIdAndStatus(userId, MemberStatus.ACTIVE).isPresent()) {
+            log.info("Discarding a held wizard for user {} — they are already in a workspace", userId);
+            return Optional.empty();
+        }
+
+        User user = requireUser(userId);
+
+        if (held.getKind() == PendingOnboardingKind.JOIN) {
+            if (workspaces.findById(held.getWorkspaceId()).isEmpty()) {
+                log.info("Discarding a held join for user {} — workspace {} is gone",
+                        userId, held.getWorkspaceId());
+                return Optional.empty();
+            }
+            commitJoin(userId, held.getWorkspaceId(), held.getRequestedRole(), request);
+            return Optional.of(new Materialised(null, List.of()));
+        }
+
+        Workspace workspace = commitCreate(user, new CreateWorkspaceCommand(
+                held.getName(), held.getCompanySize(), held.getPrimaryRegion(),
+                held.getJobTitle(), held.getTeamFocus()), request);
+
+        return Optional.of(new Materialised(workspace, held.getInvitations()));
+    }
+
+    /**
+     * Records what they asked for at step 2, or amends it if they went Back and changed their mind.
+     *
+     * <p>Built complete and saved once, never saved empty and filled in afterwards: the table's CHECK
+     * constraints require a CREATE row to carry a name and a JOIN row to carry a workspace, and a
+     * half-built insert is rejected by the database — as it should be.
+     */
+    private void holdCreate(UUID userId, CreateWorkspaceCommand command) {
+        pending.findByUserId(userId).ifPresentOrElse(
+                held -> held.describe(command.name().trim(), command.companySize(),
+                        command.primaryRegion(), command.teamFocus(), command.jobTitle()),
+                () -> pending.save(PendingOnboarding.toCreate(userId, command.name().trim(),
+                        command.companySize(), command.primaryRegion(), command.teamFocus(),
+                        command.jobTitle(), expiry())));
+    }
+
+    private void holdJoin(UUID userId, UUID workspaceId, WorkspaceRole requestedRole) {
+        pending.findByUserId(userId).ifPresentOrElse(
+                held -> held.redirectToJoin(workspaceId, requestedRole),
+                () -> pending.save(PendingOnboarding.toJoin(userId, workspaceId, requestedRole, expiry())));
+    }
+
+    /**
+     * The held wizard dies with the verification link that would have redeemed it. The intent and the
+     * proof of intent have the same lifetime: a link that no longer works must not be able to bring a
+     * three-week-old draft organisation to life.
+     */
+    private Instant expiry() {
+        return Instant.now().plus(properties.auth().verificationTokenTtl());
+    }
+
+    /** What verification turned a held wizard into, so the caller can finish the job (send the invites). */
+    public record Materialised(Workspace workspace, List<PendingOnboarding.PendingInvite> invitations) {
     }
 
     /** Pending join requests, for the admin who has to decide on them. */
@@ -274,19 +439,4 @@ public class OnboardingService {
         return users.findById(userId).orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
     }
 
-    /**
-     * Both ways into an organisation require a proven mailbox.
-     *
-     * <p>The filter chain enforces this too, and this is not redundant with it. The rule is a domain
-     * rule, not a routing rule: it says an unverified address may not be used to claim membership of
-     * the firm it names. A future caller — an admin tool, a migration, a new endpoint someone forgets
-     * to add to the matcher list — reaches this method without passing that chain, and the rule must
-     * still hold. The chain rejects the request; this rejects the operation.
-     */
-    private void requireVerified(User user) {
-        if (!user.isEmailVerified()) {
-            throw new ApiException(ErrorCode.EMAIL_NOT_VERIFIED,
-                    "User %s attempted onboarding with an unverified address".formatted(user.getId()));
-        }
-    }
 }

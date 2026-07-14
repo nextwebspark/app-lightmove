@@ -30,6 +30,17 @@ export interface User {
    * someone belongs in the app or back in the onboarding wizard.
    */
   workspace: WorkspaceSummary | null;
+
+  /**
+   * They finished the wizard but have not verified their email, so what they asked for is held: no
+   * workspace exists on their firm's domain, and no join request has reached an admin. Verifying is
+   * what makes it real.
+   *
+   * The router needs this to tell "has not started onboarding" from "has finished it and is waiting on
+   * their inbox" — both of which have `workspace: null`. Without it, a user who closes the tab comes
+   * back to an empty form they have already filled in.
+   */
+  onboardingHeld: boolean;
 }
 
 export interface AuthResponse {

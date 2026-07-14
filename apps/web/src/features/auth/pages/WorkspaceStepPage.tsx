@@ -75,8 +75,10 @@ export function WorkspaceStepPage() {
             workspaces={joinable}
             onCreateInstead={() => setMode("create")}
             onJoined={async () => {
-              await reload();
-              navigate("/signup/pending", { replace: true });
+              const fresh = await reload();
+              // An unverified user's request has not reached the admin's queue — it is held until they
+              // confirm their address. "Waiting for approval" would be a lie: nobody has been asked yet.
+              navigate(fresh?.emailVerified ? "/signup/pending" : "/signup/verify", { replace: true });
             }}
           />
         ) : (

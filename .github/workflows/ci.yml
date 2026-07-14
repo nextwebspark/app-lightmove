@@ -1,0 +1,56 @@
+name: CI
+
+# The gate. deploy.yml will not run unless this is green on the same commit.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      # `verify`, not `test`: the suite is Testcontainers and boots a real Postgres 16, because the
+      # schema is Postgres — partial unique indexes, citext, an append-only trigger — and a suite green
+      # against H2 would prove the code works on a database we do not ship. GitHub's ubuntu runners have
+      # a Docker daemon, which is exactly why this job lives here and not in a Cloud Build step.
+      - name: Test
+        working-directory: apps/api
+        run: ./mvnw -B verify
+
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint --workspace=apps/web
+
+      - name: Test
+        run: npm run test --workspace=apps/web
+
+      # `tsc -b && vite build`. Runs the type checker, so a type error fails CI rather than surfacing
+      # later as a broken image — the Dockerfile runs this same command.
+      - name: Build
+        run: npm run build --workspace=apps/web

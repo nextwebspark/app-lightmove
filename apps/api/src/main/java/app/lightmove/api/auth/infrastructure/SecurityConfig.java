@@ -1,6 +1,7 @@
 package app.lightmove.api.auth.infrastructure;
 
 import app.lightmove.api.common.config.LightMoveProperties;
+import app.lightmove.api.common.error.ProblemAccessDeniedHandler;
 import org.springframework.boot.actuate.autoconfigure.web.server.ManagementServerProperties;
 import org.springframework.boot.web.server.autoconfigure.ServerProperties;
 import org.springframework.beans.factory.ObjectProvider;
@@ -29,8 +30,8 @@ import java.util.List;
 /**
  * The filter chains.
  *
- * <p>There are two, and splitting them is the point — because LightMove authenticates in two different
- * ways, with two different threat models:
+ * <p>Two of them authenticate, and splitting <i>those</i> is the point — because LightMove authenticates
+ * in two different ways, with two different threat models:
  *
  * <ul>
  *   <li><b>Bearer-token routes</b> (almost everything). The caller proves themselves with an
@@ -42,6 +43,9 @@ import java.util.List;
  *       request that evil.com made. That is textbook CSRF, and it is why these routes keep CSRF
  *       protection on.
  * </ul>
+ *
+ * <p>The other two carry no credential at all: Actuator, fenced off onto its own socket, and the SPA,
+ * which is static files.
  *
  * <p>Spring Security 7 enables CSRF for API endpoints by default — a change from Spring Security 6,
  * and the single most common reason a Boot 3 auth tutorial fails on Boot 4. The lazy fix is
@@ -66,16 +70,28 @@ public class SecurityConfig {
      * <p>The alternative — the tenant's own {@code ROLE_ADMIN}, which is what this used to be — meant
      * every customer who created a workspace could read our metrics. A workspace role is not a system
      * role, and no amount of matcher cleverness fixes that; only a different socket does.
+     *
+     * <p><b>Cloud Run routes exactly one port into a container</b>, so there the two ports are set equal
+     * (`MANAGEMENT_PORT=8080`) and this chain deliberately matches nothing. That is not a loophole: with
+     * Actuator on the app socket, chain 3 governs it, and chain 3 permits only {@code health} and
+     * {@code info} and denies the rest. Metrics stay shut either way — the fence just moves from the
+     * socket to the matcher.
      */
     @Bean
     @Order(0)
     SecurityFilterChain actuatorChain(HttpSecurity http, ServerProperties server,
-                                      ManagementServerProperties management) throws Exception {
-        Integer managementPort = management.getPort();
+                                      ObjectProvider<ManagementServerProperties> management) throws Exception {
+        // ObjectProvider, not a plain parameter: Spring Boot only registers ManagementServerProperties
+        // when Actuator gets a management context of its own, which it only gets when its port DIFFERS
+        // from the application's. Ask for the bean outright and the same-port case — the one this method
+        // exists to handle, and the one Cloud Run forces — fails to inject and the application does not
+        // start at all. The branch below was unreachable until this became optional.
+        ManagementServerProperties properties = management.getIfAvailable();
+        Integer managementPort = properties == null ? null : properties.getPort();
         int appPort = server.getPort() == null ? 8080 : server.getPort();
 
         // Same port for both means Actuator is on the app socket, and this chain must not exist — chain
-        // 2's denyAll is the only correct answer there.
+        // 3's denyAll is the only correct answer there.
         if (managementPort == null || managementPort.equals(appPort)) {
             return http.securityMatcher(request -> false).build();
         }
@@ -97,7 +113,8 @@ public class SecurityConfig {
     @Order(1)
     SecurityFilterChain cookieAuthChain(HttpSecurity http,
                                         @Qualifier("corsConfigurationSource") CorsConfigurationSource cors,
-                                        JwtPrincipalConverter principalConverter)
+                                        JwtPrincipalConverter principalConverter,
+                                        ProblemAccessDeniedHandler accessDenied)
             throws Exception {
         CookieCsrfTokenRepository csrfRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
 
@@ -105,6 +122,10 @@ public class SecurityConfig {
                 .securityMatcher(API + "/auth/**")
                 .cors(c -> c.configurationSource(cors))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // A rejected CSRF token is denied here, in the filter chain, where no
+                // @RestControllerAdvice can see it. Without this it answers a bodiless 403 and the
+                // SPA cannot tell "re-fetch the token and retry" from "you may not do this".
+                .exceptionHandling(e -> e.accessDeniedHandler(accessDenied))
 
                 // Double-submit: the SPA reads the XSRF-TOKEN cookie (readable by design — that is
                 // what withHttpOnlyFalse means) and echoes it in the X-XSRF-TOKEN header. Another
@@ -144,10 +165,45 @@ public class SecurityConfig {
     }
 
     /**
-     * Chain 2: everything else. Stateless bearer tokens, CSRF off (see the class note).
+     * Chain 2: the SPA — its assets, and the history fallback that serves {@code index.html} for a
+     * route the browser asks for directly.
+     *
+     * <p>The SPA is served from the same origin as the API, and that is not a packaging convenience:
+     * the refresh cookie is {@code SameSite=Strict} and host-only, so a browser will only ever send it
+     * back to the host that served the page. One origin is what makes the auth model work at all — it
+     * is the same reason the Vite dev server proxies {@code /api} rather than pointing at :8080.
+     *
+     * <p>Matched by <i>exclusion</i> — everything that is not the API, Actuator, or the OAuth2 redirect
+     * endpoints. The alternative, listing the SPA's routes, rots: the router grows a route, nobody
+     * updates this list, and the new screen answers 401 to a user who is perfectly well logged in.
+     *
+     * <p>The consequence is worth stating plainly, because it is the cost of matching this way: any
+     * future endpoint <b>outside</b> {@code /api/v1} is public. Every endpoint in this codebase lives
+     * under {@code /api/v1}. Keep it that way — {@code SpaSecurityTest} holds that line.
      */
     @Bean
     @Order(2)
+    SecurityFilterChain spaChain(HttpSecurity http) throws Exception {
+        return http
+                .securityMatcher(request -> {
+                    String path = request.getRequestURI();
+                    return !path.startsWith("/api/")
+                            && !path.startsWith("/actuator")
+                            && !path.startsWith("/oauth2/")
+                            && !path.startsWith("/login/oauth2");
+                })
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                // Static files. There is no state to forge a request against.
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .build();
+    }
+
+    /**
+     * Chain 3: everything else. Stateless bearer tokens, CSRF off (see the class note).
+     */
+    @Bean
+    @Order(3)
     SecurityFilterChain apiChain(HttpSecurity http,
                                  // Qualified because Spring MVC's HandlerMappingIntrospector is also a
                                  // CorsConfigurationSource, so the type alone is ambiguous.
@@ -155,6 +211,7 @@ public class SecurityConfig {
                                  JwtPrincipalConverter principalConverter,
                                  OAuth2LoginSuccessHandler oauthSuccessHandler,
                                  ObjectProvider<ClientRegistrationRepository> clientRegistrations,
+                                 ProblemAccessDeniedHandler accessDenied,
                                  LightMoveProperties properties) throws Exception {
         AuthorizationManager<RequestAuthorizationContext> verified =
                 verifiedEmail(properties.auth().requireVerifiedEmail());
@@ -163,7 +220,12 @@ public class SecurityConfig {
                 .cors(c -> c.configurationSource(cors))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(e -> e.authenticationEntryPoint(new BearerTokenAuthenticationEntryPoint()))
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint(new BearerTokenAuthenticationEntryPoint())
+                        // Every verified-email refusal lands here. The default handler writes an empty
+                        // 403 — which is how the most consequential gate in the product reached users
+                        // as "That request could not be completed."
+                        .accessDeniedHandler(accessDenied))
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -185,24 +247,33 @@ public class SecurityConfig {
                         // preview names.
                         .requestMatchers(HttpMethod.GET, API + "/onboarding/invitations/preview").permitAll()
 
-                        // The one onboarding *read*, and it stays open to an unverified user on purpose:
-                        // it answers "is my firm already here?", which the wizard must ask before it can
-                        // offer the join-or-create fork. It discloses only workspace names on the
-                        // caller's own email domain.
-                        .requestMatchers(HttpMethod.GET, API + "/onboarding/workspaces").authenticated()
+                        // Redeeming an invitation stays verified-only, and is the one onboarding write
+                        // that cannot be *held*: accepting lands you ACTIVE in a real workspace
+                        // immediately, with real access to a real firm's candidate data. Holding the
+                        // link is not proof of the mailbox — an invitation forwarded, or read over a
+                        // shoulder, is a link in the hands of someone it was not sent to.
+                        .requestMatchers(API + "/onboarding/invitations/accept").access(verified)
 
-                        // Onboarding *writes*. These need a verified address, because every one of them
-                        // acts on the claim that you work at the firm your email domain names — and an
-                        // unverified address is an unproven claim. Without this, anyone could sign up as
-                        // victim@realfirm.com, never open the mailbox, and become ADMIN of a workspace
-                        // bound to realfirm.com.
+                        // Onboarding is the user's own signup, and they are allowed to finish it.
                         //
-                        // They cannot require a workspace role: the caller has no workspace yet. That is
-                        // the whole point of onboarding, and it is why these need their own rule rather
-                        // than falling through to the tenant-data one below.
-                        .requestMatchers(API + "/onboarding/**").access(verified)
+                        // This used to require a verified address, and that was a dead end: a user who
+                        // had not yet clicked their link got a 403 in the middle of a wizard they were
+                        // being asked to complete. The rule it was protecting is real — an unverified
+                        // address is an unproven claim, and nothing may exist on a firm's domain on the
+                        // strength of one — but a filter is the wrong place to enforce it. A filter can
+                        // only refuse the request; it cannot say "hold this until you verify".
+                        //
+                        // So the rule moved to where it can be honoured: OnboardingService *holds* the
+                        // wizard rather than executing it (see PendingOnboarding), and verification is
+                        // what turns it into a workspace. Unverified users may reach these endpoints and
+                        // still cannot cause a workspace, a join request, or an invitation email to
+                        // exist. The gate did not weaken; it moved from the routing layer to the domain,
+                        // which is the only layer that can distinguish "no" from "not yet".
+                        .requestMatchers(API + "/onboarding/**").authenticated()
 
-                        // Everything that touches tenant data.
+                        // Everything that touches tenant data. Still verified-only, and this is the line
+                        // that matters: an unverified user may describe their organisation, but may not
+                        // read a single candidate record.
                         .requestMatchers(API + "/**").access(verified)
 
                         .anyRequest().authenticated())

@@ -1,0 +1,18 @@
+<!doctype html>
+<!--
+  A stand-in for the real Vite bundle, which is built into classpath:/static/ at image build time and
+  is therefore absent from a source checkout.
+
+  This exists so SpaSecurityTest can prove the *wiring* — that the SPA chain permits these paths, that
+  the history fallback serves the shell for a client-side route, and that neither of them swallows a
+  request meant for the API. It proves nothing about the bundle itself; that is Vitest's job.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>LightMove</title>
+  </head>
+  <body>
+    <div id="root" data-test-marker="spa-shell"></div>
+  </body>
+</html>

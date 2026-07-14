@@ -1,0 +1,26 @@
+# Keep the build context small, and keep secrets out of it entirely. Anything listed here cannot end up
+# in an image layer by accident — which matters most for the two entries at the top.
+
+# --- Secrets. Never in an image. ---
+apps/api/.keys/
+apps/api/src/main/resources/application-local.yml
+.env
+.env.*
+
+# --- Build output. Rebuilt inside the image; copying it in would shadow the fresh build. ---
+node_modules/
+**/node_modules/
+apps/api/target/
+apps/web/dist/
+
+# --- Not needed to build or run ---
+.git/
+.github/
+.claude/
+claude-design/
+docs/
+ops/
+**/*.md
+!README.md
+.editorconfig
+.gitignore

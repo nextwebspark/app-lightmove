@@ -15,7 +15,10 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * The single place an exception becomes an HTTP response, in RFC 9457 {@code ProblemDetail} form.
@@ -73,6 +76,21 @@ public class GlobalExceptionHandler {
         return problem(ErrorCode.VALIDATION_FAILED, "Request body could not be read");
     }
 
+    /**
+     * A required query parameter or header is missing, or will not convert to its declared type.
+     *
+     * <p>These are client mistakes and have to answer 400. Without this they land in the catch-all
+     * below and become a <b>500</b> — the caller is told "Something went wrong on our end" for a
+     * request that was simply wrong, and we log our own ERROR with a stack trace for it. A truncated
+     * verification link (`/auth/verify` with no token) does exactly that.
+     */
+    @ExceptionHandler({ServletRequestBindingException.class, MethodArgumentTypeMismatchException.class})
+    public ProblemDetail handleBadRequestBinding(Exception ex, HttpServletRequest request) {
+        log.debug("Bad request binding at {} {}: {}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage());
+        return problem(ErrorCode.VALIDATION_FAILED, ErrorCode.VALIDATION_FAILED.defaultMessage());
+    }
+
     @ExceptionHandler(AuthenticationException.class)
     public ProblemDetail handleAuthentication(AuthenticationException ex) {
         log.debug("Authentication failed: {}", ex.getMessage());
@@ -86,6 +104,21 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * No handler and no file at that path.
+     *
+     * <p>Without this it falls into the catch-all below and becomes a <b>500</b>, logged at ERROR with a
+     * stack trace — for what is simply a wrong URL. That was survivable while every path was an API
+     * route; now that this application also serves the SPA, "no such path" is a normal event. Every bot
+     * probing for {@code /wp-login.php} would otherwise be recorded as an unhandled server bug, and the
+     * one real 500 would be buried among them.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ProblemDetail handleNoResource(NoResourceFoundException ex, HttpServletRequest request) {
+        log.debug("No resource at {} {}", request.getMethod(), request.getRequestURI());
+        return problem(ErrorCode.NOT_FOUND, ErrorCode.NOT_FOUND.defaultMessage());
+    }
+
+    /**
      * The catch-all. Anything reaching here is a bug: it was not anticipated, so we have no idea what
      * its message contains and must assume the worst.
      */
@@ -95,14 +128,8 @@ public class GlobalExceptionHandler {
         return problem(ErrorCode.INTERNAL_ERROR, ErrorCode.INTERNAL_ERROR.defaultMessage());
     }
 
+    /** One definition of the error body, shared with ProblemAccessDeniedHandler. See {@link Problems}. */
     private ProblemDetail problem(ErrorCode code, String detail) {
-        HttpStatus status = code.status();
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
-        problem.setType(ERROR_TYPE_BASE.resolve(code.name().toLowerCase().replace('_', '-')));
-        problem.setTitle(status.getReasonPhrase());
-        problem.setProperty("code", code.name());
-        problem.setProperty("timestamp", Instant.now().toString());
-        problem.setProperty("correlationId", CorrelationId.current());
-        return problem;
+        return Problems.of(code, detail);
     }
 }

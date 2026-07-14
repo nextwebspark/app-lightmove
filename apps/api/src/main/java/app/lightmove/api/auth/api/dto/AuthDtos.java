@@ -87,7 +87,18 @@ public final class AuthDtos {
              * Null until signup step 2. The frontend reads this to decide whether to route into the
              * app or back into the onboarding wizard.
              */
-            WorkspaceSummary workspace
+            WorkspaceSummary workspace,
+
+            /**
+             * True when the user filled in the wizard but has not verified their address, so what they
+             * asked for is held rather than done (see {@code PendingOnboarding}).
+             *
+             * <p>The SPA routes on the user's actual state rather than on a step counter, precisely so a
+             * closed tab does not lose the wizard. Without this it cannot distinguish "has not started
+             * onboarding" from "has finished it and is waiting on their inbox", and would drop the second
+             * user back on an empty form they have already filled in.
+             */
+            boolean onboardingHeld
     ) {}
 
     public record WorkspaceSummary(

@@ -69,6 +69,24 @@ use**. Presenting an already-rotated token is treated as theft and revokes the w
 token lives in **JS memory only** — never `localStorage`, because one compromised npm dependency would
 otherwise walk away with a 30-day credential to a product holding executive-candidate PII.
 
+### The SPA and the API are one origin
+
+That cookie is `SameSite=Strict` and **host-only** (no `domain`), and the SPA calls a relative `/api/v1`.
+A browser therefore returns it only to the host that served the page. So the two are served together —
+Vite proxies `/api` in dev; in production Spring serves the built bundle from `static/` and ships as one
+Cloud Run container.
+
+Don't split them across hosts. It looks free and isn't: **Firebase Hosting strips every cookie but
+`__session`** on a rewrite (we need two), and any CDN that drops a `Set-Cookie` on the way back breaks
+rotation — the next refresh looks like theft and revokes the family. Splitting means weakening the cookie
+to `SameSite=None`, which is a real downgrade, not a config detail. The upgrade path is a load balancer
+in front of two services, which keeps one origin.
+
+`SpaResourceConfig` serves the bundle and the history fallback (`/auth/verify` is opened cold from an
+email link, so it must not 404). `SecurityConfig`'s SPA chain matches by *exclusion* — anything outside
+`/api/`, Actuator, and the OAuth2 redirects is public. **Every endpoint lives under `/api/v1`. Keep it
+that way**; `SpaSecurityTest` holds the line.
+
 ### Auth errors are deliberately vague
 
 "Invalid email or password" covers wrong password, unknown account, and Google-only account. The audit
@@ -118,9 +136,23 @@ Cloud SQL Postgres 16, instance `bright-gcc`, database `lightmove`. All tables p
 new one. (`ddl-auto: validate` is set in the *test* profile only, where entity/schema drift becomes a
 red build rather than a production surprise.)
 
+**Flyway runs at boot locally, and as a deploy step in production** (`FLYWAY_ENABLED=false` on Cloud Run).
+Not for speed — because migrating at boot forces `lm_app`, the *runtime* role on the other end of any SQL
+injection we ever ship, to hold `CREATE ON SCHEMA public` forever, which is precisely what `harden.sql`
+revokes. In the pipeline it runs as `lm_migrate` instead, so a bad migration fails a deploy and the old
+revision keeps serving — rather than crash-looping production, where you can roll back an image but not
+a schema.
+
 `ops/cloudsql/create-database.sh` creates the database, the app user, and registers the IAM principals.
 Set `DB_IAM_USER` and Flyway's V2 grants that principal read access, so a human can query the database
 with their Google identity and no password.
+
+To add *another* human, run `ops/cloudsql/grant-db-user.sh <email> [--write]` — don't copy V2. V2 takes
+one principal, and it could grant on the whole schema only because Flyway ran as the owner of every
+table; after `harden.sql` neither `lm_app` nor `lm_migrate` owns `app_lm_audit_event` or
+`app_lm_companies`, and a non-owner cannot grant. So the grant runs as `postgres`, which makes it an ops
+script and not a migration. `--write` covers `app_lm_*` but never those two: the audit trail stays
+append-only, and the company universe belongs to the pipeline.
 
 ### The company universe is a copy, not a link
 
