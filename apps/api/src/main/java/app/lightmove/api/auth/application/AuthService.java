@@ -112,7 +112,16 @@ public class AuthService {
 
         identities.save(UserIdentity.link(user.getId(), AuthProvider.LOCAL, email, email));
 
-        verification.sendVerificationEmail(user, request);
+        if (config.autoVerifyEmail()) {
+            // Dev shortcut. The user is managed and we are in a transaction, so this flushes with it, and
+            // it happens before the token is issued below — so the session handed back already carries
+            // emailVerified, and there is no second login.
+            user.markEmailVerified(now);
+            log.warn("lightmove.auth.auto-verify-email is ON — {} was verified without proving the address",
+                    email);
+        } else {
+            verification.sendVerificationEmail(user, request);
+        }
 
         log.info("User {} signed up on domain {}", user.getId(), domain);
         audit.event(AuditEventType.USER_SIGNED_UP)

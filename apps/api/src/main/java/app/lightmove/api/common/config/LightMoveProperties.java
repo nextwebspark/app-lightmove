@@ -40,6 +40,18 @@ public record LightMoveProperties(
              */
             @DefaultValue("true") boolean requireVerifiedEmail,
 
+            /**
+             * Development only: a new signup is marked verified on the spot and no verification email is
+             * sent. It skips one step — proving the mailbox — and moves nothing else: a join request still
+             * waits for an admin, and the role is still the admin's to pick.
+             *
+             * <p>Off, and it must stay off outside a developer's machine. On in production, anyone could
+             * claim {@code sara@nextwebspark.com} and be let into that firm's workspace — the address is
+             * what decides which firm someone works at, and this is what proves the address. See
+             * {@link #requireVerifiedEmail}.
+             */
+            @DefaultValue("false") boolean autoVerifyEmail,
+
             /** BCrypt cost. 12 ≈ 250ms per hash on current hardware — expensive for an attacker, tolerable for us. */
             @DefaultValue("12") int bcryptStrength
     ) {

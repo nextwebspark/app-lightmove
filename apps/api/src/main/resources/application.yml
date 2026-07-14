@@ -89,6 +89,9 @@ lightmove:
     # anyone could type sara@nextwebspark.com and walk into that firm's workspace. Verification is
     # what turns a claim to an address into evidence of employment, so it gates workspace access.
     require-verified-email: true
+    # Development shortcut: stamp a new signup verified and send no email. Skips only the mailbox
+    # proof — admin approval of a join request, and invitations, are untouched. Never true in prod.
+    auto-verify-email: ${AUTH_AUTO_VERIFY_EMAIL:false}
     bcrypt-strength: 12
     jwt:
       issuer: lightmove
