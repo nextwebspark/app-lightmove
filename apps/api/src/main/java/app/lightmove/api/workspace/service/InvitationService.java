@@ -125,7 +125,7 @@ public class InvitationService {
                 properties.web().baseUrl(),
                 URLEncoder.encode(plaintext, StandardCharsets.UTF_8));
 
-        emailSender.send(templates.invitation(
+        emailSender.send(templates.buildInvitationEmail(
                 email, inviter.getFullName(), workspace.getName(), role.name(), link));
 
         audit.event(AuditEventType.MEMBER_INVITED)

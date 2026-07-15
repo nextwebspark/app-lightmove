@@ -33,15 +33,15 @@ public class TokenService {
     private final JwtEncoder jwtEncoder;
     private final RefreshTokenRepository refreshTokens;
     private final AuditService audit;
-    private final ClientIpResolver clientIps;
+    private final ClientIpResolver clientIpResolver;
     private final LightMoveProperties.Auth config;
 
     public TokenService(JwtEncoder jwtEncoder, RefreshTokenRepository refreshTokens,
-                        AuditService audit, ClientIpResolver clientIps, LightMoveProperties properties) {
+                        AuditService audit, ClientIpResolver clientIpResolver, LightMoveProperties properties) {
         this.jwtEncoder = jwtEncoder;
         this.refreshTokens = refreshTokens;
         this.audit = audit;
-        this.clientIps = clientIps;
+        this.clientIpResolver = clientIpResolver;
         this.config = properties.auth();
     }
 
@@ -56,7 +56,7 @@ public class TokenService {
                 Tokens.hash(plaintext),
                 now.plus(config.refreshTokenTtl()),
                 userAgent(request),
-                clientIps.resolve(request));
+                clientIpResolver.resolve(request));
         refreshTokens.save(token);
 
         TokenPair pair = new TokenPair(mintAccessToken(user, membership, now), config.accessTokenTtl(), plaintext);
@@ -114,7 +114,7 @@ public class TokenService {
                 existing.getFamilyId(),
                 now.plus(config.refreshTokenTtl()),
                 userAgent(request),
-                clientIps.resolve(request));
+                clientIpResolver.resolve(request));
         refreshTokens.save(successor);
 
         existing.rotateTo(successor, now);

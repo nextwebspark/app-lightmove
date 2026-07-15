@@ -23,11 +23,11 @@ import org.springframework.stereotype.Service;
 public class AuditService {
 
     private final AuditEventWriter writer;
-    private final ClientIpResolver clientIps;
+    private final ClientIpResolver clientIpResolver;
 
-    AuditService(AuditEventWriter writer, ClientIpResolver clientIps) {
+    AuditService(AuditEventWriter writer, ClientIpResolver clientIpResolver) {
         this.writer = writer;
-        this.clientIps = clientIps;
+        this.clientIpResolver = clientIpResolver;
     }
 
     public Builder event(AuditEventType type) {
@@ -67,13 +67,13 @@ public class AuditService {
             return this;
         }
 
-        public Builder workspace(UUID id) {
-            this.workspaceId = id;
+        public Builder workspace(UUID workspaceId) {
+            this.workspaceId = workspaceId;
             return this;
         }
 
-        public Builder target(String type, Object id) {
-            this.targetType = type;
+        public Builder target(String targetType, Object id) {
+            this.targetType = targetType;
             this.targetId = id == null ? null : id.toString();
             return this;
         }
@@ -105,7 +105,7 @@ public class AuditService {
          */
         public Builder from(HttpServletRequest request) {
             if (request != null) {
-                this.ipAddress = service.clientIps.resolve(request);
+                this.ipAddress = service.clientIpResolver.resolve(request);
                 this.userAgent = truncate(request.getHeader("User-Agent"), 512);
             }
             return this;

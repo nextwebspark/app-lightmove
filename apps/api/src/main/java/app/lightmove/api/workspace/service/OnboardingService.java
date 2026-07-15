@@ -49,7 +49,7 @@ public class OnboardingService {
 
     private final WorkspaceRepository workspaces;
     private final WorkspaceMemberRepository members;
-    private final PendingOnboardingRepository pending;
+    private final PendingOnboardingRepository pendingOnboardings;
     private final UserRepository users;
     private final EmailAddressValidator emailValidator;
     private final AuditService audit;
@@ -250,7 +250,7 @@ public class OnboardingService {
         // They belong to the organisation being created, so there must be one. A user who reached step 3
         // without a held CREATE has nothing to invite anyone into; nothing is stored, and the invitations
         // are simply not sent — which is already true, and is what the 202 says.
-        pending.findByUserId(userId)
+        pendingOnboardings.findByUserId(userId)
                 .filter(held -> held.getKind() == PendingOnboardingKind.CREATE)
                 .ifPresentOrElse(
                         held -> held.holdInvitations(invites),
@@ -273,12 +273,12 @@ public class OnboardingService {
      */
     @Transactional
     public Optional<Materialised> materialise(UUID userId, HttpServletRequest request) {
-        PendingOnboarding held = pending.findByUserId(userId).orElse(null);
+        PendingOnboarding held = pendingOnboardings.findByUserId(userId).orElse(null);
         if (held == null) {
             return Optional.empty();
         }
 
-        pending.delete(held);
+        pendingOnboardings.delete(held);
 
         if (held.isExpired(Instant.now())) {
             log.info("Discarding an expired held wizard for user {}", userId);
@@ -316,18 +316,18 @@ public class OnboardingService {
      * half-built insert is rejected by the database — as it should be.
      */
     private void holdCreate(UUID userId, CreateWorkspaceCommand command) {
-        pending.findByUserId(userId).ifPresentOrElse(
+        pendingOnboardings.findByUserId(userId).ifPresentOrElse(
                 held -> held.describe(command.name().trim(), command.companySize(),
                         command.primaryRegion(), command.teamFocus(), command.jobTitle()),
-                () -> pending.save(PendingOnboarding.toCreate(userId, command.name().trim(),
+                () -> pendingOnboardings.save(PendingOnboarding.toCreate(userId, command.name().trim(),
                         command.companySize(), command.primaryRegion(), command.teamFocus(),
                         command.jobTitle(), expiry())));
     }
 
     private void holdJoin(UUID userId, UUID workspaceId, WorkspaceRole requestedRole) {
-        pending.findByUserId(userId).ifPresentOrElse(
+        pendingOnboardings.findByUserId(userId).ifPresentOrElse(
                 held -> held.redirectToJoin(workspaceId, requestedRole),
-                () -> pending.save(PendingOnboarding.toJoin(userId, workspaceId, requestedRole, expiry())));
+                () -> pendingOnboardings.save(PendingOnboarding.toJoin(userId, workspaceId, requestedRole, expiry())));
     }
 
     /**
