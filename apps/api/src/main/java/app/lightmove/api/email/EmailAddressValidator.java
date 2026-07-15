@@ -8,8 +8,7 @@ import java.util.Locale;
 import javax.naming.NamingException;
 import javax.naming.directory.Attributes;
 import javax.naming.directory.InitialDirContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
@@ -32,9 +31,8 @@ import org.springframework.stereotype.Component;
  * account, and an unverified account reaches no workspace data.
  */
 @Component
+@Slf4j
 public class EmailAddressValidator {
-
-    private static final Logger log = LoggerFactory.getLogger(EmailAddressValidator.class);
 
     /**
      * Deliberately permissive. RFC 5322 in full permits addresses no real mailbox uses, and rejecting
@@ -107,6 +105,11 @@ public class EmailAddressValidator {
     /** The domain of an address. Assumes it has already been validated. */
     public static String domainOf(String email) {
         return email.substring(email.lastIndexOf('@') + 1).toLowerCase(Locale.ROOT);
+    }
+
+    /** Lower-cased and trimmed; {@code ""} for null. The canonical form emails are stored and matched in. */
+    public static String normalise(String email) {
+        return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
 
     /**

@@ -17,8 +17,7 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.Set;
 import java.nio.file.attribute.PosixFilePermission;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 
@@ -36,9 +35,8 @@ import org.springframework.core.io.ResourceLoader;
  * a generated key would be different on every instance and every restart, silently invalidating every
  * token in flight the moment the service scaled or redeployed.
  */
+@Slf4j
 public class RsaKeyProvider {
-
-    private static final Logger log = LoggerFactory.getLogger(RsaKeyProvider.class);
 
     private static final String ALGORITHM = "RSA";
     private static final int KEY_SIZE = 2048;

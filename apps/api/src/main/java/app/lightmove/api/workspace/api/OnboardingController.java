@@ -24,6 +24,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -42,6 +43,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/onboarding")
+@RequiredArgsConstructor
 public class OnboardingController {
 
     private final OnboardingService onboarding;
@@ -49,16 +51,6 @@ public class OnboardingController {
     private final AuthService auth;
     private final AuthResponseAssembler assembler;
     private final WorkspaceSummaries summaries;
-
-    public OnboardingController(OnboardingService onboarding, InvitationService invitations,
-                                AuthService auth, AuthResponseAssembler assembler,
-                                WorkspaceSummaries summaries) {
-        this.onboarding = onboarding;
-        this.invitations = invitations;
-        this.auth = auth;
-        this.assembler = assembler;
-        this.summaries = summaries;
-    }
 
     /**
      * "Is my firm already on LightMove?" — the workspaces running on this user's email domain.
@@ -94,13 +86,9 @@ public class OnboardingController {
                         request.primaryRegion(), request.jobTitle(), request.teamFocus()),
                 httpRequest);
 
-        // 202 when the user has not verified their address yet: their answers are held and the workspace
-        // is created when they click the link in their inbox. Nothing exists on their firm's domain until
-        // then — see PendingOnboarding for why that matters.
-        //
-        // The body says so too, and has to: the SPA's request helper returns the parsed body and never
-        // the status. `workspace` is null and `emailVerified` is false, which is not an omission — it is
-        // the truth, and it is what the wizard routes on.
+        // 202 while unverified: answers are held and the workspace is created at verification (see
+        // PendingOnboarding). The body carries the truth too — workspace null, emailVerified false —
+        // because the SPA's request helper returns the parsed body, not the status, and routes on it.
         HttpStatus status = created.isPresent() ? HttpStatus.CREATED : HttpStatus.ACCEPTED;
         return ResponseEntity.status(status).body(currentUser(principal));
     }
@@ -121,10 +109,8 @@ public class OnboardingController {
                 request.name(), request.companySize(), request.primaryRegion(),
                 request.jobTitle(), request.teamFocus());
 
-        // No workspace yet means the wizard is still being held, waiting on verification — so "Back" is
-        // editing a draft, and createWorkspace already upserts it. This is the case the old comment on
-        // updateWorkspace complained about: step 2 used to commit, so going back had to mean editing a
-        // real workspace. It no longer commits, and the special case dissolves.
+        // No workspace yet means the wizard is still held awaiting verification, so "Back" edits a draft
+        // and createWorkspace already upserts it.
         if (!principal.hasWorkspace()) {
             onboarding.createWorkspace(principal.userId(), command, httpRequest);
             return ResponseEntity.accepted().body(currentUser(principal));

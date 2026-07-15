@@ -23,8 +23,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,9 +42,9 @@ import org.springframework.transaction.annotation.Transactional;
  * </ul>
  */
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class OnboardingService {
-
-    private static final Logger log = LoggerFactory.getLogger(OnboardingService.class);
 
     private final WorkspaceRepository workspaces;
     private final WorkspaceMemberRepository members;
@@ -53,19 +53,6 @@ public class OnboardingService {
     private final EmailAddressValidator emailValidator;
     private final AuditService audit;
     private final LightMoveProperties properties;
-
-    public OnboardingService(WorkspaceRepository workspaces, WorkspaceMemberRepository members,
-                             PendingOnboardingRepository pending, UserRepository users,
-                             EmailAddressValidator emailValidator, AuditService audit,
-                             LightMoveProperties properties) {
-        this.workspaces = workspaces;
-        this.members = members;
-        this.pending = pending;
-        this.users = users;
-        this.emailValidator = emailValidator;
-        this.audit = audit;
-        this.properties = properties;
-    }
 
     /**
      * The workspaces already running on this user's email domain — "did my firm already sign up?"

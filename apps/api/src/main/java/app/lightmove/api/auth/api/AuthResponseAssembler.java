@@ -11,6 +11,7 @@ import app.lightmove.api.workspace.domain.WorkspaceMember;
 import app.lightmove.api.workspace.infrastructure.PendingOnboardingRepository;
 import app.lightmove.api.workspace.infrastructure.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.infrastructure.WorkspaceRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
@@ -20,18 +21,12 @@ import org.springframework.stereotype.Component;
  * function that consumes an authenticated session, and it should not care which endpoint produced it.
  */
 @Component
+@RequiredArgsConstructor
 public class AuthResponseAssembler {
 
     private final WorkspaceRepository workspaces;
     private final PendingOnboardingRepository pending;
     private final WorkspaceMemberRepository members;
-
-    public AuthResponseAssembler(WorkspaceRepository workspaces, PendingOnboardingRepository pending,
-                                 WorkspaceMemberRepository members) {
-        this.workspaces = workspaces;
-        this.pending = pending;
-        this.members = members;
-    }
 
     public AuthResponse assemble(TokenPair tokens, User user, WorkspaceMember membership) {
         return new AuthResponse(

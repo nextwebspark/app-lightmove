@@ -12,15 +12,15 @@ import app.lightmove.api.common.config.LightMoveProperties;
 import app.lightmove.api.common.error.ApiException;
 import app.lightmove.api.common.error.ErrorCode;
 import app.lightmove.api.common.security.Tokens;
+import app.lightmove.api.email.EmailAddressValidator;
 import app.lightmove.api.email.EmailSender;
 import app.lightmove.api.email.EmailTemplates;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.Locale;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,9 +34,9 @@ import org.springframework.transaction.annotation.Transactional;
  * every workspace endpoint.
  */
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class VerificationService {
-
-    private static final Logger log = LoggerFactory.getLogger(VerificationService.class);
 
     private final UserRepository users;
     private final VerificationTokenRepository tokens;
@@ -45,19 +45,6 @@ public class VerificationService {
     private final AuditService audit;
     private final LightMoveProperties properties;
     private final ApplicationEventPublisher events;
-
-    public VerificationService(UserRepository users, VerificationTokenRepository tokens,
-                               EmailSender emailSender, EmailTemplates templates,
-                               AuditService audit, LightMoveProperties properties,
-                               ApplicationEventPublisher events) {
-        this.users = users;
-        this.tokens = tokens;
-        this.emailSender = emailSender;
-        this.templates = templates;
-        this.audit = audit;
-        this.properties = properties;
-        this.events = events;
-    }
 
     /**
      * Issues a fresh verification link and emails it.
@@ -146,9 +133,7 @@ public class VerificationService {
      */
     @Transactional
     public void resend(String email, HttpServletRequest request) {
-        // Normalised because emails are stored lower-cased and the column is a plain varchar — a
-        // lookup for Sara@Firm.com would otherwise simply miss the row for sara@firm.com.
-        String normalised = email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+        String normalised = EmailAddressValidator.normalise(email);
 
         users.findByEmail(normalised)
                 .filter(user -> !user.isEmailVerified())

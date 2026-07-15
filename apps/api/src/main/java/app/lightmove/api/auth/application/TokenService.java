@@ -16,8 +16,7 @@ import app.lightmove.api.workspace.domain.WorkspaceRole;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
@@ -31,9 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
  * refresh token rotates, and what happens when a stolen one is replayed.
  */
 @Service
+@Slf4j
 public class TokenService {
-
-    private static final Logger log = LoggerFactory.getLogger(TokenService.class);
 
     private final JwtEncoder jwtEncoder;
     private final RefreshTokenRepository refreshTokens;
@@ -61,7 +59,7 @@ public class TokenService {
                 Tokens.hash(plaintext),
                 now.plus(config.refreshTokenTtl()),
                 userAgent(request),
-                clientIp(request));
+                clientIps.resolve(request));
         refreshTokens.save(token);
 
         TokenPair pair = new TokenPair(mintAccessToken(user, membership, now), config.accessTokenTtl(), plaintext);
@@ -71,22 +69,16 @@ public class TokenService {
     /**
      * Redeems a refresh token for a new pair, and burns the one presented.
      *
-     * <p>This is where theft is caught. A token that has already been rotated away should never be
-     * seen again — so if one is, either an attacker stole it and is redeeming it, or they stole and
-     * redeemed it already and this is the real user arriving with a token that is now stale. The two
-     * are indistinguishable from here, and in both cases someone unauthorised holds a live credential.
-     * So the whole family dies and both parties sign in again. A lost session is an acceptable cost;
-     * leaving a thief with a working token is not.
+     * <p>Where theft is caught: a token already rotated away should never reappear, so if one does the
+     * whole family is revoked and both parties re-authenticate. A lost session is an acceptable cost;
+     * leaving a thief a working token is not.
      *
-     * <p><b>{@code noRollbackFor = ApiException.class} is what makes the revocation stick.</b> Spring
-     * rolls back on any unchecked exception, and {@link ApiException} is one — so {@link #handleReuse}
-     * would revoke the entire token family, throw REFRESH_TOKEN_REUSED, and have the revocation rolled
-     * straight back out with the transaction. We would detect the theft, tell the attacker we had
-     * detected it, and leave every one of their stolen tokens working. The detection would be theatre.
+     * <p><b>{@code noRollbackFor = ApiException.class} is what makes the revocation stick:</b> otherwise
+     * {@link #handleReuse} revokes the family, throws REFRESH_TOKEN_REUSED, and the revocation is rolled
+     * back with the transaction — detection that leaves every stolen token working.
      *
-     * @param membershipLookup resolves the user's current membership, so that a role change or a
-     *                         removal takes effect at the next refresh — within {@code accessTokenTtl}
-     *                         — rather than persisting until the session finally expires.
+     * @param membershipLookup resolves current membership, so a role change or removal takes effect at
+     *                         the next refresh rather than persisting for the session's life.
      */
     @Transactional(noRollbackFor = ApiException.class)
     public AuthenticatedSession rotate(String presentedToken, HttpServletRequest request,
@@ -94,11 +86,9 @@ public class TokenService {
         Instant now = Instant.now();
         String presentedHash = Tokens.hash(presentedToken);
 
-        // FOR UPDATE, and it has to be. Rotation reads the token, decides it is fresh, then burns it —
-        // and two concurrent refreshes of the same token would both read it un-revoked, both mint a
-        // successor, and reuse detection would never fire. An attacker racing the victim with a stolen
-        // token is not an exotic case; it is the shape of the attack. The lock makes the loser of the
-        // race read the token already revoked, which is exactly what it is.
+        // FOR UPDATE, and it has to be: two concurrent refreshes of the same token would both read it
+        // un-revoked, both mint a successor, and reuse detection would never fire. Racing the victim
+        // with a stolen token is the shape of the attack; the lock makes the loser read it revoked.
         RefreshToken existing = refreshTokens.findByTokenHashForUpdate(presentedHash)
                 .orElseThrow(() -> new ApiException(ErrorCode.REFRESH_TOKEN_INVALID,
                         "No refresh token matches the presented hash"));
@@ -127,7 +117,7 @@ public class TokenService {
                 existing.getFamilyId(),
                 now.plus(config.refreshTokenTtl()),
                 userAgent(request),
-                clientIp(request));
+                clientIps.resolve(request));
         refreshTokens.save(successor);
 
         existing.rotateTo(successor, now);
@@ -212,10 +202,6 @@ public class TokenService {
         }
         String value = request.getHeader("User-Agent");
         return value != null && value.length() > 512 ? value.substring(0, 512) : value;
-    }
-
-    private String clientIp(HttpServletRequest request) {
-        return clientIps.resolve(request);
     }
 
     /**

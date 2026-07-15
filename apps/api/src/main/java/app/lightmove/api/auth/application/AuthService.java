@@ -19,11 +19,9 @@ import app.lightmove.api.workspace.domain.WorkspaceMember;
 import app.lightmove.api.workspace.infrastructure.WorkspaceMemberRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,9 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
  * approves) or start their own. That lives in {@code OnboardingService}.
  */
 @Service
+@Slf4j
 public class AuthService {
-
-    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     /** Recorded against the user, so we can prove later what they agreed to. */
     private static final String PRIVACY_POLICY_VERSION = "2026-07-01";
@@ -80,7 +77,7 @@ public class AuthService {
      */
     @Transactional
     public AuthenticatedSession signup(SignupCommand command, HttpServletRequest request) {
-        String email = normalise(command.email());
+        String email = EmailAddressValidator.normalise(command.email());
         rateLimit.checkSignup(email, request);
 
         if (!command.termsAccepted()) {
@@ -92,8 +89,6 @@ public class AuthService {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, passwordProblem);
         }
 
-        // Rejects consumer providers (when configured to), disposable inboxes, and domains that cannot
-        // receive mail at all.
         String domain = emailValidator.validateWorkEmail(email);
 
         if (users.existsByEmail(email)) {
@@ -135,23 +130,17 @@ public class AuthService {
     /**
      * Sign in with an email and password.
      *
-     * <p>Every failure below returns the same {@link ErrorCode#INVALID_CREDENTIALS} — unknown address,
-     * wrong password, or a Google-only account with no password to check. Distinguishing them would
-     * hand an attacker an account-enumeration oracle: feed in a leaked email list and learn which
-     * addresses are LightMove customers, without ever guessing a password. The audit log records
-     * precisely which case it was; the caller is told only that the pair did not match.
+     * <p>Every failure returns the same {@link ErrorCode#INVALID_CREDENTIALS} — unknown address, wrong
+     * password, or a Google-only account — so the endpoint is not an account-enumeration oracle. The
+     * audit log records which case it was; the caller is told only that the pair did not match.
      *
-     * <p><b>{@code noRollbackFor = ApiException.class}, and the lockout depends on it.</b> Spring rolls
-     * a transaction back on any unchecked exception, and {@link ApiException} is one. So the failed
-     * attempt below would increment {@code failedLoginAttempts}, throw INVALID_CREDENTIALS, and have
-     * the increment rolled straight back out again — for every attempt, forever. The counter would sit
-     * at zero, the threshold would never be reached, and the account lockout would silently not exist.
-     * An integration test that actually made five bad guesses is what caught this; nothing about the
-     * code looked wrong.
+     * <p><b>{@code noRollbackFor = ApiException.class}, and the lockout depends on it:</b> otherwise the
+     * failed-attempt increment is rolled back with the thrown ApiException, the counter never climbs,
+     * and account lockout silently does not exist.
      */
     @Transactional(noRollbackFor = ApiException.class)
     public AuthenticatedSession login(String rawEmail, String password, HttpServletRequest request) {
-        String email = normalise(rawEmail);
+        String email = EmailAddressValidator.normalise(rawEmail);
         rateLimit.checkLogin(email, request);
 
         Optional<User> found = users.findByEmail(email);
@@ -164,9 +153,8 @@ public class AuthService {
         User user = found.get();
         Instant now = Instant.now();
 
-        // Checked before the password. Verifying the password of a locked account would let an
-        // attacker keep testing guesses and learn, from the timing, when they finally hit the right
-        // one — the lockout has to actually stop the work, not just suppress the answer.
+        // Before the password: a lockout must stop the work, not just suppress the answer, or timing
+        // leaks when a guess against a locked account was the right one.
         if (user.isLocked(now)) {
             audit.event(AuditEventType.LOGIN_FAILED).failed().actor(user.getId()).from(request)
                     .reason("account_locked").record();
@@ -255,10 +243,5 @@ public class AuthService {
     @Transactional(readOnly = true)
     public User requireUser(UUID userId) {
         return users.findById(userId).orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
-    }
-
-    /** Lower-cased and trimmed. The column is citext, so this is belt and braces — but cheap. */
-    private static String normalise(String email) {
-        return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
 }

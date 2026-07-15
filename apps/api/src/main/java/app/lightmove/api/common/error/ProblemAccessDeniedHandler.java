@@ -4,8 +4,8 @@ import app.lightmove.api.auth.infrastructure.JwtPrincipalConverter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
@@ -36,15 +36,11 @@ import tools.jackson.databind.ObjectMapper;
  * two routes cannot drift into two different error shapes.
  */
 @Component
+@RequiredArgsConstructor
+@Slf4j
 public class ProblemAccessDeniedHandler implements AccessDeniedHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(ProblemAccessDeniedHandler.class);
-
     private final ObjectMapper json;
-
-    public ProblemAccessDeniedHandler(ObjectMapper json) {
-        this.json = json;
-    }
 
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response,

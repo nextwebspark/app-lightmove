@@ -1,7 +1,6 @@
 package app.lightmove.api.email;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Prints the email to the console instead of sending it.
@@ -13,9 +12,8 @@ import org.slf4j.LoggerFactory;
  * with a missing API key therefore degrades to "emails silently go nowhere", which is why
  * {@link EmailSenderConfig} logs a warning loud enough to notice.
  */
+@Slf4j
 public class LogEmailSender implements EmailSender {
-
-    private static final Logger log = LoggerFactory.getLogger(LogEmailSender.class);
 
     @Override
     public void send(EmailMessage message) {

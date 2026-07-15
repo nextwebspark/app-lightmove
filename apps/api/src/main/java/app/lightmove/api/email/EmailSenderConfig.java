@@ -3,8 +3,7 @@ package app.lightmove.api.email;
 import app.lightmove.api.common.config.LightMoveProperties;
 import java.net.http.HttpClient;
 import java.time.Duration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
@@ -14,9 +13,8 @@ import org.springframework.web.client.RestClient;
  * Picks the {@link EmailSender} adapter from config — the one place that knows which provider is live.
  */
 @Configuration
+@Slf4j
 public class EmailSenderConfig {
-
-    private static final Logger log = LoggerFactory.getLogger(EmailSenderConfig.class);
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
 

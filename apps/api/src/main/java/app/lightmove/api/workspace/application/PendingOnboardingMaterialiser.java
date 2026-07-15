@@ -8,8 +8,8 @@ import app.lightmove.api.workspace.domain.PendingOnboarding;
 import app.lightmove.api.workspace.domain.Workspace;
 import app.lightmove.api.workspace.domain.WorkspaceRole;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
@@ -29,17 +29,12 @@ import org.springframework.stereotype.Component;
  * exactly this reason.
  */
 @Component
+@RequiredArgsConstructor
+@Slf4j
 public class PendingOnboardingMaterialiser {
-
-    private static final Logger log = LoggerFactory.getLogger(PendingOnboardingMaterialiser.class);
 
     private final OnboardingService onboarding;
     private final InvitationService invitations;
-
-    public PendingOnboardingMaterialiser(OnboardingService onboarding, InvitationService invitations) {
-        this.onboarding = onboarding;
-        this.invitations = invitations;
-    }
 
     /**
      * Synchronous, and therefore inside the verifying transaction: the workspace and the verification

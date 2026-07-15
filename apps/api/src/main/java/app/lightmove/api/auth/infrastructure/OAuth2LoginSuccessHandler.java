@@ -22,8 +22,8 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Locale;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
@@ -47,9 +47,9 @@ import org.springframework.web.util.UriComponentsBuilder;
  * signup is.
  */
 @Component
+@RequiredArgsConstructor
+@Slf4j
 public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
-
-    private static final Logger log = LoggerFactory.getLogger(OAuth2LoginSuccessHandler.class);
 
     private static final String PRIVACY_POLICY_VERSION = "2026-07-01";
 
@@ -62,23 +62,6 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final AuditService audit;
     private final LightMoveProperties properties;
     private final TransactionTemplate transactions;
-
-    public OAuth2LoginSuccessHandler(UserRepository users, UserIdentityRepository identities,
-                                     WorkspaceMemberRepository members,
-                                     TokenService tokens, RefreshCookieFactory refreshCookie,
-                                     EmailAddressValidator emailValidator,
-                                     AuditService audit, LightMoveProperties properties,
-                                     TransactionTemplate transactions) {
-        this.users = users;
-        this.identities = identities;
-        this.members = members;
-        this.tokens = tokens;
-        this.refreshCookie = refreshCookie;
-        this.emailValidator = emailValidator;
-        this.audit = audit;
-        this.properties = properties;
-        this.transactions = transactions;
-    }
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,

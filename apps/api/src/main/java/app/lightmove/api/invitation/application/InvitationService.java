@@ -27,10 +27,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,9 +46,9 @@ import org.springframework.transaction.annotation.Transactional;
  * address — the consumer-domain rule applies here as it does at signup.
  */
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class InvitationService {
-
-    private static final Logger log = LoggerFactory.getLogger(InvitationService.class);
 
     private final InvitationRepository invitations;
     private final WorkspaceRepository workspaces;
@@ -60,22 +59,6 @@ public class InvitationService {
     private final EmailTemplates templates;
     private final AuditService audit;
     private final LightMoveProperties properties;
-
-    public InvitationService(InvitationRepository invitations, WorkspaceRepository workspaces,
-                             WorkspaceMemberRepository members, UserRepository users,
-                             EmailAddressValidator emailValidator, EmailSender emailSender,
-                             EmailTemplates templates, AuditService audit,
-                             LightMoveProperties properties) {
-        this.invitations = invitations;
-        this.workspaces = workspaces;
-        this.members = members;
-        this.users = users;
-        this.emailValidator = emailValidator;
-        this.emailSender = emailSender;
-        this.templates = templates;
-        this.audit = audit;
-        this.properties = properties;
-    }
 
     /** Invites colleagues. Skippable — the wizard's "Skip for now" simply sends an empty list. */
     @Transactional
@@ -97,7 +80,7 @@ public class InvitationService {
         List<Invitation> issued = new ArrayList<>(commands.size());
 
         for (InviteCommand command : commands) {
-            String email = command.email().trim().toLowerCase(Locale.ROOT);
+            String email = EmailAddressValidator.normalise(command.email());
 
             // Same gate as signup: a real, deliverable, non-disposable work address. Inviting a Gmail
             // account would create a member who can never satisfy the rules the rest of the system

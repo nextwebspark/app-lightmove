@@ -9,6 +9,7 @@ import app.lightmove.api.workspace.domain.WorkspaceRole;
 import app.lightmove.api.workspace.infrastructure.WorkspaceMemberRepository;
 import java.util.List;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,15 +22,11 @@ import org.springframework.transaction.annotation.Transactional;
  * the mandates, clients or candidates inside it. A stranger on the domain sees a name and a headcount.
  */
 @Component
+@RequiredArgsConstructor
 public class WorkspaceSummaries {
 
     private final WorkspaceMemberRepository members;
     private final UserRepository users;
-
-    public WorkspaceSummaries(WorkspaceMemberRepository members, UserRepository users) {
-        this.members = members;
-        this.users = users;
-    }
 
     @Transactional(readOnly = true)
     public List<JoinableWorkspace> joinable(List<Workspace> workspaces) {

@@ -20,6 +20,7 @@ import app.lightmove.api.workspace.domain.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -43,6 +44,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/auth")
+@RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService auth;
@@ -53,18 +55,6 @@ public class AuthController {
 
     /** Absent unless a Google OAuth client is configured. See SecurityConfig. */
     private final ObjectProvider<ClientRegistrationRepository> googleRegistration;
-
-    public AuthController(AuthService auth, VerificationService verification,
-                          RefreshCookieFactory refreshCookie, RateLimitGuard rateLimit,
-                          AuthResponseAssembler assembler,
-                          ObjectProvider<ClientRegistrationRepository> googleRegistration) {
-        this.auth = auth;
-        this.verification = verification;
-        this.refreshCookie = refreshCookie;
-        this.rateLimit = rateLimit;
-        this.assembler = assembler;
-        this.googleRegistration = googleRegistration;
-    }
 
     /**
      * Signup step 1.
@@ -109,15 +99,9 @@ public class AuthController {
         try {
             return respond(HttpStatus.OK, auth.refresh(refreshToken, httpRequest));
         } catch (ApiException e) {
-            // A refresh token that was rejected is dead — revoked, expired, or rotated away — and it is
-            // never coming back to life. Leave the cookie in place and the browser presents the corpse
-            // again on every page load, forever. Each presentation of a revoked token is, by definition,
-            // reuse: so a single genuine detection becomes an endless stream of TOKEN_REUSE_DETECTED
-            // events, each revoking nothing, and the security log fills with alerts about an attack that
-            // already happened once. That is how a log becomes something people stop reading.
-            //
-            // The header is set before the exception reaches the handler, and the response is not yet
-            // committed, so it survives onto the 401.
+            // Expire the cookie on the way out: a rejected token is dead, and leaving it in place makes
+            // the browser re-present it every page load — an endless stream of TOKEN_REUSE_DETECTED. The
+            // header is set before the handler sees the exception, so it survives onto the 401.
             httpResponse.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.expire().toString());
             throw e;
         }
@@ -178,15 +162,9 @@ public class AuthController {
     /**
      * Hands the SPA a CSRF token before it calls {@code /refresh} or {@code /logout}.
      *
-     * <p><b>{@code token.getToken()} is the entire point of this method, and it must not be removed as
-     * a redundant statement.</b> Spring Security loads the CSRF token <i>lazily</i>: the {@code
-     * XSRF-TOKEN} cookie is written only if something actually reads the token during the request.
-     * Return an empty 204 without touching it and Spring writes no cookie at all — the SPA then has
-     * nothing to echo back, every refresh fails CSRF, and (because the caller is anonymous at that
-     * point) Spring reports it as a 401 rather than a 403. The symptom is a session that silently
-     * refuses to survive a page reload, and it looks nothing like a CSRF problem.
-     *
-     * <p>The empty body is not the response. The cookie is.
+     * <p><b>{@code token.getToken()} must not be removed as redundant.</b> Spring loads the CSRF token
+     * lazily and writes the {@code XSRF-TOKEN} cookie only if something reads it; skip the read and the
+     * SPA has nothing to echo, so every refresh 401s. The cookie is the response, not the empty body.
      */
     @GetMapping("/csrf")
     public ResponseEntity<Void> csrf(CsrfToken token) {

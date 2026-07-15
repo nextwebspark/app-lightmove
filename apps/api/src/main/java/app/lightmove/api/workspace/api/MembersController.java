@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,15 +28,11 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/members")
+@RequiredArgsConstructor
 public class MembersController {
 
     private final OnboardingService onboarding;
     private final UserRepository users;
-
-    public MembersController(OnboardingService onboarding, UserRepository users) {
-        this.onboarding = onboarding;
-        this.users = users;
-    }
 
     /** People who have asked to join, waiting on a decision. */
     @GetMapping("/pending")

@@ -1,7 +1,7 @@
 package app.lightmove.api.common.audit;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -21,15 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Crossing a bean boundary is what makes the annotations real.
  */
 @Component
+@RequiredArgsConstructor
+@Slf4j
 class AuditEventWriter {
 
-    private static final Logger log = LoggerFactory.getLogger(AuditEventWriter.class);
-
     private final AuditEventRepository repository;
-
-    AuditEventWriter(AuditEventRepository repository) {
-        this.repository = repository;
-    }
 
     /**
      * {@code REQUIRES_NEW} because the events that matter most are attached to failures. A rejected
@@ -44,9 +40,7 @@ class AuditEventWriter {
         try {
             repository.save(event);
         } catch (RuntimeException ex) {
-            // Swallowed deliberately: by now the caller has already returned to the user. Losing an
-            // audit row is bad and this ERROR should alert someone; failing a user's login because the
-            // ledger hiccuped is worse.
+            // Swallowed: losing an audit row must never fail the request it observed. ERROR should page.
             log.error("Failed to write audit event {}", event.getEventType(), ex);
         }
     }
