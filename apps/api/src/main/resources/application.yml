@@ -107,10 +107,17 @@ lightmove:
       max-failed-attempts: 5
       duration: 15m
     rate-limit:
-      enabled: true
-      login-attempts-per-minute: 10
-      signup-attempts-per-hour: 5
-      verification-resends-per-hour: 3
+      # Right for production; useless for anyone testing, who will create half a dozen accounts in a row
+      # and be locked out by their own fourth attempt. application-local.yml already raises these for
+      # local dev — these placeholders let a deployed *staging* service do the same without recompiling.
+      #
+      # Two things worth knowing before trusting the numbers. The limiter is in-memory per instance
+      # (Bucket4j + Caffeine), so the real ceiling is this × Cloud Run's max-instances — and with
+      # min-instances 0 the buckets are wiped by every cold start. It is a speed bump, not a quota.
+      enabled: ${AUTH_RATE_LIMIT_ENABLED:true}
+      login-attempts-per-minute: ${AUTH_LOGIN_ATTEMPTS_PER_MINUTE:10}
+      signup-attempts-per-hour: ${AUTH_SIGNUP_ATTEMPTS_PER_HOUR:5}
+      verification-resends-per-hour: ${AUTH_VERIFICATION_RESENDS_PER_HOUR:3}
 
   email:
     provider: ${EMAIL_PROVIDER:log}

@@ -29,6 +29,29 @@ MIGRATE_USER="${DB_MIGRATE_USER:-lm_app}"
 EMAIL_PROVIDER="${EMAIL_PROVIDER:-log}"
 EMAIL_FROM="${EMAIL_FROM:-noreply@lightmove.app}"
 GOOGLE_OAUTH_CLIENT_ID="${GOOGLE_OAUTH_CLIENT_ID:-}"
+
+# ⚠ Verification off. Every signup is treated as though the address had been proved.
+#
+# It exists because EMAIL_PROVIDER=log puts the verification link in Cloud Logging rather than an inbox,
+# which makes testing a signup tedious. The cost is the entire trust model: the email domain is the only
+# evidence LightMove has that someone works at a firm, so with this on, anyone can sign up as
+# ceo@goldmansachs.com — never touching that mailbox — and immediately own the workspace bound to
+# goldmansachs.com, with the right to invite people into it and approve others.
+#
+# It also means the held-wizard path never runs, because nobody is ever unverified. Staging tests a flow
+# production does not have.
+#
+# Tolerable while there are no real users and no real data. Turn it off before there are. The service
+# logs a WARN on every signup while it is on, and so does this script.
+AUTO_VERIFY_EMAIL="${AUTO_VERIFY_EMAIL:-false}"
+
+# Production limits by default. A tester creating half a dozen accounts in a row will trip the signup one
+# on their fourth attempt, which is exactly what it is for and exactly what you do not want on staging.
+# Note these are per Cloud Run *instance* and are wiped by a cold start — a speed bump, not a quota.
+RATE_LIMIT_ENABLED="${RATE_LIMIT_ENABLED:-true}"
+LOGIN_ATTEMPTS_PER_MINUTE="${LOGIN_ATTEMPTS_PER_MINUTE:-10}"
+SIGNUP_ATTEMPTS_PER_HOUR="${SIGNUP_ATTEMPTS_PER_HOUR:-5}"
+VERIFICATION_RESENDS_PER_HOUR="${VERIFICATION_RESENDS_PER_HOUR:-3}"
 # 0 ignores X-Forwarded-For entirely and trusts the socket peer. Wrong-but-safe: every caller shares one
 # rate-limit bucket. Setting it too HIGH is the dangerous direction — the header becomes attacker-supplied
 # and the per-IP budget is free to bypass. Measure it (see the README) before raising it.
@@ -141,6 +164,11 @@ fi
 EMAIL_SECRETS=""
 [ "$EMAIL_PROVIDER" = "resend" ] && EMAIL_SECRETS=",RESEND_API_KEY=lightmove-resend-api-key:latest"
 
+if [ "$AUTO_VERIFY_EMAIL" = "true" ]; then
+    printf '\n\033[31m  ⚠  AUTO_VERIFY_EMAIL=true — email verification is OFF on this deployment.\033[0m\n'
+    printf '\033[31m     Anyone may claim any company domain. Do not leave this on with real users.\033[0m\n\n'
+fi
+
 # ^|^ makes | the separator instead of a comma, because WEB_CORS_ORIGINS is a comma-separated list and
 # the OAuth scope is another. It must be a character that appears in NO value — and @ (the obvious pick)
 # is wrong: EMAIL_FROM is an email address, so gcloud splits it mid-way and rejects `lightmove.app` as a
@@ -159,7 +187,7 @@ gcloud run deploy "$SERVICE" \
     --cpu 1 --memory 1Gi --cpu-boost \
     --concurrency 80 \
     --timeout 60s \
-    --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${EMAIL_FROM}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${TRUSTED_PROXY_COUNT}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem${OAUTH_ENV}" \
+    --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${EMAIL_FROM}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${AUTO_VERIFY_EMAIL}|AUTH_RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${LOGIN_ATTEMPTS_PER_MINUTE}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${SIGNUP_ATTEMPTS_PER_HOUR}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${VERIFICATION_RESENDS_PER_HOUR}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${TRUSTED_PROXY_COUNT}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem${OAUTH_ENV}" \
     --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}"
 
 URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" --format='value(status.url)')"
