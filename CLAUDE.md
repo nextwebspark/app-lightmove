@@ -182,20 +182,84 @@ table changes when it does — which is the point of keying it that way now.
 
 ## Architecture
 
-**Package by feature, layered inside**: `api/` (HTTP only) → `application/` (services, transactions) →
-`domain/` (entities; depends on nothing), with `infrastructure/` supplying adapters for ports the
-application declares. If you're importing an adapter into `application`, define a port instead.
+**Two tiers, every module laid out by type.** A shared **`core/`** holds the concerns every feature
+reuses; each business feature is its sibling. Both use the same type-subpackages, a module keeping only
+the ones it needs. The actual tree:
 
-Ports worth knowing: `EmailSender` (`LogEmailSender` prints the verification link to the console — the
-default, so a fresh clone is fully testable with no provider account; `ResendEmailSender` for prod) and
-`RateLimiter` (in-memory Bucket4j — swap for Redis before running more than one instance).
+```
+core/
+  security/                # the whole auth domain
+    constant/   AuthProvider, TokenPurpose, UserStatus
+    model/      User, UserIdentity, VerificationToken, AuthPrincipal,
+                EmailVerifiedEvent, SignupCommand, AuthenticatedSession
+    repository/ UserRepository, UserIdentityRepository, VerificationTokenRepository
+    service/    AuthService, VerificationService, PasswordPolicy,
+                OAuth2LoginSuccessHandler, CurrentUser, ClientIpResolver
+    config/     SecurityConfig
+    controller/ AuthController, AuthResponseAssembler
+    dto/        AuthDtos
+    jwt/        JwtConfig, JwtPrincipalConverter, RsaKeyProvider          (flat concern pkg)
+    token/      RefreshToken, RefreshTokenRepository, TokenService, TokenPair,
+                RevokeReason, RefreshCookieFactory, Tokens                (flat concern pkg)
+  email/       model/(EmailMessage)  service/(EmailSender, EmailAddressValidator, …)  config/
+  audit/       constant/(AuditEventType, AuditOutcome)  model/(AuditEvent)  repository/  service/
+  error/       constant/(ErrorCode)  model/(ApiException)  service/(Problems)
+               handler/(GlobalExceptionHandler, ProblemAccessDeniedHandler)
+  ratelimit/   service/(RateLimiter, Bucket4jRateLimiter, RateLimitGuard)
+  persistence/ model/(BaseEntity)
+  logging/     service/(CorrelationId, CorrelationIdFilter)
+  config/      LightMoveProperties, SpaResourceConfig      (cross-cutting; no type split)
+
+workspace/                 # feature template — project / strategy / candidate copy this
+  constant/   WorkspaceRole, MemberStatus, WorkspaceStatus, InvitationStatus, PendingOnboardingKind
+  model/      Workspace, WorkspaceMember, PendingOnboarding, Invitation,
+              CreateWorkspaceCommand, InviteCommand
+  repository/ service/ controller/ dto/(WorkspaceDtos)
+```
+
+Invitations are part of `workspace` (membership), not their own feature.
+
+**What goes in each subpackage** (a module includes only the ones it needs):
+
+| subpackage | holds |
+|---|---|
+| `constant` | **all enums** and fixed constant values |
+| `model` | entities, domain events, internal command/result records — **no enums, no HTTP payloads** |
+| `dto` | HTTP request/response records only |
+| `repository` | Spring Data interfaces |
+| `service` | business logic and its interfaces (`EmailSender`, `RateLimiter` live here) |
+| `controller` | `@RestController` classes (`@RestControllerAdvice` handlers go in `error/handler`) |
+| `config` | `@Configuration` classes |
+
+**Flat concern packages** are the one exception to type-only grouping: inside `core/security`, `jwt/` and
+`token/` group everything for their concern regardless of type — so `RefreshToken` (an entity) and
+`RevokeReason` (an enum) live in `token/`, not in `model/`/`constant/`. This applies only to those two.
+
+**Dependency rule:** features depend on `core`, never on each other's internals. `core` does not depend on
+a feature — the one exception is `AuthResponseAssembler` (`core/security/controller`), which reads
+workspace repositories to build the `/me` response (`AuthDtos.UserResponse` embedding
+`WorkspaceDtos.WorkspaceSummary` is the same seam). This is a deliberate trade of the old ports/adapters
+layering for a uniform, type-based shape, so `EmailSender`/`RateLimiter` are plain `service` interfaces
+rather than declared ports.
+
+Ports worth knowing: `EmailSender` (`core/email/service`; `LogEmailSender` prints the verification link to
+the console — the default, so a fresh clone is fully testable with no provider account; `ResendEmailSender`
+for prod) and `RateLimiter` (`core/ratelimit/service`; in-memory Bucket4j — swap for Redis before running
+more than one instance).
 
 ## Conventions
 
 - Java: constructor injection only. `record` for DTOs. Immutable where you can be.
+- **Lombok.** `@RequiredArgsConstructor` for constructor injection, `@Slf4j` for the logger. Entities use
+  `@Getter` + `@NoArgsConstructor(access = PROTECTED)` + selective `@Setter`, and **never** `@Data`,
+  `@EqualsAndHashCode`, or `@Builder` — `BaseEntity` explains why identity equality is hand-written. A
+  service whose constructor *derives* a nested config record (`this.config = properties.auth()`) keeps its
+  hand-written constructor. Config is `lombok.config` at the module root.
 - Errors: RFC 9457 `ProblemDetail`, produced centrally in `GlobalExceptionHandler`. The frontend switches
   on `code`, never on `detail`.
-- Comments explain *why*, not *what*. If a line needs a comment to say what it does, rename something.
+- Comments explain *why*, not *what*. Every class carries a class-level doc; the inline comments flagged in
+  "Traps" are load-bearing — they document bugs that shipped, and must not be stripped. If a line needs a
+  comment to say what it *does*, rename something.
 - React: feature folders. Server state via TanStack Query — don't mirror it into `useState`.
 - Styling: Tailwind utilities over the tokens in `apps/web/src/styles/tokens.css`, which are lifted
   verbatim from the mockups. Change a colour there, not inline.

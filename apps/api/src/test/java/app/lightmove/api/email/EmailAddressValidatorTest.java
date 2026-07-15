@@ -3,9 +3,10 @@ package app.lightmove.api.email;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import app.lightmove.api.common.config.LightMoveProperties;
-import app.lightmove.api.common.error.ApiException;
-import app.lightmove.api.common.error.ErrorCode;
+import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.email.service.EmailAddressValidator;
+import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.error.constant.ErrorCode;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

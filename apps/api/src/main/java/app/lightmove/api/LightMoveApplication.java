@@ -1,6 +1,6 @@
 package app.lightmove.api;
 
-import app.lightmove.api.common.config.LightMoveProperties;
+import app.lightmove.api.core.config.LightMoveProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;

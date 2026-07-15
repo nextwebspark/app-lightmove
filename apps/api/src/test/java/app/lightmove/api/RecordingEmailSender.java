@@ -1,7 +1,7 @@
 package app.lightmove.api;
 
-import app.lightmove.api.email.EmailMessage;
-import app.lightmove.api.email.EmailSender;
+import app.lightmove.api.core.email.model.EmailMessage;
+import app.lightmove.api.core.email.service.EmailSender;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Matcher;
