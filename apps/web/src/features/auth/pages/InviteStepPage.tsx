@@ -7,6 +7,7 @@ import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import * as authApi from "../api/authApi";
 import type { WorkspaceRole } from "../api/types";
 import { INVITE_ROLES, inviteSchema } from "../schemas";
+import { titleCase } from "../../../lib/format";
 
 interface InviteRow {
   id: number;
@@ -205,6 +206,3 @@ export function InviteStepPage() {
   );
 }
 
-function titleCase(role: string): string {
-  return role.charAt(0) + role.slice(1).toLowerCase();
-}

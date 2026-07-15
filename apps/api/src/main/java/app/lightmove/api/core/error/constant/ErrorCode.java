@@ -1,5 +1,4 @@
 package app.lightmove.api.core.error.constant;
-import app.lightmove.api.workspace.model.Workspace;
 
 import org.springframework.http.HttpStatus;
 
@@ -67,6 +66,23 @@ public enum ErrorCode {
 
     INVITATION_INVALID(HttpStatus.BAD_REQUEST, "This invitation is not valid"),
     INVITATION_EXPIRED(HttpStatus.BAD_REQUEST, "This invitation has expired"),
+
+    /** A workspace must always keep someone who can run it. */
+    LAST_ADMIN(HttpStatus.CONFLICT, "A workspace must keep at least one admin"),
+
+    MEMBER_LEADS_PROJECTS(HttpStatus.CONFLICT,
+            "This member leads active projects. Reassign the lead first"),
+
+    CLIENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "A client with this name already exists"),
+
+    PROJECT_LEAD_REQUIRED(HttpStatus.CONFLICT, "The project lead cannot be removed from the team"),
+
+    /** The typed confirmation on workspace deletion did not match. */
+    WORKSPACE_NAME_MISMATCH(HttpStatus.BAD_REQUEST,
+            "Type the workspace name exactly to confirm deletion"),
+
+    /** A database constraint fired ahead of its service-level pre-check — two requests raced. */
+    CONFLICT(HttpStatus.CONFLICT, "That conflicts with something that already exists. Try again"),
 
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Too many requests. Please slow down"),
 

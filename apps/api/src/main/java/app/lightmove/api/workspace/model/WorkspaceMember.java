@@ -122,10 +122,17 @@ public class WorkspaceMember extends BaseEntity {
     }
 
     public void changeRole(WorkspaceRole newRole) {
+        if (!isActive()) {
+            throw new IllegalStateException("Only an active membership can change role, was " + status);
+        }
         this.role = newRole;
     }
 
+    /** Frees the one-active-membership index, so the person can join or create another workspace. */
     public void remove() {
+        if (!isActive()) {
+            throw new IllegalStateException("Only an active membership can be removed, was " + status);
+        }
         this.status = MemberStatus.REMOVED;
     }
 }

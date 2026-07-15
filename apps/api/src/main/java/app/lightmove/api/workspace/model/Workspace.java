@@ -106,6 +106,26 @@ public class Workspace extends BaseEntity {
         this.logoMark = deriveLogoMark(name);
     }
 
+    /** The Settings → General form. Re-derives the logo mark; identity (slug, domain) stays put. */
+    public void applySettings(String name, String defaultRegion, String defaultCurrency) {
+        this.name = name;
+        this.logoMark = deriveLogoMark(name);
+        if (defaultRegion != null) {
+            this.defaultRegion = defaultRegion;
+        }
+        if (defaultCurrency != null) {
+            this.defaultCurrency = defaultCurrency;
+        }
+    }
+
+    /** Soft delete — the row stays for the audit trail; the ACTIVE-filtered indexes stop seeing it. */
+    public void delete() {
+        if (status == WorkspaceStatus.DELETED) {
+            throw new IllegalStateException("Workspace is already deleted");
+        }
+        this.status = WorkspaceStatus.DELETED;
+    }
+
     /**
      * Whether an address belongs to this organisation.
      *

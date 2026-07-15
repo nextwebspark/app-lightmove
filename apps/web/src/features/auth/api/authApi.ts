@@ -7,7 +7,6 @@ import type {
   InviteRequest,
   JoinableWorkspace,
   LoginRequest,
-  PendingMember,
   SignupRequest,
   User,
   WorkspaceRole,
@@ -121,19 +120,4 @@ export function acceptInvitation(token: string): Promise<User> {
   });
 }
 
-// ── Membership decisions ────────────────────────────────────────────────────
-
-export function pendingMembers(): Promise<PendingMember[]> {
-  return request<PendingMember[]>("/members/pending");
-}
-
-export function approveMember(memberId: string, role: WorkspaceRole): Promise<PendingMember> {
-  return request<PendingMember>(`/members/${memberId}/approve`, {
-    method: "POST",
-    body: { role },
-  });
-}
-
-export function rejectMember(memberId: string): Promise<void> {
-  return request<void>(`/members/${memberId}/reject`, { method: "POST" });
-}
+// Membership decisions live in features/workspace/api/workspaceApi.ts — auth ends at the session.

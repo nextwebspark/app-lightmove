@@ -85,6 +85,9 @@ public class Invitation extends BaseEntity {
     }
 
     public void revoke() {
+        if (status != InvitationStatus.PENDING) {
+            throw new IllegalStateException("Only a pending invitation can be revoked, was " + status);
+        }
         this.status = InvitationStatus.REVOKED;
     }
 

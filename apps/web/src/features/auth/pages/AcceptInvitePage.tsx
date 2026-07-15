@@ -6,6 +6,7 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import { pendingInvite } from "../pendingInvite";
+import { titleCase } from "../../../lib/format";
 
 /**
  * Where an invitation link lands.
@@ -237,6 +238,3 @@ function Centered({ children }: { children: React.ReactNode }) {
   );
 }
 
-function titleCase(role: string): string {
-  return role.charAt(0) + role.slice(1).toLowerCase();
-}

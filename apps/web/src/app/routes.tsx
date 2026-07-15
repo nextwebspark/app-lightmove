@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { SettingsLayout } from "../components/layout/SettingsLayout";
+import { WorkspaceLayout } from "../components/layout/WorkspaceLayout";
 import { Logo } from "../components/ui";
 import { useAuth } from "../features/auth/AuthProvider";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
@@ -11,7 +13,11 @@ import { PendingApprovalPage } from "../features/auth/pages/PendingApprovalPage"
 import { SignupPage } from "../features/auth/pages/SignupPage";
 import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { WorkspaceStepPage } from "../features/auth/pages/WorkspaceStepPage";
-import { WorkspacePage } from "../features/workspace/pages/WorkspacePage";
+import { ClientsPage } from "../features/clients/pages/ClientsPage";
+import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
+import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
+import { SettingsMembersPage } from "../features/settings/pages/SettingsMembersPage";
+import { TeamPage } from "../features/workspace/pages/TeamPage";
 
 /**
  * Routing follows the user's actual state, not a step counter.
@@ -47,7 +53,20 @@ export function AppRoutes() {
       <Route path="/signup/verify" element={<RequireAuth><CheckInboxPage /></RequireAuth>} />
       <Route path="/signup/pending" element={<RequireAuth><PendingApprovalPage /></RequireAuth>} />
 
-      <Route path="/" element={<RequireWorkspace><WorkspacePage /></RequireWorkspace>} />
+      {/* The app shell. Sidebar views are routes so every screen is deep-linkable. */}
+      <Route element={<RequireWorkspace><WorkspaceLayout /></RequireWorkspace>}>
+        <Route path="/" element={<ProjectsPage view="my" />} />
+        <Route path="/all" element={<ProjectsPage view="all" />} />
+        <Route path="/clients" element={<ClientsPage />} />
+        <Route path="/team" element={<TeamPage />} />
+      </Route>
+
+      {/* Admin-gated in the client for UX only; every settings endpoint re-checks in the service. */}
+      <Route element={<RequireAdmin><SettingsLayout /></RequireAdmin>}>
+        <Route path="/settings" element={<Navigate to="/settings/general" replace />} />
+        <Route path="/settings/general" element={<SettingsGeneralPage />} />
+        <Route path="/settings/members" element={<SettingsMembersPage />} />
+      </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
@@ -119,6 +138,17 @@ function RequireWorkspace({ children }: { children: ReactNode }) {
   if (loading) return <Booting />;
   if (!user) return <Navigate to="/login" replace />;
   if (!user.workspace) return <Navigate to={homeFor(user)} replace />;
+
+  return <>{children}</>;
+}
+
+/** Hides admin screens from non-admins. UX only — the server re-reads the role on every call. */
+function RequireAdmin({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) return <Booting />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.workspace?.role !== "ADMIN") return <Navigate to="/" replace />;
 
   return <>{children}</>;
 }

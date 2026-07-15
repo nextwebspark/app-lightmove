@@ -37,8 +37,10 @@ public enum AuditEventType {
     // Tenancy
     WORKSPACE_CREATED,
     WORKSPACE_UPDATED,
+    WORKSPACE_DELETED,
     MEMBER_INVITED,
     INVITATION_ACCEPTED,
+    INVITATION_REVOKED,
 
     /** Someone found a workspace on their email domain and asked to be let in. */
     JOIN_REQUESTED,
@@ -48,6 +50,11 @@ public enum AuditEventType {
 
     MEMBER_ROLE_CHANGED,
     MEMBER_REMOVED,
+
+    // Projects
+    PROJECT_CREATED,
+    PROJECT_UPDATED,
+    PROJECT_TEAM_CHANGED,
 
     // Abuse
     RATE_LIMIT_EXCEEDED

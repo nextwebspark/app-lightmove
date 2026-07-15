@@ -1,5 +1,4 @@
 package app.lightmove.api.workspace.service;
-import app.lightmove.api.workspace.model.InviteCommand;
 
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
@@ -14,6 +13,7 @@ import app.lightmove.api.core.email.service.EmailAddressValidator;
 import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.workspace.model.Invitation;
+import app.lightmove.api.workspace.model.InviteCommand;
 import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.repository.InvitationRepository;
 import app.lightmove.api.workspace.constant.MemberStatus;
@@ -54,6 +54,7 @@ public class InvitationService {
     private final InvitationRepository invitations;
     private final WorkspaceRepository workspaces;
     private final WorkspaceMemberRepository members;
+    private final WorkspaceAccess access;
     private final UserRepository users;
     private final EmailAddressValidator emailValidator;
     private final EmailSender emailSender;
@@ -70,7 +71,7 @@ public class InvitationService {
         }
 
         UUID workspaceId = principal.requireWorkspaceId();
-        requireAdmin(principal.userId(), workspaceId);
+        access.requireAdmin(principal.userId(), workspaceId);
 
         Workspace workspace = workspaces.findById(workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
@@ -236,19 +237,47 @@ public class InvitationService {
         return member;
     }
 
-    /**
-     * Re-read from the database rather than trusted from the JWT's role claim: the token was minted up
-     * to 15 minutes ago and this admin may have been demoted since. Issuing an invitation grants access
-     * to candidate PII, so a stale claim is not good enough.
-     */
-    private void requireAdmin(UUID userId, UUID workspaceId) {
-        WorkspaceMember member = members
-                .findByWorkspaceIdAndUserIdAndStatus(workspaceId, userId, MemberStatus.ACTIVE)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_A_MEMBER));
+    /** Outstanding invitations, for the Settings → Members screen. */
+    @Transactional(readOnly = true)
+    public List<Invitation> pending(UUID userId, UUID workspaceId) {
+        access.requireAdmin(userId, workspaceId);
+        return invitations.findByWorkspaceIdAndStatus(workspaceId, InvitationStatus.PENDING);
+    }
 
-        if (member.getRole() != WorkspaceRole.ADMIN) {
-            throw new ApiException(ErrorCode.FORBIDDEN, "Only an admin may invite members");
-        }
+    /** Withdraws an invitation — the emailed link stops working immediately. */
+    @Transactional
+    public void revoke(UUID userId, UUID workspaceId, UUID invitationId, HttpServletRequest request) {
+        access.requireAdmin(userId, workspaceId);
+        Invitation invitation = requirePendingInvitation(workspaceId, invitationId);
+
+        invitation.revoke();
+
+        audit.event(AuditEventType.INVITATION_REVOKED)
+                .actor(userId).workspace(workspaceId).target("invitation", invitationId).from(request)
+                .detail("email", invitation.getEmail())
+                .record();
+    }
+
+    /** Resend rotates the token, so the earlier emailed link dies with it. */
+    @Transactional
+    public void resend(UUID userId, UUID workspaceId, UUID invitationId, HttpServletRequest request) {
+        access.requireAdmin(userId, workspaceId);
+        Invitation invitation = requirePendingInvitation(workspaceId, invitationId);
+
+        Workspace workspace = workspaces.findById(workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
+        User inviter = users.findById(userId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
+
+        issueOrRefresh(workspace, inviter, invitation.getEmail(), invitation.getRole(),
+                Instant.now().plus(properties.auth().invitationTtl()), request);
+    }
+
+    private Invitation requirePendingInvitation(UUID workspaceId, UUID invitationId) {
+        return invitations.findById(invitationId)
+                .filter(inv -> inv.getWorkspaceId().equals(workspaceId))
+                .filter(inv -> inv.getStatus() == InvitationStatus.PENDING)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
     private boolean isAlreadyMember(UUID workspaceId, String email) {

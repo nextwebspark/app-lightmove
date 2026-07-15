@@ -3,11 +3,24 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "../../../components/ui";
 import { AuthProvider } from "../../auth/AuthProvider";
-import { WorkspacePage } from "./WorkspacePage";
 import * as authApi from "../../auth/api/authApi";
+import * as workspaceApi from "../../workspace/api/workspaceApi";
+import { SettingsMembersPage } from "./SettingsMembersPage";
 
 vi.mock("../../auth/api/authApi");
+vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => ({
+  // Keys are real; only the calls are mocked.
+  ...(await importOriginal<typeof import("../../workspace/api/workspaceApi")>()),
+  pendingMembers: vi.fn(),
+  members: vi.fn(),
+  invitations: vi.fn(),
+  approveMember: vi.fn(),
+  rejectMember: vi.fn(),
+  changeMemberRole: vi.fn(),
+  removeMember: vi.fn(),
+}));
 
 // AuthProvider exchanges the refresh cookie for a token before it will ask who the user is, so a test
 // that wants a signed-in admin has to hand it one.
@@ -20,13 +33,10 @@ vi.mock("../../../lib/apiClient", async (importOriginal) => ({
 const { restoreSession } = await import("../../../lib/apiClient");
 
 /**
- * The approval queue is where an admin decides what someone may see, so the role is the whole point of
- * the screen.
- *
- * <p>It used to be hardcoded to RESEARCHER, under a comment claiming "the admin decides" — the admin
- * decided nothing, and the role the applicant asked for was read from the API and never shown.
+ * The approval queue is where an admin decides what someone may see, so the role is the whole point
+ * of the screen. It used to be hardcoded to RESEARCHER under a comment claiming "the admin decides".
  */
-describe("WorkspacePage — the approval queue", () => {
+describe("SettingsMembersPage — the approval queue", () => {
   const admin = {
     id: "u1",
     email: "alok@nextwebspark.com",
@@ -43,7 +53,6 @@ describe("WorkspacePage — the approval queue", () => {
       logoMark: "N",
       emailDomain: "nextwebspark.com",
       role: "ADMIN" as const,
-      status: "ACTIVE" as const,
     },
   };
 
@@ -61,7 +70,9 @@ describe("WorkspacePage — the approval queue", () => {
       <MemoryRouter>
         <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
           <AuthProvider>
-            <WorkspacePage />
+            <ToastProvider>
+              <SettingsMembersPage />
+            </ToastProvider>
           </AuthProvider>
         </QueryClientProvider>
       </MemoryRouter>,
@@ -72,8 +83,10 @@ describe("WorkspacePage — the approval queue", () => {
     vi.resetAllMocks();
     vi.mocked(restoreSession).mockResolvedValue("token");
     vi.mocked(authApi.me).mockResolvedValue(admin);
-    vi.mocked(authApi.pendingMembers).mockResolvedValue([applicant]);
-    vi.mocked(authApi.approveMember).mockResolvedValue(applicant);
+    vi.mocked(workspaceApi.pendingMembers).mockResolvedValue([applicant]);
+    vi.mocked(workspaceApi.members).mockResolvedValue([]);
+    vi.mocked(workspaceApi.invitations).mockResolvedValue([]);
+    vi.mocked(workspaceApi.approveMember).mockResolvedValue(applicant);
   });
 
   it("shows what the applicant asked for, and defaults the picker to it", async () => {
@@ -93,7 +106,7 @@ describe("WorkspacePage — the approval queue", () => {
     await user.click(screen.getByRole("button", { name: /approve/i }));
 
     await waitFor(() =>
-      expect(authApi.approveMember).toHaveBeenCalledWith("m1", "RESEARCHER"),
+      expect(workspaceApi.approveMember).toHaveBeenCalledWith("m1", "RESEARCHER"),
     );
   });
 
@@ -101,7 +114,7 @@ describe("WorkspacePage — the approval queue", () => {
   it("does not let a double-click approve the same person twice", async () => {
     const user = userEvent.setup();
     // Never settles, so the row stays in flight for the whole test.
-    vi.mocked(authApi.approveMember).mockReturnValue(new Promise(() => {}));
+    vi.mocked(workspaceApi.approveMember).mockReturnValue(new Promise(() => {}));
 
     renderPage();
 
@@ -109,7 +122,7 @@ describe("WorkspacePage — the approval queue", () => {
     await user.click(approve);
     await user.click(approve);
 
-    expect(authApi.approveMember).toHaveBeenCalledTimes(1);
+    expect(workspaceApi.approveMember).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: /decline/i })).toBeDisabled();
   });
 });
