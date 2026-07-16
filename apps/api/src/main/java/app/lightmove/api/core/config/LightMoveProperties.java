@@ -94,7 +94,7 @@ public record LightMoveProperties(
             /** {@code log} prints the message to the console; {@code resend} actually sends it. */
             @DefaultValue("log") String provider,
             @DefaultValue("LightMove") String fromName,
-            @DefaultValue("noreply@lightmove.app") String fromAddress,
+            @DefaultValue("noreply@lightmove.ai") String fromAddress,
             Resend resend,
             Validation validation
     ) {

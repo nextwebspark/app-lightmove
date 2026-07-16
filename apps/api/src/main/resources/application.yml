@@ -122,7 +122,7 @@ lightmove:
   email:
     provider: ${EMAIL_PROVIDER:log}
     from-name: LightMove
-    from-address: ${EMAIL_FROM:noreply@lightmove.app}
+    from-address: ${EMAIL_FROM:noreply@lightmove.ai}
     resend:
       api-key: ${RESEND_API_KEY:}
     validation:
