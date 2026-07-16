@@ -254,7 +254,11 @@ public class SecurityConfig {
                         // immediately, with real access to a real firm's candidate data. Holding the
                         // link is not proof of the mailbox — an invitation forwarded, or read over a
                         // shoulder, is a link in the hands of someone it was not sent to.
+                        //
+                        // The token-less variant is verified-only for the same reason stated the other
+                        // way round: a verified matching address is the proof the token existed to give.
                         .requestMatchers(API + "/onboarding/invitations/accept").access(verified)
+                        .requestMatchers(API + "/onboarding/accept-invitation").access(verified)
 
                         // Onboarding is the user's own signup, and they are allowed to finish it.
                         //

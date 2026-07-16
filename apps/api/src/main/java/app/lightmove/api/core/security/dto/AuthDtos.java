@@ -88,10 +88,20 @@ public final class AuthDtos {
             boolean onboardingHeld,
 
             /**
-             * True when the user asked to join a workspace and an admin has not yet decided — this, and
-             * only this, is "waiting for approval". Sent rather than inferred: inferring it from a verified
-             * address stranded anyone who verified before finishing the wizard.
+             * The redeemable invitation addressed to this user, when they are not yet placed. Server-derived
+             * so an invitee is routed to "join {workspace}" from any tab — the emailed token lives in one
+             * tab's sessionStorage, but this survives everywhere the session does. Null once placed.
              */
-            boolean awaitingApproval
+            PendingInvitationSummary pendingInvitation
+    ) {}
+
+    /**
+     * What the invitee is told about their outstanding invitation. Deliberately token-free: the token
+     * proved control of the invited mailbox, and a verified matching address proves the same thing —
+     * the token-less accept applies identical guards.
+     */
+    public record PendingInvitationSummary(
+            String workspaceName,
+            String role
     ) {}
 }

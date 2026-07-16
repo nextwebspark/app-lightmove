@@ -20,6 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Settings → General: read, rename/defaults, and soft deletion. Deletion flips statuses rather than
  * deleting rows — the audit trail keeps its referents, and freed members can join elsewhere.
+ *
+ * <p>Tier gating lives on {@code WorkspaceController} as {@code @PreAuthorize}; what stays here is
+ * the typed-name confirmation and the release work itself.
  */
 @Service
 @RequiredArgsConstructor
@@ -29,12 +32,10 @@ public class WorkspaceSettingsService {
     private final WorkspaceRepository workspaces;
     private final WorkspaceMemberRepository members;
     private final InvitationRepository invitations;
-    private final WorkspaceAccess access;
     private final AuditService audit;
 
     @Transactional(readOnly = true)
-    public WorkspaceDetail get(UUID userId, UUID workspaceId) {
-        access.requireActiveMember(userId, workspaceId);
+    public WorkspaceDetail get(UUID workspaceId) {
         return detail(requireWorkspace(workspaceId));
     }
 
@@ -42,8 +43,6 @@ public class WorkspaceSettingsService {
     public WorkspaceDetail update(UUID actorId, UUID workspaceId, String name,
                                   String defaultRegion, String defaultCurrency,
                                   HttpServletRequest request) {
-        access.requireAdmin(actorId, workspaceId);
-
         Workspace workspace = requireWorkspace(workspaceId);
         workspace.applySettings(name.trim(), defaultRegion, defaultCurrency);
 
@@ -58,7 +57,6 @@ public class WorkspaceSettingsService {
     /** The typed name is verified here, not only in the browser — the server owns the guard rail. */
     @Transactional
     public void delete(UUID actorId, UUID workspaceId, String confirmName, HttpServletRequest request) {
-        access.requireAdmin(actorId, workspaceId);
         Workspace workspace = requireWorkspace(workspaceId);
 
         if (confirmName == null || !workspace.getName().equalsIgnoreCase(confirmName.trim())) {
@@ -68,8 +66,6 @@ public class WorkspaceSettingsService {
         workspace.delete();
         members.findByWorkspaceIdAndStatus(workspaceId, MemberStatus.ACTIVE)
                 .forEach(member -> member.remove());
-        members.findByWorkspaceIdAndStatus(workspaceId, MemberStatus.PENDING_APPROVAL)
-                .forEach(member -> member.reject(actorId));
         invitations.findByWorkspaceIdAndStatus(workspaceId, InvitationStatus.PENDING)
                 .forEach(invitation -> invitation.revoke());
 

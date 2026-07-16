@@ -29,7 +29,7 @@ class WorkspaceSettingsIntegrationTest extends FlowTestSupport {
         String sara = "sara@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", alok), "Detail Firm");
         String admin = login(alok);
-        inviteAndAccept(admin, "Sara Al-Mansour", sara, "RESEARCHER");
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
 
         mvc.perform(get("/api/v1/workspace").header("Authorization", "Bearer " + login(sara)))
                 .andExpect(status().isOk())
@@ -59,12 +59,12 @@ class WorkspaceSettingsIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a consultant may read the settings but not change them")
+    @DisplayName("a member may read the settings but not change them")
     void nonAdminCannotUpdate() throws Exception {
         String alok = "alok@" + domain;
         String sara = "sara@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", alok), "Locked Firm");
-        inviteAndAccept(login(alok), "Sara Al-Mansour", sara, "CONSULTANT");
+        inviteAndAccept(login(alok), "Sara Al-Mansour", sara, "MEMBER");
 
         mvc.perform(patch("/api/v1/workspace")
                         .header("Authorization", "Bearer " + login(sara))
@@ -102,13 +102,13 @@ class WorkspaceSettingsIntegrationTest extends FlowTestSupport {
         String sara = "sara@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", alok), "Doomed Firm");
         String admin = login(alok);
-        inviteAndAccept(admin, "Sara Al-Mansour", sara, "CONSULTANT");
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
         // An invitation still outstanding when the workspace dies.
         mvc.perform(post("/api/v1/invitations")
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                [{"email":"omar@%s","role":"RESEARCHER"}]
+                                [{"email":"omar@%s","role":"MEMBER"}]
                                 """.formatted(domain)))
                 .andExpect(status().isOk());
         String omarLink = email.latestTokenFor("omar@" + domain);
@@ -125,14 +125,6 @@ class WorkspaceSettingsIntegrationTest extends FlowTestSupport {
         mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + alokAgain))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.workspace").doesNotExist());
-
-        // A newcomer on the domain is not offered the corpse.
-        String newcomer = verifiedUser("New Comer", "new@" + domain);
-        MvcResult offered = mvc.perform(get("/api/v1/onboarding/workspaces")
-                        .header("Authorization", "Bearer " + newcomer))
-                .andExpect(status().isOk())
-                .andReturn();
-        assertThat(body(offered)).isEmpty();
 
         // The outstanding invitation died with the workspace.
         String omar = verifiedUser("Omar Khalil", "omar@" + domain);

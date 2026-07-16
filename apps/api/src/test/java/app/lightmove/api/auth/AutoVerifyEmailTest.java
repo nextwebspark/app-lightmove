@@ -30,8 +30,8 @@ import tools.jackson.databind.ObjectMapper;
  * and those tests would go green while asserting nothing. So this class opts in alone, and the default
  * stays off everywhere else, including CI.
  *
- * <p>It skips exactly one step: proving the mailbox. Approval of a join request, and invitations, are
- * not verification and are not touched by it — {@code AuthFlowIntegrationTest} still owns those.
+ * <p>It skips exactly one step: proving the mailbox. Invitations are not verification and are not
+ * touched by it — {@code AuthFlowIntegrationTest} still owns those.
  */
 @IntegrationTest
 @TestPropertySource(properties = "lightmove.auth.auto-verify-email=true")
@@ -67,11 +67,11 @@ class AutoVerifyEmailTest {
     /**
      * The token from signup itself must already carry the verified claim.
      *
-     * <p>This is the point of verifying <i>before</i> the token is minted, and {@code /members/pending} is
-     * the same route {@link AuthFlowIntegrationTest#signupIsUnverifiedAndWorkspaceless()} asserts a 403 on.
+     * <p>This is the point of verifying <i>before</i> the token is minted, and {@code /members} is the
+     * same route {@link AuthFlowIntegrationTest#signupIsUnverifiedAndWorkspaceless()} asserts a 403 on.
      * The two failures are worlds apart and the status says which is which: <b>403</b> is Spring Security
      * refusing the request at the verified-email gate, before any controller runs. <b>404
-     * {@code NOT_A_MEMBER}</b> is the request sailing through that gate and reaching the controller, which
+     * {@code NOT_A_MEMBER}</b> is the request sailing through that gate and reaching the guard bean, which
      * then finds no workspace on the principal — as it should, since a brand-new signup has not joined one
      * yet. Getting the 404 is therefore exactly the win: the gate is open, without a second login.
      */
@@ -80,7 +80,7 @@ class AutoVerifyEmailTest {
     void signupTokenNeedsNoRelogin() throws Exception {
         String token = bearer(signup("Alok Kumar", alokEmail));
 
-        MvcResult result = mvc.perform(get("/api/v1/members/pending").header("Authorization", token))
+        MvcResult result = mvc.perform(get("/api/v1/members").header("Authorization", token))
                 .andExpect(status().isNotFound())
                 .andReturn();
 

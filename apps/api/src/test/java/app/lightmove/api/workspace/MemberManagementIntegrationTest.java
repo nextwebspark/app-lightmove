@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -28,7 +29,7 @@ class MemberManagementIntegrationTest extends FlowTestSupport {
         String alok = "alok@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", alok), "Roster Firm");
         String admin = login(alok);
-        inviteAndAccept(admin, "Sara Al-Mansour", "sara@" + domain, "RESEARCHER");
+        inviteAndAccept(admin, "Sara Al-Mansour", "sara@" + domain, "MEMBER");
 
         mvc.perform(get("/api/v1/members").header("Authorization", "Bearer " + login("sara@" + domain)))
                 .andExpect(status().isOk())
@@ -41,30 +42,64 @@ class MemberManagementIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("an admin changes a member's role; a non-admin may not")
+    @DisplayName("an admin changes a member's roles; a non-admin may not")
     void roleChange() throws Exception {
         String alok = "alok@" + domain;
         String sara = "sara@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", alok), "Roles Firm");
         String admin = login(alok);
-        inviteAndAccept(admin, "Sara Al-Mansour", sara, "RESEARCHER");
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
         String saraMemberId = memberIdOf(admin, sara);
 
         mvc.perform(patch("/api/v1/members/" + saraMemberId)
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"role":"CONSULTANT"}"""))
+                                {"roles":["ADMIN","MEMBER"]}"""))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.role").value("CONSULTANT"));
+                .andExpect(jsonPath("$.roles.length()").value(2))
+                .andExpect(jsonPath("$.roles[0]").value("ADMIN"));
 
-        // Sara, a consultant, tries to promote herself.
+        // Back to plain member, then Sara — no longer an admin — tries to promote herself.
+        mvc.perform(patch("/api/v1/members/" + saraMemberId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"roles":["MEMBER"]}"""))
+                .andExpect(status().isOk());
+
         mvc.perform(patch("/api/v1/members/" + saraMemberId)
                         .header("Authorization", "Bearer " + login(sara))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"role":"ADMIN"}"""))
+                                {"roles":["ADMIN"]}"""))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("the CLIENT role cannot be granted through the roster — it belongs to the portal phase")
+    void clientRoleIsUnreachable() throws Exception {
+        String alok = "alok@" + domain;
+        String sara = "sara@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "No Client Firm");
+        String admin = login(alok);
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+
+        MvcResult refused = mvc.perform(patch("/api/v1/members/" + memberIdOf(admin, sara))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"roles":["CLIENT"]}"""))
+                .andReturn();
+        assertThat(refused.getResponse().getStatus()).isEqualTo(400);
+
+        mvc.perform(post("/api/v1/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"email":"cfo@client-%s","role":"CLIENT"}]
+                                """.formatted(domain)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -79,7 +114,7 @@ class MemberManagementIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"role":"CONSULTANT"}"""))
+                                {"roles":["MEMBER"]}"""))
                 .andReturn();
         assertThat(demote.getResponse().getStatus()).isEqualTo(409);
         assertThat(codeOf(demote)).isEqualTo("LAST_ADMIN");
@@ -103,9 +138,9 @@ class MemberManagementIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"role":"CONSULTANT"}"""))
+                                {"roles":["MEMBER"]}"""))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.role").value("CONSULTANT"));
+                .andExpect(jsonPath("$.roles[0]").value("MEMBER"));
     }
 
     @Test
@@ -115,7 +150,7 @@ class MemberManagementIntegrationTest extends FlowTestSupport {
         String sara = "sara@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", alok), "Departure Firm");
         String admin = login(alok);
-        inviteAndAccept(admin, "Sara Al-Mansour", sara, "CONSULTANT");
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
 
         mvc.perform(delete("/api/v1/members/" + memberIdOf(admin, sara))
                         .header("Authorization", "Bearer " + admin))
@@ -126,14 +161,15 @@ class MemberManagementIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a member who leads a live project cannot be removed until the lead is reassigned")
-    void leadBlocksRemoval() throws Exception {
+    @DisplayName("the only project admin on a live mandate cannot be removed until it is handed over")
+    void soleProjectAdminBlocksRemoval() throws Exception {
         String alok = "alok@" + domain;
         String sara = "sara@" + domain;
-        createWorkspace(verifiedUser("Alok Kumar", alok), "Lead Firm");
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Handover Firm");
         String admin = login(alok);
-        inviteAndAccept(admin, "Sara Al-Mansour", sara, "CONSULTANT");
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
         String saraMemberId = memberIdOf(admin, sara);
+        String saraToken = login(sara);
 
         String clientId = body(mvc.perform(post("/api/v1/clients")
                         .header("Authorization", "Bearer " + admin)
@@ -143,12 +179,13 @@ class MemberManagementIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
 
+        // Sara creates the mandate, becoming its only project admin.
         String projectId = body(mvc.perform(post("/api/v1/projects")
-                        .header("Authorization", "Bearer " + admin)
+                        .header("Authorization", "Bearer " + saraToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"clientId":"%s","positionTitle":"CFO","leadMemberId":"%s"}
-                                """.formatted(clientId, saraMemberId)))
+                                {"clientId":"%s","positionTitle":"CFO"}
+                                """.formatted(clientId)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
 
@@ -157,24 +194,62 @@ class MemberManagementIntegrationTest extends FlowTestSupport {
                 .andReturn();
         assertThat(codeOf(blocked)).isEqualTo("MEMBER_LEADS_PROJECTS");
 
-        // Reassign the lead to the admin — the escape hatch — and removal goes through.
-        mvc.perform(patch("/api/v1/projects/" + projectId)
+        // Hand the mandate over — seat the workspace admin as a project admin — and removal goes through.
+        mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberIdOf(admin, alok))
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"leadMemberId":"%s"}
-                                """.formatted(memberIdOf(admin, alok))))
+                                {"roles":["ADMIN"]}"""))
                 .andExpect(status().isOk());
 
         mvc.perform(delete("/api/v1/members/" + saraMemberId)
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isNoContent());
 
-        // Her plain seat went with her; the team is just the new lead now.
+        // Her seat went with her; the team is just the new admin now.
         mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].team.length()").value(1))
-                .andExpect(jsonPath("$[0].team[0].projectRole").value("LEAD"));
+                .andExpect(jsonPath("$[0].team[0].projectRoles[0]").value("ADMIN"));
+    }
+
+    @Test
+    @DisplayName("a plain lead — not the only admin — is removable; leads are not structural")
+    void leadDoesNotBlockRemoval() throws Exception {
+        String alok = "alok@" + domain;
+        String sara = "sara@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Plural Leads Firm");
+        String admin = login(alok);
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+        String saraMemberId = memberIdOf(admin, sara);
+
+        String clientId = body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Northwind"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+
+        String projectId = body(mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"CTO"}
+                                """.formatted(clientId)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+
+        mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + saraMemberId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"roles":["LEAD"]}"""))
+                .andExpect(status().isOk());
+
+        mvc.perform(delete("/api/v1/members/" + saraMemberId)
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
     }
 
     @Test
@@ -192,25 +267,11 @@ class MemberManagementIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + rival)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"role":"RESEARCHER"}"""))
+                                {"roles":["MEMBER"]}"""))
                 .andExpect(status().isNotFound());
 
         mvc.perform(delete("/api/v1/members/" + targetMemberId)
                         .header("Authorization", "Bearer " + rival))
                 .andExpect(status().isNotFound());
-    }
-
-    @Test
-    @DisplayName("the pending queue is the admin's alone — applicants' emails are not roster reading")
-    void pendingQueueIsAdminOnly() throws Exception {
-        String alok = "alok@" + domain;
-        String sara = "sara@" + domain;
-        createWorkspace(verifiedUser("Alok Kumar", alok), "Queue Firm");
-        String admin = login(alok);
-        inviteAndAccept(admin, "Sara Al-Mansour", sara, "CONSULTANT");
-
-        mvc.perform(get("/api/v1/members/pending")
-                        .header("Authorization", "Bearer " + login(sara)))
-                .andExpect(status().isForbidden());
     }
 }

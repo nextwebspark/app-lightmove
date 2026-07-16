@@ -2,6 +2,7 @@ package app.lightmove.api.workspace.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.service.CurrentUser;
 import app.lightmove.api.workspace.dto.WorkspaceDtos.InvitationResponse;
@@ -17,6 +18,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,7 +27,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Outstanding invitations, managed from Settings → Members. Admin only, enforced in the service. */
+/**
+ * Outstanding invitations, managed from Settings → Members. Gated on the MEMBER_INVITE action here;
+ * the service keeps its own imperative checks too, because it is also called from
+ * {@code PendingOnboardingMaterialiser} outside any request's SecurityContext.
+ */
 @RestController
 @RequestMapping("/api/v1/invitations")
 @RequiredArgsConstructor
@@ -35,6 +41,7 @@ public class InvitationsController {
     private final UserRepository users;
 
     @GetMapping
+    @PreAuthorize("@workspaceAuth.can(principal, 'MEMBER_INVITE')")
     public ResponseEntity<List<InvitationResponse>> pending() {
         AuthPrincipal principal = CurrentUser.require();
         List<Invitation> pending = invitations.pending(principal.userId(), principal.requireWorkspaceId());
@@ -45,7 +52,8 @@ public class InvitationsController {
                 .collect(Collectors.toMap(User::getId, User::getFullName));
 
         return ResponseEntity.ok(pending.stream()
-                .map(inv -> new InvitationResponse(inv.getId(), inv.getEmail(), inv.getRole(),
+                .map(inv -> new InvitationResponse(inv.getId(), inv.getEmail(),
+                        WorkspaceRole.valueOf(inv.getRole().getName()),
                         inviterNames.get(inv.getInvitedBy()), inv.getCreatedAt(), inv.getExpiresAt()))
                 .toList());
     }

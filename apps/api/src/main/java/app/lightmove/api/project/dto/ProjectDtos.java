@@ -1,15 +1,17 @@
 package app.lightmove.api.project.dto;
 
+import app.lightmove.api.core.security.rbac.ProjectRole;
+import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.project.constant.ProjectHealth;
-import app.lightmove.api.project.constant.ProjectRole;
 import app.lightmove.api.project.constant.ProjectStage;
-import app.lightmove.api.workspace.constant.WorkspaceRole;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /** The HTTP contract for projects and clients. Pipeline counts are 0 until pipeline tables exist. */
@@ -32,15 +34,16 @@ public final class ProjectDtos {
             Instant createdAt
     ) {}
 
-    /** A seat on the team. The lead is the row whose projectRole is LEAD. */
+    /** A seat on the team. Both tiers' roles are sets — the creator holds {ADMIN, LEAD} from birth. */
     public record TeamMemberResponse(
             UUID memberId,
             UUID userId,
             String fullName,
-            WorkspaceRole workspaceRole,
-            ProjectRole projectRole
+            List<WorkspaceRole> workspaceRoles,
+            List<ProjectRole> projectRoles
     ) {}
 
+    /** The creator becomes the project's ADMIN (and LEAD); there is no lead to choose up front. */
     public record CreateProjectRequest(
             @NotNull(message = "Choose a client")
             UUID clientId,
@@ -49,16 +52,17 @@ public final class ProjectDtos {
             @Size(max = 160, message = "That title is too long")
             String positionTitle,
 
-            @NotNull(message = "Choose a lead")
-            UUID leadMemberId,
-
             LocalDate targetDate
     ) {}
 
-    /** Both fields optional; a null leaves the value as it is. */
     public record UpdateProjectRequest(
-            UUID leadMemberId,
             LocalDate targetDate
+    ) {}
+
+    /** PUT of a seat: replace-set — the full set of project roles the member holds afterwards. */
+    public record PutTeamMemberRequest(
+            @NotEmpty(message = "Choose at least one role")
+            Set<ProjectRole> roles
     ) {}
 
     public record ClientResponse(

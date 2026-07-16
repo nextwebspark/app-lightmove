@@ -22,14 +22,14 @@ import org.springframework.test.web.servlet.MvcResult;
 class InvitationAdminIntegrationTest extends FlowTestSupport {
 
     @Test
-    @DisplayName("the invitation list is the admin's; a consultant is refused")
+    @DisplayName("the invitation list is the admin's; a plain member is refused")
     void listIsAdminOnly() throws Exception {
         String alok = "alok@" + domain;
         String sara = "sara@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", alok), "Invite Firm");
         String admin = login(alok);
-        inviteAndAccept(admin, "Sara Al-Mansour", sara, "CONSULTANT");
-        invite(admin, "omar@" + domain, "RESEARCHER");
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+        invite(admin, "omar@" + domain, "MEMBER");
 
         mvc.perform(get("/api/v1/invitations").header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
@@ -48,7 +48,7 @@ class InvitationAdminIntegrationTest extends FlowTestSupport {
         String omar = "omar@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", alok), "Revoke Firm");
         String admin = login(alok);
-        invite(admin, omar, "CONSULTANT");
+        invite(admin, omar, "MEMBER");
         String linkToken = email.latestTokenFor(omar);
         String invitationId = onlyInvitationId(admin);
 
@@ -68,7 +68,7 @@ class InvitationAdminIntegrationTest extends FlowTestSupport {
         assertThat(codeOf(refused)).isEqualTo("INVITATION_INVALID");
 
         // And a fresh invitation can follow a revocation — the partial index only holds one PENDING.
-        invite(admin, omar, "CONSULTANT");
+        invite(admin, omar, "MEMBER");
     }
 
     @Test
@@ -78,7 +78,7 @@ class InvitationAdminIntegrationTest extends FlowTestSupport {
         String omar = "omar@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", alok), "Resend Firm");
         String admin = login(alok);
-        invite(admin, omar, "CONSULTANT");
+        invite(admin, omar, "MEMBER");
         String oldLink = email.latestTokenFor(omar);
 
         mvc.perform(post("/api/v1/invitations/" + onlyInvitationId(admin) + "/resend")
@@ -113,7 +113,7 @@ class InvitationAdminIntegrationTest extends FlowTestSupport {
         String alok = "alok@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", alok), "Probe Target Firm");
         String admin = login(alok);
-        invite(admin, "omar@" + domain, "CONSULTANT");
+        invite(admin, "omar@" + domain, "MEMBER");
         String invitationId = onlyInvitationId(admin);
 
         String rivalEmail = "boss@rival-" + domain;
