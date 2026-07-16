@@ -286,7 +286,7 @@
                     <div style="font:400 11px var(--mono);color:var(--text3);margin-top:1px">{{ m.email }}</div>
                   </div>
                   <select value="{{ m.role }}" onChange="{{ onMemberRole }}" data-id="{{ m.id }}" style="width:130px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none;flex:none" style-focus="border-color:var(--sky)">
-                    <option>Admin</option><option>Consultant</option><option>Researcher</option>
+                    <option>Admin</option><option>Member</option>
                   </select>
                   <button onClick="{{ toastRemove }}" title="Remove member" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:6px;border-radius:6px;flex:none" style-hover="color:var(--red);background:var(--red-dim)">✕</button>
                 </div>
@@ -387,7 +387,7 @@ class Component extends DCLogic {
       wsName: 'LightMove',
       tfa: true,
       notif: { stage: true, cand: true, mentions: true, digest: true, product: false, email: true, inapp: true },
-      memberRoles: { yh: 'Admin', yi: 'Consultant', sa: 'Consultant', ok: 'Researcher', da: 'Researcher' },
+      memberRoles: { yh: 'Admin', yi: 'Member', sa: 'Member', ok: 'Member', da: 'Member' },
       integrations: {
         clockwork: true, bullhorn: false, slack: true, gcal: false, smtp: false,
       },
