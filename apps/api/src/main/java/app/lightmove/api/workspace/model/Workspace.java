@@ -126,20 +126,6 @@ public class Workspace extends BaseEntity {
         this.status = WorkspaceStatus.DELETED;
     }
 
-    /**
-     * Whether an address belongs to this organisation.
-     *
-     * <p>The single place that question is answered, so that signup, invitation and any future
-     * membership path cannot each arrive at a slightly different answer.
-     */
-    public boolean owns(String email) {
-        if (email == null || !email.contains("@")) {
-            return false;
-        }
-        String domain = email.substring(email.lastIndexOf('@') + 1).toLowerCase(Locale.ROOT);
-        return emailDomain.equalsIgnoreCase(domain);
-    }
-
     /** First letter of the name, upper-cased — matches the "L" tile in the mockups. */
     private static String deriveLogoMark(String name) {
         String trimmed = name == null ? "" : name.trim();

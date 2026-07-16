@@ -2,12 +2,15 @@
 
 Multi-tenant SaaS for executive search and talent mapping.
 
-A **Workspace** is the tenant. It holds **Members** (roles: `ADMIN` / `CONSULTANT` / `RESEARCHER`) who
-run **Projects** — search mandates for client companies.
+A **Workspace** is the tenant. It holds **Members** (workspace roles: `ADMIN` / `MEMBER`) who run
+**Projects** — search mandates for client companies — where each seat holds a *set* of project roles
+(`ADMIN` / `LEAD` / `RESEARCHER`). `CLIENT` exists in both catalogs as groundwork for the hiring-company
+portal, grants nothing, and cannot be minted yet.
 
-**Built so far: auth only.** Signup (3 steps), login, Google OAuth, and a placeholder screen behind the
-login wall. Projects are designed but not modelled — they arrive with the Project screen. Don't build
-ahead of the mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
+**Built so far: auth, workspace management, minimal projects, and the RBAC layer.** Signup (3 steps),
+login, Google OAuth, invitations, the roster, the projects/clients/team screens with per-seat roles.
+The Project screen's own tables (candidates, pipeline) don't exist yet. Don't build ahead of the
+mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
 
 ## Layout
 
@@ -38,14 +41,14 @@ Signup **rejects consumer email domains** (gmail, outlook, …). LightMove is so
 domain is what tells us which firm someone works at. Configurable via
 `lightmove.email.validation.block-public-domains` and `.public-domains` / `.extra-public-domains`.
 
-**A domain does not own a workspace.** One firm may run several — so `email_domain` is *not* unique. At
-signup we show the user the workspaces already on their domain, and they either:
+**A domain does not own a workspace.** One firm may run several — so `email_domain` is *not* unique.
 
-- **create their own** — they become its `ADMIN`; or
-- **ask to join one** — they land `PENDING_APPROVAL` with **no access to anything** until an admin
-  approves them, and the admin picks their role (what you asked for is a suggestion, not a grant).
-
-An **invited** user skips the queue entirely and lands `ACTIVE` — an admin naming them *is* the decision.
+**Membership is invitation-only.** Signup always creates a workspace (the creator is its `ADMIN`); the
+only way into an existing one is an admin's invitation, and accepting lands `ACTIVE` immediately — an
+admin naming someone *is* the decision. There is no join request and no approval queue; a colleague
+whose firm is already here asks their admin for an invite. The invitee is routed server-side: `/me`
+carries `pendingInvitation` and `POST /onboarding/accept-invitation` redeems it token-lessly, because a
+verified matching address proves exactly what the emailed token existed to prove.
 
 **A user belongs to at most one workspace.** Enforced by a partial unique index on
 `app_lm_workspace_member (user_id) WHERE status = 'ACTIVE'`. Note it constrains `user_id`, *not*
@@ -58,6 +61,21 @@ is on and an unverified user reaches no workspace data.
 
 Every workspace-scoped query filters by the `workspace_id` **from the authenticated principal**, never
 from a request parameter. `AuthPrincipal.requireWorkspaceId()` is the only supported way to get it.
+
+### Authorisation asks for an action, never a role
+
+RBAC is data (`core/security/rbac`): `app_lm_role` / `app_lm_action` / `app_lm_role_action` are seeded
+catalogs, memberships and project seats hold role **sets** via assignment tables, and permissions are
+the union of the roles' actions. Adding a role or action = an INSERT migration + an enum constant;
+`RbacCatalogTest` fails the build if the two drift. Controllers declare the gate with `@PreAuthorize`
+over actions (`@workspaceAuth.can(principal, 'MEMBER_INVITE')`, `@projectAuth.can(principal,
+#projectId, 'TEAM_MANAGE')`); the guard beans **re-read the database** on every check and enforce by
+throwing `ApiException`, so denials keep their codes and the 404 masking. The JWT's `roles` claim is
+coarse material only — up to 15 minutes stale, never trusted for a role-sensitive decision.
+Annotations live on **controllers only**: services reachable outside a request's SecurityContext
+(everything `PendingOnboardingMaterialiser` calls with its synthetic principal) keep imperative checks.
+Invariants that need loaded state stay imperative too — a workspace and every project keep ≥1 holder
+of the ADMIN role (`LAST_ADMIN` / `PROJECT_LAST_ADMIN`).
 
 ### Tokens are never stored raw
 
@@ -201,6 +219,10 @@ core/
     jwt/        JwtConfig, JwtPrincipalConverter, RsaKeyProvider          (flat concern pkg)
     token/      RefreshToken, RefreshTokenRepository, TokenService, TokenPair,
                 RevokeReason, RefreshCookieFactory, Tokens                (flat concern pkg)
+    rbac/       Role, Action, RoleRepository, ActionRepository, RoleScope,
+                WorkspaceRole, ProjectRole, WorkspaceAction, ProjectAction,
+                RbacService, WorkspaceAccess, ProjectAccess,
+                WorkspaceAuth, ProjectAuth                                (flat concern pkg)
   email/       model/(EmailMessage)  service/(EmailSender, EmailAddressValidator, …)  config/
   audit/       constant/(AuditEventType, AuditOutcome)  model/(AuditEvent)  repository/  service/
   error/       constant/(ErrorCode)  model/(ApiException)  service/(Problems)
@@ -211,11 +233,14 @@ core/
   config/      LightMoveProperties, SpaResourceConfig      (cross-cutting; no type split)
 
 workspace/                 # feature template — project / strategy / candidate copy this
-  constant/   WorkspaceRole, MemberStatus, WorkspaceStatus, InvitationStatus, PendingOnboardingKind
+  constant/   MemberStatus, WorkspaceStatus, InvitationStatus
   model/      Workspace, WorkspaceMember, PendingOnboarding, Invitation,
               CreateWorkspaceCommand, InviteCommand
   repository/ service/ controller/ dto/(WorkspaceDtos)
 ```
+
+Role enums live in `core/security/rbac`, not in the features — they are catalog mirrors, and both
+tiers' access services need them.
 
 Invitations are part of `workspace` (membership), not their own feature.
 
@@ -231,16 +256,18 @@ Invitations are part of `workspace` (membership), not their own feature.
 | `controller` | `@RestController` classes (`@RestControllerAdvice` handlers go in `error/handler`) |
 | `config` | `@Configuration` classes |
 
-**Flat concern packages** are the one exception to type-only grouping: inside `core/security`, `jwt/` and
-`token/` group everything for their concern regardless of type — so `RefreshToken` (an entity) and
-`RevokeReason` (an enum) live in `token/`, not in `model/`/`constant/`. This applies only to those two.
+**Flat concern packages** are the one exception to type-only grouping: inside `core/security`, `jwt/`,
+`token/` and `rbac/` group everything for their concern regardless of type — so `RefreshToken` (an
+entity) and `RevokeReason` (an enum) live in `token/`, and `Role` (an entity) next to `WorkspaceAction`
+(an enum) in `rbac/`. This applies only to those three.
 
 **Dependency rule:** features depend on `core`, never on each other's internals. `core` does not depend on
-a feature — the one exception is `AuthResponseAssembler` (`core/security/controller`), which reads
+a feature — the deliberate exceptions are `AuthResponseAssembler` (`core/security/controller`), which reads
 workspace repositories to build the `/me` response (`AuthDtos.UserResponse` embedding
-`WorkspaceDtos.WorkspaceSummary` is the same seam). This is a deliberate trade of the old ports/adapters
-layering for a uniform, type-based shape, so `EmailSender`/`RateLimiter` are plain `service` interfaces
-rather than declared ports.
+`WorkspaceDtos.WorkspaceSummary` is the same seam), and the `rbac/` access services, which read the
+workspace/project repositories because authorisation is answered from membership rows. This is a
+deliberate trade of the old ports/adapters layering for a uniform, type-based shape, so
+`EmailSender`/`RateLimiter` are plain `service` interfaces rather than declared ports.
 
 Ports worth knowing: `EmailSender` (`core/email/service`; `LogEmailSender` prints the verification link to
 the console — the default, so a fresh clone is fully testable with no provider account; `ResendEmailSender`

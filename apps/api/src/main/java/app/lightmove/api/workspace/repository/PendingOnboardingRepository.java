@@ -8,6 +8,4 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface PendingOnboardingRepository extends JpaRepository<PendingOnboarding, UUID> {
 
     Optional<PendingOnboarding> findByUserId(UUID userId);
-
-    void deleteByUserId(UUID userId);
 }

@@ -272,7 +272,7 @@ public class SecurityConfig {
                         // So the rule moved to where it can be honoured: OnboardingService *holds* the
                         // wizard rather than executing it (see PendingOnboarding), and verification is
                         // what turns it into a workspace. Unverified users may reach these endpoints and
-                        // still cannot cause a workspace, a join request, or an invitation email to
+                        // still cannot cause a workspace or an invitation email to
                         // exist. The gate did not weaken; it moved from the routing layer to the domain,
                         // which is the only layer that can distinguish "no" from "not yet".
                         .requestMatchers(API + "/onboarding/**").authenticated()

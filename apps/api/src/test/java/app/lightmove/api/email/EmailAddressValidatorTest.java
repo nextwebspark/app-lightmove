@@ -66,18 +66,6 @@ class EmailAddressValidatorTest {
         }
 
         @Test
-        @DisplayName("never group colleagues, even when blocking is off")
-        void neverGroupsColleaguesByConsumerDomain() {
-            EmailAddressValidator validator = validatorWith(validation(
-                    false, List.of(), List.of()));
-
-            // Blocking is off, so a Gmail user may sign up — but offering them "the workspaces on your
-            // domain" would list every unrelated customer who also used Gmail. It must stay false.
-            assertThat(validator.canGroupColleaguesBy("gmail.com")).isFalse();
-            assertThat(validator.canGroupColleaguesBy("nextwebspark.com")).isTrue();
-        }
-
-        @Test
         @DisplayName("can be extended by configuration")
         void honoursExtraPublicDomains() {
             EmailAddressValidator validator = validatorWith(validation(
