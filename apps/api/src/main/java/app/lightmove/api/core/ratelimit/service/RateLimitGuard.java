@@ -31,30 +31,30 @@ public class RateLimitGuard {
 
     private final RateLimiter limiter;
     private final AuditService audit;
-    private final ClientIpResolver clientIps;
+    private final ClientIpResolver clientIpResolver;
     private final LightMoveProperties.Auth.RateLimit config;
 
-    public RateLimitGuard(RateLimiter limiter, AuditService audit, ClientIpResolver clientIps,
+    public RateLimitGuard(RateLimiter limiter, AuditService audit, ClientIpResolver clientIpResolver,
                           LightMoveProperties properties) {
         this.limiter = limiter;
         this.audit = audit;
-        this.clientIps = clientIps;
+        this.clientIpResolver = clientIpResolver;
         this.config = properties.auth().rateLimit();
     }
 
     public void checkLogin(String email, HttpServletRequest request) {
-        check("login", email, request, config.loginAttemptsPerMinute(), Duration.ofMinutes(1));
+        checkRateLimit("login", email, request, config.loginAttemptsPerMinute(), Duration.ofMinutes(1));
     }
 
     public void checkSignup(String email, HttpServletRequest request) {
-        check("signup", email, request, config.signupAttemptsPerHour(), Duration.ofHours(1));
+        checkRateLimit("signup", email, request, config.signupAttemptsPerHour(), Duration.ofHours(1));
     }
 
     public void checkVerificationResend(String email, HttpServletRequest request) {
-        check("verify-resend", email, request, config.verificationResendsPerHour(), Duration.ofHours(1));
+        checkRateLimit("verify-resend", email, request, config.verificationResendsPerHour(), Duration.ofHours(1));
     }
 
-    private void check(String action, String email, HttpServletRequest request, int limit, Duration window) {
+    private void checkRateLimit(String action, String email, HttpServletRequest request, int limit, Duration window) {
         if (!config.enabled()) {
             return;
         }
@@ -90,6 +90,6 @@ public class RateLimitGuard {
      * every request, and the per-IP limit stopped nobody. See {@link ClientIpResolver}.
      */
     private String clientIp(HttpServletRequest request) {
-        return clientIps.resolve(request);
+        return clientIpResolver.resolve(request);
     }
 }

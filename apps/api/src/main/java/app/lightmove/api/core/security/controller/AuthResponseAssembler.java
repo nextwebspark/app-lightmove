@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
 public class AuthResponseAssembler {
 
     private final WorkspaceRepository workspaces;
-    private final PendingOnboardingRepository pending;
+    private final PendingOnboardingRepository pendingOnboardings;
     private final WorkspaceMemberRepository members;
 
     public AuthResponse assemble(TokenPair tokens, User user, WorkspaceMember membership) {
@@ -46,7 +46,7 @@ public class AuthResponseAssembler {
                 workspaceSummary(membership),
                 // Only meaningful for an unverified user: verifying materialises the wizard, so a
                 // verified one never has anything held.
-                !user.isEmailVerified() && pending.findByUserId(user.getId()).isPresent(),
+                !user.isEmailVerified() && pendingOnboardings.findByUserId(user.getId()).isPresent(),
                 awaitingApproval(user));
     }
 
