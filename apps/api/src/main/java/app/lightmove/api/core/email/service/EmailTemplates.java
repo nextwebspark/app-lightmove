@@ -17,7 +17,7 @@ import org.springframework.web.util.HtmlUtils;
 @Component
 public class EmailTemplates {
 
-    public EmailMessage verifyEmail(String recipient, String recipientName, String verifyLink) {
+    public EmailMessage buildVerificationEmail(String recipient, String recipientName, String verifyLink) {
         String name = HtmlUtils.htmlEscape(firstName(recipientName));
         String link = HtmlUtils.htmlEscape(verifyLink);
 
@@ -49,7 +49,7 @@ public class EmailTemplates {
         return new EmailMessage(recipient, "Confirm your LightMove email", html, text);
     }
 
-    public EmailMessage invitation(String recipient, String inviterName, String workspaceName,
+    public EmailMessage buildInvitationEmail(String recipient, String inviterName, String workspaceName,
                                    String role, String acceptLink) {
         String inviter = HtmlUtils.htmlEscape(inviterName);
         String workspace = HtmlUtils.htmlEscape(workspaceName);

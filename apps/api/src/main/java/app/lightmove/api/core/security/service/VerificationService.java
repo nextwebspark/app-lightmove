@@ -39,7 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class VerificationService {
 
     private final UserRepository users;
-    private final VerificationTokenRepository tokens;
+    private final VerificationTokenRepository verificationTokens;
     private final EmailSender emailSender;
     private final EmailTemplates templates;
     private final AuditService audit;
@@ -55,10 +55,10 @@ public class VerificationService {
     @Transactional
     public void sendVerificationEmail(User user, HttpServletRequest request) {
         Instant now = Instant.now();
-        tokens.consumeOutstanding(user.getId(), TokenPurpose.EMAIL_VERIFICATION, now);
+        verificationTokens.consumeOutstanding(user.getId(), TokenPurpose.EMAIL_VERIFICATION, now);
 
         String plaintext = Tokens.generate();
-        tokens.save(VerificationToken.issue(
+        verificationTokens.save(VerificationToken.issue(
                 user.getId(),
                 Tokens.hash(plaintext),
                 TokenPurpose.EMAIL_VERIFICATION,
@@ -70,7 +70,7 @@ public class VerificationService {
                 properties.web().baseUrl(),
                 URLEncoder.encode(plaintext, StandardCharsets.UTF_8));
 
-        emailSender.send(templates.verifyEmail(user.getEmail(), user.getFullName(), link));
+        emailSender.send(templates.buildVerificationEmail(user.getEmail(), user.getFullName(), link));
 
         audit.event(AuditEventType.EMAIL_VERIFICATION_SENT)
                 .actor(user.getId())
@@ -87,7 +87,7 @@ public class VerificationService {
     public User verify(String plaintextToken, HttpServletRequest request) {
         Instant now = Instant.now();
 
-        VerificationToken token = tokens.findByTokenHash(Tokens.hash(plaintextToken))
+        VerificationToken token = verificationTokens.findByTokenHash(Tokens.hash(plaintextToken))
                 .orElseThrow(() -> ApiException.of(ErrorCode.TOKEN_INVALID));
 
         if (!token.isRedeemable(now)) {
