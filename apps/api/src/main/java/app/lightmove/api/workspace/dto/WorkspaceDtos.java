@@ -90,4 +90,59 @@ public final class WorkspaceDtos {
             /** Null keeps the role they asked for. */
             WorkspaceRole role
     ) {}
+
+    /** One row of the active roster. */
+    public record MemberResponse(
+            UUID memberId,
+            UUID userId,
+            String fullName,
+            String email,
+            String title,
+            WorkspaceRole role,
+            Instant joinedAt
+    ) {}
+
+    public record ChangeRoleRequest(
+            @NotNull(message = "Choose a role")
+            WorkspaceRole role
+    ) {}
+
+    /** Settings → General. */
+    public record WorkspaceResponse(
+            UUID id,
+            String name,
+            String slug,
+            String logoMark,
+            String emailDomain,
+            String defaultRegion,
+            String defaultCurrency,
+            String plan,
+            long memberCount,
+            Instant createdAt
+    ) {}
+
+    public record UpdateWorkspaceSettingsRequest(
+            @NotBlank(message = "Enter the workspace name")
+            @Size(max = 160, message = "That name is too long")
+            String name,
+
+            String defaultRegion,
+            String defaultCurrency
+    ) {}
+
+    /** Deletion demands the workspace name typed back; the server verifies it too. */
+    public record DeleteWorkspaceRequest(
+            @NotBlank(message = "Type the workspace name to confirm")
+            String confirmName
+    ) {}
+
+    /** An outstanding invitation, as the Settings → Members screen lists them. */
+    public record InvitationResponse(
+            UUID id,
+            String email,
+            WorkspaceRole role,
+            String invitedByName,
+            Instant createdAt,
+            Instant expiresAt
+    ) {}
 }

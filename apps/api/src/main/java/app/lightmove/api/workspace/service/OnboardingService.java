@@ -1,5 +1,4 @@
 package app.lightmove.api.workspace.service;
-import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
@@ -10,6 +9,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
 import app.lightmove.api.workspace.constant.MemberStatus;
+import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 import app.lightmove.api.workspace.model.PendingOnboarding;
 import app.lightmove.api.workspace.constant.PendingOnboardingKind;
 import app.lightmove.api.workspace.model.Workspace;
@@ -52,6 +52,7 @@ public class OnboardingService {
     private final PendingOnboardingRepository pendingOnboardings;
     private final UserRepository users;
     private final EmailAddressValidator emailValidator;
+    private final WorkspaceAccess access;
     private final AuditService audit;
     private final LightMoveProperties properties;
 
@@ -148,7 +149,7 @@ public class OnboardingService {
     @Transactional
     public Workspace updateWorkspace(UUID userId, UUID workspaceId, CreateWorkspaceCommand command,
                                      HttpServletRequest request) {
-        requireAdmin(userId, workspaceId);
+        access.requireAdmin(userId, workspaceId);
 
         Workspace workspace = workspaces.findById(workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
@@ -343,9 +344,10 @@ public class OnboardingService {
     public record Materialised(Workspace workspace, List<PendingOnboarding.PendingInvite> invitations) {
     }
 
-    /** Pending join requests, for the admin who has to decide on them. */
+    /** Pending join requests. Admin only — applicants' names and emails are not for the whole roster. */
     @Transactional(readOnly = true)
-    public List<WorkspaceMember> pendingRequests(UUID workspaceId) {
+    public List<WorkspaceMember> pendingRequests(UUID userId, UUID workspaceId) {
+        access.requireAdmin(userId, workspaceId);
         return members.findByWorkspaceIdAndStatus(workspaceId, MemberStatus.PENDING_APPROVAL);
     }
 
@@ -356,7 +358,7 @@ public class OnboardingService {
     @Transactional
     public WorkspaceMember approve(UUID adminUserId, UUID workspaceId, UUID memberId,
                                    WorkspaceRole grantedRole, HttpServletRequest request) {
-        requireAdmin(adminUserId, workspaceId);
+        access.requireAdmin(adminUserId, workspaceId);
 
         WorkspaceMember member = requirePendingMember(workspaceId, memberId);
         member.approve(adminUserId, grantedRole);
@@ -376,7 +378,7 @@ public class OnboardingService {
     @Transactional
     public WorkspaceMember reject(UUID adminUserId, UUID workspaceId, UUID memberId,
                                   HttpServletRequest request) {
-        requireAdmin(adminUserId, workspaceId);
+        access.requireAdmin(adminUserId, workspaceId);
 
         WorkspaceMember member = requirePendingMember(workspaceId, memberId);
         member.reject(adminUserId);
@@ -387,21 +389,6 @@ public class OnboardingService {
                 .record();
 
         return member;
-    }
-
-    /**
-     * Re-checked here and not merely trusted from the JWT's role claim, because the token was minted up
-     * to 15 minutes ago and the admin may have been demoted since. For an action that hands over access
-     * to candidate PII, a stale claim is not good enough.
-     */
-    private void requireAdmin(UUID userId, UUID workspaceId) {
-        WorkspaceMember admin = members
-                .findByWorkspaceIdAndUserIdAndStatus(workspaceId, userId, MemberStatus.ACTIVE)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_A_MEMBER));
-
-        if (admin.getRole() != WorkspaceRole.ADMIN) {
-            throw new ApiException(ErrorCode.FORBIDDEN, "Only an admin may decide join requests");
-        }
     }
 
     /** Scoped by workspace, so an admin of one firm cannot approve a member into another. */

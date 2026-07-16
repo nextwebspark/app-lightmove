@@ -1,6 +1,7 @@
 package app.lightmove.api.workspace.repository;
 
 import app.lightmove.api.workspace.constant.MemberStatus;
+import app.lightmove.api.workspace.constant.WorkspaceRole;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import java.util.List;
 import java.util.Optional;
@@ -33,4 +34,11 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
 
     /** Everything the user has going on — one active membership at most, plus any outstanding requests. */
     List<WorkspaceMember> findByUserId(UUID userId);
+
+    /** Backs the last-admin guard: a workspace must never lose its only active ADMIN. */
+    long countByWorkspaceIdAndRoleAndStatus(UUID workspaceId, WorkspaceRole role, MemberStatus status);
+
+    long countByWorkspaceIdAndStatus(UUID workspaceId, MemberStatus status);
+
+    Optional<WorkspaceMember> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 }
