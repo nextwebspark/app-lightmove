@@ -73,6 +73,27 @@ spring:
     virtual:
       enabled: true           # Java 21 virtual threads: auth endpoints are IO-bound (DB, DNS, email).
 
+  # Vertex AI, prep for upcoming AI-assisted features — nothing calls these beans yet.
+  # Chat and embeddings live under different Spring AI namespaces (google.genai vs
+  # vertex.ai.embedding): Spring AI 2.0 consolidated Gemini chat onto the Google GenAI
+  # SDK and dropped the old vertex.ai.gemini.* module, but kept vertex.ai.embedding.*
+  # for text embeddings unchanged. Don't merge them into one block.
+  #
+  # Auth is ADC only, same as the Cloud SQL connector above — no credentials-uri, no
+  # key file. `gcloud auth application-default login` covers both.
+  ai:
+    google:
+      genai:
+        project-id: ${GOOGLE_CLOUD_PROJECT:hak-talent-mapping}
+        location: ${GOOGLE_CLOUD_LOCATION:us-central1}
+        chat:
+          model: ${ENRICHMENT_MODEL:gemini-2.5-pro}
+    vertex:
+      ai:
+        embedding:
+          project-id: ${GOOGLE_CLOUD_PROJECT:hak-talent-mapping}
+          location: ${GOOGLE_CLOUD_LOCATION:us-central1}
+
 server:
   port: ${PORT:8080}          # Cloud Run injects PORT and expects the container to honour it.
   error:
