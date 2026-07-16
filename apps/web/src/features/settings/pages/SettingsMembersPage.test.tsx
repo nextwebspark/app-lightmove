@@ -13,12 +13,9 @@ vi.mock("../../auth/api/authApi");
 vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
   ...(await importOriginal<typeof import("../../workspace/api/workspaceApi")>()),
-  pendingMembers: vi.fn(),
   members: vi.fn(),
   invitations: vi.fn(),
-  approveMember: vi.fn(),
-  rejectMember: vi.fn(),
-  changeMemberRole: vi.fn(),
+  changeMemberRoles: vi.fn(),
   removeMember: vi.fn(),
 }));
 
@@ -32,11 +29,8 @@ vi.mock("../../../lib/apiClient", async (importOriginal) => ({
 
 const { restoreSession } = await import("../../../lib/apiClient");
 
-/**
- * The approval queue is where an admin decides what someone may see, so the role is the whole point
- * of the screen. It used to be hardcoded to RESEARCHER under a comment claiming "the admin decides".
- */
-describe("SettingsMembersPage — the approval queue", () => {
+/** Membership is invitation-only, so this screen is the roster and its role grants — no queue. */
+describe("SettingsMembersPage — the roster", () => {
   const admin = {
     id: "u1",
     email: "alok@nextwebspark.com",
@@ -45,24 +39,25 @@ describe("SettingsMembersPage — the approval queue", () => {
     avatarUrl: null,
     emailVerified: true,
     onboardingHeld: false,
-    awaitingApproval: false,
+    pendingInvitation: null,
     workspace: {
       id: "w1",
       name: "NextWebSpark Search",
       slug: "nextwebspark-search",
       logoMark: "N",
       emailDomain: "nextwebspark.com",
-      role: "ADMIN" as const,
+      roles: ["ADMIN" as const],
     },
   };
 
-  const applicant = {
+  const sara = {
     memberId: "m1",
     userId: "u2",
     fullName: "Sara Al-Mansour",
     email: "sara@nextwebspark.com",
-    requestedRole: "CONSULTANT" as const,
-    requestedAt: "2026-07-13T10:00:00Z",
+    title: null,
+    roles: ["MEMBER" as const],
+    joinedAt: "2026-07-13T10:00:00Z",
   };
 
   const renderPage = () =>
@@ -83,46 +78,28 @@ describe("SettingsMembersPage — the approval queue", () => {
     vi.resetAllMocks();
     vi.mocked(restoreSession).mockResolvedValue("token");
     vi.mocked(authApi.me).mockResolvedValue(admin);
-    vi.mocked(workspaceApi.pendingMembers).mockResolvedValue([applicant]);
-    vi.mocked(workspaceApi.members).mockResolvedValue([]);
+    vi.mocked(workspaceApi.members).mockResolvedValue([sara]);
     vi.mocked(workspaceApi.invitations).mockResolvedValue([]);
-    vi.mocked(workspaceApi.approveMember).mockResolvedValue(applicant);
+    vi.mocked(workspaceApi.changeMemberRoles).mockResolvedValue({ ...sara, roles: ["ADMIN"] });
   });
 
-  it("shows what the applicant asked for, and defaults the picker to it", async () => {
+  it("shows the member with the roles they hold", async () => {
     renderPage();
 
-    expect(await screen.findByText(/asked for Consultant/)).toBeInTheDocument();
-    expect(screen.getByLabelText("Role for Sara Al-Mansour")).toHaveValue("CONSULTANT");
+    expect(await screen.findByText("Sara Al-Mansour")).toBeInTheDocument();
+    expect(screen.getByLabelText("Role for Sara Al-Mansour")).toHaveValue("MEMBER");
   });
 
-  /** The request is a suggestion. What the admin picks is the grant — and that is what must be sent. */
-  it("sends the role the admin chose, not the one that was requested", async () => {
+  /** The API takes the full set the member holds afterwards — picking Admin sends exactly that set. */
+  it("sends the picked role as a replace-set", async () => {
     const user = userEvent.setup();
     renderPage();
 
     const picker = await screen.findByLabelText("Role for Sara Al-Mansour");
-    await user.selectOptions(picker, "RESEARCHER");
-    await user.click(screen.getByRole("button", { name: /approve/i }));
+    await user.selectOptions(picker, "ADMIN");
 
     await waitFor(() =>
-      expect(workspaceApi.approveMember).toHaveBeenCalledWith("m1", "RESEARCHER"),
+      expect(workspaceApi.changeMemberRoles).toHaveBeenCalledWith("m1", ["ADMIN"]),
     );
-  });
-
-  /** Deciding about a person is not something to do twice because a click registered twice. */
-  it("does not let a double-click approve the same person twice", async () => {
-    const user = userEvent.setup();
-    // Never settles, so the row stays in flight for the whole test.
-    vi.mocked(workspaceApi.approveMember).mockReturnValue(new Promise(() => {}));
-
-    renderPage();
-
-    const approve = await screen.findByRole("button", { name: /approve/i });
-    await user.click(approve);
-    await user.click(approve);
-
-    expect(workspaceApi.approveMember).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: /decline/i })).toBeDisabled();
   });
 });

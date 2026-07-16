@@ -48,7 +48,7 @@ export const inviteSchema = z.object({
       email: z.string().refine((value) => value === "" || z.string().email().safeParse(value).success, {
         message: "That doesn't look like a valid email",
       }),
-      role: z.enum(["ADMIN", "CONSULTANT", "RESEARCHER"]),
+      role: z.enum(["ADMIN", "MEMBER"]),
     }),
   ),
 });
@@ -63,4 +63,4 @@ export const COMPANY_SIZES = ["1–10 people", "11–50 people", "51–200 peopl
 export const REGIONS = ["GCC", "MENA", "Europe", "North America", "Global"];
 export const JOB_TITLES = ["Partner", "Consultant", "Researcher", "Operations"];
 export const TEAM_FOCUSES = ["Executive search", "Board advisory", "Talent mapping", "Mixed"];
-export const INVITE_ROLES = ["CONSULTANT", "RESEARCHER", "ADMIN"] as const;
+export const INVITE_ROLES = ["MEMBER", "ADMIN"] as const;

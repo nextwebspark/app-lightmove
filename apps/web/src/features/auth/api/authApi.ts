@@ -5,11 +5,9 @@ import type {
   CreateWorkspaceRequest,
   InvitationPreview,
   InviteRequest,
-  JoinableWorkspace,
   LoginRequest,
   SignupRequest,
   User,
-  WorkspaceRole,
 } from "./types";
 
 /**
@@ -70,14 +68,6 @@ export function resendVerification(email: string): Promise<void> {
 
 // ── Onboarding ──────────────────────────────────────────────────────────────
 
-/** The workspaces already on this user's email domain — "is my firm already here?" */
-export function joinableWorkspaces(): Promise<JoinableWorkspace[]> {
-  return request<JoinableWorkspace[]>("/onboarding/workspaces");
-}
-
-/** Shared, so step 1's prefetch cannot drift from the key step 2 reads — a miss would only look slow. */
-export const JOINABLE_WORKSPACES_KEY = ["joinable-workspaces"] as const;
-
 /** Editing the workspace you already run — which is what Back means once step 2 has committed. */
 export function updateWorkspace(payload: CreateWorkspaceRequest): Promise<User> {
   return request<User>("/onboarding/workspace", {
@@ -88,14 +78,6 @@ export function updateWorkspace(payload: CreateWorkspaceRequest): Promise<User> 
 
 export function createWorkspace(payload: CreateWorkspaceRequest): Promise<User> {
   return request<User>("/onboarding/workspace", { method: "POST", body: payload });
-}
-
-/** Asks to join. Grants nothing — an admin has to approve it. */
-export function requestToJoin(workspaceId: string, requestedRole: WorkspaceRole): Promise<User> {
-  return request<User>("/onboarding/join-requests", {
-    method: "POST",
-    body: { workspaceId, requestedRole },
-  });
 }
 
 export function invite(invites: InviteRequest[]): Promise<{ sent: number }> {
@@ -118,6 +100,15 @@ export function acceptInvitation(token: string): Promise<User> {
     method: "POST",
     body: { token },
   });
+}
+
+/**
+ * Accepts the caller's own outstanding invitation, token-lessly. For the invitee who verified in a
+ * fresh tab: the emailed token lives in another tab's sessionStorage, but the server already knows a
+ * redeemable invitation is addressed to this verified email — `user.pendingInvitation` says so.
+ */
+export function acceptPendingInvitation(): Promise<User> {
+  return request<User>("/onboarding/accept-invitation", { method: "POST" });
 }
 
 // Membership decisions live in features/workspace/api/workspaceApi.ts — auth ends at the session.

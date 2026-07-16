@@ -82,13 +82,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
           </div>
         </EmptyState>
         {modalOpen && (
-          <NewProjectModal
-            open
-            onClose={() => setModalOpen(false)}
-            clients={clients}
-            members={members}
-            defaultLeadMemberId={myMemberId}
-          />
+          <NewProjectModal open onClose={() => setModalOpen(false)} clients={clients} />
         )}
       </>
     );
@@ -146,13 +140,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
       <ProjectDrawer project={openProject} members={members} onClose={() => setOpenProjectId(null)} />
 
       {modalOpen && (
-        <NewProjectModal
-          open
-          onClose={() => setModalOpen(false)}
-          clients={clients}
-          members={members}
-          defaultLeadMemberId={myMemberId}
-        />
+        <NewProjectModal open onClose={() => setModalOpen(false)} clients={clients} />
       )}
     </>
   );

@@ -34,9 +34,14 @@ export function VerifyEmailPage() {
    * Where verifying leaves them, which is wherever they were going before the email interrupted.
    *
    * <p>The invitee is the case that has to be handled explicitly: verification was never their errand,
-   * it was a gate on the way to accepting an invitation. Sending them to the join-or-create fork here
-   * would offer them a choice they have already been spared — and the workspace they were invited to
-   * would be sitting one click away, unmentioned.
+   * it was a gate on the way to accepting an invitation. Sending them to the create form here would
+   * hand them a wizard that was never theirs — and the workspace they were invited to would be sitting
+   * one click away, unmentioned.
+   *
+   * <p>Two signals, in order. The same-tab token (sessionStorage) is the exact invitation the link
+   * named, so it goes first. But this link usually opens in a <b>fresh tab</b>, where sessionStorage is
+   * empty — there the server-derived {@code user.pendingInvitation} (reloaded just above) is what saves
+   * the invitee, token-lessly.
    */
   const nextStop = (): string => {
     const invite = pendingInvite.peek();
@@ -45,6 +50,9 @@ export function VerifyEmailPage() {
     }
     if (user?.workspace) {
       return "/";
+    }
+    if (user?.pendingInvitation) {
+      return "/auth/accept-invite";
     }
     return user ? "/signup/workspace" : "/login";
   };

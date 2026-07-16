@@ -89,5 +89,9 @@ export function ProjectsTable({
 }
 
 export function leadOf(team: TeamMember[]): TeamMember | undefined {
-  return team.find((seat) => seat.projectRole === "LEAD");
+  // Leads are plural now, and a fresh project may have none beyond its admin — whoever runs it.
+  return (
+    team.find((seat) => seat.projectRoles.includes("LEAD")) ??
+    team.find((seat) => seat.projectRoles.includes("ADMIN"))
+  );
 }

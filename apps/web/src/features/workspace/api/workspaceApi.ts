@@ -1,12 +1,11 @@
 import { request } from "../../../lib/apiClient";
-import type { InviteRequest, PendingMember, WorkspaceRole } from "../../auth/api/types";
+import type { InviteRequest, WorkspaceRole } from "../../auth/api/types";
 import type { Invitation, Member, WorkspaceDetail } from "./types";
 
 /** Every call workspace management makes (roster, invitations, settings), plus shared query keys. */
 
 export const WORKSPACE_KEY = ["workspace"] as const;
 export const MEMBERS_KEY = ["members"] as const;
-export const PENDING_MEMBERS_KEY = ["pending-members"] as const;
 export const INVITATIONS_KEY = ["invitations"] as const;
 
 export function workspace(): Promise<WorkspaceDetail> {
@@ -29,24 +28,13 @@ export function members(): Promise<Member[]> {
   return request<Member[]>("/members");
 }
 
-export function changeMemberRole(memberId: string, role: WorkspaceRole): Promise<Member> {
-  return request<Member>(`/members/${memberId}`, { method: "PATCH", body: { role } });
+/** Replace-set: the full set of roles the member holds afterwards. */
+export function changeMemberRoles(memberId: string, roles: WorkspaceRole[]): Promise<Member> {
+  return request<Member>(`/members/${memberId}`, { method: "PATCH", body: { roles } });
 }
 
 export function removeMember(memberId: string): Promise<void> {
   return request<void>(`/members/${memberId}`, { method: "DELETE" });
-}
-
-export function pendingMembers(): Promise<PendingMember[]> {
-  return request<PendingMember[]>("/members/pending");
-}
-
-export function approveMember(memberId: string, role: WorkspaceRole): Promise<PendingMember> {
-  return request<PendingMember>(`/members/${memberId}/approve`, { method: "POST", body: { role } });
-}
-
-export function rejectMember(memberId: string): Promise<void> {
-  return request<void>(`/members/${memberId}/reject`, { method: "POST" });
 }
 
 export function invitations(): Promise<Invitation[]> {

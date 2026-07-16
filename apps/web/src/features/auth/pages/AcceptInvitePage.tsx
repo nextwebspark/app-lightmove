@@ -9,12 +9,20 @@ import { pendingInvite } from "../pendingInvite";
 import { titleCase } from "../../../lib/format";
 
 /**
- * Where an invitation link lands.
+ * Where an invitation lands — and, since membership is invitation-only, the only door into an
+ * existing workspace.
  *
- * <p>An invited person skips the approval queue entirely — an admin naming them <i>is</i> the decision,
- * made in advance. But redeeming it needs a signed-in, verified user, and someone arriving from their
- * inbox is usually neither. So this page is mostly a router for the several states they can turn up in,
- * and its real job is to hold on to the token while they go and become a user.
+ * <p>Two arrivals share this page:
+ *
+ * <ul>
+ *   <li><b>With a token</b> — the emailed link, possibly in a browser with no session at all. The
+ *       anonymous preview says what is being offered, and the token rides through signup in
+ *       sessionStorage.
+ *   <li><b>Without a token</b> — an invitee routed here by the server-derived
+ *       {@code user.pendingInvitation}, typically after verifying in a fresh tab where the emailed
+ *       token's sessionStorage does not exist. Their verified, matching address is the proof the
+ *       token existed to give, so acceptance needs no token at all.
+ * </ul>
  *
  * <p>The email is not theirs to choose. The invitation is addressed to a person; acceptance checks the
  * account's address against it, and an invitee who signs up with a different one gets refused for a
@@ -23,6 +31,23 @@ import { titleCase } from "../../../lib/format";
 export function AcceptInvitePage() {
   const [params] = useSearchParams();
   const token = params.get("token");
+  const { user } = useAuth();
+
+  if (token) {
+    return <TokenArrival token={token} />;
+  }
+
+  // No token in the URL: only the server-derived invitation can put someone here usefully.
+  if (user?.pendingInvitation) {
+    return <ServerDerivedArrival />;
+  }
+
+  return <Dead title="No invitation" detail="This link is missing its token." />;
+}
+
+// ── Arrival 1: the emailed link, token in hand ───────────────────────────────
+
+function TokenArrival({ token }: { token: string }) {
   const { user, reload } = useAuth();
   const navigate = useNavigate();
 
@@ -35,8 +60,7 @@ export function AcceptInvitePage() {
     error: previewError,
   } = useQuery({
     queryKey: ["invitation", token],
-    queryFn: () => authApi.previewInvitation(token!),
-    enabled: !!token,
+    queryFn: () => authApi.previewInvitation(token),
     retry: false,
   });
 
@@ -44,14 +68,10 @@ export function AcceptInvitePage() {
   // that would drop it. The address travels with it: signup pins its email field to the invited one,
   // because an account created under a different address is one acceptance will refuse.
   useEffect(() => {
-    if (token && invitation) {
+    if (invitation) {
       pendingInvite.remember({ token, email: invitation.email });
     }
   }, [token, invitation]);
-
-  if (!token) {
-    return <Dead title="No invitation" detail="This link is missing its token." />;
-  }
 
   if (isLoading) {
     return <Centered>Checking your invitation…</Centered>;
@@ -78,8 +98,6 @@ export function AcceptInvitePage() {
     return null;
   }
 
-  const invitedAs = titleCase(invitation.role);
-
   const accept = async () => {
     setAccepting(true);
     setError(null);
@@ -100,33 +118,78 @@ export function AcceptInvitePage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
-      <Logo />
+    <Shell
+      workspaceName={invitation.workspaceName}
+      subtitle={`${invitation.inviterName ? `${invitation.inviterName} invited you` : "You were invited"} as ${titleCase(invitation.role)}`}
+      error={error}
+    >
+      <Body
+        invitation={{ email: invitation.email, workspaceName: invitation.workspaceName }}
+        user={user}
+        accepting={accepting}
+        onAccept={() => void accept()}
+      />
+    </Shell>
+  );
+}
 
-      <Card className="w-[440px] max-w-[94vw] text-center [animation-delay:60ms]">
-        <h1 className="text-[19px] font-semibold leading-tight">
-          Join {invitation.workspaceName}
-        </h1>
-        <p className="mb-6 mt-1 font-mono text-xs text-text3">
-          {invitation.inviterName ? `${invitation.inviterName} invited you` : "You were invited"} as{" "}
-          {invitedAs}
-        </p>
+// ── Arrival 2: no token, the server knows the invitation ─────────────────────
 
-        <FormError message={error} />
+function ServerDerivedArrival() {
+  const { user, reload } = useAuth();
+  const navigate = useNavigate();
 
-        <Body
-          invitation={{ email: invitation.email, workspaceName: invitation.workspaceName }}
-          user={user}
-          accepting={accepting}
-          onAccept={() => void accept()}
-        />
-      </Card>
-    </div>
+  const [accepting, setAccepting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const invitation = user!.pendingInvitation!;
+
+  const accept = async () => {
+    setAccepting(true);
+    setError(null);
+    try {
+      await authApi.acceptPendingInvitation();
+      pendingInvite.clear();
+      await reload();
+      navigate("/", { replace: true });
+    } catch (err) {
+      setError(
+        err instanceof ApiRequestError ? err.problem.detail : "Could not accept the invitation.",
+      );
+      setAccepting(false);
+    }
+  };
+
+  // Only an unplaced, self-matching user carries pendingInvitation, so the wrong-account and
+  // already-placed states of the token path cannot occur here. Unverified still can.
+  if (!user!.emailVerified) {
+    return (
+      <Shell workspaceName={invitation.workspaceName} subtitle="one step left" error={null}>
+        <Notice>
+          Confirm {user!.email} first — check your inbox for the verification link. We'll bring you
+          back here.
+        </Notice>
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell
+      workspaceName={invitation.workspaceName}
+      subtitle={`You were invited as ${titleCase(invitation.role)}`}
+      error={error}
+    >
+      <Notice>You'll be in as soon as you accept.</Notice>
+
+      <Button className="w-full" loading={accepting} onClick={() => void accept()}>
+        Accept invitation
+      </Button>
+    </Shell>
   );
 }
 
 /**
- * The five ways someone can arrive here, and what each of them actually needs next.
+ * The five ways someone can arrive with a token, and what each of them actually needs next.
  *
  * <p>Every branch but the last is a dead end unless it is spelled out — "sign in" is useless advice to
  * someone signed in as the wrong person, and an accept button is a lie to someone who cannot yet use it.
@@ -148,7 +211,7 @@ function Body({
   if (!user) {
     return (
       <>
-        <Notice>You'll join as a member straight away — no approval needed.</Notice>
+        <Notice>Your account is your seat — you'll be in as soon as you accept.</Notice>
 
         <Button className="w-full" onClick={() => (window.location.href = "/signup")}>
           Create your account
@@ -203,12 +266,39 @@ function Body({
   // 5. Ready.
   return (
     <>
-      <Notice>You'll join as a member straight away — no approval needed.</Notice>
+      <Notice>You'll be in as soon as you accept.</Notice>
 
       <Button className="w-full" loading={accepting} onClick={onAccept}>
         Accept invitation
       </Button>
     </>
+  );
+}
+
+function Shell({
+  workspaceName,
+  subtitle,
+  error,
+  children,
+}: {
+  workspaceName: string;
+  subtitle: string;
+  error: string | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
+      <Logo />
+
+      <Card className="w-[440px] max-w-[94vw] text-center [animation-delay:60ms]">
+        <h1 className="text-[19px] font-semibold leading-tight">Join {workspaceName}</h1>
+        <p className="mb-6 mt-1 font-mono text-xs text-text3">{subtitle}</p>
+
+        <FormError message={error} />
+
+        {children}
+      </Card>
+    </div>
   );
 }
 
@@ -237,4 +327,3 @@ function Centered({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-

@@ -13,15 +13,15 @@ export type ProjectStage =
 
 export type ProjectHealth = "OK" | "RISK" | "OFF" | "DONE";
 
-export type ProjectRole = "LEAD" | "MEMBER";
+export type ProjectRole = "ADMIN" | "LEAD" | "RESEARCHER";
 
-/** A seat on a project's team. The lead is the seat whose projectRole is LEAD. */
+/** A seat on a project's team. Both tiers' roles are sets — the creator holds ADMIN and LEAD. */
 export interface TeamMember {
   memberId: string;
   userId: string;
   fullName: string;
-  workspaceRole: WorkspaceRole;
-  projectRole: ProjectRole;
+  workspaceRoles: WorkspaceRole[];
+  projectRoles: ProjectRole[];
 }
 
 export interface Project {

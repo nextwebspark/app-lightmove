@@ -6,7 +6,7 @@ import { Avatar, Button, Modal, Select, useToast } from "../../../components/ui"
 import { messageFor } from "../../../lib/errorCodes";
 import { titleCase } from "../../../lib/format";
 import { useAuth } from "../../auth/AuthProvider";
-import type { PendingMember, WorkspaceRole } from "../../auth/api/types";
+import type { WorkspaceRole } from "../../auth/api/types";
 import { INVITE_ROLES } from "../../auth/schemas";
 import { PROJECTS_KEY } from "../../projects/api/projectsApi";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
@@ -14,17 +14,13 @@ import type { Invitation, Member } from "../../workspace/api/types";
 import { InviteModal } from "../../workspace/components/InviteModal";
 
 /**
- * Settings → Members: the pending join queue on top (the other half of the join flow — someone is
- * on a waiting screen until an admin acts here), then the active roster with role pickers and
- * removal, then outstanding invitations.
+ * Settings → Members: the active roster with role pickers and removal, then outstanding
+ * invitations. Membership is invitation-only, so there is no approval queue — inviting someone
+ * *is* letting them in.
  */
 export function SettingsMembersPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
 
-  const { data: pending = [] } = useQuery({
-    queryKey: workspaceApi.PENDING_MEMBERS_KEY,
-    queryFn: workspaceApi.pendingMembers,
-  });
   const { data: members = [] } = useQuery({
     queryKey: workspaceApi.MEMBERS_KEY,
     queryFn: workspaceApi.members,
@@ -46,22 +42,6 @@ export function SettingsMembersPage() {
           </Button>
         }
       />
-
-      {pending.length > 0 && (
-        <section className="mb-5 rounded-[10px] border border-amber bg-amber-dim/50 p-4">
-          <h3 className="text-[14px] font-semibold">
-            {pending.length} {pending.length === 1 ? "person wants" : "people want"} to join
-          </h3>
-          <p className="mb-3 mt-0.5 font-mono text-[11px] text-text3">
-            Approving grants access to this workspace's candidate data.
-          </p>
-          <div className="flex flex-col gap-2">
-            {pending.map((member) => (
-              <PendingRow key={member.memberId} member={member} />
-            ))}
-          </div>
-        </section>
-      )}
 
       <div className="rounded-[10px] border border-line-soft bg-panel2 px-5 py-2">
         {members.map((member) => (
@@ -87,70 +67,16 @@ export function SettingsMembersPage() {
   );
 }
 
-/** One person waiting to be let in. The role picker is where the actual grant happens. */
-function PendingRow({ member }: { member: PendingMember }) {
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const [role, setRole] = useState<WorkspaceRole>(member.requestedRole);
-
-  const settle = {
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: workspaceApi.PENDING_MEMBERS_KEY });
-      void queryClient.invalidateQueries({ queryKey: workspaceApi.MEMBERS_KEY });
-    },
-    onError: (error: unknown) => toast(messageFor(error)),
-  };
-
-  const approve = useMutation({
-    mutationFn: () => workspaceApi.approveMember(member.memberId, role),
-    ...settle,
-  });
-  const decline = useMutation({
-    mutationFn: () => workspaceApi.rejectMember(member.memberId),
-    ...settle,
-  });
-
-  const deciding = approve.isPending || decline.isPending;
-
-  return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-panel p-3">
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-medium">{member.fullName}</span>
-        <span className="block font-mono text-[11px] text-text3">
-          {member.email} · asked for {titleCase(member.requestedRole)}
-        </span>
-      </span>
-
-      <Select
-        value={role}
-        onChange={(event) => setRole(event.target.value as WorkspaceRole)}
-        disabled={deciding}
-        aria-label={`Role for ${member.fullName}`}
-        className="w-[130px] shrink-0"
-      >
-        {INVITE_ROLES.map((option) => (
-          <option key={option} value={option}>
-            {titleCase(option)}
-          </option>
-        ))}
-      </Select>
-
-      <Button className="!py-1.5 !text-xs" loading={approve.isPending} disabled={deciding} onClick={() => approve.mutate()}>
-        Approve
-      </Button>
-      <Button variant="secondary" className="!py-1.5 !text-xs" loading={decline.isPending} disabled={deciding} onClick={() => decline.mutate()}>
-        Decline
-      </Button>
-    </div>
-  );
-}
-
 function MemberRow({ member }: { member: Member }) {
   const { user, reload } = useAuth();
   const queryClient = useQueryClient();
   const toast = useToast();
   const [confirmRemove, setConfirmRemove] = useState(false);
   const isSelf = member.userId === user?.id;
+
+  // The workspace tier has two roles, so the picker stays a single select; the API takes the full
+  // set, and picking one writes exactly that set. Multi-role selection matters at the project tier.
+  const primaryRole: WorkspaceRole = member.roles.includes("ADMIN") ? "ADMIN" : "MEMBER";
 
   const refresh = async () => {
     // A change to yourself changes your token's claims; anyone else only changes the roster.
@@ -159,8 +85,8 @@ function MemberRow({ member }: { member: Member }) {
     void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY });
   };
 
-  const changeRole = useMutation({
-    mutationFn: (role: WorkspaceRole) => workspaceApi.changeMemberRole(member.memberId, role),
+  const changeRoles = useMutation({
+    mutationFn: (role: WorkspaceRole) => workspaceApi.changeMemberRoles(member.memberId, [role]),
     onSuccess: async () => {
       await refresh();
       toast("Role updated");
@@ -193,9 +119,9 @@ function MemberRow({ member }: { member: Member }) {
       </div>
 
       <Select
-        value={member.role}
-        onChange={(event) => changeRole.mutate(event.target.value as WorkspaceRole)}
-        disabled={changeRole.isPending}
+        value={primaryRole}
+        onChange={(event) => changeRoles.mutate(event.target.value as WorkspaceRole)}
+        disabled={changeRoles.isPending}
         aria-label={`Role for ${member.fullName}`}
         className="w-[130px] shrink-0 !bg-panel"
       >
@@ -220,7 +146,7 @@ function MemberRow({ member }: { member: Member }) {
           <p className="mb-5 text-[13px] text-text2">
             {isSelf
               ? "You'll lose access to this workspace and everything in it."
-              : `${member.fullName} loses access immediately. If they lead projects, reassign those first.`}
+              : `${member.fullName} loses access immediately. If they are the only admin on live projects, hand those over first.`}
           </p>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setConfirmRemove(false)}>
@@ -288,4 +214,3 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
     </div>
   );
 }
-

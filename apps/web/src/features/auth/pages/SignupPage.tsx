@@ -1,12 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { Button, Card, Field, FormError, Input, Logo } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
-import * as authApi from "../api/authApi";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import { pendingInvite } from "../pendingInvite";
 import { signupSchema, type SignupValues } from "../schemas";
@@ -22,8 +20,10 @@ import { signupSchema, type SignupValues } from "../schemas";
 export function SignupPage() {
   const { signUp } = useAuth();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [formError, setFormError] = useState<string | null>(null);
+  // The address that turned out to already have an account — the one state with a real way forward
+  // (log in), so it gets a CTA rather than a dead-end field error.
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 
   // Someone who arrived from an invitation link. Their address is not a free choice: acceptance checks
   // the account's email against the one invited, so letting them type another here would create an
@@ -42,25 +42,16 @@ export function SignupPage() {
 
   const onSubmit = async (values: SignupValues) => {
     setFormError(null);
+    setRegisteredEmail(null);
     try {
       await signUp(values.fullName, values.email, values.password);
 
-      // An invitee has a workspace waiting for them, so they must not be sent through the join-or-create
-      // fork. They still have to verify first — the accept page says so.
+      // An invitee has a workspace waiting for them, so they must not be sent through the create
+      // wizard. They still have to verify first — the accept page says so.
       if (invite) {
         navigate(`/auth/accept-invite?token=${encodeURIComponent(invite.token)}`, { replace: true });
         return;
       }
-
-      // Step 2 cannot offer the join-or-create fork until it knows whether the firm is already here, so
-      // the wait exists either way; the only choice is where to spend it. Spending it here keeps the user
-      // on the page they submitted, watching the button they pressed. Navigating first meant step 2
-      // replaced the wizard with a loading screen, which read as being bounced out of the flow.
-      // prefetchQuery does not throw — on failure step 2 simply asks again itself.
-      await queryClient.prefetchQuery({
-        queryKey: authApi.JOINABLE_WORKSPACES_KEY,
-        queryFn: authApi.joinableWorkspaces,
-      });
 
       navigate("/signup/workspace", { replace: true });
     } catch (error) {
@@ -80,6 +71,12 @@ export function SignupPage() {
 
       if (emailProblems.includes(error.code)) {
         setError("email", { message: error.problem.detail });
+        // Already registered is the one email problem with a way forward: log in. The CTA carries the
+        // typed address to prefill the login form — and deliberately nothing more. Which workspace the
+        // account belongs to is never revealed pre-auth; that would be an enumeration oracle.
+        if (error.code === "EMAIL_ALREADY_REGISTERED") {
+          setRegisteredEmail(values.email);
+        }
         return;
       }
 
@@ -136,6 +133,18 @@ export function SignupPage() {
               {...register("email")}
             />
           </Field>
+
+          {registeredEmail && (
+            <p className="-mt-2 mb-4 text-[12.5px] text-text2">
+              <Link
+                to="/login"
+                state={{ email: registeredEmail }}
+                className="font-medium text-sky hover:underline"
+              >
+                Log in instead →
+              </Link>
+            </p>
+          )}
 
           <Field
             label="Password"

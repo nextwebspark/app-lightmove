@@ -13,7 +13,7 @@ import { InviteModal } from "../components/InviteModal";
 /** The roster as colleagues see it: who's here, their role, and how many mandates they carry. */
 export function TeamPage() {
   const { user } = useAuth();
-  const isAdmin = user?.workspace?.role === "ADMIN";
+  const isAdmin = user?.workspace?.roles.includes("ADMIN") ?? false;
   const [inviteOpen, setInviteOpen] = useState(false);
 
   const { data: members = [] } = useQuery({
@@ -54,7 +54,7 @@ export function TeamPage() {
             <Avatar id={member.memberId} name={member.fullName} />
             <div>
               <div className="text-[13px]">{member.fullName}</div>
-              <div className="font-mono text-[11px] text-text3">{titleCase(member.role)}</div>
+              <div className="font-mono text-[11px] text-text3">{member.roles.map(titleCase).join(" · ")}</div>
             </div>
             <div className="ml-auto font-mono text-[11px] text-text3">
               {count} active {count === 1 ? "project" : "projects"}

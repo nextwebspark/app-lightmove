@@ -1,7 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
 import { Outlet, useLocation } from "react-router-dom";
-import { useAuth } from "../../features/auth/AuthProvider";
-import * as workspaceApi from "../../features/workspace/api/workspaceApi";
 import { ICONS } from "./Icon";
 import { Sidebar, type SidebarGroup } from "./Sidebar";
 import { SettingsBreadcrumb, Topbar } from "./Topbar";
@@ -11,23 +8,14 @@ import { SettingsBreadcrumb, Topbar } from "./Topbar";
  * (General, Members), and a narrower content column than the workspace screens.
  */
 export function SettingsLayout() {
-  const { user } = useAuth();
   const { pathname } = useLocation();
-  const verified = user?.emailVerified ?? false;
-  const isAdmin = user?.workspace?.role === "ADMIN";
-
-  const { data: pending } = useQuery({
-    queryKey: workspaceApi.PENDING_MEMBERS_KEY,
-    queryFn: workspaceApi.pendingMembers,
-    enabled: isAdmin && verified,
-  });
 
   const groups: SidebarGroup[] = [
     {
       label: "Workspace",
       items: [
         { to: "/settings/general", label: "General", icon: ICONS.settings },
-        { to: "/settings/members", label: "Members", icon: ICONS.members, count: pending?.length || undefined },
+        { to: "/settings/members", label: "Members", icon: ICONS.members },
       ],
     },
   ];

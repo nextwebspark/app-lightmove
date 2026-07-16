@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiRequestError } from "../../../lib/apiClient";
@@ -22,16 +23,14 @@ vi.mock("../../../lib/apiClient", async (importOriginal) => ({
 const { restoreSession } = await import("../../../lib/apiClient");
 
 /**
- * The invitation is the flow that was silently broken: the backend could redeem one, and nothing in the
- * SPA ever asked it to, so an invited person landed in the approval queue they were meant to skip.
- *
- * These cover the states an invitee can actually turn up in — because every one of them used to be the
- * same state: bounced to a login screen for an account they did not have.
+ * Since membership is invitation-only, this page is the only door into an existing workspace. These
+ * cover the states an invitee can actually turn up in — token in hand from the emailed link, or
+ * token-less in a fresh tab where only the server-derived invitation can route them.
  */
 describe("AcceptInvitePage", () => {
   const invitation = {
     email: "sara@nextwebspark.com",
-    role: "CONSULTANT" as const,
+    role: "MEMBER" as const,
     workspaceName: "NextWebSpark Search",
     inviterName: "Alok Kumar",
   };
@@ -60,7 +59,7 @@ describe("AcceptInvitePage", () => {
     renderAt();
 
     expect(await screen.findByText(/Join NextWebSpark Search/)).toBeInTheDocument();
-    expect(screen.getByText(/Alok Kumar invited you as Consultant/)).toBeInTheDocument();
+    expect(screen.getByText(/Alok Kumar invited you as Member/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /create your account/i })).toBeInTheDocument();
   });
 
@@ -86,7 +85,7 @@ describe("AcceptInvitePage", () => {
       avatarUrl: null,
       emailVerified: true,
       onboardingHeld: false,
-      awaitingApproval: false,
+      pendingInvitation: null,
       workspace: null,
     });
 
@@ -111,5 +110,41 @@ describe("AcceptInvitePage", () => {
     renderAt();
 
     expect(await screen.findByText("This invitation has expired")).toBeInTheDocument();
+  });
+
+  /**
+   * The fresh-tab case: the emailed token lives in another tab's sessionStorage, but the server knows
+   * the invitation — `user.pendingInvitation` — and the page must accept from it, token-lessly.
+   */
+  it("renders and accepts from the server-derived invitation when there is no token", async () => {
+    const sara = {
+      id: "u3",
+      email: "sara@nextwebspark.com",
+      fullName: "Sara Al-Mansour",
+      title: null,
+      avatarUrl: null,
+      emailVerified: true,
+      onboardingHeld: false,
+      pendingInvitation: { workspaceName: "NextWebSpark Search", role: "MEMBER" as const },
+      workspace: null,
+    };
+    vi.mocked(restoreSession).mockResolvedValue("access-token");
+    vi.mocked(authApi.me).mockResolvedValue(sara);
+    vi.mocked(authApi.acceptPendingInvitation).mockResolvedValue({
+      ...sara,
+      pendingInvitation: null,
+    });
+
+    const user = userEvent.setup();
+    renderAt(""); // no ?token — the bug this flow exists to fix
+
+    expect(await screen.findByText(/Join NextWebSpark Search/)).toBeInTheDocument();
+    expect(screen.getByText(/You were invited as Member/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /accept invitation/i }));
+
+    await waitFor(() => expect(authApi.acceptPendingInvitation).toHaveBeenCalled());
+    // The token path is never touched — there is no token to redeem.
+    expect(authApi.acceptInvitation).not.toHaveBeenCalled();
   });
 });

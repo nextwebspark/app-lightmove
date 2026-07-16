@@ -16,9 +16,6 @@ export type ApiErrorCode =
   | "EMAIL_DISPOSABLE"
   | "EMAIL_NOT_WORK_ADDRESS"
   | "ALREADY_IN_WORKSPACE"
-  | "JOIN_REQUEST_PENDING"
-  | "JOIN_REQUEST_REJECTED"
-  | "JOIN_DOMAIN_MISMATCH"
   | "TOKEN_INVALID"
   | "TOKEN_EXPIRED"
   | "REFRESH_TOKEN_INVALID"
@@ -32,7 +29,7 @@ export type ApiErrorCode =
   | "LAST_ADMIN"
   | "MEMBER_LEADS_PROJECTS"
   | "CLIENT_ALREADY_EXISTS"
-  | "PROJECT_LEAD_REQUIRED"
+  | "PROJECT_LAST_ADMIN"
   | "WORKSPACE_NAME_MISMATCH"
   | "CONFLICT"
   | "RATE_LIMITED"
@@ -43,9 +40,9 @@ export type ApiErrorCode =
 
 const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   LAST_ADMIN: "A workspace must keep at least one admin.",
-  MEMBER_LEADS_PROJECTS: "They lead active projects — reassign the lead first.",
+  MEMBER_LEADS_PROJECTS: "They are the only admin on active projects — hand those over first.",
   CLIENT_ALREADY_EXISTS: "A client with this name already exists.",
-  PROJECT_LEAD_REQUIRED: "The project lead can be replaced, not removed.",
+  PROJECT_LAST_ADMIN: "A project must keep at least one admin.",
   WORKSPACE_NAME_MISMATCH: "Type the workspace name exactly to confirm.",
   FORBIDDEN: "You don't have permission to do this.",
   RATE_LIMITED: "Too many requests — slow down a little.",

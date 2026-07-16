@@ -2,28 +2,25 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button, Field, FormError, Input, Modal, Select, useToast } from "../../../components/ui";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
-import type { Member } from "../../workspace/api/types";
 import * as projectsApi from "../api/projectsApi";
 import type { Client } from "../api/types";
 
 const NEW_CLIENT = "__new__";
 
 /**
- * The mockup's New-project modal: client (pick or create inline), position, lead, target date.
- * A 409 on the inline client quietly resolves to the existing record — the user meant that client.
+ * The New-project modal: client (pick or create inline), position, target date. There is no lead to
+ * choose — whoever creates the mandate is seated as its admin (and lead) by the server, and delegates
+ * from the project drawer afterwards. A 409 on the inline client quietly resolves to the existing
+ * record — the user meant that client.
  */
 export function NewProjectModal({
   open,
   onClose,
   clients,
-  members,
-  defaultLeadMemberId,
 }: {
   open: boolean;
   onClose: () => void;
   clients: Client[];
-  members: Member[];
-  defaultLeadMemberId?: string;
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -31,7 +28,6 @@ export function NewProjectModal({
   const [clientId, setClientId] = useState(clients[0]?.id ?? NEW_CLIENT);
   const [newClientName, setNewClientName] = useState("");
   const [positionTitle, setPositionTitle] = useState("");
-  const [leadMemberId, setLeadMemberId] = useState(defaultLeadMemberId ?? members[0]?.memberId ?? "");
   const [targetDate, setTargetDate] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -58,14 +54,13 @@ export function NewProjectModal({
       return projectsApi.createProject({
         clientId: resolvedClientId,
         positionTitle: positionTitle.trim(),
-        leadMemberId,
         targetDate: targetDate || undefined,
       });
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
       void queryClient.invalidateQueries({ queryKey: projectsApi.CLIENTS_KEY });
-      toast("Project created — starts at Brief");
+      toast("Project created — you're its admin and lead");
       onClose();
     },
     onError: (mutationError) => setError(messageFor(mutationError)),
@@ -79,10 +74,6 @@ export function NewProjectModal({
     }
     if (!positionTitle.trim()) {
       setError("Enter the position title");
-      return;
-    }
-    if (!leadMemberId) {
-      setError("Choose a lead");
       return;
     }
     create.mutate();
@@ -120,16 +111,6 @@ export function NewProjectModal({
           onChange={(event) => setPositionTitle(event.target.value)}
           placeholder="e.g. Chief Financial Officer"
         />
-      </Field>
-
-      <Field label="Lead">
-        <Select value={leadMemberId} onChange={(event) => setLeadMemberId(event.target.value)}>
-          {members.map((member) => (
-            <option key={member.memberId} value={member.memberId}>
-              {member.fullName}
-            </option>
-          ))}
-        </Select>
       </Field>
 
       <Field label="Target date">

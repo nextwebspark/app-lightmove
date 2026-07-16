@@ -69,7 +69,7 @@ function WorkspaceMenu() {
 
   const workspace = user?.workspace;
   if (!workspace) return null;
-  const isAdmin = workspace.role === "ADMIN";
+  const isAdmin = workspace.roles.includes("ADMIN");
 
   const itemClass =
     "flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13px] text-text2 " +

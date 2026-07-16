@@ -1,17 +1,20 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Avatar, Drawer, LeadBadge, useToast } from "../../../components/ui";
+import { Avatar, Drawer, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatDate, titleCase } from "../../../lib/format";
 import type { Member } from "../../workspace/api/types";
 import * as projectsApi from "../api/projectsApi";
-import type { Project } from "../api/types";
+import type { Project, ProjectRole } from "../api/types";
 import { STAGE_ORDER } from "../lib/filtering";
 import { stageLabel } from "../../../components/ui";
 
+const PROJECT_ROLES: ProjectRole[] = ["ADMIN", "LEAD", "RESEARCHER"];
+
 /**
- * The right slide-over: pipeline stats, display-only stage gates, and the team toggles — the one
- * place a member is put on or taken off a mandate. The lead's toggle refuses with a toast; the lead
- * is replaced via project settings, never removed.
+ * The right slide-over: pipeline stats, display-only stage gates, and the team panel — the one place
+ * a member is seated on or taken off a mandate, and where their project roles are granted. A seat
+ * holds a set of roles (the creator starts as Admin + Lead; several seats may hold Lead at once).
+ * The server owns the invariants: the last admin seat refuses demotion and removal with a toast.
  */
 export function ProjectDrawer({
   project,
@@ -25,16 +28,30 @@ export function ProjectDrawer({
   const queryClient = useQueryClient();
   const toast = useToast();
 
+  const settle = {
+    onError: (error: unknown) => toast(messageFor(error)),
+  };
+
   const toggle = useMutation({
     mutationFn: ({ memberId, on }: { memberId: string; on: boolean }) =>
       on
-        ? projectsApi.addProjectMember(project!.id, memberId)
+        ? projectsApi.putProjectMember(project!.id, memberId, ["RESEARCHER"])
         : projectsApi.removeProjectMember(project!.id, memberId),
     onSuccess: (_, { on }) => {
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
       toast(on ? "Added to project" : "Removed from project");
     },
-    onError: (error) => toast(messageFor(error)),
+    ...settle,
+  });
+
+  const changeRoles = useMutation({
+    mutationFn: ({ memberId, roles }: { memberId: string; roles: ProjectRole[] }) =>
+      projectsApi.putProjectMember(project!.id, memberId, roles),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
+      toast("Roles updated");
+    },
+    ...settle,
   });
 
   if (!project) return null;
@@ -42,6 +59,7 @@ export function ProjectDrawer({
   const seatOf = (memberId: string) => project.team.find((seat) => seat.memberId === memberId);
   const currentStage = STAGE_ORDER.indexOf(project.stage);
   const gates = STAGE_ORDER.filter((stage) => stage !== "CLOSED");
+  const busy = toggle.isPending || changeRoles.isPending;
 
   return (
     <Drawer open onClose={onClose}>
@@ -94,30 +112,24 @@ export function ProjectDrawer({
         <SectionLabel className="mt-[18px]">Team</SectionLabel>
         {members.map((member) => {
           const seat = seatOf(member.memberId);
-          const isLead = seat?.projectRole === "LEAD";
           const on = Boolean(seat);
           return (
-            <div key={member.memberId} className="flex items-center gap-2.5 rounded-[7px] px-2 py-[7px] hover:bg-panel2">
-              <Avatar id={member.memberId} name={member.fullName} />
-              <div>
-                <div className="text-[13px]">{member.fullName}</div>
-                <div className="font-mono text-[11px] text-text3">{titleCase(member.role)}</div>
-              </div>
-              <div className="ml-auto flex items-center gap-2">
-                {isLead && <LeadBadge />}
+            <div key={member.memberId} className="rounded-[7px] px-2 py-[7px] hover:bg-panel2">
+              <div className="flex items-center gap-2.5">
+                <Avatar id={member.memberId} name={member.fullName} />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[13px]">{member.fullName}</div>
+                  <div className="font-mono text-[11px] text-text3">
+                    {member.roles.map(titleCase).join(" · ")}
+                  </div>
+                </div>
                 <button
                   type="button"
                   role="switch"
                   aria-checked={on}
                   aria-label={`Toggle ${member.fullName}`}
-                  disabled={toggle.isPending}
-                  onClick={() => {
-                    if (isLead) {
-                      toast("Lead cannot be removed");
-                      return;
-                    }
-                    toggle.mutate({ memberId: member.memberId, on: !on });
-                  }}
+                  disabled={busy}
+                  onClick={() => toggle.mutate({ memberId: member.memberId, on: !on })}
                   className={`relative h-[18px] w-8 flex-none rounded-full transition ${on ? "bg-amber-btn" : "bg-line"}`}
                 >
                   <span
@@ -127,6 +139,38 @@ export function ProjectDrawer({
                   />
                 </button>
               </div>
+
+              {seat && (
+                <div className="ml-9 mt-1.5 flex gap-3">
+                  {PROJECT_ROLES.map((role) => {
+                    const checked = seat.projectRoles.includes(role);
+                    return (
+                      <label
+                        key={role}
+                        className="flex cursor-pointer items-center gap-1.5 font-mono text-[11px] text-text2"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={busy}
+                          onChange={() => {
+                            const next = checked
+                              ? seat.projectRoles.filter((held) => held !== role)
+                              : [...seat.projectRoles, role];
+                            if (next.length === 0) {
+                              toast("A seat keeps at least one role — remove them instead");
+                              return;
+                            }
+                            changeRoles.mutate({ memberId: member.memberId, roles: next });
+                          }}
+                          className="size-3 accent-amber-btn"
+                        />
+                        {titleCase(role)}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}

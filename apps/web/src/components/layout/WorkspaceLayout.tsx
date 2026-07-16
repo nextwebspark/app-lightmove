@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, Outlet } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import * as projectsApi from "../../features/projects/api/projectsApi";
 import * as workspaceApi from "../../features/workspace/api/workspaceApi";
@@ -11,12 +11,12 @@ import { UnverifiedBanner } from "./UnverifiedBanner";
 /**
  * The app shell: topbar, the workspace sidebar with live counts, and the main panel the routed page
  * renders into. The sidebar's counts ride the same queries the pages use — one cache, no extra
- * traffic. Also the home of the two banners: unverified email, and pending join requests (admins).
+ * traffic.
  */
 export function WorkspaceLayout() {
   const { user } = useAuth();
   const verified = user?.emailVerified ?? false;
-  const isAdmin = user?.workspace?.role === "ADMIN";
+  const isAdmin = user?.workspace?.roles.includes("ADMIN") ?? false;
 
   const { data: projects } = useQuery({
     queryKey: projectsApi.PROJECTS_KEY,
@@ -32,11 +32,6 @@ export function WorkspaceLayout() {
     queryKey: workspaceApi.MEMBERS_KEY,
     queryFn: workspaceApi.members,
     enabled: verified,
-  });
-  const { data: pending } = useQuery({
-    queryKey: workspaceApi.PENDING_MEMBERS_KEY,
-    queryFn: workspaceApi.pendingMembers,
-    enabled: isAdmin && verified,
   });
 
   const myMemberId = members?.find((m) => m.userId === user?.id)?.memberId;
@@ -59,7 +54,7 @@ export function WorkspaceLayout() {
         { to: "/clients", label: "Clients", icon: ICONS.clients, count: clients?.length },
         { to: "/team", label: "Team", icon: ICONS.team, count: members?.length },
         ...(isAdmin
-          ? [{ to: "/settings/general", label: "Settings", icon: ICONS.settings, count: pending?.length || undefined }]
+          ? [{ to: "/settings/general", label: "Settings", icon: ICONS.settings }]
           : []),
       ],
     },
@@ -74,15 +69,6 @@ export function WorkspaceLayout() {
         <Sidebar groups={groups} />
 
         <main className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-line bg-panel">
-          {isAdmin && pending && pending.length > 0 && (
-            <Link
-              to="/settings/members"
-              className="flex items-center justify-center gap-2 rounded-t-[10px] bg-amber-dim px-4 py-2 font-mono text-[11.5px] text-amber hover:brightness-95"
-            >
-              {pending.length} {pending.length === 1 ? "person is" : "people are"} waiting to join —
-              review in Settings
-            </Link>
-          )}
           <div className="mx-auto max-w-[1160px] px-7 pb-[60px] pt-7">
             <Outlet />
           </div>

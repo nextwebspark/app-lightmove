@@ -6,7 +6,7 @@
  * OpenAPI document instead of maintaining it twice.
  */
 
-export type WorkspaceRole = "ADMIN" | "CONSULTANT" | "RESEARCHER";
+export type WorkspaceRole = "ADMIN" | "MEMBER";
 
 export interface WorkspaceSummary {
   id: string;
@@ -14,7 +14,8 @@ export interface WorkspaceSummary {
   slug: string;
   logoMark: string | null;
   emailDomain: string;
-  role: WorkspaceRole;
+  /** The caller's workspace roles — a set. Admin checks read `roles.includes("ADMIN")`. */
+  roles: WorkspaceRole[];
 }
 
 export interface User {
@@ -26,15 +27,14 @@ export interface User {
   emailVerified: boolean;
 
   /**
-   * Null until the user has joined or created a workspace. The router reads this to decide whether
-   * someone belongs in the app or back in the onboarding wizard.
+   * Null until the user has created a workspace or accepted an invitation. The router reads this to
+   * decide whether someone belongs in the app or back in the onboarding wizard.
    */
   workspace: WorkspaceSummary | null;
 
   /**
    * They finished the wizard but have not verified their email, so what they asked for is held: no
-   * workspace exists on their firm's domain, and no join request has reached an admin. Verifying is
-   * what makes it real.
+   * workspace exists on their firm's domain. Verifying is what makes it real.
    *
    * The router needs this to tell "has not started onboarding" from "has finished it and is waiting on
    * their inbox" — both of which have `workspace: null`. Without it, a user who closes the tab comes
@@ -43,14 +43,17 @@ export interface User {
   onboardingHeld: boolean;
 
   /**
-   * They asked to join an existing workspace and an admin has not decided yet. The only thing that puts
-   * anyone on the approval screen.
-   *
-   * Not to be inferred from `emailVerified`: proving your mailbox is not asking anyone for anything, and
-   * a user who verified before finishing the wizard would be shown an approval screen for a request they
-   * never made — with no way back to creating the workspace they came for.
+   * The redeemable invitation addressed to this user, when they are not yet placed. Server-derived so
+   * an invitee is routed to "join {workspace}" from any tab — the emailed token lives in one tab's
+   * sessionStorage, but this survives everywhere the session does. Null once placed.
    */
-  awaitingApproval: boolean;
+  pendingInvitation: PendingInvitation | null;
+}
+
+/** What the invitee is told about their outstanding invitation. Deliberately token-free. */
+export interface PendingInvitation {
+  workspaceName: string;
+  role: WorkspaceRole;
 }
 
 export interface AuthResponse {
@@ -59,25 +62,6 @@ export interface AuthResponse {
   /** Seconds. Lets the client refresh *before* a 401 rather than in response to one. */
   expiresIn: number;
   user: User;
-}
-
-/** A workspace on the user's email domain, offered at signup so they can find their firm. */
-export interface JoinableWorkspace {
-  id: string;
-  name: string;
-  logoMark: string | null;
-  memberCount: number;
-  adminName: string | null;
-}
-
-/** Someone waiting on an admin's decision. */
-export interface PendingMember {
-  memberId: string;
-  userId: string;
-  fullName: string;
-  email: string;
-  requestedRole: WorkspaceRole;
-  requestedAt: string;
 }
 
 export interface SignupRequest {
