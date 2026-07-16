@@ -1,0 +1,124 @@
+import type { ReactNode } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Logo } from "../components/ui";
+import { useAuth } from "../features/auth/AuthProvider";
+import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
+import { CheckInboxPage } from "../features/auth/pages/CheckInboxPage";
+import { InviteStepPage } from "../features/auth/pages/InviteStepPage";
+import { LoginPage } from "../features/auth/pages/LoginPage";
+import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
+import { PendingApprovalPage } from "../features/auth/pages/PendingApprovalPage";
+import { SignupPage } from "../features/auth/pages/SignupPage";
+import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
+import { WorkspaceStepPage } from "../features/auth/pages/WorkspaceStepPage";
+import { WorkspacePage } from "../features/workspace/pages/WorkspacePage";
+
+/**
+ * Routing follows the user's actual state, not a step counter.
+ *
+ * A signup wizard held in component state cannot survive a closed tab, and the account created at step
+ * 1 is real and permanent. So each guard asks the server-derived user what is true right now — do they
+ * exist, are they verified, do they have a workspace — and routes on the answer. Someone who signs up,
+ * closes the browser, and signs back in a week later lands exactly where they left off, without the
+ * app having to remember anything.
+ */
+export function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/login" element={<AnonymousOnly><LoginPage /></AnonymousOnly>} />
+      <Route path="/signup" element={<AnonymousOnly><SignupPage /></AnonymousOnly>} />
+
+      {/* Public: the link is clicked from an email, in a browser that may have no session at all. */}
+      <Route path="/auth/verify" element={<VerifyEmailPage />} />
+      <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+
+      {/* Public, and unguarded on purpose: the invitee may have no account, an unverified one, or be
+          signed in as somebody else entirely. The page reads its own state and says which. Guarding it
+          with RequireAuth would bounce a first-time invitee to a login screen for an account they have
+          not got, which is where the invitation used to die. */}
+      <Route path="/auth/accept-invite" element={<AcceptInvitePage />} />
+
+      {/* Signed in, but not yet in a workspace. */}
+      <Route path="/signup/workspace" element={<RequireAuth><WorkspaceStepPage /></RequireAuth>} />
+      {/* RequireAuth, not RequireWorkspace: an unverified user has no workspace yet — theirs is held
+          until they confirm their address — and is still entitled to finish their own signup. Guarding
+          this with RequireWorkspace bounced them straight back to step 2, in a loop. */}
+      <Route path="/signup/invite" element={<RequireAuth><InviteStepPage /></RequireAuth>} />
+      <Route path="/signup/verify" element={<RequireAuth><CheckInboxPage /></RequireAuth>} />
+      <Route path="/signup/pending" element={<RequireAuth><PendingApprovalPage /></RequireAuth>} />
+
+      <Route path="/" element={<RequireWorkspace><WorkspacePage /></RequireWorkspace>} />
+
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+/** The initial session restore is in flight. Routing now would flash the login page at a signed-in user. */
+function Booting() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4">
+      <Logo />
+      <p className="font-mono text-xs text-text3">Loading…</p>
+    </div>
+  );
+}
+
+function AnonymousOnly({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) return <Booting />;
+  if (user) return <Navigate to={homeFor(user)} replace />;
+
+  return <>{children}</>;
+}
+
+/**
+ * Where a signed-in user actually belongs, given what is true of them right now.
+ *
+ * Three states share `workspace: null` and they are not the same place. Someone who asked to join a
+ * workspace is waiting on an admin. Someone who *finished* the wizard while unverified needs their
+ * inbox, not an empty form they have already filled in. Everyone else has not started, and needs the
+ * wizard — which is also where a user whose domain has no workspace creates the first one.
+ *
+ * Each branch reads the state that defines it. Inferring the approval screen from `emailVerified`
+ * instead stranded anyone who verified before finishing the wizard: they were shown an approval screen
+ * for a request they never made, on a domain with no admin who could ever grant it.
+ */
+function homeFor(user: { workspace: unknown; onboardingHeld: boolean; awaitingApproval: boolean }) {
+  if (user.workspace) return "/";
+  if (user.awaitingApproval) return "/signup/pending";
+  if (user.onboardingHeld) return "/signup/verify";
+  return "/signup/workspace";
+}
+
+function RequireAuth({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) return <Booting />;
+
+  if (!user) {
+    // Remember where they were headed, so signing in returns them to it rather than dumping them on
+    // the home page.
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  return <>{children}</>;
+}
+
+/**
+ * The app proper. Requires an account *and* a workspace.
+ *
+ * A user with neither is mid-signup; one with a pending join request has an account and no workspace,
+ * and belongs on the waiting screen rather than being bounced back into a wizard they have finished.
+ */
+function RequireWorkspace({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) return <Booting />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!user.workspace) return <Navigate to={homeFor(user)} replace />;
+
+  return <>{children}</>;
+}

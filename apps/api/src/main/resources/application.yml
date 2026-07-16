@@ -1,0 +1,211 @@
+spring:
+  application:
+    name: lightmove-api
+
+  datasource:
+    # Cloud SQL Java connector: no host in the URL, no IP allowlist, no proxy process to babysit.
+    # Authentication is the caller's Application Default Credentials (`gcloud auth application-default login`).
+    url: jdbc:postgresql:///${DB_NAME:lightmove}?cloudSqlInstance=${CLOUD_SQL_INSTANCE:hak-talent-mapping:us-central1:bright-gcc}&socketFactory=com.google.cloud.sql.postgres.SocketFactory
+    username: ${DB_USER:lm_app}
+    password: ${DB_PASSWORD}
+    hikari:
+      # bright-gcc is db-f1-micro; its connection ceiling is low (~25) and the brightdata ETL shares it.
+      # This is per *instance*, so the real ceiling is pool × Cloud Run max-instances — which is why the
+      # deployed service runs a smaller pool than a laptop does. Exhaust it and you take down the
+      # neighbours, not just yourself.
+      maximum-pool-size: ${DB_POOL_MAX:10}
+      minimum-idle: 2
+
+  jpa:
+    hibernate:
+      # Hibernate does not touch the schema. Not create, not update, not even validate — the running
+      # application has no business inspecting or altering DDL. The schema is defined by hand-written
+      # SQL in db/migration and applied by Flyway, and that is the only thing that ever changes it.
+      #
+      # The test profile turns this back up to `validate`, where a mismatch between the entities and
+      # the migrations becomes a failing build instead of a production surprise. That is the right
+      # place for the check: CI, not startup.
+      ddl-auto: none
+    open-in-view: false       # Lazy loading in a view layer hides N+1 queries. Fail loudly instead.
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+
+  flyway:
+    # Runs the hand-written SQL in db/migration, in order, once each. It generates nothing itself.
+    #
+    # On at boot for local development and the test suite, where "clone it and run it" is the whole
+    # point. OFF in the deployed service, where migrating at boot is wrong twice over:
+    #
+    #   - it forces lm_app — the *runtime* role, the one on the other end of any SQL injection we ever
+    #     ship — to hold CREATE ON SCHEMA public forever. ops/cloudsql/harden.sql revokes exactly that,
+    #     and cannot be applied while the application migrates itself.
+    #   - a bad migration should fail a deploy step and leave the previous revision serving. At boot it
+    #     crash-loops production instead, and you can roll back an image but not a schema.
+    #
+    # Deployed, Flyway runs as lm_migrate from the deploy pipeline, before the new revision goes live.
+    enabled: ${FLYWAY_ENABLED:true}
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    placeholders:
+      # The Cloud SQL IAM principal granted read access to the schema (see V2). Empty = grant nothing,
+      # which is what a production deployment wants.
+      iam_user: ${DB_IAM_USER:}
+
+  # Google sign-in is NOT configured here on purpose. Spring validates every declared registration at
+  # startup and rejects an empty client-id, so a placeholder block would mean the application refuses
+  # to boot until someone has been to the GCP console. Declaring it only where the credentials actually
+  # exist keeps a fresh clone runnable, and the "Continue with Google" button simply stays hidden.
+  #
+  # To enable it, add this to application-local.yml (or set the env vars in production):
+  #
+  #   spring:
+  #     security:
+  #       oauth2:
+  #         client:
+  #           registration:
+  #             google:
+  #               client-id: xxx.apps.googleusercontent.com
+  #               client-secret: xxx
+  #               scope: openid, email, profile
+
+  threads:
+    virtual:
+      enabled: true           # Java 21 virtual threads: auth endpoints are IO-bound (DB, DNS, email).
+
+server:
+  port: ${PORT:8080}          # Cloud Run injects PORT and expects the container to honour it.
+  error:
+    include-message: never    # Error bodies are built in GlobalExceptionHandler, not leaked by the container.
+  forward-headers-strategy: native
+
+lightmove:
+  auth:
+    access-token-ttl: 15m
+    refresh-token-ttl: 30d
+    verification-token-ttl: 24h
+    invitation-ttl: 7d
+    # A user's email domain decides their organisation, so an unverified address proves nothing —
+    # anyone could type sara@nextwebspark.com and walk into that firm's workspace. Verification is
+    # what turns a claim to an address into evidence of employment, so it gates workspace access.
+    require-verified-email: true
+    # Development shortcut: stamp a new signup verified and send no email. Skips only the mailbox
+    # proof — admin approval of a join request, and invitations, are untouched. Never true in prod.
+    auto-verify-email: ${AUTH_AUTO_VERIFY_EMAIL:false}
+    bcrypt-strength: 12
+    jwt:
+      issuer: lightmove
+      private-key-location: ${JWT_PRIVATE_KEY_LOCATION:file:.keys/jwt-private.pem}
+      public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:.keys/jwt-public.pem}
+    cookie:
+      name: lm_refresh
+      path: /api/v1/auth
+      http-only: true
+      secure: true
+      same-site: Strict
+    lockout:
+      max-failed-attempts: 5
+      duration: 15m
+    rate-limit:
+      # Right for production; useless for anyone testing, who will create half a dozen accounts in a row
+      # and be locked out by their own fourth attempt. application-local.yml already raises these for
+      # local dev — these placeholders let a deployed *staging* service do the same without recompiling.
+      #
+      # Two things worth knowing before trusting the numbers. The limiter is in-memory per instance
+      # (Bucket4j + Caffeine), so the real ceiling is this × Cloud Run's max-instances — and with
+      # min-instances 0 the buckets are wiped by every cold start. It is a speed bump, not a quota.
+      enabled: ${AUTH_RATE_LIMIT_ENABLED:true}
+      login-attempts-per-minute: ${AUTH_LOGIN_ATTEMPTS_PER_MINUTE:10}
+      signup-attempts-per-hour: ${AUTH_SIGNUP_ATTEMPTS_PER_HOUR:5}
+      verification-resends-per-hour: ${AUTH_VERIFICATION_RESENDS_PER_HOUR:3}
+
+  email:
+    provider: ${EMAIL_PROVIDER:log}
+    from-name: LightMove
+    from-address: ${EMAIL_FROM:noreply@lightmove.app}
+    resend:
+      api-key: ${RESEND_API_KEY:}
+    validation:
+      # One DNS lookup. Catches a typo'd domain before it costs us a send, a bounce, and a user who
+      # never gets their link.
+      mx-check-enabled: ${EMAIL_MX_CHECK:true}
+
+      # Refuse gmail/outlook/yahoo/… so signup requires a work address.
+      #
+      # Turning this off has a consequence: the email domain is what groups colleagues together, and
+      # gmail.com groups the entire world. LightMove therefore never offers a Gmail user "the
+      # workspaces on your domain" — that list would be every unrelated customer who also used Gmail.
+      # Consumer signups simply always create a fresh workspace.
+      block-public-domains: ${EMAIL_BLOCK_PUBLIC_DOMAINS:true}
+
+      # Leave unset to use the bundled list (see PublicEmailDomains). Setting it REPLACES that list;
+      # use extra-public-domains to add to it instead.
+      # public-domains: gmail.com,outlook.com
+      extra-public-domains: ${EMAIL_EXTRA_PUBLIC_DOMAINS:}
+
+      block-disposable-domains: ${EMAIL_BLOCK_DISPOSABLE:true}
+      extra-disposable-domains: ${EMAIL_EXTRA_DISPOSABLE:}
+
+  web:
+    base-url: ${WEB_BASE_URL:http://localhost:5173}
+    cors-allowed-origins: ${WEB_CORS_ORIGINS:http://localhost:5173}
+    oauth-success-path: /auth/callback
+
+management:
+  # Actuator listens on its own port, bound to loopback — it is not reachable from the internet at all.
+  #
+  # It used to sit on the application port behind hasRole("ADMIN"), which is the *tenant* role: every
+  # workspace creator is granted it. That made /actuator/prometheus and /actuator/metrics readable by
+  # any customer who signed up. A workspace role must never double as a system-admin role, so the two
+  # are now separated by the only boundary that cannot be confused — a different socket.
+  #
+  # Prometheus scrapes :9090 from inside the network. On the app port, /actuator/** beyond health and
+  # info is denyAll (SecurityConfig).
+  #
+  # Cloud Run routes exactly ONE port into a container, so a loopback socket on 9090 is unreachable —
+  # and with it, any health endpoint at all. There we set MANAGEMENT_PORT=8080: Actuator moves onto the
+  # app socket, SecurityConfig's chain 0 stands itself down, and chain 3 permits health and info while
+  # denying everything else. Metrics stay shut; only the fence moves, from the socket to the matcher.
+  #
+  # `address` is deliberately NOT here — see the profile block at the end of this file.
+  server:
+    port: ${MANAGEMENT_PORT:9090}
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+      # Splits health into /actuator/health/liveness and /readiness. Cloud Run's startup probe wants
+      # readiness: an instance that booted but cannot reach Postgres must not be sent traffic.
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: lightmove-api
+
+logging:
+  level:
+    app.lightmove.api: INFO
+    org.springframework.security: INFO
+
+---
+# The management socket's loopback binding — and it can only live here, under a profile.
+#
+# Spring Boot refuses to start when `management.server.address` is set while Actuator shares the
+# application's port. It tests whether the *property exists*, not what it holds, so there is no value —
+# not empty, not null — that opts out of the check. The key must be absent.
+#
+# Cloud Run routes one port into a container, so there Actuator has to share 8080, so there the key must
+# not exist. Which leaves exactly one place it can be set: a deployment that really does run a separate
+# management port. Today that is local development, where 9090 stays bound to loopback and Actuator is
+# unreachable from outside the machine — the property this arrangement exists to preserve.
+spring:
+  config:
+    activate:
+      on-profile: local
+
+management:
+  server:
+    address: 127.0.0.1

@@ -1,0 +1,44 @@
+# --- Secrets: never commit ---
+apps/api/.keys/
+apps/api/src/main/resources/application-local.yml
+apps/api/src/main/resources/application-local.yml.*
+!apps/api/src/main/resources/application-local.yml.example
+.env
+.env.*
+!.env.example
+
+# Keys, wherever they land. ops/gcp/bootstrap.sh has you generate the JWT keypair with openssl, and it
+# writes private.pem into whatever directory you happen to be standing in — which is usually this one.
+# Ignoring only apps/api/.keys/ left the signing key for every access token one `git add -A` from being
+# published. Anything that looks like a key is ignored now, everywhere.
+*.pem
+*.key
+*.p12
+*.pfx
+
+# A copy of a secret is still a secret — .bak/.orig/.tmp of an ignored config is not ignored by its rule.
+*.bak
+*.orig
+*.rej
+*.tmp
+
+# --- Java / Maven ---
+target/
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/timing.properties
+
+# --- Node ---
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+coverage/
+
+# --- Editors / OS ---
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+*.log

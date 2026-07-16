@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Log format, and only the format — levels stay in application.yml where they are configurable.
+
+  Two profiles, because the reader is different. Locally the reader is a human staring at a terminal, so
+  Spring's own colourised pattern wins. Deployed, the reader is Cloud Logging, which parses stdout: hand
+  it JSON and every line becomes queryable by severity and by correlationId — hand it plain text and it
+  gets one opaque `textPayload` per line, every entry filed as INFO, and no way to ask "show me this
+  request".
+
+  The field names are Cloud Logging's, not ours (`severity`, `time`, `message`). It looks for exactly
+  these; anything else lands in jsonPayload as decoration.
+-->
+<configuration>
+
+    <springProfile name="local,test">
+        <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+        <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <!-- No profile is the deployed case: the container runs `java -jar` with none set. -->
+    <springProfile name="!local &amp; !test">
+        <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp>
+                        <fieldName>time</fieldName>
+                        <timeZone>UTC</timeZone>
+                        <pattern>yyyy-MM-dd'T'HH:mm:ss.SSS'Z'</pattern>
+                    </timestamp>
+                    <pattern>
+                        <omitEmptyFields>true</omitEmptyFields>
+                        <!--
+                          Cloud Logging's LogSeverity enum has WARNING, not Logback's WARN. Left as-is the
+                          line is filed as DEFAULT and a warning stops looking like a warning in the
+                          console — so translate it here rather than discovering it during an incident.
+                        -->
+                        <pattern>
+                            {
+                              "severity": "%replace(%level){'WARN','WARNING'}",
+                              "logger": "%logger{40}",
+                              "thread": "%thread",
+                              "correlationId": "%mdc{correlationId}"
+                            }
+                        </pattern>
+                    </pattern>
+                    <message/>
+                    <stackTrace/>
+                </providers>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="JSON"/>
+        </root>
+    </springProfile>
+
+</configuration>

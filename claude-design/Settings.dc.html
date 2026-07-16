@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#f4f5f8;--panel:#ffffff;--panel2:#f7f8fa;--line:#e3e6ee;--line-soft:#edeff5;--text:#1b2230;--text2:#5a6474;--text3:#98a1b3;--amber:#b47708;--amber-btn:#f0b429;--amber-dim:rgba(201,138,10,.10);--sky:#1a73c7;--sky-dim:rgba(26,115,199,.10);--red:#cc3a33;--red-dim:rgba(204,58,51,.08);--green:#1f8f60;--green-dim:rgba(31,143,96,.10);--shadow:0 8px 28px rgba(20,30,50,.10);--mono:'JetBrains Mono',ui-monospace,monospace;--sans:'Inter',system-ui,sans-serif}
+    body.dark{--bg:#0b0d11;--panel:#12151b;--panel2:#171b22;--line:#232833;--line-soft:#1c212b;--text:#e8eaee;--text2:#9aa3b2;--text3:#5f6877;--amber:#f0b429;--amber-dim:rgba(240,180,41,.12);--sky:#5cb3ff;--sky-dim:rgba(92,179,255,.12);--red:#e5534b;--red-dim:rgba(229,83,75,.12);--green:#3fb27f;--green-dim:rgba(63,178,127,.12);--shadow:0 8px 28px rgba(0,0,0,.45)}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+    a{color:var(--sky);text-decoration:none}
+    a:hover{text-decoration:underline}
+    input::placeholder{color:var(--text3)}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  </style>
+</helmet>
+<div data-screen-label="Settings" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
+
+  <header style="height:46px;flex:none;display:flex;align-items:center;gap:8px;padding:0 14px;position:relative;z-index:60">
+    <a href="Workspace.dc.html" title="Back to LightMove workspace" style="display:flex;align-items:center;padding:4px;border-radius:7px;text-decoration:none" style-hover="background:var(--panel2);text-decoration:none">
+      <span style="width:22px;height:22px;border-radius:6px;background:#f0b429;color:#141414;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
+    </a>
+    <a href="Workspace.dc.html" style="font:500 13px var(--mono);color:var(--text3);text-decoration:none;padding:4px 7px;border-radius:6px;white-space:nowrap" style-hover="color:var(--text);background:var(--panel2);text-decoration:none">Workspace</a>
+    <span style="color:var(--text3);opacity:.4;font-size:12px">/</span>
+    <span style="color:var(--text);font:600 14px var(--sans);white-space:nowrap">Settings</span>
+    <span style="color:var(--text3);opacity:.4;font-size:12px">/</span>
+    <span style="color:var(--text2);font:500 13px var(--mono);white-space:nowrap">{{ sectionLabel }}</span>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+      <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky)">YH</span>
+    </div>
+  </header>
+
+  <div style="flex:1;display:flex;gap:14px;padding:0 14px 14px;min-height:0">
+
+    <nav style="width:{{ sideWidth }};flex:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 8px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s ease">
+      <a href="Workspace.dc.html" title="Back to workspace" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:500 13px var(--sans);color:var(--text2);text-decoration:none;margin-bottom:6px" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+        <span style="display:{{ labelDisp }};white-space:nowrap">Back to workspace</span>
+      </a>
+      <div style="height:1px;background:var(--line-soft);margin:0 4px 6px"></div>
+      <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="2">
+        <div style="display:{{ groupDisp }};font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:10px 10px 6px">{{ g.group }}</div>
+        <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+          <button onClick="{{ setSection }}" data-sec="{{ it.key }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }};border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
+            <span style="display:{{ labelDisp }};white-space:nowrap">{{ it.label }}</span>
+          </button>
+        </sc-for>
+      </sc-for>
+      <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--line-soft)">
+        <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path></svg>
+          <span style="display:{{ labelDisp }};white-space:nowrap">{{ themeLabel }}</span>
+        </button>
+        <button onClick="{{ toggleCollapse }}" title="{{ collapseTitle }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ collapseIcon }}"></path></svg>
+          <span style="display:{{ labelDisp }};white-space:nowrap">Collapse</span>
+        </button>
+      </div>
+    </nav>
+
+    <main style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow-y:auto;min-width:0">
+      <div style="max-width:760px;margin:0 auto;padding:28px 28px 60px">
+
+        <!-- ============ PROFILE ============ -->
+        <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ true }}">
+          <div data-screen-label="Settings · Profile" style="animation:fadeUp .4s ease both">
+            <div style="font:600 19px/1.2 var(--sans)">Profile</div>
+            <div style="color:var(--text3);font:400 12px var(--mono);margin:4px 0 22px">How you appear across the workspace</div>
+            <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:20px">
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+                <span style="width:52px;height:52px;border-radius:12px;display:grid;place-items:center;font:600 17px var(--mono);background:var(--sky-dim);color:var(--sky)">YH</span>
+                <div>
+                  <div style="font:600 14px var(--sans)">Yara Haddad</div>
+                  <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:2px">Admin · joined Mar 2026</div>
+                </div>
+                <button onClick="{{ toastPhoto }}" style="margin-left:auto;display:inline-flex;align-items:center;padding:6px 12px;border-radius:8px;font:500 12.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Change photo</button>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 16px">
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Full name</label>
+                  <input value="{{ pName }}" onInput="{{ onPName }}" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                </div>
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Work email</label>
+                  <input value="{{ pEmail }}" onInput="{{ onPEmail }}" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                </div>
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Title</label>
+                  <input value="{{ pTitle }}" onInput="{{ onPTitle }}" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                </div>
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Role</label>
+                  <div style="background:var(--panel);border:1px solid var(--line-soft);border-radius:8px;padding:9px 12px;font:500 13px var(--mono);color:var(--text2)">Admin — set by workspace owner</div>
+                </div>
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Timezone</label>
+                  <select style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <option>Gulf Standard Time (GMT+4)</option><option>Arabia Standard Time (GMT+3)</option><option>GMT</option><option>Central European Time</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Language</label>
+                  <select style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <option>English</option><option>العربية</option><option>Français</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:flex-end;margin-top:20px">
+                <button onClick="{{ toastSaveProfile }}" style="display:inline-flex;align-items:center;padding:8px 15px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Save changes</button>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ============ SECURITY ============ -->
+        <sc-if value="{{ isSecurity }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Settings · Security" style="animation:fadeUp .4s ease both">
+            <div style="font:600 19px/1.2 var(--sans)">Security</div>
+            <div style="color:var(--text3);font:400 12px var(--mono);margin:4px 0 22px">Password, two-factor authentication and sessions</div>
+
+            <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:20px;margin-bottom:16px">
+              <div style="font:600 13px var(--sans);margin-bottom:14px">Change password</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 16px">
+                <div style="grid-column:1 / -1">
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Current password</label>
+                  <input type="password" placeholder="••••••••" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                </div>
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">New password</label>
+                  <input type="password" placeholder="8+ characters" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                </div>
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Confirm new password</label>
+                  <input type="password" placeholder="Repeat it" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                </div>
+              </div>
+              <div style="display:flex;justify-content:flex-end;margin-top:16px">
+                <button onClick="{{ toastPassword }}" style="display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Update password</button>
+              </div>
+            </div>
+
+            <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:20px;margin-bottom:16px">
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="flex:1">
+                  <div style="font:600 13px var(--sans)">Two-factor authentication</div>
+                  <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:3px">Require a code from your authenticator app when signing in.</div>
+                </div>
+                <sc-if value="{{ tfaOn }}" hint-placeholder-val="{{ true }}">
+                  <span style="display:inline-flex;align-items:center;gap:5px;font:600 10px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:999px;color:var(--green);background:var(--green-dim)">Enabled</span>
+                </sc-if>
+                <button onClick="{{ toggleTfa }}" style="width:32px;height:18px;border-radius:999px;background:{{ tfaBg }};position:relative;flex:none;border:none;cursor:pointer;padding:0">
+                  <span style="position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:{{ tfaKnob }};transition:transform .15s;transform:{{ tfaTransform }}"></span>
+                </button>
+              </div>
+            </div>
+
+            <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:20px">
+              <div style="display:flex;align-items:center;margin-bottom:12px">
+                <div style="font:600 13px var(--sans)">Active sessions</div>
+                <button onClick="{{ toastSessions }}" style="margin-left:auto;font:500 12px var(--sans);color:var(--red);background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:6px" style-hover="background:var(--red-dim)">Sign out all others</button>
+              </div>
+              <sc-for list="{{ sessions }}" as="s" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line-soft)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none"><path d="{{ s.icon }}"></path></svg>
+                  <div style="flex:1">
+                    <div style="font:500 13px var(--sans)">{{ s.device }}</div>
+                    <div style="font:400 11px var(--mono);color:var(--text3);margin-top:1px">{{ s.meta }}</div>
+                  </div>
+                  <sc-if value="{{ s.current }}" hint-placeholder-val="{{ false }}">
+                    <span style="font:600 10px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:999px;color:var(--sky);background:var(--sky-dim)">This device</span>
+                  </sc-if>
+                  <sc-if value="{{ s.revocable }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ toastRevoke }}" style="font:500 12px var(--sans);color:var(--text3);background:none;border:1px solid var(--line);border-radius:7px;cursor:pointer;padding:4px 10px" style-hover="color:var(--red);border-color:var(--red)">Revoke</button>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ============ NOTIFICATIONS ============ -->
+        <sc-if value="{{ isNotifications }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Settings · Notifications" style="animation:fadeUp .4s ease both">
+            <div style="font:600 19px/1.2 var(--sans)">Notifications</div>
+            <div style="color:var(--text3);font:400 12px var(--mono);margin:4px 0 22px">What reaches you, and where</div>
+            <sc-for list="{{ notifGroups }}" as="g" hint-placeholder-count="2">
+              <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:20px;margin-bottom:16px">
+                <div style="font:600 13px var(--sans);margin-bottom:4px">{{ g.title }}</div>
+                <div style="font:400 11.5px var(--mono);color:var(--text3);margin-bottom:10px">{{ g.sub }}</div>
+                <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line-soft)">
+                    <div style="flex:1">
+                      <div style="font:500 13px var(--sans)">{{ r.label }}</div>
+                      <div style="font:400 11px var(--mono);color:var(--text3);margin-top:1px">{{ r.desc }}</div>
+                    </div>
+                    <button onClick="{{ toggleNotif }}" data-key="{{ r.key }}" style="width:32px;height:18px;border-radius:999px;background:{{ r.bg }};position:relative;flex:none;border:none;cursor:pointer;padding:0">
+                      <span style="position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:{{ r.knob }};transition:transform .15s;transform:{{ r.transform }}"></span>
+                    </button>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- ============ GENERAL (workspace) ============ -->
+        <sc-if value="{{ isGeneral }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Settings · General" style="animation:fadeUp .4s ease both">
+            <div style="font:600 19px/1.2 var(--sans)">General</div>
+            <div style="color:var(--text3);font:400 12px var(--mono);margin:4px 0 22px">Workspace identity and defaults</div>
+            <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:20px;margin-bottom:16px">
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+                <span style="width:44px;height:44px;border-radius:11px;background:#f0b429;color:#141414;display:grid;place-items:center;font:700 18px var(--mono)">L</span>
+                <div>
+                  <div style="font:600 14px var(--sans)">LightMove</div>
+                  <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:2px">Pro plan · 5 members</div>
+                </div>
+                <button onClick="{{ toastLogo }}" style="margin-left:auto;display:inline-flex;align-items:center;padding:6px 12px;border-radius:8px;font:500 12.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Change mark</button>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 16px">
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Workspace name</label>
+                  <input value="{{ wsName }}" onInput="{{ onWsName }}" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                </div>
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Workspace URL</label>
+                  <div style="background:var(--panel);border:1px solid var(--line-soft);border-radius:8px;padding:9px 12px;font:500 13px var(--mono);color:var(--text2)">lightmove.app/w/lightmove</div>
+                </div>
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Default region</label>
+                  <select style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <option>GCC</option><option>MENA</option><option>Europe</option><option>Global</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Default currency</label>
+                  <select style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <option>USD</option><option>AED</option><option>SAR</option><option>EUR</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:flex-end;margin-top:20px">
+                <button onClick="{{ toastSaveGeneral }}" style="display:inline-flex;align-items:center;padding:8px 15px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Save changes</button>
+              </div>
+            </div>
+            <div style="background:var(--red-dim);border:1px solid var(--red);border-radius:10px;padding:20px">
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="flex:1">
+                  <div style="font:600 13px var(--sans);color:var(--red)">Delete workspace</div>
+                  <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:3px">Permanently removes all projects, candidates and client records. This cannot be undone.</div>
+                </div>
+                <button onClick="{{ toastDelete }}" style="display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--red);color:var(--red);background:none;cursor:pointer" style-hover="background:var(--red);color:#fff">Delete…</button>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ============ MEMBERS ============ -->
+        <sc-if value="{{ isMembers }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Settings · Members" style="animation:fadeUp .4s ease both">
+            <div style="display:flex;align-items:flex-start;margin-bottom:22px">
+              <div>
+                <div style="font:600 19px/1.2 var(--sans)">Members</div>
+                <div style="color:var(--text3);font:400 12px var(--mono);margin-top:4px">5 members · roles apply per project</div>
+              </div>
+              <button onClick="{{ toastInvite }}" style="margin-left:auto;display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
+                Invite
+              </button>
+            </div>
+            <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:8px 20px">
+              <sc-for list="{{ members }}" as="m" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line-soft)">
+                  <span style="width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:{{ m.bg }};color:{{ m.fg }}">{{ m.initials }}</span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font:500 13px var(--sans)">{{ m.name }}</div>
+                    <div style="font:400 11px var(--mono);color:var(--text3);margin-top:1px">{{ m.email }}</div>
+                  </div>
+                  <select value="{{ m.role }}" onChange="{{ onMemberRole }}" data-id="{{ m.id }}" style="width:130px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none;flex:none" style-focus="border-color:var(--sky)">
+                    <option>Admin</option><option>Consultant</option><option>Researcher</option>
+                  </select>
+                  <button onClick="{{ toastRemove }}" title="Remove member" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:6px;border-radius:6px;flex:none" style-hover="color:var(--red);background:var(--red-dim)">✕</button>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ============ BILLING ============ -->
+        <sc-if value="{{ isBilling }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Settings · Billing" style="animation:fadeUp .4s ease both">
+            <div style="font:600 19px/1.2 var(--sans)">Billing</div>
+            <div style="color:var(--text3);font:400 12px var(--mono);margin:4px 0 22px">Plan, seats and invoices</div>
+            <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:20px;margin-bottom:16px">
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="flex:1">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span style="font:600 15px var(--sans)">Pro plan</span>
+                    <span style="display:inline-flex;font:600 10px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:999px;color:var(--green);background:var(--green-dim)">Active</span>
+                  </div>
+                  <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:4px">$49 per seat / month · 5 of 10 seats used · renews 01 Aug 2026</div>
+                </div>
+                <button onClick="{{ toastPlan }}" style="display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Change plan</button>
+              </div>
+            </div>
+            <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:20px;margin-bottom:16px">
+              <div style="display:flex;align-items:center;gap:12px">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none"><path d="M2 6h20v13H2zM2 10h20"></path></svg>
+                <div style="flex:1">
+                  <div style="font:500 13px var(--sans)">Visa •••• 4242</div>
+                  <div style="font:400 11px var(--mono);color:var(--text3);margin-top:1px">Expires 08/27 · billing email finance@lightmove.app</div>
+                </div>
+                <button onClick="{{ toastCard }}" style="display:inline-flex;align-items:center;padding:6px 12px;border-radius:8px;font:500 12.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Update</button>
+              </div>
+            </div>
+            <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:8px 20px 12px">
+              <div style="font:600 13px var(--sans);padding:12px 0 6px">Invoices</div>
+              <sc-for list="{{ invoices }}" as="inv" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line-soft);font:400 12.5px var(--mono)">
+                  <span style="color:var(--text2);width:110px">{{ inv.date }}</span>
+                  <span style="color:var(--text);font-weight:500;width:90px">{{ inv.amount }}</span>
+                  <span style="display:inline-flex;font:600 10px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;color:var(--green);background:var(--green-dim)">Paid</span>
+                  <button onClick="{{ toastInvoice }}" style="margin-left:auto;font:500 12px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer;padding:2px 4px" style-hover="text-decoration:underline">Download</button>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ============ INTEGRATIONS ============ -->
+        <sc-if value="{{ isIntegrations }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Settings · Integrations" style="animation:fadeUp .4s ease both">
+            <div style="font:600 19px/1.2 var(--sans)">Integrations</div>
+            <div style="color:var(--text3);font:400 12px var(--mono);margin:4px 0 22px">Connect your ATS, messaging and calendar</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <sc-for list="{{ integrations }}" as="i" hint-placeholder-count="4">
+                <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                    <span style="width:32px;height:32px;border-radius:8px;display:grid;place-items:center;font:700 12px var(--mono);background:{{ i.bg }};color:{{ i.fg }};flex:none">{{ i.mark }}</span>
+                    <span style="font:600 13px var(--sans)">{{ i.name }}</span>
+                    <sc-if value="{{ i.connected }}" hint-placeholder-val="{{ false }}">
+                      <span style="margin-left:auto;display:inline-flex;font:600 9.5px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;color:var(--green);background:var(--green-dim)">Connected</span>
+                    </sc-if>
+                  </div>
+                  <div style="font:400 11.5px var(--mono);color:var(--text3);margin-bottom:12px;min-height:32px">{{ i.desc }}</div>
+                  <button onClick="{{ toggleIntegration }}" data-id="{{ i.id }}" style="display:inline-flex;align-items:center;padding:6px 12px;border-radius:8px;font:500 12.5px var(--sans);border:1px solid {{ i.btnBorder }};color:{{ i.btnColor }};background:none;cursor:pointer" style-hover="border-color:var(--text3)">{{ i.btnLabel }}</button>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+      </div>
+    </main>
+  </div>
+
+  <sc-if value="{{ toastVisible }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);z-index:120;animation:fadeUp .2s ease both">{{ toastMsg }}</div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startSection&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;security&quot;,&quot;notifications&quot;,&quot;general&quot;,&quot;members&quot;,&quot;billing&quot;,&quot;integrations&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      section: (() => {
+        try {
+          const s = new URLSearchParams(location.search).get('section');
+          if (s) return s;
+        } catch (e) {}
+        return props.startSection ?? 'profile';
+      })(),
+      dark: false, toast: '',
+      collapsed: (() => { try { return localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) { return false; } })(),
+      pName: 'Yara Haddad', pEmail: 'yara@lightmove.app', pTitle: 'Managing Partner',
+      wsName: 'LightMove',
+      tfa: true,
+      notif: { stage: true, cand: true, mentions: true, digest: true, product: false, email: true, inapp: true },
+      memberRoles: { yh: 'Admin', yi: 'Consultant', sa: 'Consultant', ok: 'Researcher', da: 'Researcher' },
+      integrations: {
+        clockwork: true, bullhorn: false, slack: true, gcal: false, smtp: false,
+      },
+    };
+  }
+
+  componentDidMount() {
+    try {
+      if (localStorage.getItem('lm-theme') === 'dark') { document.body.classList.add('dark'); this.setState({ dark: true }); }
+    } catch (e) {}
+  }
+
+  showToast(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._tx);
+    this._tx = setTimeout(() => this.setState({ toast: '' }), 2200);
+  }
+
+  renderVals() {
+    const st = this.state, sec = st.section;
+    const navItem = (key, label, icon) => ({
+      key, label, icon,
+      color: sec === key ? 'var(--text)' : 'var(--text2)',
+      bg: sec === key ? 'var(--panel2)' : 'transparent',
+      iconColor: sec === key ? 'var(--amber)' : 'currentColor',
+    });
+    const navGroups = [
+      { group: 'Account', items: [
+        navItem('profile', 'Profile', 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0'),
+        navItem('security', 'Security', 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4'),
+        navItem('notifications', 'Notifications', 'M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0'),
+      ] },
+      { group: 'Workspace', items: [
+        navItem('general', 'General', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z'),
+        navItem('members', 'Members', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'),
+        navItem('billing', 'Billing', 'M2 6h20v13H2zM2 10h20'),
+        navItem('integrations', 'Integrations', 'M13 2 3 14h9l-1 8 10-12h-9l1-8Z'),
+      ] },
+    ];
+    const labels = { profile: 'Profile', security: 'Security', notifications: 'Notifications', general: 'General', members: 'Members', billing: 'Billing', integrations: 'Integrations' };
+
+    const tglVals = (on) => ({
+      bg: on ? 'var(--amber-btn)' : 'var(--line)',
+      knob: on ? '#141414' : 'var(--text3)',
+      transform: on ? 'translateX(14px)' : 'none',
+    });
+
+    const notifDefs = [
+      { title: 'Project activity', sub: 'Events inside projects you belong to', rows: [
+        ['stage', 'Stage changes', 'When a project moves between pipeline stages'],
+        ['cand', 'New candidates', 'When candidates are added to your projects'],
+        ['mentions', 'Comments & mentions', 'When a teammate mentions you or comments'],
+      ] },
+      { title: 'Digest', sub: 'Periodic summaries', rows: [
+        ['digest', 'Weekly pipeline digest', 'Monday morning roll-up across your projects'],
+        ['product', 'Product updates', 'New features and release notes'],
+      ] },
+      { title: 'Channels', sub: 'Where notifications are delivered', rows: [
+        ['email', 'Email', 'Send to yara@lightmove.app'],
+        ['inapp', 'In-app', 'Show in the workspace notification tray'],
+      ] },
+    ];
+    const notifGroups = notifDefs.map(g => ({
+      title: g.title, sub: g.sub,
+      rows: g.rows.map(([key, label, desc]) => {
+        const t = tglVals(st.notif[key]);
+        return { key, label, desc, ...t };
+      }),
+    }));
+
+    const MEMBERS = [
+      { id: 'yh', name: 'Yara Haddad', initials: 'YH', email: 'yara@lightmove.app', bg: 'var(--sky-dim)', fg: 'var(--sky)' },
+      { id: 'yi', name: 'Yousef Iman', initials: 'YI', email: 'yousef@lightmove.app', bg: 'var(--amber-dim)', fg: 'var(--amber)' },
+      { id: 'sa', name: 'Sara Al-Mansour', initials: 'SA', email: 'sara@lightmove.app', bg: 'var(--green-dim)', fg: 'var(--green)' },
+      { id: 'ok', name: 'Omar Khalil', initials: 'OK', email: 'omar@lightmove.app', bg: 'var(--red-dim)', fg: 'var(--red)' },
+      { id: 'da', name: 'Dana Aboud', initials: 'DA', email: 'dana@lightmove.app', bg: 'var(--panel2)', fg: 'var(--text2)' },
+    ];
+    const members = MEMBERS.map(m => ({ ...m, role: st.memberRoles[m.id] }));
+
+    const intDefs = [
+      { id: 'clockwork', name: 'Clockwork ATS', mark: 'CW', bg: 'var(--sky-dim)', fg: 'var(--sky)', desc: 'Two-way sync of projects, candidates and stages with Clockwork.' },
+      { id: 'bullhorn', name: 'Bullhorn', mark: 'BH', bg: 'var(--amber-dim)', fg: 'var(--amber)', desc: 'Push long lists and placements to Bullhorn records.' },
+      { id: 'slack', name: 'Slack', mark: 'SL', bg: 'var(--green-dim)', fg: 'var(--green)', desc: 'Project activity and stage-change alerts in your channels.' },
+      { id: 'gcal', name: 'Google Calendar', mark: 'GC', bg: 'var(--sky-dim)', fg: 'var(--sky)', desc: 'Interview scheduling synced to consultant calendars.' },
+      { id: 'smtp', name: 'Email (SMTP)', mark: '@', bg: 'var(--panel)', fg: 'var(--text2)', desc: 'Send outreach from your own domain with tracking.' },
+    ];
+    const integrations = intDefs.map(i => {
+      const on = st.integrations[i.id];
+      return {
+        ...i, connected: on,
+        btnLabel: on ? 'Disconnect' : 'Connect',
+        btnColor: on ? 'var(--text3)' : 'var(--sky)',
+        btnBorder: on ? 'var(--line)' : 'var(--sky)',
+      };
+    });
+
+    const tfa = tglVals(st.tfa);
+
+    return {
+      sectionLabel: labels[sec],
+      themeLabel: st.dark ? 'Light mode' : 'Dark mode',
+      sideWidth: st.collapsed ? '56px' : '240px',
+      labelDisp: st.collapsed ? 'none' : 'inline',
+      groupDisp: st.collapsed ? 'none' : 'block',
+      navJustify: st.collapsed ? 'center' : 'flex-start',
+      collapseIcon: st.collapsed ? 'm13 17 5-5-5-5M6 17l5-5-5-5' : 'm11 17-5-5 5-5M18 17l-5-5 5-5',
+      collapseTitle: st.collapsed ? 'Expand sidebar' : 'Collapse sidebar',
+      navGroups,
+      isProfile: sec === 'profile', isSecurity: sec === 'security', isNotifications: sec === 'notifications',
+      isGeneral: sec === 'general', isMembers: sec === 'members', isBilling: sec === 'billing', isIntegrations: sec === 'integrations',
+
+      pName: st.pName, pEmail: st.pEmail, pTitle: st.pTitle, wsName: st.wsName,
+      tfaOn: st.tfa, tfaBg: tfa.bg, tfaKnob: tfa.knob, tfaTransform: tfa.transform,
+      sessions: [
+        { device: 'MacBook Pro — Safari', meta: 'Dubai, AE · active now', icon: 'M2 4h20v12H2zM8 20h8M12 16v4', current: true, revocable: false },
+        { device: 'iPhone 16 — LightMove app', meta: 'Dubai, AE · 2 hours ago', icon: 'M7 2h10v20H7zM11 19h2', current: false, revocable: true },
+        { device: 'Windows — Chrome', meta: 'Riyadh, SA · 3 days ago', icon: 'M2 4h20v12H2zM8 20h8M12 16v4', current: false, revocable: true },
+      ],
+      notifGroups, members,
+      invoices: [
+        { date: '01 Jul 2026', amount: '$245.00' },
+        { date: '01 Jun 2026', amount: '$245.00' },
+        { date: '01 May 2026', amount: '$196.00' },
+      ],
+      integrations,
+      toastVisible: !!st.toast, toastMsg: st.toast,
+
+      setSection: (e) => this.setState({ section: e.currentTarget.dataset.sec }),
+      toggleTheme: () => {
+        const dark = !this.state.dark;
+        document.body.classList.toggle('dark', dark);
+        try { localStorage.setItem('lm-theme', dark ? 'dark' : 'light'); } catch (e) {}
+        this.setState({ dark });
+      },
+      toggleCollapse: () => {
+        const collapsed = !this.state.collapsed;
+        try { localStorage.setItem('lm-side-collapsed', collapsed ? '1' : '0'); } catch (e) {}
+        this.setState({ collapsed });
+      },
+      onPName: (e) => this.setState({ pName: e.target.value }),
+      onPEmail: (e) => this.setState({ pEmail: e.target.value }),
+      onPTitle: (e) => this.setState({ pTitle: e.target.value }),
+      onWsName: (e) => this.setState({ wsName: e.target.value }),
+      toggleTfa: () => {
+        const on = !this.state.tfa;
+        this.setState({ tfa: on });
+        this.showToast(on ? 'Two-factor authentication enabled' : 'Two-factor authentication disabled');
+      },
+      toggleNotif: (e) => {
+        const k = e.currentTarget.dataset.key;
+        this.setState(s => ({ notif: { ...s.notif, [k]: !s.notif[k] } }));
+      },
+      onMemberRole: (e) => {
+        const id = e.currentTarget.dataset.id, role = e.target.value;
+        this.setState(s => ({ memberRoles: { ...s.memberRoles, [id]: role } }));
+        this.showToast('Role updated');
+      },
+      toggleIntegration: (e) => {
+        const id = e.currentTarget.dataset.id;
+        const on = !this.state.integrations[id];
+        this.setState(s => ({ integrations: { ...s.integrations, [id]: on } }));
+        this.showToast(on ? 'Connected' : 'Disconnected');
+      },
+      toastPhoto: () => this.showToast('Photo upload — out of mockup scope'),
+      toastSaveProfile: () => this.showToast('Profile saved'),
+      toastPassword: () => this.showToast('Password updated'),
+      toastSessions: () => this.showToast('Signed out all other sessions'),
+      toastRevoke: () => this.showToast('Session revoked'),
+      toastLogo: () => this.showToast('Workspace mark upload — out of mockup scope'),
+      toastSaveGeneral: () => this.showToast('Workspace settings saved'),
+      toastDelete: () => this.showToast('Delete flow — typed confirmation in real build'),
+      toastInvite: () => this.showToast('Invite flow — see Signup step 3'),
+      toastRemove: () => this.showToast('Remove member — confirm dialog in real build'),
+      toastPlan: () => this.showToast('Plan picker — out of mockup scope'),
+      toastCard: () => this.showToast('Payment method update — out of mockup scope'),
+      toastInvoice: () => this.showToast('Invoice downloaded'),
+    };
+  }
+}
+</script>
+</body>
+</html>

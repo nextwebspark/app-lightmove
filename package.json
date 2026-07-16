@@ -1,0 +1,26 @@
+{
+  "name": "app-lightmove",
+  "private": true,
+  "version": "0.1.0",
+  "description": "LightMove — multi-tenant executive search & talent mapping platform",
+  "workspaces": [
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,web -c yellow,cyan \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "cd apps/api && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build": "npm run build:api && npm run build:web",
+    "build:api": "cd apps/api && ./mvnw -q clean package",
+    "build:web": "npm run build --workspace=apps/web",
+    "test": "npm run test:api && npm run test:web",
+    "test:api": "cd apps/api && ./mvnw test",
+    "test:web": "npm run test --workspace=apps/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

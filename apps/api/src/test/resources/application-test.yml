@@ -1,0 +1,56 @@
+spring:
+  jpa:
+    hibernate:
+      # `validate` here and nowhere else.
+      #
+      # The running application must not inspect or touch the schema — see application.yml, where this
+      # is `none`. But the check itself is genuinely valuable: it compares every entity against the real
+      # schema Flyway just built and fails if they have drifted. Tests are exactly where that belongs.
+      # A mismatch becomes a red build, not a 500 in production three weeks later.
+      #
+      # This is what caught `citext` reporting itself to JDBC as OTHER while the entity said String.
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
+    # No IAM grants against a throwaway Testcontainers database.
+    placeholders:
+      iam_user: ""
+
+lightmove:
+  auth:
+    # Fixed, known keys would be better than generated ones here, but the provider writes a keypair to
+    # a temp dir when none exists, which is fine: each test run gets its own and nothing outlives it.
+    jwt:
+      private-key-location: file:target/test-keys/jwt-private.pem
+      public-key-location: file:target/test-keys/jwt-public.pem
+
+    # Tests assert on the limiter directly. Leaving it armed here would make unrelated tests fail
+    # depending on how many times they happened to call login.
+    rate-limit:
+      enabled: false
+
+  email:
+    provider: log
+    validation:
+      # No DNS in tests. A real MX lookup makes them slow and dependent on the network.
+      mx-check-enabled: false
+
+management:
+  # Actuator on the application port — which is how it is deployed, because Cloud Run routes exactly one
+  # port into a container. Worth mirroring here rather than testing a configuration we do not ship: this
+  # is the arrangement where SecurityConfig's port-based fence stands itself down and the matcher-based
+  # one is all that keeps /actuator/prometheus off the public internet. SpaSecurityTest holds that line.
+  #
+  # No `address` here, and there must not be: Boot refuses to start when a management-specific address is
+  # configured while Actuator shares the application's port, and it checks whether the property *exists*
+  # rather than what it holds. application.yml therefore sets it only under the `local` profile. This is
+  # one line and MANAGEMENT_PORT=8080 is the other — together they are exactly the deployed
+  # configuration, so the suite proves it boots instead of assuming it.
+  server:
+    port: 8080
+
+logging:
+  level:
+    app.lightmove.api: INFO
+    org.hibernate.SQL: WARN

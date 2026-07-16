@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+/*
+ * The design system, lifted verbatim from claude-design/*.dc.html.
+ *
+ * These values are not "inspired by" the mockups — they are the mockups' own CSS variables, copied
+ * across. That is deliberate: it means a screen built from a mockup matches it exactly, and when a
+ * colour changes it changes here and nowhere else.
+ *
+ * Dark mode is driven by a `dark` class on <body>, exactly as the mockups do it (`body.dark`), so a
+ * mockup opened in a browser and the real app respond to the same switch.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* ── Light (mockup :root) ───────────────────────────────────────────────── */
+  --color-bg: #f4f5f8;
+  --color-panel: #ffffff;
+  --color-panel2: #f7f8fa;
+  --color-line: #e3e6ee;
+  --color-line-soft: #edeff5;
+
+  --color-text: #1b2230;
+  --color-text2: #5a6474;
+  --color-text3: #98a1b3;
+
+  /* Amber is the brand: the logo tile and every primary action. */
+  --color-amber: #b47708;
+  --color-amber-btn: #f0b429;
+  --color-amber-dim: rgba(201, 138, 10, 0.1);
+
+  /* Sky is for links and informational states. */
+  --color-sky: #1a73c7;
+  --color-sky-dim: rgba(26, 115, 199, 0.1);
+
+  --color-red: #cc3a33;
+  --color-red-dim: rgba(204, 58, 51, 0.08);
+  --color-green: #1f8f60;
+  --color-green-dim: rgba(31, 143, 96, 0.1);
+
+  /* The one colour that never inverts: text on an amber button, in either theme. */
+  --color-on-amber: #141414;
+
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --shadow-panel: 0 8px 28px rgba(20, 30, 50, 0.1);
+  --radius-panel: 14px;
+}
+
+/*
+ * Dark mode overrides the token values themselves rather than adding `dark:` variants at every call
+ * site. A component written once against `bg-panel` is then correct in both themes, and cannot drift.
+ */
+.dark {
+  --color-bg: #0b0d11;
+  --color-panel: #12151b;
+  --color-panel2: #171b22;
+  --color-line: #232833;
+  --color-line-soft: #1c212b;
+
+  --color-text: #e8eaee;
+  --color-text2: #9aa3b2;
+  --color-text3: #5f6877;
+
+  --color-amber: #f0b429;
+  --color-amber-dim: rgba(240, 180, 41, 0.12);
+  --color-sky: #5cb3ff;
+  --color-sky-dim: rgba(92, 179, 255, 0.12);
+  --color-red: #e5534b;
+  --color-red-dim: rgba(229, 83, 75, 0.12);
+  --color-green: #3fb27f;
+  --color-green-dim: rgba(63, 178, 127, 0.12);
+
+  --shadow-panel: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
