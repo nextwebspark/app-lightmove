@@ -11,6 +11,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.authorization.AuthorizationDecision;
@@ -214,7 +216,8 @@ public class SecurityConfig {
                                  OAuth2LoginSuccessHandler oauthSuccessHandler,
                                  ObjectProvider<ClientRegistrationRepository> clientRegistrations,
                                  ProblemAccessDeniedHandler accessDenied,
-                                 LightMoveProperties properties) throws Exception {
+                                 LightMoveProperties properties,
+                                 Environment environment) throws Exception {
         AuthorizationManager<RequestAuthorizationContext> verified =
                 verifiedEmail(properties.auth().requireVerifiedEmail());
 
@@ -229,8 +232,8 @@ public class SecurityConfig {
                         // as "That request could not be completed."
                         .accessDeniedHandler(accessDenied))
 
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // Liveness only. Everything else Actuator exposes — metrics, prometheus, env —
                         // lives on the management port (see application.yml) and is not routed here at
@@ -271,14 +274,25 @@ public class SecurityConfig {
                         // still cannot cause a workspace, a join request, or an invitation email to
                         // exist. The gate did not weaken; it moved from the routing layer to the domain,
                         // which is the only layer that can distinguish "no" from "not yet".
-                        .requestMatchers(API + "/onboarding/**").authenticated()
+                        .requestMatchers(API + "/onboarding/**").authenticated();
 
-                        // Everything that touches tenant data. Still verified-only, and this is the line
-                        // that matters: an unverified user may describe their organisation, but may not
-                        // read a single candidate record.
-                        .requestMatchers(API + "/**").access(verified)
+                    // Local-only convenience: skips the signup/workspace/refresh dance for manually
+                    // testing company search. Safe to scope this loosely because app_lm_companies is
+                    // shared reference data, not workspace-scoped — see CompanySearchController's class
+                    // doc. Gated on `local` (the profile npm run dev actually activates, package.json)
+                    // so this can never be reached in test, staging, or production — the same profile
+                    // that relaxes the management port binding below.
+                    if (environment.acceptsProfiles(Profiles.of("local"))) {
+                        auth.requestMatchers(API + "/companies/search").permitAll();
+                    }
 
-                        .anyRequest().authenticated())
+                    // Everything that touches tenant data. Still verified-only, and this is the line
+                    // that matters: an unverified user may describe their organisation, but may not
+                    // read a single candidate record.
+                    auth.requestMatchers(API + "/**").access(verified)
+
+                        .anyRequest().authenticated();
+                })
 
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(principalConverter)));

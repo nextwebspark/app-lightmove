@@ -93,6 +93,13 @@ spring:
         embedding:
           project-id: ${GOOGLE_CLOUD_PROJECT:hak-talent-mapping}
           location: ${GOOGLE_CLOUD_LOCATION:us-central1}
+          text:
+            # Pinned explicitly rather than left to the starter's default: Spring AI 2.0's only bundled
+            # VertexAiTextEmbeddingModelName alternatives (text-embedding-004,
+            # text-multilingual-embedding-002) are deprecated/expired. Output dimension (768) is baked
+            # into app_lm_company_taxonomy.embedding's column type (V9__company_taxonomy.sql) — changing
+            # this model is a migration, not a config edit.
+            model: text-embedding-005
 
 server:
   port: ${PORT:8080}          # Cloud Run injects PORT and expects the container to honour it.
