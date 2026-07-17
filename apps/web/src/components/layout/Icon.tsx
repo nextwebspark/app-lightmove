@@ -35,4 +35,10 @@ export const ICONS = {
   search: "M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm10 18-4.3-4.3",
   briefcase: "M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2ZM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2",
   chevronDown: "m6 9 6 6 6-6",
+  position: "M12 2 3 7l9 5 9-5-9-5ZM3 12l9 5 9-5M3 17l9 5 9-5",
+  strategy: "M12 20V10M18 20V4M6 20v-4",
+  sourcing: "M21 21l-4.3-4.3m1.8-5.2a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z",
+  candidates: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z",
+  outreach: "M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z",
+  reports: "M9 12h6m-6 4h6M9 8h1M5 21h14a2 2 0 0 0 2-2V7l-5-5H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2Z",
 } as const;

@@ -64,7 +64,8 @@ class RbacCatalogTest {
                 "PROJECT_CREATE", "PROJECT_BROWSE", "CLIENT_RECORD_MANAGE");
         grantsAre(RoleScope.WORKSPACE, "MEMBER", "PROJECT_CREATE", "PROJECT_BROWSE", "CLIENT_RECORD_MANAGE");
         grantsAre(RoleScope.WORKSPACE, "CLIENT");
-        grantsAre(RoleScope.PROJECT, "ADMIN", "PROJECT_EDIT", "TEAM_MANAGE", "WORK_EXECUTE");
+        grantsAre(RoleScope.PROJECT, "ADMIN", "PROJECT_EDIT", "TEAM_MANAGE", "WORK_EXECUTE",
+                "POSITION_UNLOCK");
         grantsAre(RoleScope.PROJECT, "LEAD", "PROJECT_EDIT", "WORK_EXECUTE");
         grantsAre(RoleScope.PROJECT, "RESEARCHER", "WORK_EXECUTE");
         grantsAre(RoleScope.PROJECT, "CLIENT");

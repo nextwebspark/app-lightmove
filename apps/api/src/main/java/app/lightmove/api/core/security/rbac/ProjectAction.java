@@ -16,5 +16,11 @@ public enum ProjectAction {
      * Work the mandate: sourcing, triage, candidates, notes. Seeded now so the Project screen's tables
      * arrive with their action already named; nothing consumes it until they do.
      */
-    WORK_EXECUTE
+    WORK_EXECUTE,
+
+    /**
+     * Unlock a locked position brief. Deliberately not part of PROJECT_EDIT: a locked brief is the
+     * benchmark downstream scoring rests on, so reopening it is an ADMIN-only decision.
+     */
+    POSITION_UNLOCK
 }

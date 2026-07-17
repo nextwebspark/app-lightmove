@@ -21,6 +21,40 @@ export function Topbar({ breadcrumb }: { breadcrumb?: ReactNode }) {
   );
 }
 
+/** The project shell's breadcrumb: `[L] Projects / {client} / {position title}` (mockup header). */
+export function ProjectBreadcrumb({
+  clientName,
+  positionTitle,
+}: {
+  clientName: string;
+  positionTitle: string;
+}) {
+  const { user } = useAuth();
+
+  return (
+    <div className="flex items-center gap-2">
+      <Link to="/" title="All projects" className="flex items-center rounded-[7px] p-1 hover:bg-panel2">
+        <LogoTile mark={user?.workspace?.logoMark ?? "L"} />
+      </Link>
+      <Link
+        to="/"
+        className="whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-text3 hover:bg-panel2 hover:text-text"
+      >
+        Projects
+      </Link>
+      <span className="text-xs text-text3 opacity-40">/</span>
+      <span className="flex items-center gap-1.5 whitespace-nowrap font-mono text-[13px] font-medium text-text2">
+        <span className="size-1.5 rounded-full bg-sky" />
+        {clientName}
+      </span>
+      <span className="text-xs text-text3 opacity-40">/</span>
+      <span className="max-w-[280px] truncate whitespace-nowrap text-sm font-semibold text-text">
+        {positionTitle}
+      </span>
+    </div>
+  );
+}
+
 /** The breadcrumb variant: `[L] Workspace / Settings / {section}`. */
 export function SettingsBreadcrumb({ section }: { section: string }) {
   const { user } = useAuth();

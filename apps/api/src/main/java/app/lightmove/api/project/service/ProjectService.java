@@ -54,6 +54,7 @@ public class ProjectService {
     private final ProjectRepository projects;
     private final ProjectMemberRepository seats;
     private final ClientRepository clients;
+    private final PositionService positionService;
     private final WorkspaceAccess access;
     private final RbacService rbac;
     private final UserRepository users;
@@ -80,6 +81,8 @@ public class ProjectService {
                 workspaceId, request.clientId(), request.positionTitle(), request.targetDate(), userId));
         seats.save(ProjectMember.of(project.getId(), creator.getId(),
                 rbac.projectRoles(EnumSet.of(ProjectRole.ADMIN, ProjectRole.LEAD)), userId));
+        // The brief arrives drafted, not blank — seeded from the role-template library.
+        positionService.seedFor(project);
 
         log.info("User {} created project {} in workspace {}", userId, project.getId(), workspaceId);
         audit.event(AuditEventType.PROJECT_CREATED)

@@ -67,6 +67,13 @@ public enum ErrorCode {
     /** A project must always keep someone who can run it — the mirror of {@link #LAST_ADMIN}. */
     PROJECT_LAST_ADMIN(HttpStatus.CONFLICT, "A project must keep at least one admin"),
 
+    /** Every write to a locked position lands here; only a project admin can unlock. */
+    POSITION_LOCKED(HttpStatus.CONFLICT, "This position is locked"),
+
+    /** The lock gate: both competency panels at exactly 100% and at least one required criterion. */
+    POSITION_NOT_READY(HttpStatus.CONFLICT,
+            "Balance both competency panels to exactly 100% and keep at least one required criterion"),
+
     /** The typed confirmation on workspace deletion did not match. */
     WORKSPACE_NAME_MISMATCH(HttpStatus.BAD_REQUEST,
             "Type the workspace name exactly to confirm deletion"),

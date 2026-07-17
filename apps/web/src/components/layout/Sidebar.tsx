@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { useTheme } from "../../features/theme/useTheme";
 import { Icon, ICONS } from "./Icon";
@@ -21,7 +22,16 @@ export interface SidebarGroup {
  * The mockups' left rail: a rounded panel of grouped nav links, theme and collapse rows pinned to
  * the bottom, 240px wide or 56px collapsed (labels, group headers and counts disappear).
  */
-export function Sidebar({ groups, backLink }: { groups: SidebarGroup[]; backLink?: SidebarItem }) {
+export function Sidebar({
+  groups,
+  backLink,
+  header,
+}: {
+  groups: SidebarGroup[];
+  backLink?: SidebarItem;
+  /** Rendered under the back link when expanded — the project shell's stage badge lives here. */
+  header?: ReactNode;
+}) {
   const { collapsed, toggle } = useSidebarCollapsed();
   const { theme, toggle: toggleTheme } = useTheme();
   const dark = theme === "dark";
@@ -44,6 +54,8 @@ export function Sidebar({ groups, backLink }: { groups: SidebarGroup[]; backLink
           <div className="mx-1 mb-1.5 h-px bg-line-soft" />
         </>
       )}
+
+      {header && !collapsed && <div className="px-2.5 pb-1 pt-0.5">{header}</div>}
 
       {groups.map((group) => (
         <div key={group.label}>
