@@ -35,6 +35,10 @@ lightmove:
     validation:
       # No DNS in tests. A real MX lookup makes them slow and dependent on the network.
       mx-check-enabled: false
+      # Production now ships with public-domain blocking OFF (any domain may sign up). Pinned ON here so
+      # the suite still exercises the work-email gate end-to-end; the off-by-default path is covered by
+      # EmailAddressValidatorTest.allowsConsumerDomainsWhenDisabled.
+      block-public-domains: true
 
 management:
   # Actuator on the application port — which is how it is deployed, because Cloud Run routes exactly one
