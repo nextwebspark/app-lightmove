@@ -111,4 +111,23 @@ export function acceptPendingInvitation(): Promise<User> {
   return request<User>("/onboarding/accept-invitation", { method: "POST" });
 }
 
+/**
+ * Accepts an invitation by creating the invited account in one step — the invitee has no session, so
+ * this is anonymous and the invitation token in the body is the credential. Installs the returned access
+ * token, exactly like signup and login. No email: the address is the invitation's.
+ */
+export async function acceptInvitationSignup(
+  token: string,
+  fullName: string,
+  password: string,
+): Promise<AuthResponse> {
+  const session = await request<AuthResponse>("/onboarding/accept-invitation-signup", {
+    method: "POST",
+    body: { token, fullName, password },
+    anonymous: true,
+  });
+  setAccessToken(session.accessToken);
+  return session;
+}
+
 // Membership decisions live in features/workspace/api/workspaceApi.ts — auth ends at the session.

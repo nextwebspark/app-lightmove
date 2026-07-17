@@ -103,10 +103,6 @@ public class OnboardingService {
                 command.name().trim(), slug, domain, userId,
                 command.companySize(), command.primaryRegion(), command.teamFocus()));
 
-        // "Your role" from the wizard is a job title, and belongs on the person. Authority is separate:
-        // whoever creates the workspace runs it.
-        user.setTitle(command.jobTitle());
-
         members.save(WorkspaceMember.invite(
                 workspace.getId(), userId, Set.of(rbac.role(WorkspaceRole.ADMIN)), userId));
 
@@ -141,9 +137,6 @@ public class OnboardingService {
 
         workspace.describe(command.name().trim(), command.companySize(),
                 command.primaryRegion(), command.teamFocus());
-
-        // "Your role" is the person's job title, and it travels with them, not with the workspace.
-        requireUser(userId).setTitle(command.jobTitle());
 
         audit.event(AuditEventType.WORKSPACE_UPDATED)
                 .actor(userId).workspace(workspaceId).from(request)
@@ -212,7 +205,7 @@ public class OnboardingService {
 
         Workspace workspace = commitCreate(user, new CreateWorkspaceCommand(
                 held.getName(), held.getCompanySize(), held.getPrimaryRegion(),
-                held.getJobTitle(), held.getTeamFocus()), request);
+                held.getTeamFocus()), request);
 
         return Optional.of(new Materialised(workspace, held.getInvitations()));
     }
@@ -227,10 +220,10 @@ public class OnboardingService {
     private void holdCreate(UUID userId, CreateWorkspaceCommand command) {
         pendingOnboardings.findByUserId(userId).ifPresentOrElse(
                 held -> held.describe(command.name().trim(), command.companySize(),
-                        command.primaryRegion(), command.teamFocus(), command.jobTitle()),
+                        command.primaryRegion(), command.teamFocus()),
                 () -> pendingOnboardings.save(PendingOnboarding.toCreate(userId, command.name().trim(),
                         command.companySize(), command.primaryRegion(), command.teamFocus(),
-                        command.jobTitle(), expiry())));
+                        expiry())));
     }
 
     /**

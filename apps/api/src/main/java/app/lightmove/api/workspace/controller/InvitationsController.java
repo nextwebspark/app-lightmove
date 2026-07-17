@@ -59,6 +59,7 @@ public class InvitationsController {
     }
 
     @PostMapping
+    @PreAuthorize("@workspaceAuth.can(principal, 'MEMBER_INVITE')")
     public ResponseEntity<Map<String, Integer>> invite(@RequestBody List<@Valid InviteRequest> requests,
                                                        HttpServletRequest httpRequest) {
         AuthPrincipal principal = CurrentUser.require();
@@ -69,6 +70,7 @@ public class InvitationsController {
     }
 
     @PostMapping("/{invitationId}/resend")
+    @PreAuthorize("@workspaceAuth.can(principal, 'MEMBER_INVITE')")
     public ResponseEntity<Void> resend(@PathVariable UUID invitationId, HttpServletRequest httpRequest) {
         AuthPrincipal principal = CurrentUser.require();
         invitations.resend(principal.userId(), principal.requireWorkspaceId(), invitationId, httpRequest);
@@ -76,6 +78,7 @@ public class InvitationsController {
     }
 
     @DeleteMapping("/{invitationId}")
+    @PreAuthorize("@workspaceAuth.can(principal, 'MEMBER_INVITE')")
     public ResponseEntity<Void> revoke(@PathVariable UUID invitationId, HttpServletRequest httpRequest) {
         AuthPrincipal principal = CurrentUser.require();
         invitations.revoke(principal.userId(), principal.requireWorkspaceId(), invitationId, httpRequest);

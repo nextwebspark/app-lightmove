@@ -72,7 +72,7 @@ public abstract class FlowTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","companySize":"11-50 people","primaryRegion":"GCC",
-                                 "jobTitle":"Partner","teamFocus":"Executive search"}
+                                 "teamFocus":"Executive search"}
                                 """.formatted(name)))
                 .andExpect(status().isCreated())
                 .andReturn();

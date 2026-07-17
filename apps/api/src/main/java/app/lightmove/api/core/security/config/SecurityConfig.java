@@ -249,6 +249,15 @@ public class SecurityConfig {
                         // preview names.
                         .requestMatchers(HttpMethod.GET, API + "/onboarding/invitations/preview").permitAll()
 
+                        // Accepting by creating the invited account. Public — the invitee has no session
+                        // yet, and the 256-bit invitation token in the body is the credential. Unlike the
+                        // two verified-only accept routes below, this needs no verified session: the token
+                        // was mailed only to the invited address, so holding it is the mailbox proof
+                        // verification would otherwise supply, and the account is bound to that exact
+                        // address (never a client-supplied one). POST-only, so it is not reachable as a
+                        // navigation.
+                        .requestMatchers(HttpMethod.POST, API + "/onboarding/accept-invitation-signup").permitAll()
+
                         // Redeeming an invitation stays verified-only, and is the one onboarding write
                         // that cannot be *held*: accepting lands you ACTIVE in a real workspace
                         // immediately, with real access to a real firm's candidate data. Holding the

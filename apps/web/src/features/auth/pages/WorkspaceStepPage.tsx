@@ -10,7 +10,6 @@ import * as authApi from "../api/authApi";
 import type { WorkspaceSummary } from "../api/types";
 import {
   COMPANY_SIZES,
-  JOB_TITLES,
   REGIONS,
   TEAM_FOCUSES,
   workspaceSchema,
@@ -72,7 +71,6 @@ function CreateWorkspace({
       // The mockup's dropdowns open on their first option; ours were opening on the second.
       companySize: COMPANY_SIZES[0],
       primaryRegion: REGIONS[0],
-      jobTitle: JOB_TITLES[0],
       teamFocus: TEAM_FOCUSES[0],
     },
   });
@@ -127,16 +125,6 @@ function CreateWorkspace({
             <Select {...register("primaryRegion")}>
               {REGIONS.map((region) => (
                 <option key={region}>{region}</option>
-              ))}
-            </Select>
-          </Field>
-
-          {/* "Your role" in the mockup. It is a job title and lands on the person — the workspace role
-              is separate, and whoever creates the workspace is always its ADMIN. */}
-          <Field label="Your role">
-            <Select {...register("jobTitle")}>
-              {JOB_TITLES.map((title) => (
-                <option key={title}>{title}</option>
               ))}
             </Select>
           </Field>

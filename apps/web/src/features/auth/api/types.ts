@@ -80,8 +80,6 @@ export interface CreateWorkspaceRequest {
   name: string;
   companySize: string;
   primaryRegion: string;
-  /** The wizard's "Your role" — a job title, not an authority. The creator is always ADMIN. */
-  jobTitle: string;
   teamFocus: string;
 }
 

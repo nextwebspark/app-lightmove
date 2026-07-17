@@ -8,13 +8,17 @@ import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.RbacService;
 import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.security.service.AuthService;
+import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.constant.MemberStatus;
@@ -69,6 +73,9 @@ public class InvitationService {
     private final EmailTemplates templates;
     private final AuditService audit;
     private final LightMoveProperties properties;
+    private final AuthService authService;
+    private final TokenService tokens;
+    private final RateLimitGuard rateLimit;
 
     /** Invites colleagues. Skippable — the wizard's "Skip for now" simply sends an empty list. */
     @Transactional
@@ -170,14 +177,7 @@ public class InvitationService {
      */
     @Transactional(readOnly = true)
     public InvitationPreview preview(String plaintextToken) {
-        Invitation invitation = invitations.findByTokenHash(Tokens.hash(plaintextToken))
-                .orElseThrow(() -> ApiException.of(ErrorCode.INVITATION_INVALID));
-
-        if (!invitation.isRedeemable(Instant.now())) {
-            throw ApiException.of(invitation.getExpiresAt().isBefore(Instant.now())
-                    ? ErrorCode.INVITATION_EXPIRED
-                    : ErrorCode.INVITATION_INVALID);
-        }
+        Invitation invitation = resolveRedeemable(plaintextToken, Instant.now());
 
         Workspace workspace = workspaces.findById(invitation.getWorkspaceId())
                 .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
@@ -204,16 +204,7 @@ public class InvitationService {
     @Transactional
     public WorkspaceMember accept(String plaintextToken, UUID userId, HttpServletRequest request) {
         Instant now = Instant.now();
-
-        Invitation invitation = invitations.findByTokenHash(Tokens.hash(plaintextToken))
-                .orElseThrow(() -> ApiException.of(ErrorCode.INVITATION_INVALID));
-
-        if (!invitation.isRedeemable(now)) {
-            throw ApiException.of(invitation.getExpiresAt().isBefore(now)
-                    ? ErrorCode.INVITATION_EXPIRED
-                    : ErrorCode.INVITATION_INVALID);
-        }
-
+        Invitation invitation = resolveRedeemable(plaintextToken, now);
         return redeem(invitation, requireUser(userId), now, request);
     }
 
@@ -237,6 +228,41 @@ public class InvitationService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.INVITATION_INVALID));
 
         return redeem(invitation, user, now, request);
+    }
+
+    /**
+     * Accepts an invitation by creating the invited account in one step — the door in for an invitee who
+     * has no account yet, which is the common case.
+     *
+     * <p><b>No email-verification round-trip.</b> The invitation token was mailed only to
+     * {@code invitation.email}, so holding it is proof of that mailbox — the same proof verification
+     * exists to give. The account's address is the invitation's, never the request's, so the token can
+     * only ever mint the identity it was addressed to; that binding, plus the existing-account guard in
+     * {@code createVerifiedLocalUser}, is the security of this path. (Contrast the token-based
+     * {@link #accept}, which redeems for an <i>already authenticated</i> user and so still demands a
+     * verified session.)
+     *
+     * <p>Plain {@code @Transactional}: if any step fails, the account, membership, invitation-accept and
+     * refresh token roll back together. The opposite of {@code login}/{@code rotate}, whose
+     * {@code noRollbackFor} exists only to keep a counter on the failure path — there is no such side
+     * effect to protect here.
+     */
+    @Transactional
+    public AuthenticatedSession acceptWithNewLocalUser(String plaintextToken, String fullName,
+                                                       String password, HttpServletRequest request) {
+        Instant now = Instant.now();
+        Invitation invitation = resolveRedeemable(plaintextToken, now);
+        rateLimit.checkSignup(invitation.getEmail(), request);
+
+        // The email is the invitation's, so the account is bound to exactly the address the token was
+        // mailed to. createVerifiedLocalUser rejects an address that already has an account, so the
+        // frontend can send that person to log in and accept from a real session rather than silently
+        // attaching a second identity.
+        User user = authService.createVerifiedLocalUser(
+                invitation.getEmail(), fullName, password, request);
+        WorkspaceMember member = redeem(invitation, user, now, request);
+
+        return tokens.issue(user, member, request);
     }
 
     /**
@@ -280,6 +306,22 @@ public class InvitationService {
                 .record();
 
         return member;
+    }
+
+    /**
+     * Resolves an invitation from its emailed token, or fails with the reason it cannot be redeemed: an
+     * unknown or already-consumed token is {@code INVITATION_INVALID}, a lapsed one
+     * {@code INVITATION_EXPIRED}. Shared by preview and every accept path.
+     */
+    private Invitation resolveRedeemable(String plaintextToken, Instant now) {
+        Invitation invitation = invitations.findByTokenHash(Tokens.hash(plaintextToken))
+                .orElseThrow(() -> ApiException.of(ErrorCode.INVITATION_INVALID));
+        if (!invitation.isRedeemable(now)) {
+            throw ApiException.of(invitation.getExpiresAt().isBefore(now)
+                    ? ErrorCode.INVITATION_EXPIRED
+                    : ErrorCode.INVITATION_INVALID);
+        }
+        return invitation;
     }
 
     /** Outstanding invitations, for the Settings → Members screen. */

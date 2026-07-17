@@ -46,16 +46,24 @@ domain is what tells us which firm someone works at. Configurable via
 **Membership is invitation-only.** Signup always creates a workspace (the creator is its `ADMIN`); the
 only way into an existing one is an admin's invitation, and accepting lands `ACTIVE` immediately — an
 admin naming someone *is* the decision. There is no join request and no approval queue; a colleague
-whose firm is already here asks their admin for an invite. The invitee is routed server-side: `/me`
-carries `pendingInvitation` and `POST /onboarding/accept-invitation` redeems it token-lessly, because a
-verified matching address proves exactly what the emailed token existed to prove.
+whose firm is already here asks their admin for an invite. A new invitee sets a password on the accept
+screen and is in at once: `POST /onboarding/accept-invitation-signup` (public — token + name + password)
+creates their account *already verified* and issues a session carrying the workspace, with **no separate
+email-verification step**. The invite token, mailed only to the invited address, is the mailbox proof
+verification would otherwise collect; the account's email is taken from the invitation, **never the
+request body**, so the token can only ever mint the identity it was addressed to (that binding, plus the
+`existsByEmail` guard that sends an already-registered address to log in, is the security of this path).
+An invitee who *already* has an account is routed server-side instead: `/me` carries `pendingInvitation`
+and the signed-in `POST /onboarding/accept-invitation` redeems it token-lessly.
 
 **A user belongs to at most one workspace.** Enforced by a partial unique index on
 `app_lm_workspace_member (user_id) WHERE status = 'ACTIVE'`. Note it constrains `user_id`, *not*
 `workspace_id` — a workspace holds as many members as it likes.
 
 **Verification is not cosmetic.** An unverified address is an unproven claim, so `require-verified-email`
-is on and an unverified user reaches no workspace data.
+is on and an unverified user reaches no workspace data. It gates the *creator* path — someone who typed
+their own address into signup. An invited user skips it: the invitation link already proved the mailbox,
+because the emailed token is the same proof a verification email exists to collect.
 
 ### Tenant isolation
 

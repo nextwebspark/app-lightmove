@@ -90,6 +90,7 @@ describe("SignupPage", () => {
     await user.type(screen.getByPlaceholderText("Yara Haddad"), "Alok Kumar");
     await user.type(screen.getByPlaceholderText("you@firm.com"), "alok@nextwebspark.com");
     await user.type(screen.getByPlaceholderText("8+ characters"), "secret123");
+    await user.type(screen.getByPlaceholderText("Re-enter your password"), "secret123");
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
     await waitFor(() => expect(authApi.signup).toHaveBeenCalledOnce());
@@ -117,6 +118,7 @@ describe("SignupPage", () => {
     await user.type(screen.getByPlaceholderText("Yara Haddad"), "Alok Kumar");
     await user.type(screen.getByPlaceholderText("you@firm.com"), "alok@gmail.com");
     await user.type(screen.getByPlaceholderText("8+ characters"), "secret123");
+    await user.type(screen.getByPlaceholderText("Re-enter your password"), "secret123");
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
     expect(await screen.findByText("Please sign up with your work email.")).toBeInTheDocument();
@@ -144,10 +146,28 @@ describe("SignupPage", () => {
     await user.type(screen.getByPlaceholderText("Yara Haddad"), "Alok Kumar");
     await user.type(screen.getByPlaceholderText("you@firm.com"), "alok@nextwebspark.com");
     await user.type(screen.getByPlaceholderText("8+ characters"), "secret123");
+    await user.type(screen.getByPlaceholderText("Re-enter your password"), "secret123");
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
     expect(await screen.findByText("An account with this email already exists")).toBeInTheDocument();
     const cta = screen.getByRole("link", { name: /log in instead/i });
     expect(cta).toHaveAttribute("href", "/login");
+  });
+
+  it("blocks mismatched passwords before reaching the server", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    // This suite lets the signup mock's call history accumulate across tests; only this one asserts on
+    // *absence* of a call, so it needs a clean slate.
+    vi.mocked(authApi.signup).mockClear();
+
+    await user.type(screen.getByPlaceholderText("Yara Haddad"), "Alok Kumar");
+    await user.type(screen.getByPlaceholderText("you@firm.com"), "alok@nextwebspark.com");
+    await user.type(screen.getByPlaceholderText("8+ characters"), "secret123");
+    await user.type(screen.getByPlaceholderText("Re-enter your password"), "different1");
+    await user.click(screen.getByRole("button", { name: /continue/i }));
+
+    expect(await screen.findByText("Those passwords don't match")).toBeInTheDocument();
+    expect(authApi.signup).not.toHaveBeenCalled();
   });
 });

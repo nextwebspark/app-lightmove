@@ -6,7 +6,6 @@ import { Button, Card, Field, FormError, Input, Logo } from "../../../components
 import { ApiRequestError } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
-import { pendingInvite } from "../pendingInvite";
 import { signupSchema, type SignupValues } from "../schemas";
 
 /**
@@ -25,11 +24,6 @@ export function SignupPage() {
   // (log in), so it gets a CTA rather than a dead-end field error.
   const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 
-  // Someone who arrived from an invitation link. Their address is not a free choice: acceptance checks
-  // the account's email against the one invited, so letting them type another here would create an
-  // account the invitation then refuses — for a rule they were never shown.
-  const invite = pendingInvite.peek();
-
   const {
     register,
     handleSubmit,
@@ -37,7 +31,7 @@ export function SignupPage() {
     formState: { errors, isSubmitting },
   } = useForm<SignupValues>({
     resolver: zodResolver(signupSchema),
-    defaultValues: { fullName: "", email: invite?.email ?? "", password: "" },
+    defaultValues: { fullName: "", email: "", password: "", confirmPassword: "" },
   });
 
   const onSubmit = async (values: SignupValues) => {
@@ -45,14 +39,6 @@ export function SignupPage() {
     setRegisteredEmail(null);
     try {
       await signUp(values.fullName, values.email, values.password);
-
-      // An invitee has a workspace waiting for them, so they must not be sent through the create
-      // wizard. They still have to verify first — the accept page says so.
-      if (invite) {
-        navigate(`/auth/accept-invite?token=${encodeURIComponent(invite.token)}`, { replace: true });
-        return;
-      }
-
       navigate("/signup/workspace", { replace: true });
     } catch (error) {
       if (!(error instanceof ApiRequestError)) {
@@ -117,19 +103,13 @@ export function SignupPage() {
           <Field
             label="Work email"
             error={errors.email?.message}
-            hint={
-              invite
-                ? "The address your invitation was sent to."
-                : "Your company domain — not a personal address."
-            }
+            hint="Your company domain — not a personal address."
           >
             <Input
               type="email"
               autoComplete="email"
               placeholder="you@firm.com"
               invalid={!!errors.email}
-              readOnly={!!invite}
-              className={invite ? "cursor-not-allowed text-text3" : undefined}
               {...register("email")}
             />
           </Field>
@@ -157,6 +137,16 @@ export function SignupPage() {
               placeholder="8+ characters"
               invalid={!!errors.password}
               {...register("password")}
+            />
+          </Field>
+
+          <Field label="Confirm password" error={errors.confirmPassword?.message}>
+            <Input
+              type="password"
+              autoComplete="new-password"
+              placeholder="Re-enter your password"
+              invalid={!!errors.confirmPassword}
+              {...register("confirmPassword")}
             />
           </Field>
 

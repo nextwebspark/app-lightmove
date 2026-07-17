@@ -50,9 +50,6 @@ public class PendingOnboarding extends BaseEntity {
     @Column(name = "team_focus", length = 32)
     private String teamFocus;
 
-    @Column(name = "job_title", length = 120)
-    private String jobTitle;
-
     /** Step 3, held rather than sent. An unverified user must not make us email strangers. */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false)
@@ -62,23 +59,21 @@ public class PendingOnboarding extends BaseEntity {
     private Instant expiresAt;
 
     public static PendingOnboarding toCreate(UUID userId, String name, String companySize,
-                                             String primaryRegion, String teamFocus, String jobTitle,
+                                             String primaryRegion, String teamFocus,
                                              Instant expiresAt) {
         PendingOnboarding pending = new PendingOnboarding();
         pending.userId = userId;
-        pending.describe(name, companySize, primaryRegion, teamFocus, jobTitle);
+        pending.describe(name, companySize, primaryRegion, teamFocus);
         pending.expiresAt = expiresAt;
         return pending;
     }
 
     /** Re-submitting step 2 — the wizard's Back button — edits the draft rather than adding another. */
-    public void describe(String name, String companySize, String primaryRegion, String teamFocus,
-                         String jobTitle) {
+    public void describe(String name, String companySize, String primaryRegion, String teamFocus) {
         this.name = name;
         this.companySize = companySize;
         this.primaryRegion = primaryRegion;
         this.teamFocus = teamFocus;
-        this.jobTitle = jobTitle;
     }
 
     public void holdInvitations(List<PendingInvite> invitations) {

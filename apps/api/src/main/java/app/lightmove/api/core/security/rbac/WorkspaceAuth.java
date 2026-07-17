@@ -38,10 +38,4 @@ public class WorkspaceAuth {
         access.requireStaff(principal.userId(), principal.requireWorkspaceId());
         return true;
     }
-
-    /** For the gates where the ADMIN role itself is the subject (roster role changes, removal). */
-    public boolean admin(AuthPrincipal principal) {
-        access.requireAdmin(principal.userId(), principal.requireWorkspaceId());
-        return true;
-    }
 }

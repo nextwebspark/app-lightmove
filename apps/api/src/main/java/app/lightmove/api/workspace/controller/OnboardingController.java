@@ -1,13 +1,17 @@
 package app.lightmove.api.workspace.controller;
 
 import app.lightmove.api.core.security.controller.AuthResponseAssembler;
+import app.lightmove.api.core.security.dto.AuthDtos.AuthResponse;
 import app.lightmove.api.core.security.dto.AuthDtos.UserResponse;
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.service.AuthService;
 import app.lightmove.api.core.security.service.CurrentUser;
+import app.lightmove.api.core.security.token.RefreshCookieFactory;
 import app.lightmove.api.workspace.dto.WorkspaceDtos.AcceptInvitationRequest;
+import app.lightmove.api.workspace.dto.WorkspaceDtos.AcceptInvitationSignupRequest;
 import app.lightmove.api.workspace.dto.WorkspaceDtos.CreateWorkspaceRequest;
 import app.lightmove.api.workspace.dto.WorkspaceDtos.InviteRequest;
 import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
@@ -22,6 +26,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -48,6 +53,7 @@ public class OnboardingController {
     private final InvitationService invitations;
     private final AuthService auth;
     private final AuthResponseAssembler assembler;
+    private final RefreshCookieFactory refreshCookie;
 
     /**
      * Signup step 2 — create your workspace. You are its ADMIN.
@@ -64,7 +70,7 @@ public class OnboardingController {
         Optional<Workspace> created = onboarding.createWorkspace(
                 principal.userId(),
                 new CreateWorkspaceCommand(request.name(), request.companySize(),
-                        request.primaryRegion(), request.jobTitle(), request.teamFocus()),
+                        request.primaryRegion(), request.teamFocus()),
                 httpRequest);
 
         // 202 while unverified: answers are held and the workspace is created at verification (see
@@ -88,7 +94,7 @@ public class OnboardingController {
 
         CreateWorkspaceCommand command = new CreateWorkspaceCommand(
                 request.name(), request.companySize(), request.primaryRegion(),
-                request.jobTitle(), request.teamFocus());
+                request.teamFocus());
 
         // No workspace yet means the wizard is still held awaiting verification, so "Back" edits a draft
         // and createWorkspace already upserts it.
@@ -173,6 +179,22 @@ public class OnboardingController {
         AuthPrincipal principal = CurrentUser.require();
         invitations.acceptForUser(principal.userId(), httpRequest);
         return ResponseEntity.ok(currentUser(principal));
+    }
+
+    /**
+     * Accept an invitation by creating the invited account in one step — the door in for an invitee who
+     * has no account yet. Public: they have no session to authenticate with, and the invitation token in
+     * the body is the credential. Returns a full session — access token in the body, refresh token in
+     * the httpOnly cookie — so they land in the workspace with no second login and no verification step.
+     */
+    @PostMapping("/accept-invitation-signup")
+    public ResponseEntity<AuthResponse> acceptInvitationSignup(
+            @Valid @RequestBody AcceptInvitationSignupRequest request, HttpServletRequest httpRequest) {
+        AuthenticatedSession session = invitations.acceptWithNewLocalUser(
+                request.token(), request.fullName(), request.password(), httpRequest);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.create(session.tokens().refreshToken()).toString())
+                .body(assembler.assemble(session.tokens(), session.user(), session.membership()));
     }
 
     private UserResponse currentUser(AuthPrincipal principal) {

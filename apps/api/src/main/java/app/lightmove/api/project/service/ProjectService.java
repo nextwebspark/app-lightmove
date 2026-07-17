@@ -128,7 +128,9 @@ public class ProjectService {
         if (seat == null) {
             seats.save(ProjectMember.of(projectId, memberId, granted, userId));
             auditTeamChange(userId, workspaceId, projectId, memberId, "add", httpRequest);
-        } else {
+        } else if (!granted.equals(seat.getRoles())) {
+            // A PUT of the current role set changes nothing — skip the guard, the write and the audit
+            // event, so the "idempotent" claim holds in side effects too, not just in the response.
             if (holdsAdmin(seat) && !roles.contains(ProjectRole.ADMIN)) {
                 requireAnotherProjectAdmin(projectId);
             }

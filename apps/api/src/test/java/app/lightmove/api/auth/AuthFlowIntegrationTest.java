@@ -155,7 +155,7 @@ class AuthFlowIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"NextWebSpark Search","companySize":"11-50 people",
-                                 "primaryRegion":"GCC","jobTitle":"Partner","teamFocus":"Executive search"}
+                                 "primaryRegion":"GCC","teamFocus":"Executive search"}
                                 """))
                 .andExpect(status().isCreated())
                 .andReturn();
@@ -198,7 +198,7 @@ class AuthFlowIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"Squatted Firm","companySize":"11-50 people","primaryRegion":"GCC",
-                                 "jobTitle":"Partner","teamFocus":"Executive search"}
+                                 "teamFocus":"Executive search"}
                                 """))
                 .andExpect(status().isAccepted())
                 // No workspace on the response, because there is no workspace — only a held wizard.
@@ -217,7 +217,7 @@ class AuthFlowIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"NextWebSpark Search","companySize":"11-50 people",
-                                 "primaryRegion":"GCC","jobTitle":"Partner","teamFocus":"Executive search"}
+                                 "primaryRegion":"GCC","teamFocus":"Executive search"}
                                 """))
                 .andExpect(status().isAccepted());
 
@@ -276,7 +276,7 @@ class AuthFlowIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"NextWebSpark Executive","companySize":"51-200 people",
-                                 "primaryRegion":"MENA","jobTitle":"Partner","teamFocus":"Board advisory"}
+                                 "primaryRegion":"MENA","teamFocus":"Board advisory"}
                                 """))
                 .andExpect(status().isOk())
                 .andReturn();
@@ -300,7 +300,7 @@ class AuthFlowIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"Sara's Firm Now","companySize":"1-10 people","primaryRegion":"GCC",
-                                 "jobTitle":"Consultant","teamFocus":"Executive search"}
+                                 "teamFocus":"Executive search"}
                                 """))
                 .andExpect(status().isForbidden());
     }
@@ -690,7 +690,7 @@ class AuthFlowIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","companySize":"11-50 people","primaryRegion":"GCC",
-                                 "jobTitle":"Partner","teamFocus":"Executive search"}
+                                 "teamFocus":"Executive search"}
                                 """.formatted(name)))
                 .andExpect(status().isCreated())
                 .andReturn();

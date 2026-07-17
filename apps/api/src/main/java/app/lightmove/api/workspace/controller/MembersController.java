@@ -65,7 +65,7 @@ public class MembersController {
     }
 
     @PatchMapping("/{memberId}")
-    @PreAuthorize("@workspaceAuth.admin(principal)")
+    @PreAuthorize("@workspaceAuth.can(principal, 'MEMBER_MANAGE')")
     public ResponseEntity<MemberResponse> changeRoles(@PathVariable UUID memberId,
                                                       @Valid @RequestBody ChangeRolesRequest request,
                                                       HttpServletRequest httpRequest) {
@@ -78,7 +78,7 @@ public class MembersController {
     }
 
     @DeleteMapping("/{memberId}")
-    @PreAuthorize("@workspaceAuth.admin(principal)")
+    @PreAuthorize("@workspaceAuth.can(principal, 'MEMBER_MANAGE')")
     public ResponseEntity<Void> remove(@PathVariable UUID memberId, HttpServletRequest httpRequest) {
         AuthPrincipal principal = CurrentUser.require();
         memberService.remove(principal.userId(), principal.requireWorkspaceId(), memberId, httpRequest);

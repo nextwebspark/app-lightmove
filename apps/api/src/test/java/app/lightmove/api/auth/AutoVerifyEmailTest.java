@@ -106,7 +106,7 @@ class AutoVerifyEmailTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"NextWebSpark Search","companySize":"11-50 people",
-                                 "primaryRegion":"GCC","jobTitle":"Partner","teamFocus":"Executive search"}
+                                 "primaryRegion":"GCC","teamFocus":"Executive search"}
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.workspace.id").exists());

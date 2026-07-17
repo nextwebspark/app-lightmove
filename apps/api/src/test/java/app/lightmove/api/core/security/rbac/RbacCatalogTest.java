@@ -49,6 +49,35 @@ class RbacCatalogTest {
                 .hasValueSatisfying(role -> assertThat(role.getActions()).isEmpty());
     }
 
+    /**
+     * The catalog tests above prove the role and action <i>names</i> line up; this one proves the
+     * <i>grant map</i> does. It matters because the V6 seed joins role and action by string literal — a
+     * typo (`'PROJECT_BROWS'`) seeds <b>zero rows, not an error</b>, silently stripping a permission while
+     * the build stays green. Pinning each role's grants to a code-side expectation turns that into a red
+     * build, which is what CLAUDE.md claims the catalog test does.
+     */
+    @Test
+    @DisplayName("each role grants exactly the actions the seed intends — a mis-seeded grant fails here")
+    @Transactional(readOnly = true)
+    void roleGrantsMatchTheSeededMap() {
+        grantsAre(RoleScope.WORKSPACE, "ADMIN", "WORKSPACE_MANAGE", "MEMBER_MANAGE", "MEMBER_INVITE",
+                "PROJECT_CREATE", "PROJECT_BROWSE", "CLIENT_RECORD_MANAGE");
+        grantsAre(RoleScope.WORKSPACE, "MEMBER", "PROJECT_CREATE", "PROJECT_BROWSE", "CLIENT_RECORD_MANAGE");
+        grantsAre(RoleScope.WORKSPACE, "CLIENT");
+        grantsAre(RoleScope.PROJECT, "ADMIN", "PROJECT_EDIT", "TEAM_MANAGE", "WORK_EXECUTE");
+        grantsAre(RoleScope.PROJECT, "LEAD", "PROJECT_EDIT", "WORK_EXECUTE");
+        grantsAre(RoleScope.PROJECT, "RESEARCHER", "WORK_EXECUTE");
+        grantsAre(RoleScope.PROJECT, "CLIENT");
+    }
+
+    private void grantsAre(RoleScope scope, String roleName, String... expectedActions) {
+        Role role = roles.findByScopeAndName(scope, roleName)
+                .orElseThrow(() -> new AssertionError("no seeded role " + scope + "/" + roleName));
+        assertThat(names(role.getActions().stream().toList(), Action::getName))
+                .as("grants for %s/%s", scope, roleName)
+                .containsExactlyInAnyOrder(expectedActions);
+    }
+
     private static <T> List<String> names(List<T> rows, java.util.function.Function<T, String> name) {
         return rows.stream().map(name).toList();
     }

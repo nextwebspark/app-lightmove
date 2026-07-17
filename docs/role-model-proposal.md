@@ -18,6 +18,10 @@ supersede parts of the proposal below:
 4. **Client is groundwork only.** CLIENT roles are seeded granting no actions, invitations carry a
    `project_id` column with the client⇔project CHECK, and every staff path refuses to mint CLIENT.
    The portal itself is Phase 2.
+5. **Onboarding UX (follow-up, 2026-07-17).** Signup no longer asks for a self-role — the creator is
+   always ADMIN, so the wizard's "Your role" field is gone. And an invited user skips email
+   verification: they set a password on the accept screen (`POST /onboarding/accept-invitation-signup`)
+   and land ACTIVE at once, because clicking the invite link already proved their mailbox.
 
 The research and the client-access design below remain the reference for Phase 2.
 
@@ -428,7 +432,150 @@ Still open, for Phase 2:
 
 ---
 
-## 10. Sources
+## 10. Invited signup & onboarding UX (implemented 2026-07-17)
+
+A follow-up pass on two onboarding bugs found after the staff tiers shipped. Both were about how a
+person *first arrives*: the workspace creator was asked to pick a "role" that meant nothing, and an
+invited user was forced through an email verification the invitation had already made redundant.
+
+### 10.1 The two problems
+
+1. **Signup asked the creator for a "role."** Step 2 rendered a *Your role* dropdown
+   (Partner / Consultant / Researcher / Operations). It never set authority — the workspace creator is
+   always `ADMIN` — it only wrote a free-text job title onto the user. On screen it read as a decision
+   the user did not have to make, next to a workspace they were being told they own.
+2. **Invited users verified their email twice over.** An invitee had to: create an account → receive a
+   *second* email (the verification link) → click it → *then* accept. But the invitation link is itself
+   a 256-bit token mailed only to the invited address. Clicking it already proves control of that
+   mailbox — the exact thing email verification exists to establish. The second round-trip proved
+   nothing new and stranded people at a "check your inbox" wall one step from being in.
+
+### 10.2 Decisions
+
+- **No role at signup.** The *Your role* field is gone; `jobTitle` was removed end to end (it was never
+  authority, and the vestigial `app_lm_user.title` write was not worth keeping a form field for). The
+  creator is `ADMIN`, full stop.
+- **A confirmed password everywhere.** Signup and the invite-accept form both take the password twice
+  (`password` + `confirmPassword`, matched client-side). Standard double-entry; it changes no server
+  contract.
+- **An invited user skips verification.** The invite token is treated as the mailbox proof, so a new
+  invitee sets a password on a dedicated screen and is `ACTIVE` in the workspace immediately — no
+  verification email, no wizard. This extends the codebase's existing "an emailed token proves the
+  address" principle rather than inventing a new one.
+
+### 10.3 The trust model (why skipping verification is safe — and where it is not)
+
+The safety of the new path rests on one invariant: **the created account's email is taken from the
+resolved invitation, never from the request body.** The accept-signup request carries only
+`{token, fullName, password}` — no email. So possession of the token can only ever mint the one identity
+the token was addressed to; it can never be redirected to another address.
+
+Two guards back this up:
+
+- **`existsByEmail`** — if the invited address already has an account, the endpoint refuses
+  (`EMAIL_ALREADY_REGISTERED`) and the UI sends that person to log in. The public endpoint can never
+  attach to, or overwrite the password of, a pre-existing identity.
+- **The email-match guard in `redeem`** — still runs, and is now trivially satisfied because the user's
+  email and the invitation's email share one source.
+
+The honest cost: this drops the *shoulder-surf* backstop for **new** accounts. Someone who reads an
+invite link off the invited person's screen could claim it with their own password. The old model
+stopped that at the verification step (they could not read the invited inbox); the new model treats the
+invite click as inbox proof, so it does not. This is the same exposure email verification itself carries
+(a verification link read over a shoulder verifies the account too), narrowed to the invite window, and
+it was accepted deliberately. The **signed-in** accept paths for people who already have an account are
+unchanged — they still require a verified session.
+
+### 10.4 Backend
+
+**New public endpoint** — `POST /api/v1/onboarding/accept-invitation-signup`, body
+`AcceptInvitationSignupRequest{token, fullName, password}` (no email — see §10.3). Returns a full
+session: access token in the body, refresh token in the httpOnly cookie, exactly like signup/login.
+`SecurityConfig` matches it `permitAll` and `POST`-only, placed *before* the `/onboarding/**`
+`authenticated` gate and the `/api/**` verified gate so first-match wins.
+
+**Orchestration** — `InvitationService.acceptWithNewLocalUser(...)`, one plain `@Transactional` (full
+rollback on any failure — the opposite of `login`/`rotate`, whose `noRollbackFor` exists only to keep a
+counter on the failure path; there is no such side effect to protect here):
+
+1. `resolveRedeemable(token)` — find by token hash, check redeemable (`INVITATION_INVALID` /
+   `INVITATION_EXPIRED`). Extracted from the old inline block in `accept`/`preview`, now shared by all
+   three.
+2. `rateLimit.checkSignup(invitation.email, request)` — the same budget as signup.
+3. `AuthService.createVerifiedLocalUser(invitation.email, fullName, password, request)` — validates the
+   password, rejects an existing address (`EMAIL_ALREADY_REGISTERED`), creates the user, links the local
+   identity, then `markEmailVerified(now)`. Mirrors `signup` minus the verification email and minus
+   `validateWorkEmail` (the invited address was already vetted when the invite was issued).
+4. `redeem(invitation, user, now, request)` — the shared accept tail: email-match guard, verified gate
+   (passes — just marked), not-already-a-member, then the `ACTIVE` `WorkspaceMember` holding the invited
+   role.
+5. `tokens.issue(user, member, request)` — the session carries `wsId`, `roles` and `SCOPE_VERIFIED` from
+   the very first token, so the invitee is in with **no** second login and no refresh.
+
+The seam respects the dependency rule: `InvitationService` (feature) → `AuthService` / `TokenService`
+(core) is feature→core, the allowed direction, and introduces no bean cycle. `createVerifiedLocalUser`
+is a reusable core building block; the workspace orchestration stays in the feature.
+
+**Existing accept paths kept** — the token-based `POST /onboarding/invitations/accept` and the
+token-less `POST /onboarding/accept-invitation` still exist and still require a verified session; they
+serve the "already have an account / already signed in" invitee.
+
+**`jobTitle` removal** — dropped from `CreateWorkspaceRequest`, `CreateWorkspaceCommand`,
+`PendingOnboarding` (field + `toCreate`/`describe` params + the `materialise` replay), and the two
+`user.setTitle(command.jobTitle())` calls in `OnboardingService`. **No migration**: the `job_title`
+column is left in place, unmapped, which `ddl-auto: validate` tolerates (it fails on a *missing* column,
+not an extra one).
+
+### 10.5 The three ways in, after this change
+
+| Arrival | Where | What they do | Verification? |
+|---|---|---|---|
+| **Create a workspace** | signup wizard steps 1–3 | name/email/password → org details → invite team | **Yes** — a self-typed address is still an unproven claim; the wizard is *held* (`PendingOnboarding`) until they verify, then materialised. |
+| **New invitee** (no account) | `AcceptInvitePage`, token in URL | set name + password on the accept screen | **No** — the invite token is the mailbox proof. `ACTIVE` at once. |
+| **Existing-account invitee** | `AcceptInvitePage`, signed in (or routed there by `pendingInvitation`) | one-click accept | Uses their existing verified session; an unverified existing account is asked to verify first. |
+
+### 10.6 Frontend
+
+- **`AcceptInvitePage`** rewritten. An anonymous token arrival (the common case) renders a real
+  account-creation form: read-only invited email, full name, password, confirm password, "Accept & join"
+  → `AuthProvider.acceptInviteSignup` → the new endpoint → `/`. `EMAIL_ALREADY_REGISTERED` swaps in a
+  "Log in to accept →" link carrying the address (and nothing else — the workspace name is never
+  revealed pre-auth). Signed-in arrivals keep the wrong-account / already-in-a-workspace /
+  ready-to-accept states.
+- **`AuthProvider.acceptInviteSignup`** and **`authApi.acceptInvitationSignup`** — mirror `signUp`:
+  call the endpoint, install the returned access token, set the user.
+- **Confirm password** — added to `signupSchema` (with a `.refine` match) and a new `acceptInviteSchema`;
+  rendered on both forms.
+- **Wizard cleaned** — the dead `pendingInvite` sessionStorage detour (which carried the token through
+  the old signup → verify → accept round trip) was deleted outright: gone from `SignupPage`,
+  `VerifyEmailPage`, and the `pendingInvite.ts` file itself. Signup is now purely the fresh-creator
+  step 1. The server-derived `user.pendingInvitation` routing is *kept* — it is the mechanism that sends
+  an existing-account invitee to the accept screen from any tab.
+
+### 10.7 Mockups & tests
+
+- **Mockups** — `Signup.dc.html` lost the *Your role* select and gained a confirm-password field; new
+  `AcceptInvite.dc.html` is the invite-accept screen (invited email locked, name + password + confirm,
+  "Accept & join").
+- **Backend** — `InvitedSignupIntegrationTest` (Testcontainers): a new invitee lands `ACTIVE` with no
+  verification email and a first session that already works against a tenant route; an already-registered
+  address gets `409` and no membership; only a live token works and a consumed one cannot be reused; a
+  weak password is refused and leaves nothing behind (rollback proof); the endpoint is reachable
+  unauthenticated. Full suite: 99 green.
+- **Frontend** — the accept form renders and calls the endpoint; `EMAIL_ALREADY_REGISTERED` shows the
+  login CTA; mismatched passwords are blocked before any request. Full suite: 39 green, `tsc` clean.
+
+### 10.8 Files touched
+
+Backend: `AuthService`, `InvitationService`, `OnboardingController`, `SecurityConfig`, `WorkspaceDtos`,
+`CreateWorkspaceCommand`, `PendingOnboarding`, `OnboardingService`. Frontend: `AcceptInvitePage`,
+`AuthProvider`, `api/authApi.ts`, `api/types.ts`, `schemas.ts`, `SignupPage`, `WorkspaceStepPage`,
+`VerifyEmailPage` (and `pendingInvite.ts` deleted). Mockups: `Signup.dc.html`, `AcceptInvite.dc.html`.
+Docs: this section and the `CLAUDE.md` invitation/verification rules.
+
+---
+
+## 11. Sources
 
 Exec search: [Clockwork roles](https://support.clockworkrecruiting.com/article/364-roles-in-clockwork),
 [Clockwork client portal](https://support.clockworkrecruiting.com/collection/1069-for-clients),
