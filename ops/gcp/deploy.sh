@@ -25,9 +25,11 @@ RUNTIME_SA="lightmove-api@${PROJECT}.iam.gserviceaccount.com"
 # lm_app today. Becomes lm_migrate once ops/cloudsql/create-migrate-role.sh has been applied.
 MIGRATE_USER="${DB_MIGRATE_USER:-lm_app}"
 
-# Optional, and each unlocks a feature rather than being needed to deploy.
-EMAIL_PROVIDER="${EMAIL_PROVIDER:-log}"
-EMAIL_FROM="${EMAIL_FROM:-noreply@lightmove.app}"
+# Defaults to resend + the verified lightmove.ai sender, so a plain run sends real mail. Requires the
+# lightmove-resend-api-key secret to have a value (preflight below fails fast if it does not). Override
+# EMAIL_PROVIDER=log for a dry-run environment that should not send.
+EMAIL_PROVIDER="${EMAIL_PROVIDER:-resend}"
+EMAIL_FROM="${EMAIL_FROM:-noreply@lightmove.ai}"
 GOOGLE_OAUTH_CLIENT_ID="${GOOGLE_OAUTH_CLIENT_ID:-}"
 
 # ⚠ Verification off. Every signup is treated as though the address had been proved.

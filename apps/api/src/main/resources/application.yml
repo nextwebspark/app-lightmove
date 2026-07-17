@@ -120,7 +120,7 @@ lightmove:
       verification-resends-per-hour: ${AUTH_VERIFICATION_RESENDS_PER_HOUR:3}
 
   email:
-    provider: ${EMAIL_PROVIDER:log}
+    provider: ${EMAIL_PROVIDER:resend}
     from-name: LightMove
     from-address: ${EMAIL_FROM:noreply@lightmove.ai}
     resend:
@@ -130,13 +130,12 @@ lightmove:
       # never gets their link.
       mx-check-enabled: ${EMAIL_MX_CHECK:true}
 
-      # Refuse gmail/outlook/yahoo/… so signup requires a work address.
+      # Off by default: we currently accept any domain at signup, gmail/outlook/… included.
       #
-      # Turning this off has a consequence: the email domain is what groups colleagues together, and
-      # gmail.com groups the entire world. LightMove therefore never offers a Gmail user "the
-      # workspaces on your domain" — that list would be every unrelated customer who also used Gmail.
-      # Consumer signups simply always create a fresh workspace.
-      block-public-domains: ${EMAIL_BLOCK_PUBLIC_DOMAINS:true}
+      # The consequence is that the email domain no longer reliably groups colleagues — gmail.com groups
+      # the entire world — so a consumer signup simply creates its own fresh workspace. Set to true (here
+      # or via EMAIL_BLOCK_PUBLIC_DOMAINS) to require work addresses again.
+      block-public-domains: ${EMAIL_BLOCK_PUBLIC_DOMAINS:false}
 
       # Leave unset to use the bundled list (see PublicEmailDomains). Setting it REPLACES that list;
       # use extra-public-domains to add to it instead.
