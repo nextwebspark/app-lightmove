@@ -30,6 +30,9 @@ import org.springframework.test.web.servlet.MvcResult;
 /**
  * The whole signup-to-workspace journey, against a real Postgres.
  *
+ * <p>Two routes in, and only two: create a workspace, or accept an invitation. There is no join
+ * request and no approval queue — an admin naming someone <i>is</i> the approval.
+ *
  * <p>This is the suite that replaced an ad-hoc curl script. The script needed the shared Cloud SQL
  * database wiped between runs, because it left users behind and then collided with them. These tests
  * get a fresh container, so they are repeatable by construction and never touch a shared database.
@@ -109,7 +112,7 @@ class AuthFlowIntegrationTest {
 
         // The gate that makes email verification mean something: an unverified user holds a valid
         // token and still cannot read a single row of workspace data.
-        mvc.perform(get("/api/v1/members/pending").header("Authorization", bearer(session)))
+        mvc.perform(get("/api/v1/members").header("Authorization", bearer(session)))
                 .andExpect(status().isForbidden());
     }
 
@@ -152,14 +155,14 @@ class AuthFlowIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"NextWebSpark Search","companySize":"11-50 people",
-                                 "primaryRegion":"GCC","jobTitle":"Partner","teamFocus":"Executive search"}
+                                 "primaryRegion":"GCC","teamFocus":"Executive search"}
                                 """))
                 .andExpect(status().isCreated())
                 .andReturn();
 
         JsonNode user = body(result);
         assertThat(user.at("/workspace/name").asText()).isEqualTo("NextWebSpark Search");
-        assertThat(user.at("/workspace/role").asText()).isEqualTo("ADMIN");
+        assertThat(user.at("/workspace/roles/0").asText()).isEqualTo("ADMIN");
         assertThat(user.at("/workspace/emailDomain").asText()).isEqualTo(domain);
 
         // Derived from the name, not supplied by the client. `startsWith` rather than equals, because
@@ -179,11 +182,9 @@ class AuthFlowIntegrationTest {
      * ADMIN of a workspace bound to {@code realfirm.com} by doing so.
      *
      * <p>Note what is asserted, and what is not. The request is <b>accepted</b> — refusing it stranded a
-     * user in the middle of their own signup, which is what this used to do. What must not happen is that
-     * anything comes into <i>existence</i>: the assertion that matters is the second one, that the
-     * squatted firm does not appear on the domain. A real employee of that firm, signing up next, must
-     * not be shown an impostor's organisation as "your firm is already here" — and then wait forever for
-     * an approval from an admin who can never verify.
+     * user in the middle of their own signup, which is what this used to do. What must not happen is
+     * that anything comes into <i>existence</i>: no workspace, only a held wizard the response reports
+     * as {@code onboardingHeld}.
      */
     @Test
     @DisplayName("an unverified user's workspace does not exist until they verify")
@@ -197,20 +198,12 @@ class AuthFlowIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"Squatted Firm","companySize":"11-50 people","primaryRegion":"GCC",
-                                 "jobTitle":"Partner","teamFocus":"Executive search"}
+                                 "teamFocus":"Executive search"}
                                 """))
                 .andExpect(status().isAccepted())
-                // No workspace on the response, because there is no workspace.
-                .andExpect(jsonPath("$.workspace").doesNotExist());
-
-        // And this is the line that matters: nothing on the domain. The squatted firm is not merely
-        // hidden behind a filter — it does not exist to be filtered.
-        MvcResult fork = mvc.perform(get("/api/v1/onboarding/workspaces")
-                        .header("Authorization", unverified))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        assertThat(body(fork)).isEmpty();
+                // No workspace on the response, because there is no workspace — only a held wizard.
+                .andExpect(jsonPath("$.workspace").doesNotExist())
+                .andExpect(jsonPath("$.onboardingHeld").value(true));
     }
 
     /** And it comes into existence the moment they prove the mailbox — not before, and not never. */
@@ -224,7 +217,7 @@ class AuthFlowIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"NextWebSpark Search","companySize":"11-50 people",
-                                 "primaryRegion":"GCC","jobTitle":"Partner","teamFocus":"Executive search"}
+                                 "primaryRegion":"GCC","teamFocus":"Executive search"}
                                 """))
                 .andExpect(status().isAccepted());
 
@@ -237,120 +230,31 @@ class AuthFlowIntegrationTest {
         JsonNode user = body(verified);
         assertThat(user.get("emailVerified").asBoolean()).isTrue();
         assertThat(user.at("/workspace/name").asText()).isEqualTo("NextWebSpark Search");
-        assertThat(user.at("/workspace/role").asText()).isEqualTo("ADMIN");
+        assertThat(user.at("/workspace/roles/0").asText()).isEqualTo("ADMIN");
         assertThat(user.at("/workspace/emailDomain").asText()).isEqualTo(domain);
     }
 
     /**
-     * The same rule on the other branch of step 2: the request may be made, but it must not reach an
-     * admin's approval queue until the address behind it is proven. An admin deciding on a stranger is
-     * deciding on the strength of an email domain — so that domain had better be evidence.
+     * Verifying straight from the inbox, before filling in the wizard, must strand nobody: no
+     * workspace, nothing held, no invitation — the create form is where they belong, and it works.
      */
     @Test
-    @DisplayName("an unverified join request does not reach the admin's queue until they verify")
-    void unverifiedUserCannotRequestToJoin() throws Exception {
-        createWorkspace(verifiedUser("Alok Kumar", alokEmail), "NextWebSpark Search");
-        // Re-issued, because the token he was holding was minted before the workspace existed and
-        // carries no tenant claim — so it cannot read the workspace's own approval queue.
-        String admin = tokenWithWorkspace(alokEmail);
-
-        String impostorEmail = "impostor@" + domain;
-        String unverified = bearer(signup("Impostor", impostorEmail, PASSWORD));
-        String workspaceId = onlyWorkspaceIdOnTheDomain(unverified);
-
-        mvc.perform(post("/api/v1/onboarding/join-requests")
-                        .header("Authorization", unverified)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"workspaceId":"%s","requestedRole":"CONSULTANT"}
-                                """.formatted(workspaceId)))
-                .andExpect(status().isAccepted());
-
-        // Nothing in the queue. The admin is not asked to judge an unproven address.
-        mvc.perform(get("/api/v1/members/pending").header("Authorization", "Bearer " + admin))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(0));
-
-        // They verify, and only now does the admin have something to decide.
-        mvc.perform(post("/api/v1/auth/verify").param("token", email.latestTokenFor(impostorEmail)))
-                .andExpect(status().isOk());
-
-        mvc.perform(get("/api/v1/members/pending").header("Authorization", "Bearer " + admin))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1));
-    }
-
-    /**
-     * Verifying your address is not asking anyone for anything.
-     *
-     * <p>{@code awaitingApproval} is what puts a user on the approval screen, and only a join request may
-     * set it. The SPA used to infer it from {@code emailVerified} instead, on the reasoning that a
-     * verified user must already have been through the wizard — true only because signup left everyone
-     * unverified. Verifying straight from the inbox, before the wizard, was enough to break it: the user
-     * was shown an approval screen for a request they never made, on a domain with no workspace and so no
-     * admin who could ever approve them, and could not get back to creating one.
-     */
-    @Test
-    @DisplayName("verifying without asking to join leaves the user free to create a workspace")
-    void verifyingIsNotARequestToJoin() throws Exception {
+    @DisplayName("verifying without a held wizard leaves the user free to create a workspace")
+    void verifyingWithoutAWizardLeavesTheUserFree() throws Exception {
         signup("Alok Kumar", alokEmail, PASSWORD);
         MvcResult verified = mvc.perform(post("/api/v1/auth/verify")
                         .param("token", email.latestTokenFor(alokEmail)))
                 .andExpect(status().isOk())
                 .andReturn();
 
-        // Verified, in no workspace, and waiting on nobody — the wizard is where they belong.
-        assertThat(body(verified).get("emailVerified").asBoolean()).isTrue();
-        assertThat(body(verified).get("awaitingApproval").asBoolean()).isFalse();
+        JsonNode user = body(verified);
+        assertThat(user.get("emailVerified").asBoolean()).isTrue();
+        assertThat(user.at("/workspace/id").asString("")).isEmpty();
+        assertThat(user.get("onboardingHeld").asBoolean()).isFalse();
+        assertThat(user.at("/pendingInvitation/workspaceName").asString("")).isEmpty();
 
         // And the proof that it is not merely cosmetic: they can still create the workspace.
         createWorkspace(login(alokEmail), "NextWebSpark Search");
-    }
-
-    /** Asking to join, however, does set it — and that is the one thing that may. */
-    @Test
-    @DisplayName("a pending join request is what awaitingApproval means")
-    void askingToJoinAwaitsApproval() throws Exception {
-        createWorkspace(verifiedUser("Alok Kumar", alokEmail), "NextWebSpark Search");
-
-        String saraToken = verifiedUser("Sara Ahmed", saraEmail);
-        requestToJoin(saraToken, onlyWorkspaceIdOnTheDomain("Bearer " + saraToken), "CONSULTANT");
-
-        MvcResult me = mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + saraToken))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        assertThat(body(me).get("awaitingApproval").asBoolean()).isTrue();
-        assertThat(body(me).at("/workspace/id").asString("")).isEmpty();
-    }
-
-    /** The id of the one workspace on the caller's domain, as the wizard's fork would show it. */
-    private String onlyWorkspaceIdOnTheDomain(String bearerHeader) throws Exception {
-        MvcResult fork = mvc.perform(get("/api/v1/onboarding/workspaces")
-                        .header("Authorization", bearerHeader))
-                .andReturn();
-        return body(fork).get(0).get("id").asText();
-    }
-
-    /**
-     * The read stays open, and deliberately: the wizard has to ask "is my firm already here?" before it
-     * can offer the join-or-create fork, and it asks that before the user has had a chance to verify.
-     * It discloses only workspace names on the caller's own domain.
-     */
-    @Test
-    @DisplayName("an unverified user may still see which workspaces exist on their domain")
-    void unverifiedUserMaySeeTheFork() throws Exception {
-        String alok = verifiedUser("Alok Kumar", alokEmail);
-        createWorkspace(alok, "NextWebSpark Search");
-
-        String unverified = bearer(signup("Newcomer", "newcomer@" + domain, PASSWORD));
-
-        MvcResult offered = mvc.perform(get("/api/v1/onboarding/workspaces")
-                        .header("Authorization", unverified))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        assertThat(body(offered)).hasSize(1);
     }
 
     /**
@@ -372,7 +276,7 @@ class AuthFlowIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"NextWebSpark Executive","companySize":"51-200 people",
-                                 "primaryRegion":"MENA","jobTitle":"Partner","teamFocus":"Board advisory"}
+                                 "primaryRegion":"MENA","teamFocus":"Board advisory"}
                                 """))
                 .andExpect(status().isOk())
                 .andReturn();
@@ -387,35 +291,30 @@ class AuthFlowIntegrationTest {
     @DisplayName("a member who is not an admin cannot edit the workspace")
     void nonAdminCannotEditTheWorkspace() throws Exception {
         String alok = verifiedUser("Alok Kumar", alokEmail);
-        String workspaceId = createWorkspace(alok, "NextWebSpark Search");
+        createWorkspace(alok, "NextWebSpark Search");
         String admin = tokenWithWorkspace(alokEmail);
-
-        String sara = verifiedUser("Sara Al-Mansour", saraEmail);
-        requestToJoin(sara, workspaceId, "CONSULTANT");
-        approve(admin, firstPendingMemberId(admin), "CONSULTANT");
+        inviteAndAccept(admin, saraEmail, "MEMBER");
 
         mvc.perform(patch("/api/v1/onboarding/workspace")
                         .header("Authorization", "Bearer " + tokenWithWorkspace(saraEmail))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"Sara's Firm Now","companySize":"1-10 people","primaryRegion":"GCC",
-                                 "jobTitle":"Consultant","teamFocus":"Executive search"}
+                                 "teamFocus":"Executive search"}
                                 """))
                 .andExpect(status().isForbidden());
     }
 
-    // ── The invitation flow ───────────────────────────────────────────────────
+    // ── The invitation flow — the only way into an existing workspace ─────────
 
     /**
-     * The other way in, and the one that skips the queue.
-     *
-     * <p>An admin naming a colleague <i>is</i> the approval, made up front — so an invitee lands ACTIVE
-     * with the role the admin chose, and never sees the waiting screen. The role is the admin's, not the
-     * invitee's: nothing in this flow ever asks them what they would like to be.
+     * An admin naming a colleague <i>is</i> the approval, made up front — so an invitee lands ACTIVE
+     * with the role the admin chose, immediately. The role is the admin's, not the invitee's: nothing
+     * in this flow ever asks them what they would like to be.
      */
     @Test
     @DisplayName("an invited colleague joins immediately, as the role the admin chose")
-    void invitedColleagueSkipsTheApprovalQueue() throws Exception {
+    void invitedColleagueLandsActiveImmediately() throws Exception {
         String alok = verifiedUser("Alok Kumar", alokEmail);
         createWorkspace(alok, "NextWebSpark Search");
         String admin = tokenWithWorkspace(alokEmail);
@@ -424,7 +323,7 @@ class AuthFlowIntegrationTest {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                [{"email":"%s","role":"CONSULTANT"}]
+                                [{"email":"%s","role":"MEMBER"}]
                                 """.formatted(saraEmail)))
                 .andExpect(status().isOk());
 
@@ -442,17 +341,115 @@ class AuthFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
-        // In, immediately, as a CONSULTANT — no admin had to act a second time.
+        // In, immediately, as a MEMBER — no admin had to act a second time.
         JsonNode user = body(accepted);
         assertThat(user.at("/workspace/name").asText()).isEqualTo("NextWebSpark Search");
-        assertThat(user.at("/workspace/role").asText()).isEqualTo("CONSULTANT");
+        assertThat(user.at("/workspace/roles/0").asText()).isEqualTo("MEMBER");
+    }
 
-        // And nobody is waiting: the queue an uninvited colleague would have landed in is empty.
-        MvcResult queue = mvc.perform(get("/api/v1/members/pending")
-                        .header("Authorization", "Bearer " + admin))
+    /**
+     * The server-derived invitee marker. The emailed token lives in one browser tab's sessionStorage;
+     * an invitee who verifies in a fresh tab still has to be routed to "join {workspace}" and not into
+     * create-your-own — so {@code /me} carries the invitation, from the database, in every tab.
+     */
+    @Test
+    @DisplayName("an invited, unplaced user sees their invitation on /me — and it clears once placed")
+    void pendingInvitationSurfacesOnMe() throws Exception {
+        String alok = verifiedUser("Alok Kumar", alokEmail);
+        createWorkspace(alok, "NextWebSpark Search");
+        invite(tokenWithWorkspace(alokEmail), saraEmail, "MEMBER");
+
+        String sara = verifiedUser("Sara Al-Mansour", saraEmail);
+
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + sara))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.workspace").doesNotExist())
+                .andExpect(jsonPath("$.pendingInvitation.workspaceName").value("NextWebSpark Search"))
+                .andExpect(jsonPath("$.pendingInvitation.role").value("MEMBER"));
+
+        mvc.perform(post("/api/v1/onboarding/accept-invitation")
+                        .header("Authorization", "Bearer " + sara))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + sara))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.workspace.name").value("NextWebSpark Search"))
+                .andExpect(jsonPath("$.pendingInvitation").doesNotExist());
+    }
+
+    /**
+     * The token-less accept. The emailed token only ever proved control of the invited mailbox — and a
+     * verified session whose address matches the invitation has proven exactly that. Verification
+     * subsumes the token; the guards (matching address, verified, unplaced) are the same ones the
+     * token path applies.
+     */
+    @Test
+    @DisplayName("a verified invitee can accept without the token, exactly once")
+    void tokenLessAcceptLandsTheInvitee() throws Exception {
+        String alok = verifiedUser("Alok Kumar", alokEmail);
+        createWorkspace(alok, "NextWebSpark Search");
+        invite(tokenWithWorkspace(alokEmail), saraEmail, "MEMBER");
+
+        String sara = verifiedUser("Sara Al-Mansour", saraEmail);
+
+        MvcResult accepted = mvc.perform(post("/api/v1/onboarding/accept-invitation")
+                        .header("Authorization", "Bearer " + sara))
                 .andExpect(status().isOk())
                 .andReturn();
-        assertThat(body(queue)).isEmpty();
+        assertThat(body(accepted).at("/workspace/roles/0").asText()).isEqualTo("MEMBER");
+
+        // Consumed. The invitation went ACCEPTED with the first redeem, so there is no pending
+        // invitation left to find — the second call has nothing to redeem.
+        MvcResult again = mvc.perform(post("/api/v1/onboarding/accept-invitation")
+                        .header("Authorization", "Bearer " + sara))
+                .andReturn();
+        assertThat(codeOf(again)).isEqualTo("INVITATION_INVALID");
+    }
+
+    @Test
+    @DisplayName("the token-less accept is refused while the address is unproven")
+    void tokenLessAcceptRequiresVerification() throws Exception {
+        String alok = verifiedUser("Alok Kumar", alokEmail);
+        createWorkspace(alok, "NextWebSpark Search");
+        invite(tokenWithWorkspace(alokEmail), saraEmail, "MEMBER");
+
+        // Sara signed up but never clicked her link. Her session is real; her address is a claim.
+        String unverified = signup("Sara Al-Mansour", saraEmail, PASSWORD).get("accessToken").asText();
+
+        mvc.perform(post("/api/v1/onboarding/accept-invitation")
+                        .header("Authorization", "Bearer " + unverified))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("with no outstanding invitation, the token-less accept has nothing to redeem")
+    void tokenLessAcceptWithoutInvitationIsRefused() throws Exception {
+        String nobody = verifiedUser("No Invite", "noinvite@" + domain);
+
+        MvcResult refused = mvc.perform(post("/api/v1/onboarding/accept-invitation")
+                        .header("Authorization", "Bearer " + nobody))
+                .andReturn();
+        assertThat(codeOf(refused)).isEqualTo("INVITATION_INVALID");
+    }
+
+    @Test
+    @DisplayName("an invitation with no role lands the invitee as a MEMBER")
+    void inviteRoleDefaultsToMember() throws Exception {
+        String alok = verifiedUser("Alok Kumar", alokEmail);
+        createWorkspace(alok, "NextWebSpark Search");
+
+        mvc.perform(post("/api/v1/onboarding/invitations")
+                        .header("Authorization", "Bearer " + tokenWithWorkspace(alokEmail))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"email":"%s"}]
+                                """.formatted(saraEmail)))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/v1/onboarding/invitations/preview")
+                        .param("token", email.latestTokenFor(saraEmail)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("MEMBER"));
     }
 
     /**
@@ -464,15 +461,7 @@ class AuthFlowIntegrationTest {
     void forwardedInvitationIsRefused() throws Exception {
         String alok = verifiedUser("Alok Kumar", alokEmail);
         createWorkspace(alok, "NextWebSpark Search");
-        String admin = tokenWithWorkspace(alokEmail);
-
-        mvc.perform(post("/api/v1/onboarding/invitations")
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                [{"email":"%s","role":"CONSULTANT"}]
-                                """.formatted(saraEmail)))
-                .andExpect(status().isOk());
+        invite(tokenWithWorkspace(alokEmail), saraEmail, "MEMBER");
 
         String inviteToken = email.latestTokenFor(saraEmail);
 
@@ -497,14 +486,7 @@ class AuthFlowIntegrationTest {
     void invitationPreviewIsReadableAnonymously() throws Exception {
         String alok = verifiedUser("Alok Kumar", alokEmail);
         createWorkspace(alok, "NextWebSpark Search");
-
-        mvc.perform(post("/api/v1/onboarding/invitations")
-                        .header("Authorization", "Bearer " + tokenWithWorkspace(alokEmail))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                [{"email":"%s","role":"RESEARCHER"}]
-                                """.formatted(saraEmail)))
-                .andExpect(status().isOk());
+        invite(tokenWithWorkspace(alokEmail), saraEmail, "MEMBER");
 
         // No Authorization header at all — this is a stranger with a link.
         MvcResult preview = mvc.perform(get("/api/v1/onboarding/invitations/preview")
@@ -514,7 +496,7 @@ class AuthFlowIntegrationTest {
 
         JsonNode invitation = body(preview);
         assertThat(invitation.get("email").asText()).isEqualTo(saraEmail);
-        assertThat(invitation.get("role").asText()).isEqualTo("RESEARCHER");
+        assertThat(invitation.get("role").asText()).isEqualTo("MEMBER");
         assertThat(invitation.get("workspaceName").asText()).isEqualTo("NextWebSpark Search");
         assertThat(invitation.get("inviterName").asText()).isEqualTo("Alok Kumar");
     }
@@ -525,159 +507,6 @@ class AuthFlowIntegrationTest {
         mvc.perform(get("/api/v1/onboarding/invitations/preview")
                         .param("token", "not-a-real-token"))
                 .andExpect(status().isBadRequest());
-    }
-
-    // ── The join-request flow ─────────────────────────────────────────────────
-
-    @Test
-    @DisplayName("a colleague on the same domain sees the firm's workspace and can ask to join")
-    void colleagueFindsWorkspaceAndRequestsToJoin() throws Exception {
-        String alok = verifiedUser("Alok Kumar", alokEmail);
-        String workspaceId = createWorkspace(alok, "NextWebSpark Search");
-
-        String sara = verifiedUser("Sara Al-Mansour", saraEmail);
-
-        // She is offered her firm's workspace, named by the admin who runs it — enough to recognise it,
-        // and nothing about the work inside.
-        MvcResult offered = mvc.perform(get("/api/v1/onboarding/workspaces")
-                        .header("Authorization", "Bearer " + sara))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        JsonNode workspaces = body(offered);
-        assertThat(workspaces).hasSize(1);
-        assertThat(workspaces.get(0).get("name").asText()).isEqualTo("NextWebSpark Search");
-        assertThat(workspaces.get(0).get("adminName").asText()).isEqualTo("Alok Kumar");
-        assertThat(workspaces.get(0).get("memberCount").asInt()).isEqualTo(1);
-
-        MvcResult requested = mvc.perform(post("/api/v1/onboarding/join-requests")
-                        .header("Authorization", "Bearer " + sara)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"workspaceId":"%s","requestedRole":"CONSULTANT"}
-                                """.formatted(workspaceId)))
-                .andExpect(status().isAccepted())
-                .andReturn();
-
-        // Accepted, not granted. She still has no workspace, and no access to one.
-        assertThat(body(requested).at("/workspace/id").asString("")).isEmpty();
-
-        // 404, not 403. She is verified, so she clears the verification gate — and then has no
-        // workspace to be a member of. We answer "workspace not found" rather than "forbidden" on
-        // purpose: a 403 would confirm the workspace exists to someone who is not in it.
-        mvc.perform(get("/api/v1/members/pending").header("Authorization", "Bearer " + sara))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
-    @DisplayName("an admin approves the request, and chooses the role themselves")
-    void adminApprovesAndSetsRole() throws Exception {
-        String alok = verifiedUser("Alok Kumar", alokEmail);
-        String workspaceId = createWorkspace(alok, "NextWebSpark Search");
-        alok = tokenWithWorkspace(alokEmail);
-
-        String sara = verifiedUser("Sara Al-Mansour", saraEmail);
-        requestToJoin(sara, workspaceId, "ADMIN"); // she asks for ADMIN...
-
-        MvcResult pending = mvc.perform(get("/api/v1/members/pending")
-                        .header("Authorization", "Bearer " + alok))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        JsonNode requests = body(pending);
-        assertThat(requests).hasSize(1);
-        assertThat(requests.get(0).get("email").asText()).isEqualTo(saraEmail);
-        String memberId = requests.get(0).get("memberId").asText();
-
-        // ...and the admin grants RESEARCHER. What you ask for is a suggestion; what you get is theirs
-        // to decide, which is what stops anyone walking in and declaring themselves an admin.
-        mvc.perform(post("/api/v1/members/" + memberId + "/approve")
-                        .header("Authorization", "Bearer " + alok)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"role":"RESEARCHER"}"""))
-                .andExpect(status().isOk());
-
-        JsonNode saraNow = me(saraEmail);
-        assertThat(saraNow.at("/workspace/name").asText()).isEqualTo("NextWebSpark Search");
-        assertThat(saraNow.at("/workspace/role").asText()).isEqualTo("RESEARCHER");
-    }
-
-    @Test
-    @DisplayName("a non-admin cannot approve anyone")
-    void nonAdminCannotApprove() throws Exception {
-        String alok = verifiedUser("Alok Kumar", alokEmail);
-        String workspaceId = createWorkspace(alok, "NextWebSpark Search");
-        alok = tokenWithWorkspace(alokEmail);
-
-        String sara = verifiedUser("Sara Al-Mansour", saraEmail);
-        requestToJoin(sara, workspaceId, "CONSULTANT");
-        String memberId = firstPendingMemberId(alok);
-
-        mvc.perform(post("/api/v1/members/" + memberId + "/approve")
-                        .header("Authorization", "Bearer " + alok)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"role":"RESEARCHER"}"""))
-                .andExpect(status().isOk());
-
-        // Sara is now a RESEARCHER. She must not be able to approve the next person.
-        String omar = verifiedUser("Omar Khalil", "omar@" + domain);
-        requestToJoin(omar, workspaceId, "CONSULTANT");
-        String omarMemberId = firstPendingMemberId(alok);
-
-        String saraToken = login(saraEmail);
-        mvc.perform(post("/api/v1/members/" + omarMemberId + "/approve")
-                        .header("Authorization", "Bearer " + saraToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"role":"ADMIN"}"""))
-                .andExpect(status().isForbidden());
-    }
-
-    // ── Tenant isolation ──────────────────────────────────────────────────────
-
-    @Test
-    @DisplayName("an admin of one workspace cannot see another's pending requests")
-    void tenantIsolation() throws Exception {
-        String alok = verifiedUser("Alok Kumar", alokEmail);
-        String alokWorkspace = createWorkspace(alok, "NextWebSpark Search");
-
-        String sara = verifiedUser("Sara Al-Mansour", saraEmail);
-        requestToJoin(sara, alokWorkspace, "CONSULTANT");
-
-        // A different firm entirely, with its own admin.
-        String rival = verifiedUser("Rival Admin", "boss@rival-" + domain);
-        createWorkspace(rival, "Rival Search");
-        rival = tokenWithWorkspace("boss@rival-" + domain);
-
-        // The rival admin's own pending list is empty. They cannot name someone else's workspace to
-        // see into it, because the workspace comes from their token, not from the request.
-        MvcResult result = mvc.perform(get("/api/v1/members/pending")
-                        .header("Authorization", "Bearer " + rival))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        assertThat(body(result)).isEmpty();
-    }
-
-    @Test
-    @DisplayName("you cannot ask to join a workspace on someone else's domain")
-    void cannotJoinAnotherDomainsWorkspace() throws Exception {
-        String alok = verifiedUser("Alok Kumar", alokEmail);
-        String alokWorkspace = createWorkspace(alok, "NextWebSpark Search");
-
-        String outsider = verifiedUser("Outsider", "someone@rival-" + domain);
-
-        MvcResult result = mvc.perform(post("/api/v1/onboarding/join-requests")
-                        .header("Authorization", "Bearer " + outsider)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"workspaceId":"%s","requestedRole":"ADMIN"}
-                                """.formatted(alokWorkspace)))
-                .andReturn();
-
-        assertThat(codeOf(result)).isEqualTo("JOIN_DOMAIN_MISMATCH");
     }
 
     // ── Login ─────────────────────────────────────────────────────────────────
@@ -861,7 +690,7 @@ class AuthFlowIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","companySize":"11-50 people","primaryRegion":"GCC",
-                                 "jobTitle":"Partner","teamFocus":"Executive search"}
+                                 "teamFocus":"Executive search"}
                                 """.formatted(name)))
                 .andExpect(status().isCreated())
                 .andReturn();
@@ -880,42 +709,27 @@ class AuthFlowIntegrationTest {
         return login(emailAddress);
     }
 
-    private void requestToJoin(String bearerToken, String workspaceId, String role) throws Exception {
-        mvc.perform(post("/api/v1/onboarding/join-requests")
-                        .header("Authorization", "Bearer " + bearerToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"workspaceId":"%s","requestedRole":"%s"}
-                                """.formatted(workspaceId, role)))
-                .andExpect(status().isAccepted());
-    }
-
-    private void approve(String adminToken, String memberId, String grantedRole) throws Exception {
-        mvc.perform(post("/api/v1/members/" + memberId + "/approve")
+    private void invite(String adminToken, String inviteeEmail, String role) throws Exception {
+        mvc.perform(post("/api/v1/onboarding/invitations")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"role":"%s"}
-                                """.formatted(grantedRole)))
+                                [{"email":"%s","role":"%s"}]
+                                """.formatted(inviteeEmail, role)))
                 .andExpect(status().isOk());
     }
 
-    private String firstPendingMemberId(String adminToken) throws Exception {
-        MvcResult result = mvc.perform(get("/api/v1/members/pending")
-                        .header("Authorization", "Bearer " + adminToken))
-                .andExpect(status().isOk())
-                .andReturn();
-        return body(result).get(0).get("memberId").asText();
-    }
-
-    private JsonNode me(String emailAddress) throws Exception {
-        // Re-login rather than reuse an old token: the caller usually wants to see a membership change
-        // that a previously minted token does not yet carry.
-        String token = login(emailAddress);
-        MvcResult result = mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andReturn();
-        return body(result);
+    private void inviteAndAccept(String adminToken, String inviteeEmail, String role) throws Exception {
+        invite(adminToken, inviteeEmail, role);
+        String token = email.latestTokenFor(inviteeEmail);
+        String invitee = verifiedUser("Invitee " + inviteeEmail, inviteeEmail);
+        mvc.perform(post("/api/v1/onboarding/invitations/accept")
+                        .header("Authorization", "Bearer " + invitee)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s"}
+                                """.formatted(token)))
+                .andExpect(status().isOk());
     }
 
     private Cookie refreshCookie(MvcResult result) {

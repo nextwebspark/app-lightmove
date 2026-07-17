@@ -42,12 +42,6 @@ public enum AuditEventType {
     INVITATION_ACCEPTED,
     INVITATION_REVOKED,
 
-    /** Someone found a workspace on their email domain and asked to be let in. */
-    JOIN_REQUESTED,
-    /** An admin let them in — the moment a person gains access to a firm's candidate data. */
-    JOIN_APPROVED,
-    JOIN_REJECTED,
-
     MEMBER_ROLE_CHANGED,
     MEMBER_REMOVED,
 

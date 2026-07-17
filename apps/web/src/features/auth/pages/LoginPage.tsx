@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Card, Field, FormError, Input, Logo } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
@@ -18,7 +18,12 @@ import { loginSchema, type LoginValues } from "../schemas";
 export function LoginPage() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
+
+  // Signup hands the typed address over when it turns out to already have an account, so "log in
+  // instead" starts with the email filled rather than making the user type it twice.
+  const prefill = (location.state as { email?: string } | null)?.email ?? "";
 
   const [formError, setFormError] = useState<string | null>(null);
   const [googleEnabled, setGoogleEnabled] = useState(false);
@@ -29,7 +34,7 @@ export function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: { email: prefill, password: "" },
   });
 
   useEffect(() => {
@@ -51,9 +56,18 @@ export function LoginPage() {
     setFormError(null);
     try {
       const user = await signIn(values.email, values.password);
-      // Someone with no workspace has not finished signing up — send them back into the wizard
-      // rather than into an app they have no tenant for.
-      navigate(user.workspace ? "/" : "/signup/workspace", { replace: true });
+      // Route on what is true of them: into the app, back to the inbox their held wizard waits on,
+      // to the invitation waiting for them, or into the wizard they never finished.
+      navigate(
+        user.workspace
+          ? "/"
+          : user.onboardingHeld
+            ? "/signup/verify"
+            : user.pendingInvitation
+              ? "/auth/accept-invite"
+              : "/signup/workspace",
+        { replace: true },
+      );
     } catch (error) {
       setFormError(
         error instanceof ApiRequestError

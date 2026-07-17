@@ -1,14 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { Button, Card, Field, FormError, Input, Logo } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
-import * as authApi from "../api/authApi";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
-import { pendingInvite } from "../pendingInvite";
 import { signupSchema, type SignupValues } from "../schemas";
 
 /**
@@ -22,13 +19,10 @@ import { signupSchema, type SignupValues } from "../schemas";
 export function SignupPage() {
   const { signUp } = useAuth();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [formError, setFormError] = useState<string | null>(null);
-
-  // Someone who arrived from an invitation link. Their address is not a free choice: acceptance checks
-  // the account's email against the one invited, so letting them type another here would create an
-  // account the invitation then refuses — for a rule they were never shown.
-  const invite = pendingInvite.peek();
+  // The address that turned out to already have an account — the one state with a real way forward
+  // (log in), so it gets a CTA rather than a dead-end field error.
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 
   const {
     register,
@@ -37,31 +31,14 @@ export function SignupPage() {
     formState: { errors, isSubmitting },
   } = useForm<SignupValues>({
     resolver: zodResolver(signupSchema),
-    defaultValues: { fullName: "", email: invite?.email ?? "", password: "" },
+    defaultValues: { fullName: "", email: "", password: "", confirmPassword: "" },
   });
 
   const onSubmit = async (values: SignupValues) => {
     setFormError(null);
+    setRegisteredEmail(null);
     try {
       await signUp(values.fullName, values.email, values.password);
-
-      // An invitee has a workspace waiting for them, so they must not be sent through the join-or-create
-      // fork. They still have to verify first — the accept page says so.
-      if (invite) {
-        navigate(`/auth/accept-invite?token=${encodeURIComponent(invite.token)}`, { replace: true });
-        return;
-      }
-
-      // Step 2 cannot offer the join-or-create fork until it knows whether the firm is already here, so
-      // the wait exists either way; the only choice is where to spend it. Spending it here keeps the user
-      // on the page they submitted, watching the button they pressed. Navigating first meant step 2
-      // replaced the wizard with a loading screen, which read as being bounced out of the flow.
-      // prefetchQuery does not throw — on failure step 2 simply asks again itself.
-      await queryClient.prefetchQuery({
-        queryKey: authApi.JOINABLE_WORKSPACES_KEY,
-        queryFn: authApi.joinableWorkspaces,
-      });
-
       navigate("/signup/workspace", { replace: true });
     } catch (error) {
       if (!(error instanceof ApiRequestError)) {
@@ -80,6 +57,12 @@ export function SignupPage() {
 
       if (emailProblems.includes(error.code)) {
         setError("email", { message: error.problem.detail });
+        // Already registered is the one email problem with a way forward: log in. The CTA carries the
+        // typed address to prefill the login form — and deliberately nothing more. Which workspace the
+        // account belongs to is never revealed pre-auth; that would be an enumeration oracle.
+        if (error.code === "EMAIL_ALREADY_REGISTERED") {
+          setRegisteredEmail(values.email);
+        }
         return;
       }
 
@@ -120,22 +103,28 @@ export function SignupPage() {
           <Field
             label="Work email"
             error={errors.email?.message}
-            hint={
-              invite
-                ? "The address your invitation was sent to."
-                : "Your company domain — not a personal address."
-            }
+            hint="Your company domain — not a personal address."
           >
             <Input
               type="email"
               autoComplete="email"
               placeholder="you@firm.com"
               invalid={!!errors.email}
-              readOnly={!!invite}
-              className={invite ? "cursor-not-allowed text-text3" : undefined}
               {...register("email")}
             />
           </Field>
+
+          {registeredEmail && (
+            <p className="-mt-2 mb-4 text-[12.5px] text-text2">
+              <Link
+                to="/login"
+                state={{ email: registeredEmail }}
+                className="font-medium text-sky hover:underline"
+              >
+                Log in instead →
+              </Link>
+            </p>
+          )}
 
           <Field
             label="Password"
@@ -148,6 +137,16 @@ export function SignupPage() {
               placeholder="8+ characters"
               invalid={!!errors.password}
               {...register("password")}
+            />
+          </Field>
+
+          <Field label="Confirm password" error={errors.confirmPassword?.message}>
+            <Input
+              type="password"
+              autoComplete="new-password"
+              placeholder="Re-enter your password"
+              invalid={!!errors.confirmPassword}
+              {...register("confirmPassword")}
             />
           </Field>
 

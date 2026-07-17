@@ -4,7 +4,6 @@ import { Button, Card, Logo } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
-import { pendingInvite } from "../pendingInvite";
 
 type State = "verifying" | "success" | "failed";
 
@@ -33,18 +32,18 @@ export function VerifyEmailPage() {
   /**
    * Where verifying leaves them, which is wherever they were going before the email interrupted.
    *
-   * <p>The invitee is the case that has to be handled explicitly: verification was never their errand,
-   * it was a gate on the way to accepting an invitation. Sending them to the join-or-create fork here
-   * would offer them a choice they have already been spared — and the workspace they were invited to
-   * would be sitting one click away, unmentioned.
+   * <p>Verification is the <b>creator's</b> gate now — a fresh invitee never arrives here, because
+   * accepting an invitation creates their account already verified. The one exception is someone who
+   * already had an unverified account and was then invited: the server-derived
+   * {@code user.pendingInvitation} routes them to the join screen rather than the create wizard, so
+   * their invitation is not left one click away, unmentioned.
    */
   const nextStop = (): string => {
-    const invite = pendingInvite.peek();
-    if (invite) {
-      return `/auth/accept-invite?token=${encodeURIComponent(invite.token)}`;
-    }
     if (user?.workspace) {
       return "/";
+    }
+    if (user?.pendingInvitation) {
+      return "/auth/accept-invite";
     }
     return user ? "/signup/workspace" : "/login";
   };

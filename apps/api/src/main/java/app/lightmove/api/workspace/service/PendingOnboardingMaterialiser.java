@@ -2,11 +2,12 @@ package app.lightmove.api.workspace.service;
 
 import app.lightmove.api.core.security.model.EmailVerifiedEvent;
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.workspace.model.InviteCommand;
 import app.lightmove.api.workspace.model.PendingOnboarding;
 import app.lightmove.api.workspace.model.Workspace;
-import app.lightmove.api.workspace.constant.WorkspaceRole;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -45,12 +46,7 @@ public class PendingOnboardingMaterialiser {
                 .ifPresent(materialised -> sendHeldInvitations(event, materialised));
     }
 
-    /**
-     * Step 3's invitations, sent now that there is a workspace to invite anyone into.
-     *
-     * <p>Only reached for a CREATE — a user who asked to <i>join</i> a workspace is not its admin and had
-     * nobody to invite.
-     */
+    /** Step 3's invitations, sent now that there is a workspace to invite anyone into. */
     private void sendHeldInvitations(EmailVerifiedEvent event, OnboardingService.Materialised materialised) {
         Workspace workspace = materialised.workspace();
         List<PendingOnboarding.PendingInvite> held = materialised.invitations();
@@ -61,13 +57,15 @@ public class PendingOnboardingMaterialiser {
 
         List<InviteCommand> commands = held.stream()
                 .map(invite -> new InviteCommand(invite.email(),
-                        invite.role() == null ? WorkspaceRole.CONSULTANT : invite.role()))
+                        invite.role() == null ? WorkspaceRole.MEMBER : invite.role()))
                 .toList();
 
         // The principal is assembled here rather than taken from the security context, because the token
         // the user is holding was minted before this workspace existed and still says they have none.
+        // This is also why InvitationService keeps imperative checks instead of @PreAuthorize: method
+        // security would consult the (anonymous) verifying request, not this synthesized admin.
         AuthPrincipal principal = new AuthPrincipal(
-                event.userId(), null, workspace.getId(), WorkspaceRole.ADMIN, true);
+                event.userId(), null, workspace.getId(), Set.of(WorkspaceRole.ADMIN), true);
 
         int sent = invitations.invite(principal, commands, event.request()).size();
         log.info("Sent {} held invitation(s) for newly created workspace {}", sent, workspace.getId());

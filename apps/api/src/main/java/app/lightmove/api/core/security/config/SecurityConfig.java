@@ -249,12 +249,25 @@ public class SecurityConfig {
                         // preview names.
                         .requestMatchers(HttpMethod.GET, API + "/onboarding/invitations/preview").permitAll()
 
+                        // Accepting by creating the invited account. Public — the invitee has no session
+                        // yet, and the 256-bit invitation token in the body is the credential. Unlike the
+                        // two verified-only accept routes below, this needs no verified session: the token
+                        // was mailed only to the invited address, so holding it is the mailbox proof
+                        // verification would otherwise supply, and the account is bound to that exact
+                        // address (never a client-supplied one). POST-only, so it is not reachable as a
+                        // navigation.
+                        .requestMatchers(HttpMethod.POST, API + "/onboarding/accept-invitation-signup").permitAll()
+
                         // Redeeming an invitation stays verified-only, and is the one onboarding write
                         // that cannot be *held*: accepting lands you ACTIVE in a real workspace
                         // immediately, with real access to a real firm's candidate data. Holding the
                         // link is not proof of the mailbox — an invitation forwarded, or read over a
                         // shoulder, is a link in the hands of someone it was not sent to.
+                        //
+                        // The token-less variant is verified-only for the same reason stated the other
+                        // way round: a verified matching address is the proof the token existed to give.
                         .requestMatchers(API + "/onboarding/invitations/accept").access(verified)
+                        .requestMatchers(API + "/onboarding/accept-invitation").access(verified)
 
                         // Onboarding is the user's own signup, and they are allowed to finish it.
                         //
@@ -268,7 +281,7 @@ public class SecurityConfig {
                         // So the rule moved to where it can be honoured: OnboardingService *holds* the
                         // wizard rather than executing it (see PendingOnboarding), and verification is
                         // what turns it into a workspace. Unverified users may reach these endpoints and
-                        // still cannot cause a workspace, a join request, or an invitation email to
+                        // still cannot cause a workspace or an invitation email to
                         // exist. The gate did not weaken; it moved from the routing layer to the domain,
                         // which is the only layer that can distinguish "no" from "not yet".
                         .requestMatchers(API + "/onboarding/**").authenticated()

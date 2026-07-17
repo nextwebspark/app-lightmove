@@ -281,20 +281,24 @@
         </sc-for>
         <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Team</div>
         <sc-for list="{{ drawer.members }}" as="m" hint-placeholder-count="5">
-          <div style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:7px" style-hover="background:var(--panel2)">
-            <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:{{ m.bg }};color:{{ m.fg }}">{{ m.initials }}</span>
-            <div>
-              <div style="font-size:13px">{{ m.name }}</div>
-              <div style="font:400 11px var(--mono);color:var(--text3)">{{ m.role }}</div>
-            </div>
-            <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
-              <sc-if value="{{ m.isLead }}" hint-placeholder-val="{{ false }}">
-                <span style="font:600 10px var(--mono);letter-spacing:.08em;color:var(--amber);background:var(--amber-dim);border-radius:5px;padding:2px 7px">LEAD</span>
-              </sc-if>
-              <button onClick="{{ toggleMember }}" data-mid="{{ m.id }}" aria-label="Toggle {{ m.name }}" style="width:32px;height:18px;border-radius:999px;background:{{ m.tglBg }};position:relative;flex:none;border:none;cursor:pointer;padding:0">
+          <div style="padding:7px 8px;border-radius:7px" style-hover="background:var(--panel2)">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:{{ m.bg }};color:{{ m.fg }}">{{ m.initials }}</span>
+              <div>
+                <div style="font-size:13px">{{ m.name }}</div>
+                <div style="font:400 11px var(--mono);color:var(--text3)">{{ m.role }}</div>
+              </div>
+              <button onClick="{{ toggleMember }}" data-mid="{{ m.id }}" aria-label="Toggle {{ m.name }}" style="margin-left:auto;width:32px;height:18px;border-radius:999px;background:{{ m.tglBg }};position:relative;flex:none;border:none;cursor:pointer;padding:0">
                 <span style="position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:{{ m.tglKnob }};transition:transform .15s;transform:{{ m.tglTransform }}"></span>
               </button>
             </div>
+            <sc-if value="{{ m.on }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;gap:6px;margin:6px 0 0 36px">
+                <sc-for list="{{ m.chips }}" as="c" hint-placeholder-count="3">
+                  <button onClick="{{ setMemberRole }}" data-mid="{{ m.id }}" data-role="{{ c.role }}" style="font:500 10.5px var(--mono);letter-spacing:.04em;padding:2px 9px;border-radius:999px;cursor:pointer;color:{{ c.color }};background:{{ c.bg }};border:1px solid {{ c.border }}">{{ c.label }}</button>
+                </sc-for>
+              </div>
+            </sc-if>
           </div>
         </sc-for>
       </div>
@@ -318,12 +322,7 @@
         <div style="font:400 11px var(--mono);color:var(--text3);margin-top:6px">Inherits jurisdiction, group structure and off-limits from the client record.</div>
         <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:14px 0 6px">Position</label>
         <input onInput="{{ draftPos }}" placeholder="e.g. Chief Financial Officer" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-        <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:14px 0 6px">Lead</label>
-        <select onChange="{{ draftLead }}" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-          <sc-for list="{{ leadOptions }}" as="m" hint-placeholder-count="3">
-            <option value="{{ m.id }}">{{ m.name }}</option>
-          </sc-for>
-        </select>
+        <div style="font:400 11px var(--mono);color:var(--text3);margin-top:6px">You start as the project's admin and lead — delegate from the project drawer.</div>
         <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:14px 0 6px">Target date</label>
         <input type="date" onInput="{{ draftDate }}" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
@@ -347,10 +346,10 @@ class Component extends DCLogic {
     const fresh = (typeof location !== 'undefined' && location.search.includes('fresh=1')) || !!props.startEmpty;
     this.MEMBERS = [
       { id: 'yh', name: 'Yara Haddad', initials: 'YH', role: 'Admin', bg: 'var(--sky-dim)', fg: 'var(--sky)' },
-      { id: 'yi', name: 'Yousef Iman', initials: 'YI', role: 'Consultant', bg: 'var(--amber-dim)', fg: 'var(--amber)' },
-      { id: 'sa', name: 'Sara Al-Mansour', initials: 'SA', role: 'Consultant', bg: 'var(--green-dim)', fg: 'var(--green)' },
-      { id: 'ok', name: 'Omar Khalil', initials: 'OK', role: 'Researcher', bg: 'var(--red-dim)', fg: 'var(--red)' },
-      { id: 'da', name: 'Dana Aboud', initials: 'DA', role: 'Researcher', bg: 'var(--panel2)', fg: 'var(--text2)' },
+      { id: 'yi', name: 'Yousef Iman', initials: 'YI', role: 'Member', bg: 'var(--amber-dim)', fg: 'var(--amber)' },
+      { id: 'sa', name: 'Sara Al-Mansour', initials: 'SA', role: 'Member', bg: 'var(--green-dim)', fg: 'var(--green)' },
+      { id: 'ok', name: 'Omar Khalil', initials: 'OK', role: 'Member', bg: 'var(--red-dim)', fg: 'var(--red)' },
+      { id: 'da', name: 'Dana Aboud', initials: 'DA', role: 'Member', bg: 'var(--panel2)', fg: 'var(--text2)' },
     ];
     this.CLIENTS = [
       { id: 'mer', name: 'Meridian Energy Group', hq: 'UAE', note: '2 active mandates' },
@@ -373,14 +372,17 @@ class Component extends DCLogic {
       off: { dot: 'var(--red)', text: 'var(--red)', label: 'Off track' },
       done: { dot: 'var(--text3)', text: 'var(--text3)', label: 'Complete' },
     };
+    // A seat holds a SET of project roles: the creator starts as {admin, lead}, several seats may
+    // hold lead at once (see project 3), and permissions are the union. Roles live on the seat, not
+    // the person — the workspace role above is governance, not project standing.
     const seed = fresh ? [] : [
-      { id: 1, client: 'Meridian Energy Group', pos: 'Chief Financial Officer', stage: 'mapping', lead: 'yh', team: ['yh', 'yi', 'ok'], date: '2026-09-15', cos: 21, cand: 14, health: 'ok' },
-      { id: 2, client: 'Meridian Energy Group', pos: 'VP, Renewables', stage: 'universe', lead: 'sa', team: ['sa', 'da'], date: '2026-10-30', cos: 34, cand: 0, health: 'ok' },
-      { id: 3, client: 'Al Rabie Saudi Foods', pos: 'Chief Human Resources Officer', stage: 'outreach', lead: 'yh', team: ['yh', 'da'], date: '2026-08-07', cos: 18, cand: 22, health: 'risk' },
-      { id: 4, client: 'Bindawood Holding', pos: 'Chief Digital Officer', stage: 'locked', lead: 'yi', team: ['yi', 'ok'], date: '2026-11-20', cos: 27, cand: 0, health: 'ok' },
-      { id: 5, client: 'Al Rabie Saudi Foods', pos: 'Supply Chain Director', stage: 'brief', lead: 'sa', team: ['sa'], date: '2026-12-04', cos: 0, cand: 0, health: 'ok' },
-      { id: 6, client: 'Agthia Group', pos: 'Chief Executive Officer', stage: 'delivered', lead: 'yh', team: ['yh', 'yi', 'sa'], date: '2026-06-01', cos: 42, cand: 31, health: 'done' },
-      { id: 7, client: 'Bindawood Holding', pos: 'Head of eCommerce', stage: 'mapping', lead: 'ok', team: ['ok', 'da'], date: '2026-08-25', cos: 15, cand: 6, health: 'off' },
+      { id: 1, client: 'Meridian Energy Group', pos: 'Chief Financial Officer', stage: 'mapping', team: [{ id: 'yh', roles: ['admin', 'lead'] }, { id: 'yi', roles: ['researcher'] }, { id: 'ok', roles: ['researcher'] }], date: '2026-09-15', cos: 21, cand: 14, health: 'ok' },
+      { id: 2, client: 'Meridian Energy Group', pos: 'VP, Renewables', stage: 'universe', team: [{ id: 'sa', roles: ['admin', 'lead'] }, { id: 'da', roles: ['researcher'] }], date: '2026-10-30', cos: 34, cand: 0, health: 'ok' },
+      { id: 3, client: 'Al Rabie Saudi Foods', pos: 'Chief Human Resources Officer', stage: 'outreach', team: [{ id: 'yh', roles: ['admin', 'lead'] }, { id: 'da', roles: ['lead', 'researcher'] }], date: '2026-08-07', cos: 18, cand: 22, health: 'risk' },
+      { id: 4, client: 'Bindawood Holding', pos: 'Chief Digital Officer', stage: 'locked', team: [{ id: 'yi', roles: ['admin', 'lead'] }, { id: 'ok', roles: ['researcher'] }], date: '2026-11-20', cos: 27, cand: 0, health: 'ok' },
+      { id: 5, client: 'Al Rabie Saudi Foods', pos: 'Supply Chain Director', stage: 'brief', team: [{ id: 'sa', roles: ['admin', 'lead'] }], date: '2026-12-04', cos: 0, cand: 0, health: 'ok' },
+      { id: 6, client: 'Agthia Group', pos: 'Chief Executive Officer', stage: 'delivered', team: [{ id: 'yh', roles: ['admin'] }, { id: 'yi', roles: ['lead'] }, { id: 'sa', roles: ['researcher'] }], date: '2026-06-01', cos: 42, cand: 31, health: 'done' },
+      { id: 7, client: 'Bindawood Holding', pos: 'Head of eCommerce', stage: 'mapping', team: [{ id: 'ok', roles: ['admin', 'lead'] }, { id: 'da', roles: ['researcher'] }], date: '2026-08-25', cos: 15, cand: 6, health: 'off' },
     ];
     this.state = {
       fresh, projects: seed,
@@ -403,6 +405,13 @@ class Component extends DCLogic {
   componentWillUnmount() { document.removeEventListener('keydown', this._esc); }
 
   member(id) { return this.MEMBERS.find(m => m.id === id); }
+  onTeam(p, id) { return p.team.some(t => t.id === id); }
+  /** Leads are plural now, and a project may have none beyond its admin — whoever runs it. */
+  leadName(p) {
+    const seat = p.team.find(t => t.roles.includes('lead')) || p.team.find(t => t.roles.includes('admin'));
+    return seat ? this.member(seat.id).name : '—';
+  }
+  adminSeats(p) { return p.team.filter(t => t.roles.includes('admin')).length; }
   stageIdx(k) { return this.STAGES.findIndex(s => s.key === k); }
   fmtDate(d) { return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
   showToast(msg) {
@@ -415,7 +424,7 @@ class Component extends DCLogic {
 
   filtered() {
     const { view, chip, q, sortKey, sortDir, projects } = this.state;
-    let rows = projects.filter(p => view === 'all' || p.team.includes(this.ME));
+    let rows = projects.filter(p => view === 'all' || this.onTeam(p, this.ME));
     if (chip === 'active') rows = rows.filter(p => !['delivered', 'closed'].includes(p.stage));
     else if (chip !== 'allstages') rows = rows.filter(p => p.stage === chip);
     if (q) rows = rows.filter(p => (p.client + ' ' + p.pos).toLowerCase().includes(q.toLowerCase()));
@@ -440,17 +449,17 @@ class Component extends DCLogic {
       bg: active(key) ? 'var(--panel2)' : 'transparent',
       iconColor: active(key) ? 'var(--amber)' : 'currentColor',
     });
-    const myCount = st.projects.filter(p => p.team.includes(this.ME) && !['delivered', 'closed'].includes(p.stage)).length;
+    const myCount = st.projects.filter(p => this.onTeam(p, this.ME) && !['delivered', 'closed'].includes(p.stage)).length;
     const arrow = (k) => st.sortKey === k ? (st.sortDir === 1 ? '↑' : '↓') : '';
 
     const rows = rowsRaw.map(p => {
       const s = this.STAGES[this.stageIdx(p.stage)];
       const h = this.HEALTH[p.health];
       return {
-        id: String(p.id), client: p.client, pos: p.pos, leadName: this.member(p.lead).name,
+        id: String(p.id), client: p.client, pos: p.pos, leadName: this.leadName(p),
         stageLabel: s.label, stageColor: s.color, stageBg: s.bg, stageBorder: s.border,
         healthDot: h.dot, healthText: h.text, healthLabel: h.label,
-        team: p.team.map((id, i) => { const m = this.member(id); return { initials: m.initials, bg: m.bg, fg: m.fg, name: m.name, ml: i === 0 ? '0' : '-7px' }; }),
+        team: p.team.map((t, i) => { const m = this.member(t.id); return { initials: m.initials, bg: m.bg, fg: m.fg, name: m.name, ml: i === 0 ? '0' : '-7px' }; }),
         dateLabel: this.fmtDate(p.date), cos: String(p.cos), cand: String(p.cand),
       };
     });
@@ -482,9 +491,20 @@ class Component extends DCLogic {
           };
         }),
         members: this.MEMBERS.map(m => {
-          const on = dp.team.includes(m.id), isLead = dp.lead === m.id;
+          const seat = dp.team.find(t => t.id === m.id);
+          const on = !!seat;
+          const chip = (role, label) => {
+            const held = on && seat.roles.includes(role);
+            return {
+              role, label,
+              color: held ? 'var(--amber)' : 'var(--text3)',
+              bg: held ? 'var(--amber-dim)' : 'transparent',
+              border: held ? 'var(--amber)' : 'var(--line)',
+            };
+          };
           return {
-            id: m.id, name: m.name, role: m.role, initials: m.initials, bg: m.bg, fg: m.fg, isLead,
+            id: m.id, name: m.name, role: m.role, initials: m.initials, bg: m.bg, fg: m.fg, on,
+            chips: on ? [chip('admin', 'Admin'), chip('lead', 'Lead'), chip('researcher', 'Researcher')] : [],
             tglBg: on ? 'var(--amber-btn)' : 'var(--line)',
             tglKnob: on ? '#141414' : 'var(--text3)',
             tglTransform: on ? 'translateX(14px)' : 'none',
@@ -532,13 +552,12 @@ class Component extends DCLogic {
       noClients: this.clients().length === 0,
       teamSub: this.members().length + (this.members().length === 1 ? ' member' : ' members') + ' · roles apply per project',
       teamRows: this.members().map(m => {
-        const n = this.state.projects.filter(p => p.team.includes(m.id) && !['delivered', 'closed'].includes(p.stage)).length;
+        const n = this.state.projects.filter(p => this.onTeam(p, m.id) && !['delivered', 'closed'].includes(p.stage)).length;
         return { ...m, activeLabel: n + (n === 1 ? ' active project' : ' active projects') };
       }),
       drawerOpen: !!dp, drawer,
       modalOpen: st.modalOpen,
       clientOptions: (this.clients().length ? this.clients() : this.CLIENTS).map(c => c.name),
-      leadOptions: this.members().map(m => ({ id: m.id, name: m.name })),
       toastVisible: !!st.toast, toastMsg: st.toast,
 
       toggleWsMenu: () => this.setState(s => ({ wsMenuOpen: !s.wsMenuOpen })),
@@ -560,27 +579,55 @@ class Component extends DCLogic {
       toggleMember: (e) => {
         const mid = e.currentTarget.dataset.mid;
         const p = this.state.projects.find(x => x.id === this.state.drawerId);
-        if (!p || p.lead === mid) { if (p && p.lead === mid) this.showToast('Lead cannot be removed'); return; }
-        if (p.team.includes(mid)) { p.team = p.team.filter(x => x !== mid); this.showToast(this.member(mid).name + ' removed from project'); }
-        else { p.team = [...p.team, mid]; this.showToast(this.member(mid).name + ' added to project'); }
+        if (!p) return;
+        const seat = p.team.find(t => t.id === mid);
+        if (seat) {
+          // The one structural rule: a project never loses its last admin seat.
+          if (seat.roles.includes('admin') && this.adminSeats(p) <= 1) {
+            this.showToast('A project must keep at least one admin'); return;
+          }
+          p.team = p.team.filter(t => t.id !== mid);
+          this.showToast(this.member(mid).name + ' removed from project');
+        } else {
+          p.team = [...p.team, { id: mid, roles: ['researcher'] }];
+          this.showToast(this.member(mid).name + ' added to project');
+        }
+        this.forceUpdate();
+      },
+      setMemberRole: (e) => {
+        const mid = e.currentTarget.dataset.mid, role = e.currentTarget.dataset.role;
+        const p = this.state.projects.find(x => x.id === this.state.drawerId);
+        const seat = p && p.team.find(t => t.id === mid);
+        if (!seat) return;
+        if (seat.roles.includes(role)) {
+          if (role === 'admin' && this.adminSeats(p) <= 1) {
+            this.showToast('A project must keep at least one admin'); return;
+          }
+          if (seat.roles.length === 1) {
+            this.showToast('A seat keeps at least one role — remove them instead'); return;
+          }
+          seat.roles = seat.roles.filter(r => r !== role);
+        } else {
+          seat.roles = [...seat.roles, role];
+        }
         this.forceUpdate();
       },
       openModal: () => {
-        this.draft = { client: (this.clients().length ? this.clients() : this.CLIENTS)[0].name, pos: '', lead: this.members()[0].id, date: '' };
+        this.draft = { client: (this.clients().length ? this.clients() : this.CLIENTS)[0].name, pos: '', date: '' };
         this.setState({ modalOpen: true });
       },
       closeModal: () => this.setState({ modalOpen: false }),
       stopClick: (e) => e.stopPropagation(),
       draftClient: (e) => { this.draft.client = e.target.value; },
       draftPos: (e) => { this.draft.pos = e.target.value; },
-      draftLead: (e) => { this.draft.lead = e.target.value; },
       draftDate: (e) => { this.draft.date = e.target.value; },
       createProject: () => {
         const d = this.draft;
         if (!d.pos || !d.pos.trim()) { this.showToast('Position title is required'); return; }
-        const proj = { id: Date.now(), client: d.client, pos: d.pos.trim(), stage: 'brief', lead: d.lead, team: [d.lead], date: d.date || '2026-12-31', cos: 0, cand: 0, health: 'ok' };
+        // The creator is seated as the project's admin and lead — there is no lead to choose up front.
+        const proj = { id: Date.now(), client: d.client, pos: d.pos.trim(), stage: 'brief', team: [{ id: this.ME, roles: ['admin', 'lead'] }], date: d.date || '2026-12-31', cos: 0, cand: 0, health: 'ok' };
         this.setState(s => ({ projects: [proj, ...s.projects], modalOpen: false, chip: 'active' }));
-        this.showToast('Project created — starts at Brief');
+        this.showToast("Project created — you're its admin and lead");
       },
       toggleTheme: () => {
         const dark = !this.state.dark;

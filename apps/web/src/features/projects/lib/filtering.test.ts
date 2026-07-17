@@ -12,7 +12,7 @@ const project = (overrides: Partial<Project>): Project => ({
   stage: "MAPPING",
   health: "OK",
   targetDate: "2026-09-15",
-  team: [{ memberId: "m1", userId: "u1", fullName: "Alok", workspaceRole: "ADMIN", projectRole: "LEAD" }],
+  team: [{ memberId: "m1", userId: "u1", fullName: "Alok", workspaceRoles: ["ADMIN"], projectRoles: ["ADMIN", "LEAD"] }],
   companies: 0,
   candidates: 0,
   createdAt: "2026-07-01T00:00:00Z",
@@ -23,7 +23,7 @@ describe("filterProjects", () => {
   const mine = project({ id: "mine" });
   const theirs = project({
     id: "theirs",
-    team: [{ memberId: "m2", userId: "u2", fullName: "Sara", workspaceRole: "CONSULTANT", projectRole: "LEAD" }],
+    team: [{ memberId: "m2", userId: "u2", fullName: "Sara", workspaceRoles: ["MEMBER"], projectRoles: ["LEAD"] }],
   });
   const delivered = project({ id: "done", stage: "DELIVERED" });
 

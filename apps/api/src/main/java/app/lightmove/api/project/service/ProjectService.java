@@ -5,9 +5,13 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.rbac.ProjectRole;
+import app.lightmove.api.core.security.rbac.RbacService;
+import app.lightmove.api.core.security.rbac.Role;
+import app.lightmove.api.core.security.rbac.WorkspaceAccess;
+import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.project.constant.ProjectHealth;
-import app.lightmove.api.project.constant.ProjectRole;
 import app.lightmove.api.project.dto.ProjectDtos.CreateProjectRequest;
 import app.lightmove.api.project.dto.ProjectDtos.ProjectResponse;
 import app.lightmove.api.project.dto.ProjectDtos.TeamMemberResponse;
@@ -19,11 +23,13 @@ import app.lightmove.api.project.repository.ClientRepository;
 import app.lightmove.api.project.repository.ProjectMemberRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.workspace.model.WorkspaceMember;
-import app.lightmove.api.workspace.service.WorkspaceAccess;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDate;
+import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -34,9 +40,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Mandates inside one workspace. Any active member may create projects and adjust teams — consultants
- * run their own mandates; workspace governance stays with admins. Every load is scoped
- * {@code (id, workspaceId)} with the workspace id taken from the principal, never a request.
+ * Mandates inside one workspace. Tier gating lives on the controllers as {@code @PreAuthorize}
+ * (create/browse are workspace actions; edit and team changes are project actions resolved through
+ * the seat's roles). What stays here are the invariants that need loaded state — above all: a project
+ * never loses its last ADMIN-role seat. Every load is scoped {@code (id, workspaceId)} with the
+ * workspace id taken from the principal, never a request.
  */
 @Service
 @RequiredArgsConstructor
@@ -47,12 +55,12 @@ public class ProjectService {
     private final ProjectMemberRepository seats;
     private final ClientRepository clients;
     private final WorkspaceAccess access;
+    private final RbacService rbac;
     private final UserRepository users;
     private final AuditService audit;
 
     @Transactional(readOnly = true)
-    public List<ProjectResponse> list(UUID userId, UUID workspaceId) {
-        access.requireActiveMember(userId, workspaceId);
+    public List<ProjectResponse> list(UUID workspaceId) {
         List<Project> all = projects.findByWorkspaceIdOrderByCreatedAtDesc(workspaceId);
         if (all.isEmpty()) {
             return List.of();
@@ -61,16 +69,17 @@ public class ProjectService {
         return all.stream().map(project -> toResponse(project, assembly)).toList();
     }
 
+    /** The creator's seat holds {ADMIN, LEAD} from birth — they own the mandate and run it, until they delegate. */
     @Transactional
     public ProjectResponse create(UUID userId, UUID workspaceId, CreateProjectRequest request,
                                   HttpServletRequest httpRequest) {
-        access.requireActiveMember(userId, workspaceId);
+        WorkspaceMember creator = access.requireActiveMember(userId, workspaceId);
         requireClient(request.clientId(), workspaceId);
-        access.requireActiveMemberRow(request.leadMemberId(), workspaceId);
 
         Project project = projects.save(Project.create(
                 workspaceId, request.clientId(), request.positionTitle(), request.targetDate(), userId));
-        seats.save(ProjectMember.of(project.getId(), request.leadMemberId(), ProjectRole.LEAD, userId));
+        seats.save(ProjectMember.of(project.getId(), creator.getId(),
+                rbac.projectRoles(EnumSet.of(ProjectRole.ADMIN, ProjectRole.LEAD)), userId));
 
         log.info("User {} created project {} in workspace {}", userId, project.getId(), workspaceId);
         audit.event(AuditEventType.PROJECT_CREATED)
@@ -81,18 +90,13 @@ public class ProjectService {
         return toResponse(project, assemblyFor(workspaceId, List.of(project)));
     }
 
-    /** Reassigning the lead is the escape hatch for removing a member who leads projects. */
     @Transactional
     public ProjectResponse update(UUID userId, UUID workspaceId, UUID projectId,
                                   UpdateProjectRequest request, HttpServletRequest httpRequest) {
-        access.requireActiveMember(userId, workspaceId);
         Project project = requireProject(projectId, workspaceId);
 
         if (request.targetDate() != null) {
             project.setTargetDate(request.targetDate());
-        }
-        if (request.leadMemberId() != null) {
-            changeLead(project, request.leadMemberId(), workspaceId, userId);
         }
 
         audit.event(AuditEventType.PROJECT_UPDATED)
@@ -102,31 +106,50 @@ public class ProjectService {
         return toResponse(project, assemblyFor(workspaceId, List.of(project)));
     }
 
-    /** Idempotent — PUT of an existing seat changes nothing. */
+    /**
+     * PUT of a seat, replace-set: seats the member with these roles, or replaces the roles they hold.
+     * Idempotent — a PUT of the current state changes nothing.
+     */
     @Transactional
-    public ProjectResponse addMember(UUID userId, UUID workspaceId, UUID projectId, UUID memberId,
-                                     HttpServletRequest httpRequest) {
-        access.requireActiveMember(userId, workspaceId);
+    public ProjectResponse putMember(UUID userId, UUID workspaceId, UUID projectId, UUID memberId,
+                                     Set<ProjectRole> roles, HttpServletRequest httpRequest) {
         Project project = requireProject(projectId, workspaceId);
         access.requireActiveMemberRow(memberId, workspaceId);
 
-        if (seats.findByProjectIdAndMemberId(projectId, memberId).isEmpty()) {
-            seats.save(ProjectMember.of(projectId, memberId, ProjectRole.MEMBER, userId));
-            auditTeamChange(userId, workspaceId, projectId, memberId, "add", httpRequest);
+        // Clients are invited through the portal flow (a later phase), never seated by staff.
+        if (roles.contains(ProjectRole.CLIENT)) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED,
+                    "Clients are invited to a project, not seated on the team");
         }
+
+        Set<Role> granted = rbac.projectRoles(roles);
+        ProjectMember seat = seats.findByProjectIdAndMemberId(projectId, memberId).orElse(null);
+
+        if (seat == null) {
+            seats.save(ProjectMember.of(projectId, memberId, granted, userId));
+            auditTeamChange(userId, workspaceId, projectId, memberId, "add", httpRequest);
+        } else if (!granted.equals(seat.getRoles())) {
+            // A PUT of the current role set changes nothing — skip the guard, the write and the audit
+            // event, so the "idempotent" claim holds in side effects too, not just in the response.
+            if (holdsAdmin(seat) && !roles.contains(ProjectRole.ADMIN)) {
+                requireAnotherProjectAdmin(projectId);
+            }
+            seat.changeRoles(granted);
+            auditTeamChange(userId, workspaceId, projectId, memberId, "roles", httpRequest);
+        }
+
         return toResponse(project, assemblyFor(workspaceId, List.of(project)));
     }
 
     @Transactional
     public ProjectResponse removeMember(UUID userId, UUID workspaceId, UUID projectId, UUID memberId,
                                         HttpServletRequest httpRequest) {
-        access.requireActiveMember(userId, workspaceId);
         Project project = requireProject(projectId, workspaceId);
 
         ProjectMember seat = seats.findByProjectIdAndMemberId(projectId, memberId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-        if (seat.isLead()) {
-            throw ApiException.of(ErrorCode.PROJECT_LEAD_REQUIRED);
+        if (holdsAdmin(seat)) {
+            requireAnotherProjectAdmin(projectId);
         }
 
         seats.delete(seat);
@@ -134,24 +157,15 @@ public class ProjectService {
         return toResponse(project, assemblyFor(workspaceId, List.of(project)));
     }
 
-    /** Demote-flush-promote, so the one-lead partial unique index never sees two LEAD rows. */
-    private void changeLead(Project project, UUID newLeadMemberId, UUID workspaceId, UUID actorId) {
-        access.requireActiveMemberRow(newLeadMemberId, workspaceId);
+    private boolean holdsAdmin(ProjectMember seat) {
+        return seat.getRoles().stream().anyMatch(role -> role.is(ProjectRole.ADMIN));
+    }
 
-        ProjectMember currentLead = seats.findByProjectIdAndRole(project.getId(), ProjectRole.LEAD)
-                .orElse(null);
-        if (currentLead != null && currentLead.getMemberId().equals(newLeadMemberId)) {
-            return;
+    /** The project-tier mirror of the workspace's last-admin rule. */
+    private void requireAnotherProjectAdmin(UUID projectId) {
+        if (seats.countByRoleName(projectId, ProjectRole.ADMIN.name()) <= 1) {
+            throw ApiException.of(ErrorCode.PROJECT_LAST_ADMIN);
         }
-        if (currentLead != null) {
-            currentLead.demote();
-            seats.flush();
-        }
-        seats.findByProjectIdAndMemberId(project.getId(), newLeadMemberId)
-                .ifPresentOrElse(
-                        ProjectMember::promote,
-                        () -> seats.save(ProjectMember.of(
-                                project.getId(), newLeadMemberId, ProjectRole.LEAD, actorId)));
     }
 
     private Project requireProject(UUID projectId, UUID workspaceId) {
@@ -200,7 +214,8 @@ public class ProjectService {
                     return Stream.of(new TeamMemberResponse(
                             member.getId(), member.getUserId(),
                             assembly.nameByUserId().getOrDefault(member.getUserId(), ""),
-                            member.getRole(), seat.getRole()));
+                            names(member.getRoles(), WorkspaceRole::valueOf),
+                            names(seat.getRoles(), ProjectRole::valueOf)));
                 })
                 .toList();
 
@@ -210,6 +225,14 @@ public class ProjectService {
                 project.getPositionTitle(), project.getStage(),
                 ProjectHealth.derive(project.getStage(), project.getTargetDate(), assembly.today()),
                 project.getTargetDate(), team, 0, 0, project.getCreatedAt());
+    }
+
+    private static <E extends Enum<E>> List<E> names(Set<Role> roles, Function<String, E> valueOf) {
+        return roles.stream()
+                .map(Role::getName)
+                .sorted(Comparator.naturalOrder())
+                .map(valueOf)
+                .toList();
     }
 
     private record Assembly(Map<UUID, List<ProjectMember>> seatsByProject,

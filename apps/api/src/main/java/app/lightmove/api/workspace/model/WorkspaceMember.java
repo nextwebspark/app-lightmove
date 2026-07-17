@@ -1,34 +1,38 @@
 package app.lightmove.api.workspace.model;
-import app.lightmove.api.workspace.constant.WorkspaceRole;
-import app.lightmove.api.workspace.constant.MemberStatus;
 
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.core.security.rbac.Role;
+import app.lightmove.api.workspace.constant.MemberStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * A user's membership of one workspace, and the role they hold there.
+ * A user's membership of one workspace, and the workspace roles they hold there.
  *
  * <p>This is the join that makes tenancy real: authorisation asks this table — not the user — what
  * someone may do, and always in the context of a specific workspace.
  *
- * <p>There are two ways in, and they differ in exactly one respect: whether a human decided.
+ * <p>There is exactly one way in: {@link #invite} — the workspace's creator granting themselves ADMIN,
+ * or an admin naming someone. An admin naming a person <i>is</i> the decision, so every membership is
+ * {@link MemberStatus#ACTIVE} from its first moment. Nobody can ask their way in; membership is
+ * invitation-only.
  *
- * <ul>
- *   <li>{@link #invite} — an admin named this person. That <i>is</i> the decision, so they land
- *       {@link MemberStatus#ACTIVE} immediately.
- *   <li>{@link #requestToJoin} — this person found the workspace on their own email domain and asked.
- *       Nobody has decided anything yet, so they land {@link MemberStatus#PENDING_APPROVAL} with no
- *       access at all until an admin approves.
- * </ul>
+ * <p>Roles are a set, not a single value — a member may hold several, and their permissions are the
+ * union of the roles' actions (see {@code core/security/rbac}).
  */
 @Entity
 @Table(name = "app_lm_workspace_member")
@@ -42,19 +46,21 @@ public class WorkspaceMember extends BaseEntity {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 32)
-    private WorkspaceRole role;
+    /** WORKSPACE-scope catalog rows; the assignment table's composite FK refuses any other scope. */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "app_lm_workspace_member_role",
+            joinColumns = @JoinColumn(name = "member_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id"))
+    private Set<Role> roles = new HashSet<>();
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private MemberStatus status;
 
-    /** Null while pending — they have asked to join, they have not joined. */
     @Column(name = "joined_at")
     private Instant joinedAt;
 
-    /** Who approved or rejected them. Compliance wants to know who let someone in. */
+    /** Who let them in. Compliance wants to know who named someone. */
     @Column(name = "decided_by")
     private UUID decidedBy;
 
@@ -62,11 +68,11 @@ public class WorkspaceMember extends BaseEntity {
     private Instant decidedAt;
 
     /** The workspace's creator, or someone an admin invited. Active from the start. */
-    public static WorkspaceMember invite(UUID workspaceId, UUID userId, WorkspaceRole role, UUID invitedBy) {
+    public static WorkspaceMember invite(UUID workspaceId, UUID userId, Set<Role> roles, UUID invitedBy) {
         WorkspaceMember member = new WorkspaceMember();
         member.workspaceId = workspaceId;
         member.userId = userId;
-        member.role = role;
+        member.roles = new HashSet<>(roles);
         member.status = MemberStatus.ACTIVE;
         member.joinedAt = Instant.now();
         member.decidedBy = invitedBy;
@@ -74,58 +80,17 @@ public class WorkspaceMember extends BaseEntity {
         return member;
     }
 
-    /**
-     * Someone asking to join a workspace they found on their email domain.
-     *
-     * <p>The role is provisional — a request, not a grant. The approving admin sets the real one, which
-     * is why nobody can walk in and declare themselves an ADMIN.
-     */
-    public static WorkspaceMember requestToJoin(UUID workspaceId, UUID userId, WorkspaceRole requestedRole) {
-        WorkspaceMember member = new WorkspaceMember();
-        member.workspaceId = workspaceId;
-        member.userId = userId;
-        member.role = requestedRole == null ? WorkspaceRole.RESEARCHER : requestedRole;
-        member.status = MemberStatus.PENDING_APPROVAL;
-        return member;
-    }
-
     public boolean isActive() {
         return status.grantsAccess();
     }
 
-    public boolean isPending() {
-        return status == MemberStatus.PENDING_APPROVAL;
-    }
-
-    /**
-     * An admin lets them in, and chooses the role themselves — the requested one was only ever a
-     * suggestion.
-     */
-    public void approve(UUID adminUserId, WorkspaceRole grantedRole) {
-        if (!isPending()) {
-            throw new IllegalStateException("Only a pending membership can be approved, was " + status);
-        }
-        this.status = MemberStatus.ACTIVE;
-        this.role = grantedRole == null ? this.role : grantedRole;
-        this.joinedAt = Instant.now();
-        this.decidedBy = adminUserId;
-        this.decidedAt = Instant.now();
-    }
-
-    public void reject(UUID adminUserId) {
-        if (!isPending()) {
-            throw new IllegalStateException("Only a pending membership can be rejected, was " + status);
-        }
-        this.status = MemberStatus.REJECTED;
-        this.decidedBy = adminUserId;
-        this.decidedAt = Instant.now();
-    }
-
-    public void changeRole(WorkspaceRole newRole) {
+    /** Replace-set semantics: the caller states the full set the member should hold afterwards. */
+    public void changeRoles(Set<Role> newRoles) {
         if (!isActive()) {
-            throw new IllegalStateException("Only an active membership can change role, was " + status);
+            throw new IllegalStateException("Only an active membership can change roles, was " + status);
         }
-        this.role = newRole;
+        this.roles.clear();
+        this.roles.addAll(newRoles);
     }
 
     /** Frees the one-active-membership index, so the person can join or create another workspace. */

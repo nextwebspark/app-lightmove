@@ -1,21 +1,21 @@
 package app.lightmove.api.workspace.service;
 
-import app.lightmove.api.core.security.model.User;
-import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.audit.constant.AuditEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.rbac.RbacService;
+import app.lightmove.api.core.security.rbac.WorkspaceAccess;
+import app.lightmove.api.core.security.rbac.WorkspaceRole;
+import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 import app.lightmove.api.workspace.model.PendingOnboarding;
-import app.lightmove.api.workspace.constant.PendingOnboardingKind;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
-import app.lightmove.api.workspace.constant.WorkspaceRole;
-import app.lightmove.api.workspace.constant.WorkspaceStatus;
 import app.lightmove.api.workspace.repository.PendingOnboardingRepository;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
@@ -23,6 +23,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,15 +33,18 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Signup step 2: how a user ends up in a workspace.
  *
- * <p>There are three routes in, and they differ only in who decided:
+ * <p>There are exactly two routes in, and they differ only in who decided:
  *
  * <ul>
- *   <li><b>Create one</b> — you are the first, or you want your own. You are its ADMIN.
- *   <li><b>Ask to join</b> — you found a workspace on your email domain. An admin must approve you, and
- *       until they do you have no access to anything.
+ *   <li><b>Create one</b> — signup always ends here. You are the workspace's ADMIN.
  *   <li><b>Be invited</b> — an admin named you. You are in immediately; their naming you was the
  *       decision. (See {@code InvitationService}.)
  * </ul>
+ *
+ * <p>There is deliberately no "ask to join". Membership is invitation-only: finding a workspace on
+ * your email domain proves you share an employer's mail system, not that you should see an
+ * executive-search pipeline — so signup does not even look. The admin reaches out, or you create your
+ * own workspace.
  */
 @Service
 @RequiredArgsConstructor
@@ -51,31 +55,13 @@ public class OnboardingService {
     private final WorkspaceMemberRepository members;
     private final PendingOnboardingRepository pendingOnboardings;
     private final UserRepository users;
-    private final EmailAddressValidator emailValidator;
     private final WorkspaceAccess access;
+    private final RbacService rbac;
     private final AuditService audit;
     private final LightMoveProperties properties;
 
     /**
-     * The workspaces already running on this user's email domain — "did my firm already sign up?"
-     *
-     * <p>Empty for a consumer domain even if consumer domains are permitted, because the answer for
-     * {@code gmail.com} would be every unrelated customer who also used Gmail. See
-     * {@link EmailAddressValidator#canGroupColleaguesBy}.
-     */
-    @Transactional(readOnly = true)
-    public List<Workspace> joinableWorkspaces(UUID userId) {
-        User user = requireUser(userId);
-        String domain = EmailAddressValidator.domainOf(user.getEmail());
-
-        if (!emailValidator.canGroupColleaguesBy(domain)) {
-            return List.of();
-        }
-        return workspaces.findByEmailDomainAndStatus(domain, WorkspaceStatus.ACTIVE);
-    }
-
-    /**
-     * Signup step 2, path A — "create my own".
+     * Signup step 2 — "create my workspace".
      *
      * <p>Creates the workspace if the user has verified their address. If they have not, the wizard is
      * <b>held</b> and an empty Optional comes back: they carry on to step 3, and the workspace is
@@ -83,10 +69,8 @@ public class OnboardingService {
      *
      * <p>The holding is not politeness about a half-finished form. The email domain is our only evidence
      * that someone works at a firm, so a workspace bound to {@code goldmansachs.com} must not exist
-     * because somebody typed that address into a signup form and never opened the mailbox. If it did,
-     * every real employee of that firm would later be shown the impostor's organisation as "your firm is
-     * already here" — and asking to join it would leave them pending forever, because its only admin can
-     * never verify. Nothing on the domain exists until the mailbox is proved.
+     * because somebody typed that address into a signup form and never opened the mailbox. Nothing on
+     * the domain exists until the mailbox is proved.
      *
      * <p>The domain itself is taken from the user's own address, never from the request — that is the
      * difference between recording which firm a workspace belongs to and letting anyone claim any
@@ -119,11 +103,8 @@ public class OnboardingService {
                 command.name().trim(), slug, domain, userId,
                 command.companySize(), command.primaryRegion(), command.teamFocus()));
 
-        // "Your role" from the wizard is a job title, and belongs on the person. Authority is separate:
-        // whoever creates the workspace runs it.
-        user.setTitle(command.jobTitle());
-
-        members.save(WorkspaceMember.invite(workspace.getId(), userId, WorkspaceRole.ADMIN, userId));
+        members.save(WorkspaceMember.invite(
+                workspace.getId(), userId, Set.of(rbac.role(WorkspaceRole.ADMIN)), userId));
 
         log.info("Workspace {} ({}) created by user {} on domain {}", workspace.getId(), slug, userId, domain);
         audit.event(AuditEventType.WORKSPACE_CREATED)
@@ -157,79 +138,12 @@ public class OnboardingService {
         workspace.describe(command.name().trim(), command.companySize(),
                 command.primaryRegion(), command.teamFocus());
 
-        // "Your role" is the person's job title, and it travels with them, not with the workspace.
-        requireUser(userId).setTitle(command.jobTitle());
-
         audit.event(AuditEventType.WORKSPACE_UPDATED)
                 .actor(userId).workspace(workspaceId).from(request)
                 .detail("name", workspace.getName())
                 .record();
 
         return workspace;
-    }
-
-    /**
-     * Asks to join an existing workspace. Lands as {@link MemberStatus#PENDING_APPROVAL} — no access
-     * until an admin says yes.
-     *
-     * <p>The requested role is a suggestion, not a grant. The approving admin chooses the real one,
-     * which is what stops someone walking in and declaring themselves an ADMIN.
-     */
-    @Transactional
-    public Optional<WorkspaceMember> requestToJoin(UUID userId, UUID workspaceId,
-                                                   WorkspaceRole requestedRole,
-                                                   HttpServletRequest request) {
-        User user = requireUser(userId);
-        requireNoExistingMembership(userId);
-
-        Workspace workspace = workspaces.findById(workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
-
-        // You may only ask to join a workspace on your own domain. Without this, anyone could enumerate
-        // workspace ids and pepper unrelated firms with join requests.
-        //
-        // Checked even for the held case: a request that could never be granted should be refused now,
-        // not silently stored and refused in three days' time when they finally click the link.
-        //
-        // Served as 403 rather than 404 only because they had to have been shown this id to reach here;
-        // a stranger guessing ids gets nothing useful either way.
-        if (!workspace.owns(user.getEmail())) {
-            throw new ApiException(ErrorCode.JOIN_DOMAIN_MISMATCH,
-                    "User %s is not on domain %s".formatted(userId, workspace.getEmailDomain()));
-        }
-
-        // Asked before and was told no. Re-asking is not a path back in — an admin has to invite them.
-        members.findByWorkspaceIdAndUserId(workspaceId, userId).ifPresent(existing -> {
-            throw ApiException.of(switch (existing.getStatus()) {
-                case PENDING_APPROVAL -> ErrorCode.JOIN_REQUEST_PENDING;
-                case REJECTED -> ErrorCode.JOIN_REQUEST_REJECTED;
-                default -> ErrorCode.ALREADY_IN_WORKSPACE;
-            });
-        });
-
-        // Held, for the same reason a creation is: an admin's approval queue is not a place to put
-        // people who have not shown they read the mailbox they claim as their evidence of employment.
-        if (!user.isEmailVerified()) {
-            holdJoin(userId, workspaceId, requestedRole);
-            log.info("Held join request from unverified user {} for workspace {}", userId, workspaceId);
-            return Optional.empty();
-        }
-
-        return Optional.of(commitJoin(userId, workspaceId, requestedRole, request));
-    }
-
-    private WorkspaceMember commitJoin(UUID userId, UUID workspaceId, WorkspaceRole requestedRole,
-                                       HttpServletRequest request) {
-        WorkspaceMember member = members.save(
-                WorkspaceMember.requestToJoin(workspaceId, userId, requestedRole));
-
-        log.info("User {} asked to join workspace {}", userId, workspaceId);
-        audit.event(AuditEventType.JOIN_REQUESTED)
-                .actor(userId).workspace(workspaceId).target("member", member.getId()).from(request)
-                .detail("requestedRole", member.getRole().name())
-                .record();
-
-        return member;
     }
 
     /**
@@ -252,7 +166,6 @@ public class OnboardingService {
         // without a held CREATE has nothing to invite anyone into; nothing is stored, and the invitations
         // are simply not sent — which is already true, and is what the 202 says.
         pendingOnboardings.findByUserId(userId)
-                .filter(held -> held.getKind() == PendingOnboardingKind.CREATE)
                 .ifPresentOrElse(
                         held -> held.holdInvitations(invites),
                         () -> log.warn("Invitations from user {} with no held organisation — dropped", userId));
@@ -264,13 +177,11 @@ public class OnboardingService {
      * step 2 can now be done in their name.
      *
      * <p>Deliberately forgiving. Verification is the user's act and must succeed — if the held intent
-     * can no longer be honoured (it expired, they joined somewhere else in the meantime, the workspace
-     * they wanted to join has since been deleted), the intent is dropped and verification still stands.
-     * The alternative is a user who clicks a valid link and is told their email could not be verified,
-     * for reasons that have nothing to do with their email.
+     * can no longer be honoured (it expired, they accepted an invitation in the meantime), the intent
+     * is dropped and verification still stands. The alternative is a user who clicks a valid link and
+     * is told their email could not be verified, for reasons that have nothing to do with their email.
      *
-     * @return the invitations to send, now that there is a workspace to send them for. Empty unless a
-     *         CREATE was materialised.
+     * @return the created workspace and the invitations to send for it, now that it exists.
      */
     @Transactional
     public Optional<Materialised> materialise(UUID userId, HttpServletRequest request) {
@@ -292,19 +203,9 @@ public class OnboardingService {
 
         User user = requireUser(userId);
 
-        if (held.getKind() == PendingOnboardingKind.JOIN) {
-            if (workspaces.findById(held.getWorkspaceId()).isEmpty()) {
-                log.info("Discarding a held join for user {} — workspace {} is gone",
-                        userId, held.getWorkspaceId());
-                return Optional.empty();
-            }
-            commitJoin(userId, held.getWorkspaceId(), held.getRequestedRole(), request);
-            return Optional.of(new Materialised(null, List.of()));
-        }
-
         Workspace workspace = commitCreate(user, new CreateWorkspaceCommand(
                 held.getName(), held.getCompanySize(), held.getPrimaryRegion(),
-                held.getJobTitle(), held.getTeamFocus()), request);
+                held.getTeamFocus()), request);
 
         return Optional.of(new Materialised(workspace, held.getInvitations()));
     }
@@ -312,23 +213,17 @@ public class OnboardingService {
     /**
      * Records what they asked for at step 2, or amends it if they went Back and changed their mind.
      *
-     * <p>Built complete and saved once, never saved empty and filled in afterwards: the table's CHECK
-     * constraints require a CREATE row to carry a name and a JOIN row to carry a workspace, and a
-     * half-built insert is rejected by the database — as it should be.
+     * <p>Built complete and saved once, never saved empty and filled in afterwards: the table requires
+     * a held wizard to carry a name, and a half-built insert is rejected by the database — as it
+     * should be.
      */
     private void holdCreate(UUID userId, CreateWorkspaceCommand command) {
         pendingOnboardings.findByUserId(userId).ifPresentOrElse(
                 held -> held.describe(command.name().trim(), command.companySize(),
-                        command.primaryRegion(), command.teamFocus(), command.jobTitle()),
+                        command.primaryRegion(), command.teamFocus()),
                 () -> pendingOnboardings.save(PendingOnboarding.toCreate(userId, command.name().trim(),
                         command.companySize(), command.primaryRegion(), command.teamFocus(),
-                        command.jobTitle(), expiry())));
-    }
-
-    private void holdJoin(UUID userId, UUID workspaceId, WorkspaceRole requestedRole) {
-        pendingOnboardings.findByUserId(userId).ifPresentOrElse(
-                held -> held.redirectToJoin(workspaceId, requestedRole),
-                () -> pendingOnboardings.save(PendingOnboarding.toJoin(userId, workspaceId, requestedRole, expiry())));
+                        expiry())));
     }
 
     /**
@@ -344,66 +239,6 @@ public class OnboardingService {
     public record Materialised(Workspace workspace, List<PendingOnboarding.PendingInvite> invitations) {
     }
 
-    /** Pending join requests. Admin only — applicants' names and emails are not for the whole roster. */
-    @Transactional(readOnly = true)
-    public List<WorkspaceMember> pendingRequests(UUID userId, UUID workspaceId) {
-        access.requireAdmin(userId, workspaceId);
-        return members.findByWorkspaceIdAndStatus(workspaceId, MemberStatus.PENDING_APPROVAL);
-    }
-
-    /**
-     * An admin lets someone in. This is the moment a person gains access to a firm's candidate data, so
-     * it is authorised strictly and audited loudly.
-     */
-    @Transactional
-    public WorkspaceMember approve(UUID adminUserId, UUID workspaceId, UUID memberId,
-                                   WorkspaceRole grantedRole, HttpServletRequest request) {
-        access.requireAdmin(adminUserId, workspaceId);
-
-        WorkspaceMember member = requirePendingMember(workspaceId, memberId);
-        member.approve(adminUserId, grantedRole);
-
-        log.info("User {} approved member {} into workspace {} as {}",
-                adminUserId, member.getUserId(), workspaceId, member.getRole());
-
-        audit.event(AuditEventType.JOIN_APPROVED)
-                .actor(adminUserId).workspace(workspaceId).target("member", memberId).from(request)
-                .detail("approvedUserId", member.getUserId().toString())
-                .detail("grantedRole", member.getRole().name())
-                .record();
-
-        return member;
-    }
-
-    @Transactional
-    public WorkspaceMember reject(UUID adminUserId, UUID workspaceId, UUID memberId,
-                                  HttpServletRequest request) {
-        access.requireAdmin(adminUserId, workspaceId);
-
-        WorkspaceMember member = requirePendingMember(workspaceId, memberId);
-        member.reject(adminUserId);
-
-        audit.event(AuditEventType.JOIN_REJECTED)
-                .actor(adminUserId).workspace(workspaceId).target("member", memberId).from(request)
-                .detail("rejectedUserId", member.getUserId().toString())
-                .record();
-
-        return member;
-    }
-
-    /** Scoped by workspace, so an admin of one firm cannot approve a member into another. */
-    private WorkspaceMember requirePendingMember(UUID workspaceId, UUID memberId) {
-        WorkspaceMember member = members.findById(memberId)
-                .filter(m -> m.getWorkspaceId().equals(workspaceId))
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_A_MEMBER));
-
-        if (!member.isPending()) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    "Membership is not pending, it is " + member.getStatus());
-        }
-        return member;
-    }
-
     private void requireNoExistingMembership(UUID userId) {
         if (members.findByUserIdAndStatus(userId, MemberStatus.ACTIVE).isPresent()) {
             throw ApiException.of(ErrorCode.ALREADY_IN_WORKSPACE);
@@ -413,5 +248,4 @@ public class OnboardingService {
     private User requireUser(UUID userId) {
         return users.findById(userId).orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
     }
-
 }

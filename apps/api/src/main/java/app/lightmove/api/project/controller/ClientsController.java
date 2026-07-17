@@ -10,6 +10,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,12 +26,14 @@ public class ClientsController {
     private final ClientService clients;
 
     @GetMapping
+    @PreAuthorize("@workspaceAuth.can(principal, 'CLIENT_RECORD_MANAGE')")
     public ResponseEntity<List<ClientResponse>> list() {
         AuthPrincipal principal = CurrentUser.require();
-        return ResponseEntity.ok(clients.list(principal.userId(), principal.requireWorkspaceId()));
+        return ResponseEntity.ok(clients.list(principal.requireWorkspaceId()));
     }
 
     @PostMapping
+    @PreAuthorize("@workspaceAuth.can(principal, 'CLIENT_RECORD_MANAGE')")
     public ResponseEntity<ClientResponse> create(@Valid @RequestBody CreateClientRequest request) {
         AuthPrincipal principal = CurrentUser.require();
         ClientResponse created = clients.create(

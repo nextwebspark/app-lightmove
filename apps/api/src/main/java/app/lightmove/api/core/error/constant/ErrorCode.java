@@ -36,17 +36,6 @@ public enum ErrorCode {
     /** The user already has an active workspace. One at a time. */
     ALREADY_IN_WORKSPACE(HttpStatus.CONFLICT, "You already belong to a workspace"),
 
-    /** They have asked to join a workspace and an admin has not answered yet. */
-    JOIN_REQUEST_PENDING(HttpStatus.CONFLICT,
-            "Your request to join is waiting for an administrator to approve it"),
-
-    JOIN_REQUEST_REJECTED(HttpStatus.FORBIDDEN,
-            "Your request to join this workspace was declined. Ask an administrator to invite you"),
-
-    /** Asking to join a workspace whose domain is not the requester's. */
-    JOIN_DOMAIN_MISMATCH(HttpStatus.FORBIDDEN,
-            "You can only ask to join a workspace on your own email domain"),
-
     TOKEN_INVALID(HttpStatus.BAD_REQUEST, "This link is not valid"),
     TOKEN_EXPIRED(HttpStatus.BAD_REQUEST, "This link has expired"),
 
@@ -71,11 +60,12 @@ public enum ErrorCode {
     LAST_ADMIN(HttpStatus.CONFLICT, "A workspace must keep at least one admin"),
 
     MEMBER_LEADS_PROJECTS(HttpStatus.CONFLICT,
-            "This member leads active projects. Reassign the lead first"),
+            "This member is the only admin on active projects. Hand those over first"),
 
     CLIENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "A client with this name already exists"),
 
-    PROJECT_LEAD_REQUIRED(HttpStatus.CONFLICT, "The project lead cannot be removed from the team"),
+    /** A project must always keep someone who can run it — the mirror of {@link #LAST_ADMIN}. */
+    PROJECT_LAST_ADMIN(HttpStatus.CONFLICT, "A project must keep at least one admin"),
 
     /** The typed confirmation on workspace deletion did not match. */
     WORKSPACE_NAME_MISMATCH(HttpStatus.BAD_REQUEST,

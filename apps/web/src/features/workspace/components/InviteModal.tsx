@@ -12,7 +12,7 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
   const queryClient = useQueryClient();
   const toast = useToast();
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<WorkspaceRole>("CONSULTANT");
+  const [role, setRole] = useState<WorkspaceRole>("MEMBER");
   const [error, setError] = useState<string | null>(null);
 
   const send = useMutation({

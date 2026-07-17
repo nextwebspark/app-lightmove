@@ -32,9 +32,9 @@ import org.springframework.transaction.annotation.Transactional;
  * Registration and sign-in.
  *
  * <p>Signup creates a user and stops there — deliberately. A user's email domain says which <i>firm</i>
- * they work at, but not which <i>workspace</i> they belong to, because one firm may run several. So
- * step 2 shows them the workspaces already on their domain and lets them ask to join one (an admin
- * approves) or start their own. That lives in {@code OnboardingService}.
+ * they work at, but not which <i>workspace</i>: one firm may run several, and membership is
+ * invitation-only. So step 2 has them create their own workspace (they become its ADMIN); being invited
+ * into an existing one is the other way in. See {@code OnboardingService} / {@code InvitationService}.
  */
 @Service
 @Slf4j
@@ -75,8 +75,8 @@ public class AuthService {
      * Signup step 1 — create the account.
      *
      * <p>Creates the user and nothing else. Which workspace they end up in is step 2's problem: they
-     * will be shown the workspaces already on their email domain and can ask to join one (an admin
-     * approves) or create their own. See {@code OnboardingService}.
+     * create their own (becoming its ADMIN), or accept an admin's invitation. See
+     * {@code OnboardingService}.
      */
     @Transactional
     public AuthenticatedSession signup(SignupCommand command, HttpServletRequest request) {
@@ -128,6 +128,51 @@ public class AuthService {
         // No workspace yet — the token carries no wsId claim, so the filter chain admits them only to
         // the onboarding endpoints, which is exactly where the wizard sends them next.
         return tokens.issue(user, null, request);
+    }
+
+    /**
+     * Creates a local account whose email is already proven, for the invitation-accept path.
+     *
+     * <p>No verification email, and the account is marked verified straight away: the invitation token
+     * was mailed only to this address, so holding it is the proof of the mailbox that verification would
+     * otherwise establish. The safety hinge is that {@code rawEmail} is the invitation's, resolved from
+     * the token server-side — never a client-supplied value — so the token can only ever mint the one
+     * identity it was addressed to.
+     *
+     * <p>No {@code validateWorkEmail} either: the address was vetted as a work address when the
+     * invitation was issued (see {@code InvitationService#invite}), and re-checking now could reject a
+     * contractor whose domain rules have since changed.
+     */
+    @Transactional
+    public User createVerifiedLocalUser(String rawEmail, String fullName, String rawPassword,
+                                        HttpServletRequest request) {
+        String email = EmailAddressValidator.normalise(rawEmail);
+
+        String passwordProblem = passwords.validate(rawPassword);
+        if (passwordProblem != null) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, passwordProblem);
+        }
+
+        if (users.existsByEmail(email)) {
+            audit.event(AuditEventType.USER_SIGNED_UP).failed().from(request)
+                    .reason("email_already_registered").detail("email", email).record();
+            throw ApiException.of(ErrorCode.EMAIL_ALREADY_REGISTERED);
+        }
+
+        Instant now = Instant.now();
+        User user = users.save(User.registerLocal(
+                email, passwords.hash(rawPassword), fullName.trim(), now, PRIVACY_POLICY_VERSION));
+        identities.save(UserIdentity.link(user.getId(), AuthProvider.LOCAL, email, email));
+
+        // Verified before the session is issued, so the token handed back already carries emailVerified
+        // — the invitee is in with no second step.
+        user.markEmailVerified(now);
+
+        log.info("User {} created via invitation", user.getId());
+        audit.event(AuditEventType.USER_SIGNED_UP)
+                .actor(user.getId()).from(request).detail("via", "invitation").record();
+
+        return user;
     }
 
     /**

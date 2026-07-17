@@ -46,11 +46,3 @@ export function HealthDot({ health }: { health: ProjectHealth }) {
     </span>
   );
 }
-
-export function LeadBadge() {
-  return (
-    <span className="rounded-[5px] bg-amber-dim px-[7px] py-0.5 font-mono text-[10px] font-semibold tracking-[0.08em] text-amber">
-      LEAD
-    </span>
-  );
-}
