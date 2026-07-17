@@ -107,9 +107,17 @@ fi
 # Tagged with the git SHA, never `latest`: you must be able to say which commit is serving, and roll back
 # to a specific one. `latest` answers neither question.
 say "Build and push  ${IMAGE}"
-gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet >/dev/null
-docker build --platform linux/amd64 -t "$IMAGE" .
-docker push "$IMAGE"
+if [ "${USE_CLOUD_BUILD:-false}" = "true" ]; then
+    # Build server-side on Cloud Build's native amd64 workers. Apple Silicon has no local amd64 builder
+    # that works: `docker build --platform linux/amd64` runs under QEMU, whose missing tar syscall breaks
+    # the Maven layer ("Cannot open: Function not implemented"). Same Dockerfile, same amd64 image, pushed
+    # straight to Artifact Registry — just built where amd64 is native.
+    gcloud builds submit --project "$PROJECT" --tag "$IMAGE" .
+else
+    gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet >/dev/null
+    docker build --platform linux/amd64 -t "$IMAGE" .
+    docker push "$IMAGE"
+fi
 
 # ── Migrate ───────────────────────────────────────────────────────────────────
 # Before the new revision goes live, and never from inside the container (FLYWAY_ENABLED=false). A failed
