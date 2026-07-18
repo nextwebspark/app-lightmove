@@ -1,6 +1,6 @@
 package app.lightmove.api.project.service;
 
-import app.lightmove.api.core.audit.constant.AuditEventType;
+import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
@@ -107,7 +107,7 @@ public class PositionService {
         }
         requireReady(brief.position());
         brief.position().lock(userId, Instant.now());
-        audit.event(AuditEventType.POSITION_LOCKED)
+        audit.event(ProjectEventType.POSITION_LOCKED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .record();
         return toResponse(brief);
@@ -121,7 +121,7 @@ public class PositionService {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "This position is not locked");
         }
         brief.position().unlock();
-        audit.event(AuditEventType.POSITION_UNLOCKED)
+        audit.event(ProjectEventType.POSITION_UNLOCKED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .record();
         return toResponse(brief);
@@ -196,7 +196,7 @@ public class PositionService {
 
     private void auditPositionChange(UUID userId, UUID workspaceId, UUID projectId,
                                      String section, HttpServletRequest httpRequest) {
-        audit.event(AuditEventType.POSITION_UPDATED)
+        audit.event(ProjectEventType.POSITION_UPDATED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .detail("section", section)
                 .record();

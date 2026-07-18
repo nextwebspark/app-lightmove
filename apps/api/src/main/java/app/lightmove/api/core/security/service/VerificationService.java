@@ -6,7 +6,7 @@ import app.lightmove.api.core.security.model.VerificationToken;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.repository.VerificationTokenRepository;
 import app.lightmove.api.core.security.model.EmailVerifiedEvent;
-import app.lightmove.api.core.audit.constant.AuditEventType;
+import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.model.ApiException;
@@ -72,7 +72,7 @@ public class VerificationService {
 
         emailSender.send(templates.buildVerificationEmail(user.getEmail(), user.getFullName(), link));
 
-        audit.event(AuditEventType.EMAIL_VERIFICATION_SENT)
+        audit.event(AuthEventType.EMAIL_VERIFICATION_SENT)
                 .actor(user.getId())
                 .from(request)
                 .record();
@@ -110,7 +110,7 @@ public class VerificationService {
         user.markEmailVerified(now);
 
         log.info("Email verified for user {}", user.getId());
-        audit.event(AuditEventType.EMAIL_VERIFIED).actor(user.getId()).from(request).record();
+        audit.event(AuthEventType.EMAIL_VERIFIED).actor(user.getId()).from(request).record();
 
         // The signup wizard, if they filled it in before verifying, becomes real here — the workspace is
         // created, or the join request reaches an admin's queue. Published rather than called: what

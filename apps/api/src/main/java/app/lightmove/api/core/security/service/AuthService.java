@@ -10,7 +10,7 @@ import app.lightmove.api.core.security.model.UserIdentity;
 import app.lightmove.api.core.security.constant.UserStatus;
 import app.lightmove.api.core.security.repository.UserIdentityRepository;
 import app.lightmove.api.core.security.repository.UserRepository;
-import app.lightmove.api.core.audit.constant.AuditEventType;
+import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.model.ApiException;
@@ -95,7 +95,7 @@ public class AuthService {
         String domain = emailValidator.validateWorkEmail(email);
 
         if (users.existsByEmail(email)) {
-            audit.event(AuditEventType.USER_SIGNED_UP).failed().from(request)
+            audit.event(AuthEventType.USER_SIGNED_UP).failed().from(request)
                     .reason("email_already_registered").detail("email", email).record();
             throw ApiException.of(ErrorCode.EMAIL_ALREADY_REGISTERED);
         }
@@ -122,7 +122,7 @@ public class AuthService {
         }
 
         log.info("User {} signed up on domain {}", user.getId(), domain);
-        audit.event(AuditEventType.USER_SIGNED_UP)
+        audit.event(AuthEventType.USER_SIGNED_UP)
                 .actor(user.getId()).from(request).detail("domain", domain).record();
 
         // No workspace yet — the token carries no wsId claim, so the filter chain admits them only to
@@ -154,7 +154,7 @@ public class AuthService {
         }
 
         if (users.existsByEmail(email)) {
-            audit.event(AuditEventType.USER_SIGNED_UP).failed().from(request)
+            audit.event(AuthEventType.USER_SIGNED_UP).failed().from(request)
                     .reason("email_already_registered").detail("email", email).record();
             throw ApiException.of(ErrorCode.EMAIL_ALREADY_REGISTERED);
         }
@@ -169,7 +169,7 @@ public class AuthService {
         user.markEmailVerified(now);
 
         log.info("User {} created via invitation", user.getId());
-        audit.event(AuditEventType.USER_SIGNED_UP)
+        audit.event(AuthEventType.USER_SIGNED_UP)
                 .actor(user.getId()).from(request).detail("via", "invitation").record();
 
         return user;
@@ -193,7 +193,7 @@ public class AuthService {
 
         Optional<User> found = users.findByEmail(email);
         if (found.isEmpty()) {
-            audit.event(AuditEventType.LOGIN_FAILED).failed().from(request)
+            audit.event(AuthEventType.LOGIN_FAILED).failed().from(request)
                     .reason("no_such_user").detail("email", email).record();
             throw ApiException.of(ErrorCode.INVALID_CREDENTIALS);
         }
@@ -204,13 +204,13 @@ public class AuthService {
         // Before the password: a lockout must stop the work, not just suppress the answer, or timing
         // leaks when a guess against a locked account was the right one.
         if (user.isLocked(now)) {
-            audit.event(AuditEventType.LOGIN_FAILED).failed().actor(user.getId()).from(request)
+            audit.event(AuthEventType.LOGIN_FAILED).failed().actor(user.getId()).from(request)
                     .reason("account_locked").record();
             throw ApiException.of(ErrorCode.ACCOUNT_LOCKED);
         }
 
         if (user.getStatus() == UserStatus.SUSPENDED || user.getStatus() == UserStatus.DELETED) {
-            audit.event(AuditEventType.LOGIN_FAILED).failed().actor(user.getId()).from(request)
+            audit.event(AuthEventType.LOGIN_FAILED).failed().actor(user.getId()).from(request)
                     .reason("status_" + user.getStatus()).record();
             throw ApiException.of(ErrorCode.ACCOUNT_SUSPENDED);
         }
@@ -220,14 +220,14 @@ public class AuthService {
 
             // hasPassword() distinguishes a wrong password from a Google-only account. The user is
             // told neither; the ledger records which.
-            audit.event(AuditEventType.LOGIN_FAILED).failed().actor(user.getId()).from(request)
+            audit.event(AuthEventType.LOGIN_FAILED).failed().actor(user.getId()).from(request)
                     .reason(user.hasPassword() ? "bad_password" : "no_local_password")
                     .detail("failedAttempts", user.getFailedLoginAttempts())
                     .record();
 
             if (user.isLocked(now)) {
                 log.warn("Account {} locked after {} failed attempts", user.getId(), user.getFailedLoginAttempts());
-                audit.event(AuditEventType.ACCOUNT_LOCKED).failed().actor(user.getId()).from(request)
+                audit.event(AuthEventType.ACCOUNT_LOCKED).failed().actor(user.getId()).from(request)
                         .detail("until", String.valueOf(user.getLockedUntil())).record();
             }
 
@@ -235,7 +235,7 @@ public class AuthService {
         }
 
         user.recordSuccessfulLogin(now);
-        audit.event(AuditEventType.LOGIN_SUCCEEDED).actor(user.getId()).from(request).record();
+        audit.event(AuthEventType.LOGIN_SUCCEEDED).actor(user.getId()).from(request).record();
 
         // Null for a user who has not finished onboarding — the token then carries no tenant claim.
         WorkspaceMember membership = activeMembership(user.getId()).orElse(null);
@@ -267,7 +267,7 @@ public class AuthService {
         User user = users.findById(userId).orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
 
         if (user.hasPassword() && !passwords.matches(currentPassword, user.getPasswordHash())) {
-            audit.event(AuditEventType.PASSWORD_CHANGED).failed().actor(userId).from(request)
+            audit.event(AuthEventType.PASSWORD_CHANGED).failed().actor(userId).from(request)
                     .reason("bad_current_password").record();
             throw ApiException.of(ErrorCode.INVALID_CREDENTIALS);
         }
@@ -280,7 +280,7 @@ public class AuthService {
         user.changePassword(passwords.hash(newPassword));
         tokens.revokeAllSessions(userId, RevokeReason.PASSWORD_CHANGED);
 
-        audit.event(AuditEventType.PASSWORD_CHANGED).actor(userId).from(request).record();
+        audit.event(AuthEventType.PASSWORD_CHANGED).actor(userId).from(request).record();
     }
 
     @Transactional(readOnly = true)

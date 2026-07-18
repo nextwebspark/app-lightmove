@@ -1,6 +1,6 @@
 package app.lightmove.api.workspace.service;
 
-import app.lightmove.api.core.audit.constant.AuditEventType;
+import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
@@ -153,7 +153,7 @@ public class InvitationService {
         emailSender.send(templates.buildInvitationEmail(
                 email, inviter.getFullName(), workspace.getName(), granted.getName(), link));
 
-        audit.event(AuditEventType.MEMBER_INVITED)
+        audit.event(WorkspaceEventType.MEMBER_INVITED)
                 .actor(inviter.getId()).workspace(workspace.getId())
                 .target("invitation", invitation.getId()).from(request)
                 .detail("email", email).detail("role", granted.getName())
@@ -274,7 +274,7 @@ public class InvitationService {
     private WorkspaceMember redeem(Invitation invitation, User user, Instant now,
                                    HttpServletRequest request) {
         if (!user.getEmail().equalsIgnoreCase(invitation.getEmail())) {
-            audit.event(AuditEventType.INVITATION_ACCEPTED).failed().actor(user.getId())
+            audit.event(WorkspaceEventType.INVITATION_ACCEPTED).failed().actor(user.getId())
                     .workspace(invitation.getWorkspaceId()).from(request)
                     .reason("email_mismatch").record();
             throw new ApiException(ErrorCode.INVITATION_INVALID,
@@ -299,7 +299,7 @@ public class InvitationService {
         log.info("User {} accepted invitation to workspace {} as {}",
                 user.getId(), invitation.getWorkspaceId(), invitation.getRole().getName());
 
-        audit.event(AuditEventType.INVITATION_ACCEPTED)
+        audit.event(WorkspaceEventType.INVITATION_ACCEPTED)
                 .actor(user.getId()).workspace(invitation.getWorkspaceId())
                 .target("invitation", invitation.getId()).from(request)
                 .detail("role", invitation.getRole().getName())
@@ -339,7 +339,7 @@ public class InvitationService {
 
         invitation.revoke();
 
-        audit.event(AuditEventType.INVITATION_REVOKED)
+        audit.event(WorkspaceEventType.INVITATION_REVOKED)
                 .actor(userId).workspace(workspaceId).target("invitation", invitationId).from(request)
                 .detail("email", invitation.getEmail())
                 .record();

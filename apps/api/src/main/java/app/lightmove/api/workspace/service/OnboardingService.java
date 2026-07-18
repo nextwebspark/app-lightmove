@@ -1,6 +1,6 @@
 package app.lightmove.api.workspace.service;
 
-import app.lightmove.api.core.audit.constant.AuditEventType;
+import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
@@ -107,7 +107,7 @@ public class OnboardingService {
                 workspace.getId(), userId, Set.of(rbac.role(WorkspaceRole.ADMIN)), userId));
 
         log.info("Workspace {} ({}) created by user {} on domain {}", workspace.getId(), slug, userId, domain);
-        audit.event(AuditEventType.WORKSPACE_CREATED)
+        audit.event(WorkspaceEventType.WORKSPACE_CREATED)
                 .actor(userId).workspace(workspace.getId()).from(request)
                 .detail("domain", domain).detail("slug", slug)
                 .record();
@@ -138,7 +138,7 @@ public class OnboardingService {
         workspace.describe(command.name().trim(), command.companySize(),
                 command.primaryRegion(), command.teamFocus());
 
-        audit.event(AuditEventType.WORKSPACE_UPDATED)
+        audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
                 .actor(userId).workspace(workspaceId).from(request)
                 .detail("name", workspace.getName())
                 .record();

@@ -1,6 +1,6 @@
 package app.lightmove.api.core.ratelimit.service;
 
-import app.lightmove.api.core.audit.constant.AuditEventType;
+import app.lightmove.api.core.audit.constant.SecurityEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.model.ApiException;
@@ -72,7 +72,7 @@ public class RateLimitGuard {
             return;
         }
 
-        audit.event(AuditEventType.RATE_LIMIT_EXCEEDED)
+        audit.event(SecurityEventType.RATE_LIMIT_EXCEEDED)
                 .failed()
                 .from(request)
                 .detail("action", action)

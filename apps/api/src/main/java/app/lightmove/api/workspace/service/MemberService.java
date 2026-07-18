@@ -1,6 +1,6 @@
 package app.lightmove.api.workspace.service;
 
-import app.lightmove.api.core.audit.constant.AuditEventType;
+import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
@@ -62,7 +62,7 @@ public class MemberService {
         String previous = roleNames(member);
         member.changeRoles(rbac.workspaceRoles(newRoles));
 
-        audit.event(AuditEventType.MEMBER_ROLE_CHANGED)
+        audit.event(WorkspaceEventType.MEMBER_ROLE_CHANGED)
                 .actor(actorId).workspace(workspaceId).target("member", memberId).from(request)
                 .detail("from", previous)
                 .detail("to", newRoles.stream().map(Enum::name).sorted().collect(Collectors.joining(",")))
@@ -85,7 +85,7 @@ public class MemberService {
         detachment.detach(memberId);
 
         log.info("User {} removed member {} from workspace {}", actorId, memberId, workspaceId);
-        audit.event(AuditEventType.MEMBER_REMOVED)
+        audit.event(WorkspaceEventType.MEMBER_REMOVED)
                 .actor(actorId).workspace(workspaceId).target("member", memberId).from(request)
                 .detail("removedUserId", member.getUserId().toString())
                 .record();

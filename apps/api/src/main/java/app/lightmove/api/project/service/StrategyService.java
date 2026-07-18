@@ -1,6 +1,6 @@
 package app.lightmove.api.project.service;
 
-import app.lightmove.api.core.audit.constant.AuditEventType;
+import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
@@ -56,7 +56,7 @@ public class StrategyService {
         appendKind(sectors, request.inferred(), StrategySectorKind.INFERRED);
         strategy.replaceSectors(sectors);
 
-        audit.event(AuditEventType.STRATEGY_UPDATED)
+        audit.event(ProjectEventType.STRATEGY_UPDATED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .detail("section", "sectors")
                 .record();

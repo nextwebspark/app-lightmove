@@ -1,5 +1,4 @@
 package app.lightmove.api.core.audit.service;
-import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.audit.constant.AuditEventType;
 import app.lightmove.api.core.audit.constant.AuditOutcome;
 import app.lightmove.api.core.audit.model.AuditEvent;

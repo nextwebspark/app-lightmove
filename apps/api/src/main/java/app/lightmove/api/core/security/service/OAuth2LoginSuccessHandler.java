@@ -9,7 +9,7 @@ import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.core.security.constant.AuthProvider;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.model.UserIdentity;
-import app.lightmove.api.core.audit.constant.AuditEventType;
+import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.model.ApiException;
@@ -128,7 +128,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         }
 
         user.recordSuccessfulLogin(Instant.now());
-        audit.event(AuditEventType.OAUTH_LOGIN_SUCCEEDED).actor(user.getId()).from(request)
+        audit.event(AuthEventType.OAUTH_LOGIN_SUCCEEDED).actor(user.getId()).from(request)
                 .detail("provider", "GOOGLE").record();
 
         WorkspaceMember membership = members
@@ -153,7 +153,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                     existing.markEmailVerified(Instant.now());
 
                     log.info("Linked Google account to existing user {}", existing.getId());
-                    audit.event(AuditEventType.OAUTH_ACCOUNT_LINKED).actor(existing.getId()).from(request)
+                    audit.event(AuthEventType.OAUTH_ACCOUNT_LINKED).actor(existing.getId()).from(request)
                             .detail("provider", "GOOGLE").record();
                     return existing;
                 })
@@ -176,7 +176,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         identities.save(UserIdentity.link(user.getId(), AuthProvider.GOOGLE, googleSubject, email));
 
         log.info("Registered user {} via Google, claiming domain {}", user.getId(), domain);
-        audit.event(AuditEventType.USER_SIGNED_UP).actor(user.getId()).from(request)
+        audit.event(AuthEventType.USER_SIGNED_UP).actor(user.getId()).from(request)
                 .detail("provider", "GOOGLE").detail("domain", domain).record();
 
         return user;
