@@ -1,11 +1,15 @@
 package app.lightmove.api.workspace.dto;
 
-import app.lightmove.api.workspace.constant.WorkspaceRole;
+import app.lightmove.api.core.security.rbac.WorkspaceRole;
+import app.lightmove.api.core.security.service.PasswordPolicy;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -25,7 +29,9 @@ public final class WorkspaceDtos {
             String slug,
             String logoMark,
             String emailDomain,
-            WorkspaceRole role
+
+            /** The caller's workspace roles — a set, sorted for stable rendering. */
+            List<WorkspaceRole> roles
     ) {}
 
     /** Signup step 2. */
@@ -36,9 +42,6 @@ public final class WorkspaceDtos {
 
             String companySize,
             String primaryRegion,
-
-            /** The mockup's "Your role" — a job title, not an authority. See CreateWorkspaceCommand. */
-            String jobTitle,
             String teamFocus
     ) {}
 
@@ -56,38 +59,77 @@ public final class WorkspaceDtos {
     ) {}
 
     /**
-     * A workspace already running on the user's email domain, offered at signup step 2 so they find their
-     * firm instead of starting a second copy of it. Deliberately thin — shown to a non-member, so it
-     * carries the name, who runs it and how big it is, and nothing about the work inside.
+     * Accept an invitation by creating the invited account (the invitee has no account yet). No email
+     * field: the address is the invitation's, resolved from the token server-side — a client-supplied
+     * email is exactly what this flow must not trust.
      */
-    public record JoinableWorkspace(
-            UUID id,
-            String name,
-            String logoMark,
-            int memberCount,
-            String adminName
+    public record AcceptInvitationSignupRequest(
+            @NotBlank(message = "Missing invitation token")
+            String token,
+
+            @NotBlank(message = "Enter your full name")
+            @Size(max = 160, message = "That name is too long")
+            String fullName,
+
+            @NotBlank(message = "Choose a password")
+            @Size(min = PasswordPolicy.MIN_LENGTH, message = "Use at least 8 characters")
+            @Pattern(regexp = ".*\\d.*", message = "Include at least one number")
+            String password
     ) {}
 
-    public record RequestToJoinRequest(
-            @NotNull(message = "Choose a workspace to join")
-            UUID workspaceId,
-
-            /** A suggestion only. The approving admin picks the real role. */
-            WorkspaceRole requestedRole
-    ) {}
-
-    /** Someone waiting on an admin's decision, as the admin sees them. */
-    public record PendingMemberResponse(
+    /** One row of the active roster. */
+    public record MemberResponse(
             UUID memberId,
             UUID userId,
             String fullName,
             String email,
-            WorkspaceRole requestedRole,
-            Instant requestedAt
+            String title,
+            List<WorkspaceRole> roles,
+            Instant joinedAt
     ) {}
 
-    public record ApproveMemberRequest(
-            /** Null keeps the role they asked for. */
-            WorkspaceRole role
+    /** Replace-set: the full set of roles the member holds afterwards. */
+    public record ChangeRolesRequest(
+            @NotEmpty(message = "Choose at least one role")
+            Set<WorkspaceRole> roles
+    ) {}
+
+    /** Settings → General. */
+    public record WorkspaceResponse(
+            UUID id,
+            String name,
+            String slug,
+            String logoMark,
+            String emailDomain,
+            String defaultRegion,
+            String defaultCurrency,
+            String plan,
+            long memberCount,
+            Instant createdAt
+    ) {}
+
+    public record UpdateWorkspaceSettingsRequest(
+            @NotBlank(message = "Enter the workspace name")
+            @Size(max = 160, message = "That name is too long")
+            String name,
+
+            String defaultRegion,
+            String defaultCurrency
+    ) {}
+
+    /** Deletion demands the workspace name typed back; the server verifies it too. */
+    public record DeleteWorkspaceRequest(
+            @NotBlank(message = "Type the workspace name to confirm")
+            String confirmName
+    ) {}
+
+    /** An outstanding invitation, as the Settings → Members screen lists them. */
+    public record InvitationResponse(
+            UUID id,
+            String email,
+            WorkspaceRole role,
+            String invitedByName,
+            Instant createdAt,
+            Instant expiresAt
     ) {}
 }

@@ -7,6 +7,7 @@ import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import * as authApi from "../api/authApi";
 import type { WorkspaceRole } from "../api/types";
 import { INVITE_ROLES, inviteSchema } from "../schemas";
+import { titleCase } from "../../../lib/format";
 
 interface InviteRow {
   id: number;
@@ -29,8 +30,8 @@ export function InviteStepPage() {
   const { user, reload } = useAuth();
 
   const [rows, setRows] = useState<InviteRow[]>([
-    { id: 1, email: "", role: "CONSULTANT" },
-    { id: 2, email: "", role: "CONSULTANT" },
+    { id: 1, email: "", role: "MEMBER" },
+    { id: 2, email: "", role: "MEMBER" },
   ]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +49,7 @@ export function InviteStepPage() {
   };
 
   const addRow = () =>
-    setRows((current) => [...current, { id: Date.now(), email: "", role: "CONSULTANT" }]);
+    setRows((current) => [...current, { id: Date.now(), email: "", role: "MEMBER" }]);
 
   const removeRow = (id: number) =>
     setRows((current) => current.filter((row) => row.id !== id));
@@ -205,6 +206,3 @@ export function InviteStepPage() {
   );
 }
 
-function titleCase(role: string): string {
-  return role.charAt(0) + role.slice(1).toLowerCase();
-}

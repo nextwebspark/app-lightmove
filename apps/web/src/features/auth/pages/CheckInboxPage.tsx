@@ -29,11 +29,12 @@ export function CheckInboxPage() {
     if (!user) return;
     if (user.workspace) {
       navigate("/", { replace: true });
-    } else if (user.awaitingApproval) {
-      // Their held join request has reached the admin's queue. Now the approval screen is the truth.
-      navigate("/signup/pending", { replace: true });
+    } else if (user.emailVerified && user.pendingInvitation) {
+      // An invitee who verified here rather than accepting first: the server knows their invitation,
+      // so route them to the join confirmation — never into create-your-own.
+      navigate("/auth/accept-invite", { replace: true });
     } else if (user.emailVerified) {
-      // Verified with nothing held and nothing asked for — they verified before finishing the wizard.
+      // Verified with nothing held and nothing waiting — they verified before finishing the wizard.
       // Send them back to it. Leaving them here strands them on a page telling them to check an inbox
       // they have already checked.
       navigate("/signup/workspace", { replace: true });

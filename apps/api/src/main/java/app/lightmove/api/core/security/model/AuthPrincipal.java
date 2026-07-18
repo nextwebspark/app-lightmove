@@ -1,8 +1,9 @@
 package app.lightmove.api.core.security.model;
 
-import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.constant.ErrorCode;
-import app.lightmove.api.workspace.constant.WorkspaceRole;
+import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.rbac.WorkspaceRole;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -12,17 +13,25 @@ import java.util.UUID;
  * distinction is the whole of tenant isolation: {@link #workspaceId()} is a claim we signed, so a
  * caller cannot name someone else's workspace and be served their data.
  *
+ * <p>The roles here are <b>coarse material only</b> — they were minted up to 15 minutes ago. Anything
+ * role-sensitive re-reads the database through the rbac access services; nothing should branch on
+ * this set to grant or refuse.
+ *
  * @param workspaceId null before the user has completed signup step 2 — they exist, but have no
  *                    tenant yet, and may only reach the onboarding endpoints.
- * @param role        the user's role in {@code workspaceId}; null when that is null.
+ * @param roles       the user's workspace roles in {@code workspaceId}; empty when that is null.
  */
 public record AuthPrincipal(
         UUID userId,
         String email,
         UUID workspaceId,
-        WorkspaceRole role,
+        Set<WorkspaceRole> roles,
         boolean emailVerified
 ) {
+
+    public AuthPrincipal {
+        roles = roles == null ? Set.of() : Set.copyOf(roles);
+    }
 
     /** True once the user has a workspace and may use the app proper. */
     public boolean hasWorkspace() {
@@ -35,10 +44,9 @@ public record AuthPrincipal(
      * a WHERE clause that quietly matches nothing (or, worse, everything).
      *
      * <p>Throws an {@link ApiException}, not an {@link IllegalStateException}. A user who has signed up
-     * but not yet joined a workspace — or whose request to join is still pending — reaching a
-     * workspace endpoint is an ordinary, expected refusal, and they should get a 404. Throwing an
-     * unchecked framework exception turned it into a 500, which is us telling the user we crashed when
-     * in fact we correctly declined.
+     * but not yet joined a workspace reaching a workspace endpoint is an ordinary, expected refusal, and
+     * they should get a 404. Throwing an unchecked framework exception turned it into a 500, which is us
+     * telling the user we crashed when in fact we correctly declined.
      */
     public UUID requireWorkspaceId() {
         if (workspaceId == null) {

@@ -1,11 +1,14 @@
 package app.lightmove.api.core.security.jwt;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
-import app.lightmove.api.workspace.constant.WorkspaceRole;
+import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -20,11 +23,12 @@ import org.springframework.stereotype.Component;
  * issuer. So the claims can be trusted — which is exactly why the workspace id must arrive as a claim
  * and never as a request parameter.
  *
- * <p>Two authorities are derived, and the distinction matters:
+ * <p>Two kinds of authority are derived, and the distinction matters:
  *
  * <ul>
- *   <li>{@code ROLE_ADMIN} / {@code ROLE_CONSULTANT} / {@code ROLE_RESEARCHER} — what you may do,
- *       inside your workspace.
+ *   <li>{@code ROLE_ADMIN} / {@code ROLE_MEMBER} (one per held workspace role) — <b>coarse route
+ *       material only</b>. Every role-sensitive decision re-reads the database through the rbac guard
+ *       beans, because these were minted up to 15 minutes ago.
  *   <li>{@code SCOPE_VERIFIED} — whether you have proved you own your email address. Since the email
  *       domain is what places a user in an organisation, an unverified user has proved nothing, and
  *       the filter chain keeps them out of every workspace endpoint.
@@ -45,21 +49,33 @@ public class JwtPrincipalConverter implements Converter<Jwt, AbstractAuthenticat
         // Absent for a user who has signed up but not yet created their workspace. They exist, they
         // can authenticate, and they can reach only the onboarding endpoints.
         String workspaceClaim = jwt.getClaimAsString("wsId");
-        String roleClaim = jwt.getClaimAsString("role");
-
         UUID workspaceId = workspaceClaim == null ? null : UUID.fromString(workspaceClaim);
-        WorkspaceRole role = roleClaim == null ? null : WorkspaceRole.valueOf(roleClaim);
 
-        AuthPrincipal principal = new AuthPrincipal(userId, email, workspaceId, role, emailVerified);
-        return new JwtPrincipalAuthentication(jwt, principal, authorities(role, emailVerified));
+        AuthPrincipal principal = new AuthPrincipal(userId, email, workspaceId, roles(jwt), emailVerified);
+        return new JwtPrincipalAuthentication(jwt, principal, authorities(principal));
     }
 
-    private static Collection<GrantedAuthority> authorities(WorkspaceRole role, boolean emailVerified) {
-        List<GrantedAuthority> authorities = new ArrayList<>(2);
-        if (role != null) {
-            authorities.add(new SimpleGrantedAuthority(role.authority()));
+    /**
+     * Multi-role claim, with one release of tolerance: tokens minted before the RBAC change carry a
+     * single {@code role} string instead of a {@code roles} array. They die within the 15-minute
+     * access TTL, but until then they must not 500 — read the old shape as a one-element set.
+     */
+    private static Set<WorkspaceRole> roles(Jwt jwt) {
+        List<String> claim = jwt.getClaimAsStringList("roles");
+        if (claim == null) {
+            String legacy = jwt.getClaimAsString("role");
+            claim = legacy == null ? List.of() : List.of(legacy);
         }
-        if (emailVerified) {
+        return claim.isEmpty()
+                ? Set.of()
+                : claim.stream().map(WorkspaceRole::valueOf)
+                        .collect(Collectors.toCollection(() -> EnumSet.noneOf(WorkspaceRole.class)));
+    }
+
+    private static Collection<GrantedAuthority> authorities(AuthPrincipal principal) {
+        List<GrantedAuthority> authorities = new ArrayList<>(principal.roles().size() + 1);
+        principal.roles().forEach(role -> authorities.add(new SimpleGrantedAuthority(role.authority())));
+        if (principal.emailVerified()) {
             authorities.add(new SimpleGrantedAuthority(VERIFIED_AUTHORITY));
         }
         return authorities;

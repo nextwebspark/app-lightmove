@@ -1,23 +1,12 @@
 package app.lightmove.api.workspace.constant;
 
+/**
+ * Membership is invitation-only, so every membership starts ACTIVE — an admin naming someone (or a
+ * creator naming themselves) is the decision, made before the row exists. There is no pending state.
+ */
 public enum MemberStatus {
 
-    /**
-     * Asked to join, waiting on an admin. Carries <b>no access whatsoever</b> — a pending member cannot
-     * read a single row of workspace data.
-     *
-     * <p>That is the whole point of the state. Sharing an employer's email domain is evidence that
-     * someone works there; it is not a decision that they should see an executive-search pipeline. An
-     * intern, a contractor and a departing employee all hold a company address. A human makes the call.
-     *
-     * <p>An <i>invited</i> user never passes through here — an admin naming them is the decision.
-     */
-    PENDING_APPROVAL,
-
     ACTIVE,
-
-    /** An admin declined the join request. Kept, not deleted, so the same person cannot simply re-ask. */
-    REJECTED,
 
     SUSPENDED,
 

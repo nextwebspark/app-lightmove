@@ -106,18 +106,24 @@ public class Workspace extends BaseEntity {
         this.logoMark = deriveLogoMark(name);
     }
 
-    /**
-     * Whether an address belongs to this organisation.
-     *
-     * <p>The single place that question is answered, so that signup, invitation and any future
-     * membership path cannot each arrive at a slightly different answer.
-     */
-    public boolean owns(String email) {
-        if (email == null || !email.contains("@")) {
-            return false;
+    /** The Settings → General form. Re-derives the logo mark; identity (slug, domain) stays put. */
+    public void applySettings(String name, String defaultRegion, String defaultCurrency) {
+        this.name = name;
+        this.logoMark = deriveLogoMark(name);
+        if (defaultRegion != null) {
+            this.defaultRegion = defaultRegion;
         }
-        String domain = email.substring(email.lastIndexOf('@') + 1).toLowerCase(Locale.ROOT);
-        return emailDomain.equalsIgnoreCase(domain);
+        if (defaultCurrency != null) {
+            this.defaultCurrency = defaultCurrency;
+        }
+    }
+
+    /** Soft delete — the row stays for the audit trail; the ACTIVE-filtered indexes stop seeing it. */
+    public void delete() {
+        if (status == WorkspaceStatus.DELETED) {
+            throw new IllegalStateException("Workspace is already deleted");
+        }
+        this.status = WorkspaceStatus.DELETED;
     }
 
     /** First letter of the name, upper-cased — matches the "L" tile in the mockups. */

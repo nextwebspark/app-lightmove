@@ -26,17 +26,37 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Enter your password"),
 });
 
-export const signupSchema = z.object({
-  fullName: z.string().min(1, "Enter your full name").max(160, "That name is too long"),
-  email,
-  password,
-});
+export const signupSchema = z
+  .object({
+    fullName: z.string().min(1, "Enter your full name").max(160, "That name is too long"),
+    email,
+    password,
+    confirmPassword: z.string().min(1, "Re-enter your password"),
+  })
+  .refine((values) => values.password === values.confirmPassword, {
+    message: "Those passwords don't match",
+    path: ["confirmPassword"],
+  });
+
+/**
+ * Accepting an invitation: the invitee sets a name and a password (entered twice). No email — it is the
+ * invitation's, shown read-only, never theirs to choose.
+ */
+export const acceptInviteSchema = z
+  .object({
+    fullName: z.string().min(1, "Enter your full name").max(160, "That name is too long"),
+    password,
+    confirmPassword: z.string().min(1, "Re-enter your password"),
+  })
+  .refine((values) => values.password === values.confirmPassword, {
+    message: "Those passwords don't match",
+    path: ["confirmPassword"],
+  });
 
 export const workspaceSchema = z.object({
   name: z.string().min(1, "Enter your organization's name").max(160, "That name is too long"),
   companySize: z.string(),
   primaryRegion: z.string(),
-  jobTitle: z.string(),
   teamFocus: z.string(),
 });
 
@@ -48,19 +68,19 @@ export const inviteSchema = z.object({
       email: z.string().refine((value) => value === "" || z.string().email().safeParse(value).success, {
         message: "That doesn't look like a valid email",
       }),
-      role: z.enum(["ADMIN", "CONSULTANT", "RESEARCHER"]),
+      role: z.enum(["ADMIN", "MEMBER"]),
     }),
   ),
 });
 
 export type LoginValues = z.infer<typeof loginSchema>;
 export type SignupValues = z.infer<typeof signupSchema>;
+export type AcceptInviteValues = z.infer<typeof acceptInviteSchema>;
 export type WorkspaceValues = z.infer<typeof workspaceSchema>;
 export type InviteValues = z.infer<typeof inviteSchema>;
 
 /** The dropdown options, taken from Signup.dc.html. */
 export const COMPANY_SIZES = ["1–10 people", "11–50 people", "51–200 people", "200+ people"];
 export const REGIONS = ["GCC", "MENA", "Europe", "North America", "Global"];
-export const JOB_TITLES = ["Partner", "Consultant", "Researcher", "Operations"];
 export const TEAM_FOCUSES = ["Executive search", "Board advisory", "Talent mapping", "Mixed"];
-export const INVITE_ROLES = ["CONSULTANT", "RESEARCHER", "ADMIN"] as const;
+export const INVITE_ROLES = ["MEMBER", "ADMIN"] as const;

@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -130,6 +131,31 @@ public class GlobalExceptionHandler {
         log.debug("Method {} not supported at {} (supported: {})",
                 request.getMethod(), request.getRequestURI(), ex.getSupportedHttpMethods());
         return problem(ErrorCode.METHOD_NOT_ALLOWED, ErrorCode.METHOD_NOT_ALLOWED.defaultMessage());
+    }
+
+    /**
+     * A database constraint beat a service-level pre-check — two requests raced. The pre-checks give
+     * the common case a precise error; this maps the constraint that backs them to the same code, so a
+     * race answers 409 instead of leaking a stack trace as a 500 and telling the client we broke.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
+        ErrorCode code = switch (constraintNameOf(ex)) {
+            case "app_lm_client_workspace_name_uk" -> ErrorCode.CLIENT_ALREADY_EXISTS;
+            default -> ErrorCode.CONFLICT;
+        };
+        log.info("[{}] constraint violation at {} {}", code, request.getMethod(), request.getRequestURI());
+        return problem(code, code.defaultMessage());
+    }
+
+    private String constraintNameOf(DataIntegrityViolationException ex) {
+        for (Throwable cause = ex.getCause(); cause != null; cause = cause.getCause()) {
+            if (cause instanceof org.hibernate.exception.ConstraintViolationException violation
+                    && violation.getConstraintName() != null) {
+                return violation.getConstraintName();
+            }
+        }
+        return "";
     }
 
     /**

@@ -37,17 +37,18 @@ public enum AuditEventType {
     // Tenancy
     WORKSPACE_CREATED,
     WORKSPACE_UPDATED,
+    WORKSPACE_DELETED,
     MEMBER_INVITED,
     INVITATION_ACCEPTED,
-
-    /** Someone found a workspace on their email domain and asked to be let in. */
-    JOIN_REQUESTED,
-    /** An admin let them in — the moment a person gains access to a firm's candidate data. */
-    JOIN_APPROVED,
-    JOIN_REJECTED,
+    INVITATION_REVOKED,
 
     MEMBER_ROLE_CHANGED,
     MEMBER_REMOVED,
+
+    // Projects
+    PROJECT_CREATED,
+    PROJECT_UPDATED,
+    PROJECT_TEAM_CHANGED,
 
     // Abuse
     RATE_LIMIT_EXCEEDED

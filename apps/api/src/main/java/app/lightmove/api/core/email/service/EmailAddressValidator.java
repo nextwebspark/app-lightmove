@@ -47,12 +47,6 @@ public class EmailAddressValidator {
     private final DisposableDomains disposableDomains;
     private final PublicEmailDomains configuredPublicDomains;
 
-    /**
-     * Always the bundled list, whatever the configuration says. Used for the one question that must be
-     * answered even when blocking is switched off: "is this domain safe to group colleagues by?"
-     */
-    private final PublicEmailDomains bundledPublicDomains = PublicEmailDomains.bundled();
-
     public EmailAddressValidator(LightMoveProperties properties) {
         this.config = properties.email().validation();
         this.disposableDomains = new DisposableDomains(config.extraDisposableDomains());
@@ -89,17 +83,6 @@ public class EmailAddressValidator {
         }
 
         return domain;
-    }
-
-    /**
-     * Whether this domain can be used to find a user's colleagues.
-     *
-     * <p>False for consumer providers — <b>even when blocking is disabled</b>. Offering a Gmail user
-     * "the workspaces on your domain" would list every unrelated customer who also signed up with
-     * Gmail, which is both useless to them and a disclosure of other firms' existence to a stranger.
-     */
-    public boolean canGroupColleaguesBy(String domain) {
-        return !bundledPublicDomains.contains(domain) && !configuredPublicDomains.contains(domain);
     }
 
     /** The domain of an address. Assumes it has already been validated. */

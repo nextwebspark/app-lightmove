@@ -1,6 +1,13 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
 import { cn } from "../../lib/cn";
 
+export { Avatar } from "./Avatar";
+export { HealthDot, StagePill, stageLabel } from "./Badge";
+export { Drawer } from "./Drawer";
+export { EmptyState } from "./EmptyState";
+export { Modal } from "./Modal";
+export { ToastProvider, useToast } from "./Toast";
+
 /**
  * The handful of primitives every auth screen is built from.
  *

@@ -1,12 +1,9 @@
 package app.lightmove.api.workspace.model;
-import app.lightmove.api.workspace.constant.PendingOnboardingKind;
-import app.lightmove.api.workspace.constant.WorkspaceRole;
 
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.List;
@@ -26,10 +23,11 @@ import org.hibernate.type.SqlTypes;
  *
  * <p>That split is the whole point. The email domain is LightMove's only evidence that someone works at
  * a firm, so a workspace bound to {@code goldmansachs.com} must not exist because somebody typed that
- * address into a form. Were it to exist, every real employee of that firm would later be shown an
- * impostor's organisation as "your firm is already here" — and asking to join it would leave them
- * pending forever, because its only admin can never verify. Holding the intent here means there is
- * nothing on the domain to find until the mailbox is proved.
+ * address into a form. Holding the intent here means there is nothing on the domain until the mailbox
+ * is proved.
+ *
+ * <p>Since membership is invitation-only, the only intent a wizard can hold is <i>create</i> — there is
+ * no join request to hold anymore.
  */
 @Entity
 @Table(name = "app_lm_pending_onboarding")
@@ -40,13 +38,7 @@ public class PendingOnboarding extends BaseEntity {
     @Column(name = "user_id", nullable = false, updatable = false, unique = true)
     private UUID userId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 16)
-    private PendingOnboardingKind kind;
-
-    // ── kind = CREATE ────────────────────────────────────────────────────────
-
-    @Column(length = 160)
+    @Column(nullable = false, length = 160)
     private String name;
 
     @Column(name = "company_size", length = 32)
@@ -58,71 +50,30 @@ public class PendingOnboarding extends BaseEntity {
     @Column(name = "team_focus", length = 32)
     private String teamFocus;
 
-    @Column(name = "job_title", length = 120)
-    private String jobTitle;
-
     /** Step 3, held rather than sent. An unverified user must not make us email strangers. */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false)
     private List<PendingInvite> invitations = List.of();
 
-    // ── kind = JOIN ──────────────────────────────────────────────────────────
-
-    @Column(name = "workspace_id")
-    private UUID workspaceId;
-
-    /** What they asked for. Still only a suggestion — the approving admin picks the real role. */
-    @Enumerated(EnumType.STRING)
-    @Column(name = "requested_role", length = 32)
-    private WorkspaceRole requestedRole;
-
-    // ─────────────────────────────────────────────────────────────────────────
-
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 
     public static PendingOnboarding toCreate(UUID userId, String name, String companySize,
-                                             String primaryRegion, String teamFocus, String jobTitle,
+                                             String primaryRegion, String teamFocus,
                                              Instant expiresAt) {
         PendingOnboarding pending = new PendingOnboarding();
         pending.userId = userId;
-        pending.kind = PendingOnboardingKind.CREATE;
-        pending.describe(name, companySize, primaryRegion, teamFocus, jobTitle);
-        pending.expiresAt = expiresAt;
-        return pending;
-    }
-
-    public static PendingOnboarding toJoin(UUID userId, UUID workspaceId, WorkspaceRole requestedRole,
-                                           Instant expiresAt) {
-        PendingOnboarding pending = new PendingOnboarding();
-        pending.userId = userId;
-        pending.kind = PendingOnboardingKind.JOIN;
-        pending.workspaceId = workspaceId;
-        pending.requestedRole = requestedRole;
+        pending.describe(name, companySize, primaryRegion, teamFocus);
         pending.expiresAt = expiresAt;
         return pending;
     }
 
     /** Re-submitting step 2 — the wizard's Back button — edits the draft rather than adding another. */
-    public void describe(String name, String companySize, String primaryRegion, String teamFocus,
-                         String jobTitle) {
-        this.kind = PendingOnboardingKind.CREATE;
+    public void describe(String name, String companySize, String primaryRegion, String teamFocus) {
         this.name = name;
         this.companySize = companySize;
         this.primaryRegion = primaryRegion;
         this.teamFocus = teamFocus;
-        this.jobTitle = jobTitle;
-        // Switching branch abandons the other one's data, or a stale workspace_id would survive a user
-        // changing their mind from "join" to "create" and be materialised alongside it.
-        this.workspaceId = null;
-        this.requestedRole = null;
-    }
-
-    public void redirectToJoin(UUID workspaceId, WorkspaceRole requestedRole) {
-        this.kind = PendingOnboardingKind.JOIN;
-        this.workspaceId = workspaceId;
-        this.requestedRole = requestedRole;
-        this.invitations = List.of();
     }
 
     public void holdInvitations(List<PendingInvite> invitations) {

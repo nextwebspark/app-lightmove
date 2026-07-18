@@ -5,12 +5,9 @@ import type {
   CreateWorkspaceRequest,
   InvitationPreview,
   InviteRequest,
-  JoinableWorkspace,
   LoginRequest,
-  PendingMember,
   SignupRequest,
   User,
-  WorkspaceRole,
 } from "./types";
 
 /**
@@ -71,14 +68,6 @@ export function resendVerification(email: string): Promise<void> {
 
 // ── Onboarding ──────────────────────────────────────────────────────────────
 
-/** The workspaces already on this user's email domain — "is my firm already here?" */
-export function joinableWorkspaces(): Promise<JoinableWorkspace[]> {
-  return request<JoinableWorkspace[]>("/onboarding/workspaces");
-}
-
-/** Shared, so step 1's prefetch cannot drift from the key step 2 reads — a miss would only look slow. */
-export const JOINABLE_WORKSPACES_KEY = ["joinable-workspaces"] as const;
-
 /** Editing the workspace you already run — which is what Back means once step 2 has committed. */
 export function updateWorkspace(payload: CreateWorkspaceRequest): Promise<User> {
   return request<User>("/onboarding/workspace", {
@@ -89,14 +78,6 @@ export function updateWorkspace(payload: CreateWorkspaceRequest): Promise<User> 
 
 export function createWorkspace(payload: CreateWorkspaceRequest): Promise<User> {
   return request<User>("/onboarding/workspace", { method: "POST", body: payload });
-}
-
-/** Asks to join. Grants nothing — an admin has to approve it. */
-export function requestToJoin(workspaceId: string, requestedRole: WorkspaceRole): Promise<User> {
-  return request<User>("/onboarding/join-requests", {
-    method: "POST",
-    body: { workspaceId, requestedRole },
-  });
 }
 
 export function invite(invites: InviteRequest[]): Promise<{ sent: number }> {
@@ -121,19 +102,32 @@ export function acceptInvitation(token: string): Promise<User> {
   });
 }
 
-// ── Membership decisions ────────────────────────────────────────────────────
-
-export function pendingMembers(): Promise<PendingMember[]> {
-  return request<PendingMember[]>("/members/pending");
+/**
+ * Accepts the caller's own outstanding invitation, token-lessly. For the invitee who verified in a
+ * fresh tab: the emailed token lives in another tab's sessionStorage, but the server already knows a
+ * redeemable invitation is addressed to this verified email — `user.pendingInvitation` says so.
+ */
+export function acceptPendingInvitation(): Promise<User> {
+  return request<User>("/onboarding/accept-invitation", { method: "POST" });
 }
 
-export function approveMember(memberId: string, role: WorkspaceRole): Promise<PendingMember> {
-  return request<PendingMember>(`/members/${memberId}/approve`, {
+/**
+ * Accepts an invitation by creating the invited account in one step — the invitee has no session, so
+ * this is anonymous and the invitation token in the body is the credential. Installs the returned access
+ * token, exactly like signup and login. No email: the address is the invitation's.
+ */
+export async function acceptInvitationSignup(
+  token: string,
+  fullName: string,
+  password: string,
+): Promise<AuthResponse> {
+  const session = await request<AuthResponse>("/onboarding/accept-invitation-signup", {
     method: "POST",
-    body: { role },
+    body: { token, fullName, password },
+    anonymous: true,
   });
+  setAccessToken(session.accessToken);
+  return session;
 }
 
-export function rejectMember(memberId: string): Promise<void> {
-  return request<void>(`/members/${memberId}/reject`, { method: "POST" });
-}
+// Membership decisions live in features/workspace/api/workspaceApi.ts — auth ends at the session.

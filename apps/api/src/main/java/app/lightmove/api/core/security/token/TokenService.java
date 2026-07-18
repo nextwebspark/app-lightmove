@@ -9,7 +9,6 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.security.service.ClientIpResolver;
 import app.lightmove.api.workspace.model.WorkspaceMember;
-import app.lightmove.api.workspace.constant.WorkspaceRole;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.UUID;
@@ -166,13 +165,14 @@ public class TokenService {
      * The access token. Short-lived, signed RS256, and carrying just enough to authorise a request
      * without a database round-trip.
      *
-     * <p>{@code wsId} and {@code role} are the tenant claims — signed, so a caller cannot alter them.
+     * <p>{@code wsId} and {@code roles} are the tenant claims — signed, so a caller cannot alter them.
      * Both are absent for a user who has not yet finished signup step 2: they exist but have no
      * workspace, and the filter chain lets them reach only the onboarding endpoints.
      *
-     * <p>The trade-off in putting the role in the token is staleness: revoking someone's admin rights
+     * <p>The trade-off in putting roles in the token is staleness: revoking someone's admin rights
      * does not reach an already-minted token. That window is bounded by {@code accessTokenTtl} — 15
-     * minutes — because the next refresh re-reads the membership. Shrinking the TTL shrinks the window.
+     * minutes — because the next refresh re-reads the membership. It is also why the claim is coarse
+     * material only: every role-sensitive decision re-reads the database (see the rbac guard beans).
      */
     private String mintAccessToken(User user, WorkspaceMember membership, Instant now) {
         JwtClaimsSet.Builder claims = JwtClaimsSet.builder()
@@ -187,7 +187,10 @@ public class TokenService {
 
         if (membership != null && membership.isActive()) {
             claims.claim("wsId", membership.getWorkspaceId().toString());
-            claims.claim("role", membership.getRole().name());
+            claims.claim("roles", membership.getRoles().stream()
+                    .map(app.lightmove.api.core.security.rbac.Role::getName)
+                    .sorted()
+                    .toList());
         }
 
         return jwtEncoder.encode(JwtEncoderParameters.from(claims.build())).getTokenValue();
@@ -219,10 +222,5 @@ public class TokenService {
     /** Exposed for the controller, which needs it to decide how long the refresh cookie lives. */
     public java.time.Duration refreshTokenTtl() {
         return config.refreshTokenTtl();
-    }
-
-    /** Visible for tests asserting on the claim set. */
-    static String roleClaim(WorkspaceRole role) {
-        return role == null ? null : role.name();
     }
 }

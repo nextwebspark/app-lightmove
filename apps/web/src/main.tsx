@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { AppRoutes } from "./app/routes";
+import { ToastProvider } from "./components/ui";
 import { AuthProvider } from "./features/auth/AuthProvider";
 import { applyStoredTheme } from "./features/theme/useTheme";
 import "./styles/global.css";
@@ -28,7 +29,9 @@ createRoot(document.getElementById("root")!).render(
       <BrowserRouter>
         {/* Inside the router, because AuthProvider's children navigate. */}
         <AuthProvider>
-          <AppRoutes />
+          <ToastProvider>
+            <AppRoutes />
+          </ToastProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

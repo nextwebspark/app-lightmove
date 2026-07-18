@@ -4,8 +4,12 @@ import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember, UUID> {
 
@@ -13,9 +17,10 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
      * The user's workspace. Singular: a user has at most one <i>active</i> membership, enforced by a
      * partial unique index on {@code user_id WHERE status = 'ACTIVE'}.
      *
-     * <p>Note this deliberately does not see a PENDING_APPROVAL row. Someone waiting on an admin has no
-     * workspace as far as the rest of the application is concerned, and no access to one.
+     * <p>Roles ride along eagerly: this row is what auth responses are assembled from, usually outside
+     * a transaction, where a lazy collection would explode instead of loading.
      */
+    @EntityGraph(attributePaths = "roles")
     Optional<WorkspaceMember> findByUserIdAndStatus(UUID userId, MemberStatus status);
 
     /**
@@ -25,12 +30,37 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
      * naming someone else's workspace id and being served their data. Nothing workspace-scoped should
      * load without this returning an active member first.
      */
+    @EntityGraph(attributePaths = "roles")
     Optional<WorkspaceMember> findByWorkspaceIdAndUserIdAndStatus(UUID workspaceId, UUID userId, MemberStatus status);
 
-    Optional<WorkspaceMember> findByWorkspaceIdAndUserId(UUID workspaceId, UUID userId);
-
+    @EntityGraph(attributePaths = "roles")
     List<WorkspaceMember> findByWorkspaceIdAndStatus(UUID workspaceId, MemberStatus status);
 
-    /** Everything the user has going on — one active membership at most, plus any outstanding requests. */
-    List<WorkspaceMember> findByUserId(UUID userId);
+    long countByWorkspaceIdAndStatus(UUID workspaceId, MemberStatus status);
+
+    @EntityGraph(attributePaths = "roles")
+    Optional<WorkspaceMember> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
+
+    /**
+     * The membership's workspace-role names, straight from the assignment table. A projection rather
+     * than a lazy walk because authorisation runs in {@code @PreAuthorize}, outside any transaction.
+     */
+    @Query("select r.name from WorkspaceMember m join m.roles r where m.id = :memberId")
+    Set<String> findRoleNames(@Param("memberId") UUID memberId);
+
+    /** The union of the membership's roles' actions — the answer authorisation actually wants. */
+    @Query("""
+            select a.name from WorkspaceMember m join m.roles r join r.actions a
+            where m.id = :memberId
+            """)
+    Set<String> findActionNames(@Param("memberId") UUID memberId);
+
+    /** Backs the last-admin guard: a workspace must never lose its only active ADMIN-role holder. */
+    @Query("""
+            select count(distinct m.id) from WorkspaceMember m join m.roles r
+            where m.workspaceId = :workspaceId and m.status = :status and r.name = :roleName
+            """)
+    long countByRoleName(@Param("workspaceId") UUID workspaceId,
+                         @Param("roleName") String roleName,
+                         @Param("status") MemberStatus status);
 }

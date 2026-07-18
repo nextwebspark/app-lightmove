@@ -1,30 +1,32 @@
 package app.lightmove.api.workspace.controller;
 
 import app.lightmove.api.core.security.controller.AuthResponseAssembler;
+import app.lightmove.api.core.security.dto.AuthDtos.AuthResponse;
+import app.lightmove.api.core.security.dto.AuthDtos.UserResponse;
+import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.model.AuthenticatedSession;
+import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.rbac.WorkspaceRole;
+import app.lightmove.api.core.security.service.AuthService;
+import app.lightmove.api.core.security.service.CurrentUser;
+import app.lightmove.api.core.security.token.RefreshCookieFactory;
 import app.lightmove.api.workspace.dto.WorkspaceDtos.AcceptInvitationRequest;
+import app.lightmove.api.workspace.dto.WorkspaceDtos.AcceptInvitationSignupRequest;
 import app.lightmove.api.workspace.dto.WorkspaceDtos.CreateWorkspaceRequest;
 import app.lightmove.api.workspace.dto.WorkspaceDtos.InviteRequest;
-import app.lightmove.api.workspace.dto.WorkspaceDtos.JoinableWorkspace;
-import app.lightmove.api.workspace.dto.WorkspaceDtos.RequestToJoinRequest;
-import app.lightmove.api.core.security.dto.AuthDtos.UserResponse;
-import app.lightmove.api.core.security.service.AuthService;
-import app.lightmove.api.core.security.model.User;
-import app.lightmove.api.core.security.model.AuthPrincipal;
-import app.lightmove.api.core.security.service.CurrentUser;
-import app.lightmove.api.workspace.service.InvitationService;
-import app.lightmove.api.workspace.model.InviteCommand;
 import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
-import app.lightmove.api.workspace.service.OnboardingService;
-import app.lightmove.api.workspace.service.WorkspaceSummaries;
+import app.lightmove.api.workspace.model.InviteCommand;
 import app.lightmove.api.workspace.model.PendingOnboarding;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
-import app.lightmove.api.workspace.constant.WorkspaceRole;
+import app.lightmove.api.workspace.service.InvitationService;
+import app.lightmove.api.workspace.service.OnboardingService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,10 +38,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Signup steps 2 and 3.
+ * Signup steps 2 and 3, and invitation redemption.
  *
  * <p>The only authenticated area a user with no workspace can reach — see {@code SecurityConfig}.
- * Everything else in the API needs a tenant claim, which nobody has until step 2 completes.
+ * Everything else in the API needs a tenant claim, which nobody has until they create a workspace or
+ * accept an invitation. Those are the only two ways in; there is no join request.
  */
 @RestController
 @RequestMapping("/api/v1/onboarding")
@@ -50,26 +53,10 @@ public class OnboardingController {
     private final InvitationService invitations;
     private final AuthService auth;
     private final AuthResponseAssembler assembler;
-    private final WorkspaceSummaries summaries;
+    private final RefreshCookieFactory refreshCookie;
 
     /**
-     * "Is my firm already on LightMove?" — the workspaces running on this user's email domain.
-     *
-     * <p>Drives the fork at the top of signup step 2: an empty list means they simply create a
-     * workspace; a non-empty one lets them recognise their firm and ask to join instead of
-     * accidentally starting a second copy of it.
-     *
-     * <p>Empty for a consumer email domain even where those are permitted — see
-     * {@code EmailAddressValidator.canGroupColleaguesBy}.
-     */
-    @GetMapping("/workspaces")
-    public ResponseEntity<List<JoinableWorkspace>> joinableWorkspaces() {
-        AuthPrincipal principal = CurrentUser.require();
-        return ResponseEntity.ok(summaries.joinable(onboarding.joinableWorkspaces(principal.userId())));
-    }
-
-    /**
-     * Signup step 2, path A — create your own workspace. You are its ADMIN.
+     * Signup step 2 — create your workspace. You are its ADMIN.
      *
      * <p>Returns the updated user, now with a workspace. The client must then call {@code /auth/refresh}
      * to pick up an access token that actually carries the new tenant claim — the one it holds was
@@ -83,7 +70,7 @@ public class OnboardingController {
         Optional<Workspace> created = onboarding.createWorkspace(
                 principal.userId(),
                 new CreateWorkspaceCommand(request.name(), request.companySize(),
-                        request.primaryRegion(), request.jobTitle(), request.teamFocus()),
+                        request.primaryRegion(), request.teamFocus()),
                 httpRequest);
 
         // 202 while unverified: answers are held and the workspace is created at verification (see
@@ -107,7 +94,7 @@ public class OnboardingController {
 
         CreateWorkspaceCommand command = new CreateWorkspaceCommand(
                 request.name(), request.companySize(), request.primaryRegion(),
-                request.jobTitle(), request.teamFocus());
+                request.teamFocus());
 
         // No workspace yet means the wizard is still held awaiting verification, so "Back" edits a draft
         // and createWorkspace already upserts it.
@@ -119,25 +106,6 @@ public class OnboardingController {
         onboarding.updateWorkspace(principal.userId(), principal.requireWorkspaceId(), command, httpRequest);
 
         return ResponseEntity.ok(currentUser(principal));
-    }
-
-    /**
-     * Signup step 2, path B — ask to join a workspace you found on your domain.
-     *
-     * <p>202 Accepted, not 200: nothing has been granted. The membership is pending and carries no
-     * access whatsoever until an admin approves it. The user's next screen is a waiting state.
-     */
-    @PostMapping("/join-requests")
-    public ResponseEntity<UserResponse> requestToJoin(@Valid @RequestBody RequestToJoinRequest request,
-                                                      HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
-
-        onboarding.requestToJoin(principal.userId(), request.workspaceId(),
-                request.requestedRole(), httpRequest);
-
-        // The user response still shows no workspace — because they have none. That is not an omission;
-        // it is the truth, and the frontend routes on it.
-        return ResponseEntity.accepted().body(currentUser(principal));
     }
 
     /**
@@ -155,9 +123,9 @@ public class OnboardingController {
         // and "email these five people on my say-so" is precisely the action an unproven account must
         // not be able to take. They go out when the workspace is created at verification.
         List<PendingOnboarding.PendingInvite> held = requests.stream()
-                // The mockup's dropdown defaults to Consultant; an omitted role must not become null.
+                // The mockup's dropdown defaults to Member; an omitted role must not become null.
                 .map(r -> new PendingOnboarding.PendingInvite(
-                        r.email(), r.role() == null ? WorkspaceRole.CONSULTANT : r.role()))
+                        r.email(), r.role() == null ? WorkspaceRole.MEMBER : r.role()))
                 .toList();
 
         if (onboarding.holdInvitations(principal.userId(), held)) {
@@ -196,6 +164,37 @@ public class OnboardingController {
         AuthPrincipal principal = CurrentUser.require();
         invitations.accept(request.token(), principal.userId(), httpRequest);
         return ResponseEntity.ok(currentUser(principal));
+    }
+
+    /**
+     * Redeems the caller's own outstanding invitation, with no token.
+     *
+     * <p>Exists for the invitee who verifies their email in a fresh tab: the emailed invitation token
+     * lives in another tab's sessionStorage, but the server already knows a redeemable invitation is
+     * addressed to this verified email — {@code /auth/me} says so via {@code pendingInvitation} — and a
+     * verified address is the very thing the token existed to prove.
+     */
+    @PostMapping("/accept-invitation")
+    public ResponseEntity<UserResponse> acceptPendingInvitation(HttpServletRequest httpRequest) {
+        AuthPrincipal principal = CurrentUser.require();
+        invitations.acceptForUser(principal.userId(), httpRequest);
+        return ResponseEntity.ok(currentUser(principal));
+    }
+
+    /**
+     * Accept an invitation by creating the invited account in one step — the door in for an invitee who
+     * has no account yet. Public: they have no session to authenticate with, and the invitation token in
+     * the body is the credential. Returns a full session — access token in the body, refresh token in
+     * the httpOnly cookie — so they land in the workspace with no second login and no verification step.
+     */
+    @PostMapping("/accept-invitation-signup")
+    public ResponseEntity<AuthResponse> acceptInvitationSignup(
+            @Valid @RequestBody AcceptInvitationSignupRequest request, HttpServletRequest httpRequest) {
+        AuthenticatedSession session = invitations.acceptWithNewLocalUser(
+                request.token(), request.fullName(), request.password(), httpRequest);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.create(session.tokens().refreshToken()).toString())
+                .body(assembler.assemble(session.tokens(), session.user(), session.membership()));
     }
 
     private UserResponse currentUser(AuthPrincipal principal) {

@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { SettingsLayout } from "../components/layout/SettingsLayout";
+import { WorkspaceLayout } from "../components/layout/WorkspaceLayout";
 import { Logo } from "../components/ui";
 import { useAuth } from "../features/auth/AuthProvider";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
@@ -7,11 +9,14 @@ import { CheckInboxPage } from "../features/auth/pages/CheckInboxPage";
 import { InviteStepPage } from "../features/auth/pages/InviteStepPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
-import { PendingApprovalPage } from "../features/auth/pages/PendingApprovalPage";
 import { SignupPage } from "../features/auth/pages/SignupPage";
 import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { WorkspaceStepPage } from "../features/auth/pages/WorkspaceStepPage";
-import { WorkspacePage } from "../features/workspace/pages/WorkspacePage";
+import { ClientsPage } from "../features/clients/pages/ClientsPage";
+import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
+import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
+import { SettingsMembersPage } from "../features/settings/pages/SettingsMembersPage";
+import { TeamPage } from "../features/workspace/pages/TeamPage";
 
 /**
  * Routing follows the user's actual state, not a step counter.
@@ -45,9 +50,21 @@ export function AppRoutes() {
           this with RequireWorkspace bounced them straight back to step 2, in a loop. */}
       <Route path="/signup/invite" element={<RequireAuth><InviteStepPage /></RequireAuth>} />
       <Route path="/signup/verify" element={<RequireAuth><CheckInboxPage /></RequireAuth>} />
-      <Route path="/signup/pending" element={<RequireAuth><PendingApprovalPage /></RequireAuth>} />
 
-      <Route path="/" element={<RequireWorkspace><WorkspacePage /></RequireWorkspace>} />
+      {/* The app shell. Sidebar views are routes so every screen is deep-linkable. */}
+      <Route element={<RequireWorkspace><WorkspaceLayout /></RequireWorkspace>}>
+        <Route path="/" element={<ProjectsPage view="my" />} />
+        <Route path="/all" element={<ProjectsPage view="all" />} />
+        <Route path="/clients" element={<ClientsPage />} />
+        <Route path="/team" element={<TeamPage />} />
+      </Route>
+
+      {/* Admin-gated in the client for UX only; every settings endpoint re-checks in the service. */}
+      <Route element={<RequireAdmin><SettingsLayout /></RequireAdmin>}>
+        <Route path="/settings" element={<Navigate to="/settings/general" replace />} />
+        <Route path="/settings/general" element={<SettingsGeneralPage />} />
+        <Route path="/settings/members" element={<SettingsMembersPage />} />
+      </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
@@ -76,19 +93,23 @@ function AnonymousOnly({ children }: { children: ReactNode }) {
 /**
  * Where a signed-in user actually belongs, given what is true of them right now.
  *
- * Three states share `workspace: null` and they are not the same place. Someone who asked to join a
- * workspace is waiting on an admin. Someone who *finished* the wizard while unverified needs their
- * inbox, not an empty form they have already filled in. Everyone else has not started, and needs the
- * wizard — which is also where a user whose domain has no workspace creates the first one.
+ * Three states share `workspace: null` and they are not the same place. Someone who *finished* the
+ * wizard while unverified needs their inbox, not an empty form they have already filled in. Someone
+ * holding an invitation belongs on "join {workspace}", never on create-your-own. Everyone else has
+ * not started, and needs the wizard.
  *
- * Each branch reads the state that defines it. Inferring the approval screen from `emailVerified`
- * instead stranded anyone who verified before finishing the wizard: they were shown an approval screen
- * for a request they never made, on a domain with no admin who could ever grant it.
+ * Order matters: `onboardingHeld` outranks `pendingInvitation`. Verifying materialises a held wizard
+ * into a workspace, so routing a held user to accept-invite would dead-end on ALREADY_IN_WORKSPACE
+ * the moment they verify.
  */
-function homeFor(user: { workspace: unknown; onboardingHeld: boolean; awaitingApproval: boolean }) {
+function homeFor(user: {
+  workspace: unknown;
+  onboardingHeld: boolean;
+  pendingInvitation: unknown;
+}) {
   if (user.workspace) return "/";
-  if (user.awaitingApproval) return "/signup/pending";
   if (user.onboardingHeld) return "/signup/verify";
+  if (user.pendingInvitation) return "/auth/accept-invite";
   return "/signup/workspace";
 }
 
@@ -110,8 +131,8 @@ function RequireAuth({ children }: { children: ReactNode }) {
 /**
  * The app proper. Requires an account *and* a workspace.
  *
- * A user with neither is mid-signup; one with a pending join request has an account and no workspace,
- * and belongs on the waiting screen rather than being bounced back into a wizard they have finished.
+ * A user with neither is mid-signup; one holding an invitation has an account and no workspace, and
+ * belongs on the join confirmation rather than being bounced into a wizard that isn't theirs.
  */
 function RequireWorkspace({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -119,6 +140,17 @@ function RequireWorkspace({ children }: { children: ReactNode }) {
   if (loading) return <Booting />;
   if (!user) return <Navigate to="/login" replace />;
   if (!user.workspace) return <Navigate to={homeFor(user)} replace />;
+
+  return <>{children}</>;
+}
+
+/** Hides admin screens from non-admins. UX only — the server re-reads the roles on every call. */
+function RequireAdmin({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) return <Booting />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!user.workspace?.roles.includes("ADMIN")) return <Navigate to="/" replace />;
 
   return <>{children}</>;
 }

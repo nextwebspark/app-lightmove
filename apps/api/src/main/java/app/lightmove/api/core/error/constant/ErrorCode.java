@@ -1,5 +1,4 @@
 package app.lightmove.api.core.error.constant;
-import app.lightmove.api.workspace.model.Workspace;
 
 import org.springframework.http.HttpStatus;
 
@@ -37,17 +36,6 @@ public enum ErrorCode {
     /** The user already has an active workspace. One at a time. */
     ALREADY_IN_WORKSPACE(HttpStatus.CONFLICT, "You already belong to a workspace"),
 
-    /** They have asked to join a workspace and an admin has not answered yet. */
-    JOIN_REQUEST_PENDING(HttpStatus.CONFLICT,
-            "Your request to join is waiting for an administrator to approve it"),
-
-    JOIN_REQUEST_REJECTED(HttpStatus.FORBIDDEN,
-            "Your request to join this workspace was declined. Ask an administrator to invite you"),
-
-    /** Asking to join a workspace whose domain is not the requester's. */
-    JOIN_DOMAIN_MISMATCH(HttpStatus.FORBIDDEN,
-            "You can only ask to join a workspace on your own email domain"),
-
     TOKEN_INVALID(HttpStatus.BAD_REQUEST, "This link is not valid"),
     TOKEN_EXPIRED(HttpStatus.BAD_REQUEST, "This link has expired"),
 
@@ -67,6 +55,24 @@ public enum ErrorCode {
 
     INVITATION_INVALID(HttpStatus.BAD_REQUEST, "This invitation is not valid"),
     INVITATION_EXPIRED(HttpStatus.BAD_REQUEST, "This invitation has expired"),
+
+    /** A workspace must always keep someone who can run it. */
+    LAST_ADMIN(HttpStatus.CONFLICT, "A workspace must keep at least one admin"),
+
+    MEMBER_LEADS_PROJECTS(HttpStatus.CONFLICT,
+            "This member is the only admin on active projects. Hand those over first"),
+
+    CLIENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "A client with this name already exists"),
+
+    /** A project must always keep someone who can run it — the mirror of {@link #LAST_ADMIN}. */
+    PROJECT_LAST_ADMIN(HttpStatus.CONFLICT, "A project must keep at least one admin"),
+
+    /** The typed confirmation on workspace deletion did not match. */
+    WORKSPACE_NAME_MISMATCH(HttpStatus.BAD_REQUEST,
+            "Type the workspace name exactly to confirm deletion"),
+
+    /** A database constraint fired ahead of its service-level pre-check — two requests raced. */
+    CONFLICT(HttpStatus.CONFLICT, "That conflicts with something that already exists. Try again"),
 
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Too many requests. Please slow down"),
 
