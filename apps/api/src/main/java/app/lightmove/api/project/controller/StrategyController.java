@@ -2,6 +2,7 @@ package app.lightmove.api.project.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.service.CurrentUser;
+import app.lightmove.api.project.dto.StrategyDtos.PutCompanySizeRequest;
 import app.lightmove.api.project.dto.StrategyDtos.PutSectorsRequest;
 import app.lightmove.api.project.dto.StrategyDtos.StrategyResponse;
 import app.lightmove.api.project.service.StrategyService;
@@ -44,6 +45,16 @@ public class StrategyController {
                                                        HttpServletRequest httpRequest) {
         AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(strategy.putSectors(
+                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
+    }
+
+    @PutMapping("/company-size")
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    public ResponseEntity<StrategyResponse> putCompanySize(@PathVariable UUID projectId,
+                                                           @Valid @RequestBody PutCompanySizeRequest request,
+                                                           HttpServletRequest httpRequest) {
+        AuthPrincipal principal = CurrentUser.require();
+        return ResponseEntity.ok(strategy.putCompanySize(
                 principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
     }
 }

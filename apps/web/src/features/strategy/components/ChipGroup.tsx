@@ -32,7 +32,12 @@ export function ChipGroup({
       </div>
       <div className="flex flex-wrap gap-2">
         {chips.map((chip) => (
-          <SectorChip key={chip.label} chip={chip} onToggle={() => onToggle(chip.label)} />
+          <Pill
+            key={chip.label}
+            label={chip.label}
+            selected={chip.selected}
+            onToggle={() => onToggle(chip.label)}
+          />
         ))}
         {children}
       </div>
@@ -40,14 +45,26 @@ export function ChipGroup({
   );
 }
 
-function SectorChip({ chip, onToggle }: { chip: Chip; onToggle: () => void }) {
+/**
+ * A single toggleable pill — the shared chip across Sector Scope and Company Size. Selected shows a check
+ * in sky; deselected a plus in muted grey at reduced opacity, staying visible and re-selectable.
+ */
+export function Pill({
+  label,
+  selected,
+  onToggle,
+}: {
+  label: string;
+  selected: boolean;
+  onToggle: () => void;
+}) {
   return (
     <button
       type="button"
-      aria-pressed={chip.selected}
+      aria-pressed={selected}
       onClick={onToggle}
       className={`inline-flex items-center gap-[7px] rounded-full border bg-panel px-[13px] py-[7px] font-sans text-[13px] font-medium transition ${
-        chip.selected ? "border-sky text-text" : "border-line text-text2 opacity-[.65]"
+        selected ? "border-sky text-text" : "border-line text-text2 opacity-[.65]"
       }`}
     >
       <svg
@@ -59,12 +76,12 @@ function SectorChip({ chip, onToggle }: { chip: Chip; onToggle: () => void }) {
         strokeWidth={2.4}
         strokeLinecap="round"
         strokeLinejoin="round"
-        className={`flex-none ${chip.selected ? "text-sky" : "text-text3"}`}
+        className={`flex-none ${selected ? "text-sky" : "text-text3"}`}
         aria-hidden="true"
       >
-        <path d={chip.selected ? CHECK : PLUS} />
+        <path d={selected ? CHECK : PLUS} />
       </svg>
-      {chip.label}
+      {label}
     </button>
   );
 }

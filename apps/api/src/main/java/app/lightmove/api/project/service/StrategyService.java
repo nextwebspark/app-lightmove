@@ -4,21 +4,28 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.project.constant.CompanySizeAxis;
+import app.lightmove.api.project.constant.EmployeeBand;
+import app.lightmove.api.project.constant.RevenueBand;
 import app.lightmove.api.project.constant.StrategySectorKind;
 import app.lightmove.api.project.dto.StrategyDtos.ChipDto;
+import app.lightmove.api.project.dto.StrategyDtos.PutCompanySizeRequest;
 import app.lightmove.api.project.dto.StrategyDtos.PutSectorsRequest;
 import app.lightmove.api.project.dto.StrategyDtos.StrategyResponse;
 import app.lightmove.api.project.model.Strategy;
 import app.lightmove.api.project.model.StrategySector;
+import app.lightmove.api.project.model.StrategySizeBand;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.project.repository.StrategyRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -63,6 +70,29 @@ public class StrategyService {
         return toResponse(strategy);
     }
 
+    @Transactional
+    public StrategyResponse putCompanySize(UUID userId, UUID workspaceId, UUID projectId,
+                                           PutCompanySizeRequest request, HttpServletRequest httpRequest) {
+        List<StrategySizeBand> bands = new ArrayList<>();
+        appendBands(bands, request.employee(), CompanySizeAxis.EMPLOYEE, value -> {
+            EmployeeBand band = EmployeeBand.fromValue(value);
+            return band == null ? null : band.name();
+        });
+        appendBands(bands, request.revenue(), CompanySizeAxis.REVENUE, value -> {
+            RevenueBand band = RevenueBand.fromValue(value);
+            return band == null ? null : band.name();
+        });
+
+        Strategy strategy = load(projectId, workspaceId);
+        strategy.replaceSizeBands(bands);
+
+        audit.event(ProjectEventType.STRATEGY_UPDATED)
+                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                .detail("section", "companySize")
+                .record();
+        return toResponse(strategy);
+    }
+
     private Strategy load(UUID projectId, UUID workspaceId) {
         requireProject(projectId, workspaceId);
         return strategies.findByProjectId(projectId)
@@ -97,11 +127,35 @@ public class StrategyService {
         }
     }
 
+    /**
+     * Validate one axis of a company-size request and append it. {@code toBandName} resolves a wire
+     * value against the axis's enum, returning its stored name or {@code null} for an unknown value;
+     * a duplicate value within the axis is a client bug (a fixed catalog is never legitimately doubled).
+     */
+    private static void appendBands(List<StrategySizeBand> target, List<String> values,
+                                    CompanySizeAxis axis, Function<String, String> toBandName) {
+        Set<String> seen = new LinkedHashSet<>();
+        for (String value : values) {
+            String bandName = toBandName.apply(value);
+            if (bandName == null) {
+                throw new ApiException(ErrorCode.VALIDATION_FAILED,
+                        "Unknown company-size band: " + value);
+            }
+            if (!seen.add(bandName)) {
+                throw new ApiException(ErrorCode.VALIDATION_FAILED,
+                        "Duplicate band in the " + axis.name().toLowerCase(Locale.ROOT) + " axis");
+            }
+            target.add(StrategySizeBand.of(axis, bandName));
+        }
+    }
+
     private static StrategyResponse toResponse(Strategy strategy) {
         return new StrategyResponse(
                 chipsOf(strategy, StrategySectorKind.DIRECT),
                 chipsOf(strategy, StrategySectorKind.ADJACENT),
-                chipsOf(strategy, StrategySectorKind.INFERRED));
+                chipsOf(strategy, StrategySectorKind.INFERRED),
+                employeeValues(strategy),
+                revenueValues(strategy));
     }
 
     private static List<ChipDto> chipsOf(Strategy strategy, StrategySectorKind kind) {
@@ -109,5 +163,39 @@ public class StrategyService {
                 .filter(sector -> sector.getKind() == kind)
                 .map(sector -> new ChipDto(sector.getLabel(), sector.isSelected()))
                 .toList();
+    }
+
+    /** Selected employee bands as range-string values, ordered by the enum's declaration (not by storage). */
+    private static List<String> employeeValues(Strategy strategy) {
+        Set<String> selected = selectedBandNames(strategy, CompanySizeAxis.EMPLOYEE);
+        List<String> values = new ArrayList<>();
+        for (EmployeeBand band : EmployeeBand.values()) {
+            if (selected.contains(band.name())) {
+                values.add(band.value());
+            }
+        }
+        return values;
+    }
+
+    /** Selected revenue bands as range-string values, ordered by the enum's declaration. */
+    private static List<String> revenueValues(Strategy strategy) {
+        Set<String> selected = selectedBandNames(strategy, CompanySizeAxis.REVENUE);
+        List<String> values = new ArrayList<>();
+        for (RevenueBand band : RevenueBand.values()) {
+            if (selected.contains(band.name())) {
+                values.add(band.value());
+            }
+        }
+        return values;
+    }
+
+    private static Set<String> selectedBandNames(Strategy strategy, CompanySizeAxis axis) {
+        Set<String> names = new HashSet<>();
+        for (StrategySizeBand band : strategy.getSizeBands()) {
+            if (band.getAxis() == axis) {
+                names.add(band.getBand());
+            }
+        }
+        return names;
     }
 }

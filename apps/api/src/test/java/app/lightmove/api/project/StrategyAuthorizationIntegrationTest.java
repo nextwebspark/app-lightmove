@@ -68,6 +68,29 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    @DisplayName("company-size shares the scope's write gate: a researcher cannot, a lead can")
+    void companySizeFollowsTheSameGate() throws Exception {
+        Fixture f = fixture("Company Size Gate Firm");
+        String body = """
+                {"employee":["51-200"],"revenue":[]}""";
+
+        seat(f.admin, f.projectId, f.saraId, "[\"RESEARCHER\"]");
+        String sara = login(f.saraEmail);
+        mvc.perform(put(companySizeUrl(f.projectId))
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isForbidden());
+
+        seat(f.admin, f.projectId, f.saraId, "[\"LEAD\"]");
+        mvc.perform(put(companySizeUrl(f.projectId))
+                        .header("Authorization", "Bearer " + login(f.saraEmail))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk());
+    }
+
     // ── fixture ──────────────────────────────────────────────────────────────
 
     private static String strategyUrl(String projectId) {
@@ -76,6 +99,10 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
 
     private static String sectorsUrl(String projectId) {
         return strategyUrl(projectId) + "/sectors";
+    }
+
+    private static String companySizeUrl(String projectId) {
+        return strategyUrl(projectId) + "/company-size";
     }
 
     private record Fixture(String admin, String projectId, String saraEmail, String saraId) {}

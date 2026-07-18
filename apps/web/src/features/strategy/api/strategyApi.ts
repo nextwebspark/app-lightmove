@@ -15,3 +15,14 @@ export function putSectors(projectId: string, strategy: Strategy): Promise<Strat
     body: strategy,
   });
 }
+
+export function putCompanySize(
+  projectId: string,
+  employee: string[],
+  revenue: string[],
+): Promise<Strategy> {
+  return request<Strategy>(`/projects/${projectId}/strategy/company-size`, {
+    method: "PUT",
+    body: { employee, revenue },
+  });
+}
