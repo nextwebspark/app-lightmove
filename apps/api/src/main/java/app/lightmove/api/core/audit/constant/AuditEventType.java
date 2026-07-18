@@ -52,6 +52,7 @@ public enum AuditEventType {
     POSITION_UPDATED,
     POSITION_LOCKED,
     POSITION_UNLOCKED,
+    STRATEGY_UPDATED,
 
     // Abuse
     RATE_LIMIT_EXCEEDED

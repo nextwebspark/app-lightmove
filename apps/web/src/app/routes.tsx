@@ -19,6 +19,7 @@ import { ProjectPlaceholderPage } from "../features/position/pages/ProjectPlaceh
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
 import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
 import { SettingsMembersPage } from "../features/settings/pages/SettingsMembersPage";
+import { StrategyPage } from "../features/strategy/pages/StrategyPage";
 import { TeamPage } from "../features/workspace/pages/TeamPage";
 
 /**
@@ -66,7 +67,7 @@ export function AppRoutes() {
           other tabs are placeholders until their screens are built. */}
       <Route element={<RequireWorkspace><ProjectLayout /></RequireWorkspace>}>
         <Route path="/projects/:projectId" element={<PositionPage />} />
-        <Route path="/projects/:projectId/strategy" element={<ProjectPlaceholderPage title="Strategy" icon="strategy" />} />
+        <Route path="/projects/:projectId/strategy" element={<StrategyPage />} />
         <Route path="/projects/:projectId/sourcing" element={<ProjectPlaceholderPage title="Sourcing" icon="sourcing" />} />
         <Route path="/projects/:projectId/candidates" element={<ProjectPlaceholderPage title="Candidates" icon="candidates" />} />
         <Route path="/projects/:projectId/outreach" element={<ProjectPlaceholderPage title="Outreach" icon="outreach" />} />

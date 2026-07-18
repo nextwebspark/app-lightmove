@@ -1,0 +1,4512 @@
+{
+  "Abrasives and Nonmetallic Minerals Manufacturing": [
+    "Clay and Refractory Products Manufacturing",
+    "Lime and Gypsum Products Manufacturing",
+    "Glass & Clay",
+    "Glass Product Manufacturing",
+    "Glass, Ceramics and Concrete Manufacturing"
+  ],
+  "Accessible Architecture and Design": [
+    "Architecture, Engineering & Design",
+    "Regenerative Design",
+    "Architecture and Planning",
+    "Utility System Construction",
+    "Highway, Street, and Bridge Construction",
+    "Surveying and Mapping Services",
+    "Mechanical Or Industrial Engineering",
+    "Engineering Services"
+  ],
+  "Accommodation and Food Services": [
+    "Restaurants",
+    "Bars, Taverns, and Nightclubs",
+    "Food and Beverage Services",
+    "Caterers",
+    "Mobile Food Services"
+  ],
+  "Accounting": [
+    "Accounting for Legal Practices",
+    "Legal Services",
+    "Law Practice",
+    "Law Firms & Legal Services",
+    "Alternative Dispute Resolution",
+    "Administration of Justice"
+  ],
+  "Accounting for Legal Practices": [
+    "Accounting",
+    "Legal Services",
+    "Law Practice",
+    "Law Firms & Legal Services",
+    "Alternative Dispute Resolution",
+    "Administration of Justice"
+  ],
+  "Administration of Justice": [
+    "Alternative Dispute Resolution",
+    "Law Firms & Legal Services",
+    "Law Practice",
+    "Legal Services",
+    "Accounting for Legal Practices",
+    "Accounting"
+  ],
+  "Administrative and Support Services": [
+    "Executive Offices",
+    "Outsourcing/Offshoring",
+    "Outsourcing and Offshoring Consulting",
+    "Operations Consulting",
+    "Strategic Management Services",
+    "Professional Services",
+    "Business Services",
+    "Business Consulting and Services"
+  ],
+  "Advertising Networks": [
+    "Advertising Services",
+    "Marketing Services",
+    "Market Research",
+    "Public Relations and Communications Services",
+    "Events Services",
+    "Business Content"
+  ],
+  "Advertising Services": [
+    "Advertising Networks",
+    "Marketing Services",
+    "Market Research",
+    "Public Relations and Communications Services",
+    "Events Services",
+    "Business Content"
+  ],
+  "Aerospace & Defense": [
+    "Aviation & Aerospace",
+    "Defense and Space Manufacturing",
+    "Defense & Space",
+    "Aviation and Aerospace Component Manufacturing",
+    "Airlines and Aviation",
+    "Airlines, Airports & Air Services"
+  ],
+  "Agricultural Chemical Manufacturing": [
+    "Chemicals & Related Products",
+    "Paint, Coating, and Adhesive Manufacturing",
+    "Chemical Raw Materials Manufacturing",
+    "Wholesale Chemical and Allied Products",
+    "Chemical Manufacturing"
+  ],
+  "Agriculture": [
+    "Farming",
+    "Farming, Ranching, Forestry",
+    "Ranching",
+    "Ranching and Fisheries",
+    "Fisheries",
+    "Horticulture",
+    "Wholesale Raw Farm Products"
+  ],
+  "Agriculture, Construction, Mining Machinery Manufacturing": [
+    "Commercial and Service Industry Machinery Manufacturing",
+    "Engines and Power Transmission Equipment Manufacturing",
+    "Industrial Goods & Services",
+    "Metalworking Machinery Manufacturing",
+    "Industrial Machinery & Equipment",
+    "HVAC and Refrigeration Equipment Manufacturing",
+    "Machinery Manufacturing",
+    "Automation Machinery Manufacturing"
+  ],
+  "Air, Water, and Waste Program Management": [
+    "Environmental Services",
+    "Environmental Quality Programs",
+    "Conservation Programs",
+    "Waste Collection",
+    "Waste Treatment and Disposal",
+    "Wholesale Recyclable Materials",
+    "Retail Recyclable Materials & Used Merchandise",
+    "Community Development and Urban Planning"
+  ],
+  "Airlines and Aviation": [
+    "Aviation and Aerospace Component Manufacturing",
+    "Airlines, Airports & Air Services",
+    "Defense & Space",
+    "Defense and Space Manufacturing",
+    "Aviation & Aerospace",
+    "Aerospace & Defense"
+  ],
+  "Airlines, Airports & Air Services": [
+    "Airlines and Aviation",
+    "Aviation and Aerospace Component Manufacturing",
+    "Defense & Space",
+    "Defense and Space Manufacturing",
+    "Aviation & Aerospace",
+    "Aerospace & Defense"
+  ],
+  "Alternative Dispute Resolution": [
+    "Law Firms & Legal Services",
+    "Administration of Justice",
+    "Law Practice",
+    "Legal Services",
+    "Accounting for Legal Practices",
+    "Accounting"
+  ],
+  "Alternative Medicine": [
+    "Mental Health Care",
+    "Healthcare Services",
+    "Physical, Occupational and Speech Therapists",
+    "Ambulance Services",
+    "Optometrists",
+    "Veterinary",
+    "Dental Practice Management",
+    "Veterinary Services"
+  ],
+  "Ambulance Services": [
+    "Healthcare Services",
+    "Veterinary",
+    "Alternative Medicine",
+    "Veterinary Services",
+    "Mental Health Care",
+    "Physical, Occupational and Speech Therapists",
+    "Optometrists",
+    "Dental Practice Management"
+  ],
+  "Amusement Parks and Arcades": [
+    "Golf Courses and Country Clubs",
+    "Amusement Parks, Arcades & Attractions",
+    "Recreational Facilities",
+    "Racetracks",
+    "Gambling & Gaming",
+    "Gambling Facilities and Casinos"
+  ],
+  "Amusement Parks, Arcades & Attractions": [
+    "Amusement Parks and Arcades",
+    "Golf Courses and Country Clubs",
+    "Recreational Facilities",
+    "Racetracks",
+    "Gambling & Gaming",
+    "Gambling Facilities and Casinos"
+  ],
+  "Animal Feed Manufacturing": [
+    "Fruit and Vegetable Preserves Manufacturing",
+    "Tobacco",
+    "Seafood Product Manufacturing",
+    "Tobacco Manufacturing",
+    "Meat Products Manufacturing",
+    "Dairy",
+    "Dairy Product Manufacturing",
+    "Baked Goods Manufacturing"
+  ],
+  "Animation": [
+    "Movies, Videos, and Sound",
+    "Animation and Post-production",
+    "Movies and Sound Recording",
+    "Sound Recording",
+    "Media Production",
+    "Radio and Television Broadcasting",
+    "Broadcast Media Production and Distribution",
+    "Broadcasting"
+  ],
+  "Animation and Post-production": [
+    "Animation",
+    "Sound Recording",
+    "Movies, Videos, and Sound",
+    "Movies and Sound Recording",
+    "Media Production",
+    "Radio and Television Broadcasting",
+    "Broadcast Media Production and Distribution",
+    "Broadcasting"
+  ],
+  "Apparel & Accessories Retail": [
+    "Apparel & Fashion",
+    "Retail Apparel and Fashion",
+    "Luxury Goods & Jewelry",
+    "Retail Luxury Goods and Jewelry",
+    "Wholesale Luxury Goods and Jewelry",
+    "Jewelry & Watch Retail",
+    "Wholesale Apparel and Sewing Supplies",
+    "Wholesale Footwear"
+  ],
+  "Apparel & Fashion": [
+    "Apparel & Accessories Retail",
+    "Retail Apparel and Fashion",
+    "Luxury Goods & Jewelry",
+    "Retail Luxury Goods and Jewelry",
+    "Wholesale Luxury Goods and Jewelry",
+    "Jewelry & Watch Retail",
+    "Wholesale Apparel and Sewing Supplies",
+    "Wholesale Footwear"
+  ],
+  "Apparel Manufacturing": [
+    "Textile Manufacturing",
+    "Footwear Manufacturing",
+    "Leather Product Manufacturing",
+    "Fashion Accessories Manufacturing"
+  ],
+  "Appliances": [
+    "Appliances, Electrical, and Electronics Manufacturing",
+    "Household Appliance Manufacturing",
+    "Audio and Video Equipment Manufacturing",
+    "Electronics",
+    "Consumer Electronics",
+    "Computer Equipment & Peripherals",
+    "Computer Hardware",
+    "Computer Hardware Manufacturing"
+  ],
+  "Appliances, Electrical, and Electronics Manufacturing": [
+    "Audio and Video Equipment Manufacturing",
+    "Appliances",
+    "Electronics",
+    "Household Appliance Manufacturing",
+    "Consumer Electronics",
+    "Computer Equipment & Peripherals",
+    "Computer Hardware",
+    "Computer Hardware Manufacturing"
+  ],
+  "Architectural and Structural Metal Manufacturing": [
+    "Fabricated Metal Products",
+    "Primary Metal Manufacturing",
+    "Metal Treatments",
+    "Metal Valve, Ball, and Roller Manufacturing",
+    "Boilers, Tanks, and Shipping Container Manufacturing",
+    "Turned Products and Fastener Manufacturing"
+  ],
+  "Architecture and Planning": [
+    "Utility System Construction",
+    "Architecture, Engineering & Design",
+    "Highway, Street, and Bridge Construction",
+    "Accessible Architecture and Design",
+    "Surveying and Mapping Services",
+    "Regenerative Design",
+    "Mechanical Or Industrial Engineering",
+    "Engineering Services"
+  ],
+  "Architecture, Engineering & Design": [
+    "Architecture and Planning",
+    "Accessible Architecture and Design",
+    "Utility System Construction",
+    "Regenerative Design",
+    "Highway, Street, and Bridge Construction",
+    "Surveying and Mapping Services",
+    "Mechanical Or Industrial Engineering",
+    "Engineering Services"
+  ],
+  "Armed Forces": [
+    "Fire Protection",
+    "Military and International Affairs",
+    "Law Enforcement",
+    "Security and Investigations",
+    "Public Safety",
+    "Security Guards and Patrol Services",
+    "Security Systems Services"
+  ],
+  "Artists and Writers": [
+    "Fine Art",
+    "Arts & Crafts",
+    "Fine Arts Schools",
+    "Writing and Editing",
+    "Translation and Localization"
+  ],
+  "Arts & Crafts": [
+    "Fine Art",
+    "Fine Arts Schools",
+    "Artists and Writers",
+    "Writing and Editing",
+    "Translation and Localization"
+  ],
+  "Auctions": [
+    "Online and Mail Order Retail",
+    "Personal & Household Goods",
+    "Household Goods",
+    "Consumer Goods",
+    "Department Stores, Shopping Centers & Superstores",
+    "Retail"
+  ],
+  "Audio and Video Equipment Manufacturing": [
+    "Electronics",
+    "Appliances, Electrical, and Electronics Manufacturing",
+    "Consumer Electronics",
+    "Appliances",
+    "Computer Equipment & Peripherals",
+    "Household Appliance Manufacturing",
+    "Computer Hardware",
+    "Computer Hardware Manufacturing"
+  ],
+  "Automation Machinery Manufacturing": [
+    "HVAC and Refrigeration Equipment Manufacturing",
+    "Industrial Automation",
+    "Metalworking Machinery Manufacturing",
+    "Measuring and Control Instrument Manufacturing",
+    "Engines and Power Transmission Equipment Manufacturing",
+    "Electronic and Precision Equipment Maintenance",
+    "Agriculture, Construction, Mining Machinery Manufacturing",
+    "Commercial and Industrial Machinery Maintenance"
+  ],
+  "Automobile Dealers": [
+    "Motor Vehicle Parts Manufacturing",
+    "Automobile Parts Stores",
+    "Motor Vehicle Manufacturing",
+    "Retail Motor Vehicles",
+    "Automobiles & Parts",
+    "Wholesale Motor Vehicles and Parts",
+    "Automotive",
+    "Automotive Service & Collision Repair"
+  ],
+  "Automobile Parts Stores": [
+    "Automobile Dealers",
+    "Retail Motor Vehicles",
+    "Motor Vehicle Parts Manufacturing",
+    "Wholesale Motor Vehicles and Parts",
+    "Motor Vehicle Manufacturing",
+    "Automotive Service & Collision Repair",
+    "Automobiles & Parts",
+    "Vehicle Repair and Maintenance"
+  ],
+  "Automobiles & Parts": [
+    "Automotive",
+    "Motor Vehicle Manufacturing",
+    "Motor Vehicle Parts Manufacturing",
+    "Automobile Dealers",
+    "Automobile Parts Stores",
+    "Retail Motor Vehicles",
+    "Wholesale Motor Vehicles and Parts",
+    "Automotive Service & Collision Repair"
+  ],
+  "Automotive": [
+    "Automobiles & Parts",
+    "Motor Vehicle Manufacturing",
+    "Motor Vehicle Parts Manufacturing",
+    "Automobile Dealers",
+    "Automobile Parts Stores",
+    "Retail Motor Vehicles",
+    "Wholesale Motor Vehicles and Parts",
+    "Automotive Service & Collision Repair"
+  ],
+  "Automotive Service & Collision Repair": [
+    "Wholesale Motor Vehicles and Parts",
+    "Vehicle Repair and Maintenance",
+    "Retail Motor Vehicles",
+    "Car & Truck Rental",
+    "Automobile Parts Stores",
+    "Parts Distribution",
+    "Automobile Dealers",
+    "Motor Vehicle Parts Manufacturing"
+  ],
+  "Aviation & Aerospace": [
+    "Aerospace & Defense",
+    "Defense and Space Manufacturing",
+    "Defense & Space",
+    "Aviation and Aerospace Component Manufacturing",
+    "Airlines and Aviation",
+    "Airlines, Airports & Air Services"
+  ],
+  "Aviation and Aerospace Component Manufacturing": [
+    "Defense & Space",
+    "Airlines and Aviation",
+    "Defense and Space Manufacturing",
+    "Airlines, Airports & Air Services",
+    "Aviation & Aerospace",
+    "Aerospace & Defense"
+  ],
+  "Baked Goods Manufacturing": [
+    "Wine & Spirits",
+    "Dairy Product Manufacturing",
+    "Beverage Manufacturing",
+    "Dairy",
+    "Food & Beverages",
+    "Meat Products Manufacturing",
+    "Food & Beverage",
+    "Seafood Product Manufacturing"
+  ],
+  "Banking": [
+    "Financial Services",
+    "Finance",
+    "Banking, Financial Services and Insurance",
+    "Investment Management",
+    "Investment Banking",
+    "Capital Markets",
+    "Investment Advice"
+  ],
+  "Banking, Financial Services and Insurance": [
+    "Finance",
+    "Investment Management",
+    "Banking",
+    "Investment Banking",
+    "Financial Services",
+    "Capital Markets",
+    "Investment Advice"
+  ],
+  "Bars, Taverns, and Nightclubs": [
+    "Accommodation and Food Services",
+    "Caterers",
+    "Restaurants",
+    "Mobile Food Services",
+    "Food and Beverage Services"
+  ],
+  "Bed-and-Breakfasts, Hostels, Homestays": [
+    "Hotels and Motels",
+    "Sightseeing Transportation",
+    "Hospitality",
+    "Travel, Recreation & Leisure",
+    "Leisure, Travel & Tourism",
+    "Travel Arrangements"
+  ],
+  "Beverage Manufacturing": [
+    "Food & Beverages",
+    "Wine & Spirits",
+    "Food & Beverage",
+    "Baked Goods Manufacturing",
+    "Food Production",
+    "Dairy Product Manufacturing",
+    "Food and Beverage Manufacturing",
+    "Dairy"
+  ],
+  "Biotechnology": [
+    "Pharmaceutical Manufacturing",
+    "Biotechnology Research",
+    "Medical Device",
+    "Medical Equipment Manufacturing",
+    "Health Care Equipment & Services"
+  ],
+  "Biotechnology Research": [
+    "Biotechnology",
+    "Medical Device",
+    "Pharmaceutical Manufacturing",
+    "Medical Equipment Manufacturing",
+    "Health Care Equipment & Services"
+  ],
+  "Blockchain Services": [
+    "Data Infrastructure and Analytics",
+    "Internet Service Providers, Website Hosting & Internet-related Services",
+    "Business Intelligence Platforms",
+    "Digital Accessibility Services",
+    "Social Networking Platforms",
+    "Internet Marketplace Platforms",
+    "Ecommerce Platforms"
+  ],
+  "Boats & Submarines": [
+    "Shipbuilding",
+    "Marine Shipping & Transportation",
+    "Maritime Transportation",
+    "Maritime"
+  ],
+  "Boilers, Tanks, and Shipping Container Manufacturing": [
+    "Metal Valve, Ball, and Roller Manufacturing",
+    "Turned Products and Fastener Manufacturing",
+    "Metal Treatments",
+    "Primary Metal Manufacturing",
+    "Architectural and Structural Metal Manufacturing",
+    "Fabricated Metal Products"
+  ],
+  "Book Publishing": [
+    "Book and Periodical Publishing",
+    "Newspaper Publishing",
+    "Periodical Publishing",
+    "Internet Publishing",
+    "Internet News"
+  ],
+  "Book and Periodical Publishing": [
+    "Book Publishing",
+    "Newspaper Publishing",
+    "Periodical Publishing",
+    "Internet Publishing",
+    "Internet News"
+  ],
+  "Broadcast Media Production and Distribution": [
+    "Broadcasting",
+    "Radio and Television Broadcasting",
+    "Media Production",
+    "Movies and Sound Recording",
+    "Movies, Videos, and Sound",
+    "Animation",
+    "Animation and Post-production",
+    "Sound Recording"
+  ],
+  "Broadcasting": [
+    "Broadcast Media Production and Distribution",
+    "Radio and Television Broadcasting",
+    "Media Production",
+    "Movies and Sound Recording",
+    "Movies, Videos, and Sound",
+    "Animation",
+    "Animation and Post-production",
+    "Sound Recording"
+  ],
+  "Building Construction": [
+    "Construction",
+    "Construction Management",
+    "Commercial & Residential Construction",
+    "Nonresidential Building Construction",
+    "Residential Building Construction",
+    "Specialty Trade Contractors",
+    "Building Equipment Contractors",
+    "Building Finishing Contractors"
+  ],
+  "Building Equipment Contractors": [
+    "Specialty Trade Contractors",
+    "Building Finishing Contractors",
+    "Residential Building Construction",
+    "Building Structure and Exterior Contractors",
+    "Nonresidential Building Construction",
+    "Commercial & Residential Construction",
+    "Construction Management",
+    "Building Construction"
+  ],
+  "Building Finishing Contractors": [
+    "Building Equipment Contractors",
+    "Building Structure and Exterior Contractors",
+    "Specialty Trade Contractors",
+    "Residential Building Construction",
+    "Nonresidential Building Construction",
+    "Commercial & Residential Construction",
+    "Construction Management",
+    "Building Construction"
+  ],
+  "Building Materials": [
+    "Construction Hardware Manufacturing",
+    "Wholesale Building Materials",
+    "Hand, Power & Lawn-care Tools",
+    "Home Improvement & Hardware Retail"
+  ],
+  "Building Structure and Exterior Contractors": [
+    "Building Finishing Contractors",
+    "Building Equipment Contractors",
+    "Specialty Trade Contractors",
+    "Residential Building Construction",
+    "Nonresidential Building Construction",
+    "Commercial & Residential Construction",
+    "Construction Management",
+    "Building Construction"
+  ],
+  "Business Consulting and Services": [
+    "Business Services",
+    "Professional Services",
+    "Strategic Management Services",
+    "Operations Consulting",
+    "Outsourcing and Offshoring Consulting",
+    "Outsourcing/Offshoring",
+    "Executive Offices",
+    "Administrative and Support Services"
+  ],
+  "Business Content": [
+    "Events Services",
+    "Public Relations and Communications Services",
+    "Market Research",
+    "Marketing Services",
+    "Advertising Networks",
+    "Advertising Services"
+  ],
+  "Business Intelligence Platforms": [
+    "Social Networking Platforms",
+    "Data Infrastructure and Analytics",
+    "Internet Marketplace Platforms",
+    "Blockchain Services",
+    "Ecommerce Platforms",
+    "Internet Service Providers, Website Hosting & Internet-related Services",
+    "Digital Accessibility Services"
+  ],
+  "Business Services": [
+    "Business Consulting and Services",
+    "Professional Services",
+    "Strategic Management Services",
+    "Operations Consulting",
+    "Outsourcing and Offshoring Consulting",
+    "Outsourcing/Offshoring",
+    "Executive Offices",
+    "Administrative and Support Services"
+  ],
+  "Business Supplies & Equipment": [
+    "Office Products Retail & Distribution",
+    "Retail Office Supplies and Gifts",
+    "Retail Office Equipment",
+    "Retail Musical Instruments",
+    "Retail Art Supplies",
+    "Retail Art Dealers",
+    "Retail Books and Printed News",
+    "Record, Video & Book Stores"
+  ],
+  "Cable & Satellite": [
+    "Satellite Telecommunications",
+    "Media and Telecommunications",
+    "Wireless Services",
+    "Telephone Call Centers",
+    "Telecommunications Carriers",
+    "Telecommunications"
+  ],
+  "Capital Markets": [
+    "Investment Banking",
+    "Investment Advice",
+    "Investment Management",
+    "Banking, Financial Services and Insurance",
+    "Finance",
+    "Banking",
+    "Financial Services"
+  ],
+  "Car & Truck Rental": [
+    "Vehicle Repair and Maintenance",
+    "Parts Distribution",
+    "Automotive Service & Collision Repair",
+    "Wholesale Motor Vehicles and Parts",
+    "Retail Motor Vehicles",
+    "Automobile Parts Stores",
+    "Automobile Dealers",
+    "Motor Vehicle Parts Manufacturing"
+  ],
+  "Caterers": [
+    "Bars, Taverns, and Nightclubs",
+    "Mobile Food Services",
+    "Accommodation and Food Services",
+    "Restaurants",
+    "Food and Beverage Services"
+  ],
+  "Chemical Manufacturing": [
+    "Chemical Raw Materials Manufacturing",
+    "Chemicals & Related Products",
+    "Agricultural Chemical Manufacturing",
+    "Paint, Coating, and Adhesive Manufacturing",
+    "Wholesale Chemical and Allied Products"
+  ],
+  "Chemical Raw Materials Manufacturing": [
+    "Chemical Manufacturing",
+    "Chemicals & Related Products",
+    "Agricultural Chemical Manufacturing",
+    "Paint, Coating, and Adhesive Manufacturing",
+    "Wholesale Chemical and Allied Products"
+  ],
+  "Chemicals & Related Products": [
+    "Chemical Raw Materials Manufacturing",
+    "Agricultural Chemical Manufacturing",
+    "Chemical Manufacturing",
+    "Paint, Coating, and Adhesive Manufacturing",
+    "Wholesale Chemical and Allied Products"
+  ],
+  "Chemicals, Metals & Mining": [
+    "Nonmetallic Mineral Mining",
+    "Wholesale Metals and Minerals",
+    "Metal Ore Mining",
+    "Minerals & Mining",
+    "Mining"
+  ],
+  "Child Day Care Services": [
+    "Childcare",
+    "Services for the Elderly and Disabled",
+    "Nursing Homes and Residential Care Facilities",
+    "Elderly Care Services",
+    "Home Health Care Services"
+  ],
+  "Childcare": [
+    "Services for the Elderly and Disabled",
+    "Child Day Care Services",
+    "Nursing Homes and Residential Care Facilities",
+    "Elderly Care Services",
+    "Home Health Care Services"
+  ],
+  "Civic and Social Organizations": [
+    "Non-Profit & Government",
+    "Philanthropy",
+    "Non-profit Organization Management",
+    "Philanthropic Fundraising Services",
+    "Non-profit Organizations",
+    "Fundraising",
+    "Religious Institutions",
+    "International Trade and Development"
+  ],
+  "Civil Engineering": [
+    "Civil Engineering Construction",
+    "Engineering Services",
+    "Mechanical Or Industrial Engineering",
+    "Surveying and Mapping Services",
+    "Highway, Street, and Bridge Construction",
+    "Utility System Construction",
+    "Architecture and Planning",
+    "Architecture, Engineering & Design"
+  ],
+  "Civil Engineering Construction": [
+    "Civil Engineering",
+    "Engineering Services",
+    "Mechanical Or Industrial Engineering",
+    "Surveying and Mapping Services",
+    "Highway, Street, and Bridge Construction",
+    "Utility System Construction",
+    "Architecture and Planning",
+    "Architecture, Engineering & Design"
+  ],
+  "Claims Adjusting, Actuarial Services": [
+    "Insurance Carriers",
+    "Venture Capital and Private Equity Principals",
+    "Insurance Agencies and Brokerages",
+    "Securities and Commodity Exchanges",
+    "Insurance",
+    "Holding Companies",
+    "Holding Companies & Conglomerates",
+    "Credit Card Processing"
+  ],
+  "Clay and Refractory Products Manufacturing": [
+    "Glass & Clay",
+    "Abrasives and Nonmetallic Minerals Manufacturing",
+    "Glass Product Manufacturing",
+    "Lime and Gypsum Products Manufacturing",
+    "Glass, Ceramics and Concrete Manufacturing"
+  ],
+  "Cleaning Products": [
+    "Soap and Cleaning Product Manufacturing",
+    "Cosmetics",
+    "Personal Care Product Manufacturing",
+    "Cosmetics, Beauty Supply & Personal Care Products"
+  ],
+  "Cleaning Services": [
+    "Facilities Services",
+    "Janitorial Services",
+    "Landscaping Services",
+    "Equipment Rental Services",
+    "Commercial and Industrial Equipment Rental",
+    "Consumer Goods Rental",
+    "Other Rental Stores (Furniture, A/V, Construction & Industrial Equipment)"
+  ],
+  "Climate Technology Product Manufacturing": [
+    "Energy Technology",
+    "Services for Renewable Energy",
+    "Renewable Energy Semiconductor Manufacturing",
+    "Renewable Energy Equipment Manufacturing",
+    "Solar Electric Power Generation",
+    "Renewable Energy Power Generation",
+    "Renewables & Environment"
+  ],
+  "Collection Agencies": [
+    "Loan Brokers",
+    "Credit Card Processing",
+    "Holding Companies & Conglomerates",
+    "Holding Companies",
+    "Securities and Commodity Exchanges",
+    "Venture Capital and Private Equity Principals",
+    "Claims Adjusting, Actuarial Services",
+    "Insurance Carriers"
+  ],
+  "Colleges & Universities": [
+    "Higher Education",
+    "Primary and Secondary Education",
+    "Education Management",
+    "Education Administration Programs",
+    "Education"
+  ],
+  "Commercial & Residential Construction": [
+    "Construction Management",
+    "Nonresidential Building Construction",
+    "Building Construction",
+    "Residential Building Construction",
+    "Construction",
+    "Specialty Trade Contractors",
+    "Building Equipment Contractors",
+    "Building Finishing Contractors"
+  ],
+  "Commercial Printing": [
+    "Printing Services",
+    "Wholesale Paper Products",
+    "Wood Product Manufacturing",
+    "Paper & Forest Products",
+    "Paper and Forest Product Manufacturing"
+  ],
+  "Commercial Real Estate": [
+    "Real Estate Agents and Brokers",
+    "Leasing Non-residential Real Estate",
+    "Real Estate",
+    "Leasing Residential Real Estate",
+    "Real Estate and Equipment Rental Services",
+    "Real Estate & Construction"
+  ],
+  "Commercial and Industrial Equipment Rental": [
+    "Equipment Rental Services",
+    "Consumer Goods Rental",
+    "Landscaping Services",
+    "Other Rental Stores (Furniture, A/V, Construction & Industrial Equipment)",
+    "Janitorial Services",
+    "Cleaning Services",
+    "Facilities Services"
+  ],
+  "Commercial and Industrial Machinery Maintenance": [
+    "Electronic and Precision Equipment Maintenance",
+    "Repair and Maintenance",
+    "Measuring and Control Instrument Manufacturing",
+    "Transportation Equipment Manufacturing",
+    "Industrial Automation",
+    "Railroad Equipment Manufacturing",
+    "Automation Machinery Manufacturing",
+    "HVAC and Refrigeration Equipment Manufacturing"
+  ],
+  "Commercial and Service Industry Machinery Manufacturing": [
+    "Industrial Goods & Services",
+    "Agriculture, Construction, Mining Machinery Manufacturing",
+    "Industrial Machinery & Equipment",
+    "Engines and Power Transmission Equipment Manufacturing",
+    "Machinery Manufacturing",
+    "Metalworking Machinery Manufacturing",
+    "Industrial Machinery Manufacturing",
+    "HVAC and Refrigeration Equipment Manufacturing"
+  ],
+  "Communications Equipment Manufacturing": [
+    "Semiconductor Manufacturing",
+    "Computer Networking Products",
+    "Semiconductors",
+    "Computer Networking",
+    "Electrical Equipment Manufacturing",
+    "Electric Lighting Equipment Manufacturing"
+  ],
+  "Community Development and Urban Planning": [
+    "Retail Recyclable Materials & Used Merchandise",
+    "Housing and Community Development",
+    "Wholesale Recyclable Materials",
+    "Waste Treatment and Disposal",
+    "Waste Collection",
+    "Conservation Programs",
+    "Environmental Quality Programs",
+    "Air, Water, and Waste Program Management"
+  ],
+  "Community Services": [
+    "Individual and Family Services",
+    "Vocational Rehabilitation Services",
+    "Health and Human Services",
+    "Emergency and Relief Services",
+    "Public Health"
+  ],
+  "Computer Equipment & Peripherals": [
+    "Computer Hardware",
+    "Consumer Electronics",
+    "Computer Hardware Manufacturing",
+    "Electronics",
+    "Computers and Electronics Manufacturing",
+    "Audio and Video Equipment Manufacturing",
+    "Appliances, Electrical, and Electronics Manufacturing",
+    "Appliances"
+  ],
+  "Computer Games": [
+    "Entertainment Providers",
+    "Mobile Gaming Apps",
+    "Entertainment",
+    "Performing Arts",
+    "Theater Companies",
+    "Music",
+    "Musicians"
+  ],
+  "Computer Hardware": [
+    "Computer Hardware Manufacturing",
+    "Computer Equipment & Peripherals",
+    "Computers and Electronics Manufacturing",
+    "Consumer Electronics",
+    "Electronics",
+    "Audio and Video Equipment Manufacturing",
+    "Appliances, Electrical, and Electronics Manufacturing",
+    "Appliances"
+  ],
+  "Computer Hardware Manufacturing": [
+    "Computers and Electronics Manufacturing",
+    "Computer Hardware",
+    "Computer Equipment & Peripherals",
+    "Consumer Electronics",
+    "Electronics",
+    "Audio and Video Equipment Manufacturing",
+    "Appliances, Electrical, and Electronics Manufacturing",
+    "Appliances"
+  ],
+  "Computer Networking": [
+    "Computer Networking Products",
+    "Electrical Equipment Manufacturing",
+    "Communications Equipment Manufacturing",
+    "Electric Lighting Equipment Manufacturing",
+    "Semiconductor Manufacturing",
+    "Semiconductors"
+  ],
+  "Computer Networking Products": [
+    "Communications Equipment Manufacturing",
+    "Computer Networking",
+    "Semiconductor Manufacturing",
+    "Electrical Equipment Manufacturing",
+    "Semiconductors",
+    "Electric Lighting Equipment Manufacturing"
+  ],
+  "Computer and Network Security": [
+    "Research Services",
+    "Data Security Software Products",
+    "Research",
+    "Security Software",
+    "Robotics Engineering",
+    "Space Research and Technology",
+    "Nanotechnology Research"
+  ],
+  "Computers and Electronics Manufacturing": [
+    "Computer Hardware Manufacturing",
+    "Computer Hardware",
+    "Computer Equipment & Peripherals",
+    "Consumer Electronics",
+    "Electronics",
+    "Audio and Video Equipment Manufacturing",
+    "Appliances, Electrical, and Electronics Manufacturing",
+    "Appliances"
+  ],
+  "Conservation Programs": [
+    "Environmental Quality Programs",
+    "Waste Collection",
+    "Air, Water, and Waste Program Management",
+    "Waste Treatment and Disposal",
+    "Environmental Services",
+    "Wholesale Recyclable Materials",
+    "Retail Recyclable Materials & Used Merchandise",
+    "Community Development and Urban Planning"
+  ],
+  "Construction": [
+    "Building Construction",
+    "Construction Management",
+    "Commercial & Residential Construction",
+    "Nonresidential Building Construction",
+    "Residential Building Construction",
+    "Specialty Trade Contractors",
+    "Building Equipment Contractors",
+    "Building Finishing Contractors"
+  ],
+  "Construction Hardware Manufacturing": [
+    "Building Materials",
+    "Wholesale Building Materials",
+    "Hand, Power & Lawn-care Tools",
+    "Home Improvement & Hardware Retail"
+  ],
+  "Construction Management": [
+    "Building Construction",
+    "Commercial & Residential Construction",
+    "Construction",
+    "Nonresidential Building Construction",
+    "Residential Building Construction",
+    "Specialty Trade Contractors",
+    "Building Equipment Contractors",
+    "Building Finishing Contractors"
+  ],
+  "Consumer Electronics": [
+    "Computer Equipment & Peripherals",
+    "Electronics",
+    "Computer Hardware",
+    "Audio and Video Equipment Manufacturing",
+    "Computer Hardware Manufacturing",
+    "Appliances, Electrical, and Electronics Manufacturing",
+    "Computers and Electronics Manufacturing",
+    "Appliances"
+  ],
+  "Consumer Goods": [
+    "Department Stores, Shopping Centers & Superstores",
+    "Household Goods",
+    "Retail",
+    "Personal & Household Goods",
+    "Online and Mail Order Retail",
+    "Auctions"
+  ],
+  "Consumer Goods Rental": [
+    "Commercial and Industrial Equipment Rental",
+    "Other Rental Stores (Furniture, A/V, Construction & Industrial Equipment)",
+    "Equipment Rental Services",
+    "Landscaping Services",
+    "Janitorial Services",
+    "Cleaning Services",
+    "Facilities Services"
+  ],
+  "Consumer Services": [
+    "Household Services",
+    "Pet Services",
+    "Laundry and Drycleaning Services",
+    "Personal and Laundry Services"
+  ],
+  "Convenience Stores, Gas Stations & Liquor Stores": [
+    "Food and Beverage Retail",
+    "Wholesale Food and Beverage",
+    "Retail Groceries",
+    "Wholesale Alcoholic Beverages",
+    "Grocery Retail",
+    "Drug Stores & Pharmacies",
+    "Retail Pharmacies",
+    "Retail Health and Personal Care Products"
+  ],
+  "Cosmetics": [
+    "Cleaning Products",
+    "Cosmetics, Beauty Supply & Personal Care Products",
+    "Soap and Cleaning Product Manufacturing",
+    "Personal Care Product Manufacturing"
+  ],
+  "Cosmetics, Beauty Supply & Personal Care Products": [
+    "Cosmetics",
+    "Cleaning Products",
+    "Soap and Cleaning Product Manufacturing",
+    "Personal Care Product Manufacturing"
+  ],
+  "Cosmetology and Barber Schools": [
+    "Language Schools",
+    "Technical and Vocational Training",
+    "E-Learning Providers",
+    "E-learning"
+  ],
+  "Credit Card Processing": [
+    "Holding Companies & Conglomerates",
+    "Loan Brokers",
+    "Holding Companies",
+    "Collection Agencies",
+    "Securities and Commodity Exchanges",
+    "Venture Capital and Private Equity Principals",
+    "Claims Adjusting, Actuarial Services",
+    "Insurance Carriers"
+  ],
+  "Cultural & Informational Centers": [
+    "Historical Sites",
+    "Libraries",
+    "Museums, Historical Sites, and Zoos",
+    "Museums"
+  ],
+  "Dairy": [
+    "Dairy Product Manufacturing",
+    "Meat Products Manufacturing",
+    "Baked Goods Manufacturing",
+    "Seafood Product Manufacturing",
+    "Wine & Spirits",
+    "Fruit and Vegetable Preserves Manufacturing",
+    "Beverage Manufacturing",
+    "Animal Feed Manufacturing"
+  ],
+  "Dairy Product Manufacturing": [
+    "Baked Goods Manufacturing",
+    "Dairy",
+    "Wine & Spirits",
+    "Meat Products Manufacturing",
+    "Beverage Manufacturing",
+    "Seafood Product Manufacturing",
+    "Food & Beverages",
+    "Fruit and Vegetable Preserves Manufacturing"
+  ],
+  "Data Infrastructure and Analytics": [
+    "Business Intelligence Platforms",
+    "Blockchain Services",
+    "Social Networking Platforms",
+    "Internet Service Providers, Website Hosting & Internet-related Services",
+    "Internet Marketplace Platforms",
+    "Digital Accessibility Services",
+    "Ecommerce Platforms"
+  ],
+  "Data Security Software Products": [
+    "Computer and Network Security",
+    "Security Software",
+    "Research Services",
+    "Research",
+    "Robotics Engineering",
+    "Space Research and Technology",
+    "Nanotechnology Research"
+  ],
+  "Defense & Space": [
+    "Defense and Space Manufacturing",
+    "Aviation and Aerospace Component Manufacturing",
+    "Aviation & Aerospace",
+    "Airlines and Aviation",
+    "Aerospace & Defense",
+    "Airlines, Airports & Air Services"
+  ],
+  "Defense and Space Manufacturing": [
+    "Aviation & Aerospace",
+    "Defense & Space",
+    "Aerospace & Defense",
+    "Aviation and Aerospace Component Manufacturing",
+    "Airlines and Aviation",
+    "Airlines, Airports & Air Services"
+  ],
+  "Dental Practice Management": [
+    "Dentists",
+    "Optometrists",
+    "Medical and Diagnostic Laboratories",
+    "Physical, Occupational and Speech Therapists",
+    "Medical Practices",
+    "Mental Health Care",
+    "Hospitals & Physicians Clinics",
+    "Alternative Medicine"
+  ],
+  "Dentists": [
+    "Medical and Diagnostic Laboratories",
+    "Dental Practice Management",
+    "Medical Practices",
+    "Optometrists",
+    "Hospitals & Physicians Clinics",
+    "Physical, Occupational and Speech Therapists",
+    "Hospitals and Health Care",
+    "Mental Health Care"
+  ],
+  "Department Stores, Shopping Centers & Superstores": [
+    "Retail",
+    "Consumer Goods",
+    "Household Goods",
+    "Personal & Household Goods",
+    "Online and Mail Order Retail",
+    "Auctions"
+  ],
+  "Design": [
+    "Design Services",
+    "Graphic Design",
+    "Interior Design",
+    "Photography"
+  ],
+  "Design Services": [
+    "Design",
+    "Graphic Design",
+    "Interior Design",
+    "Photography"
+  ],
+  "Desktop Computing Software Products": [
+    "IT System Training and Support",
+    "Mobile Computing Software Products",
+    "IT System Testing and Evaluation",
+    "Embedded Software Products",
+    "IT System Installation and Disposal",
+    "Mobile App Development",
+    "IT System Operations and Maintenance",
+    "IT System Design Services"
+  ],
+  "Digital Accessibility Services": [
+    "Internet Service Providers, Website Hosting & Internet-related Services",
+    "Blockchain Services",
+    "Data Infrastructure and Analytics",
+    "Business Intelligence Platforms",
+    "Social Networking Platforms",
+    "Internet Marketplace Platforms",
+    "Ecommerce Platforms"
+  ],
+  "Drug Stores & Pharmacies": [
+    "Wholesale Alcoholic Beverages",
+    "Retail Pharmacies",
+    "Wholesale Food and Beverage",
+    "Retail Health and Personal Care Products",
+    "Convenience Stores, Gas Stations & Liquor Stores",
+    "Food and Beverage Retail",
+    "Retail Groceries",
+    "Grocery Retail"
+  ],
+  "E-Learning Providers": [
+    "E-learning",
+    "Technical and Vocational Training",
+    "Language Schools",
+    "Cosmetology and Barber Schools"
+  ],
+  "E-learning": [
+    "E-Learning Providers",
+    "Technical and Vocational Training",
+    "Language Schools",
+    "Cosmetology and Barber Schools"
+  ],
+  "Ecommerce Platforms": [
+    "Internet Marketplace Platforms",
+    "Social Networking Platforms",
+    "Business Intelligence Platforms",
+    "Data Infrastructure and Analytics",
+    "Blockchain Services",
+    "Internet Service Providers, Website Hosting & Internet-related Services",
+    "Digital Accessibility Services"
+  ],
+  "Economic Programs": [
+    "Legislative Offices",
+    "Program Development",
+    "Federal",
+    "Transportation Programs",
+    "Government Administration",
+    "Housing Programs",
+    "Government"
+  ],
+  "Education": [
+    "Education Administration Programs",
+    "Education Management",
+    "Primary and Secondary Education",
+    "Higher Education",
+    "Colleges & Universities"
+  ],
+  "Education Administration Programs": [
+    "Education",
+    "Education Management",
+    "Primary and Secondary Education",
+    "Higher Education",
+    "Colleges & Universities"
+  ],
+  "Education Management": [
+    "Education Administration Programs",
+    "Primary and Secondary Education",
+    "Education",
+    "Higher Education",
+    "Colleges & Universities"
+  ],
+  "Elderly Care Services": [
+    "Home Health Care Services",
+    "Nursing Homes and Residential Care Facilities",
+    "Services for the Elderly and Disabled",
+    "Childcare",
+    "Child Day Care Services"
+  ],
+  "Electric Lighting Equipment Manufacturing": [
+    "Electrical Equipment Manufacturing",
+    "Computer Networking",
+    "Computer Networking Products",
+    "Communications Equipment Manufacturing",
+    "Semiconductor Manufacturing",
+    "Semiconductors"
+  ],
+  "Electric Power Generation": [
+    "Energy, Utilities & Waste",
+    "Electric Power Transmission, Control, and Distribution",
+    "Energy & Utilities",
+    "Fossil Fuel Electric Power Generation",
+    "Utilities",
+    "Utilities Administration",
+    "Water Supply and Irrigation Systems",
+    "Water, Waste, Steam, and Air Conditioning Services"
+  ],
+  "Electric Power Transmission, Control, and Distribution": [
+    "Electric Power Generation",
+    "Fossil Fuel Electric Power Generation",
+    "Energy, Utilities & Waste",
+    "Utilities Administration",
+    "Energy & Utilities",
+    "Water Supply and Irrigation Systems",
+    "Utilities",
+    "Water, Waste, Steam, and Air Conditioning Services"
+  ],
+  "Electrical Equipment Manufacturing": [
+    "Computer Networking",
+    "Electric Lighting Equipment Manufacturing",
+    "Computer Networking Products",
+    "Communications Equipment Manufacturing",
+    "Semiconductor Manufacturing",
+    "Semiconductors"
+  ],
+  "Electricity, Oil & Gas": [
+    "Natural Gas Extraction",
+    "Wholesale Petroleum and Petroleum Products",
+    "Natural Gas Distribution",
+    "Retail Gasoline",
+    "Oil, Gas, and Mining",
+    "Oil Extraction",
+    "Oil and Gas"
+  ],
+  "Electronic and Precision Equipment Maintenance": [
+    "Measuring and Control Instrument Manufacturing",
+    "Commercial and Industrial Machinery Maintenance",
+    "Industrial Automation",
+    "Repair and Maintenance",
+    "Automation Machinery Manufacturing",
+    "Transportation Equipment Manufacturing",
+    "HVAC and Refrigeration Equipment Manufacturing",
+    "Railroad Equipment Manufacturing"
+  ],
+  "Electronics": [
+    "Consumer Electronics",
+    "Audio and Video Equipment Manufacturing",
+    "Computer Equipment & Peripherals",
+    "Appliances, Electrical, and Electronics Manufacturing",
+    "Computer Hardware",
+    "Appliances",
+    "Computer Hardware Manufacturing",
+    "Household Appliance Manufacturing"
+  ],
+  "Embedded Software Products": [
+    "Mobile Computing Software Products",
+    "Mobile App Development",
+    "Desktop Computing Software Products",
+    "IT System Training and Support",
+    "IT System Testing and Evaluation",
+    "IT System Installation and Disposal",
+    "IT System Operations and Maintenance",
+    "IT System Design Services"
+  ],
+  "Emergency and Relief Services": [
+    "Vocational Rehabilitation Services",
+    "Community Services",
+    "Individual and Family Services",
+    "Health and Human Services",
+    "Public Health"
+  ],
+  "Energy & Utilities": [
+    "Utilities",
+    "Energy, Utilities & Waste",
+    "Electric Power Generation",
+    "Electric Power Transmission, Control, and Distribution",
+    "Fossil Fuel Electric Power Generation",
+    "Utilities Administration",
+    "Water Supply and Irrigation Systems",
+    "Water, Waste, Steam, and Air Conditioning Services"
+  ],
+  "Energy Technology": [
+    "Services for Renewable Energy",
+    "Climate Technology Product Manufacturing",
+    "Renewable Energy Semiconductor Manufacturing",
+    "Renewable Energy Equipment Manufacturing",
+    "Solar Electric Power Generation",
+    "Renewable Energy Power Generation",
+    "Renewables & Environment"
+  ],
+  "Energy, Utilities & Waste": [
+    "Energy & Utilities",
+    "Electric Power Generation",
+    "Utilities",
+    "Electric Power Transmission, Control, and Distribution",
+    "Fossil Fuel Electric Power Generation",
+    "Utilities Administration",
+    "Water Supply and Irrigation Systems",
+    "Water, Waste, Steam, and Air Conditioning Services"
+  ],
+  "Engineering Services": [
+    "Civil Engineering Construction",
+    "Mechanical Or Industrial Engineering",
+    "Civil Engineering",
+    "Surveying and Mapping Services",
+    "Highway, Street, and Bridge Construction",
+    "Utility System Construction",
+    "Architecture and Planning",
+    "Architecture, Engineering & Design"
+  ],
+  "Engines and Power Transmission Equipment Manufacturing": [
+    "Agriculture, Construction, Mining Machinery Manufacturing",
+    "Metalworking Machinery Manufacturing",
+    "Commercial and Service Industry Machinery Manufacturing",
+    "HVAC and Refrigeration Equipment Manufacturing",
+    "Industrial Goods & Services",
+    "Automation Machinery Manufacturing",
+    "Industrial Machinery & Equipment",
+    "Industrial Automation"
+  ],
+  "Entertainment": [
+    "Entertainment Providers",
+    "Computer Games",
+    "Mobile Gaming Apps",
+    "Performing Arts",
+    "Theater Companies",
+    "Music",
+    "Musicians"
+  ],
+  "Entertainment Providers": [
+    "Entertainment",
+    "Computer Games",
+    "Mobile Gaming Apps",
+    "Performing Arts",
+    "Theater Companies",
+    "Music",
+    "Musicians"
+  ],
+  "Environmental Quality Programs": [
+    "Air, Water, and Waste Program Management",
+    "Conservation Programs",
+    "Environmental Services",
+    "Waste Collection",
+    "Waste Treatment and Disposal",
+    "Wholesale Recyclable Materials",
+    "Retail Recyclable Materials & Used Merchandise",
+    "Community Development and Urban Planning"
+  ],
+  "Environmental Services": [
+    "Air, Water, and Waste Program Management",
+    "Environmental Quality Programs",
+    "Conservation Programs",
+    "Waste Collection",
+    "Waste Treatment and Disposal",
+    "Wholesale Recyclable Materials",
+    "Retail Recyclable Materials & Used Merchandise",
+    "Community Development and Urban Planning"
+  ],
+  "Equipment Rental Services": [
+    "Landscaping Services",
+    "Commercial and Industrial Equipment Rental",
+    "Janitorial Services",
+    "Consumer Goods Rental",
+    "Cleaning Services",
+    "Other Rental Stores (Furniture, A/V, Construction & Industrial Equipment)",
+    "Facilities Services"
+  ],
+  "Events Services": [
+    "Public Relations and Communications Services",
+    "Business Content",
+    "Market Research",
+    "Marketing Services",
+    "Advertising Networks",
+    "Advertising Services"
+  ],
+  "Executive Offices": [
+    "Outsourcing/Offshoring",
+    "Administrative and Support Services",
+    "Outsourcing and Offshoring Consulting",
+    "Operations Consulting",
+    "Strategic Management Services",
+    "Professional Services",
+    "Business Services",
+    "Business Consulting and Services"
+  ],
+  "Executive Search Services": [
+    "Staffing and Recruiting",
+    "Professional Training and Coaching",
+    "Human Resources Services",
+    "Human Resources"
+  ],
+  "Fabricated Metal Products": [
+    "Architectural and Structural Metal Manufacturing",
+    "Primary Metal Manufacturing",
+    "Metal Treatments",
+    "Metal Valve, Ball, and Roller Manufacturing",
+    "Boilers, Tanks, and Shipping Container Manufacturing",
+    "Turned Products and Fastener Manufacturing"
+  ],
+  "Facilities Services": [
+    "Cleaning Services",
+    "Janitorial Services",
+    "Landscaping Services",
+    "Equipment Rental Services",
+    "Commercial and Industrial Equipment Rental",
+    "Consumer Goods Rental",
+    "Other Rental Stores (Furniture, A/V, Construction & Industrial Equipment)"
+  ],
+  "Farming": [
+    "Agriculture",
+    "Farming, Ranching, Forestry",
+    "Ranching",
+    "Ranching and Fisheries",
+    "Fisheries",
+    "Horticulture",
+    "Wholesale Raw Farm Products"
+  ],
+  "Farming, Ranching, Forestry": [
+    "Agriculture",
+    "Ranching",
+    "Farming",
+    "Ranching and Fisheries",
+    "Fisheries",
+    "Horticulture",
+    "Wholesale Raw Farm Products"
+  ],
+  "Fashion Accessories Manufacturing": [
+    "Leather Product Manufacturing",
+    "Footwear Manufacturing",
+    "Apparel Manufacturing",
+    "Textile Manufacturing"
+  ],
+  "Federal": [
+    "Government Administration",
+    "Legislative Offices",
+    "Government",
+    "Economic Programs",
+    "Program Development",
+    "Transportation Programs",
+    "Housing Programs"
+  ],
+  "Finance": [
+    "Banking",
+    "Banking, Financial Services and Insurance",
+    "Financial Services",
+    "Investment Management",
+    "Investment Banking",
+    "Capital Markets",
+    "Investment Advice"
+  ],
+  "Financial Services": [
+    "Banking",
+    "Finance",
+    "Banking, Financial Services and Insurance",
+    "Investment Management",
+    "Investment Banking",
+    "Capital Markets",
+    "Investment Advice"
+  ],
+  "Fine Art": [
+    "Artists and Writers",
+    "Arts & Crafts",
+    "Fine Arts Schools",
+    "Writing and Editing",
+    "Translation and Localization"
+  ],
+  "Fine Arts Schools": [
+    "Arts & Crafts",
+    "Writing and Editing",
+    "Fine Art",
+    "Translation and Localization",
+    "Artists and Writers"
+  ],
+  "Fire Protection": [
+    "Law Enforcement",
+    "Armed Forces",
+    "Public Safety",
+    "Military and International Affairs",
+    "Security and Investigations",
+    "Security Guards and Patrol Services",
+    "Security Systems Services"
+  ],
+  "Fisheries": [
+    "Ranching and Fisheries",
+    "Horticulture",
+    "Ranching",
+    "Wholesale Raw Farm Products",
+    "Farming, Ranching, Forestry",
+    "Agriculture",
+    "Farming"
+  ],
+  "Fitness & Dance Facilities": [
+    "Wellness and Fitness Services",
+    "Spa and Salon Management",
+    "Health, Wellness & Fitness",
+    "Personal Care Services"
+  ],
+  "Flowers, Gifts & Specialty Stores": [
+    "Retail Florists",
+    "Record, Video & Book Stores",
+    "Retail Books and Printed News",
+    "Retail Art Dealers",
+    "Retail Art Supplies",
+    "Retail Musical Instruments",
+    "Retail Office Equipment",
+    "Retail Office Supplies and Gifts"
+  ],
+  "Food & Beverage": [
+    "Food Production",
+    "Food & Beverages",
+    "Food and Beverage Manufacturing",
+    "Beverage Manufacturing",
+    "Wine & Spirits",
+    "Baked Goods Manufacturing",
+    "Dairy Product Manufacturing",
+    "Dairy"
+  ],
+  "Food & Beverages": [
+    "Food & Beverage",
+    "Beverage Manufacturing",
+    "Food Production",
+    "Wine & Spirits",
+    "Food and Beverage Manufacturing",
+    "Baked Goods Manufacturing",
+    "Dairy Product Manufacturing",
+    "Dairy"
+  ],
+  "Food Production": [
+    "Food and Beverage Manufacturing",
+    "Food & Beverage",
+    "Food & Beverages",
+    "Beverage Manufacturing",
+    "Wine & Spirits",
+    "Baked Goods Manufacturing",
+    "Dairy Product Manufacturing",
+    "Dairy"
+  ],
+  "Food and Beverage Manufacturing": [
+    "Food Production",
+    "Food & Beverage",
+    "Food & Beverages",
+    "Beverage Manufacturing",
+    "Wine & Spirits",
+    "Baked Goods Manufacturing",
+    "Dairy Product Manufacturing",
+    "Dairy"
+  ],
+  "Food and Beverage Retail": [
+    "Retail Groceries",
+    "Convenience Stores, Gas Stations & Liquor Stores",
+    "Grocery Retail",
+    "Wholesale Food and Beverage",
+    "Wholesale Alcoholic Beverages",
+    "Drug Stores & Pharmacies",
+    "Retail Pharmacies",
+    "Retail Health and Personal Care Products"
+  ],
+  "Food and Beverage Services": [
+    "Restaurants",
+    "Accommodation and Food Services",
+    "Bars, Taverns, and Nightclubs",
+    "Caterers",
+    "Mobile Food Services"
+  ],
+  "Footwear Manufacturing": [
+    "Apparel Manufacturing",
+    "Leather Product Manufacturing",
+    "Textile Manufacturing",
+    "Fashion Accessories Manufacturing"
+  ],
+  "Fossil Fuel Electric Power Generation": [
+    "Electric Power Transmission, Control, and Distribution",
+    "Utilities Administration",
+    "Electric Power Generation",
+    "Water Supply and Irrigation Systems",
+    "Energy, Utilities & Waste",
+    "Water, Waste, Steam, and Air Conditioning Services",
+    "Energy & Utilities",
+    "Steam and Air-Conditioning Supply"
+  ],
+  "Freight & Logistics Services": [
+    "Transportation, Warehousing & Logistics",
+    "Freight and Package Transportation",
+    "Transportation, Logistics, Supply Chain and Storage",
+    "Warehousing and Storage",
+    "Warehousing",
+    "Import & Export",
+    "Wholesale Import and Export"
+  ],
+  "Freight and Package Transportation": [
+    "Freight & Logistics Services",
+    "Warehousing and Storage",
+    "Transportation, Warehousing & Logistics",
+    "Warehousing",
+    "Transportation, Logistics, Supply Chain and Storage",
+    "Import & Export",
+    "Wholesale Import and Export"
+  ],
+  "Fruit and Vegetable Preserves Manufacturing": [
+    "Seafood Product Manufacturing",
+    "Animal Feed Manufacturing",
+    "Meat Products Manufacturing",
+    "Tobacco",
+    "Dairy",
+    "Tobacco Manufacturing",
+    "Dairy Product Manufacturing",
+    "Baked Goods Manufacturing"
+  ],
+  "Fundraising": [
+    "Philanthropic Fundraising Services",
+    "Religious Institutions",
+    "Philanthropy",
+    "International Trade and Development",
+    "Civic and Social Organizations",
+    "International Affairs",
+    "Non-Profit & Government",
+    "Industry Associations"
+  ],
+  "Furniture": [
+    "Retail Furniture and Home Furnishings",
+    "Furniture and Home Furnishings Manufacturing",
+    "Household and Institutional Furniture Manufacturing",
+    "Office Furniture and Fixtures Manufacturing",
+    "Mattress and Blinds Manufacturing",
+    "Reupholstery and Furniture Repair",
+    "Wholesale Furniture and Home Furnishings",
+    "Retail Building Materials and Garden Equipment"
+  ],
+  "Furniture and Home Furnishings Manufacturing": [
+    "Furniture",
+    "Household and Institutional Furniture Manufacturing",
+    "Retail Furniture and Home Furnishings",
+    "Office Furniture and Fixtures Manufacturing",
+    "Mattress and Blinds Manufacturing",
+    "Reupholstery and Furniture Repair",
+    "Wholesale Furniture and Home Furnishings",
+    "Retail Building Materials and Garden Equipment"
+  ],
+  "Gambling & Gaming": [
+    "Gambling Facilities and Casinos",
+    "Racetracks",
+    "Recreational Facilities",
+    "Golf Courses and Country Clubs",
+    "Amusement Parks and Arcades",
+    "Amusement Parks, Arcades & Attractions"
+  ],
+  "Gambling Facilities and Casinos": [
+    "Gambling & Gaming",
+    "Racetracks",
+    "Recreational Facilities",
+    "Golf Courses and Country Clubs",
+    "Amusement Parks and Arcades",
+    "Amusement Parks, Arcades & Attractions"
+  ],
+  "Glass & Clay": [
+    "Glass Product Manufacturing",
+    "Clay and Refractory Products Manufacturing",
+    "Glass, Ceramics and Concrete Manufacturing",
+    "Abrasives and Nonmetallic Minerals Manufacturing",
+    "Lime and Gypsum Products Manufacturing"
+  ],
+  "Glass Product Manufacturing": [
+    "Glass, Ceramics and Concrete Manufacturing",
+    "Glass & Clay",
+    "Clay and Refractory Products Manufacturing",
+    "Abrasives and Nonmetallic Minerals Manufacturing",
+    "Lime and Gypsum Products Manufacturing"
+  ],
+  "Glass, Ceramics and Concrete Manufacturing": [
+    "Glass Product Manufacturing",
+    "Glass & Clay",
+    "Clay and Refractory Products Manufacturing",
+    "Abrasives and Nonmetallic Minerals Manufacturing",
+    "Lime and Gypsum Products Manufacturing"
+  ],
+  "Golf Courses and Country Clubs": [
+    "Recreational Facilities",
+    "Amusement Parks and Arcades",
+    "Racetracks",
+    "Amusement Parks, Arcades & Attractions",
+    "Gambling & Gaming",
+    "Gambling Facilities and Casinos"
+  ],
+  "Government": [
+    "Government Administration",
+    "Federal",
+    "Legislative Offices",
+    "Economic Programs",
+    "Program Development",
+    "Transportation Programs",
+    "Housing Programs"
+  ],
+  "Government Administration": [
+    "Government",
+    "Federal",
+    "Legislative Offices",
+    "Economic Programs",
+    "Program Development",
+    "Transportation Programs",
+    "Housing Programs"
+  ],
+  "Government Relations": [
+    "Political Organizations",
+    "Government Relations Services",
+    "Think Tanks",
+    "Public Policy Offices",
+    "Public Policy"
+  ],
+  "Government Relations Services": [
+    "Government Relations",
+    "Political Organizations",
+    "Think Tanks",
+    "Public Policy Offices",
+    "Public Policy"
+  ],
+  "Graphic Design": [
+    "Design Services",
+    "Interior Design",
+    "Design",
+    "Photography"
+  ],
+  "Grocery Retail": [
+    "Retail Groceries",
+    "Food and Beverage Retail",
+    "Convenience Stores, Gas Stations & Liquor Stores",
+    "Wholesale Food and Beverage",
+    "Wholesale Alcoholic Beverages",
+    "Drug Stores & Pharmacies",
+    "Retail Pharmacies",
+    "Retail Health and Personal Care Products"
+  ],
+  "Ground Passenger Transportation": [
+    "Rail, Bus & Taxi",
+    "Taxi and Limousine Services",
+    "Rail Transportation",
+    "Interurban and Rural Bus Services",
+    "Transportation",
+    "Urban Transit Services",
+    "Transportation/Trucking/Railroad",
+    "School and Employee Bus Services"
+  ],
+  "HVAC and Refrigeration Equipment Manufacturing": [
+    "Metalworking Machinery Manufacturing",
+    "Automation Machinery Manufacturing",
+    "Engines and Power Transmission Equipment Manufacturing",
+    "Industrial Automation",
+    "Agriculture, Construction, Mining Machinery Manufacturing",
+    "Measuring and Control Instrument Manufacturing",
+    "Commercial and Service Industry Machinery Manufacturing",
+    "Electronic and Precision Equipment Maintenance"
+  ],
+  "Hand, Power & Lawn-care Tools": [
+    "Wholesale Building Materials",
+    "Home Improvement & Hardware Retail",
+    "Construction Hardware Manufacturing",
+    "Building Materials"
+  ],
+  "Health Care Equipment & Services": [
+    "Medical Equipment Manufacturing",
+    "Medical Device",
+    "Biotechnology Research",
+    "Biotechnology",
+    "Pharmaceutical Manufacturing"
+  ],
+  "Health and Human Services": [
+    "Public Health",
+    "Individual and Family Services",
+    "Community Services",
+    "Vocational Rehabilitation Services",
+    "Emergency and Relief Services"
+  ],
+  "Health, Wellness & Fitness": [
+    "Wellness and Fitness Services",
+    "Fitness & Dance Facilities",
+    "Spa and Salon Management",
+    "Personal Care Services"
+  ],
+  "Healthcare Services": [
+    "Alternative Medicine",
+    "Ambulance Services",
+    "Mental Health Care",
+    "Veterinary",
+    "Physical, Occupational and Speech Therapists",
+    "Veterinary Services",
+    "Optometrists",
+    "Dental Practice Management"
+  ],
+  "Higher Education": [
+    "Primary and Secondary Education",
+    "Colleges & Universities",
+    "Education Management",
+    "Education Administration Programs",
+    "Education"
+  ],
+  "Highway, Street, and Bridge Construction": [
+    "Surveying and Mapping Services",
+    "Utility System Construction",
+    "Mechanical Or Industrial Engineering",
+    "Architecture and Planning",
+    "Engineering Services",
+    "Architecture, Engineering & Design",
+    "Civil Engineering Construction",
+    "Accessible Architecture and Design"
+  ],
+  "Historical Sites": [
+    "Museums, Historical Sites, and Zoos",
+    "Cultural & Informational Centers",
+    "Museums",
+    "Libraries"
+  ],
+  "Holding Companies": [
+    "Securities and Commodity Exchanges",
+    "Holding Companies & Conglomerates",
+    "Venture Capital and Private Equity Principals",
+    "Credit Card Processing",
+    "Claims Adjusting, Actuarial Services",
+    "Loan Brokers",
+    "Insurance Carriers",
+    "Collection Agencies"
+  ],
+  "Holding Companies & Conglomerates": [
+    "Holding Companies",
+    "Credit Card Processing",
+    "Securities and Commodity Exchanges",
+    "Loan Brokers",
+    "Venture Capital and Private Equity Principals",
+    "Collection Agencies",
+    "Claims Adjusting, Actuarial Services",
+    "Insurance Carriers"
+  ],
+  "Home Health Care Services": [
+    "Elderly Care Services",
+    "Nursing Homes and Residential Care Facilities",
+    "Services for the Elderly and Disabled",
+    "Childcare",
+    "Child Day Care Services"
+  ],
+  "Home Improvement & Hardware Retail": [
+    "Hand, Power & Lawn-care Tools",
+    "Wholesale Building Materials",
+    "Construction Hardware Manufacturing",
+    "Building Materials"
+  ],
+  "Horticulture": [
+    "Fisheries",
+    "Wholesale Raw Farm Products",
+    "Ranching and Fisheries",
+    "Ranching",
+    "Farming, Ranching, Forestry",
+    "Agriculture",
+    "Farming"
+  ],
+  "Hospitality": [
+    "Travel, Recreation & Leisure",
+    "Hotels and Motels",
+    "Leisure, Travel & Tourism",
+    "Bed-and-Breakfasts, Hostels, Homestays",
+    "Travel Arrangements",
+    "Sightseeing Transportation"
+  ],
+  "Hospitals & Physicians Clinics": [
+    "Hospitals and Health Care",
+    "Medical Practices",
+    "Medical and Diagnostic Laboratories",
+    "Dentists",
+    "Dental Practice Management",
+    "Optometrists",
+    "Physical, Occupational and Speech Therapists",
+    "Mental Health Care"
+  ],
+  "Hospitals and Health Care": [
+    "Hospitals & Physicians Clinics",
+    "Medical Practices",
+    "Medical and Diagnostic Laboratories",
+    "Dentists",
+    "Dental Practice Management",
+    "Optometrists",
+    "Physical, Occupational and Speech Therapists",
+    "Mental Health Care"
+  ],
+  "Hotels and Motels": [
+    "Hospitality",
+    "Bed-and-Breakfasts, Hostels, Homestays",
+    "Travel, Recreation & Leisure",
+    "Sightseeing Transportation",
+    "Leisure, Travel & Tourism",
+    "Travel Arrangements"
+  ],
+  "Household Appliance Manufacturing": [
+    "Appliances",
+    "Appliances, Electrical, and Electronics Manufacturing",
+    "Audio and Video Equipment Manufacturing",
+    "Electronics",
+    "Consumer Electronics",
+    "Computer Equipment & Peripherals",
+    "Computer Hardware",
+    "Computer Hardware Manufacturing"
+  ],
+  "Household Goods": [
+    "Consumer Goods",
+    "Personal & Household Goods",
+    "Department Stores, Shopping Centers & Superstores",
+    "Online and Mail Order Retail",
+    "Retail",
+    "Auctions"
+  ],
+  "Household Services": [
+    "Laundry and Drycleaning Services",
+    "Consumer Services",
+    "Personal and Laundry Services",
+    "Pet Services"
+  ],
+  "Household and Institutional Furniture Manufacturing": [
+    "Furniture and Home Furnishings Manufacturing",
+    "Office Furniture and Fixtures Manufacturing",
+    "Furniture",
+    "Mattress and Blinds Manufacturing",
+    "Retail Furniture and Home Furnishings",
+    "Reupholstery and Furniture Repair",
+    "Wholesale Furniture and Home Furnishings",
+    "Retail Building Materials and Garden Equipment"
+  ],
+  "Housing Programs": [
+    "Transportation Programs",
+    "Program Development",
+    "Economic Programs",
+    "Legislative Offices",
+    "Federal",
+    "Government Administration",
+    "Government"
+  ],
+  "Housing and Community Development": [
+    "Community Development and Urban Planning",
+    "Retail Recyclable Materials & Used Merchandise",
+    "Wholesale Recyclable Materials",
+    "Waste Treatment and Disposal",
+    "Waste Collection",
+    "Conservation Programs",
+    "Environmental Quality Programs",
+    "Air, Water, and Waste Program Management"
+  ],
+  "Human Resources": [
+    "Human Resources Services",
+    "Staffing and Recruiting",
+    "Executive Search Services",
+    "Professional Training and Coaching"
+  ],
+  "Human Resources Services": [
+    "Human Resources",
+    "Staffing and Recruiting",
+    "Executive Search Services",
+    "Professional Training and Coaching"
+  ],
+  "IT Services and IT Consulting": [
+    "Information Technology & Services",
+    "Technology, Information and Internet",
+    "Software Development",
+    "Software",
+    "Software, Internet & Computer Services",
+    "IT System Custom Software Development",
+    "Information Services"
+  ],
+  "IT System Custom Software Development": [
+    "Software, Internet & Computer Services",
+    "Information Services",
+    "Software",
+    "Software Development",
+    "Technology, Information and Internet",
+    "Information Technology & Services",
+    "IT Services and IT Consulting"
+  ],
+  "IT System Data Services": [
+    "IT System Design Services",
+    "IT System Operations and Maintenance",
+    "IT System Installation and Disposal",
+    "IT System Testing and Evaluation",
+    "IT System Training and Support",
+    "Desktop Computing Software Products",
+    "Mobile Computing Software Products",
+    "Embedded Software Products"
+  ],
+  "IT System Design Services": [
+    "IT System Data Services",
+    "IT System Operations and Maintenance",
+    "IT System Installation and Disposal",
+    "IT System Testing and Evaluation",
+    "IT System Training and Support",
+    "Desktop Computing Software Products",
+    "Mobile Computing Software Products",
+    "Embedded Software Products"
+  ],
+  "IT System Installation and Disposal": [
+    "IT System Operations and Maintenance",
+    "IT System Testing and Evaluation",
+    "IT System Design Services",
+    "IT System Training and Support",
+    "IT System Data Services",
+    "Desktop Computing Software Products",
+    "Mobile Computing Software Products",
+    "Embedded Software Products"
+  ],
+  "IT System Operations and Maintenance": [
+    "IT System Design Services",
+    "IT System Installation and Disposal",
+    "IT System Data Services",
+    "IT System Testing and Evaluation",
+    "IT System Training and Support",
+    "Desktop Computing Software Products",
+    "Mobile Computing Software Products",
+    "Embedded Software Products"
+  ],
+  "IT System Testing and Evaluation": [
+    "IT System Installation and Disposal",
+    "IT System Training and Support",
+    "IT System Operations and Maintenance",
+    "Desktop Computing Software Products",
+    "IT System Design Services",
+    "Mobile Computing Software Products",
+    "IT System Data Services",
+    "Embedded Software Products"
+  ],
+  "IT System Training and Support": [
+    "IT System Testing and Evaluation",
+    "Desktop Computing Software Products",
+    "IT System Installation and Disposal",
+    "Mobile Computing Software Products",
+    "IT System Operations and Maintenance",
+    "Embedded Software Products",
+    "IT System Design Services",
+    "Mobile App Development"
+  ],
+  "Import & Export": [
+    "Warehousing",
+    "Wholesale Import and Export",
+    "Warehousing and Storage",
+    "Freight and Package Transportation",
+    "Freight & Logistics Services",
+    "Transportation, Warehousing & Logistics",
+    "Transportation, Logistics, Supply Chain and Storage"
+  ],
+  "Individual and Family Services": [
+    "Health and Human Services",
+    "Community Services",
+    "Public Health",
+    "Vocational Rehabilitation Services",
+    "Emergency and Relief Services"
+  ],
+  "Industrial Automation": [
+    "Automation Machinery Manufacturing",
+    "Measuring and Control Instrument Manufacturing",
+    "HVAC and Refrigeration Equipment Manufacturing",
+    "Electronic and Precision Equipment Maintenance",
+    "Metalworking Machinery Manufacturing",
+    "Commercial and Industrial Machinery Maintenance",
+    "Engines and Power Transmission Equipment Manufacturing",
+    "Repair and Maintenance"
+  ],
+  "Industrial Goods & Services": [
+    "Industrial Machinery & Equipment",
+    "Commercial and Service Industry Machinery Manufacturing",
+    "Machinery Manufacturing",
+    "Agriculture, Construction, Mining Machinery Manufacturing",
+    "Industrial Machinery Manufacturing",
+    "Engines and Power Transmission Equipment Manufacturing",
+    "Manufacturing",
+    "Metalworking Machinery Manufacturing"
+  ],
+  "Industrial Machinery & Equipment": [
+    "Machinery Manufacturing",
+    "Industrial Goods & Services",
+    "Industrial Machinery Manufacturing",
+    "Commercial and Service Industry Machinery Manufacturing",
+    "Manufacturing",
+    "Agriculture, Construction, Mining Machinery Manufacturing",
+    "Engines and Power Transmission Equipment Manufacturing",
+    "Metalworking Machinery Manufacturing"
+  ],
+  "Industrial Machinery Manufacturing": [
+    "Manufacturing",
+    "Machinery Manufacturing",
+    "Industrial Machinery & Equipment",
+    "Industrial Goods & Services",
+    "Commercial and Service Industry Machinery Manufacturing",
+    "Agriculture, Construction, Mining Machinery Manufacturing",
+    "Engines and Power Transmission Equipment Manufacturing",
+    "Metalworking Machinery Manufacturing"
+  ],
+  "Industry Associations": [
+    "International Affairs",
+    "Membership Organizations",
+    "International Trade and Development",
+    "Professional Organizations",
+    "Religious Institutions",
+    "Organizations",
+    "Fundraising",
+    "Philanthropic Fundraising Services"
+  ],
+  "Information Services": [
+    "IT System Custom Software Development",
+    "Software, Internet & Computer Services",
+    "Software",
+    "Software Development",
+    "Technology, Information and Internet",
+    "Information Technology & Services",
+    "IT Services and IT Consulting"
+  ],
+  "Information Technology & Services": [
+    "IT Services and IT Consulting",
+    "Technology, Information and Internet",
+    "Software Development",
+    "Software",
+    "Software, Internet & Computer Services",
+    "IT System Custom Software Development",
+    "Information Services"
+  ],
+  "Insurance": [
+    "Insurance Agencies and Brokerages",
+    "Insurance Carriers",
+    "Claims Adjusting, Actuarial Services",
+    "Venture Capital and Private Equity Principals",
+    "Securities and Commodity Exchanges",
+    "Holding Companies",
+    "Holding Companies & Conglomerates",
+    "Credit Card Processing"
+  ],
+  "Insurance Agencies and Brokerages": [
+    "Insurance",
+    "Insurance Carriers",
+    "Claims Adjusting, Actuarial Services",
+    "Venture Capital and Private Equity Principals",
+    "Securities and Commodity Exchanges",
+    "Holding Companies",
+    "Holding Companies & Conglomerates",
+    "Credit Card Processing"
+  ],
+  "Insurance Carriers": [
+    "Insurance Agencies and Brokerages",
+    "Claims Adjusting, Actuarial Services",
+    "Insurance",
+    "Venture Capital and Private Equity Principals",
+    "Securities and Commodity Exchanges",
+    "Holding Companies",
+    "Holding Companies & Conglomerates",
+    "Credit Card Processing"
+  ],
+  "Interior Design": [
+    "Graphic Design",
+    "Photography",
+    "Design Services",
+    "Design"
+  ],
+  "International Affairs": [
+    "International Trade and Development",
+    "Industry Associations",
+    "Religious Institutions",
+    "Membership Organizations",
+    "Fundraising",
+    "Professional Organizations",
+    "Philanthropic Fundraising Services",
+    "Organizations"
+  ],
+  "International Trade and Development": [
+    "Religious Institutions",
+    "International Affairs",
+    "Fundraising",
+    "Industry Associations",
+    "Philanthropic Fundraising Services",
+    "Membership Organizations",
+    "Philanthropy",
+    "Professional Organizations"
+  ],
+  "Internet Marketplace Platforms": [
+    "Ecommerce Platforms",
+    "Social Networking Platforms",
+    "Business Intelligence Platforms",
+    "Data Infrastructure and Analytics",
+    "Blockchain Services",
+    "Internet Service Providers, Website Hosting & Internet-related Services",
+    "Digital Accessibility Services"
+  ],
+  "Internet News": [
+    "Internet Publishing",
+    "Periodical Publishing",
+    "Newspaper Publishing",
+    "Book Publishing",
+    "Book and Periodical Publishing"
+  ],
+  "Internet Publishing": [
+    "Periodical Publishing",
+    "Internet News",
+    "Newspaper Publishing",
+    "Book Publishing",
+    "Book and Periodical Publishing"
+  ],
+  "Internet Service Providers, Website Hosting & Internet-related Services": [
+    "Blockchain Services",
+    "Digital Accessibility Services",
+    "Data Infrastructure and Analytics",
+    "Business Intelligence Platforms",
+    "Social Networking Platforms",
+    "Internet Marketplace Platforms",
+    "Ecommerce Platforms"
+  ],
+  "Interurban and Rural Bus Services": [
+    "Taxi and Limousine Services",
+    "Urban Transit Services",
+    "Ground Passenger Transportation",
+    "School and Employee Bus Services",
+    "Rail, Bus & Taxi",
+    "Shuttles and Special Needs Transportation Services",
+    "Rail Transportation",
+    "Transportation"
+  ],
+  "Investment Advice": [
+    "Capital Markets",
+    "Investment Banking",
+    "Investment Management",
+    "Banking, Financial Services and Insurance",
+    "Finance",
+    "Banking",
+    "Financial Services"
+  ],
+  "Investment Banking": [
+    "Investment Management",
+    "Capital Markets",
+    "Banking, Financial Services and Insurance",
+    "Investment Advice",
+    "Finance",
+    "Banking",
+    "Financial Services"
+  ],
+  "Investment Management": [
+    "Banking, Financial Services and Insurance",
+    "Investment Banking",
+    "Finance",
+    "Capital Markets",
+    "Banking",
+    "Investment Advice",
+    "Financial Services"
+  ],
+  "Janitorial Services": [
+    "Cleaning Services",
+    "Landscaping Services",
+    "Facilities Services",
+    "Equipment Rental Services",
+    "Commercial and Industrial Equipment Rental",
+    "Consumer Goods Rental",
+    "Other Rental Stores (Furniture, A/V, Construction & Industrial Equipment)"
+  ],
+  "Jewelry & Watch Retail": [
+    "Wholesale Luxury Goods and Jewelry",
+    "Wholesale Apparel and Sewing Supplies",
+    "Retail Luxury Goods and Jewelry",
+    "Wholesale Footwear",
+    "Luxury Goods & Jewelry",
+    "Retail Apparel and Fashion",
+    "Apparel & Accessories Retail",
+    "Apparel & Fashion"
+  ],
+  "Landscaping Services": [
+    "Janitorial Services",
+    "Equipment Rental Services",
+    "Cleaning Services",
+    "Commercial and Industrial Equipment Rental",
+    "Facilities Services",
+    "Consumer Goods Rental",
+    "Other Rental Stores (Furniture, A/V, Construction & Industrial Equipment)"
+  ],
+  "Language Schools": [
+    "Technical and Vocational Training",
+    "Cosmetology and Barber Schools",
+    "E-Learning Providers",
+    "E-learning"
+  ],
+  "Laundry and Drycleaning Services": [
+    "Personal and Laundry Services",
+    "Household Services",
+    "Consumer Services",
+    "Pet Services"
+  ],
+  "Law Enforcement": [
+    "Public Safety",
+    "Fire Protection",
+    "Armed Forces",
+    "Military and International Affairs",
+    "Security and Investigations",
+    "Security Guards and Patrol Services",
+    "Security Systems Services"
+  ],
+  "Law Firms & Legal Services": [
+    "Law Practice",
+    "Alternative Dispute Resolution",
+    "Legal Services",
+    "Administration of Justice",
+    "Accounting for Legal Practices",
+    "Accounting"
+  ],
+  "Law Practice": [
+    "Legal Services",
+    "Law Firms & Legal Services",
+    "Accounting for Legal Practices",
+    "Alternative Dispute Resolution",
+    "Accounting",
+    "Administration of Justice"
+  ],
+  "Leasing Non-residential Real Estate": [
+    "Commercial Real Estate",
+    "Leasing Residential Real Estate",
+    "Real Estate Agents and Brokers",
+    "Real Estate and Equipment Rental Services",
+    "Real Estate",
+    "Real Estate & Construction"
+  ],
+  "Leasing Residential Real Estate": [
+    "Leasing Non-residential Real Estate",
+    "Real Estate and Equipment Rental Services",
+    "Commercial Real Estate",
+    "Real Estate & Construction",
+    "Real Estate Agents and Brokers",
+    "Real Estate"
+  ],
+  "Leather Product Manufacturing": [
+    "Footwear Manufacturing",
+    "Fashion Accessories Manufacturing",
+    "Apparel Manufacturing",
+    "Textile Manufacturing"
+  ],
+  "Legal Services": [
+    "Accounting for Legal Practices",
+    "Law Practice",
+    "Accounting",
+    "Law Firms & Legal Services",
+    "Alternative Dispute Resolution",
+    "Administration of Justice"
+  ],
+  "Legislative Offices": [
+    "Federal",
+    "Economic Programs",
+    "Government Administration",
+    "Program Development",
+    "Government",
+    "Transportation Programs",
+    "Housing Programs"
+  ],
+  "Leisure, Travel & Tourism": [
+    "Travel Arrangements",
+    "Travel, Recreation & Leisure",
+    "Hospitality",
+    "Hotels and Motels",
+    "Bed-and-Breakfasts, Hostels, Homestays",
+    "Sightseeing Transportation"
+  ],
+  "Libraries": [
+    "Cultural & Informational Centers",
+    "Historical Sites",
+    "Museums, Historical Sites, and Zoos",
+    "Museums"
+  ],
+  "Lime and Gypsum Products Manufacturing": [
+    "Abrasives and Nonmetallic Minerals Manufacturing",
+    "Clay and Refractory Products Manufacturing",
+    "Glass & Clay",
+    "Glass Product Manufacturing",
+    "Glass, Ceramics and Concrete Manufacturing"
+  ],
+  "Loan Brokers": [
+    "Credit Card Processing",
+    "Collection Agencies",
+    "Holding Companies & Conglomerates",
+    "Holding Companies",
+    "Securities and Commodity Exchanges",
+    "Venture Capital and Private Equity Principals",
+    "Claims Adjusting, Actuarial Services",
+    "Insurance Carriers"
+  ],
+  "Luxury Goods & Jewelry": [
+    "Retail Apparel and Fashion",
+    "Retail Luxury Goods and Jewelry",
+    "Apparel & Accessories Retail",
+    "Wholesale Luxury Goods and Jewelry",
+    "Apparel & Fashion",
+    "Jewelry & Watch Retail",
+    "Wholesale Apparel and Sewing Supplies",
+    "Wholesale Footwear"
+  ],
+  "Machinery Manufacturing": [
+    "Industrial Machinery Manufacturing",
+    "Industrial Machinery & Equipment",
+    "Manufacturing",
+    "Industrial Goods & Services",
+    "Commercial and Service Industry Machinery Manufacturing",
+    "Agriculture, Construction, Mining Machinery Manufacturing",
+    "Engines and Power Transmission Equipment Manufacturing",
+    "Metalworking Machinery Manufacturing"
+  ],
+  "Manufacturing": [
+    "Industrial Machinery Manufacturing",
+    "Machinery Manufacturing",
+    "Industrial Machinery & Equipment",
+    "Industrial Goods & Services",
+    "Commercial and Service Industry Machinery Manufacturing",
+    "Agriculture, Construction, Mining Machinery Manufacturing",
+    "Engines and Power Transmission Equipment Manufacturing",
+    "Metalworking Machinery Manufacturing"
+  ],
+  "Marine Shipping & Transportation": [
+    "Maritime Transportation",
+    "Shipbuilding",
+    "Maritime",
+    "Boats & Submarines"
+  ],
+  "Maritime": [
+    "Maritime Transportation",
+    "Marine Shipping & Transportation",
+    "Shipbuilding",
+    "Boats & Submarines"
+  ],
+  "Maritime Transportation": [
+    "Maritime",
+    "Marine Shipping & Transportation",
+    "Shipbuilding",
+    "Boats & Submarines"
+  ],
+  "Market Research": [
+    "Marketing Services",
+    "Public Relations and Communications Services",
+    "Advertising Networks",
+    "Events Services",
+    "Advertising Services",
+    "Business Content"
+  ],
+  "Marketing Services": [
+    "Advertising Networks",
+    "Market Research",
+    "Advertising Services",
+    "Public Relations and Communications Services",
+    "Events Services",
+    "Business Content"
+  ],
+  "Mattress and Blinds Manufacturing": [
+    "Office Furniture and Fixtures Manufacturing",
+    "Reupholstery and Furniture Repair",
+    "Household and Institutional Furniture Manufacturing",
+    "Wholesale Furniture and Home Furnishings",
+    "Furniture and Home Furnishings Manufacturing",
+    "Retail Building Materials and Garden Equipment",
+    "Furniture",
+    "Retail Furniture and Home Furnishings"
+  ],
+  "Measuring and Control Instrument Manufacturing": [
+    "Industrial Automation",
+    "Electronic and Precision Equipment Maintenance",
+    "Automation Machinery Manufacturing",
+    "Commercial and Industrial Machinery Maintenance",
+    "HVAC and Refrigeration Equipment Manufacturing",
+    "Repair and Maintenance",
+    "Metalworking Machinery Manufacturing",
+    "Transportation Equipment Manufacturing"
+  ],
+  "Meat Products Manufacturing": [
+    "Dairy",
+    "Seafood Product Manufacturing",
+    "Dairy Product Manufacturing",
+    "Fruit and Vegetable Preserves Manufacturing",
+    "Baked Goods Manufacturing",
+    "Animal Feed Manufacturing",
+    "Wine & Spirits",
+    "Tobacco"
+  ],
+  "Mechanical Or Industrial Engineering": [
+    "Engineering Services",
+    "Surveying and Mapping Services",
+    "Civil Engineering Construction",
+    "Highway, Street, and Bridge Construction",
+    "Civil Engineering",
+    "Utility System Construction",
+    "Architecture and Planning",
+    "Architecture, Engineering & Design"
+  ],
+  "Media & Internet": [
+    "Online Audio and Video Media",
+    "Technology, Information and Media",
+    "Online Media",
+    "Media, Entertainment and Arts"
+  ],
+  "Media Production": [
+    "Radio and Television Broadcasting",
+    "Movies and Sound Recording",
+    "Broadcast Media Production and Distribution",
+    "Movies, Videos, and Sound",
+    "Broadcasting",
+    "Animation",
+    "Animation and Post-production",
+    "Sound Recording"
+  ],
+  "Media and Telecommunications": [
+    "Cable & Satellite",
+    "Telephone Call Centers",
+    "Satellite Telecommunications",
+    "Wireless Services",
+    "Telecommunications Carriers",
+    "Telecommunications"
+  ],
+  "Media, Entertainment and Arts": [
+    "Technology, Information and Media",
+    "Media & Internet",
+    "Online Audio and Video Media",
+    "Online Media"
+  ],
+  "Medical Device": [
+    "Biotechnology Research",
+    "Medical Equipment Manufacturing",
+    "Biotechnology",
+    "Health Care Equipment & Services",
+    "Pharmaceutical Manufacturing"
+  ],
+  "Medical Equipment Manufacturing": [
+    "Medical Device",
+    "Health Care Equipment & Services",
+    "Biotechnology Research",
+    "Biotechnology",
+    "Pharmaceutical Manufacturing"
+  ],
+  "Medical Practices": [
+    "Hospitals & Physicians Clinics",
+    "Medical and Diagnostic Laboratories",
+    "Hospitals and Health Care",
+    "Dentists",
+    "Dental Practice Management",
+    "Optometrists",
+    "Physical, Occupational and Speech Therapists",
+    "Mental Health Care"
+  ],
+  "Medical and Diagnostic Laboratories": [
+    "Medical Practices",
+    "Dentists",
+    "Hospitals & Physicians Clinics",
+    "Dental Practice Management",
+    "Hospitals and Health Care",
+    "Optometrists",
+    "Physical, Occupational and Speech Therapists",
+    "Mental Health Care"
+  ],
+  "Membership Organizations": [
+    "Industry Associations",
+    "Professional Organizations",
+    "International Affairs",
+    "Organizations",
+    "International Trade and Development",
+    "Religious Institutions",
+    "Fundraising",
+    "Philanthropic Fundraising Services"
+  ],
+  "Mental Health Care": [
+    "Physical, Occupational and Speech Therapists",
+    "Alternative Medicine",
+    "Optometrists",
+    "Healthcare Services",
+    "Dental Practice Management",
+    "Ambulance Services",
+    "Dentists",
+    "Veterinary"
+  ],
+  "Metal Ore Mining": [
+    "Minerals & Mining",
+    "Nonmetallic Mineral Mining",
+    "Mining",
+    "Chemicals, Metals & Mining",
+    "Wholesale Metals and Minerals"
+  ],
+  "Metal Treatments": [
+    "Primary Metal Manufacturing",
+    "Metal Valve, Ball, and Roller Manufacturing",
+    "Architectural and Structural Metal Manufacturing",
+    "Boilers, Tanks, and Shipping Container Manufacturing",
+    "Fabricated Metal Products",
+    "Turned Products and Fastener Manufacturing"
+  ],
+  "Metal Valve, Ball, and Roller Manufacturing": [
+    "Metal Treatments",
+    "Boilers, Tanks, and Shipping Container Manufacturing",
+    "Primary Metal Manufacturing",
+    "Turned Products and Fastener Manufacturing",
+    "Architectural and Structural Metal Manufacturing",
+    "Fabricated Metal Products"
+  ],
+  "Metalworking Machinery Manufacturing": [
+    "Engines and Power Transmission Equipment Manufacturing",
+    "HVAC and Refrigeration Equipment Manufacturing",
+    "Agriculture, Construction, Mining Machinery Manufacturing",
+    "Automation Machinery Manufacturing",
+    "Commercial and Service Industry Machinery Manufacturing",
+    "Industrial Automation",
+    "Industrial Goods & Services",
+    "Measuring and Control Instrument Manufacturing"
+  ],
+  "Military and International Affairs": [
+    "Armed Forces",
+    "Security and Investigations",
+    "Fire Protection",
+    "Security Guards and Patrol Services",
+    "Law Enforcement",
+    "Security Systems Services",
+    "Public Safety"
+  ],
+  "Minerals & Mining": [
+    "Mining",
+    "Metal Ore Mining",
+    "Nonmetallic Mineral Mining",
+    "Chemicals, Metals & Mining",
+    "Wholesale Metals and Minerals"
+  ],
+  "Mining": [
+    "Minerals & Mining",
+    "Metal Ore Mining",
+    "Nonmetallic Mineral Mining",
+    "Chemicals, Metals & Mining",
+    "Wholesale Metals and Minerals"
+  ],
+  "Mobile App Development": [
+    "Embedded Software Products",
+    "Mobile Computing Software Products",
+    "Desktop Computing Software Products",
+    "IT System Training and Support",
+    "IT System Testing and Evaluation",
+    "IT System Installation and Disposal",
+    "IT System Operations and Maintenance",
+    "IT System Design Services"
+  ],
+  "Mobile Computing Software Products": [
+    "Desktop Computing Software Products",
+    "Embedded Software Products",
+    "IT System Training and Support",
+    "Mobile App Development",
+    "IT System Testing and Evaluation",
+    "IT System Installation and Disposal",
+    "IT System Operations and Maintenance",
+    "IT System Design Services"
+  ],
+  "Mobile Food Services": [
+    "Caterers",
+    "Bars, Taverns, and Nightclubs",
+    "Accommodation and Food Services",
+    "Restaurants",
+    "Food and Beverage Services"
+  ],
+  "Mobile Gaming Apps": [
+    "Computer Games",
+    "Performing Arts",
+    "Entertainment Providers",
+    "Theater Companies",
+    "Entertainment",
+    "Music",
+    "Musicians"
+  ],
+  "Motor Vehicle Manufacturing": [
+    "Automobiles & Parts",
+    "Motor Vehicle Parts Manufacturing",
+    "Automotive",
+    "Automobile Dealers",
+    "Automobile Parts Stores",
+    "Retail Motor Vehicles",
+    "Wholesale Motor Vehicles and Parts",
+    "Automotive Service & Collision Repair"
+  ],
+  "Motor Vehicle Parts Manufacturing": [
+    "Motor Vehicle Manufacturing",
+    "Automobile Dealers",
+    "Automobiles & Parts",
+    "Automobile Parts Stores",
+    "Automotive",
+    "Retail Motor Vehicles",
+    "Wholesale Motor Vehicles and Parts",
+    "Automotive Service & Collision Repair"
+  ],
+  "Movies and Sound Recording": [
+    "Media Production",
+    "Movies, Videos, and Sound",
+    "Radio and Television Broadcasting",
+    "Animation",
+    "Broadcast Media Production and Distribution",
+    "Animation and Post-production",
+    "Broadcasting",
+    "Sound Recording"
+  ],
+  "Movies, Videos, and Sound": [
+    "Movies and Sound Recording",
+    "Animation",
+    "Media Production",
+    "Animation and Post-production",
+    "Radio and Television Broadcasting",
+    "Sound Recording",
+    "Broadcast Media Production and Distribution",
+    "Broadcasting"
+  ],
+  "Museums": [
+    "Museums, Historical Sites, and Zoos",
+    "Historical Sites",
+    "Cultural & Informational Centers",
+    "Libraries"
+  ],
+  "Museums, Historical Sites, and Zoos": [
+    "Museums",
+    "Historical Sites",
+    "Cultural & Informational Centers",
+    "Libraries"
+  ],
+  "Music": [
+    "Theater Companies",
+    "Musicians",
+    "Performing Arts",
+    "Mobile Gaming Apps",
+    "Computer Games",
+    "Entertainment Providers",
+    "Entertainment"
+  ],
+  "Musicians": [
+    "Music",
+    "Theater Companies",
+    "Performing Arts",
+    "Mobile Gaming Apps",
+    "Computer Games",
+    "Entertainment Providers",
+    "Entertainment"
+  ],
+  "Nanotechnology Research": [
+    "Space Research and Technology",
+    "Robotics Engineering",
+    "Research",
+    "Research Services",
+    "Computer and Network Security",
+    "Data Security Software Products",
+    "Security Software"
+  ],
+  "Natural Gas Distribution": [
+    "Oil, Gas, and Mining",
+    "Natural Gas Extraction",
+    "Oil Extraction",
+    "Electricity, Oil & Gas",
+    "Oil and Gas",
+    "Wholesale Petroleum and Petroleum Products",
+    "Retail Gasoline"
+  ],
+  "Natural Gas Extraction": [
+    "Natural Gas Distribution",
+    "Electricity, Oil & Gas",
+    "Oil, Gas, and Mining",
+    "Wholesale Petroleum and Petroleum Products",
+    "Oil Extraction",
+    "Retail Gasoline",
+    "Oil and Gas"
+  ],
+  "Newspaper Publishing": [
+    "Book Publishing",
+    "Periodical Publishing",
+    "Book and Periodical Publishing",
+    "Internet Publishing",
+    "Internet News"
+  ],
+  "Non-Profit & Government": [
+    "Non-profit Organization Management",
+    "Civic and Social Organizations",
+    "Non-profit Organizations",
+    "Philanthropy",
+    "Philanthropic Fundraising Services",
+    "Fundraising",
+    "Religious Institutions",
+    "International Trade and Development"
+  ],
+  "Non-profit Organization Management": [
+    "Non-profit Organizations",
+    "Non-Profit & Government",
+    "Civic and Social Organizations",
+    "Philanthropy",
+    "Philanthropic Fundraising Services",
+    "Fundraising",
+    "Religious Institutions",
+    "International Trade and Development"
+  ],
+  "Non-profit Organizations": [
+    "Non-profit Organization Management",
+    "Non-Profit & Government",
+    "Civic and Social Organizations",
+    "Philanthropy",
+    "Philanthropic Fundraising Services",
+    "Fundraising",
+    "Religious Institutions",
+    "International Trade and Development"
+  ],
+  "Nonmetallic Mineral Mining": [
+    "Metal Ore Mining",
+    "Chemicals, Metals & Mining",
+    "Minerals & Mining",
+    "Wholesale Metals and Minerals",
+    "Mining"
+  ],
+  "Nonresidential Building Construction": [
+    "Commercial & Residential Construction",
+    "Residential Building Construction",
+    "Construction Management",
+    "Specialty Trade Contractors",
+    "Building Construction",
+    "Building Equipment Contractors",
+    "Construction",
+    "Building Finishing Contractors"
+  ],
+  "Nursing Homes and Residential Care Facilities": [
+    "Elderly Care Services",
+    "Services for the Elderly and Disabled",
+    "Home Health Care Services",
+    "Childcare",
+    "Child Day Care Services"
+  ],
+  "Office Furniture and Fixtures Manufacturing": [
+    "Household and Institutional Furniture Manufacturing",
+    "Mattress and Blinds Manufacturing",
+    "Furniture and Home Furnishings Manufacturing",
+    "Reupholstery and Furniture Repair",
+    "Furniture",
+    "Wholesale Furniture and Home Furnishings",
+    "Retail Furniture and Home Furnishings",
+    "Retail Building Materials and Garden Equipment"
+  ],
+  "Office Products Retail & Distribution": [
+    "Retail Office Supplies and Gifts",
+    "Business Supplies & Equipment",
+    "Retail Office Equipment",
+    "Retail Musical Instruments",
+    "Retail Art Supplies",
+    "Retail Art Dealers",
+    "Retail Books and Printed News",
+    "Record, Video & Book Stores"
+  ],
+  "Oil Extraction": [
+    "Oil and Gas",
+    "Oil, Gas, and Mining",
+    "Natural Gas Distribution",
+    "Natural Gas Extraction",
+    "Electricity, Oil & Gas",
+    "Wholesale Petroleum and Petroleum Products",
+    "Retail Gasoline"
+  ],
+  "Oil and Gas": [
+    "Oil Extraction",
+    "Oil, Gas, and Mining",
+    "Natural Gas Distribution",
+    "Natural Gas Extraction",
+    "Electricity, Oil & Gas",
+    "Wholesale Petroleum and Petroleum Products",
+    "Retail Gasoline"
+  ],
+  "Oil, Gas, and Mining": [
+    "Oil Extraction",
+    "Natural Gas Distribution",
+    "Oil and Gas",
+    "Natural Gas Extraction",
+    "Electricity, Oil & Gas",
+    "Wholesale Petroleum and Petroleum Products",
+    "Retail Gasoline"
+  ],
+  "Online Audio and Video Media": [
+    "Online Media",
+    "Media & Internet",
+    "Technology, Information and Media",
+    "Media, Entertainment and Arts"
+  ],
+  "Online Media": [
+    "Online Audio and Video Media",
+    "Media & Internet",
+    "Technology, Information and Media",
+    "Media, Entertainment and Arts"
+  ],
+  "Online and Mail Order Retail": [
+    "Personal & Household Goods",
+    "Auctions",
+    "Household Goods",
+    "Consumer Goods",
+    "Department Stores, Shopping Centers & Superstores",
+    "Retail"
+  ],
+  "Operations Consulting": [
+    "Strategic Management Services",
+    "Outsourcing and Offshoring Consulting",
+    "Professional Services",
+    "Outsourcing/Offshoring",
+    "Business Services",
+    "Executive Offices",
+    "Business Consulting and Services",
+    "Administrative and Support Services"
+  ],
+  "Optometrists": [
+    "Dental Practice Management",
+    "Physical, Occupational and Speech Therapists",
+    "Dentists",
+    "Mental Health Care",
+    "Medical and Diagnostic Laboratories",
+    "Alternative Medicine",
+    "Medical Practices",
+    "Healthcare Services"
+  ],
+  "Organizations": [
+    "Professional Organizations",
+    "Membership Organizations",
+    "Industry Associations",
+    "International Affairs",
+    "International Trade and Development",
+    "Religious Institutions",
+    "Fundraising",
+    "Philanthropic Fundraising Services"
+  ],
+  "Other Rental Stores (Furniture, A/V, Construction & Industrial Equipment)": [
+    "Consumer Goods Rental",
+    "Commercial and Industrial Equipment Rental",
+    "Equipment Rental Services",
+    "Landscaping Services",
+    "Janitorial Services",
+    "Cleaning Services",
+    "Facilities Services"
+  ],
+  "Outsourcing and Offshoring Consulting": [
+    "Operations Consulting",
+    "Outsourcing/Offshoring",
+    "Strategic Management Services",
+    "Executive Offices",
+    "Professional Services",
+    "Administrative and Support Services",
+    "Business Services",
+    "Business Consulting and Services"
+  ],
+  "Outsourcing/Offshoring": [
+    "Outsourcing and Offshoring Consulting",
+    "Executive Offices",
+    "Operations Consulting",
+    "Administrative and Support Services",
+    "Strategic Management Services",
+    "Professional Services",
+    "Business Services",
+    "Business Consulting and Services"
+  ],
+  "Packaging & Containers": [
+    "Packaging and Containers Manufacturing",
+    "Tires & Rubber",
+    "Rubber Products Manufacturing",
+    "Plastics Manufacturing"
+  ],
+  "Packaging and Containers Manufacturing": [
+    "Tires & Rubber",
+    "Packaging & Containers",
+    "Rubber Products Manufacturing",
+    "Plastics Manufacturing"
+  ],
+  "Paint, Coating, and Adhesive Manufacturing": [
+    "Agricultural Chemical Manufacturing",
+    "Wholesale Chemical and Allied Products",
+    "Chemicals & Related Products",
+    "Chemical Raw Materials Manufacturing",
+    "Chemical Manufacturing"
+  ],
+  "Paper & Forest Products": [
+    "Paper and Forest Product Manufacturing",
+    "Wood Product Manufacturing",
+    "Wholesale Paper Products",
+    "Printing Services",
+    "Commercial Printing"
+  ],
+  "Paper and Forest Product Manufacturing": [
+    "Paper & Forest Products",
+    "Wood Product Manufacturing",
+    "Wholesale Paper Products",
+    "Printing Services",
+    "Commercial Printing"
+  ],
+  "Parts Distribution": [
+    "Car & Truck Rental",
+    "Vehicle Repair and Maintenance",
+    "Automotive Service & Collision Repair",
+    "Wholesale Motor Vehicles and Parts",
+    "Retail Motor Vehicles",
+    "Automobile Parts Stores",
+    "Automobile Dealers",
+    "Motor Vehicle Parts Manufacturing"
+  ],
+  "Performing Arts": [
+    "Mobile Gaming Apps",
+    "Theater Companies",
+    "Computer Games",
+    "Music",
+    "Entertainment Providers",
+    "Musicians",
+    "Entertainment"
+  ],
+  "Periodical Publishing": [
+    "Newspaper Publishing",
+    "Internet Publishing",
+    "Book Publishing",
+    "Internet News",
+    "Book and Periodical Publishing"
+  ],
+  "Personal & Household Goods": [
+    "Household Goods",
+    "Online and Mail Order Retail",
+    "Consumer Goods",
+    "Auctions",
+    "Department Stores, Shopping Centers & Superstores",
+    "Retail"
+  ],
+  "Personal Care Product Manufacturing": [
+    "Soap and Cleaning Product Manufacturing",
+    "Cleaning Products",
+    "Cosmetics",
+    "Cosmetics, Beauty Supply & Personal Care Products"
+  ],
+  "Personal Care Services": [
+    "Spa and Salon Management",
+    "Fitness & Dance Facilities",
+    "Wellness and Fitness Services",
+    "Health, Wellness & Fitness"
+  ],
+  "Personal and Laundry Services": [
+    "Laundry and Drycleaning Services",
+    "Household Services",
+    "Consumer Services",
+    "Pet Services"
+  ],
+  "Pet Services": [
+    "Consumer Services",
+    "Household Services",
+    "Laundry and Drycleaning Services",
+    "Personal and Laundry Services"
+  ],
+  "Pharmaceutical Manufacturing": [
+    "Biotechnology",
+    "Biotechnology Research",
+    "Medical Device",
+    "Medical Equipment Manufacturing",
+    "Health Care Equipment & Services"
+  ],
+  "Philanthropic Fundraising Services": [
+    "Philanthropy",
+    "Fundraising",
+    "Civic and Social Organizations",
+    "Religious Institutions",
+    "Non-Profit & Government",
+    "International Trade and Development",
+    "Non-profit Organization Management",
+    "International Affairs"
+  ],
+  "Philanthropy": [
+    "Civic and Social Organizations",
+    "Philanthropic Fundraising Services",
+    "Non-Profit & Government",
+    "Fundraising",
+    "Non-profit Organization Management",
+    "Religious Institutions",
+    "Non-profit Organizations",
+    "International Trade and Development"
+  ],
+  "Photography": [
+    "Interior Design",
+    "Graphic Design",
+    "Design Services",
+    "Design"
+  ],
+  "Physical, Occupational and Speech Therapists": [
+    "Optometrists",
+    "Mental Health Care",
+    "Dental Practice Management",
+    "Alternative Medicine",
+    "Dentists",
+    "Healthcare Services",
+    "Medical and Diagnostic Laboratories",
+    "Ambulance Services"
+  ],
+  "Plastics Manufacturing": [
+    "Rubber Products Manufacturing",
+    "Tires & Rubber",
+    "Packaging and Containers Manufacturing",
+    "Packaging & Containers"
+  ],
+  "Political Organizations": [
+    "Think Tanks",
+    "Government Relations",
+    "Public Policy Offices",
+    "Government Relations Services",
+    "Public Policy"
+  ],
+  "Primary Metal Manufacturing": [
+    "Architectural and Structural Metal Manufacturing",
+    "Metal Treatments",
+    "Fabricated Metal Products",
+    "Metal Valve, Ball, and Roller Manufacturing",
+    "Boilers, Tanks, and Shipping Container Manufacturing",
+    "Turned Products and Fastener Manufacturing"
+  ],
+  "Primary and Secondary Education": [
+    "Education Management",
+    "Higher Education",
+    "Education Administration Programs",
+    "Colleges & Universities",
+    "Education"
+  ],
+  "Printing Services": [
+    "Wholesale Paper Products",
+    "Commercial Printing",
+    "Wood Product Manufacturing",
+    "Paper & Forest Products",
+    "Paper and Forest Product Manufacturing"
+  ],
+  "Professional Organizations": [
+    "Membership Organizations",
+    "Organizations",
+    "Industry Associations",
+    "International Affairs",
+    "International Trade and Development",
+    "Religious Institutions",
+    "Fundraising",
+    "Philanthropic Fundraising Services"
+  ],
+  "Professional Services": [
+    "Business Services",
+    "Strategic Management Services",
+    "Business Consulting and Services",
+    "Operations Consulting",
+    "Outsourcing and Offshoring Consulting",
+    "Outsourcing/Offshoring",
+    "Executive Offices",
+    "Administrative and Support Services"
+  ],
+  "Professional Training and Coaching": [
+    "Executive Search Services",
+    "Staffing and Recruiting",
+    "Human Resources Services",
+    "Human Resources"
+  ],
+  "Program Development": [
+    "Economic Programs",
+    "Transportation Programs",
+    "Legislative Offices",
+    "Housing Programs",
+    "Federal",
+    "Government Administration",
+    "Government"
+  ],
+  "Public Health": [
+    "Health and Human Services",
+    "Individual and Family Services",
+    "Community Services",
+    "Vocational Rehabilitation Services",
+    "Emergency and Relief Services"
+  ],
+  "Public Policy": [
+    "Public Policy Offices",
+    "Think Tanks",
+    "Political Organizations",
+    "Government Relations",
+    "Government Relations Services"
+  ],
+  "Public Policy Offices": [
+    "Public Policy",
+    "Think Tanks",
+    "Political Organizations",
+    "Government Relations",
+    "Government Relations Services"
+  ],
+  "Public Relations and Communications Services": [
+    "Market Research",
+    "Events Services",
+    "Marketing Services",
+    "Business Content",
+    "Advertising Networks",
+    "Advertising Services"
+  ],
+  "Public Safety": [
+    "Law Enforcement",
+    "Fire Protection",
+    "Armed Forces",
+    "Military and International Affairs",
+    "Security and Investigations",
+    "Security Guards and Patrol Services",
+    "Security Systems Services"
+  ],
+  "Racetracks": [
+    "Gambling & Gaming",
+    "Recreational Facilities",
+    "Gambling Facilities and Casinos",
+    "Golf Courses and Country Clubs",
+    "Amusement Parks and Arcades",
+    "Amusement Parks, Arcades & Attractions"
+  ],
+  "Radio and Television Broadcasting": [
+    "Broadcast Media Production and Distribution",
+    "Media Production",
+    "Broadcasting",
+    "Movies and Sound Recording",
+    "Movies, Videos, and Sound",
+    "Animation",
+    "Animation and Post-production",
+    "Sound Recording"
+  ],
+  "Rail Transportation": [
+    "Transportation",
+    "Rail, Bus & Taxi",
+    "Transportation/Trucking/Railroad",
+    "Ground Passenger Transportation",
+    "Truck Transportation",
+    "Taxi and Limousine Services",
+    "Interurban and Rural Bus Services",
+    "Urban Transit Services"
+  ],
+  "Rail, Bus & Taxi": [
+    "Rail Transportation",
+    "Ground Passenger Transportation",
+    "Transportation",
+    "Taxi and Limousine Services",
+    "Transportation/Trucking/Railroad",
+    "Interurban and Rural Bus Services",
+    "Truck Transportation",
+    "Urban Transit Services"
+  ],
+  "Railroad Equipment Manufacturing": [
+    "Transportation Equipment Manufacturing",
+    "Repair and Maintenance",
+    "Commercial and Industrial Machinery Maintenance",
+    "Electronic and Precision Equipment Maintenance",
+    "Measuring and Control Instrument Manufacturing",
+    "Industrial Automation",
+    "Automation Machinery Manufacturing",
+    "HVAC and Refrigeration Equipment Manufacturing"
+  ],
+  "Ranching": [
+    "Farming, Ranching, Forestry",
+    "Ranching and Fisheries",
+    "Agriculture",
+    "Fisheries",
+    "Farming",
+    "Horticulture",
+    "Wholesale Raw Farm Products"
+  ],
+  "Ranching and Fisheries": [
+    "Ranching",
+    "Fisheries",
+    "Farming, Ranching, Forestry",
+    "Horticulture",
+    "Agriculture",
+    "Wholesale Raw Farm Products",
+    "Farming"
+  ],
+  "Real Estate": [
+    "Real Estate Agents and Brokers",
+    "Commercial Real Estate",
+    "Leasing Non-residential Real Estate",
+    "Leasing Residential Real Estate",
+    "Real Estate and Equipment Rental Services",
+    "Real Estate & Construction"
+  ],
+  "Real Estate & Construction": [
+    "Real Estate and Equipment Rental Services",
+    "Leasing Residential Real Estate",
+    "Leasing Non-residential Real Estate",
+    "Commercial Real Estate",
+    "Real Estate Agents and Brokers",
+    "Real Estate"
+  ],
+  "Real Estate Agents and Brokers": [
+    "Real Estate",
+    "Commercial Real Estate",
+    "Leasing Non-residential Real Estate",
+    "Leasing Residential Real Estate",
+    "Real Estate and Equipment Rental Services",
+    "Real Estate & Construction"
+  ],
+  "Real Estate and Equipment Rental Services": [
+    "Leasing Residential Real Estate",
+    "Real Estate & Construction",
+    "Leasing Non-residential Real Estate",
+    "Commercial Real Estate",
+    "Real Estate Agents and Brokers",
+    "Real Estate"
+  ],
+  "Record, Video & Book Stores": [
+    "Retail Florists",
+    "Retail Books and Printed News",
+    "Flowers, Gifts & Specialty Stores",
+    "Retail Art Dealers",
+    "Retail Art Supplies",
+    "Retail Musical Instruments",
+    "Retail Office Equipment",
+    "Retail Office Supplies and Gifts"
+  ],
+  "Recreational Facilities": [
+    "Racetracks",
+    "Golf Courses and Country Clubs",
+    "Gambling & Gaming",
+    "Amusement Parks and Arcades",
+    "Gambling Facilities and Casinos",
+    "Amusement Parks, Arcades & Attractions"
+  ],
+  "Regenerative Design": [
+    "Accessible Architecture and Design",
+    "Architecture, Engineering & Design",
+    "Architecture and Planning",
+    "Utility System Construction",
+    "Highway, Street, and Bridge Construction",
+    "Surveying and Mapping Services",
+    "Mechanical Or Industrial Engineering",
+    "Engineering Services"
+  ],
+  "Religious Institutions": [
+    "Fundraising",
+    "International Trade and Development",
+    "Philanthropic Fundraising Services",
+    "International Affairs",
+    "Philanthropy",
+    "Industry Associations",
+    "Civic and Social Organizations",
+    "Membership Organizations"
+  ],
+  "Renewable Energy Equipment Manufacturing": [
+    "Solar Electric Power Generation",
+    "Renewable Energy Semiconductor Manufacturing",
+    "Renewable Energy Power Generation",
+    "Services for Renewable Energy",
+    "Renewables & Environment",
+    "Energy Technology",
+    "Climate Technology Product Manufacturing"
+  ],
+  "Renewable Energy Power Generation": [
+    "Renewables & Environment",
+    "Solar Electric Power Generation",
+    "Renewable Energy Equipment Manufacturing",
+    "Renewable Energy Semiconductor Manufacturing",
+    "Services for Renewable Energy",
+    "Energy Technology",
+    "Climate Technology Product Manufacturing"
+  ],
+  "Renewable Energy Semiconductor Manufacturing": [
+    "Renewable Energy Equipment Manufacturing",
+    "Services for Renewable Energy",
+    "Solar Electric Power Generation",
+    "Energy Technology",
+    "Renewable Energy Power Generation",
+    "Climate Technology Product Manufacturing",
+    "Renewables & Environment"
+  ],
+  "Renewables & Environment": [
+    "Renewable Energy Power Generation",
+    "Solar Electric Power Generation",
+    "Renewable Energy Equipment Manufacturing",
+    "Renewable Energy Semiconductor Manufacturing",
+    "Services for Renewable Energy",
+    "Energy Technology",
+    "Climate Technology Product Manufacturing"
+  ],
+  "Repair and Maintenance": [
+    "Commercial and Industrial Machinery Maintenance",
+    "Transportation Equipment Manufacturing",
+    "Electronic and Precision Equipment Maintenance",
+    "Railroad Equipment Manufacturing",
+    "Measuring and Control Instrument Manufacturing",
+    "Industrial Automation",
+    "Automation Machinery Manufacturing",
+    "HVAC and Refrigeration Equipment Manufacturing"
+  ],
+  "Research": [
+    "Robotics Engineering",
+    "Research Services",
+    "Space Research and Technology",
+    "Computer and Network Security",
+    "Nanotechnology Research",
+    "Data Security Software Products",
+    "Security Software"
+  ],
+  "Research Services": [
+    "Research",
+    "Computer and Network Security",
+    "Robotics Engineering",
+    "Data Security Software Products",
+    "Space Research and Technology",
+    "Security Software",
+    "Nanotechnology Research"
+  ],
+  "Residential Building Construction": [
+    "Nonresidential Building Construction",
+    "Specialty Trade Contractors",
+    "Commercial & Residential Construction",
+    "Building Equipment Contractors",
+    "Construction Management",
+    "Building Finishing Contractors",
+    "Building Construction",
+    "Building Structure and Exterior Contractors"
+  ],
+  "Restaurants": [
+    "Food and Beverage Services",
+    "Accommodation and Food Services",
+    "Bars, Taverns, and Nightclubs",
+    "Caterers",
+    "Mobile Food Services"
+  ],
+  "Retail": [
+    "Department Stores, Shopping Centers & Superstores",
+    "Consumer Goods",
+    "Household Goods",
+    "Personal & Household Goods",
+    "Online and Mail Order Retail",
+    "Auctions"
+  ],
+  "Retail Apparel and Fashion": [
+    "Apparel & Accessories Retail",
+    "Luxury Goods & Jewelry",
+    "Apparel & Fashion",
+    "Retail Luxury Goods and Jewelry",
+    "Wholesale Luxury Goods and Jewelry",
+    "Jewelry & Watch Retail",
+    "Wholesale Apparel and Sewing Supplies",
+    "Wholesale Footwear"
+  ],
+  "Retail Appliances, Electrical, and Electronic Equipment": [
+    "Wholesale Drugs and Sundries",
+    "Wholesale Photography Equipment and Supplies",
+    "Wholesale Computer Equipment",
+    "Wholesale Appliances, Electrical, and Electronics",
+    "Wholesale Hardware, Plumbing, Heating Equipment",
+    "Wholesale Machinery",
+    "Wholesale"
+  ],
+  "Retail Art Dealers": [
+    "Retail Books and Printed News",
+    "Retail Art Supplies",
+    "Record, Video & Book Stores",
+    "Retail Musical Instruments",
+    "Retail Florists",
+    "Retail Office Equipment",
+    "Flowers, Gifts & Specialty Stores",
+    "Retail Office Supplies and Gifts"
+  ],
+  "Retail Art Supplies": [
+    "Retail Art Dealers",
+    "Retail Musical Instruments",
+    "Retail Books and Printed News",
+    "Retail Office Equipment",
+    "Record, Video & Book Stores",
+    "Retail Office Supplies and Gifts",
+    "Retail Florists",
+    "Office Products Retail & Distribution"
+  ],
+  "Retail Books and Printed News": [
+    "Record, Video & Book Stores",
+    "Retail Art Dealers",
+    "Retail Florists",
+    "Retail Art Supplies",
+    "Flowers, Gifts & Specialty Stores",
+    "Retail Musical Instruments",
+    "Retail Office Equipment",
+    "Retail Office Supplies and Gifts"
+  ],
+  "Retail Building Materials and Garden Equipment": [
+    "Wholesale Furniture and Home Furnishings",
+    "Reupholstery and Furniture Repair",
+    "Mattress and Blinds Manufacturing",
+    "Office Furniture and Fixtures Manufacturing",
+    "Household and Institutional Furniture Manufacturing",
+    "Furniture and Home Furnishings Manufacturing",
+    "Furniture",
+    "Retail Furniture and Home Furnishings"
+  ],
+  "Retail Florists": [
+    "Flowers, Gifts & Specialty Stores",
+    "Record, Video & Book Stores",
+    "Retail Books and Printed News",
+    "Retail Art Dealers",
+    "Retail Art Supplies",
+    "Retail Musical Instruments",
+    "Retail Office Equipment",
+    "Retail Office Supplies and Gifts"
+  ],
+  "Retail Furniture and Home Furnishings": [
+    "Furniture",
+    "Furniture and Home Furnishings Manufacturing",
+    "Household and Institutional Furniture Manufacturing",
+    "Office Furniture and Fixtures Manufacturing",
+    "Mattress and Blinds Manufacturing",
+    "Reupholstery and Furniture Repair",
+    "Wholesale Furniture and Home Furnishings",
+    "Retail Building Materials and Garden Equipment"
+  ],
+  "Retail Gasoline": [
+    "Wholesale Petroleum and Petroleum Products",
+    "Electricity, Oil & Gas",
+    "Natural Gas Extraction",
+    "Natural Gas Distribution",
+    "Oil, Gas, and Mining",
+    "Oil Extraction",
+    "Oil and Gas"
+  ],
+  "Retail Groceries": [
+    "Grocery Retail",
+    "Food and Beverage Retail",
+    "Convenience Stores, Gas Stations & Liquor Stores",
+    "Wholesale Food and Beverage",
+    "Wholesale Alcoholic Beverages",
+    "Drug Stores & Pharmacies",
+    "Retail Pharmacies",
+    "Retail Health and Personal Care Products"
+  ],
+  "Retail Health and Personal Care Products": [
+    "Retail Pharmacies",
+    "Drug Stores & Pharmacies",
+    "Wholesale Alcoholic Beverages",
+    "Wholesale Food and Beverage",
+    "Convenience Stores, Gas Stations & Liquor Stores",
+    "Food and Beverage Retail",
+    "Retail Groceries",
+    "Grocery Retail"
+  ],
+  "Retail Luxury Goods and Jewelry": [
+    "Luxury Goods & Jewelry",
+    "Wholesale Luxury Goods and Jewelry",
+    "Retail Apparel and Fashion",
+    "Jewelry & Watch Retail",
+    "Apparel & Accessories Retail",
+    "Wholesale Apparel and Sewing Supplies",
+    "Apparel & Fashion",
+    "Wholesale Footwear"
+  ],
+  "Retail Motor Vehicles": [
+    "Automobile Parts Stores",
+    "Wholesale Motor Vehicles and Parts",
+    "Automobile Dealers",
+    "Automotive Service & Collision Repair",
+    "Motor Vehicle Parts Manufacturing",
+    "Vehicle Repair and Maintenance",
+    "Motor Vehicle Manufacturing",
+    "Car & Truck Rental"
+  ],
+  "Retail Musical Instruments": [
+    "Retail Art Supplies",
+    "Retail Office Equipment",
+    "Retail Art Dealers",
+    "Retail Office Supplies and Gifts",
+    "Retail Books and Printed News",
+    "Office Products Retail & Distribution",
+    "Record, Video & Book Stores",
+    "Business Supplies & Equipment"
+  ],
+  "Retail Office Equipment": [
+    "Retail Musical Instruments",
+    "Retail Office Supplies and Gifts",
+    "Retail Art Supplies",
+    "Office Products Retail & Distribution",
+    "Retail Art Dealers",
+    "Business Supplies & Equipment",
+    "Retail Books and Printed News",
+    "Record, Video & Book Stores"
+  ],
+  "Retail Office Supplies and Gifts": [
+    "Retail Office Equipment",
+    "Office Products Retail & Distribution",
+    "Retail Musical Instruments",
+    "Business Supplies & Equipment",
+    "Retail Art Supplies",
+    "Retail Art Dealers",
+    "Retail Books and Printed News",
+    "Record, Video & Book Stores"
+  ],
+  "Retail Pharmacies": [
+    "Drug Stores & Pharmacies",
+    "Retail Health and Personal Care Products",
+    "Wholesale Alcoholic Beverages",
+    "Wholesale Food and Beverage",
+    "Convenience Stores, Gas Stations & Liquor Stores",
+    "Food and Beverage Retail",
+    "Retail Groceries",
+    "Grocery Retail"
+  ],
+  "Retail Recyclable Materials & Used Merchandise": [
+    "Wholesale Recyclable Materials",
+    "Community Development and Urban Planning",
+    "Waste Treatment and Disposal",
+    "Housing and Community Development",
+    "Waste Collection",
+    "Conservation Programs",
+    "Environmental Quality Programs",
+    "Air, Water, and Waste Program Management"
+  ],
+  "Reupholstery and Furniture Repair": [
+    "Mattress and Blinds Manufacturing",
+    "Wholesale Furniture and Home Furnishings",
+    "Office Furniture and Fixtures Manufacturing",
+    "Retail Building Materials and Garden Equipment",
+    "Household and Institutional Furniture Manufacturing",
+    "Furniture and Home Furnishings Manufacturing",
+    "Furniture",
+    "Retail Furniture and Home Furnishings"
+  ],
+  "Robotics Engineering": [
+    "Space Research and Technology",
+    "Research",
+    "Nanotechnology Research",
+    "Research Services",
+    "Computer and Network Security",
+    "Data Security Software Products",
+    "Security Software"
+  ],
+  "Rubber Products Manufacturing": [
+    "Plastics Manufacturing",
+    "Tires & Rubber",
+    "Packaging and Containers Manufacturing",
+    "Packaging & Containers"
+  ],
+  "Satellite Telecommunications": [
+    "Wireless Services",
+    "Cable & Satellite",
+    "Telecommunications Carriers",
+    "Media and Telecommunications",
+    "Telecommunications",
+    "Telephone Call Centers"
+  ],
+  "School and Employee Bus Services": [
+    "Urban Transit Services",
+    "Shuttles and Special Needs Transportation Services",
+    "Interurban and Rural Bus Services",
+    "Taxi and Limousine Services",
+    "Ground Passenger Transportation",
+    "Rail, Bus & Taxi",
+    "Rail Transportation",
+    "Transportation"
+  ],
+  "Seafood Product Manufacturing": [
+    "Meat Products Manufacturing",
+    "Fruit and Vegetable Preserves Manufacturing",
+    "Dairy",
+    "Animal Feed Manufacturing",
+    "Dairy Product Manufacturing",
+    "Tobacco",
+    "Baked Goods Manufacturing",
+    "Tobacco Manufacturing"
+  ],
+  "Securities and Commodity Exchanges": [
+    "Venture Capital and Private Equity Principals",
+    "Holding Companies",
+    "Claims Adjusting, Actuarial Services",
+    "Holding Companies & Conglomerates",
+    "Insurance Carriers",
+    "Credit Card Processing",
+    "Insurance Agencies and Brokerages",
+    "Loan Brokers"
+  ],
+  "Security Guards and Patrol Services": [
+    "Security and Investigations",
+    "Security Systems Services",
+    "Military and International Affairs",
+    "Armed Forces",
+    "Fire Protection",
+    "Law Enforcement",
+    "Public Safety"
+  ],
+  "Security Software": [
+    "Data Security Software Products",
+    "Computer and Network Security",
+    "Research Services",
+    "Research",
+    "Robotics Engineering",
+    "Space Research and Technology",
+    "Nanotechnology Research"
+  ],
+  "Security Systems Services": [
+    "Security Guards and Patrol Services",
+    "Security and Investigations",
+    "Military and International Affairs",
+    "Armed Forces",
+    "Fire Protection",
+    "Law Enforcement",
+    "Public Safety"
+  ],
+  "Security and Investigations": [
+    "Military and International Affairs",
+    "Security Guards and Patrol Services",
+    "Armed Forces",
+    "Security Systems Services",
+    "Fire Protection",
+    "Law Enforcement",
+    "Public Safety"
+  ],
+  "Semiconductor Manufacturing": [
+    "Semiconductors",
+    "Communications Equipment Manufacturing",
+    "Computer Networking Products",
+    "Computer Networking",
+    "Electrical Equipment Manufacturing",
+    "Electric Lighting Equipment Manufacturing"
+  ],
+  "Semiconductors": [
+    "Semiconductor Manufacturing",
+    "Communications Equipment Manufacturing",
+    "Computer Networking Products",
+    "Computer Networking",
+    "Electrical Equipment Manufacturing",
+    "Electric Lighting Equipment Manufacturing"
+  ],
+  "Services for Renewable Energy": [
+    "Renewable Energy Semiconductor Manufacturing",
+    "Energy Technology",
+    "Renewable Energy Equipment Manufacturing",
+    "Climate Technology Product Manufacturing",
+    "Solar Electric Power Generation",
+    "Renewable Energy Power Generation",
+    "Renewables & Environment"
+  ],
+  "Services for the Elderly and Disabled": [
+    "Nursing Homes and Residential Care Facilities",
+    "Childcare",
+    "Elderly Care Services",
+    "Child Day Care Services",
+    "Home Health Care Services"
+  ],
+  "Shipbuilding": [
+    "Marine Shipping & Transportation",
+    "Boats & Submarines",
+    "Maritime Transportation",
+    "Maritime"
+  ],
+  "Shuttles and Special Needs Transportation Services": [
+    "School and Employee Bus Services",
+    "Urban Transit Services",
+    "Interurban and Rural Bus Services",
+    "Taxi and Limousine Services",
+    "Ground Passenger Transportation",
+    "Rail, Bus & Taxi",
+    "Rail Transportation",
+    "Transportation"
+  ],
+  "Sightseeing Transportation": [
+    "Bed-and-Breakfasts, Hostels, Homestays",
+    "Hotels and Motels",
+    "Hospitality",
+    "Travel, Recreation & Leisure",
+    "Leisure, Travel & Tourism",
+    "Travel Arrangements"
+  ],
+  "Soap and Cleaning Product Manufacturing": [
+    "Personal Care Product Manufacturing",
+    "Cleaning Products",
+    "Cosmetics",
+    "Cosmetics, Beauty Supply & Personal Care Products"
+  ],
+  "Social Networking Platforms": [
+    "Internet Marketplace Platforms",
+    "Business Intelligence Platforms",
+    "Ecommerce Platforms",
+    "Data Infrastructure and Analytics",
+    "Blockchain Services",
+    "Internet Service Providers, Website Hosting & Internet-related Services",
+    "Digital Accessibility Services"
+  ],
+  "Software": [
+    "Software Development",
+    "Software, Internet & Computer Services",
+    "Technology, Information and Internet",
+    "IT System Custom Software Development",
+    "Information Technology & Services",
+    "Information Services",
+    "IT Services and IT Consulting"
+  ],
+  "Software Development": [
+    "Technology, Information and Internet",
+    "Software",
+    "Information Technology & Services",
+    "Software, Internet & Computer Services",
+    "IT Services and IT Consulting",
+    "IT System Custom Software Development",
+    "Information Services"
+  ],
+  "Software, Internet & Computer Services": [
+    "Software",
+    "IT System Custom Software Development",
+    "Software Development",
+    "Information Services",
+    "Technology, Information and Internet",
+    "Information Technology & Services",
+    "IT Services and IT Consulting"
+  ],
+  "Solar Electric Power Generation": [
+    "Renewable Energy Power Generation",
+    "Renewable Energy Equipment Manufacturing",
+    "Renewables & Environment",
+    "Renewable Energy Semiconductor Manufacturing",
+    "Services for Renewable Energy",
+    "Energy Technology",
+    "Climate Technology Product Manufacturing"
+  ],
+  "Sound Recording": [
+    "Animation and Post-production",
+    "Animation",
+    "Movies, Videos, and Sound",
+    "Movies and Sound Recording",
+    "Media Production",
+    "Radio and Television Broadcasting",
+    "Broadcast Media Production and Distribution",
+    "Broadcasting"
+  ],
+  "Spa and Salon Management": [
+    "Fitness & Dance Facilities",
+    "Personal Care Services",
+    "Wellness and Fitness Services",
+    "Health, Wellness & Fitness"
+  ],
+  "Space Research and Technology": [
+    "Nanotechnology Research",
+    "Robotics Engineering",
+    "Research",
+    "Research Services",
+    "Computer and Network Security",
+    "Data Security Software Products",
+    "Security Software"
+  ],
+  "Specialty Trade Contractors": [
+    "Residential Building Construction",
+    "Building Equipment Contractors",
+    "Nonresidential Building Construction",
+    "Building Finishing Contractors",
+    "Commercial & Residential Construction",
+    "Building Structure and Exterior Contractors",
+    "Construction Management",
+    "Building Construction"
+  ],
+  "Spectator Sports": [
+    "Sports Teams and Clubs",
+    "Sports and Recreation Instruction",
+    "Sporting Goods",
+    "Sporting Goods Manufacturing"
+  ],
+  "Sporting Goods": [
+    "Sports and Recreation Instruction",
+    "Sporting Goods Manufacturing",
+    "Sports Teams and Clubs",
+    "Spectator Sports"
+  ],
+  "Sporting Goods Manufacturing": [
+    "Sporting Goods",
+    "Sports and Recreation Instruction",
+    "Sports Teams and Clubs",
+    "Spectator Sports"
+  ],
+  "Sports Teams and Clubs": [
+    "Spectator Sports",
+    "Sports and Recreation Instruction",
+    "Sporting Goods",
+    "Sporting Goods Manufacturing"
+  ],
+  "Sports and Recreation Instruction": [
+    "Sports Teams and Clubs",
+    "Sporting Goods",
+    "Spectator Sports",
+    "Sporting Goods Manufacturing"
+  ],
+  "Staffing and Recruiting": [
+    "Human Resources Services",
+    "Executive Search Services",
+    "Human Resources",
+    "Professional Training and Coaching"
+  ],
+  "Steam and Air-Conditioning Supply": [
+    "Water, Waste, Steam, and Air Conditioning Services",
+    "Water Supply and Irrigation Systems",
+    "Utilities Administration",
+    "Fossil Fuel Electric Power Generation",
+    "Electric Power Transmission, Control, and Distribution",
+    "Electric Power Generation",
+    "Energy, Utilities & Waste",
+    "Energy & Utilities"
+  ],
+  "Strategic Management Services": [
+    "Professional Services",
+    "Operations Consulting",
+    "Business Services",
+    "Outsourcing and Offshoring Consulting",
+    "Business Consulting and Services",
+    "Outsourcing/Offshoring",
+    "Executive Offices",
+    "Administrative and Support Services"
+  ],
+  "Surveying and Mapping Services": [
+    "Mechanical Or Industrial Engineering",
+    "Highway, Street, and Bridge Construction",
+    "Engineering Services",
+    "Utility System Construction",
+    "Civil Engineering Construction",
+    "Architecture and Planning",
+    "Civil Engineering",
+    "Architecture, Engineering & Design"
+  ],
+  "Taxi and Limousine Services": [
+    "Ground Passenger Transportation",
+    "Interurban and Rural Bus Services",
+    "Rail, Bus & Taxi",
+    "Urban Transit Services",
+    "Rail Transportation",
+    "School and Employee Bus Services",
+    "Transportation",
+    "Shuttles and Special Needs Transportation Services"
+  ],
+  "Technical and Vocational Training": [
+    "E-Learning Providers",
+    "Language Schools",
+    "E-learning",
+    "Cosmetology and Barber Schools"
+  ],
+  "Technology, Information and Internet": [
+    "Information Technology & Services",
+    "Software Development",
+    "IT Services and IT Consulting",
+    "Software",
+    "Software, Internet & Computer Services",
+    "IT System Custom Software Development",
+    "Information Services"
+  ],
+  "Technology, Information and Media": [
+    "Media & Internet",
+    "Media, Entertainment and Arts",
+    "Online Audio and Video Media",
+    "Online Media"
+  ],
+  "Telecommunications": [
+    "Telecommunications Carriers",
+    "Wireless Services",
+    "Satellite Telecommunications",
+    "Cable & Satellite",
+    "Media and Telecommunications",
+    "Telephone Call Centers"
+  ],
+  "Telecommunications Carriers": [
+    "Telecommunications",
+    "Wireless Services",
+    "Satellite Telecommunications",
+    "Cable & Satellite",
+    "Media and Telecommunications",
+    "Telephone Call Centers"
+  ],
+  "Telephone Call Centers": [
+    "Media and Telecommunications",
+    "Cable & Satellite",
+    "Satellite Telecommunications",
+    "Wireless Services",
+    "Telecommunications Carriers",
+    "Telecommunications"
+  ],
+  "Textile Manufacturing": [
+    "Apparel Manufacturing",
+    "Footwear Manufacturing",
+    "Leather Product Manufacturing",
+    "Fashion Accessories Manufacturing"
+  ],
+  "Theater Companies": [
+    "Performing Arts",
+    "Music",
+    "Mobile Gaming Apps",
+    "Musicians",
+    "Computer Games",
+    "Entertainment Providers",
+    "Entertainment"
+  ],
+  "Think Tanks": [
+    "Public Policy Offices",
+    "Political Organizations",
+    "Public Policy",
+    "Government Relations",
+    "Government Relations Services"
+  ],
+  "Tires & Rubber": [
+    "Rubber Products Manufacturing",
+    "Packaging and Containers Manufacturing",
+    "Plastics Manufacturing",
+    "Packaging & Containers"
+  ],
+  "Tobacco": [
+    "Animal Feed Manufacturing",
+    "Tobacco Manufacturing",
+    "Fruit and Vegetable Preserves Manufacturing",
+    "Seafood Product Manufacturing",
+    "Meat Products Manufacturing",
+    "Dairy",
+    "Dairy Product Manufacturing",
+    "Baked Goods Manufacturing"
+  ],
+  "Tobacco Manufacturing": [
+    "Tobacco",
+    "Animal Feed Manufacturing",
+    "Fruit and Vegetable Preserves Manufacturing",
+    "Seafood Product Manufacturing",
+    "Meat Products Manufacturing",
+    "Dairy",
+    "Dairy Product Manufacturing",
+    "Baked Goods Manufacturing"
+  ],
+  "Translation and Localization": [
+    "Writing and Editing",
+    "Fine Arts Schools",
+    "Arts & Crafts",
+    "Fine Art",
+    "Artists and Writers"
+  ],
+  "Transportation": [
+    "Transportation/Trucking/Railroad",
+    "Rail Transportation",
+    "Truck Transportation",
+    "Rail, Bus & Taxi",
+    "Ground Passenger Transportation",
+    "Taxi and Limousine Services",
+    "Interurban and Rural Bus Services",
+    "Urban Transit Services"
+  ],
+  "Transportation Equipment Manufacturing": [
+    "Repair and Maintenance",
+    "Railroad Equipment Manufacturing",
+    "Commercial and Industrial Machinery Maintenance",
+    "Electronic and Precision Equipment Maintenance",
+    "Measuring and Control Instrument Manufacturing",
+    "Industrial Automation",
+    "Automation Machinery Manufacturing",
+    "HVAC and Refrigeration Equipment Manufacturing"
+  ],
+  "Transportation Programs": [
+    "Program Development",
+    "Housing Programs",
+    "Economic Programs",
+    "Legislative Offices",
+    "Federal",
+    "Government Administration",
+    "Government"
+  ],
+  "Transportation, Logistics, Supply Chain and Storage": [
+    "Transportation, Warehousing & Logistics",
+    "Freight & Logistics Services",
+    "Freight and Package Transportation",
+    "Warehousing and Storage",
+    "Warehousing",
+    "Import & Export",
+    "Wholesale Import and Export"
+  ],
+  "Transportation, Warehousing & Logistics": [
+    "Transportation, Logistics, Supply Chain and Storage",
+    "Freight & Logistics Services",
+    "Freight and Package Transportation",
+    "Warehousing and Storage",
+    "Warehousing",
+    "Import & Export",
+    "Wholesale Import and Export"
+  ],
+  "Transportation/Trucking/Railroad": [
+    "Truck Transportation",
+    "Transportation",
+    "Rail Transportation",
+    "Rail, Bus & Taxi",
+    "Ground Passenger Transportation",
+    "Taxi and Limousine Services",
+    "Interurban and Rural Bus Services",
+    "Urban Transit Services"
+  ],
+  "Travel Arrangements": [
+    "Leisure, Travel & Tourism",
+    "Travel, Recreation & Leisure",
+    "Hospitality",
+    "Hotels and Motels",
+    "Bed-and-Breakfasts, Hostels, Homestays",
+    "Sightseeing Transportation"
+  ],
+  "Travel, Recreation & Leisure": [
+    "Leisure, Travel & Tourism",
+    "Hospitality",
+    "Travel Arrangements",
+    "Hotels and Motels",
+    "Bed-and-Breakfasts, Hostels, Homestays",
+    "Sightseeing Transportation"
+  ],
+  "Truck Transportation": [
+    "Transportation/Trucking/Railroad",
+    "Transportation",
+    "Rail Transportation",
+    "Rail, Bus & Taxi",
+    "Ground Passenger Transportation",
+    "Taxi and Limousine Services",
+    "Interurban and Rural Bus Services",
+    "Urban Transit Services"
+  ],
+  "Turned Products and Fastener Manufacturing": [
+    "Boilers, Tanks, and Shipping Container Manufacturing",
+    "Metal Valve, Ball, and Roller Manufacturing",
+    "Metal Treatments",
+    "Primary Metal Manufacturing",
+    "Architectural and Structural Metal Manufacturing",
+    "Fabricated Metal Products"
+  ],
+  "Urban Transit Services": [
+    "Interurban and Rural Bus Services",
+    "School and Employee Bus Services",
+    "Taxi and Limousine Services",
+    "Shuttles and Special Needs Transportation Services",
+    "Ground Passenger Transportation",
+    "Rail, Bus & Taxi",
+    "Rail Transportation",
+    "Transportation"
+  ],
+  "Utilities": [
+    "Energy & Utilities",
+    "Energy, Utilities & Waste",
+    "Electric Power Generation",
+    "Electric Power Transmission, Control, and Distribution",
+    "Fossil Fuel Electric Power Generation",
+    "Utilities Administration",
+    "Water Supply and Irrigation Systems",
+    "Water, Waste, Steam, and Air Conditioning Services"
+  ],
+  "Utilities Administration": [
+    "Fossil Fuel Electric Power Generation",
+    "Water Supply and Irrigation Systems",
+    "Electric Power Transmission, Control, and Distribution",
+    "Water, Waste, Steam, and Air Conditioning Services",
+    "Electric Power Generation",
+    "Steam and Air-Conditioning Supply",
+    "Energy, Utilities & Waste",
+    "Energy & Utilities"
+  ],
+  "Utility System Construction": [
+    "Highway, Street, and Bridge Construction",
+    "Architecture and Planning",
+    "Surveying and Mapping Services",
+    "Architecture, Engineering & Design",
+    "Mechanical Or Industrial Engineering",
+    "Accessible Architecture and Design",
+    "Engineering Services",
+    "Regenerative Design"
+  ],
+  "Vehicle Repair and Maintenance": [
+    "Automotive Service & Collision Repair",
+    "Car & Truck Rental",
+    "Wholesale Motor Vehicles and Parts",
+    "Parts Distribution",
+    "Retail Motor Vehicles",
+    "Automobile Parts Stores",
+    "Automobile Dealers",
+    "Motor Vehicle Parts Manufacturing"
+  ],
+  "Venture Capital and Private Equity Principals": [
+    "Claims Adjusting, Actuarial Services",
+    "Securities and Commodity Exchanges",
+    "Insurance Carriers",
+    "Holding Companies",
+    "Insurance Agencies and Brokerages",
+    "Holding Companies & Conglomerates",
+    "Insurance",
+    "Credit Card Processing"
+  ],
+  "Veterinary": [
+    "Ambulance Services",
+    "Veterinary Services",
+    "Healthcare Services",
+    "Alternative Medicine",
+    "Mental Health Care",
+    "Physical, Occupational and Speech Therapists",
+    "Optometrists",
+    "Dental Practice Management"
+  ],
+  "Veterinary Services": [
+    "Veterinary",
+    "Ambulance Services",
+    "Healthcare Services",
+    "Alternative Medicine",
+    "Mental Health Care",
+    "Physical, Occupational and Speech Therapists",
+    "Optometrists",
+    "Dental Practice Management"
+  ],
+  "Vocational Rehabilitation Services": [
+    "Community Services",
+    "Emergency and Relief Services",
+    "Individual and Family Services",
+    "Health and Human Services",
+    "Public Health"
+  ],
+  "Warehousing": [
+    "Warehousing and Storage",
+    "Import & Export",
+    "Freight and Package Transportation",
+    "Wholesale Import and Export",
+    "Freight & Logistics Services",
+    "Transportation, Warehousing & Logistics",
+    "Transportation, Logistics, Supply Chain and Storage"
+  ],
+  "Warehousing and Storage": [
+    "Freight and Package Transportation",
+    "Warehousing",
+    "Freight & Logistics Services",
+    "Import & Export",
+    "Transportation, Warehousing & Logistics",
+    "Wholesale Import and Export",
+    "Transportation, Logistics, Supply Chain and Storage"
+  ],
+  "Waste Collection": [
+    "Conservation Programs",
+    "Waste Treatment and Disposal",
+    "Environmental Quality Programs",
+    "Wholesale Recyclable Materials",
+    "Air, Water, and Waste Program Management",
+    "Retail Recyclable Materials & Used Merchandise",
+    "Environmental Services",
+    "Community Development and Urban Planning"
+  ],
+  "Waste Treatment and Disposal": [
+    "Waste Collection",
+    "Wholesale Recyclable Materials",
+    "Conservation Programs",
+    "Retail Recyclable Materials & Used Merchandise",
+    "Environmental Quality Programs",
+    "Community Development and Urban Planning",
+    "Air, Water, and Waste Program Management",
+    "Housing and Community Development"
+  ],
+  "Water Supply and Irrigation Systems": [
+    "Utilities Administration",
+    "Water, Waste, Steam, and Air Conditioning Services",
+    "Fossil Fuel Electric Power Generation",
+    "Steam and Air-Conditioning Supply",
+    "Electric Power Transmission, Control, and Distribution",
+    "Electric Power Generation",
+    "Energy, Utilities & Waste",
+    "Energy & Utilities"
+  ],
+  "Water, Waste, Steam, and Air Conditioning Services": [
+    "Water Supply and Irrigation Systems",
+    "Steam and Air-Conditioning Supply",
+    "Utilities Administration",
+    "Fossil Fuel Electric Power Generation",
+    "Electric Power Transmission, Control, and Distribution",
+    "Electric Power Generation",
+    "Energy, Utilities & Waste",
+    "Energy & Utilities"
+  ],
+  "Wellness and Fitness Services": [
+    "Health, Wellness & Fitness",
+    "Fitness & Dance Facilities",
+    "Spa and Salon Management",
+    "Personal Care Services"
+  ],
+  "Wholesale": [
+    "Wholesale Machinery",
+    "Wholesale Hardware, Plumbing, Heating Equipment",
+    "Wholesale Appliances, Electrical, and Electronics",
+    "Wholesale Computer Equipment",
+    "Wholesale Photography Equipment and Supplies",
+    "Wholesale Drugs and Sundries",
+    "Retail Appliances, Electrical, and Electronic Equipment"
+  ],
+  "Wholesale Alcoholic Beverages": [
+    "Wholesale Food and Beverage",
+    "Drug Stores & Pharmacies",
+    "Convenience Stores, Gas Stations & Liquor Stores",
+    "Retail Pharmacies",
+    "Food and Beverage Retail",
+    "Retail Health and Personal Care Products",
+    "Retail Groceries",
+    "Grocery Retail"
+  ],
+  "Wholesale Apparel and Sewing Supplies": [
+    "Jewelry & Watch Retail",
+    "Wholesale Footwear",
+    "Wholesale Luxury Goods and Jewelry",
+    "Retail Luxury Goods and Jewelry",
+    "Luxury Goods & Jewelry",
+    "Retail Apparel and Fashion",
+    "Apparel & Accessories Retail",
+    "Apparel & Fashion"
+  ],
+  "Wholesale Appliances, Electrical, and Electronics": [
+    "Wholesale Hardware, Plumbing, Heating Equipment",
+    "Wholesale Computer Equipment",
+    "Wholesale Machinery",
+    "Wholesale Photography Equipment and Supplies",
+    "Wholesale",
+    "Wholesale Drugs and Sundries",
+    "Retail Appliances, Electrical, and Electronic Equipment"
+  ],
+  "Wholesale Building Materials": [
+    "Construction Hardware Manufacturing",
+    "Hand, Power & Lawn-care Tools",
+    "Building Materials",
+    "Home Improvement & Hardware Retail"
+  ],
+  "Wholesale Chemical and Allied Products": [
+    "Paint, Coating, and Adhesive Manufacturing",
+    "Agricultural Chemical Manufacturing",
+    "Chemicals & Related Products",
+    "Chemical Raw Materials Manufacturing",
+    "Chemical Manufacturing"
+  ],
+  "Wholesale Computer Equipment": [
+    "Wholesale Appliances, Electrical, and Electronics",
+    "Wholesale Photography Equipment and Supplies",
+    "Wholesale Hardware, Plumbing, Heating Equipment",
+    "Wholesale Drugs and Sundries",
+    "Wholesale Machinery",
+    "Retail Appliances, Electrical, and Electronic Equipment",
+    "Wholesale"
+  ],
+  "Wholesale Drugs and Sundries": [
+    "Wholesale Photography Equipment and Supplies",
+    "Retail Appliances, Electrical, and Electronic Equipment",
+    "Wholesale Computer Equipment",
+    "Wholesale Appliances, Electrical, and Electronics",
+    "Wholesale Hardware, Plumbing, Heating Equipment",
+    "Wholesale Machinery",
+    "Wholesale"
+  ],
+  "Wholesale Food and Beverage": [
+    "Convenience Stores, Gas Stations & Liquor Stores",
+    "Wholesale Alcoholic Beverages",
+    "Food and Beverage Retail",
+    "Drug Stores & Pharmacies",
+    "Retail Groceries",
+    "Retail Pharmacies",
+    "Grocery Retail",
+    "Retail Health and Personal Care Products"
+  ],
+  "Wholesale Footwear": [
+    "Wholesale Apparel and Sewing Supplies",
+    "Jewelry & Watch Retail",
+    "Wholesale Luxury Goods and Jewelry",
+    "Retail Luxury Goods and Jewelry",
+    "Luxury Goods & Jewelry",
+    "Retail Apparel and Fashion",
+    "Apparel & Accessories Retail",
+    "Apparel & Fashion"
+  ],
+  "Wholesale Furniture and Home Furnishings": [
+    "Reupholstery and Furniture Repair",
+    "Retail Building Materials and Garden Equipment",
+    "Mattress and Blinds Manufacturing",
+    "Office Furniture and Fixtures Manufacturing",
+    "Household and Institutional Furniture Manufacturing",
+    "Furniture and Home Furnishings Manufacturing",
+    "Furniture",
+    "Retail Furniture and Home Furnishings"
+  ],
+  "Wholesale Hardware, Plumbing, Heating Equipment": [
+    "Wholesale Machinery",
+    "Wholesale Appliances, Electrical, and Electronics",
+    "Wholesale",
+    "Wholesale Computer Equipment",
+    "Wholesale Photography Equipment and Supplies",
+    "Wholesale Drugs and Sundries",
+    "Retail Appliances, Electrical, and Electronic Equipment"
+  ],
+  "Wholesale Import and Export": [
+    "Import & Export",
+    "Warehousing",
+    "Warehousing and Storage",
+    "Freight and Package Transportation",
+    "Freight & Logistics Services",
+    "Transportation, Warehousing & Logistics",
+    "Transportation, Logistics, Supply Chain and Storage"
+  ],
+  "Wholesale Luxury Goods and Jewelry": [
+    "Retail Luxury Goods and Jewelry",
+    "Jewelry & Watch Retail",
+    "Luxury Goods & Jewelry",
+    "Wholesale Apparel and Sewing Supplies",
+    "Retail Apparel and Fashion",
+    "Wholesale Footwear",
+    "Apparel & Accessories Retail",
+    "Apparel & Fashion"
+  ],
+  "Wholesale Machinery": [
+    "Wholesale",
+    "Wholesale Hardware, Plumbing, Heating Equipment",
+    "Wholesale Appliances, Electrical, and Electronics",
+    "Wholesale Computer Equipment",
+    "Wholesale Photography Equipment and Supplies",
+    "Wholesale Drugs and Sundries",
+    "Retail Appliances, Electrical, and Electronic Equipment"
+  ],
+  "Wholesale Metals and Minerals": [
+    "Chemicals, Metals & Mining",
+    "Nonmetallic Mineral Mining",
+    "Metal Ore Mining",
+    "Minerals & Mining",
+    "Mining"
+  ],
+  "Wholesale Motor Vehicles and Parts": [
+    "Retail Motor Vehicles",
+    "Automotive Service & Collision Repair",
+    "Automobile Parts Stores",
+    "Vehicle Repair and Maintenance",
+    "Automobile Dealers",
+    "Car & Truck Rental",
+    "Motor Vehicle Parts Manufacturing",
+    "Parts Distribution"
+  ],
+  "Wholesale Paper Products": [
+    "Wood Product Manufacturing",
+    "Printing Services",
+    "Paper & Forest Products",
+    "Commercial Printing",
+    "Paper and Forest Product Manufacturing"
+  ],
+  "Wholesale Petroleum and Petroleum Products": [
+    "Electricity, Oil & Gas",
+    "Retail Gasoline",
+    "Natural Gas Extraction",
+    "Natural Gas Distribution",
+    "Oil, Gas, and Mining",
+    "Oil Extraction",
+    "Oil and Gas"
+  ],
+  "Wholesale Photography Equipment and Supplies": [
+    "Wholesale Computer Equipment",
+    "Wholesale Drugs and Sundries",
+    "Wholesale Appliances, Electrical, and Electronics",
+    "Retail Appliances, Electrical, and Electronic Equipment",
+    "Wholesale Hardware, Plumbing, Heating Equipment",
+    "Wholesale Machinery",
+    "Wholesale"
+  ],
+  "Wholesale Raw Farm Products": [
+    "Horticulture",
+    "Fisheries",
+    "Ranching and Fisheries",
+    "Ranching",
+    "Farming, Ranching, Forestry",
+    "Agriculture",
+    "Farming"
+  ],
+  "Wholesale Recyclable Materials": [
+    "Waste Treatment and Disposal",
+    "Retail Recyclable Materials & Used Merchandise",
+    "Waste Collection",
+    "Community Development and Urban Planning",
+    "Conservation Programs",
+    "Housing and Community Development",
+    "Environmental Quality Programs",
+    "Air, Water, and Waste Program Management"
+  ],
+  "Wine & Spirits": [
+    "Beverage Manufacturing",
+    "Baked Goods Manufacturing",
+    "Food & Beverages",
+    "Dairy Product Manufacturing",
+    "Food & Beverage",
+    "Dairy",
+    "Food Production",
+    "Meat Products Manufacturing"
+  ],
+  "Wireless Services": [
+    "Telecommunications Carriers",
+    "Satellite Telecommunications",
+    "Telecommunications",
+    "Cable & Satellite",
+    "Media and Telecommunications",
+    "Telephone Call Centers"
+  ],
+  "Wood Product Manufacturing": [
+    "Paper & Forest Products",
+    "Wholesale Paper Products",
+    "Paper and Forest Product Manufacturing",
+    "Printing Services",
+    "Commercial Printing"
+  ],
+  "Writing and Editing": [
+    "Fine Arts Schools",
+    "Translation and Localization",
+    "Arts & Crafts",
+    "Fine Art",
+    "Artists and Writers"
+  ]
+}

@@ -37,17 +37,15 @@ CREATE TABLE app_lm_strategy_sector (
 - Deselected suggestions ARE stored (`selected=false`) — mockup keeps them visible at opacity .65, re-selectable.
 - No unique `(strategy_id, kind, label)` index — Hibernate element-collection rewrites hit transient duplicate states mid-flush; dupes rejected in the service instead.
 
-## 2. Adjacency map — static classpath JSON
+## 2. Adjacency map — static classpath JSON (ALREADY EXISTS)
 
-`apps/api/src/main/resources/data/sector-adjacency.json`: `{ "Retail": ["Food and Beverage Retail", ...], ... }` — all 523 actual `primary_industry` strings as keys, 4–8 ranked adjacents each, values only from the same 523 set.
+`apps/api/src/main/resources/data/sector-adjacency.json` — **already authored in a prior session and VERIFIED**: 523 keys = the exact 523 `primary_industry` DB strings (byte-exact, 0 diff both directions), every adjacent value is itself a key (0 orphans), no self-reference. Raw sector strings used as opaque identity — no enum, no slug (final filter is `WHERE primary_industry = ANY(:labels)`, so exact strings drop straight in). Do NOT regenerate.
 
-Chosen over a migration-seeded table because: applied migrations are immutable (every map re-tune would need a new migration); nothing joins it (lookup = in-memory get); Claude-authored content wants git diffs. Sectors appearing after a future data sync simply miss the map → empty adjacent list, fine.
+Classpath JSON (not a migration-seeded table) because: applied migrations are immutable (every re-tune would need a new migration); nothing joins it (lookup = in-memory get); authored judgment wants git diffs. Loaded once at construction by `SectorAdjacency` (Jackson 3 `tools.jackson.*`, `ClassPathResource`). Sectors appearing after a future sync simply miss the map → empty adjacent list, degrades gracefully.
 
-**Generation (first implementation step, longest lead):**
-1. `./ops/cloudsql/psql.sh -c "SELECT primary_industry FROM app_lm_companies WHERE primary_industry IS NOT NULL GROUP BY 1 ORDER BY 1"` → dump 523 names to scratchpad.
-2. Claude authors JSON in ~50-key batches, adjacents chosen only from the dumped list, no self-reference.
-3. Scratchpad sanity script (node/jq): every key ∈ dump, every value ∈ key set, no self-adjacency, ≤8 per key.
-4. Permanent guard `SectorAdjacencyTest` (unit, no DB): map parses; every adjacent value is itself a key; no self-adjacency.
+**This session's only map work — guard it, don't build it:**
+1. `SectorAdjacencyTest` (unit, no DB): map parses; every adjacent value is itself a key (closed world = every value is a real sector); no self-adjacency. Freezes the invariant the file already satisfies so a future edit can't break it silently.
+2. Re-run the byte-exact DB-diff check (keys ⊆ DB distinct, DB distinct ⊆ keys) once before wiring in, to catch any drift since the file was authored. Already passing as of this planning session.
 
 ## 3. Backend — company read path (new `app.lightmove.api.company` package)
 
@@ -137,6 +135,18 @@ pages/StrategyPage.test.tsx
 - Layout: header ("Strategy" — NO "Universe locked" badge, no green footer), EstimateBanner, `grid grid-cols-[250px_1fr] gap-4 items-start`. Tokens from tokens.css only.
 - Route: swap [routes.tsx:69](apps/web/src/app/routes.tsx#L69) from `ProjectPlaceholderPage` to `StrategyPage` (placeholder stays for other tabs).
 
+### Mockup fidelity (Project.dc.html:286-360 + 1041-1106 — read directly, inline styles → Tailwind tokens)
+
+Match the design's editable equivalent. **Translate inline styles to token utilities** (`--panel2`→`bg-panel2`, `--line-soft`→`border-line-soft`, `--amber`→`text-amber`, `--sky`, `--text/text2/text3`, `--line`, `--panel`, `font-mono`, `font-sans`). Exact specs:
+
+- **Estimate banner**: `bg-panel2 border border-line-soft rounded-[10px] px-[18px] py-3 flex items-center gap-[14px]`; number `font-mono font-bold text-[26px] text-amber min-w-[52px]` (em-dash while loading); label "companies match this scope" `font-semibold text-[13px]`; sub `font-mono text-[11px] text-text3` → reword to editable ("updates as you refine scope"), NOT the mockup's "locked at sign-off" copy.
+- **Left nav** (`StrategyNav`): `bg-panel2 border border-line-soft rounded-[10px] p-2 sticky top-0`. Group header `font-mono font-semibold text-[10px] tracking-[0.12em] uppercase text-text3 px-[10px] pt-3 pb-1.5`. Item button `flex items-center gap-[9px] w-full px-[10px] py-[9px] rounded-lg text-[13px] font-medium text-left`. Active (Sector Scope): `text-text bg-panel`, icon `text-amber`, badge `text-amber border-amber`. Inactive/disabled (other 5): `text-text2 bg-transparent`, icon currentColor, badge `text-text3 border-line`, PLUS `opacity-50 cursor-not-allowed` + no onClick. Badge pill: `font-mono font-semibold text-[10.5px] bg-panel border rounded-full px-[7px] py-px`. Count = selected chip count in that section (sector = selected direct+adjacent+inferred). Sector icon path `M12 2a10 10 0 1 0 .01 0M12 8a4 4 0 1 0 .01 0`; other icons per mockup lines 1063-1069. Nav groups: "Scope filters" (Sector Scope, Company Size, Ownership Type, Location) + "Lists" (Target List Seeding, Off-limits) — from a local constant.
+- **Panel** (`SectorPanel`): `bg-panel2 border border-line-soft rounded-[10px] px-5 py-[18px] min-h-[360px]`. Title row: `font-semibold text-[13px]` "Sector Scope" — **DROP the "Locked" tag** (editable). Sub `font-mono text-[11.5px] text-text3`: "Direct is must-have · Adjacent and Inferred widen the pool".
+- **ChipGroup**: label+desc row `flex items-baseline gap-2 mt-4 mb-2`; label `font-mono font-bold text-[10.5px] tracking-[0.06em] uppercase text-amber`; desc `font-mono text-[11.5px] text-text3`. Groups: Direct ("Core sector — must-have"), Adjacent ("AI-suggested — transferable experience"), Inferred ("AI-suggested — wider talent pool"). Chip row `flex flex-wrap gap-2`.
+- **Chip** (button, toggles on click — NOT `cursor-default`/lockedToast): `inline-flex items-center gap-[7px] px-[13px] py-[7px] rounded-full border bg-panel font-medium text-[13px]`. Selected: `border-sky text-text` + check icon `text-sky` (svg 14×14 stroke-width 2.4). Deselected: `border-line text-text2 opacity-[.65]` + plus icon `M12 5v14M5 12h14` `text-text3`.
+- **SectorCombobox** (net-new, NOT in mockup): render inside/above the Direct group as a dashed "+ add sector" input (dashed-border pill styled like [PackageCard.tsx](apps/web/src/features/position/components/PackageCard.tsx) `BenefitsField`), backed by a real typeahead dropdown (fuzzy top-8 + count badge). Keeps visual language of the design while adding the editable affordance the locked mockup lacks.
+- **OMIT** all locked chrome: header "Universe locked" sky pill (line 290-293), panel "Locked" tag (line 320), green "Company universe locked" footer (line 353-358).
+
 ## 7. Tests (behavior-driven only, per user preference)
 
 Backend (Testcontainers, model on Position integration tests):
@@ -150,9 +160,9 @@ Frontend (vitest): `fuzzy.test.ts` (ranking order, word-boundary, subsequence, c
 ## 8. Implementation order
 
 0. Copy this plan file to `docs/strategy-sector-plan.md` (user request; plan mode blocked the write).
-1. Dump 523 sectors → author + sanity-check `sector-adjacency.json` (longest lead — first).
+1. `sector-adjacency.json` already exists + verified — just re-run the byte-exact DB-diff check, then write `SectorAdjacencyTest`.
 2. `V11__strategy.sql` + entities/repository (boot API once; test profile `ddl-auto: validate` catches drift).
-3. Company package + tests.
+3. Company package (`SectorAdjacency` loads the existing JSON) + tests.
 4. Strategy service/controller/DTOs + audit constant + tests.
 5. Frontend libs + unit tests.
 6. API modules, components bottom-up, route swap, page test.

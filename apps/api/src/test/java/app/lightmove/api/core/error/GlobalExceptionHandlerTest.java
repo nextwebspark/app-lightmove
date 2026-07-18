@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ProblemDetail;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 /**
  * When a race beats a service pre-check, the DB constraint must surface as the same business error
@@ -34,6 +35,17 @@ class GlobalExceptionHandlerTest {
     void unknownConstraintIsAConflictNotAServerError() {
         ProblemDetail problem = handler.handleDataIntegrity(
                 violation("app_lm_project_member_lead_uk"), new MockHttpServletRequest());
+
+        assertThat(problem.getStatus()).isEqualTo(409);
+        assertThat(problem.getProperties()).containsEntry("code", "CONFLICT");
+    }
+
+    @Test
+    @DisplayName("an optimistic-lock race answers a generic 409, never a 500")
+    void optimisticLockIsAConflictNotAServerError() {
+        ProblemDetail problem = handler.handleOptimisticLock(
+                new ObjectOptimisticLockingFailureException("app_lm_strategy", null),
+                new MockHttpServletRequest());
 
         assertThat(problem.getStatus()).isEqualTo(409);
         assertThat(problem.getProperties()).containsEntry("code", "CONFLICT");
