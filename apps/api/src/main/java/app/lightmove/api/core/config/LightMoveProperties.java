@@ -91,10 +91,16 @@ public record LightMoveProperties(
     }
 
     public record Email(
-            /** {@code log} prints the message to the console; {@code resend} actually sends it. */
-            @DefaultValue("log") String provider,
+            /**
+             * {@code log} prints the message to the console; {@code resend} actually sends it.
+             *
+             * <p>Defaults to {@code resend} so a deployment sends real mail without an extra env var to
+             * remember. The test profile and {@code application-local.yml.example} pin {@code log}, so the
+             * build and a fresh clone stay runnable without a provider account.
+             */
+            @DefaultValue("resend") String provider,
             @DefaultValue("LightMove") String fromName,
-            @DefaultValue("noreply@lightmove.app") String fromAddress,
+            @DefaultValue("noreply@lightmove.ai") String fromAddress,
             Resend resend,
             Validation validation
     ) {
@@ -115,12 +121,13 @@ public record LightMoveProperties(
                 /**
                  * Reject consumer email providers (gmail, outlook, …), so signup requires a work address.
                  *
-                 * <p>On by default, and switching it off has a consequence worth knowing: the domain is
-                 * what groups colleagues together, and {@code gmail.com} groups the entire world. With
-                 * this off, LightMove never offers to show a Gmail user "the workspaces on your domain",
-                 * because that list would be every Gmail user's workspace on the platform.
+                 * <p>Off by default: we currently accept any domain at signup. The consequence worth
+                 * knowing is that the domain no longer reliably groups colleagues — {@code gmail.com}
+                 * groups the entire world — so a consumer signup simply creates its own fresh workspace.
+                 * Set to {@code true} (or the {@code EMAIL_BLOCK_PUBLIC_DOMAINS} env var) to require work
+                 * addresses again.
                  */
-                @DefaultValue("true") boolean blockPublicDomains,
+                @DefaultValue("false") boolean blockPublicDomains,
 
                 /**
                  * Overrides the bundled consumer-provider list entirely. Leave empty to use the bundled

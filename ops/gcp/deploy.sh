@@ -25,9 +25,11 @@ RUNTIME_SA="lightmove-api@${PROJECT}.iam.gserviceaccount.com"
 # lm_app today. Becomes lm_migrate once ops/cloudsql/create-migrate-role.sh has been applied.
 MIGRATE_USER="${DB_MIGRATE_USER:-lm_app}"
 
-# Optional, and each unlocks a feature rather than being needed to deploy.
-EMAIL_PROVIDER="${EMAIL_PROVIDER:-log}"
-EMAIL_FROM="${EMAIL_FROM:-noreply@lightmove.app}"
+# Defaults to resend + the verified lightmove.ai sender, so a plain run sends real mail. Requires the
+# lightmove-resend-api-key secret to have a value (preflight below fails fast if it does not). Override
+# EMAIL_PROVIDER=log for a dry-run environment that should not send.
+EMAIL_PROVIDER="${EMAIL_PROVIDER:-resend}"
+EMAIL_FROM="${EMAIL_FROM:-noreply@lightmove.ai}"
 GOOGLE_OAUTH_CLIENT_ID="${GOOGLE_OAUTH_CLIENT_ID:-}"
 
 # ⚠ Verification off. Every signup is treated as though the address had been proved.
@@ -105,9 +107,17 @@ fi
 # Tagged with the git SHA, never `latest`: you must be able to say which commit is serving, and roll back
 # to a specific one. `latest` answers neither question.
 say "Build and push  ${IMAGE}"
-gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet >/dev/null
-docker build --platform linux/amd64 -t "$IMAGE" .
-docker push "$IMAGE"
+if [ "${USE_CLOUD_BUILD:-false}" = "true" ]; then
+    # Build server-side on Cloud Build's native amd64 workers. Apple Silicon has no local amd64 builder
+    # that works: `docker build --platform linux/amd64` runs under QEMU, whose missing tar syscall breaks
+    # the Maven layer ("Cannot open: Function not implemented"). Same Dockerfile, same amd64 image, pushed
+    # straight to Artifact Registry — just built where amd64 is native.
+    gcloud builds submit --project "$PROJECT" --tag "$IMAGE" .
+else
+    gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet >/dev/null
+    docker build --platform linux/amd64 -t "$IMAGE" .
+    docker push "$IMAGE"
+fi
 
 # ── Migrate ───────────────────────────────────────────────────────────────────
 # Before the new revision goes live, and never from inside the container (FLYWAY_ENABLED=false). A failed
