@@ -19,7 +19,10 @@ public enum EmployeeBand {
     B_501_1000("501-1000", 501, 1000),
     B_1001_5000("1001-5000", 1001, 5000),
     B_5001_10000("5001-10000", 5001, 10000),
-    B_10000_PLUS("10000+", 10000, null);
+    // Starts at 10_001, not 10_000: the band below owns 10_000 (its inclusive upper), so the buckets stay
+    // disjoint for the future count query. The "10000+" *label* is the warehouse's range string, not a
+    // literal lower bound.
+    B_10000_PLUS("10000+", 10001, null);
 
     private final String value;
     private final int minCount;
@@ -39,7 +42,11 @@ public enum EmployeeBand {
         return minCount;
     }
 
-    /** Inclusive upper bound, or {@code null} for the open-ended top band ({@code 10000+}). */
+    /**
+     * Inclusive upper bound, or {@code null} for the open-ended top band ({@code 10000+}). Headcount
+     * bounds are inclusive {@code [min, max]} (discrete counts); note {@link RevenueBand} is half-open —
+     * see {@link CompanySizeAxis} for why the two axes differ.
+     */
     public Integer maxCount() {
         return maxCount;
     }

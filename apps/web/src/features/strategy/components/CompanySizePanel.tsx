@@ -1,7 +1,7 @@
 import type { Strategy } from "../api/types";
 import type { BandDef } from "../lib/companySizeBands";
 import { EMPLOYEE_BANDS, REVENUE_BANDS } from "../lib/companySizeBands";
-import { Pill } from "./ChipGroup";
+import { Pill } from "./Pill";
 
 type Axis = "employee" | "revenue";
 
