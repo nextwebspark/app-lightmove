@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { ProjectLayout } from "../components/layout/ProjectLayout";
 import { SettingsLayout } from "../components/layout/SettingsLayout";
 import { WorkspaceLayout } from "../components/layout/WorkspaceLayout";
 import { Logo } from "../components/ui";
@@ -13,6 +14,8 @@ import { SignupPage } from "../features/auth/pages/SignupPage";
 import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { WorkspaceStepPage } from "../features/auth/pages/WorkspaceStepPage";
 import { ClientsPage } from "../features/clients/pages/ClientsPage";
+import { PositionPage } from "../features/position/pages/PositionPage";
+import { ProjectPlaceholderPage } from "../features/position/pages/ProjectPlaceholderPage";
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
 import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
 import { SettingsMembersPage } from "../features/settings/pages/SettingsMembersPage";
@@ -57,6 +60,17 @@ export function AppRoutes() {
         <Route path="/all" element={<ProjectsPage view="all" />} />
         <Route path="/clients" element={<ClientsPage />} />
         <Route path="/team" element={<TeamPage />} />
+      </Route>
+
+      {/* The project workspace shell (Project.dc.html). Position is the mandate's landing tab; the
+          other tabs are placeholders until their screens are built. */}
+      <Route element={<RequireWorkspace><ProjectLayout /></RequireWorkspace>}>
+        <Route path="/projects/:projectId" element={<PositionPage />} />
+        <Route path="/projects/:projectId/strategy" element={<ProjectPlaceholderPage title="Strategy" icon="strategy" />} />
+        <Route path="/projects/:projectId/sourcing" element={<ProjectPlaceholderPage title="Sourcing" icon="sourcing" />} />
+        <Route path="/projects/:projectId/candidates" element={<ProjectPlaceholderPage title="Candidates" icon="candidates" />} />
+        <Route path="/projects/:projectId/outreach" element={<ProjectPlaceholderPage title="Outreach" icon="outreach" />} />
+        <Route path="/projects/:projectId/reports" element={<ProjectPlaceholderPage title="Reports" icon="reports" />} />
       </Route>
 
       {/* Admin-gated in the client for UX only; every settings endpoint re-checks in the service. */}

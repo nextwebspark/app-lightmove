@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Avatar, Drawer, useToast } from "../../../components/ui";
+import { useNavigate } from "react-router-dom";
+import { Avatar, Button, Drawer, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatDate, titleCase } from "../../../lib/format";
 import type { Member } from "../../workspace/api/types";
@@ -27,6 +28,7 @@ export function ProjectDrawer({
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const navigate = useNavigate();
 
   const settle = {
     onError: (error: unknown) => toast(messageFor(error)),
@@ -76,6 +78,9 @@ export function ProjectDrawer({
           {project.clientName}
         </div>
         <div className="mt-1 text-[17px] font-semibold">{project.positionTitle}</div>
+        <Button className="mt-3 w-full" onClick={() => navigate(`/projects/${project.id}`)}>
+          Open project →
+        </Button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-[18px]">

@@ -285,6 +285,11 @@ more than one instance).
 ## Conventions
 
 - Java: constructor injection only. `record` for DTOs. Immutable where you can be.
+- **Names carry intent.** Variables, methods, classes, enums, and constants get meaningful, logical
+  names — the name alone must make the purpose clear. No abbreviations, single letters (except loop
+  indices), or vague names (`data`, `info`, `tmp`, `doStuff`, `handle`, `flag`). Methods read as verbs
+  (`resolveWorkspaceId`), booleans as predicates (`isVerified`, `hasActiveSeat`), classes/enums as nouns.
+  If a name needs a comment to explain what it holds, rename it — same rule as the Comments line below.
 - **Lombok.** `@RequiredArgsConstructor` for constructor injection, `@Slf4j` for the logger. Entities use
   `@Getter` + `@NoArgsConstructor(access = PROTECTED)` + selective `@Setter`, and **never** `@Data`,
   `@EqualsAndHashCode`, or `@Builder` — `BaseEntity` explains why identity equality is hand-written. A
