@@ -85,6 +85,11 @@ Annotations live on **controllers only**: services reachable outside a request's
 Invariants that need loaded state stay imperative too — a workspace and every project keep ≥1 holder
 of the ADMIN role (`LAST_ADMIN` / `PROJECT_LAST_ADMIN`).
 
+A project's **content** reads (its strategy, position brief, and future tables) are seat-gated on the
+project action `WORK_EXECUTE` (held by every project role; workspace-admin bypasses), **not** workspace
+`PROJECT_BROWSE` — a mandate's scope and brief are team-only. Only the project *list* and shared
+reference data (`CompanyReferenceController`) ride `PROJECT_BROWSE`: existence isn't secret, content is.
+
 ### Tokens are never stored raw
 
 Refresh, verification and invitation tokens are 256-bit random values; only their SHA-256 hash is

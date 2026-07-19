@@ -16,22 +16,22 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
 /**
- * The position brief's action matrix: reads ride PROJECT_BROWSE, writes need PROJECT_EDIT on the
- * seat, and unlocking is the ADMIN-only POSITION_UNLOCK — a lead can lock a brief but cannot reopen
- * one. Cross-tenant reads keep the 404 masking.
+ * The position brief's action matrix: reading needs a seat (WORK_EXECUTE, held by every project
+ * role), writes need PROJECT_EDIT on the seat, and unlocking is the ADMIN-only POSITION_UNLOCK — a
+ * lead can lock a brief but cannot reopen one. Cross-tenant reads keep the 404 masking.
  */
 @IntegrationTest
 @Import(RecordingEmailSender.Config.class)
 class PositionAuthorizationIntegrationTest extends FlowTestSupport {
 
     @Test
-    @DisplayName("an unseated member reads the brief but cannot write it")
-    void unseatedMemberReadsOnly() throws Exception {
+    @DisplayName("an unseated member can neither read nor write the brief")
+    void unseatedMemberCannotRead() throws Exception {
         Fixture f = fixture("Unseated Position Firm");
         String sara = login(f.saraEmail);
 
         mvc.perform(get(positionUrl(f.projectId)).header("Authorization", "Bearer " + sara))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
 
         mvc.perform(put(positionUrl(f.projectId))
                         .header("Authorization", "Bearer " + sara)
@@ -41,11 +41,14 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a researcher executes the search but does not define the brief")
-    void researcherCannotWriteTheBrief() throws Exception {
+    @DisplayName("a seated researcher reads the brief but does not define it")
+    void researcherReadsButCannotWriteTheBrief() throws Exception {
         Fixture f = fixture("Researcher Position Firm");
         seat(f.admin, f.projectId, f.saraId, "[\"RESEARCHER\"]");
         String sara = login(f.saraEmail);
+
+        mvc.perform(get(positionUrl(f.projectId)).header("Authorization", "Bearer " + sara))
+                .andExpect(status().isOk());
 
         mvc.perform(put(positionUrl(f.projectId) + "/criteria")
                         .header("Authorization", "Bearer " + sara)

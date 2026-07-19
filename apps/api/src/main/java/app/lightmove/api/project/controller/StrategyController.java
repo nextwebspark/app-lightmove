@@ -19,9 +19,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The search strategy of one mandate. Reading rides the workspace-level PROJECT_BROWSE (whoever sees
- * the project list may read its strategy); writing the sector scope is PROJECT_EDIT on the seat. The
- * workspace comes from the principal, never the path.
+ * The search strategy of one mandate. Reading needs a seat on the project (WORK_EXECUTE, which every
+ * project role holds), with the workspace-admin bypass so an admin sees every project — a mandate's
+ * scope is team content, not browsable to the whole workspace. Writing it is PROJECT_EDIT on the seat.
+ * The workspace comes from the principal, never the path.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/strategy")
@@ -31,7 +32,7 @@ public class StrategyController {
     private final StrategyService strategy;
 
     @GetMapping
-    @PreAuthorize("@workspaceAuth.can(principal, 'PROJECT_BROWSE')")
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'WORK_EXECUTE')")
     public ResponseEntity<StrategyResponse> get(@PathVariable UUID projectId) {
         AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(strategy.get(principal.requireWorkspaceId(), projectId));
