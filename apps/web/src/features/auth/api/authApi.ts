@@ -66,6 +66,29 @@ export function resendVerification(email: string): Promise<void> {
   });
 }
 
+/** Always resolves with 202 — the server answers identically whether the address exists or not. */
+export function requestPasswordReset(email: string): Promise<void> {
+  return request<void>("/auth/password/forgot", {
+    method: "POST",
+    body: { email },
+    anonymous: true,
+  });
+}
+
+/**
+ * Redeems the emailed reset link. The server signs the user in on success — the token proved the
+ * mailbox, which is everything a login proves — so this installs the access token exactly like login.
+ */
+export async function resetPassword(token: string, password: string): Promise<AuthResponse> {
+  const session = await request<AuthResponse>("/auth/password/reset", {
+    method: "POST",
+    body: { token, password },
+    anonymous: true,
+  });
+  setAccessToken(session.accessToken);
+  return session;
+}
+
 // ── Onboarding ──────────────────────────────────────────────────────────────
 
 /** Editing the workspace you already run — which is what Back means once step 2 has committed. */

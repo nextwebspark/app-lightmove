@@ -54,6 +54,15 @@ public class RateLimitGuard {
         checkRateLimit("verify-resend", email, request, config.verificationResendsPerHour(), Duration.ofHours(1));
     }
 
+    /**
+     * Guards the reset <i>request</i> only. Redeeming is deliberately unlimited: the 256-bit token is
+     * the credential and cannot be guessed, and a budget there would let an attacker spend a victim's
+     * redemption attempts and lock them out of their own reset.
+     */
+    public void checkPasswordResetRequest(String email, HttpServletRequest request) {
+        checkRateLimit("password-reset", email, request, config.passwordResetRequestsPerHour(), Duration.ofHours(1));
+    }
+
     private void checkRateLimit(String action, String email, HttpServletRequest request, int limit, Duration window) {
         if (!config.enabled()) {
             return;

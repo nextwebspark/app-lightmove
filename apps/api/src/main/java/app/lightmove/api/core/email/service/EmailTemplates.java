@@ -7,8 +7,8 @@ import org.springframework.web.util.HtmlUtils;
 /**
  * Builds the transactional emails.
  *
- * <p>Hand-built rather than templated through Thymeleaf: there are two of them, they are the only two
- * this session needs, and a template engine would add a rendering step to debug for no gain. When
+ * <p>Hand-built rather than templated through Thymeleaf: there are three of them, they are the only
+ * ones the product needs, and a template engine would add a rendering step to debug for no gain. When
  * marketing wants control of the copy, that is the moment to introduce templates — not before.
  *
  * <p>Every interpolated value is HTML-escaped. Names and workspace names come from users, and a user
@@ -47,6 +47,38 @@ public class EmailTemplates {
                 """.formatted(firstName(recipientName), verifyLink);
 
         return new EmailMessage(recipient, "Confirm your LightMove email", html, text);
+    }
+
+    public EmailMessage buildPasswordResetEmail(String recipient, String recipientName, String resetLink) {
+        String name = HtmlUtils.htmlEscape(firstName(recipientName));
+        String link = HtmlUtils.htmlEscape(resetLink);
+
+        String html = wrap("""
+                <h1 style="margin:0 0 16px;font:600 20px/1.3 -apple-system,system-ui,sans-serif;color:#1b2230">
+                  Reset your password
+                </h1>
+                <p style="margin:0 0 24px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
+                  Hi %s — we received a request to reset your LightMove password.
+                </p>
+                %s
+                <p style="margin:24px 0 0;font:400 12px/1.6 -apple-system,system-ui,sans-serif;color:#98a1b3">
+                  This link expires in 30 minutes and can be used once. If you didn't request this,
+                  ignore this email — your password is unchanged.
+                </p>
+                """.formatted(name, button("Reset password", link)));
+
+        String text = """
+                Reset your password
+
+                Hi %s — we received a request to reset your LightMove password:
+
+                %s
+
+                This link expires in 30 minutes and can be used once. If you didn't request this,
+                ignore this email — your password is unchanged.
+                """.formatted(firstName(recipientName), resetLink);
+
+        return new EmailMessage(recipient, "Reset your LightMove password", html, text);
     }
 
     public EmailMessage buildInvitationEmail(String recipient, String inviterName, String workspaceName,

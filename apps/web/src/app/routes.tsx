@@ -7,9 +7,11 @@ import { Logo } from "../components/ui";
 import { useAuth } from "../features/auth/AuthProvider";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
 import { CheckInboxPage } from "../features/auth/pages/CheckInboxPage";
+import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
 import { InviteStepPage } from "../features/auth/pages/InviteStepPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
+import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 import { SignupPage } from "../features/auth/pages/SignupPage";
 import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { WorkspaceStepPage } from "../features/auth/pages/WorkspaceStepPage";
@@ -36,9 +38,13 @@ export function AppRoutes() {
     <Routes>
       <Route path="/login" element={<AnonymousOnly><LoginPage /></AnonymousOnly>} />
       <Route path="/signup" element={<AnonymousOnly><SignupPage /></AnonymousOnly>} />
+      <Route path="/forgot-password" element={<AnonymousOnly><ForgotPasswordPage /></AnonymousOnly>} />
 
       {/* Public: the link is clicked from an email, in a browser that may have no session at all. */}
       <Route path="/auth/verify" element={<VerifyEmailPage />} />
+      {/* Public like /auth/verify, and deliberately not AnonymousOnly: a signed-in user following the
+          link simply replaces their session with the fresh one the reset returns. */}
+      <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
       <Route path="/auth/callback" element={<OAuthCallbackPage />} />
 
       {/* Public, and unguarded on purpose: the invitee may have no account, an unverified one, or be

@@ -84,6 +84,9 @@ lightmove:
     access-token-ttl: 15m
     refresh-token-ttl: 30d
     verification-token-ttl: 24h
+    # Deliberately short: a reset link changes a credential, and a stale one in an inbox is a
+    # standing invitation to whoever reads that inbox later.
+    password-reset-token-ttl: 30m
     invitation-ttl: 7d
     # A user's email domain decides their organisation, so an unverified address proves nothing —
     # anyone could type sara@nextwebspark.com and walk into that firm's workspace. Verification is
@@ -118,6 +121,7 @@ lightmove:
       login-attempts-per-minute: ${AUTH_LOGIN_ATTEMPTS_PER_MINUTE:10}
       signup-attempts-per-hour: ${AUTH_SIGNUP_ATTEMPTS_PER_HOUR:5}
       verification-resends-per-hour: ${AUTH_VERIFICATION_RESENDS_PER_HOUR:3}
+      password-reset-requests-per-hour: ${AUTH_PASSWORD_RESET_REQUESTS_PER_HOUR:3}
 
   email:
     provider: ${EMAIL_PROVIDER:resend}
