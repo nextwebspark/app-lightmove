@@ -16,6 +16,7 @@ const PAGE_SIZE = 25;
 export function SourcingPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
   const [page, setPage] = useState(0);
+  const [view, setView] = useState<"card" | "list">("card");
 
   const { data, isPending } = useQuery({
     queryKey: sourcingApi.SOURCING_KEY(project.id, page, PAGE_SIZE),
@@ -45,13 +46,33 @@ export function SourcingPage() {
             apply to these results going forward.
           </p>
         </div>
-        <Link
-          to={`/projects/${project.id}/strategy`}
-          className="flex flex-none items-center gap-[6px] rounded-[8px] border border-line px-3 py-[6px] font-sans text-[12.5px] font-medium text-text2 hover:border-text3 hover:text-text"
-        >
-          <Icon d={ICONS.strategy} size={14} />
-          Edit criteria in Strategy
-        </Link>
+        <div className="flex flex-none items-center gap-2">
+          <Link
+            to={`/projects/${project.id}/strategy`}
+            className="flex items-center gap-[6px] rounded-[8px] border border-line px-3 py-[6px] font-sans text-[12.5px] font-medium text-text2 hover:border-text3 hover:text-text"
+          >
+            <Icon d={ICONS.strategy} size={14} />
+            Edit criteria in Strategy
+          </Link>
+          <span className="flex overflow-hidden rounded-[8px] border border-line">
+            <button
+              type="button"
+              title="Card view"
+              onClick={() => setView("card")}
+              className={`flex px-[10px] py-[6px] ${view === "card" ? "bg-panel text-amber" : "text-text3"}`}
+            >
+              <Icon d={ICONS.allProjects} size={15} />
+            </button>
+            <button
+              type="button"
+              title="List view"
+              onClick={() => setView("list")}
+              className={`flex px-[10px] py-[6px] ${view === "list" ? "bg-panel text-amber" : "text-text3"}`}
+            >
+              <Icon d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" size={15} />
+            </button>
+          </span>
+        </div>
       </div>
 
       {totalCount === 0 ? (
@@ -74,43 +95,78 @@ export function SourcingPage() {
             current criteria
           </div>
 
-          <div className="overflow-auto rounded-[10px] border border-line-soft">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr>
-                  {["Company", "Sector", "Employees", "Revenue", "Location"].map((label) => (
-                    <th
-                      key={label}
-                      className="whitespace-nowrap border-b border-line px-[14px] py-[10px] text-left font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-text3"
-                    >
-                      {label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {companies.map((company) => (
-                  <tr key={company.id}>
-                    <td className="whitespace-nowrap border-b border-line-soft px-[14px] py-[10px] font-sans text-[13px] font-semibold text-text">
-                      {company.name}
-                    </td>
-                    <td className="whitespace-nowrap border-b border-line-soft px-[14px] py-[10px] font-mono text-[12px] text-text2">
-                      {company.sector ?? "—"}
-                    </td>
-                    <td className="whitespace-nowrap border-b border-line-soft px-[14px] py-[10px] font-mono text-[12px] text-text2">
-                      {company.employeeRange ?? "—"}
-                    </td>
-                    <td className="whitespace-nowrap border-b border-line-soft px-[14px] py-[10px] font-mono text-[12px] text-text2">
-                      {company.revenueRange ?? "—"}
-                    </td>
-                    <td className="whitespace-nowrap border-b border-line-soft px-[14px] py-[10px] font-mono text-[12px] text-text2">
-                      {company.location || "—"}
-                    </td>
+          {view === "card" ? (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-[14px]">
+              {companies.map((company) => (
+                <div
+                  key={company.id}
+                  className="rounded-[10px] border border-line-soft bg-panel2 p-[18px] hover:border-line"
+                >
+                  <div className="mb-3.5 flex items-start gap-3">
+                    <div className="flex size-10 flex-none items-center justify-center rounded-[8px] border border-line bg-panel font-mono text-[13px] font-semibold text-text2">
+                      {initialsOf(company.name)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-sans text-[15px] font-semibold leading-[1.3] text-text">
+                        {company.name}
+                      </div>
+                      <div className="mt-1 font-mono text-[11.5px] text-text3">
+                        {company.location || "—"} · {company.sector ?? "—"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 border-t border-line-soft pt-3.5 font-mono text-[12.5px]">
+                    <div className="flex items-center gap-2">
+                      <span className="w-[70px] flex-none text-text3">Employees</span>
+                      <span className="text-text">{company.employeeRange ?? "—"}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-[70px] flex-none text-text3">Revenue</span>
+                      <span className="text-text">{company.revenueRange ?? "—"}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="overflow-auto rounded-[10px] border border-line-soft">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr>
+                    {["Company", "Sector", "Employees", "Revenue", "Location"].map((label) => (
+                      <th
+                        key={label}
+                        className="whitespace-nowrap border-b border-line px-[14px] py-[10px] text-left font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-text3"
+                      >
+                        {label}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {companies.map((company) => (
+                    <tr key={company.id}>
+                      <td className="whitespace-nowrap border-b border-line-soft px-[14px] py-[10px] font-sans text-[13px] font-semibold text-text">
+                        {company.name}
+                      </td>
+                      <td className="whitespace-nowrap border-b border-line-soft px-[14px] py-[10px] font-mono text-[12px] text-text2">
+                        {company.sector ?? "—"}
+                      </td>
+                      <td className="whitespace-nowrap border-b border-line-soft px-[14px] py-[10px] font-mono text-[12px] text-text2">
+                        {company.employeeRange ?? "—"}
+                      </td>
+                      <td className="whitespace-nowrap border-b border-line-soft px-[14px] py-[10px] font-mono text-[12px] text-text2">
+                        {company.revenueRange ?? "—"}
+                      </td>
+                      <td className="whitespace-nowrap border-b border-line-soft px-[14px] py-[10px] font-mono text-[12px] text-text2">
+                        {company.location || "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           <div className="mt-3 flex items-center justify-between gap-3">
             <span className="font-mono text-[11px] text-text3">
@@ -139,4 +195,14 @@ export function SourcingPage() {
       )}
     </div>
   );
+}
+
+/** "Alpha Retail Group" → "AR" — the card's avatar tile, first letters of the first two words. */
+function initialsOf(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() ?? "")
+    .join("");
 }

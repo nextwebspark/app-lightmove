@@ -60,14 +60,29 @@ describe("SourcingPage — the filtered company list", () => {
     vi.resetAllMocks();
   });
 
-  it("renders the matching companies with their sector and size", async () => {
+  it("renders as Card view by default, with each company's meta line", async () => {
     vi.mocked(sourcingApi.getSourcingCompanies).mockResolvedValue(page());
     renderPage();
 
     expect(await screen.findByText("Alpha Retail")).toBeInTheDocument();
     expect(screen.getByText("Bravo Retail")).toBeInTheDocument();
-    expect(screen.getAllByText("Retail")).toHaveLength(2);
+    expect(screen.getByText("Dubai, UAE · Retail")).toBeInTheDocument();
+    // The List-only column headers are not shown until the user switches views.
+    expect(screen.queryByRole("columnheader", { name: "Company" })).not.toBeInTheDocument();
+  });
+
+  it("switches to List view and back to Card view", async () => {
+    vi.mocked(sourcingApi.getSourcingCompanies).mockResolvedValue(page());
+    renderPage();
+    await screen.findByText("Alpha Retail");
+
+    await userEvent.click(screen.getByRole("button", { name: "List view" }));
+    expect(screen.getByRole("columnheader", { name: "Company" })).toBeInTheDocument();
     expect(screen.getByText("1-10")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Card view" }));
+    expect(screen.queryByRole("columnheader", { name: "Company" })).not.toBeInTheDocument();
+    expect(screen.getByText("Dubai, UAE · Retail")).toBeInTheDocument();
   });
 
   it("shows the empty state when nothing matches the scope", async () => {
