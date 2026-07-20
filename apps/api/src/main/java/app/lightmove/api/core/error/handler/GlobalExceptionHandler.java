@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -146,6 +147,21 @@ public class GlobalExceptionHandler {
         };
         log.info("[{}] constraint violation at {} {}", code, request.getMethod(), request.getRequestURI());
         return problem(code, code.defaultMessage());
+    }
+
+    /**
+     * Two writes raced the same row's {@code @Version}: the second commit found the row already
+     * advanced and updated zero rows. This is an expected concurrency event — two browser tabs, or two
+     * teammates editing one project (PROJECT_EDIT is not seat-exclusive) — not a bug, so it is logged
+     * at info and answered 409, like a raced unique constraint. The client's autosave serialises its
+     * own writes to avoid it; this is the safety net for the races a single client cannot prevent.
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ProblemDetail handleOptimisticLock(ObjectOptimisticLockingFailureException ex,
+                                              HttpServletRequest request) {
+        log.info("[{}] optimistic lock conflict at {} {}",
+                ErrorCode.CONFLICT, request.getMethod(), request.getRequestURI());
+        return problem(ErrorCode.CONFLICT, ErrorCode.CONFLICT.defaultMessage());
     }
 
     private String constraintNameOf(DataIntegrityViolationException ex) {

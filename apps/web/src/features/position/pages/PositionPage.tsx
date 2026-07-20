@@ -18,8 +18,8 @@ import { PackageCard } from "../components/PackageCard";
 import { PositionHero } from "../components/PositionHero";
 import { ReportingStructureCard } from "../components/ReportingStructureCard";
 import { SectionHeading } from "../components/fields";
+import { useAutosave } from "../../../lib/useAutosave";
 import { completion, readiness } from "../lib/readiness";
-import { useAutosave } from "../lib/useAutosave";
 
 /** The Position tab: loads the brief, then hands the editor a snapshot to draft against. */
 export function PositionPage() {

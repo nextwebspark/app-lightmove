@@ -2,7 +2,7 @@ import { formatDate } from "../../../lib/format";
 import type { Project } from "../../projects/api/types";
 import type { PositionDetails } from "../api/types";
 import { employmentTypeLabel } from "../lib/labels";
-import type { SaveStatus } from "../lib/useAutosave";
+import type { SaveStatus } from "../../../lib/useAutosave";
 
 /**
  * The header card: title and client from the project, the at-a-glance chips, the confidentiality

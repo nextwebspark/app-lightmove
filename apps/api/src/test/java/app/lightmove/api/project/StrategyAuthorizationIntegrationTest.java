@@ -1,6 +1,5 @@
 package app.lightmove.api.project;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -13,98 +12,78 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MvcResult;
 
 /**
- * The position brief's action matrix: reading needs a seat (WORK_EXECUTE, held by every project
- * role), writes need PROJECT_EDIT on the seat, and unlocking is the ADMIN-only POSITION_UNLOCK — a
- * lead can lock a brief but cannot reopen one. Cross-tenant reads keep the 404 masking.
+ * The strategy's action matrix: reading the scope needs a seat (WORK_EXECUTE, held by every project
+ * role), so an unseated member is shut out and any seated researcher gets in; writing it needs
+ * PROJECT_EDIT on the seat — a researcher cannot, a lead can.
  */
 @IntegrationTest
 @Import(RecordingEmailSender.Config.class)
-class PositionAuthorizationIntegrationTest extends FlowTestSupport {
+class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
+
+    private static final String SNAPSHOT = """
+            {"direct":[{"label":"Retail","selected":true}],"adjacent":[],"inferred":[]}""";
 
     @Test
-    @DisplayName("an unseated member can neither read nor write the brief")
+    @DisplayName("an unseated member can neither read nor write the scope")
     void unseatedMemberCannotRead() throws Exception {
-        Fixture f = fixture("Unseated Position Firm");
+        Fixture f = fixture("Strategy Unseated Firm");
         String sara = login(f.saraEmail);
 
-        mvc.perform(get(positionUrl(f.projectId)).header("Authorization", "Bearer " + sara))
+        mvc.perform(get(strategyUrl(f.projectId)).header("Authorization", "Bearer " + sara))
                 .andExpect(status().isForbidden());
 
-        mvc.perform(put(positionUrl(f.projectId))
+        mvc.perform(put(sectorsUrl(f.projectId))
                         .header("Authorization", "Bearer " + sara)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(SCALAR_SNAPSHOT))
+                        .content(SNAPSHOT))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @DisplayName("a seated researcher reads the brief but does not define it")
-    void researcherReadsButCannotWriteTheBrief() throws Exception {
-        Fixture f = fixture("Researcher Position Firm");
+    @DisplayName("a seated researcher reads the scope but does not shape it")
+    void researcherReadsButCannotWrite() throws Exception {
+        Fixture f = fixture("Strategy Researcher Firm");
         seat(f.admin, f.projectId, f.saraId, "[\"RESEARCHER\"]");
         String sara = login(f.saraEmail);
 
-        mvc.perform(get(positionUrl(f.projectId)).header("Authorization", "Bearer " + sara))
+        mvc.perform(get(strategyUrl(f.projectId)).header("Authorization", "Bearer " + sara))
                 .andExpect(status().isOk());
 
-        mvc.perform(put(positionUrl(f.projectId) + "/criteria")
+        mvc.perform(put(sectorsUrl(f.projectId))
                         .header("Authorization", "Bearer " + sara)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"criteria":[{"text":"X","mode":"REQUIRED","fromBrief":false}]}"""))
+                        .content(SNAPSHOT))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @DisplayName("a lead locks the brief but only an admin can reopen it")
-    void leadLocksButOnlyAdminUnlocks() throws Exception {
-        Fixture f = fixture("Unlock Matrix Firm");
+    @DisplayName("a lead with PROJECT_EDIT can write the scope")
+    void leadCanWrite() throws Exception {
+        Fixture f = fixture("Strategy Lead Firm");
         seat(f.admin, f.projectId, f.saraId, "[\"LEAD\"]");
         String sara = login(f.saraEmail);
 
-        // The seeded template is lockable as-is.
-        mvc.perform(post(positionUrl(f.projectId) + "/lock")
-                        .header("Authorization", "Bearer " + sara))
+        mvc.perform(put(sectorsUrl(f.projectId))
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(SNAPSHOT))
                 .andExpect(status().isOk());
-
-        mvc.perform(post(positionUrl(f.projectId) + "/unlock")
-                        .header("Authorization", "Bearer " + sara))
-                .andExpect(status().isForbidden());
-
-        // The workspace admin's bypass covers POSITION_UNLOCK like every project action.
-        mvc.perform(post(positionUrl(f.projectId) + "/unlock")
-                        .header("Authorization", "Bearer " + f.admin))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @DisplayName("another workspace's brief does not exist, even to a verified user")
-    void crossTenantReadsAreMasked() throws Exception {
-        Fixture f = fixture("Masked Position Firm");
-        String outsider = verifiedUser("Out Sider", "out@other-" + domain);
-
-        MvcResult masked = mvc.perform(get(positionUrl(f.projectId))
-                        .header("Authorization", "Bearer " + outsider))
-                .andReturn();
-        assertThat(masked.getResponse().getStatus()).isEqualTo(404);
-        assertThat(codeOf(masked)).isEqualTo("NOT_A_MEMBER");
-    }
-
-    private static final String SCALAR_SNAPSHOT = """
-            {"mandateReason":"NEW_ROLE","currency":"USD","confidential":false}""";
-
-    private static String positionUrl(String projectId) {
-        return "/api/v1/projects/" + projectId + "/position";
     }
 
     // ── fixture ──────────────────────────────────────────────────────────────
 
+    private static String strategyUrl(String projectId) {
+        return "/api/v1/projects/" + projectId + "/strategy";
+    }
+
+    private static String sectorsUrl(String projectId) {
+        return strategyUrl(projectId) + "/sectors";
+    }
+
     private record Fixture(String admin, String projectId, String saraEmail, String saraId) {}
 
-    /** A workspace admin, a project the admin created, and one plain member (Sara). */
     private Fixture fixture(String firmName) throws Exception {
         String alok = "alok@" + domain;
         String sara = "sara@" + domain;
@@ -122,7 +101,7 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"clientId":"%s","positionTitle":"CFO"}
+                                {"clientId":"%s","positionTitle":"Head of Retail"}
                                 """.formatted(clientId)))
                 .andReturn()).get("id").asText();
 
