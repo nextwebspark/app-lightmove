@@ -22,10 +22,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The position brief of one mandate. Reading rides the workspace-level PROJECT_BROWSE (whoever sees
- * the project list may read its brief); every write is PROJECT_EDIT on the seat, except unlocking —
- * a locked brief is the downstream benchmark, so reopening it is the ADMIN-only POSITION_UNLOCK.
- * The workspace comes from the principal, never the path.
+ * The position brief of one mandate. Reading needs a seat on the project (WORK_EXECUTE, which every
+ * project role holds), with the workspace-admin bypass so an admin sees every project — a brief is
+ * team content, not browsable to the whole workspace. Every write is PROJECT_EDIT on the seat, except
+ * unlocking — a locked brief is the downstream benchmark, so reopening it is the ADMIN-only
+ * POSITION_UNLOCK. The workspace comes from the principal, never the path.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/position")
@@ -35,7 +36,7 @@ public class PositionController {
     private final PositionService position;
 
     @GetMapping
-    @PreAuthorize("@workspaceAuth.can(principal, 'PROJECT_BROWSE')")
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'WORK_EXECUTE')")
     public ResponseEntity<PositionResponse> get(@PathVariable UUID projectId) {
         AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(position.get(principal.requireWorkspaceId(), projectId));

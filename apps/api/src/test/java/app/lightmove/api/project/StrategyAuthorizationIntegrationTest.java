@@ -14,8 +14,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 
 /**
- * The strategy's action matrix: reads ride the workspace PROJECT_BROWSE, so any member sees the
- * scope, but writing it needs PROJECT_EDIT on the seat — a researcher cannot, a lead can.
+ * The strategy's action matrix: reading the scope needs a seat (WORK_EXECUTE, held by every project
+ * role), so an unseated member is shut out and any seated researcher gets in; writing it needs
+ * PROJECT_EDIT on the seat — a researcher cannot, a lead can.
  */
 @IntegrationTest
 @Import(RecordingEmailSender.Config.class)
@@ -25,13 +26,13 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
             {"direct":[{"label":"Retail","selected":true}],"adjacent":[],"inferred":[]}""";
 
     @Test
-    @DisplayName("an unseated member reads the scope but cannot write it")
-    void unseatedMemberReadsOnly() throws Exception {
+    @DisplayName("an unseated member can neither read nor write the scope")
+    void unseatedMemberCannotRead() throws Exception {
         Fixture f = fixture("Strategy Unseated Firm");
         String sara = login(f.saraEmail);
 
         mvc.perform(get(strategyUrl(f.projectId)).header("Authorization", "Bearer " + sara))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
 
         mvc.perform(put(sectorsUrl(f.projectId))
                         .header("Authorization", "Bearer " + sara)
@@ -41,11 +42,14 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a researcher executes the search but does not shape the scope")
-    void researcherCannotWrite() throws Exception {
+    @DisplayName("a seated researcher reads the scope but does not shape it")
+    void researcherReadsButCannotWrite() throws Exception {
         Fixture f = fixture("Strategy Researcher Firm");
         seat(f.admin, f.projectId, f.saraId, "[\"RESEARCHER\"]");
         String sara = login(f.saraEmail);
+
+        mvc.perform(get(strategyUrl(f.projectId)).header("Authorization", "Bearer " + sara))
+                .andExpect(status().isOk());
 
         mvc.perform(put(sectorsUrl(f.projectId))
                         .header("Authorization", "Bearer " + sara)
