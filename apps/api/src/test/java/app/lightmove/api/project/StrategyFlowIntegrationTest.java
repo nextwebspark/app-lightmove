@@ -219,6 +219,10 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
     void geographyRoundTrips() throws Exception {
         String admin = adminOf("Geography Snapshot Firm");
         String projectId = project(admin);
+        // Seed a sibling section first, so the untouched-by-a-geography-write assertions below actually
+        // prove isolation rather than reading a still-empty scope.
+        putOwnership(admin, projectId, """
+                {"structures":["PUBLICLY_LISTED"]}""");
 
         // Sent out of catalog order; the response comes back ordered by the enum declaration.
         mvc.perform(put(geographyUrl(projectId))
@@ -233,10 +237,9 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
 
         mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$.markets.length()").value(3))
-                // The other sections are untouched by a geography write.
-                .andExpect(jsonPath("$.structures.length()").value(0))
-                .andExpect(jsonPath("$.direct.length()").value(0))
-                .andExpect(jsonPath("$.employee.length()").value(0));
+                // The seeded ownership scope survives a geography write.
+                .andExpect(jsonPath("$.structures.length()").value(1))
+                .andExpect(jsonPath("$.structures[0]").value("PUBLICLY_LISTED"));
     }
 
     @Test
@@ -244,6 +247,9 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
     void ownershipRoundTrips() throws Exception {
         String admin = adminOf("Ownership Snapshot Firm");
         String projectId = project(admin);
+        // Seed a sibling section first — same isolation proof as the geography round-trip, mirrored.
+        putGeography(admin, projectId, """
+                {"markets":["AE"]}""");
 
         mvc.perform(put(ownershipUrl(projectId))
                         .header("Authorization", "Bearer " + admin)
@@ -256,7 +262,9 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
 
         mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$.structures.length()").value(2))
-                .andExpect(jsonPath("$.markets.length()").value(0));
+                // The seeded geography scope survives an ownership write.
+                .andExpect(jsonPath("$.markets.length()").value(1))
+                .andExpect(jsonPath("$.markets[0]").value("AE"));
     }
 
     @Test

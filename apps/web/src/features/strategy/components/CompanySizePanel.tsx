@@ -57,7 +57,8 @@ function BandGroup({
   return (
     <div>
       <div className="mt-4 mb-2 flex items-baseline gap-2">
-        <span className="font-mono text-[10.5px] font-bold uppercase tracking-[0.06em] text-amber">
+        {/* text2, not amber: the mockup reserves amber group labels for the sector groups. */}
+        <span className="font-mono text-[10.5px] font-bold uppercase tracking-[0.06em] text-text2">
           {label}
         </span>
       </div>
