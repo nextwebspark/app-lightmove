@@ -14,6 +14,7 @@ vi.mock("../api/strategyApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/strategyApi")>()),
   getStrategy: vi.fn(),
   putSectors: vi.fn(),
+  putCompanySize: vi.fn(),
 }));
 vi.mock("../api/companiesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/companiesApi")>()),
@@ -40,6 +41,8 @@ const seeded: Strategy = {
   direct: [{ label: "Retail", selected: true }],
   adjacent: [],
   inferred: [],
+  employee: [],
+  revenue: [],
 };
 
 const sectors = {
@@ -70,6 +73,9 @@ describe("StrategyPage — the sector-scope editor", () => {
     vi.resetAllMocks();
     vi.mocked(strategyApi.getStrategy).mockResolvedValue(seeded);
     vi.mocked(strategyApi.putSectors).mockImplementation((_id, payload) => Promise.resolve(payload));
+    vi.mocked(strategyApi.putCompanySize).mockImplementation((_id, employee, revenue) =>
+      Promise.resolve({ ...seeded, employee, revenue }),
+    );
     vi.mocked(companiesApi.getSectors).mockResolvedValue(sectors);
     vi.mocked(companiesApi.getSuggestions).mockResolvedValue({
       adjacent: ["Wholesale"],
@@ -175,6 +181,34 @@ describe("StrategyPage — the sector-scope editor", () => {
         expect(vi.mocked(strategyApi.putSectors).mock.calls.some(([, payload]) =>
           payload.direct.some((chip) => chip.label === "Oil and Gas"),
         )).toBe(true),
+      { timeout: 2000 },
+    );
+  });
+
+  it("switches to Company Size and renders both band axes from the catalog", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Company Size" }));
+
+    expect(screen.getByText("Employees")).toBeInTheDocument();
+    expect(screen.getByText("Revenue")).toBeInTheDocument();
+    // A band pill from each catalog, unselected to start.
+    expect(screen.getByRole("button", { name: "51–200" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "$5M–25M" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("toggles a band on and autosaves the selected values for that axis", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Company Size" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "51–200" }));
+
+    await waitFor(
+      () =>
+        expect(
+          vi.mocked(strategyApi.putCompanySize).mock.calls.some(
+            ([, employee, revenue]) => employee.includes("51-200") && revenue.length === 0,
+          ),
+        ).toBe(true),
       { timeout: 2000 },
     );
   });

@@ -23,7 +23,8 @@ import lombok.NoArgsConstructor;
  *
  * <p>The sectors are an owned ordered list (replace-list writes), not entities — the whole scope is
  * one snapshot the screen holds and PUTs back. All three kinds share the list; the service splits
- * them by {@link StrategySector#getKind()}.
+ * them by {@link StrategySector#getKind()}. The company-size bands are a second such list, split by
+ * {@link StrategySizeBand#getAxis()}; each section saves its own snapshot independently.
  */
 @Entity
 @Table(name = "app_lm_strategy")
@@ -40,6 +41,12 @@ public class Strategy extends BaseEntity {
     @OrderColumn(name = "sort_order")
     private List<StrategySector> sectors = new ArrayList<>();
 
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "app_lm_strategy_company_size",
+            joinColumns = @JoinColumn(name = "strategy_id"))
+    @OrderColumn(name = "sort_order")
+    private List<StrategySizeBand> sizeBands = new ArrayList<>();
+
     public static Strategy forProject(UUID projectId) {
         Strategy strategy = new Strategy();
         strategy.projectId = projectId;
@@ -49,5 +56,10 @@ public class Strategy extends BaseEntity {
     public void replaceSectors(List<StrategySector> newSectors) {
         this.sectors.clear();
         this.sectors.addAll(newSectors);
+    }
+
+    public void replaceSizeBands(List<StrategySizeBand> newSizeBands) {
+        this.sizeBands.clear();
+        this.sizeBands.addAll(newSizeBands);
     }
 }

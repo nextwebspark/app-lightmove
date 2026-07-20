@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
 import type { Chip } from "../api/types";
-
-const CHECK = "M20 6L9 17l-5-5";
-const PLUS = "M12 5v14M5 12h14";
+import { Pill } from "./Pill";
 
 /**
  * A labelled group of sector chips (Direct / Adjacent / Inferred). Every chip stays visible whether
@@ -32,39 +30,15 @@ export function ChipGroup({
       </div>
       <div className="flex flex-wrap gap-2">
         {chips.map((chip) => (
-          <SectorChip key={chip.label} chip={chip} onToggle={() => onToggle(chip.label)} />
+          <Pill
+            key={chip.label}
+            label={chip.label}
+            selected={chip.selected}
+            onToggle={() => onToggle(chip.label)}
+          />
         ))}
         {children}
       </div>
     </div>
-  );
-}
-
-function SectorChip({ chip, onToggle }: { chip: Chip; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={chip.selected}
-      onClick={onToggle}
-      className={`inline-flex items-center gap-[7px] rounded-full border bg-panel px-[13px] py-[7px] font-sans text-[13px] font-medium transition ${
-        chip.selected ? "border-sky text-text" : "border-line text-text2 opacity-[.65]"
-      }`}
-    >
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2.4}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={`flex-none ${chip.selected ? "text-sky" : "text-text3"}`}
-        aria-hidden="true"
-      >
-        <path d={chip.selected ? CHECK : PLUS} />
-      </svg>
-      {chip.label}
-    </button>
   );
 }

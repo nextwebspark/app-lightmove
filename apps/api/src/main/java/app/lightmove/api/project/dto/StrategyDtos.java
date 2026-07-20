@@ -28,7 +28,12 @@ public final class StrategyDtos {
     public record StrategyResponse(
             List<ChipDto> direct,
             List<ChipDto> adjacent,
-            List<ChipDto> inferred
+            List<ChipDto> inferred,
+            // The company-size scope carries only the *selected* band values per axis (the range strings,
+            // e.g. "51-200" / "5M-25M"); the client renders the full catalog from its own mirror and marks
+            // these in scope. Empty lists mean nothing selected, not "no such axis".
+            List<String> employee,
+            List<String> revenue
     ) {}
 
     public record PutSectorsRequest(
@@ -45,5 +50,20 @@ public final class StrategyDtos {
             @NotNull
             @Size(max = 30, message = "That is too many inferred tags")
             List<@Valid ChipDto> inferred
+    ) {}
+
+    /**
+     * The selected company-size bands per axis, as range-string values. Capped at each catalog's full
+     * size — a request naming more than every band exists is malformed, not a scope. Unknown values are
+     * rejected in the service against the {@code EmployeeBand}/{@code RevenueBand} enums.
+     */
+    public record PutCompanySizeRequest(
+            @NotNull
+            @Size(max = 8, message = "Too many employee bands")
+            List<String> employee,
+
+            @NotNull
+            @Size(max = 7, message = "Too many revenue bands")
+            List<String> revenue
     ) {}
 }

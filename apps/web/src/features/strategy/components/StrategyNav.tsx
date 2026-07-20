@@ -1,7 +1,7 @@
 /**
- * The strategy's left nav. Only Sector Scope is built this session; the other scope filters and the
- * lists are shown disabled so the shape of the finished screen is legible without pretending the
- * sections work. The active item carries a live count of its selected chips.
+ * The strategy's left nav. Sector Scope and Company Size are built and switch the panel in place; the
+ * remaining scope filters and the lists are shown disabled so the shape of the finished screen is
+ * legible without pretending the sections work. Each built item carries a live count of its selections.
  */
 
 interface NavItem {
@@ -14,6 +14,9 @@ interface NavGroup {
   group: string;
   items: NavItem[];
 }
+
+/** The sections wired up this far; everything else in GROUPS renders disabled. */
+const ENABLED = new Set(["sector", "size"]);
 
 const GROUPS: NavGroup[] = [
   {
@@ -38,7 +41,15 @@ const GROUPS: NavGroup[] = [
   },
 ];
 
-export function StrategyNav({ activeKey, selectedCount }: { activeKey: string; selectedCount: number }) {
+export function StrategyNav({
+  activeKey,
+  counts,
+  onSelect,
+}: {
+  activeKey: string;
+  counts: Partial<Record<string, number>>;
+  onSelect: (key: string) => void;
+}) {
   return (
     <nav className="sticky top-0 rounded-[10px] border border-line-soft bg-panel2 p-2">
       {GROUPS.map((group) => (
@@ -48,16 +59,21 @@ export function StrategyNav({ activeKey, selectedCount }: { activeKey: string; s
           </div>
           {group.items.map((item) => {
             const active = item.key === activeKey;
+            const enabled = ENABLED.has(item.key);
+            const count = counts[item.key];
             return (
               <button
                 key={item.key}
                 type="button"
-                disabled={!active}
+                disabled={!enabled}
+                onClick={enabled ? () => onSelect(item.key) : undefined}
                 aria-current={active ? "page" : undefined}
                 className={`flex w-full items-center gap-[9px] rounded-lg px-[10px] py-[9px] text-left font-sans text-[13px] font-medium transition ${
                   active
                     ? "bg-panel text-text"
-                    : "cursor-not-allowed text-text2 opacity-50"
+                    : enabled
+                      ? "text-text2 hover:bg-panel"
+                      : "cursor-not-allowed text-text2 opacity-50"
                 }`}
               >
                 <svg
@@ -75,9 +91,9 @@ export function StrategyNav({ activeKey, selectedCount }: { activeKey: string; s
                   <path d={item.icon} />
                 </svg>
                 <span className="flex-1">{item.label}</span>
-                {active && (
+                {enabled && count !== undefined && count > 0 && (
                   <span className="flex-none rounded-full border border-amber bg-panel px-[7px] py-px font-mono text-[10.5px] font-semibold text-amber">
-                    {selectedCount}
+                    {count}
                   </span>
                 )}
               </button>

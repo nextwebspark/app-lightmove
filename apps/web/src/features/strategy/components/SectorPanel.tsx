@@ -1,4 +1,4 @@
-import type { Chip, SectorCount, Strategy } from "../api/types";
+import type { Chip, SectorCount, SectorGroup, Strategy } from "../api/types";
 import { ChipGroup } from "./ChipGroup";
 import { SectorCombobox } from "./SectorCombobox";
 
@@ -14,7 +14,7 @@ export function SectorPanel({
 }: {
   strategy: Strategy;
   sectors: SectorCount[];
-  onToggle: (kind: keyof Strategy, label: string) => void;
+  onToggle: (kind: SectorGroup, label: string) => void;
   onAddDirect: (label: string) => void;
 }) {
   const directLabels = strategy.direct.map((chip: Chip) => chip.label);
