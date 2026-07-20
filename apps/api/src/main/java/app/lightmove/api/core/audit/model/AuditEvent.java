@@ -37,9 +37,13 @@ public class AuditEvent {
     @Column(name = "occurred_at", nullable = false, updatable = false)
     private Instant occurredAt = Instant.now();
 
-    @Enumerated(EnumType.STRING)
+    /**
+     * The stored form of the event type — its {@code code()}. The column is a plain {@code String}
+     * so any of the {@link AuditEventType} feature enums can land in the one column, but the
+     * constructor only accepts an {@code AuditEventType}, so a typo can never reach this field.
+     */
     @Column(name = "event_type", nullable = false, length = 64)
-    private AuditEventType eventType;
+    private String eventType;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
@@ -82,7 +86,7 @@ public class AuditEvent {
                       String targetType, String targetId, String ipAddress, String userAgent,
                       String correlationId, Map<String, Object> metadata) {
         this.occurredAt = Instant.now();
-        this.eventType = eventType;
+        this.eventType = eventType.code();
         this.outcome = outcome;
         this.actorUserId = actorUserId;
         this.workspaceId = workspaceId;

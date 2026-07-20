@@ -1,6 +1,6 @@
 package app.lightmove.api.workspace.service;
 
-import app.lightmove.api.core.audit.constant.AuditEventType;
+import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
@@ -46,7 +46,7 @@ public class WorkspaceSettingsService {
         Workspace workspace = requireWorkspace(workspaceId);
         workspace.applySettings(name.trim(), defaultRegion, defaultCurrency);
 
-        audit.event(AuditEventType.WORKSPACE_UPDATED)
+        audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
                 .actor(actorId).workspace(workspaceId).from(request)
                 .detail("name", workspace.getName())
                 .record();
@@ -70,7 +70,7 @@ public class WorkspaceSettingsService {
                 .forEach(invitation -> invitation.revoke());
 
         log.info("User {} deleted workspace {}", actorId, workspaceId);
-        audit.event(AuditEventType.WORKSPACE_DELETED)
+        audit.event(WorkspaceEventType.WORKSPACE_DELETED)
                 .actor(actorId).workspace(workspaceId).from(request)
                 .detail("name", workspace.getName())
                 .record();

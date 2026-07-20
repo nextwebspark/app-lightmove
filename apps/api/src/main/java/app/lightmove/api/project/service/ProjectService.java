@@ -1,6 +1,6 @@
 package app.lightmove.api.project.service;
 
-import app.lightmove.api.core.audit.constant.AuditEventType;
+import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
@@ -85,7 +85,7 @@ public class ProjectService {
         positionService.seedFor(project);
 
         log.info("User {} created project {} in workspace {}", userId, project.getId(), workspaceId);
-        audit.event(AuditEventType.PROJECT_CREATED)
+        audit.event(ProjectEventType.PROJECT_CREATED)
                 .actor(userId).workspace(workspaceId).target("project", project.getId()).from(httpRequest)
                 .detail("position", project.getPositionTitle())
                 .record();
@@ -102,7 +102,7 @@ public class ProjectService {
             project.setTargetDate(request.targetDate());
         }
 
-        audit.event(AuditEventType.PROJECT_UPDATED)
+        audit.event(ProjectEventType.PROJECT_UPDATED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .record();
 
@@ -183,7 +183,7 @@ public class ProjectService {
 
     private void auditTeamChange(UUID actorId, UUID workspaceId, UUID projectId, UUID memberId,
                                  String action, HttpServletRequest request) {
-        audit.event(AuditEventType.PROJECT_TEAM_CHANGED)
+        audit.event(ProjectEventType.PROJECT_TEAM_CHANGED)
                 .actor(actorId).workspace(workspaceId).target("project", projectId).from(request)
                 .detail("memberId", memberId.toString()).detail("action", action)
                 .record();

@@ -2,7 +2,7 @@ package app.lightmove.api.core.security.token;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
 
 import app.lightmove.api.core.security.model.User;
-import app.lightmove.api.core.audit.constant.AuditEventType;
+import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.model.ApiException;
@@ -118,7 +118,7 @@ public class TokenService {
 
         existing.rotateTo(successor, now);
 
-        audit.event(AuditEventType.TOKEN_REFRESHED).actor(user.getId()).from(request).record();
+        audit.event(AuthEventType.TOKEN_REFRESHED).actor(user.getId()).from(request).record();
 
         WorkspaceMember membership = membershipLookup.forUser(user.getId()).orElse(null);
         TokenPair pair = new TokenPair(mintAccessToken(user, membership, now), config.accessTokenTtl(), plaintext);
@@ -130,7 +130,7 @@ public class TokenService {
     public void revoke(String presentedToken, HttpServletRequest request) {
         refreshTokens.findByTokenHash(Tokens.hash(presentedToken)).ifPresent(token -> {
             token.revoke(RevokeReason.LOGOUT, Instant.now());
-            audit.event(AuditEventType.LOGOUT).actor(token.getUserId()).from(request).record();
+            audit.event(AuthEventType.LOGOUT).actor(token.getUserId()).from(request).record();
         });
     }
 
@@ -149,7 +149,7 @@ public class TokenService {
         log.warn("Refresh token reuse detected for user {} — revoked {} token(s) in family {}",
                 replayed.getUserId(), killed, replayed.getFamilyId());
 
-        audit.event(AuditEventType.TOKEN_REUSE_DETECTED)
+        audit.event(AuthEventType.TOKEN_REUSE_DETECTED)
                 .failed()
                 .actor(replayed.getUserId())
                 .from(request)
