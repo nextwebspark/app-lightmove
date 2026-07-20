@@ -278,8 +278,12 @@ entity) and `RevokeReason` (an enum) live in `token/`, and `Role` (an entity) ne
 a feature — the deliberate exceptions are `AuthResponseAssembler` (`core/security/controller`), which reads
 workspace repositories to build the `/me` response (`AuthDtos.UserResponse` embedding
 `WorkspaceDtos.WorkspaceSummary` is the same seam), and the `rbac/` access services, which read the
-workspace/project repositories because authorisation is answered from membership rows. This is a
-deliberate trade of the old ports/adapters layering for a uniform, type-based shape, so
+workspace/project repositories because authorisation is answered from membership rows. One
+feature→feature seam is sanctioned: `project`'s `StrategyService` calls `company`'s
+`CompanyQueryService.refsByKeys` to resolve strategy-list company snapshots at write time — the
+universe lookup lives with the universe rather than being duplicated SQL in `project`, and the seam
+is a public service method plus the `company/model` records it returns, never `company` internals.
+This is a deliberate trade of the old ports/adapters layering for a uniform, type-based shape, so
 `EmailSender`/`RateLimiter` are plain `service` interfaces rather than declared ports.
 
 Ports worth knowing: `EmailSender` (`core/email/service`; `LogEmailSender` prints the verification link to

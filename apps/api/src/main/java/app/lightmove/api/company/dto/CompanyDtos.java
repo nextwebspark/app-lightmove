@@ -27,4 +27,20 @@ public final class CompanyDtos {
     public record SuggestionsResponse(List<String> adjacent, List<TagCount> inferredTags) {}
 
     public record EstimateResponse(long count) {}
+
+    /** One company matched by the name search, with what the picker needs to display and store it. */
+    public record CompanySearchResult(
+            String source,
+            String sourceId,
+            String name,
+            String domain,
+            String slogan,
+            String logo,
+            String primaryIndustry,
+            String hqCity,
+            String hqCountry,
+            Integer employeeCount
+    ) {}
+
+    public record SearchResponse(List<CompanySearchResult> companies) {}
 }

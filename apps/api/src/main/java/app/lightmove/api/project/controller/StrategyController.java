@@ -4,8 +4,10 @@ import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.service.CurrentUser;
 import app.lightmove.api.project.dto.StrategyDtos.PutCompanySizeRequest;
 import app.lightmove.api.project.dto.StrategyDtos.PutGeographyRequest;
+import app.lightmove.api.project.dto.StrategyDtos.PutOffLimitsRequest;
 import app.lightmove.api.project.dto.StrategyDtos.PutOwnershipRequest;
 import app.lightmove.api.project.dto.StrategyDtos.PutSectorsRequest;
+import app.lightmove.api.project.dto.StrategyDtos.PutTargetsRequest;
 import app.lightmove.api.project.dto.StrategyDtos.StrategyResponse;
 import app.lightmove.api.project.service.StrategyService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -78,6 +80,26 @@ public class StrategyController {
                                                          HttpServletRequest httpRequest) {
         AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(strategy.putOwnership(
+                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
+    }
+
+    @PutMapping("/targets")
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    public ResponseEntity<StrategyResponse> putTargets(@PathVariable UUID projectId,
+                                                       @Valid @RequestBody PutTargetsRequest request,
+                                                       HttpServletRequest httpRequest) {
+        AuthPrincipal principal = CurrentUser.require();
+        return ResponseEntity.ok(strategy.putTargets(
+                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
+    }
+
+    @PutMapping("/off-limits")
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    public ResponseEntity<StrategyResponse> putOffLimits(@PathVariable UUID projectId,
+                                                         @Valid @RequestBody PutOffLimitsRequest request,
+                                                         HttpServletRequest httpRequest) {
+        AuthPrincipal principal = CurrentUser.require();
+        return ResponseEntity.ok(strategy.putOffLimits(
                 principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
     }
 }

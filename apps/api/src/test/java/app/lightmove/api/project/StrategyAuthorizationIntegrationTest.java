@@ -131,6 +131,41 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    @DisplayName("the company lists share the scope's write gate: a researcher cannot, a lead can")
+    void companyListsFollowTheSameGate() throws Exception {
+        Fixture f = fixture("Lists Gate Firm");
+        // Empty lists exercise the gate without needing the company universe seeded.
+        String body = """
+                {"companies":[]}""";
+
+        seat(f.admin, f.projectId, f.saraId, "[\"RESEARCHER\"]");
+        String sara = login(f.saraEmail);
+        mvc.perform(put(targetsUrl(f.projectId))
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isForbidden());
+        mvc.perform(put(offLimitsUrl(f.projectId))
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isForbidden());
+
+        seat(f.admin, f.projectId, f.saraId, "[\"LEAD\"]");
+        String saraAsLead = login(f.saraEmail);
+        mvc.perform(put(targetsUrl(f.projectId))
+                        .header("Authorization", "Bearer " + saraAsLead)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk());
+        mvc.perform(put(offLimitsUrl(f.projectId))
+                        .header("Authorization", "Bearer " + saraAsLead)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk());
+    }
+
     // ── fixture ──────────────────────────────────────────────────────────────
 
     private static String strategyUrl(String projectId) {
@@ -151,6 +186,14 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
 
     private static String ownershipUrl(String projectId) {
         return strategyUrl(projectId) + "/ownership";
+    }
+
+    private static String targetsUrl(String projectId) {
+        return strategyUrl(projectId) + "/targets";
+    }
+
+    private static String offLimitsUrl(String projectId) {
+        return strategyUrl(projectId) + "/off-limits";
     }
 
     private record Fixture(String admin, String projectId, String saraEmail, String saraId) {}

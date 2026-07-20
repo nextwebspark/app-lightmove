@@ -1,14 +1,15 @@
 /**
- * The strategy's left nav. The scope filters — Sector Scope, Company Size, Ownership Type, Location —
- * are built and switch the panel in place; the lists are shown disabled so the shape of the finished
- * screen is legible without pretending the sections work. Each built item carries a live count of its
- * selections.
+ * The strategy's left nav: the scope filters — Sector Scope, Company Size, Ownership Type, Location —
+ * and the lists — Target List Seeding, Off-limits — switching the panel in place. Each item carries
+ * a live count of its selections; Off-limits' badge is red, everything exclusionary's colour.
  */
 
 interface NavItem {
   key: string;
   label: string;
   icon: string;
+  /** Count-badge colour override; amber is the default. */
+  badgeClass?: string;
 }
 
 interface NavGroup {
@@ -17,7 +18,7 @@ interface NavGroup {
 }
 
 /** The sections wired up this far; everything else in GROUPS renders disabled. */
-const ENABLED = new Set(["sector", "size", "ownership", "location"]);
+const ENABLED = new Set(["sector", "size", "ownership", "location", "seed", "offlimits"]);
 
 const GROUPS: NavGroup[] = [
   {
@@ -37,7 +38,12 @@ const GROUPS: NavGroup[] = [
     group: "Lists",
     items: [
       { key: "seed", label: "Target List Seeding", icon: "M5 12h14M13 6l6 6-6 6" },
-      { key: "offlimits", label: "Off-limits", icon: "M4.9 4.9l14.2 14.2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" },
+      {
+        key: "offlimits",
+        label: "Off-limits",
+        icon: "M4.9 4.9l14.2 14.2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z",
+        badgeClass: "border-red text-red",
+      },
     ],
   },
 ];
@@ -93,7 +99,11 @@ export function StrategyNav({
                 </svg>
                 <span className="flex-1">{item.label}</span>
                 {enabled && count !== undefined && count > 0 && (
-                  <span className="flex-none rounded-full border border-amber bg-panel px-[7px] py-px font-mono text-[10.5px] font-semibold text-amber">
+                  <span
+                    className={`flex-none rounded-full border bg-panel px-[7px] py-px font-mono text-[10.5px] font-semibold ${
+                      item.badgeClass ?? "border-amber text-amber"
+                    }`}
+                  >
                     {count}
                   </span>
                 )}
