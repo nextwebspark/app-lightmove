@@ -287,19 +287,23 @@
         <sc-if value="{{ isStrategy }}" hint-placeholder-val="{{ false }}">
           <div data-screen-label="Strategy" style="animation:fadeUp .4s ease both">
             <div style="margin-bottom:20px">
-              <span style="display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:6px;font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--sky);border:1px solid var(--sky)">
+              <span style="display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:6px;font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--green);border:1px solid var(--green)">
                 <span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>
-                Universe locked
+                Live criteria
               </span>
               <div style="font:600 19px/1.2 var(--sans);margin-top:10px">Strategy</div>
-              <p style="color:var(--text2);font-size:13px;max-width:640px;margin:4px 0 0">Company-universe scope is locked. Sourcing runs against these parameters.</p>
+              <p style="color:var(--text2);font-size:13px;max-width:680px;margin:4px 0 0">Single source of truth for the sourcing scope. Always editable — changes affect what Sourcing shows going forward, never companies already added to the universe.</p>
             </div>
             <div style="display:flex;align-items:center;gap:14px;padding:12px 18px;border-radius:10px;background:var(--panel2);border:1px solid var(--line-soft);margin-bottom:18px">
-              <div style="font:700 26px var(--mono);color:var(--amber);min-width:52px">{{ estimate }}</div>
+              <div style="font:700 26px var(--mono);color:var(--amber);min-width:52px">{{ liveMatchCount }}</div>
               <div style="flex:1">
-                <div style="font:600 13px var(--sans)">companies match this scope</div>
-                <div style="font:400 11px var(--mono);color:var(--text3);margin-top:1px">locked at universe sign-off · edits require unlocking by the project lead</div>
+                <div style="font:600 13px var(--sans)">companies match the current criteria</div>
+                <div style="font:400 11px var(--mono);color:var(--text3);margin-top:1px">updates live as you edit · Sourcing reads these criteria directly</div>
               </div>
+              <button onClick="{{ goToSourcing }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer;flex:none" style-hover="filter:brightness(1.05)">
+                Go to sourcing
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+              </button>
             </div>
             <div style="display:grid;grid-template-columns:250px 1fr;gap:16px;align-items:start">
               <nav style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:8px;position:sticky;top:0">
@@ -315,9 +319,14 @@
                 </sc-for>
               </nav>
               <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:18px 20px;min-height:360px">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px">
                   <span style="font:600 13px var(--sans)">{{ stratPanelTitle }}</span>
-                  <span style="font:600 9.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:5px;color:var(--text3);background:var(--line-soft)">Locked</span>
+                  <sc-if value="{{ stratShowMode }}" hint-placeholder-val="{{ true }}">
+                    <span style="display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;flex:none">
+                      <button onClick="{{ stratSetMode }}" data-mode="required" style="padding:5px 11px;font:600 11px var(--mono);border:none;cursor:pointer;color:{{ stratReqColor }};background:{{ stratReqBg }}">Required</button>
+                      <button onClick="{{ stratSetMode }}" data-mode="preferred" style="padding:5px 11px;font:600 11px var(--mono);border:none;cursor:pointer;color:{{ stratPrefColor }};background:{{ stratPrefBg }}">Preferred</button>
+                    </span>
+                  </sc-if>
                 </div>
                 <div style="font:400 11.5px var(--mono);color:var(--text3);margin:4px 0 6px">{{ stratPanelSub }}</div>
                 <sc-if value="{{ stratIsChips }}" hint-placeholder-val="{{ true }}">
@@ -328,7 +337,7 @@
                     </div>
                     <div style="display:flex;flex-wrap:wrap;gap:8px">
                       <sc-for list="{{ grp.chips }}" as="c" hint-placeholder-count="4">
-                        <button onClick="{{ lockedToast }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:999px;border:1px solid {{ c.border }};background:var(--panel);font:500 13px var(--sans);color:{{ c.color }};cursor:default;opacity:{{ c.opacity }}">
+                        <button onClick="{{ stratToggleChip }}" data-cat="{{ c.cat }}" data-val="{{ c.label }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:999px;border:1px solid {{ c.border }};background:var(--panel);font:500 13px var(--sans);color:{{ c.color }};cursor:pointer" style-hover="border-color:var(--text3)">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="flex:none;color:{{ c.iconColor }}"><path d="{{ c.iconPath }}"></path></svg>
                           {{ c.label }}
                         </button>
@@ -337,23 +346,22 @@
                   </sc-for>
                 </sc-if>
                 <sc-if value="{{ stratIsList }}" hint-placeholder-val="{{ false }}">
-                  <div style="display:flex;flex-direction:column;gap:6px;margin-top:14px">
+                  <div style="display:flex;gap:8px;margin:14px 0 10px">
+                    <input onKeyDown="{{ stratManualKey }}" placeholder="Company name…" style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <button onClick="{{ stratManualAdd }}" style="display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Add</button>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:6px">
                     <sc-for list="{{ stratListItems }}" as="it" hint-placeholder-count="2">
-                      <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;background:var(--panel);border:1px solid var(--line-soft);font:500 13px var(--sans);color:{{ it.color }}">
+                      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:var(--panel);border:1px solid var(--line-soft);font:500 13px var(--sans);color:{{ it.color }}">
                         <span>{{ it.name }}</span>
-                        <sc-if value="{{ it.locked }}" hint-placeholder-val="{{ false }}">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:auto;opacity:.7"><rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
-                        </sc-if>
+                        <button onClick="{{ stratManualRm }}" data-idx="{{ $index }}" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;padding:2px 4px" style-hover="color:var(--red)">✕</button>
                       </div>
                     </sc-for>
+                    <sc-if value="{{ stratListEmpty }}" hint-placeholder-val="{{ false }}">
+                      <div style="font:400 12px var(--mono);color:var(--text3);padding:6px 2px">None yet.</div>
+                    </sc-if>
                   </div>
                 </sc-if>
-              </div>
-            </div>
-            <div style="display:flex;align-items:center;gap:14px;margin-top:20px;padding:14px 18px;border-radius:10px;background:var(--green-dim);border:1px solid var(--green)">
-              <div style="flex:1">
-                <div style="font:600 13px var(--sans);color:var(--green)">Company universe locked</div>
-                <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:2px">{{ estimate }} companies in scope · sourcing in progress</div>
               </div>
             </div>
           </div>
@@ -364,21 +372,21 @@
           <div data-screen-label="Sourcing" style="animation:fadeUp .4s ease both">
             <div style="margin-bottom:20px">
               <div style="font:600 19px/1.2 var(--sans)">Sourcing</div>
-              <p style="color:var(--text2);font-size:13px;max-width:640px;margin:4px 0 0">Companies matching this mandate's scope. Edits here apply only to this sourcing run — they don't change Strategy's locked universe.</p>
+              <p style="color:var(--text2);font-size:13px;max-width:640px;margin:4px 0 0">Companies matching Strategy's live criteria — the single source of truth. Criteria changes apply to these results going forward; companies already in the universe keep their status.</p>
             </div>
             <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;background:var(--panel2);border:1px solid var(--line-soft);margin-bottom:16px">
               <div style="display:flex;align-items:center;gap:7px;flex:1;min-width:0;overflow:hidden">
                 <sc-for list="{{ srcChips }}" as="c" hint-placeholder-count="4">
-                  <button onClick="{{ openCritModal }}" data-cat="{{ c.key }}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font:500 12px var(--mono);color:var(--text2);white-space:nowrap;flex:none;cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
+                  <button onClick="{{ goToStrategy }}" data-cat="{{ c.key }}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font:500 12px var(--mono);color:var(--text2);white-space:nowrap;flex:none;cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
                     <span style="font:700 9px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:1px 5px;border-radius:4px;color:{{ c.modeColor }};background:{{ c.modeBg }}">{{ c.mode }}</span>
                     {{ c.label }}
                   </button>
                 </sc-for>
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex:none">
-                <button onClick="{{ openCritModal }}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);color:var(--text2);font:500 12.5px var(--sans);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3Z"></path></svg>
-                  Edit criteria
+                <button onClick="{{ goToStrategy }}" title="Opens Strategy — the single source of truth for criteria" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);color:var(--text2);font:500 12.5px var(--sans);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-4"></path></svg>
+                  Edit criteria in Strategy
                 </button>
                 <span style="display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden">
                   <button onClick="{{ setViewCard }}" title="Card view" style="padding:6px 10px;display:flex;border:none;cursor:pointer;color:{{ cardBtnColor }};background:{{ cardBtnBg }}">
@@ -718,75 +726,6 @@
     </div>
   </sc-if>
 
-  <!-- Edit criteria modal -->
-  <sc-if value="{{ critModalOpen }}" hint-placeholder-val="{{ false }}">
-    <div onClick="{{ critCancel }}" style="position:fixed;inset:0;background:rgba(5,7,10,.6);z-index:150;display:flex;align-items:flex-start;justify-content:center;padding:4vh 16px">
-    <div onClick="{{ stopClick }}" role="dialog" aria-modal="true" style="width:min(920px,100%);height:92vh;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden;animation:fadeUp .22s ease both">
-      <div style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid var(--line-soft);flex:none">
-        <span style="font:600 15px var(--sans)">Edit criteria</span>
-        <span style="font:600 13px var(--mono);color:var(--text2);display:flex;align-items:center;gap:6px"><b style="color:var(--amber);font-size:16px">{{ critMatchCount }}</b> companies match</span>
-        <button onClick="{{ critCancel }}" aria-label="Close" style="margin-left:auto;color:var(--text3);padding:6px;border-radius:6px;background:none;border:none;cursor:pointer" style-hover="color:var(--text);background:var(--panel2)">✕</button>
-      </div>
-      <div style="flex:1;display:flex;overflow:hidden">
-        <nav style="width:220px;flex:none;border-right:1px solid var(--line-soft);padding:12px;overflow-y:auto">
-          <sc-for list="{{ critNav }}" as="n" hint-placeholder-count="6">
-            <button onClick="{{ critNavTo }}" data-cat="{{ n.key }}" style="display:flex;align-items:center;width:100%;padding:9px 10px;border-radius:7px;font:500 12.5px var(--sans);color:{{ n.color }};background:{{ n.bg }};border:none;text-align:left;gap:8px;cursor:pointer" style-hover="background:var(--panel2)">
-              <span style="display:{{ n.barDisp }};width:3px;height:16px;background:var(--amber-btn);border-radius:2px;margin-right:-2px"></span>
-              {{ n.label }}
-              <span style="margin-left:auto;font:600 10.5px var(--mono);color:var(--text3);background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:1px 7px">{{ n.badge }}</span>
-            </button>
-          </sc-for>
-        </nav>
-        <div id="src-crit-pane" onScroll="{{ onCritPaneScroll }}" style="flex:1;overflow-y:auto;padding:4px 24px 40px;position:relative">
-          <sc-for list="{{ critPanels }}" as="c" hint-placeholder-count="6">
-            <div id="modalcat-{{ c.key }}" data-cat="{{ c.key }}" style="padding:22px 0;border-bottom:1px solid var(--line-soft)">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-                <span style="font:600 14px var(--sans)">{{ c.label }}</span>
-                <span style="display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;flex:none">
-                  <button onClick="{{ setCritMode }}" data-cat="{{ c.key }}" data-mode="required" style="padding:5px 11px;font:600 11px var(--mono);border:none;cursor:pointer;color:{{ c.reqColor }};background:{{ c.reqBg }}">Required</button>
-                  <button onClick="{{ setCritMode }}" data-cat="{{ c.key }}" data-mode="preferred" style="padding:5px 11px;font:600 11px var(--mono);border:none;cursor:pointer;color:{{ c.prefColor }};background:{{ c.prefBg }}">Preferred</button>
-                </span>
-              </div>
-              <div style="font:400 11.5px var(--mono);color:var(--text3);margin-bottom:14px">{{ c.sub }}</div>
-              <sc-if value="{{ c.isChips }}" hint-placeholder-val="{{ true }}">
-                <div style="display:flex;flex-wrap:wrap;gap:8px">
-                  <sc-for list="{{ c.chips }}" as="ch" hint-placeholder-count="5">
-                    <button onClick="{{ toggleCritChip }}" data-cat="{{ c.key }}" data-val="{{ ch.label }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:999px;border:1px solid {{ ch.border }};background:var(--panel);font:500 13px var(--sans);color:{{ ch.color }};cursor:pointer" style-hover="border-color:var(--text3)">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="flex:none;color:{{ ch.iconColor }}"><path d="{{ ch.iconPath }}"></path></svg>
-                      {{ ch.label }}
-                    </button>
-                  </sc-for>
-                </div>
-              </sc-if>
-              <sc-if value="{{ c.isManual }}" hint-placeholder-val="{{ false }}">
-                <div style="display:flex;gap:8px;margin-bottom:10px">
-                  <input onKeyDown="{{ critManualKey }}" data-cat="{{ c.key }}" placeholder="Company name…" style="flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                  <button onClick="{{ critManualAdd }}" data-cat="{{ c.key }}" style="display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Add</button>
-                </div>
-                <div style="display:flex;flex-direction:column;gap:6px">
-                  <sc-for list="{{ c.items }}" as="it" hint-placeholder-count="2">
-                    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:var(--panel2);border:1px solid var(--line-soft);font:500 13px var(--sans);color:var(--text)">
-                      <span>{{ it.name }}</span>
-                      <button onClick="{{ critManualRm }}" data-cat="{{ c.key }}" data-idx="{{ $index }}" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;padding:2px 4px" style-hover="color:var(--red)">✕</button>
-                    </div>
-                  </sc-for>
-                  <sc-if value="{{ c.emptyManual }}" hint-placeholder-val="{{ false }}">
-                    <div style="font:400 12px var(--mono);color:var(--text3);padding:6px 2px">None yet.</div>
-                  </sc-if>
-                </div>
-              </sc-if>
-            </div>
-          </sc-for>
-        </div>
-      </div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;padding:14px 20px;border-top:1px solid var(--line-soft);flex:none">
-        <button onClick="{{ critCancel }}" style="display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
-        <button onClick="{{ critSave }}" style="display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Save changes</button>
-      </div>
-    </div>
-    </div>
-  </sc-if>
-
   <sc-if value="{{ toastVisible }}" hint-placeholder-val="{{ false }}">
     <div style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);z-index:170;animation:fadeUp .2s ease both">{{ toastMsg }}</div>
   </sc-if>
@@ -838,7 +777,6 @@ class Component extends DCLogic {
       geography: ['UAE', 'Saudi Arabia', 'Kuwait', 'Qatar', 'Bahrain', 'Oman', 'Jordan', 'Egypt'],
       ownership: ['Publicly listed', 'Family-owned / private', 'State-linked / sovereign', 'PE or VC-backed', 'Subsidiary of foreign multinational'],
     };
-    this.critDraft = null;
     this.state = {
       page: props.startPage ?? 'position',
       dark: false, toast: '',
@@ -879,7 +817,6 @@ class Component extends DCLogic {
       critDraft: '',
       stratSection: 'sector',
       srcView: 'card', triage: null,
-      critModalOpen: false, critActive: 'sector',
       companies,
       candidates: [
         {
@@ -912,17 +849,10 @@ class Component extends DCLogic {
     try {
       if (localStorage.getItem('lm-theme') === 'dark') { document.body.classList.add('dark'); this.setState({ dark: true }); }
     } catch (e) {}
-    this._esc = (e) => { if (e.key === 'Escape') this.setState({ candDrawerId: null, candModalOpen: false, critModalOpen: false }); };
+    this._esc = (e) => { if (e.key === 'Escape') this.setState({ candDrawerId: null, candModalOpen: false }); };
     document.addEventListener('keydown', this._esc);
   }
   componentWillUnmount() { document.removeEventListener('keydown', this._esc); }
-
-  scrollCritTo(key, smooth) {
-    const pane = document.getElementById('src-crit-pane');
-    const el = document.getElementById('modalcat-' + key);
-    if (!pane || !el) return;
-    pane.scrollTo({ top: Math.max(0, el.offsetTop - 4), behavior: smooth ? 'smooth' : 'auto' });
-  }
 
   showToast(msg) {
     this.setState({ toast: msg });
@@ -1038,74 +968,58 @@ class Component extends DCLogic {
       prefBg: c.mode === 'preferred' ? 'var(--sky-dim)' : 'var(--panel)',
     }));
 
-    // ---------- strategy ----------
-    const F = {
-      sectorDirect: [['Food & Beverage Manufacturing', true], ['Retail & Distribution', true]],
-      sectorAdjacent: [['FMCG Conglomerates', true], ['Cold Chain & Logistics', false], ['Agribusiness', true], ['Consumer Packaging', false]],
-      sectorInferred: [['Hospitality & Catering', false], ['Pharma Distribution', false], ['Chemicals — Industrial', false]],
-      revenue: [['$100M–250M', false], ['$250M–500M', false], ['$500M–1B', true], ['$1B–2B', false], ['$2B–5B', false]],
-      employees: [['500–1K', false], ['1K–2.5K', true], ['2.5K–5K', true], ['5K–10K', false], ['10K–25K', false]],
-      ownership: [['Publicly listed', true], ['Family-owned / private', false], ['State-linked / sovereign', true], ['PE or VC-backed', false], ['Subsidiary of foreign multinational', false]],
-      location: [['UAE', true], ['Saudi Arabia', true], ['Kuwait', true], ['Qatar', false], ['Bahrain', false], ['Oman', false], ['Jordan', false], ['Egypt', false]],
-    };
-    const chip = ([label, on]) => ({
-      label, opacity: on ? '1' : '.65',
-      border: on ? 'var(--sky)' : 'var(--line)',
-      color: on ? 'var(--text)' : 'var(--text2)',
-      iconColor: on ? 'var(--sky)' : 'var(--text3)',
-      iconPath: on ? this.CHECK : 'M12 5v14M5 12h14',
-    });
-    const countOn = arr => arr.filter(x => x[1]).length;
+    // ---------- strategy — live criteria (single source of truth) ----------
     const sec = st.stratSection;
-    const stratSections = [
-      { group: 'Scope filters', items: [
-        { key: 'sector', label: 'Sector Scope', icon: 'M12 2a10 10 0 1 0 .01 0M12 8a4 4 0 1 0 .01 0', count: countOn(F.sectorDirect) + countOn(F.sectorAdjacent) + countOn(F.sectorInferred) },
-        { key: 'size', label: 'Company Size', icon: 'M7 7h.01M7 3h5a2 2 0 0 1 1.4.6l7 7a2 2 0 0 1 0 2.8l-5 5a2 2 0 0 1-2.8 0l-7-7A2 2 0 0 1 5 10V5a2 2 0 0 1 2-2Z', count: countOn(F.revenue) + countOn(F.employees) },
-        { key: 'ownership', label: 'Ownership Type', icon: 'M3 21h18M5 21V7l7-4 7 4v14', count: countOn(F.ownership) },
-        { key: 'location', label: 'Location', icon: 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0Z', count: countOn(F.location) },
-      ] },
-      { group: 'Lists', items: [
-        { key: 'seed', label: 'Target List Seeding', icon: 'M5 12h14M13 6l6 6-6 6', count: 2 },
-        { key: 'offlimits', label: 'Off-limits', icon: 'M4.9 4.9l14.2 14.2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', count: 2 },
-      ] },
-    ];
-    const stratNav = stratSections.map(g => ({
+    const SEC_META = {
+      sector: ['Sector Scope', 'Sectors in scope for this mandate', 'M12 2a10 10 0 1 0 .01 0M12 8a4 4 0 1 0 .01 0'],
+      size: ['Company Size', 'Revenue and headcount bands in scope', 'M7 7h.01M7 3h5a2 2 0 0 1 1.4.6l7 7a2 2 0 0 1 0 2.8l-5 5a2 2 0 0 1-2.8 0l-7-7A2 2 0 0 1 5 10V5a2 2 0 0 1 2-2Z'],
+      geography: ['Geography', 'Headquarters or major operating base in region', 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0Z'],
+      ownership: ['Ownership Type', 'Narrows by holding structure, not sector', 'M3 21h18M5 21V7l7-4 7 4v14'],
+      seeding: ['Target List Seeding', 'Manually added companies — included in results directly, bypassing Required filters', 'M5 12h14M13 6l6 6-6 6'],
+      offlimits: ['Off-limits', "Excluded from sourcing — inherited from the client's entity record, plus project additions", 'M4.9 4.9l14.2 14.2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'],
+    };
+    const stratNav = [
+      { group: 'Scope filters', keys: ['sector', 'size', 'geography', 'ownership'] },
+      { group: 'Lists', keys: ['seeding', 'offlimits'] },
+    ].map(g => ({
       group: g.group,
-      items: g.items.map(it => ({
-        ...it, count: String(it.count),
-        color: sec === it.key ? 'var(--text)' : 'var(--text2)',
-        bg: sec === it.key ? 'var(--panel)' : 'transparent',
-        iconColor: sec === it.key ? 'var(--amber)' : 'currentColor',
-        badgeColor: sec === it.key ? 'var(--amber)' : 'var(--text3)',
-        badgeBorder: sec === it.key ? 'var(--amber)' : 'var(--line)',
+      items: g.keys.map(key => ({
+        key, label: this.CRIT_LABELS[key], icon: SEC_META[key][2],
+        count: String(this.criteria[key].values.length),
+        color: sec === key ? 'var(--text)' : 'var(--text2)',
+        bg: sec === key ? 'var(--panel)' : 'transparent',
+        iconColor: sec === key ? 'var(--amber)' : 'currentColor',
+        badgeColor: sec === key ? 'var(--amber)' : 'var(--text3)',
+        badgeBorder: sec === key ? 'var(--amber)' : 'var(--line)',
       })),
     }));
-    const stratMeta = {
-      sector: ['Sector Scope', 'Direct is must-have · Adjacent and Inferred widen the pool', [
-        { label: 'Direct', labelColor: 'var(--amber)', desc: 'Core sector — must-have', chips: F.sectorDirect.map(chip) },
-        { label: 'Adjacent', labelColor: 'var(--amber)', desc: 'AI-suggested — transferable experience', chips: F.sectorAdjacent.map(chip) },
-        { label: 'Inferred', labelColor: 'var(--amber)', desc: 'AI-suggested — wider talent pool', chips: F.sectorInferred.map(chip) },
-      ]],
-      size: ['Company Size', 'Revenue and headcount bands in scope', [
-        { label: 'Revenue', labelColor: 'var(--text2)', desc: '', chips: F.revenue.map(chip) },
-        { label: 'Employees', labelColor: 'var(--text2)', desc: '', chips: F.employees.map(chip) },
-      ]],
-      ownership: ['Ownership Type', 'Narrows by holding structure, not sector', [
-        { label: 'Structures', labelColor: 'var(--text2)', desc: '', chips: F.ownership.map(chip) },
-      ]],
-      location: ['Location', 'Headquarters or major operating base in region', [
-        { label: 'Markets', labelColor: 'var(--text2)', desc: '', chips: F.location.map(chip) },
-      ]],
-      seed: ['Target List Seeding', 'Manually added companies — not AI-scored, included directly', null],
-      offlimits: ['Off-limits', "Inherited from the client's entity record, plus project additions", null],
+    const activeCrit = this.criteria[sec];
+    const mkChip = (v) => {
+      const on = activeCrit.values.includes(v);
+      return {
+        cat: sec, label: v,
+        border: on ? 'var(--sky)' : 'var(--line)',
+        color: on ? 'var(--text)' : 'var(--text2)',
+        iconColor: on ? 'var(--sky)' : 'var(--text3)',
+        iconPath: on ? this.CHECK : 'M12 5v14M5 12h14',
+      };
     };
-    const meta = stratMeta[sec];
-    const stratIsChips = !!meta[2];
-    const stratListItems = sec === 'seed'
-      ? [{ name: 'Al Ain Farms', color: 'var(--text)', locked: false }, { name: 'Fine Hygienic Holding', color: 'var(--text)', locked: false }]
-      : [{ name: 'Al Futtaim Group', color: 'var(--text3)', locked: true }, { name: 'Saudi Aramco', color: 'var(--text3)', locked: true }];
+    const stratIsChips = !!this.CRIT_POOLS[sec];
+    let stratGroups = [];
+    if (sec === 'size') {
+      stratGroups = [
+        { label: 'Revenue', labelColor: 'var(--text2)', desc: 'click to toggle', chips: this.CRIT_POOLS.size.filter(v => v.startsWith('$')).map(mkChip) },
+        { label: 'Employees', labelColor: 'var(--text2)', desc: '', chips: this.CRIT_POOLS.size.filter(v => !v.startsWith('$')).map(mkChip) },
+      ];
+    } else if (stratIsChips) {
+      stratGroups = [{ label: 'In scope', labelColor: 'var(--text2)', desc: 'click to toggle', chips: this.CRIT_POOLS[sec].map(mkChip) }];
+    }
+    const stratListItems = stratIsChips ? [] : activeCrit.values.map(name => ({ name, color: 'var(--text)' }));
+    const stratPanelTitle = SEC_META[sec][0];
+    const stratPanelSub = SEC_META[sec][1] + (stratIsChips ? ' · Required excludes non-matches, Preferred boosts fit without excluding' : '');
+    const liveMatchCount = String(st.companies.filter(c => this.requiredPass(c)).length);
 
-    // ---------- sourcing ----------
+        // ---------- sourcing ----------
     const matching = st.companies.filter(c => this.requiredPass(c, this.criteria));
     const list = matching.filter(c => {
       if (!st.triage) return true;
@@ -1157,47 +1071,6 @@ class Component extends DCLogic {
         label: name + ': ' + chipLbl(c.values),
       };
     });
-
-    // ---------- criteria modal ----------
-    const draft = this.critDraft;
-    let critNav = [], critPanels = [], critMatchCount = '';
-    if (st.critModalOpen && draft) {
-      critMatchCount = String(st.companies.filter(c => this.requiredPass(c, draft)).length);
-      critNav = this.CRIT_ORDER.map(key => ({
-        key, label: this.CRIT_LABELS[key],
-        badge: String(draft[key].values.length),
-        color: st.critActive === key ? 'var(--text)' : 'var(--text2)',
-        bg: st.critActive === key ? 'var(--panel2)' : 'transparent',
-        barDisp: st.critActive === key ? 'block' : 'none',
-      }));
-      critPanels = this.CRIT_ORDER.map(key => {
-        const c = draft[key];
-        const isChips = !!this.CRIT_POOLS[key];
-        return {
-          key, label: this.CRIT_LABELS[key],
-          isChips, isManual: !isChips,
-          sub: key === 'seeding' ? 'Companies you already know should be included in this run — they bypass Required filters.'
-            : key === 'offlimits' ? 'Companies excluded from this run only — governance-level off-limits live in the entity record.'
-            : 'Required excludes non-matches · Preferred boosts fit score without excluding.',
-          reqColor: c.mode === 'required' ? 'var(--red)' : 'var(--text3)',
-          reqBg: c.mode === 'required' ? 'var(--red-dim)' : 'var(--panel)',
-          prefColor: c.mode === 'preferred' ? 'var(--sky)' : 'var(--text3)',
-          prefBg: c.mode === 'preferred' ? 'var(--sky-dim)' : 'var(--panel)',
-          chips: isChips ? this.CRIT_POOLS[key].map(v => {
-            const on = c.values.includes(v);
-            return {
-              label: v,
-              border: on ? 'var(--sky)' : 'var(--line)',
-              color: on ? 'var(--text)' : 'var(--text2)',
-              iconColor: on ? 'var(--sky)' : 'var(--text3)',
-              iconPath: on ? this.CHECK : 'M12 5v14M5 12h14',
-            };
-          }) : [],
-          items: !isChips ? c.values.map(name => ({ name })) : [],
-          emptyManual: !isChips && c.values.length === 0,
-        };
-      });
-    }
 
     // ---------- candidates ----------
     const uniCos = st.companies.filter(c => c.inUniverse);
@@ -1309,9 +1182,15 @@ class Component extends DCLogic {
       criteria, critDraft: st.critDraft, compPanels,
 
       // strategy
-      estimate: '164', stratNav,
-      stratPanelTitle: meta[0], stratPanelSub: meta[1],
-      stratIsChips, stratGroups: meta[2] || [], stratIsList: !stratIsChips, stratListItems,
+      stratNav, stratPanelTitle, stratPanelSub,
+      stratIsChips, stratGroups, stratIsList: !stratIsChips, stratListItems,
+      stratListEmpty: !stratIsChips && stratListItems.length === 0,
+      liveMatchCount,
+      stratShowMode: sec !== 'seeding',
+      stratReqColor: activeCrit.mode === 'required' ? 'var(--red)' : 'var(--text3)',
+      stratReqBg: activeCrit.mode === 'required' ? 'var(--red-dim)' : 'var(--panel)',
+      stratPrefColor: activeCrit.mode === 'preferred' ? 'var(--sky)' : 'var(--text3)',
+      stratPrefBg: activeCrit.mode === 'preferred' ? 'var(--sky-dim)' : 'var(--panel)',
 
       // sourcing
       srcChips, srcCards,
@@ -1324,7 +1203,6 @@ class Component extends DCLogic {
       srcCountLabel: st.triage
         ? 'of ' + matching.length + ' matching — ' + ({ universe: 'In universe', shortlisted: 'Shortlisted', declined: 'Declined' }[st.triage])
         : 'of ' + st.companies.length + ' companies match the criteria',
-      critModalOpen: st.critModalOpen, critNav, critPanels, critMatchCount,
       hasTriage: !!st.triage,
 
       // candidates
@@ -1393,69 +1271,42 @@ class Component extends DCLogic {
       },
       // strategy
       setStratSection: (e) => this.setState({ stratSection: e.currentTarget.dataset.sec }),
-      lockedToast: () => this.showToast('Universe is locked — unlock requires the project lead'),
-      // sourcing — criteria modal
-      openCritModal: (e) => {
-        this.critDraft = JSON.parse(JSON.stringify(this.criteria));
+      goToStrategy: (e) => {
         const cat = (e && e.currentTarget.dataset.cat) || 'sector';
-        this.setState({ critModalOpen: true, critActive: cat });
-        setTimeout(() => this.scrollCritTo(cat, false), 60);
+        this.setState({ page: 'strategy', stratSection: cat });
       },
-      critNavTo: (e) => {
-        const cat = e.currentTarget.dataset.cat;
-        this.setState({ critActive: cat });
-        this.scrollCritTo(cat, true);
-      },
-      onCritPaneScroll: (e) => {
-        const pane = e.currentTarget;
-        let active = this.CRIT_ORDER[0];
-        for (const child of pane.children) {
-          if (child.dataset && child.dataset.cat && child.offsetTop - 40 <= pane.scrollTop) active = child.dataset.cat;
-        }
-        if (active !== this.state.critActive) this.setState({ critActive: active });
-      },
-      setCritMode: (e) => {
-        this.critDraft[e.currentTarget.dataset.cat].mode = e.currentTarget.dataset.mode;
+      goToSourcing: () => this.setState({ page: 'sourcing' }),
+      stratSetMode: (e) => {
+        this.criteria[this.state.stratSection].mode = e.currentTarget.dataset.mode;
         this.forceUpdate();
       },
-      toggleCritChip: (e) => {
+      stratToggleChip: (e) => {
         const { cat, val } = e.currentTarget.dataset;
-        const arr = this.critDraft[cat].values, i = arr.indexOf(val);
+        const arr = this.criteria[cat].values, i = arr.indexOf(val);
         if (i > -1) arr.splice(i, 1); else arr.push(val);
         this.forceUpdate();
       },
-      critManualKey: (e) => {
+      stratManualKey: (e) => {
         if (e.key !== 'Enter') return;
         const v = e.target.value.trim();
         if (!v) return;
-        this.critDraft[e.target.dataset.cat].values.push(v);
+        this.criteria[this.state.stratSection].values.push(v);
         e.target.value = '';
         this.forceUpdate();
       },
-      critManualAdd: (e) => {
+      stratManualAdd: (e) => {
         const input = e.currentTarget.parentElement.querySelector('input');
         const v = input.value.trim();
         if (!v) { this.showToast('Enter a company name first'); return; }
-        this.critDraft[e.currentTarget.dataset.cat].values.push(v);
+        this.criteria[this.state.stratSection].values.push(v);
         input.value = '';
         this.forceUpdate();
       },
-      critManualRm: (e) => {
-        this.critDraft[e.currentTarget.dataset.cat].values.splice(+e.currentTarget.dataset.idx, 1);
+      stratManualRm: (e) => {
+        this.criteria[this.state.stratSection].values.splice(+e.currentTarget.dataset.idx, 1);
         this.forceUpdate();
       },
-      critSave: () => {
-        this.criteria = this.critDraft;
-        this.critDraft = null;
-        this.setState({ critModalOpen: false });
-        this.showToast('Criteria updated for this sourcing run');
-      },
-      critCancel: () => {
-        this.critDraft = null;
-        this.setState({ critModalOpen: false });
-        this.showToast('Changes discarded');
-      },
-      setViewCard: () => this.setState({ srcView: 'card' }),
+            setViewCard: () => this.setState({ srcView: 'card' }),
       setViewList: () => this.setState({ srcView: 'list' }),
       clearTriage: () => this.setState({ triage: null }),
       onTriage: (e) => {
