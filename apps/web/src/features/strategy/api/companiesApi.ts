@@ -11,8 +11,19 @@ export const SECTORS_KEY = ["companySectors"] as const;
 export const SUGGESTIONS_KEY = (directLabels: string[]) =>
   ["companySuggestions", [...directLabels].sort()] as const;
 
-export const ESTIMATE_KEY = (sectors: string[], tags: string[]) =>
-  ["companyEstimate", [...sectors].sort(), [...tags].sort()] as const;
+export const ESTIMATE_KEY = (
+  sectors: string[],
+  tags: string[],
+  employeeBands: string[],
+  revenueBands: string[],
+) =>
+  [
+    "companyEstimate",
+    [...sectors].sort(),
+    [...tags].sort(),
+    [...employeeBands].sort(),
+    [...revenueBands].sort(),
+  ] as const;
 
 /** Repeated query params — `sector=a&sector=b` — the way the backend binds a List. */
 function repeated(name: string, values: string[]): string {
@@ -27,7 +38,19 @@ export function getSuggestions(directLabels: string[]): Promise<Suggestions> {
   return request<Suggestions>(`/companies/sectors/suggestions?${repeated("sector", directLabels)}`);
 }
 
-export function getEstimate(sectors: string[], tags: string[]): Promise<Estimate> {
-  const query = [repeated("sector", sectors), repeated("tag", tags)].filter(Boolean).join("&");
+export function getEstimate(
+  sectors: string[],
+  tags: string[],
+  employeeBands: string[],
+  revenueBands: string[],
+): Promise<Estimate> {
+  const query = [
+    repeated("sector", sectors),
+    repeated("tag", tags),
+    repeated("employeeBand", employeeBands),
+    repeated("revenueBand", revenueBands),
+  ]
+    .filter(Boolean)
+    .join("&");
   return request<Estimate>(`/companies/estimate${query ? `?${query}` : ""}`);
 }

@@ -21,6 +21,7 @@ import { ProjectPlaceholderPage } from "../features/position/pages/ProjectPlaceh
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
 import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
 import { SettingsMembersPage } from "../features/settings/pages/SettingsMembersPage";
+import { SourcingPage } from "../features/sourcing/pages/SourcingPage";
 import { StrategyPage } from "../features/strategy/pages/StrategyPage";
 import { TeamPage } from "../features/workspace/pages/TeamPage";
 
@@ -74,7 +75,7 @@ export function AppRoutes() {
       <Route element={<RequireWorkspace><ProjectLayout /></RequireWorkspace>}>
         <Route path="/projects/:projectId" element={<PositionPage />} />
         <Route path="/projects/:projectId/strategy" element={<StrategyPage />} />
-        <Route path="/projects/:projectId/sourcing" element={<ProjectPlaceholderPage title="Sourcing" icon="sourcing" />} />
+        <Route path="/projects/:projectId/sourcing" element={<SourcingPage />} />
         <Route path="/projects/:projectId/candidates" element={<ProjectPlaceholderPage title="Candidates" icon="candidates" />} />
         <Route path="/projects/:projectId/outreach" element={<ProjectPlaceholderPage title="Outreach" icon="outreach" />} />
         <Route path="/projects/:projectId/reports" element={<ProjectPlaceholderPage title="Reports" icon="reports" />} />

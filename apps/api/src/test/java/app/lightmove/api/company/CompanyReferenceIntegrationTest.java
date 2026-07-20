@@ -102,6 +102,68 @@ class CompanyReferenceIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("employee and revenue bands narrow the estimate, AND'd with each other and with the sector scope")
+    void sizeBandsNarrowEstimateAndedAcrossAxes() throws Exception {
+        String admin = adminOf("Company Size Estimate Firm");
+        companyWithSize("Retail", 5, 2_000_000L);      // in sector, 1-10 band, <5M — matches both bands
+        companyWithSize("Retail", 5, 30_000_000L);     // in sector, 1-10 band, but wrong revenue band
+        companyWithSize("Retail", 300, 2_000_000L);    // in sector, right revenue, wrong employee band
+        companyWithSize("Oil and Gas", 5, 2_000_000L); // right size, wrong sector
+
+        mvc.perform(get("/api/v1/companies/estimate")
+                        .param("sector", "Retail")
+                        .param("employeeBand", "1-10")
+                        .param("revenueBand", "<5M")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(1));
+    }
+
+    @Test
+    @DisplayName("bands within one axis OR together")
+    void bandsWithinAxisOr() throws Exception {
+        String admin = adminOf("Company Size Or Firm");
+        companyWithSize("Retail", 5, 0L);      // 1-10 band
+        companyWithSize("Retail", 100, 0L);    // 51-200 band
+        companyWithSize("Retail", 300, 0L);    // 201-500 band — not selected
+
+        mvc.perform(get("/api/v1/companies/estimate")
+                        .param("sector", "Retail")
+                        .param("employeeBand", "1-10")
+                        .param("employeeBand", "51-200")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(2));
+    }
+
+    @Test
+    @DisplayName("the open-ended top band has no upper bound")
+    void openEndedTopBandHasNoUpperBound() throws Exception {
+        String admin = adminOf("Company Size Open Firm");
+        companyWithSize("Retail", 50_000, 0L);
+
+        mvc.perform(get("/api/v1/companies/estimate")
+                        .param("sector", "Retail")
+                        .param("employeeBand", "10000+")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(1));
+    }
+
+    @Test
+    @DisplayName("an unknown band value is rejected")
+    void unknownBandValueRejected() throws Exception {
+        String admin = adminOf("Company Size Bad Band Firm");
+
+        MvcResult result = mvc.perform(get("/api/v1/companies/estimate")
+                        .param("sector", "Retail")
+                        .param("employeeBand", "not-a-band")
+                        .header("Authorization", "Bearer " + admin))
+                .andReturn();
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+    }
+
+    @Test
     @DisplayName("the company universe is not readable without authentication")
     void anonymousIsRejected() throws Exception {
         mvc.perform(get("/api/v1/companies/sectors"))
@@ -121,6 +183,20 @@ class CompanyReferenceIntegrationTest extends FlowTestSupport {
 
     private void companyWithoutSector(String... tags) {
         insert(null, tags);
+    }
+
+    private void companyWithSize(String sector, int employeeCount, long revenueUsd) {
+        db.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement("""
+                    INSERT INTO app_lm_companies
+                        (source, source_id, name, primary_industry, industry_tags, employee_count, revenue_usd)
+                    VALUES ('test', gen_random_uuid()::text, 'Test Co', ?, ?, ?, ?)""");
+            ps.setString(1, sector);
+            ps.setArray(2, connection.createArrayOf("text", new String[0]));
+            ps.setInt(3, employeeCount);
+            ps.setLong(4, revenueUsd);
+            return ps;
+        });
     }
 
     /** The id column is GENERATED ALWAYS, so it is left out; source_id just has to be unique. */
