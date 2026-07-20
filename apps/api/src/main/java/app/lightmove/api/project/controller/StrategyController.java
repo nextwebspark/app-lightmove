@@ -3,6 +3,8 @@ package app.lightmove.api.project.controller;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.service.CurrentUser;
 import app.lightmove.api.project.dto.StrategyDtos.PutCompanySizeRequest;
+import app.lightmove.api.project.dto.StrategyDtos.PutGeographyRequest;
+import app.lightmove.api.project.dto.StrategyDtos.PutOwnershipRequest;
 import app.lightmove.api.project.dto.StrategyDtos.PutSectorsRequest;
 import app.lightmove.api.project.dto.StrategyDtos.StrategyResponse;
 import app.lightmove.api.project.service.StrategyService;
@@ -56,6 +58,26 @@ public class StrategyController {
                                                            HttpServletRequest httpRequest) {
         AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(strategy.putCompanySize(
+                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
+    }
+
+    @PutMapping("/geography")
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    public ResponseEntity<StrategyResponse> putGeography(@PathVariable UUID projectId,
+                                                         @Valid @RequestBody PutGeographyRequest request,
+                                                         HttpServletRequest httpRequest) {
+        AuthPrincipal principal = CurrentUser.require();
+        return ResponseEntity.ok(strategy.putGeography(
+                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
+    }
+
+    @PutMapping("/ownership")
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    public ResponseEntity<StrategyResponse> putOwnership(@PathVariable UUID projectId,
+                                                         @Valid @RequestBody PutOwnershipRequest request,
+                                                         HttpServletRequest httpRequest) {
+        AuthPrincipal principal = CurrentUser.require();
+        return ResponseEntity.ok(strategy.putOwnership(
                 principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
     }
 }

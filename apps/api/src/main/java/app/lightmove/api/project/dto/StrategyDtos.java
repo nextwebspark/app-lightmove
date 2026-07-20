@@ -7,9 +7,10 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 /**
- * The HTTP contract for the strategy's sector scope. The screen holds the whole selection and PUTs it
- * back as a snapshot (matching the position autosave model), so the three kinds travel split on the
- * wire — direct, adjacent, inferred — and the service flattens them into one ordered list on write.
+ * The HTTP contract for the strategy's scope sections. The screen holds each section's whole selection
+ * and PUTs it back as a snapshot (matching the position autosave model): sectors travel split by kind
+ * — direct, adjacent, inferred — and the service flattens them into one ordered list on write; the
+ * fixed-catalog sections (company size, geography, ownership) travel as selected values only.
  */
 public final class StrategyDtos {
 
@@ -33,7 +34,12 @@ public final class StrategyDtos {
             // e.g. "51-200" / "5M-25M"); the client renders the full catalog from its own mirror and marks
             // these in scope. Empty lists mean nothing selected, not "no such axis".
             List<String> employee,
-            List<String> revenue
+            List<String> revenue,
+            // Geography and ownership follow the same selected-values-only model. markets carries ISO
+            // country codes ("AE", "SA"), structures carries stable tokens ("PUBLICLY_LISTED") — the
+            // client's catalog mirror owns the display names.
+            List<String> markets,
+            List<String> structures
     ) {}
 
     public record PutSectorsRequest(
@@ -65,5 +71,25 @@ public final class StrategyDtos {
             @NotNull
             @Size(max = 7, message = "Too many revenue bands")
             List<String> revenue
+    ) {}
+
+    /**
+     * The selected geography markets as ISO country codes. Capped at the catalog's full size; unknown
+     * values are rejected in the service against the {@code GeographyMarket} enum.
+     */
+    public record PutGeographyRequest(
+            @NotNull
+            @Size(max = 6, message = "Too many markets")
+            List<String> markets
+    ) {}
+
+    /**
+     * The selected ownership structures as stable tokens. Capped at the catalog's full size; unknown
+     * values are rejected in the service against the {@code OwnershipStructure} enum.
+     */
+    public record PutOwnershipRequest(
+            @NotNull
+            @Size(max = 5, message = "Too many ownership structures")
+            List<String> structures
     ) {}
 }

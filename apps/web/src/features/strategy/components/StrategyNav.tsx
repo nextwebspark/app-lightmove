@@ -1,7 +1,8 @@
 /**
- * The strategy's left nav. Sector Scope and Company Size are built and switch the panel in place; the
- * remaining scope filters and the lists are shown disabled so the shape of the finished screen is
- * legible without pretending the sections work. Each built item carries a live count of its selections.
+ * The strategy's left nav. The scope filters — Sector Scope, Company Size, Ownership Type, Location —
+ * are built and switch the panel in place; the lists are shown disabled so the shape of the finished
+ * screen is legible without pretending the sections work. Each built item carries a live count of its
+ * selections.
  */
 
 interface NavItem {
@@ -16,7 +17,7 @@ interface NavGroup {
 }
 
 /** The sections wired up this far; everything else in GROUPS renders disabled. */
-const ENABLED = new Set(["sector", "size"]);
+const ENABLED = new Set(["sector", "size", "ownership", "location"]);
 
 const GROUPS: NavGroup[] = [
   {
@@ -28,8 +29,8 @@ const GROUPS: NavGroup[] = [
         label: "Company Size",
         icon: "M7 7h.01M7 3h5a2 2 0 0 1 1.4.6l7 7a2 2 0 0 1 0 2.8l-5 5a2 2 0 0 1-2.8 0l-7-7A2 2 0 0 1 5 10V5a2 2 0 0 1 2-2Z",
       },
-      { key: "ownership", label: "Ownership Type", icon: "M3 21h18M5 21V7l7-4 7 4v14" },
       { key: "location", label: "Location", icon: "M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0Z" },
+      { key: "ownership", label: "Ownership Type", icon: "M3 21h18M5 21V7l7-4 7 4v14" },
     ],
   },
   {
