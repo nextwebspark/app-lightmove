@@ -13,8 +13,9 @@ public enum ProjectAction {
     TEAM_MANAGE,
 
     /**
-     * Work the mandate: sourcing, triage, candidates, notes. Seeded now so the Project screen's tables
-     * arrive with their action already named; nothing consumes it until they do.
+     * Work the mandate: read its strategy and position brief, sourcing, triage, candidates, notes.
+     * Held by every project role, so it is the gate for reading a project's team-only content; the
+     * Project screen's own tables will consume it too as they arrive.
      */
     WORK_EXECUTE,
 

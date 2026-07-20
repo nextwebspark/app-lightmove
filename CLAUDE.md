@@ -85,6 +85,11 @@ Annotations live on **controllers only**: services reachable outside a request's
 Invariants that need loaded state stay imperative too — a workspace and every project keep ≥1 holder
 of the ADMIN role (`LAST_ADMIN` / `PROJECT_LAST_ADMIN`).
 
+A project's **content** reads (its strategy, position brief, and future tables) are seat-gated on the
+project action `WORK_EXECUTE` (held by every project role; workspace-admin bypasses), **not** workspace
+`PROJECT_BROWSE` — a mandate's scope and brief are team-only. Only the project *list* and shared
+reference data (`CompanyReferenceController`) ride `PROJECT_BROWSE`: existence isn't secret, content is.
+
 ### Tokens are never stored raw
 
 Refresh, verification and invitation tokens are 256-bit random values; only their SHA-256 hash is
@@ -285,6 +290,11 @@ more than one instance).
 ## Conventions
 
 - Java: constructor injection only. `record` for DTOs. Immutable where you can be.
+- **Names carry intent.** Variables, methods, classes, enums, and constants get meaningful, logical
+  names — the name alone must make the purpose clear. No abbreviations, single letters (except loop
+  indices), or vague names (`data`, `info`, `tmp`, `doStuff`, `handle`, `flag`). Methods read as verbs
+  (`resolveWorkspaceId`), booleans as predicates (`isVerified`, `hasActiveSeat`), classes/enums as nouns.
+  If a name needs a comment to explain what it holds, rename it — same rule as the Comments line below.
 - **Lombok.** `@RequiredArgsConstructor` for constructor injection, `@Slf4j` for the logger. Entities use
   `@Getter` + `@NoArgsConstructor(access = PROTECTED)` + selective `@Setter`, and **never** `@Data`,
   `@EqualsAndHashCode`, or `@Builder` — `BaseEntity` explains why identity equality is hand-written. A
