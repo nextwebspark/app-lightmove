@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button, Card, Field, FormError, Input, Logo } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import * as authApi from "../api/authApi";
@@ -13,6 +13,12 @@ import { forgotPasswordSchema, type ForgotPasswordValues } from "../schemas";
  * says "no account for that address" is an account-enumeration oracle with a nice font.
  */
 export function ForgotPasswordPage() {
+  const location = useLocation();
+
+  // The login form hands the typed address over, so arriving here doesn't mean retyping it —
+  // the same handoff signup already makes toward login.
+  const prefill = (location.state as { email?: string } | null)?.email ?? "";
+
   const [formError, setFormError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
 
@@ -22,7 +28,7 @@ export function ForgotPasswordPage() {
     formState: { errors, isSubmitting },
   } = useForm<ForgotPasswordValues>({
     resolver: zodResolver(forgotPasswordSchema),
-    defaultValues: { email: "" },
+    defaultValues: { email: prefill },
   });
 
   const onSubmit = async (values: ForgotPasswordValues) => {

@@ -33,6 +33,28 @@ describe("ForgotPasswordPage", () => {
     vi.mocked(authApi.me).mockRejectedValue(new Error("no session"));
   });
 
+  it("prefills the email carried over from the login form", () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter
+          initialEntries={[{ pathname: "/forgot-password", state: { email: "alok@nextwebspark.com" } }]}
+        >
+          <AuthProvider>
+            <ForgotPasswordPage />
+          </AuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByPlaceholderText("you@firm.com")).toHaveValue("alok@nextwebspark.com");
+  });
+
+  it("starts blank when the login form had nothing typed", () => {
+    renderPage();
+
+    expect(screen.getByPlaceholderText("you@firm.com")).toHaveValue("");
+  });
+
   it("rejects a malformed email without calling the server", async () => {
     const user = userEvent.setup();
     renderPage();

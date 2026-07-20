@@ -27,6 +27,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
  * password, clear a lockout, verify the address, and sign the user straight in.
  */
 @Service
+@RequiredArgsConstructor
 @Slf4j
 public class PasswordResetService {
 
@@ -56,24 +58,6 @@ public class PasswordResetService {
     private final AuditService audit;
     private final ApplicationEventPublisher events;
     private final LightMoveProperties properties;
-
-    public PasswordResetService(UserRepository users, UserIdentityRepository identities,
-                                VerificationTokenRepository verificationTokens, PasswordPolicy passwords,
-                                TokenService tokens, AuthService auth, EmailSender emailSender,
-                                EmailTemplates templates, AuditService audit,
-                                ApplicationEventPublisher events, LightMoveProperties properties) {
-        this.users = users;
-        this.identities = identities;
-        this.verificationTokens = verificationTokens;
-        this.passwords = passwords;
-        this.tokens = tokens;
-        this.auth = auth;
-        this.emailSender = emailSender;
-        this.templates = templates;
-        this.audit = audit;
-        this.events = events;
-        this.properties = properties;
-    }
 
     /**
      * Issues a reset link and emails it.
