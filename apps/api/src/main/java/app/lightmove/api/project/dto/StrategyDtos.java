@@ -18,8 +18,8 @@ public final class StrategyDtos {
 
     /** One chip: a sector or tag label and whether it is currently in scope. */
     public record ChipDto(
-            @NotBlank(message = "Name the sector")
-            @Size(max = 160, message = "That sector name is too long")
+            @NotBlank(message = "Every chip needs a label")
+            @Size(max = 160, message = "That chip label is too long")
             String label,
 
             boolean selected
