@@ -142,7 +142,9 @@ public class SecurityConfig {
                                 API + "/auth/signup",
                                 API + "/auth/login",
                                 API + "/auth/verify",
-                                API + "/auth/verify/resend"))
+                                API + "/auth/verify/resend",
+                                API + "/auth/password/forgot",
+                                API + "/auth/password/reset"))
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
@@ -152,6 +154,8 @@ public class SecurityConfig {
                                 API + "/auth/logout",
                                 API + "/auth/verify",
                                 API + "/auth/verify/resend",
+                                API + "/auth/password/forgot",
+                                API + "/auth/password/reset",
                                 API + "/auth/csrf",
                                 API + "/auth/providers")
                         .permitAll()

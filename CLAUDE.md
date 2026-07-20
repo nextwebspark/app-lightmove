@@ -295,11 +295,13 @@ more than one instance).
   indices), or vague names (`data`, `info`, `tmp`, `doStuff`, `handle`, `flag`). Methods read as verbs
   (`resolveWorkspaceId`), booleans as predicates (`isVerified`, `hasActiveSeat`), classes/enums as nouns.
   If a name needs a comment to explain what it holds, rename it — same rule as the Comments line below.
-- **Lombok.** `@RequiredArgsConstructor` for constructor injection, `@Slf4j` for the logger. Entities use
-  `@Getter` + `@NoArgsConstructor(access = PROTECTED)` + selective `@Setter`, and **never** `@Data`,
-  `@EqualsAndHashCode`, or `@Builder` — `BaseEntity` explains why identity equality is hand-written. A
-  service whose constructor *derives* a nested config record (`this.config = properties.auth()`) keeps its
-  hand-written constructor. Config is `lombok.config` at the module root.
+- **Lombok.** Use Lombok for all standard boilerplate: `@RequiredArgsConstructor` for constructor
+  injection, `@Slf4j` for the logger. Entities use `@Getter` + `@NoArgsConstructor(access = PROTECTED)`
+  + selective `@Setter`, and **never** `@Data`, `@EqualsAndHashCode`, or `@Builder` — `BaseEntity`
+  explains why identity equality is hand-written. A hand-written constructor is allowed **only** when it
+  *derives* a value (e.g. a nested config record, `this.config = properties.auth()`); one that contains
+  nothing but `this.x = x` assignments is dead weight, however many dependencies it takes — use
+  `@RequiredArgsConstructor`. Config is `lombok.config` at the module root.
 - Errors: RFC 9457 `ProblemDetail`, produced centrally in `GlobalExceptionHandler`. The frontend switches
   on `code`, never on `detail`.
 - Comments explain *why*, not *what*. Every class carries a class-level doc; the inline comments flagged in

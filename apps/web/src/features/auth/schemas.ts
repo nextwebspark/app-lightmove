@@ -53,6 +53,21 @@ export const acceptInviteSchema = z
     path: ["confirmPassword"],
   });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().min(1, "Enter your email").email("That doesn't look like a valid email"),
+});
+
+/** Choosing the replacement password — same rules and words as signup, because it is the same field. */
+export const resetPasswordSchema = z
+  .object({
+    password,
+    confirmPassword: z.string().min(1, "Re-enter your password"),
+  })
+  .refine((values) => values.password === values.confirmPassword, {
+    message: "Those passwords don't match",
+    path: ["confirmPassword"],
+  });
+
 export const workspaceSchema = z.object({
   name: z.string().min(1, "Enter your organization's name").max(160, "That name is too long"),
   companySize: z.string(),
@@ -75,6 +90,8 @@ export const inviteSchema = z.object({
 
 export type LoginValues = z.infer<typeof loginSchema>;
 export type SignupValues = z.infer<typeof signupSchema>;
+export type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;
 export type AcceptInviteValues = z.infer<typeof acceptInviteSchema>;
 export type WorkspaceValues = z.infer<typeof workspaceSchema>;
 export type InviteValues = z.infer<typeof inviteSchema>;

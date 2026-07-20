@@ -28,6 +28,13 @@ public record LightMoveProperties(
             @DefaultValue("15m") Duration accessTokenTtl,
             @DefaultValue("30d") Duration refreshTokenTtl,
             @DefaultValue("24h") Duration verificationTokenTtl,
+
+            /**
+             * Much shorter than {@link #verificationTokenTtl}: a verification link only proves a mailbox,
+             * where a reset link <i>changes a credential</i> — a stale one sitting in an inbox is a
+             * standing invitation to whoever reads that inbox later.
+             */
+            @DefaultValue("30m") Duration passwordResetTokenTtl,
             @DefaultValue("7d") Duration invitationTtl,
 
             /**
@@ -86,7 +93,8 @@ public record LightMoveProperties(
                 @DefaultValue("true") boolean enabled,
                 @DefaultValue("10") int loginAttemptsPerMinute,
                 @DefaultValue("5") int signupAttemptsPerHour,
-                @DefaultValue("3") int verificationResendsPerHour
+                @DefaultValue("3") int verificationResendsPerHour,
+                @DefaultValue("3") int passwordResetRequestsPerHour
         ) {}
     }
 

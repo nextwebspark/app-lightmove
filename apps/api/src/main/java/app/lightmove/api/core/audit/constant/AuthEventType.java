@@ -25,6 +25,8 @@ public enum AuthEventType implements AuditEventType {
 
     // Credentials
     PASSWORD_CHANGED,
+    PASSWORD_RESET_REQUESTED,
+    PASSWORD_RESET_COMPLETED,
 
     // Federation
     OAUTH_LOGIN_SUCCEEDED,

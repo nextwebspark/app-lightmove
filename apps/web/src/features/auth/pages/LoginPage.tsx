@@ -31,6 +31,7 @@ export function LoginPage() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -103,7 +104,13 @@ export function LoginPage() {
             label="Password"
             error={errors.password?.message}
             action={
-              <Link to="/forgot-password" className="text-[11.5px] font-medium text-sky hover:underline">
+              /* Carries the typed email along (watch, not getValues — these inputs are uncontrolled,
+                 so a render-time getValues would capture a stale value), sparing a retype. */
+              <Link
+                to="/forgot-password"
+                state={{ email: watch("email") }}
+                className="text-[11.5px] font-medium text-sky hover:underline"
+              >
                 Forgot?
               </Link>
             }

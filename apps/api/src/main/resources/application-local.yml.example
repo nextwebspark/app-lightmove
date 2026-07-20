@@ -27,6 +27,7 @@ lightmove:
       signup-attempts-per-hour: 100
       login-attempts-per-minute: 100
       verification-resends-per-hour: 100
+      password-reset-requests-per-hour: 100
 
     cookie:
       # Local dev is plain http, and a Secure cookie is dropped by the browser over http.

@@ -1,11 +1,14 @@
 package app.lightmove.api.core.security.controller;
 
 import app.lightmove.api.core.security.dto.AuthDtos.AuthResponse;
+import app.lightmove.api.core.security.dto.AuthDtos.ForgotPasswordRequest;
 import app.lightmove.api.core.security.dto.AuthDtos.LoginRequest;
 import app.lightmove.api.core.security.dto.AuthDtos.ResendVerificationRequest;
+import app.lightmove.api.core.security.dto.AuthDtos.ResetPasswordRequest;
 import app.lightmove.api.core.security.dto.AuthDtos.SignupRequest;
 import app.lightmove.api.core.security.dto.AuthDtos.UserResponse;
 import app.lightmove.api.core.security.service.AuthService;
+import app.lightmove.api.core.security.service.PasswordResetService;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.SignupCommand;
 import app.lightmove.api.core.security.service.VerificationService;
@@ -49,6 +52,7 @@ public class AuthController {
 
     private final AuthService auth;
     private final VerificationService verification;
+    private final PasswordResetService passwordReset;
     private final RefreshCookieFactory refreshCookie;
     private final RateLimitGuard rateLimit;
     private final AuthResponseAssembler assembler;
@@ -148,6 +152,30 @@ public class AuthController {
         rateLimit.checkVerificationResend(request.email(), httpRequest);
         verification.resend(request.email(), httpRequest);
         return ResponseEntity.accepted().build();
+    }
+
+    /**
+     * Emails a password-reset link.
+     *
+     * <p>Always 202, even for an address we have never seen — same reasoning as {@code /verify/resend}:
+     * confirming which addresses exist is a free account-enumeration oracle.
+     */
+    @PostMapping("/password/forgot")
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request,
+                                               HttpServletRequest httpRequest) {
+        rateLimit.checkPasswordResetRequest(request.email(), httpRequest);
+        passwordReset.requestReset(request.email(), httpRequest);
+        return ResponseEntity.accepted().build();
+    }
+
+    /**
+     * Redeems the emailed link and signs the user straight in — the token proved the mailbox, which is
+     * everything a login would have proved. {@code respond} sets the refresh cookie, exactly as login.
+     */
+    @PostMapping("/password/reset")
+    public ResponseEntity<AuthResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request,
+                                                      HttpServletRequest httpRequest) {
+        return respond(HttpStatus.OK, passwordReset.reset(request.token(), request.password(), httpRequest));
     }
 
     /** The current user. The SPA calls this on boot to rehydrate. */
