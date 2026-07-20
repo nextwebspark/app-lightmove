@@ -203,6 +203,159 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a fresh project has empty geography and ownership scopes")
+    void firstReadSeedsEmptyGeographyAndOwnership() throws Exception {
+        String admin = adminOf("Geo Own Seed Firm");
+        String projectId = project(admin);
+
+        mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.markets.length()").value(0))
+                .andExpect(jsonPath("$.structures.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("the geography PUT round-trips the selected markets, ordered by the catalog")
+    void geographyRoundTrips() throws Exception {
+        String admin = adminOf("Geography Snapshot Firm");
+        String projectId = project(admin);
+
+        // Sent out of catalog order; the response comes back ordered by the enum declaration.
+        mvc.perform(put(geographyUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"markets":["QA","AE","SA"]}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.markets[0]").value("AE"))
+                .andExpect(jsonPath("$.markets[1]").value("SA"))
+                .andExpect(jsonPath("$.markets[2]").value("QA"));
+
+        mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.markets.length()").value(3))
+                // The other sections are untouched by a geography write.
+                .andExpect(jsonPath("$.structures.length()").value(0))
+                .andExpect(jsonPath("$.direct.length()").value(0))
+                .andExpect(jsonPath("$.employee.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("the ownership PUT round-trips the selected structures, ordered by the catalog")
+    void ownershipRoundTrips() throws Exception {
+        String admin = adminOf("Ownership Snapshot Firm");
+        String projectId = project(admin);
+
+        mvc.perform(put(ownershipUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"structures":["STATE_LINKED_SOVEREIGN","PUBLICLY_LISTED"]}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.structures[0]").value("PUBLICLY_LISTED"))
+                .andExpect(jsonPath("$.structures[1]").value("STATE_LINKED_SOVEREIGN"));
+
+        mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.structures.length()").value(2))
+                .andExpect(jsonPath("$.markets.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("a second geography PUT replaces the whole scope")
+    void geographySecondPutReplaces() throws Exception {
+        String admin = adminOf("Geography Replace Firm");
+        String projectId = project(admin);
+
+        putGeography(admin, projectId, """
+                {"markets":["AE","SA"]}""");
+        putGeography(admin, projectId, """
+                {"markets":["OM"]}""");
+
+        mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.markets.length()").value(1))
+                .andExpect(jsonPath("$.markets[0]").value("OM"));
+    }
+
+    @Test
+    @DisplayName("a second ownership PUT replaces the whole scope")
+    void ownershipSecondPutReplaces() throws Exception {
+        String admin = adminOf("Ownership Replace Firm");
+        String projectId = project(admin);
+
+        putOwnership(admin, projectId, """
+                {"structures":["PUBLICLY_LISTED","PE_VC_BACKED"]}""");
+        putOwnership(admin, projectId, """
+                {"structures":["FAMILY_OWNED_PRIVATE"]}""");
+
+        mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.structures.length()").value(1))
+                .andExpect(jsonPath("$.structures[0]").value("FAMILY_OWNED_PRIVATE"));
+    }
+
+    @Test
+    @DisplayName("an unknown market value is rejected — display names are not wire values")
+    void unknownMarketRejected() throws Exception {
+        String admin = adminOf("Geography Unknown Firm");
+        String projectId = project(admin);
+
+        MvcResult result = mvc.perform(put(geographyUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"markets":["Saudi Arabia"]}"""))
+                .andReturn();
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+        assertThat(codeOf(result)).isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
+    @DisplayName("an unknown ownership structure is rejected")
+    void unknownStructureRejected() throws Exception {
+        String admin = adminOf("Ownership Unknown Firm");
+        String projectId = project(admin);
+
+        MvcResult result = mvc.perform(put(ownershipUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"structures":["CO_OPERATIVE"]}"""))
+                .andReturn();
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+        assertThat(codeOf(result)).isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
+    @DisplayName("a duplicate market is rejected")
+    void duplicateMarketRejected() throws Exception {
+        String admin = adminOf("Geography Dup Firm");
+        String projectId = project(admin);
+
+        MvcResult result = mvc.perform(put(geographyUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"markets":["AE","AE"]}"""))
+                .andReturn();
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+        assertThat(codeOf(result)).isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
+    @DisplayName("a duplicate ownership structure is rejected")
+    void duplicateStructureRejected() throws Exception {
+        String admin = adminOf("Ownership Dup Firm");
+        String projectId = project(admin);
+
+        MvcResult result = mvc.perform(put(ownershipUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"structures":["PUBLICLY_LISTED","PUBLICLY_LISTED"]}"""))
+                .andReturn();
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+        assertThat(codeOf(result)).isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
     @DisplayName("another workspace's strategy does not exist, even to a verified user")
     void crossTenantMasked() throws Exception {
         String admin = adminOf("Strategy Masked Firm");
@@ -229,6 +382,14 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
         return strategyUrl(projectId) + "/company-size";
     }
 
+    private static String geographyUrl(String projectId) {
+        return strategyUrl(projectId) + "/geography";
+    }
+
+    private static String ownershipUrl(String projectId) {
+        return strategyUrl(projectId) + "/ownership";
+    }
+
     private void putSectors(String token, String projectId, String bodyJson) throws Exception {
         mvc.perform(put(sectorsUrl(projectId))
                         .header("Authorization", "Bearer " + token)
@@ -239,6 +400,22 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
 
     private void putCompanySize(String token, String projectId, String bodyJson) throws Exception {
         mvc.perform(put(companySizeUrl(projectId))
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(bodyJson))
+                .andExpect(status().isOk());
+    }
+
+    private void putGeography(String token, String projectId, String bodyJson) throws Exception {
+        mvc.perform(put(geographyUrl(projectId))
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(bodyJson))
+                .andExpect(status().isOk());
+    }
+
+    private void putOwnership(String token, String projectId, String bodyJson) throws Exception {
+        mvc.perform(put(ownershipUrl(projectId))
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(bodyJson))

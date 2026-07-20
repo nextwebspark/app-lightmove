@@ -15,6 +15,8 @@ vi.mock("../api/strategyApi", async (importOriginal) => ({
   getStrategy: vi.fn(),
   putSectors: vi.fn(),
   putCompanySize: vi.fn(),
+  putGeography: vi.fn(),
+  putOwnership: vi.fn(),
 }));
 vi.mock("../api/companiesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/companiesApi")>()),
@@ -43,6 +45,8 @@ const seeded: Strategy = {
   inferred: [],
   employee: [],
   revenue: [],
+  markets: [],
+  structures: [],
 };
 
 const sectors = {
@@ -75,6 +79,12 @@ describe("StrategyPage — the sector-scope editor", () => {
     vi.mocked(strategyApi.putSectors).mockImplementation((_id, payload) => Promise.resolve(payload));
     vi.mocked(strategyApi.putCompanySize).mockImplementation((_id, employee, revenue) =>
       Promise.resolve({ ...seeded, employee, revenue }),
+    );
+    vi.mocked(strategyApi.putGeography).mockImplementation((_id, markets) =>
+      Promise.resolve({ ...seeded, markets }),
+    );
+    vi.mocked(strategyApi.putOwnership).mockImplementation((_id, structures) =>
+      Promise.resolve({ ...seeded, structures }),
     );
     vi.mocked(companiesApi.getSectors).mockResolvedValue(sectors);
     vi.mocked(companiesApi.getSuggestions).mockResolvedValue({
@@ -207,6 +217,63 @@ describe("StrategyPage — the sector-scope editor", () => {
         expect(
           vi.mocked(strategyApi.putCompanySize).mock.calls.some(
             ([, employee, revenue]) => employee.includes("51-200") && revenue.length === 0,
+          ),
+        ).toBe(true),
+      { timeout: 2000 },
+    );
+  });
+
+  it("switches to Ownership Type and renders the structure catalog by display name", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Ownership Type" }));
+
+    expect(screen.getByText("Structures")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Publicly listed" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(
+      screen.getByRole("button", { name: "Subsidiary of foreign multinational" }),
+    ).toBeInTheDocument();
+  });
+
+  it("toggles a structure on and autosaves its wire token, not its display name", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Ownership Type" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Publicly listed" }));
+
+    await waitFor(
+      () =>
+        expect(
+          vi.mocked(strategyApi.putOwnership).mock.calls.some(([, structures]) =>
+            structures.includes("PUBLICLY_LISTED"),
+          ),
+        ).toBe(true),
+      { timeout: 2000 },
+    );
+  });
+
+  it("switches to Location and renders the market catalog by display name", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Location" }));
+
+    expect(screen.getByText("Markets")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "UAE" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Saudi Arabia" })).toBeInTheDocument();
+  });
+
+  it("toggles a market on and autosaves its ISO code, not its display name", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Location" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Saudi Arabia" }));
+
+    await waitFor(
+      () =>
+        expect(
+          vi.mocked(strategyApi.putGeography).mock.calls.some(([, markets]) =>
+            markets.includes("SA"),
           ),
         ).toBe(true),
       { timeout: 2000 },

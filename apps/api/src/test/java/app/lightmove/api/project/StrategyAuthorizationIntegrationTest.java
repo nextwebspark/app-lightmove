@@ -95,6 +95,42 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    @DisplayName("geography and ownership share the scope's write gate: a researcher cannot, a lead can")
+    void geographyAndOwnershipFollowTheSameGate() throws Exception {
+        Fixture f = fixture("Geo Own Gate Firm");
+        String geographyBody = """
+                {"markets":["AE"]}""";
+        String ownershipBody = """
+                {"structures":["PUBLICLY_LISTED"]}""";
+
+        seat(f.admin, f.projectId, f.saraId, "[\"RESEARCHER\"]");
+        String sara = login(f.saraEmail);
+        mvc.perform(put(geographyUrl(f.projectId))
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(geographyBody))
+                .andExpect(status().isForbidden());
+        mvc.perform(put(ownershipUrl(f.projectId))
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ownershipBody))
+                .andExpect(status().isForbidden());
+
+        seat(f.admin, f.projectId, f.saraId, "[\"LEAD\"]");
+        String saraAsLead = login(f.saraEmail);
+        mvc.perform(put(geographyUrl(f.projectId))
+                        .header("Authorization", "Bearer " + saraAsLead)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(geographyBody))
+                .andExpect(status().isOk());
+        mvc.perform(put(ownershipUrl(f.projectId))
+                        .header("Authorization", "Bearer " + saraAsLead)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(ownershipBody))
+                .andExpect(status().isOk());
+    }
+
     // ── fixture ──────────────────────────────────────────────────────────────
 
     private static String strategyUrl(String projectId) {
@@ -107,6 +143,14 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
 
     private static String companySizeUrl(String projectId) {
         return strategyUrl(projectId) + "/company-size";
+    }
+
+    private static String geographyUrl(String projectId) {
+        return strategyUrl(projectId) + "/geography";
+    }
+
+    private static String ownershipUrl(String projectId) {
+        return strategyUrl(projectId) + "/ownership";
     }
 
     private record Fixture(String admin, String projectId, String saraEmail, String saraId) {}
