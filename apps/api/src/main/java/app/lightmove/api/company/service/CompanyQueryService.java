@@ -8,6 +8,7 @@ import app.lightmove.api.company.dto.CompanyDtos.TagCount;
 import app.lightmove.api.company.model.CompanyKey;
 import app.lightmove.api.company.model.CompanyRefRow;
 import app.lightmove.api.core.config.LightMoveProperties;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -125,12 +126,16 @@ public class CompanyQueryService {
     /** The zero-query browse: companies by revenue, optionally narrowed to the given sectors. */
     public List<CompanySearchResult> browse(List<String> sectors, CompanySearchOrder order, int limit) {
         StringBuilder sql = new StringBuilder(PICKER_COLUMNS);
-        // Ascending shows only companies with a known figure; nulls would otherwise lead the list.
-        sql.append(order == CompanySearchOrder.REVENUE_ASC
-                ? "WHERE revenue_usd IS NOT NULL\n"
-                : "WHERE TRUE\n");
+        List<String> conditions = new ArrayList<>();
+        if (order == CompanySearchOrder.REVENUE_ASC) {
+            // Ascending shows only companies with a known figure; nulls would otherwise lead the list.
+            conditions.add("revenue_usd IS NOT NULL");
+        }
         if (!sectors.isEmpty()) {
-            sql.append("AND primary_industry IN (:sectors)\n");
+            conditions.add("primary_industry IN (:sectors)");
+        }
+        if (!conditions.isEmpty()) {
+            sql.append("WHERE ").append(String.join(" AND ", conditions)).append("\n");
         }
         sql.append(order == CompanySearchOrder.REVENUE_ASC
                 ? "ORDER BY revenue_usd ASC, name\n"
