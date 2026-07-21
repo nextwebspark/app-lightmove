@@ -6,10 +6,14 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.project.constant.CompanySizeAxis;
 import app.lightmove.api.project.constant.EmployeeBand;
+import app.lightmove.api.project.constant.GeographyMarket;
+import app.lightmove.api.project.constant.OwnershipStructure;
 import app.lightmove.api.project.constant.RevenueBand;
 import app.lightmove.api.project.constant.StrategySectorKind;
 import app.lightmove.api.project.dto.StrategyDtos.ChipDto;
 import app.lightmove.api.project.dto.StrategyDtos.PutCompanySizeRequest;
+import app.lightmove.api.project.dto.StrategyDtos.PutGeographyRequest;
+import app.lightmove.api.project.dto.StrategyDtos.PutOwnershipRequest;
 import app.lightmove.api.project.dto.StrategyDtos.PutSectorsRequest;
 import app.lightmove.api.project.dto.StrategyDtos.StrategyResponse;
 import app.lightmove.api.project.model.Strategy;
@@ -93,6 +97,42 @@ public class StrategyService {
         return toResponse(strategy);
     }
 
+    @Transactional
+    public StrategyResponse putGeography(UUID userId, UUID workspaceId, UUID projectId,
+                                         PutGeographyRequest request, HttpServletRequest httpRequest) {
+        List<String> marketNames = resolveCatalogSelection(request.markets(), value -> {
+            GeographyMarket market = GeographyMarket.fromValue(value);
+            return market == null ? null : market.name();
+        }, "market");
+
+        Strategy strategy = load(projectId, workspaceId);
+        strategy.replaceMarkets(marketNames);
+
+        audit.event(ProjectEventType.STRATEGY_UPDATED)
+                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                .detail("section", "geography")
+                .record();
+        return toResponse(strategy);
+    }
+
+    @Transactional
+    public StrategyResponse putOwnership(UUID userId, UUID workspaceId, UUID projectId,
+                                         PutOwnershipRequest request, HttpServletRequest httpRequest) {
+        List<String> structureNames = resolveCatalogSelection(request.structures(), value -> {
+            OwnershipStructure structure = OwnershipStructure.fromValue(value);
+            return structure == null ? null : structure.name();
+        }, "ownership structure");
+
+        Strategy strategy = load(projectId, workspaceId);
+        strategy.replaceStructures(structureNames);
+
+        audit.event(ProjectEventType.STRATEGY_UPDATED)
+                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                .detail("section", "ownership")
+                .record();
+        return toResponse(strategy);
+    }
+
     private Strategy load(UUID projectId, UUID workspaceId) {
         requireProject(projectId, workspaceId);
         return strategies.findByProjectId(projectId)
@@ -149,13 +189,39 @@ public class StrategyService {
         }
     }
 
+    /**
+     * Validate one fixed-catalog section's selection and return the names to store, in request order.
+     * {@code toStoredName} resolves a wire value against the section's enum, returning the stored name
+     * or {@code null} for an unknown value; a duplicate value is a client bug (a fixed catalog is never
+     * legitimately doubled). The insertion-ordered set preserves the request's order for storage.
+     */
+    private static List<String> resolveCatalogSelection(List<String> values,
+                                                        Function<String, String> toStoredName,
+                                                        String catalogLabel) {
+        Set<String> storedNames = new LinkedHashSet<>();
+        for (String value : values) {
+            String storedName = toStoredName.apply(value);
+            if (storedName == null) {
+                throw new ApiException(ErrorCode.VALIDATION_FAILED,
+                        "Unknown " + catalogLabel + ": " + value);
+            }
+            if (!storedNames.add(storedName)) {
+                throw new ApiException(ErrorCode.VALIDATION_FAILED,
+                        "Duplicate " + catalogLabel + ": " + value);
+            }
+        }
+        return new ArrayList<>(storedNames);
+    }
+
     private static StrategyResponse toResponse(Strategy strategy) {
         return new StrategyResponse(
                 chipsOf(strategy, StrategySectorKind.DIRECT),
                 chipsOf(strategy, StrategySectorKind.ADJACENT),
                 chipsOf(strategy, StrategySectorKind.INFERRED),
                 employeeValues(strategy),
-                revenueValues(strategy));
+                revenueValues(strategy),
+                marketValues(strategy),
+                structureValues(strategy));
     }
 
     private static List<ChipDto> chipsOf(Strategy strategy, StrategySectorKind kind) {
@@ -197,5 +263,29 @@ public class StrategyService {
             }
         }
         return names;
+    }
+
+    /** Selected markets as ISO country codes, ordered by the enum's declaration (not by storage). */
+    private static List<String> marketValues(Strategy strategy) {
+        Set<String> selected = new HashSet<>(strategy.getMarketNames());
+        List<String> values = new ArrayList<>();
+        for (GeographyMarket market : GeographyMarket.values()) {
+            if (selected.contains(market.name())) {
+                values.add(market.value());
+            }
+        }
+        return values;
+    }
+
+    /** Selected ownership structures as stable tokens, ordered by the enum's declaration. */
+    private static List<String> structureValues(Strategy strategy) {
+        Set<String> selected = new HashSet<>(strategy.getStructureNames());
+        List<String> values = new ArrayList<>();
+        for (OwnershipStructure structure : OwnershipStructure.values()) {
+            if (selected.contains(structure.name())) {
+                values.add(structure.value());
+            }
+        }
+        return values;
     }
 }

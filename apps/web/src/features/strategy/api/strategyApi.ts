@@ -26,3 +26,17 @@ export function putCompanySize(
     body: { employee, revenue },
   });
 }
+
+export function putGeography(projectId: string, markets: string[]): Promise<Strategy> {
+  return request<Strategy>(`/projects/${projectId}/strategy/geography`, {
+    method: "PUT",
+    body: { markets },
+  });
+}
+
+export function putOwnership(projectId: string, structures: string[]): Promise<Strategy> {
+  return request<Strategy>(`/projects/${projectId}/strategy/ownership`, {
+    method: "PUT",
+    body: { structures },
+  });
+}
