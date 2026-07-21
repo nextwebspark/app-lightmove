@@ -153,6 +153,26 @@ lightmove:
     base-url: ${WEB_BASE_URL:http://localhost:5173}
     cors-allowed-origins: ${WEB_CORS_ORIGINS:http://localhost:5173}
     oauth-success-path: /auth/callback
+  # Read limits over the shared company universe (app_lm_companies). Defaults are production-ready;
+  # these placeholders let a deployed service retune the picker without a recompile.
+  company:
+    search:
+      # Rows returned when the request names no explicit limit.
+      default-result-limit: ${COMPANY_SEARCH_DEFAULT_LIMIT:10}
+      # Hard ceiling on rows one search returns; a larger requested limit clamps to this.
+      max-result-limit: ${COMPANY_SEARCH_MAX_LIMIT:25}
+      # Longest accepted query text; beyond it the request is rejected — a scope, not an attack.
+      max-query-length: ${COMPANY_SEARCH_MAX_QUERY_LENGTH:100}
+    estimate:
+      # Most sector-plus-tag labels one estimate may carry before it is rejected.
+      max-labels: ${COMPANY_ESTIMATE_MAX_LABELS:100}
+    suggestions:
+      # How many adjacent sectors the suggestion panel shows at most.
+      adjacent-sector-limit: ${COMPANY_SUGGESTIONS_ADJACENT_LIMIT:10}
+      # How many inferred tags survive to the response.
+      inferred-tag-limit: ${COMPANY_SUGGESTIONS_INFERRED_LIMIT:8}
+      # How many co-occurring tags to pull before filtering out ground the sectors already cover.
+      inferred-tag-fetch-size: ${COMPANY_SUGGESTIONS_INFERRED_FETCH:30}
 
 management:
   # Actuator listens on its own port, bound to loopback — it is not reachable from the internet at all.

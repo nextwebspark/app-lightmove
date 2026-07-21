@@ -1,13 +1,15 @@
 package app.lightmove.api.company.controller;
 
+import app.lightmove.api.company.constant.CompanySearchOrder;
 import app.lightmove.api.company.dto.CompanyDtos.EstimateResponse;
+import app.lightmove.api.company.dto.CompanyDtos.SearchResponse;
 import app.lightmove.api.company.dto.CompanyDtos.SectorsResponse;
 import app.lightmove.api.company.dto.CompanyDtos.SuggestionsResponse;
 import app.lightmove.api.company.service.CompanyQueryService;
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,13 +24,17 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/companies")
-@RequiredArgsConstructor
 public class CompanyReferenceController {
 
-    /** A generous ceiling on how many labels one estimate may carry — a scope, not an attack. */
-    private static final int MAX_ESTIMATE_LABELS = 100;
-
     private final CompanyQueryService companies;
+    private final LightMoveProperties.Company.Search searchConfig;
+    private final LightMoveProperties.Company.Estimate estimateConfig;
+
+    public CompanyReferenceController(CompanyQueryService companies, LightMoveProperties properties) {
+        this.companies = companies;
+        this.searchConfig = properties.company().search();
+        this.estimateConfig = properties.company().estimate();
+    }
 
     @GetMapping("/sectors")
     @PreAuthorize("@workspaceAuth.can(principal, 'PROJECT_BROWSE')")
@@ -50,10 +56,47 @@ public class CompanyReferenceController {
             @RequestParam(name = "tag", required = false) List<String> tags) {
         List<String> sectorList = orEmpty(sectors);
         List<String> tagList = orEmpty(tags);
-        if (sectorList.size() + tagList.size() > MAX_ESTIMATE_LABELS) {
+        if (sectorList.size() + tagList.size() > estimateConfig.maxLabels()) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "Too many labels to estimate at once");
         }
         return ResponseEntity.ok(new EstimateResponse(companies.estimate(sectorList, tagList)));
+    }
+
+    /**
+     * The company picker: a blank query browses by revenue within the given sectors; any typed text
+     * matches names instead, ignoring sector and order — typed text means the user knows the company.
+     */
+    @GetMapping("/search")
+    @PreAuthorize("@workspaceAuth.can(principal, 'PROJECT_BROWSE')")
+    public ResponseEntity<SearchResponse> search(
+            @RequestParam(name = "q", required = false) String query,
+            @RequestParam(name = "sector", required = false) List<String> sectors,
+            @RequestParam(name = "order", required = false) String order,
+            @RequestParam(name = "limit", required = false) Integer limit) {
+        String trimmed = query == null ? "" : query.trim();
+        if (trimmed.length() > searchConfig.maxQueryLength()) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "That search is too long");
+        }
+        int effectiveLimit = limit == null
+                ? searchConfig.defaultResultLimit()
+                : Math.clamp(limit, 1, searchConfig.maxResultLimit());
+        if (!trimmed.isEmpty()) {
+            return ResponseEntity.ok(new SearchResponse(companies.search(trimmed, effectiveLimit)));
+        }
+        return ResponseEntity.ok(new SearchResponse(
+                companies.browse(orEmpty(sectors), resolveOrder(order), effectiveLimit)));
+    }
+
+    /** Resolve the order token, defaulting to prominent-first; an unknown token is a client bug. */
+    private static CompanySearchOrder resolveOrder(String order) {
+        if (order == null) {
+            return CompanySearchOrder.REVENUE_DESC;
+        }
+        CompanySearchOrder resolved = CompanySearchOrder.fromValue(order);
+        if (resolved == null) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown search order: " + order);
+        }
+        return resolved;
     }
 
     /**
