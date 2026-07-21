@@ -15,7 +15,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record LightMoveProperties(
         Auth auth,
         Email email,
-        Web web
+        Web web,
+        Company company
 ) {
 
     public record Auth(
@@ -173,4 +174,46 @@ public record LightMoveProperties(
              */
             @DefaultValue("0") int trustedProxyCount
     ) {}
+
+    /**
+     * Read limits over the shared company universe (app_lm_companies): the picker search/browse, the
+     * sector-scope estimate, and the sector suggestions. Defaults are production-ready; each is
+     * overridable per environment under {@code lightmove.company.*} without a recompile.
+     */
+    public record Company(
+            Search search,
+            Estimate estimate,
+            Suggestions suggestions
+    ) {
+
+        /** The company picker typeahead and zero-query browse — {@code GET /api/v1/companies/search}. */
+        public record Search(
+                /** Rows returned when the request names no explicit {@code limit}. */
+                @DefaultValue("10") int defaultResultLimit,
+
+                /** Hard ceiling on rows one search returns; a larger requested {@code limit} clamps to this. */
+                @DefaultValue("25") int maxResultLimit,
+
+                /** Longest accepted query text; beyond it the request is rejected — a scope, not an attack. */
+                @DefaultValue("100") int maxQueryLength
+        ) {}
+
+        /** The sector-scope match count — {@code GET /api/v1/companies/estimate}. */
+        public record Estimate(
+                /** Most sector-plus-tag labels one estimate may carry before it is rejected. */
+                @DefaultValue("100") int maxLabels
+        ) {}
+
+        /** The adjacent-sector and inferred-tag suggestions — {@code CompanyQueryService.suggestionsFor}. */
+        public record Suggestions(
+                /** How many adjacent sectors the suggestion panel shows at most. */
+                @DefaultValue("10") int adjacentSectorLimit,
+
+                /** How many inferred tags survive to the response. */
+                @DefaultValue("8") int inferredTagLimit,
+
+                /** How many co-occurring tags to pull before filtering out ground the sectors already cover. */
+                @DefaultValue("30") int inferredTagFetchSize
+        ) {}
+    }
 }

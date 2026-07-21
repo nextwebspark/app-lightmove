@@ -1,5 +1,8 @@
 package app.lightmove.api.project.service;
 
+import app.lightmove.api.company.model.CompanyKey;
+import app.lightmove.api.company.model.CompanyRefRow;
+import app.lightmove.api.company.service.CompanyQueryService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -11,22 +14,29 @@ import app.lightmove.api.project.constant.OwnershipStructure;
 import app.lightmove.api.project.constant.RevenueBand;
 import app.lightmove.api.project.constant.StrategySectorKind;
 import app.lightmove.api.project.dto.StrategyDtos.ChipDto;
+import app.lightmove.api.project.dto.StrategyDtos.CompanyKeyDto;
+import app.lightmove.api.project.dto.StrategyDtos.CompanyRefDto;
 import app.lightmove.api.project.dto.StrategyDtos.PutCompanySizeRequest;
 import app.lightmove.api.project.dto.StrategyDtos.PutGeographyRequest;
+import app.lightmove.api.project.dto.StrategyDtos.PutOffLimitsRequest;
 import app.lightmove.api.project.dto.StrategyDtos.PutOwnershipRequest;
 import app.lightmove.api.project.dto.StrategyDtos.PutSectorsRequest;
+import app.lightmove.api.project.dto.StrategyDtos.PutTargetsRequest;
 import app.lightmove.api.project.dto.StrategyDtos.StrategyResponse;
 import app.lightmove.api.project.model.Strategy;
+import app.lightmove.api.project.model.StrategyCompanyRef;
 import app.lightmove.api.project.model.StrategySector;
 import app.lightmove.api.project.model.StrategySizeBand;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.project.repository.StrategyRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -47,6 +57,9 @@ public class StrategyService {
     private final StrategyRepository strategies;
     private final ProjectRepository projects;
     private final AuditService audit;
+    // A deliberate cross-feature dependency, documented in CLAUDE.md's dependency rule: list writes
+    // resolve their snapshots from the universe, so only companies it actually holds can be stored.
+    private final CompanyQueryService companies;
 
     @Transactional
     public StrategyResponse get(UUID workspaceId, UUID projectId) {
@@ -131,6 +144,122 @@ public class StrategyService {
                 .detail("section", "ownership")
                 .record();
         return toResponse(strategy);
+    }
+
+    @Transactional
+    public StrategyResponse putTargets(UUID userId, UUID workspaceId, UUID projectId,
+                                       PutTargetsRequest request, HttpServletRequest httpRequest) {
+        Strategy strategy = load(projectId, workspaceId);
+        strategy.replaceTargetCompanies(resolveCompanyList(request.companies(),
+                strategy.getTargetCompanies(), strategy.getOffLimitsCompanies(), "off-limits"));
+
+        audit.event(ProjectEventType.STRATEGY_UPDATED)
+                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                .detail("section", "targets")
+                .record();
+        return toResponse(strategy);
+    }
+
+    @Transactional
+    public StrategyResponse putOffLimits(UUID userId, UUID workspaceId, UUID projectId,
+                                         PutOffLimitsRequest request, HttpServletRequest httpRequest) {
+        Strategy strategy = load(projectId, workspaceId);
+        strategy.replaceOffLimitsCompanies(resolveCompanyList(request.companies(),
+                strategy.getOffLimitsCompanies(), strategy.getTargetCompanies(), "target"));
+
+        audit.event(ProjectEventType.STRATEGY_UPDATED)
+                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                .detail("section", "offLimits")
+                .record();
+        return toResponse(strategy);
+    }
+
+    /**
+     * Turn one list's requested keys into the refs to store. A key already on this list keeps its
+     * stored snapshot untouched — re-resolving it would make removing one company fail the whole
+     * save the day another vanishes upstream. Only new keys are resolved against the universe, and
+     * an unknown one is rejected: the client may only pick companies that exist. A key on the other
+     * list is rejected too — targeting a company and barring it at once is a contradiction, not a
+     * scope.
+     */
+    private List<StrategyCompanyRef> resolveCompanyList(List<CompanyKeyDto> requested,
+                                                        List<StrategyCompanyRef> stored,
+                                                        List<StrategyCompanyRef> otherList,
+                                                        String otherListLabel) {
+        Map<String, StrategyCompanyRef> storedByKey = byKey(stored);
+        Map<String, StrategyCompanyRef> otherByKey = byKey(otherList);
+
+        // One pass: reject in-request duplicates and cross-list conflicts, and gather the keys not
+        // already stored (only those hit the universe — a stored ref keeps its snapshot, so a company
+        // that vanished upstream never fails a save that merely removes a sibling).
+        Set<String> seen = new HashSet<>();
+        List<CompanyKey> newKeys = new ArrayList<>();
+        for (CompanyKeyDto key : requested) {
+            String mapKey = keyOf(key);
+            if (!seen.add(mapKey)) {
+                throw new ApiException(ErrorCode.VALIDATION_FAILED,
+                        "Duplicate company in the list: " + label(key));
+            }
+            StrategyCompanyRef conflict = otherByKey.get(mapKey);
+            if (conflict != null) {
+                throw new ApiException(ErrorCode.VALIDATION_FAILED,
+                        conflict.getName() + " is already on the " + otherListLabel + " list");
+            }
+            if (!storedByKey.containsKey(mapKey)) {
+                newKeys.add(new CompanyKey(key.source(), key.sourceId()));
+            }
+        }
+
+        Map<String, CompanyRefRow> resolved = new HashMap<>();
+        for (CompanyRefRow row : companies.refsByKeys(newKeys)) {
+            resolved.put(keyOf(row.source(), row.sourceId()), row);
+        }
+
+        // Assemble in request order: keep stored snapshots, snapshot new ones, reject unknowns.
+        List<StrategyCompanyRef> refs = new ArrayList<>(requested.size());
+        for (CompanyKeyDto key : requested) {
+            String mapKey = keyOf(key);
+            StrategyCompanyRef kept = storedByKey.get(mapKey);
+            if (kept != null) {
+                refs.add(kept);
+                continue;
+            }
+            CompanyRefRow row = resolved.get(mapKey);
+            if (row == null) {
+                throw new ApiException(ErrorCode.VALIDATION_FAILED,
+                        "Not in the universe: " + label(key));
+            }
+            refs.add(snapshotOf(row));
+        }
+        return refs;
+    }
+
+    /** The universe row as a stored list snapshot. */
+    private static StrategyCompanyRef snapshotOf(CompanyRefRow row) {
+        return StrategyCompanyRef.of(row.source(), row.sourceId(), row.name(), row.domain(),
+                row.slogan(), row.logo(), row.hqCity(), row.hqCountry());
+    }
+
+    private static Map<String, StrategyCompanyRef> byKey(List<StrategyCompanyRef> refs) {
+        Map<String, StrategyCompanyRef> map = new HashMap<>();
+        for (StrategyCompanyRef ref : refs) {
+            map.put(keyOf(ref.getSource(), ref.getSourceId()), ref);
+        }
+        return map;
+    }
+
+    private static String keyOf(CompanyKeyDto key) {
+        return keyOf(key.source(), key.sourceId());
+    }
+
+    /** A key as "source/sourceId" for a validation message. */
+    private static String label(CompanyKeyDto key) {
+        return key.source() + "/" + key.sourceId();
+    }
+
+    /** NUL appears in neither half, so the concatenation never collides across the boundary. */
+    private static String keyOf(String source, String sourceId) {
+        return source + "\0" + sourceId;
     }
 
     private Strategy load(UUID projectId, UUID workspaceId) {
@@ -221,7 +350,18 @@ public class StrategyService {
                 employeeValues(strategy),
                 revenueValues(strategy),
                 marketValues(strategy),
-                structureValues(strategy));
+                structureValues(strategy),
+                companyRefs(strategy.getTargetCompanies()),
+                companyRefs(strategy.getOffLimitsCompanies()));
+    }
+
+    /** A company list as the wire carries it — stored (user) order, snapshots included. */
+    private static List<CompanyRefDto> companyRefs(List<StrategyCompanyRef> refs) {
+        return refs.stream()
+                .map(ref -> new CompanyRefDto(ref.getSource(), ref.getSourceId(), ref.getName(),
+                        ref.getDomain(), ref.getSlogan(), ref.getLogo(), ref.getHqCity(),
+                        ref.getHqCountry()))
+                .toList();
     }
 
     private static List<ChipDto> chipsOf(Strategy strategy, StrategySectorKind kind) {

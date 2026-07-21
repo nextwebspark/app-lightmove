@@ -22,12 +22,15 @@ vi.mock("../api/strategyApi", async (importOriginal) => ({
   putCompanySize: vi.fn(),
   putGeography: vi.fn(),
   putOwnership: vi.fn(),
+  putTargets: vi.fn(),
+  putOffLimits: vi.fn(),
 }));
 vi.mock("../api/companiesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/companiesApi")>()),
   getSectors: vi.fn(),
   getSuggestions: vi.fn(),
   getEstimate: vi.fn(),
+  searchCompanies: vi.fn(),
 }));
 
 const project: Project = {
@@ -52,6 +55,21 @@ const seeded: Strategy = {
   revenue: [],
   markets: [],
   structures: [],
+  targets: [],
+  offLimits: [],
+};
+
+const acme = {
+  source: "test",
+  sourceId: "acme",
+  name: "Acme Retail",
+  domain: "acme.example",
+  slogan: "Everything store",
+  logo: null,
+  hqCity: "Dubai",
+  hqCountry: "AE",
+  primaryIndustry: "Retail",
+  employeeCount: 500,
 };
 
 const sectors = {
@@ -91,6 +109,19 @@ describe("StrategyPage — the sector-scope editor", () => {
     vi.mocked(strategyApi.putOwnership).mockImplementation((_id, structures) =>
       Promise.resolve({ ...seeded, structures }),
     );
+    vi.mocked(strategyApi.putTargets).mockImplementation((_id, companies) =>
+      Promise.resolve({
+        ...seeded,
+        targets: companies.map((key) => ({ ...acme, ...key })),
+      }),
+    );
+    vi.mocked(strategyApi.putOffLimits).mockImplementation((_id, companies) =>
+      Promise.resolve({
+        ...seeded,
+        offLimits: companies.map((key) => ({ ...acme, ...key })),
+      }),
+    );
+    vi.mocked(companiesApi.searchCompanies).mockResolvedValue({ companies: [acme] });
     vi.mocked(companiesApi.getSectors).mockResolvedValue(sectors);
     vi.mocked(companiesApi.getSuggestions).mockResolvedValue({
       adjacent: ["Wholesale"],
@@ -307,5 +338,141 @@ describe("StrategyPage — the sector-scope editor", () => {
         ).toBe(true),
       { timeout: 2000 },
     );
+  });
+
+  it("switches to Target List Seeding and shows the empty state with a company search", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Target List Seeding" }));
+
+    expect(screen.getByText("None yet.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Search companies")).toBeInTheDocument();
+  });
+
+  it("picks a searched company into the target list and autosaves bare keys", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Target List Seeding" }));
+
+    await userEvent.type(screen.getByLabelText("Search companies"), "acme");
+    await userEvent.click(await screen.findByRole("option", { name: /Acme Retail/ }));
+
+    // The row renders from the picked snapshot; the wire carries only the key pair.
+    expect(screen.getByText("Acme Retail")).toBeInTheDocument();
+    expect(screen.getByText("Everything store")).toBeInTheDocument();
+    await waitFor(
+      () =>
+        expect(
+          vi.mocked(strategyApi.putTargets).mock.calls.some(
+            ([, companies]) =>
+              companies.length === 1 &&
+              companies[0].source === "test" &&
+              companies[0].sourceId === "acme" &&
+              !("name" in companies[0]),
+          ),
+        ).toBe(true),
+      { timeout: 2000 },
+    );
+  });
+
+  it("removes a target company and autosaves the list without it", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Target List Seeding" }));
+    await userEvent.type(screen.getByLabelText("Search companies"), "acme");
+    await userEvent.click(await screen.findByRole("option", { name: /Acme Retail/ }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Remove Acme Retail" }));
+
+    // Row-scoped check: once removed, the company may legitimately reappear as a browse option.
+    expect(screen.queryByRole("button", { name: "Remove Acme Retail" })).not.toBeInTheDocument();
+    await waitFor(
+      () =>
+        expect(
+          vi.mocked(strategyApi.putTargets).mock.calls.some(([, companies]) => companies.length === 0),
+        ).toBe(true),
+      { timeout: 2000 },
+    );
+  });
+
+  it("picks a company into Off-limits and autosaves through the off-limits endpoint", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Off-limits" }));
+
+    await userEvent.type(screen.getByLabelText("Search companies"), "acme");
+    await userEvent.click(await screen.findByRole("option", { name: /Acme Retail/ }));
+
+    expect(screen.getByText("Acme Retail")).toBeInTheDocument();
+    await waitFor(
+      () =>
+        expect(
+          vi.mocked(strategyApi.putOffLimits).mock.calls.some(
+            ([, companies]) => companies.length === 1 && companies[0].sourceId === "acme",
+          ),
+        ).toBe(true),
+      { timeout: 2000 },
+    );
+    expect(vi.mocked(strategyApi.putTargets)).not.toHaveBeenCalled();
+  });
+
+  it("browses prominent-first for targets and smallest-first for off-limits, within the direct sectors", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Target List Seeding" }));
+    await userEvent.click(screen.getByLabelText("Search companies"));
+
+    await waitFor(() =>
+      expect(companiesApi.searchCompanies).toHaveBeenCalledWith("", ["Retail"], "revenue_desc"),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Off-limits" }));
+    await userEvent.click(screen.getByLabelText("Search companies"));
+
+    await waitFor(() =>
+      expect(companiesApi.searchCompanies).toHaveBeenCalledWith("", ["Retail"], "revenue_asc"),
+    );
+  });
+
+  it("rolls a rejected save back to the server state instead of wedging the list", async () => {
+    vi.mocked(strategyApi.putTargets).mockRejectedValueOnce(
+      Object.assign(new Error("rejected"), { code: "VALIDATION_FAILED" }),
+    );
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Target List Seeding" }));
+    await userEvent.type(screen.getByLabelText("Search companies"), "acme");
+    await userEvent.click(await screen.findByRole("option", { name: /Acme Retail/ }));
+
+    // The rejected ref leaves the draft — the row disappears back to the empty server state.
+    await waitFor(
+      () =>
+        expect(screen.queryByRole("button", { name: "Remove Acme Retail" })).not.toBeInTheDocument(),
+      { timeout: 2000 },
+    );
+
+    // The list is not wedged: the next pick saves cleanly.
+    await userEvent.type(screen.getByLabelText("Search companies"), "acme");
+    await userEvent.click(await screen.findByRole("option", { name: /Acme Retail/ }));
+    await waitFor(
+      () =>
+        expect(
+          vi.mocked(strategyApi.putTargets).mock.calls.filter(
+            ([, companies]) => companies.length === 1 && companies[0].sourceId === "acme",
+          ).length,
+        ).toBe(2),
+      { timeout: 2000 },
+    );
+    expect(screen.getByRole("button", { name: "Remove Acme Retail" })).toBeInTheDocument();
+  });
+
+  it("hides a company already on either list from the search results", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Target List Seeding" }));
+    await userEvent.type(screen.getByLabelText("Search companies"), "acme");
+    await userEvent.click(await screen.findByRole("option", { name: /Acme Retail/ }));
+
+    // Same list: the picked company never reappears as an option.
+    await userEvent.type(screen.getByLabelText("Search companies"), "acme");
+    await waitFor(() => expect(screen.queryByRole("option")).not.toBeInTheDocument());
+
+    // Other list: off-limits excludes it too — the cross-list contradiction can't be picked.
+    await userEvent.click(screen.getByRole("button", { name: "Off-limits" }));
+    await userEvent.type(screen.getByLabelText("Search companies"), "acme");
+    await waitFor(() => expect(screen.queryByRole("option")).not.toBeInTheDocument());
   });
 });

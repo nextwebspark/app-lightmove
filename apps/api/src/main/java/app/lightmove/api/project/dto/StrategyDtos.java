@@ -10,7 +10,10 @@ import java.util.List;
  * The HTTP contract for the strategy's scope sections. The screen holds each section's whole selection
  * and PUTs it back as a snapshot (matching the position autosave model): sectors travel split by kind
  * — direct, adjacent, inferred — and the service flattens them into one ordered list on write; the
- * fixed-catalog sections (company size, geography, ownership) travel as selected values only.
+ * fixed-catalog sections (company size, geography, ownership) travel as selected values only. The
+ * company lists (targets, off-limits) write bare {@code (source, sourceId)} keys — the snapshot
+ * fields the response carries are resolved server-side from the universe, never taken from the
+ * client.
  */
 public final class StrategyDtos {
 
@@ -39,7 +42,45 @@ public final class StrategyDtos {
             // country codes ("AE", "SA"), structures carries stable tokens ("PUBLICLY_LISTED") — the
             // client's catalog mirror owns the display names.
             List<String> markets,
-            List<String> structures
+            List<String> structures,
+            // The company lists, in stored (user) order, snapshots included.
+            List<CompanyRefDto> targets,
+            List<CompanyRefDto> offLimits
+    ) {}
+
+    /** One company addressed by its rebuild-stable app_lm_companies key — the write shape. */
+    public record CompanyKeyDto(
+            @NotBlank(message = "Every company needs a source")
+            @Size(max = 64, message = "That company source is too long")
+            String source,
+
+            @NotBlank(message = "Every company needs a source id")
+            @Size(max = 256, message = "That company source id is too long")
+            String sourceId
+    ) {}
+
+    /** One stored list entry: the key plus the name/display snapshot taken when it was added. */
+    public record CompanyRefDto(
+            String source,
+            String sourceId,
+            String name,
+            String domain,
+            String slogan,
+            String logo,
+            String hqCity,
+            String hqCountry
+    ) {}
+
+    public record PutTargetsRequest(
+            @NotNull
+            @Size(max = 200, message = "That is too many target companies")
+            List<@Valid CompanyKeyDto> companies
+    ) {}
+
+    public record PutOffLimitsRequest(
+            @NotNull
+            @Size(max = 200, message = "That is too many off-limits companies")
+            List<@Valid CompanyKeyDto> companies
     ) {}
 
     public record PutSectorsRequest(

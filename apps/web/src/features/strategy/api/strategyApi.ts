@@ -40,3 +40,23 @@ export function putOwnership(projectId: string, structures: string[]): Promise<S
     body: { structures },
   });
 }
+
+/** The company lists write bare keys — the server resolves every snapshot field itself. */
+export interface CompanyKey {
+  source: string;
+  sourceId: string;
+}
+
+export function putTargets(projectId: string, companies: CompanyKey[]): Promise<Strategy> {
+  return request<Strategy>(`/projects/${projectId}/strategy/targets`, {
+    method: "PUT",
+    body: { companies },
+  });
+}
+
+export function putOffLimits(projectId: string, companies: CompanyKey[]): Promise<Strategy> {
+  return request<Strategy>(`/projects/${projectId}/strategy/off-limits`, {
+    method: "PUT",
+    body: { companies },
+  });
+}

@@ -102,6 +102,185 @@ class CompanyReferenceIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the search matches case-insensitive substrings, ranking prefix matches first")
+    void searchMatchesSubstringsPrefixFirst() throws Exception {
+        String admin = adminOf("Company Search Firm");
+        namedCompany("Acme Retail", 500);
+        namedCompany("Retail Kings", 50);
+        namedCompany("Big Retail Kings", 5000);
+        namedCompany("Oil and Gas Co", 100);
+
+        mvc.perform(get("/api/v1/companies/search")
+                        .param("q", "retail")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.companies.length()").value(3))
+                // The prefix match leads even though a substring match is far larger.
+                .andExpect(jsonPath("$.companies[0].name").value("Retail Kings"))
+                .andExpect(jsonPath("$.companies[1].name").value("Big Retail Kings"))
+                .andExpect(jsonPath("$.companies[2].name").value("Acme Retail"));
+    }
+
+    @Test
+    @DisplayName("the search returns the picker's display fields")
+    void searchReturnsDisplayFields() throws Exception {
+        String admin = adminOf("Company Search Fields Firm");
+        db.update("""
+                        INSERT INTO app_lm_companies (source, source_id, name, domain, slogan, logo,
+                                                      primary_industry, hq_city, hq_country, employee_count)
+                        VALUES ('test', 'acme', 'Acme Retail', 'acme.example', 'Everything store',
+                                'https://logo/acme.png', 'Retail', 'Dubai', 'AE', 500)""");
+
+        mvc.perform(get("/api/v1/companies/search")
+                        .param("q", "acme")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.companies[0].source").value("test"))
+                .andExpect(jsonPath("$.companies[0].sourceId").value("acme"))
+                .andExpect(jsonPath("$.companies[0].domain").value("acme.example"))
+                .andExpect(jsonPath("$.companies[0].slogan").value("Everything store"))
+                .andExpect(jsonPath("$.companies[0].logo").value("https://logo/acme.png"))
+                .andExpect(jsonPath("$.companies[0].primaryIndustry").value("Retail"))
+                .andExpect(jsonPath("$.companies[0].hqCity").value("Dubai"))
+                .andExpect(jsonPath("$.companies[0].hqCountry").value("AE"))
+                .andExpect(jsonPath("$.companies[0].employeeCount").value(500));
+    }
+
+    @Test
+    @DisplayName("a single character already searches — there is no minimum query length")
+    void singleCharacterSearches() throws Exception {
+        String admin = adminOf("Company Search Short Firm");
+        revenueCompany("Xylem Retail", "Retail", 100L);
+        revenueCompany("Acme Retail", "Retail", 500L);
+
+        mvc.perform(get("/api/v1/companies/search")
+                        .param("q", "x")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.companies.length()").value(1))
+                .andExpect(jsonPath("$.companies[0].name").value("Xylem Retail"));
+    }
+
+    @Test
+    @DisplayName("a blank query browses by revenue, most prominent first, nulls last")
+    void blankQueryBrowsesByRevenueDescending() throws Exception {
+        String admin = adminOf("Company Browse Firm");
+        revenueCompany("Mid Retail", "Retail", 100L);
+        revenueCompany("Big Retail", "Retail", 500L);
+        revenueCompany("Unknown Retail", "Retail", null);
+
+        mvc.perform(get("/api/v1/companies/search").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.companies.length()").value(3))
+                .andExpect(jsonPath("$.companies[0].name").value("Big Retail"))
+                .andExpect(jsonPath("$.companies[1].name").value("Mid Retail"))
+                .andExpect(jsonPath("$.companies[2].name").value("Unknown Retail"));
+    }
+
+    @Test
+    @DisplayName("ascending browse lists the smallest known revenues and drops unknown ones")
+    void ascendingBrowseExcludesUnknownRevenue() throws Exception {
+        String admin = adminOf("Company Browse Asc Firm");
+        revenueCompany("Mid Retail", "Retail", 100L);
+        revenueCompany("Big Retail", "Retail", 500L);
+        revenueCompany("Unknown Retail", "Retail", null);
+
+        mvc.perform(get("/api/v1/companies/search")
+                        .param("order", "revenue_asc")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.companies.length()").value(2))
+                .andExpect(jsonPath("$.companies[0].name").value("Mid Retail"))
+                .andExpect(jsonPath("$.companies[1].name").value("Big Retail"));
+    }
+
+    @Test
+    @DisplayName("the sector filter narrows a browse but is ignored once the user types")
+    void sectorFilterNarrowsBrowseOnly() throws Exception {
+        String admin = adminOf("Company Browse Sector Firm");
+        revenueCompany("Big Retail", "Retail", 500L);
+        revenueCompany("Big Energy", "Oil and Gas", 900L);
+
+        mvc.perform(get("/api/v1/companies/search")
+                        .param("sector", "Retail")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.companies.length()").value(1))
+                .andExpect(jsonPath("$.companies[0].name").value("Big Retail"));
+
+        mvc.perform(get("/api/v1/companies/search")
+                        .param("q", "big").param("sector", "Retail")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.companies.length()").value(2));
+    }
+
+    @Test
+    @DisplayName("an unknown order token is rejected")
+    void unknownOrderRejected() throws Exception {
+        String admin = adminOf("Company Order Firm");
+
+        MvcResult result = mvc.perform(get("/api/v1/companies/search")
+                        .param("order", "alphabetical")
+                        .header("Authorization", "Bearer " + admin))
+                .andReturn();
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+        assertThat(codeOf(result)).isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
+    @DisplayName("an over-long query is rejected")
+    void overLongQueryRejected() throws Exception {
+        String admin = adminOf("Company Long Query Firm");
+
+        MvcResult result = mvc.perform(get("/api/v1/companies/search")
+                        .param("q", "x".repeat(101))
+                        .header("Authorization", "Bearer " + admin))
+                .andReturn();
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+        assertThat(codeOf(result)).isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
+    @DisplayName("LIKE wildcards in the query match literally, not as patterns")
+    void searchEscapesWildcards() throws Exception {
+        String admin = adminOf("Company Search Escape Firm");
+        namedCompany("100% Retail", 10);
+        namedCompany("Acme Retail", 500);
+
+        mvc.perform(get("/api/v1/companies/search")
+                        .param("q", "0% ")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.companies.length()").value(1))
+                .andExpect(jsonPath("$.companies[0].name").value("100% Retail"));
+    }
+
+    @Test
+    @DisplayName("the search limit is respected and clamped")
+    void searchLimitClamped() throws Exception {
+        String admin = adminOf("Company Search Limit Firm");
+        for (int i = 0; i < 30; i++) {
+            namedCompany("Retail Chain " + i, i);
+        }
+
+        mvc.perform(get("/api/v1/companies/search")
+                        .param("q", "retail").param("limit", "2")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.companies.length()").value(2));
+
+        // A limit beyond the cap comes back capped at 25, and none omitted defaults to 10.
+        mvc.perform(get("/api/v1/companies/search")
+                        .param("q", "retail").param("limit", "500")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.companies.length()").value(25));
+        mvc.perform(get("/api/v1/companies/search")
+                        .param("q", "retail")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.companies.length()").value(10));
+    }
+
+    @Test
     @DisplayName("employee and revenue bands narrow the estimate, AND'd with each other and with the sector scope")
     void sizeBandsNarrowEstimateAndedAcrossAxes() throws Exception {
         String admin = adminOf("Company Size Estimate Firm");
@@ -168,6 +347,8 @@ class CompanyReferenceIntegrationTest extends FlowTestSupport {
     void anonymousIsRejected() throws Exception {
         mvc.perform(get("/api/v1/companies/sectors"))
                 .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/companies/search").param("q", "acme"))
+                .andExpect(status().isUnauthorized());
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
@@ -183,6 +364,20 @@ class CompanyReferenceIntegrationTest extends FlowTestSupport {
 
     private void companyWithoutSector(String... tags) {
         insert(null, tags);
+    }
+
+    private void namedCompany(String name, int employeeCount) {
+        db.update("""
+                        INSERT INTO app_lm_companies (source, source_id, name, employee_count)
+                        VALUES ('test', gen_random_uuid()::text, ?, ?)""",
+                name, employeeCount);
+    }
+
+    private void revenueCompany(String name, String sector, Long revenueUsd) {
+        db.update("""
+                        INSERT INTO app_lm_companies (source, source_id, name, primary_industry, revenue_usd)
+                        VALUES ('test', gen_random_uuid()::text, ?, ?, ?)""",
+                name, sector, revenueUsd);
     }
 
     private void companyWithSize(String sector, int employeeCount, long revenueUsd) {
