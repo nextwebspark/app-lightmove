@@ -1,5 +1,5 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
@@ -11,6 +11,7 @@ const PAGE_SIZE = 25;
 
 /** How each scope bucket a company matched through reads on the card badge. */
 const TIER_META: Record<MatchTier, { label: string; className: string }> = {
+  TARGET: { label: "Target", className: "text-green bg-green-dim" },
   DIRECT: { label: "Direct", className: "text-sky bg-sky-dim" },
   ADJACENT: { label: "Adjacent", className: "text-amber bg-amber-dim" },
   INFERRED: { label: "AI Inferred", className: "text-text3 bg-line-soft" },
@@ -28,6 +29,7 @@ function criteriaRowsFor(company: CompanyResult, applied: AppliedFilters): { lab
   if (applied.sector) rows.push({ label: "Sector", value: company.sector ?? "—" });
   if (applied.employee) rows.push({ label: "Employees", value: company.employeeRange ?? "—" });
   if (applied.revenue) rows.push({ label: "Revenue", value: company.revenueRange ?? "—" });
+  if (applied.geography) rows.push({ label: "Region", value: company.location || "—" });
   return rows;
 }
 
@@ -45,14 +47,32 @@ const PLACEHOLDER_ACTIONS = [
  */
 export function SourcingPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
-  const [page, setPage] = useState(0);
   const [view, setView] = useState<"card" | "list">("card");
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const { data, isPending } = useQuery({
-    queryKey: sourcingApi.SOURCING_KEY(project.id, page, PAGE_SIZE),
-    queryFn: () => sourcingApi.getSourcingCompanies(project.id, page, PAGE_SIZE),
-    placeholderData: keepPreviousData,
+  const { data, isPending, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: sourcingApi.SOURCING_KEY(project.id, PAGE_SIZE),
+    queryFn: ({ pageParam }) => sourcingApi.getSourcingCompanies(project.id, pageParam, PAGE_SIZE),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => {
+      const nextPage = lastPage.page + 1;
+      return nextPage * lastPage.size < lastPage.totalCount ? nextPage : undefined;
+    },
   });
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) {
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   if (isPending) {
     return (
@@ -62,10 +82,15 @@ export function SourcingPage() {
     );
   }
 
-  const totalCount = data?.totalCount ?? 0;
-  const companies = data?.companies ?? [];
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-  const appliedFilters = data?.appliedFilters ?? { sector: false, employee: false, revenue: false };
+  const pages = data?.pages ?? [];
+  const totalCount = pages[0]?.totalCount ?? 0;
+  const companies = pages.flatMap((p) => p.companies);
+  const appliedFilters = pages[0]?.appliedFilters ?? {
+    sector: false,
+    employee: false,
+    revenue: false,
+    geography: false,
+  };
 
   return (
     <div className="animate-fade-up">
@@ -250,28 +275,8 @@ export function SourcingPage() {
             </div>
           )}
 
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <span className="font-mono text-[11px] text-text3">
-              Page {page + 1} of {totalPages}
-            </span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setPage((current) => Math.max(0, current - 1))}
-                disabled={page === 0}
-                className="rounded-[7px] border border-line px-[11px] py-[5px] font-sans text-[12.5px] font-medium text-text2 disabled:cursor-not-allowed disabled:opacity-40 hover:enabled:border-text3 hover:enabled:text-text"
-              >
-                Previous
-              </button>
-              <button
-                type="button"
-                onClick={() => setPage((current) => current + 1)}
-                disabled={page + 1 >= totalPages}
-                className="rounded-[7px] border border-line px-[11px] py-[5px] font-sans text-[12.5px] font-medium text-text2 disabled:cursor-not-allowed disabled:opacity-40 hover:enabled:border-text3 hover:enabled:text-text"
-              >
-                Next
-              </button>
-            </div>
+          <div ref={sentinelRef} className="flex justify-center pt-4">
+            {isFetchingNextPage && <Spinner />}
           </div>
         </>
       )}

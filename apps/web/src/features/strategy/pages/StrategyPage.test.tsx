@@ -275,6 +275,22 @@ describe("StrategyPage — the sector-scope editor", () => {
     );
   });
 
+  it("narrows the live estimate by the selected geography markets too", async () => {
+    renderPage();
+    await screen.findByText("4,200");
+    await userEvent.click(await screen.findByRole("button", { name: "Location" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Saudi Arabia" }));
+
+    await waitFor(() =>
+      expect(
+        vi.mocked(companiesApi.getEstimate).mock.calls.some(
+          ([, , , , markets]) => markets.includes("SA"),
+        ),
+      ).toBe(true),
+    );
+  });
+
   it("navigates to the project's Sourcing screen from the Go to sourcing button", async () => {
     renderPage();
 

@@ -1,5 +1,6 @@
-/** Which scope bucket a company matched through — a direct sector, an adjacent sector, or a tag. */
-export type MatchTier = "DIRECT" | "ADJACENT" | "INFERRED";
+/** Which scope bucket a company matched through — a direct sector, an adjacent sector, a tag, or a
+ *  manually-seeded target (which bypasses the other criteria entirely). */
+export type MatchTier = "DIRECT" | "ADJACENT" | "INFERRED" | "TARGET";
 
 /** One company matching the project's saved Strategy scope. */
 export interface CompanyResult {
@@ -22,6 +23,7 @@ export interface AppliedFilters {
   sector: boolean;
   employee: boolean;
   revenue: boolean;
+  geography: boolean;
 }
 
 export interface SourcingResponse {

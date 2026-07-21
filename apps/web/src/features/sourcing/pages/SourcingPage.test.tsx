@@ -13,6 +13,33 @@ vi.mock("../api/sourcingApi", async (importOriginal) => ({
   getSourcingCompanies: vi.fn(),
 }));
 
+/** jsdom has no IntersectionObserver; capture the callback so tests can fire it manually to
+ *  simulate the sentinel scrolling into view. */
+let observerCallback: IntersectionObserverCallback | null = null;
+class IntersectionObserverMock implements IntersectionObserver {
+  readonly root = null;
+  readonly rootMargin = "";
+  readonly scrollMargin = "";
+  readonly thresholds: ReadonlyArray<number> = [];
+  constructor(callback: IntersectionObserverCallback) {
+    observerCallback = callback;
+  }
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords(): IntersectionObserverEntry[] {
+    return [];
+  }
+}
+vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
+
+function triggerSentinelIntersect() {
+  observerCallback?.(
+    [{ isIntersecting: true } as IntersectionObserverEntry],
+    new IntersectionObserverMock(() => {}),
+  );
+}
+
 const project: Project = {
   id: "p1",
   clientId: "c1",
@@ -38,7 +65,7 @@ function page(overrides: Partial<SourcingResponse> = {}): SourcingResponse {
     totalCount: 2,
     page: 0,
     size: 25,
-    appliedFilters: { sector: true, employee: true, revenue: true },
+    appliedFilters: { sector: true, employee: true, revenue: true, geography: false },
     ...overrides,
   };
 }
@@ -99,16 +126,41 @@ describe("SourcingPage — the filtered company list", () => {
     );
   });
 
-  it("pages forward and requests the next page from the API", async () => {
-    vi.mocked(sourcingApi.getSourcingCompanies).mockResolvedValue(page({ totalCount: 30 }));
+  it("fetches the next page when the scroll sentinel comes into view, and appends the results", async () => {
+    vi.mocked(sourcingApi.getSourcingCompanies)
+      .mockResolvedValueOnce(page({ totalCount: 30 }))
+      .mockResolvedValueOnce(
+        page({
+          page: 1,
+          totalCount: 30,
+          companies: [
+            { id: 3, name: "Charlie Retail", domain: "charlie.com", sector: "Retail", employeeRange: "1-10",
+              revenueRange: "<5M", location: "Doha, Qatar", matchTier: "DIRECT" },
+          ],
+        }),
+      );
     renderPage();
 
     await screen.findByText("Alpha Retail");
-    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    triggerSentinelIntersect();
 
     await waitFor(() =>
       expect(sourcingApi.getSourcingCompanies).toHaveBeenCalledWith("p1", 1, 25),
     );
+    expect(await screen.findByText("Charlie Retail")).toBeInTheDocument();
+    // The first page's companies stay put — this is accumulation, not replacement.
+    expect(screen.getByText("Alpha Retail")).toBeInTheDocument();
+  });
+
+  it("does not fetch another page once every company has been loaded", async () => {
+    vi.mocked(sourcingApi.getSourcingCompanies).mockResolvedValue(page());
+    renderPage();
+
+    await screen.findByText("Alpha Retail");
+    triggerSentinelIntersect();
+
+    // totalCount (2) already equals the first page's size — no next page to request.
+    await waitFor(() => expect(sourcingApi.getSourcingCompanies).toHaveBeenCalledTimes(1));
   });
 
   it("shows which scope bucket each card matched through", async () => {
@@ -137,7 +189,7 @@ describe("SourcingPage — the filtered company list", () => {
     vi.mocked(sourcingApi.getSourcingCompanies).mockResolvedValue(
       page({
         companies: [page().companies[0]],
-        appliedFilters: { sector: true, employee: true, revenue: false },
+        appliedFilters: { sector: true, employee: true, revenue: false, geography: false },
       }),
     );
     renderPage();
@@ -154,11 +206,38 @@ describe("SourcingPage — the filtered company list", () => {
 
     await screen.findByText("Alpha Retail");
     // Revenue/Employees/Sector labels also appear in the Criteria Met column (all applied here);
-    // Region is Scale-Snapshot-only, since geography scoping isn't built yet.
+    // Region is Scale-Snapshot-only here since geography isn't applied in this fixture.
     expect(screen.getAllByText("Revenue").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("Employees").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Region")).toBeInTheDocument();
     expect(screen.getAllByText("Sector").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("shows a Region checkmark row when geography is applied", async () => {
+    vi.mocked(sourcingApi.getSourcingCompanies).mockResolvedValue(
+      page({
+        companies: [page().companies[0]],
+        appliedFilters: { sector: true, employee: true, revenue: true, geography: true },
+      }),
+    );
+    renderPage();
+
+    await screen.findByText("Alpha Retail");
+    expect(screen.getByText("4 of 4 met")).toBeInTheDocument();
+    // Region's value ("Dubai, UAE") appears twice: the checkmarked row and Scale Snapshot's own Region row.
+    expect(screen.getAllByText("Dubai, UAE")).toHaveLength(2);
+  });
+
+  it("shows a Target badge for a manually-seeded company", async () => {
+    vi.mocked(sourcingApi.getSourcingCompanies).mockResolvedValue(
+      page({
+        companies: [{ ...page().companies[0], matchTier: "TARGET" }],
+      }),
+    );
+    renderPage();
+
+    await screen.findByText("Alpha Retail");
+    expect(screen.getByText("Target")).toBeInTheDocument();
   });
 
   it("renders the placeholder triage buttons as disabled", async () => {

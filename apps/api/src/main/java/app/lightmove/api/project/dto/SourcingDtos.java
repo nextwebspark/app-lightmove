@@ -21,7 +21,7 @@ public final class SourcingDtos {
      * guaranteed to satisfy each {@code true} category (the query ANDs them together) — this isn't a
      * per-company fit score, just which of the criteria the card's checkmarks should render at all.
      */
-    public record AppliedFilters(boolean sector, boolean employee, boolean revenue) {}
+    public record AppliedFilters(boolean sector, boolean employee, boolean revenue, boolean geography) {}
 
     public record SourcingResponse(List<CompanyResultDto> companies, long totalCount, int page, int size,
                                     AppliedFilters appliedFilters) {}

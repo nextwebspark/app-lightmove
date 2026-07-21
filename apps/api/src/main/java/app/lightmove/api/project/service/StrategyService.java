@@ -1,5 +1,8 @@
 package app.lightmove.api.project.service;
 
+import app.lightmove.api.company.constant.CompanySizeAxis;
+import app.lightmove.api.company.constant.EmployeeBand;
+import app.lightmove.api.company.constant.RevenueBand;
 import app.lightmove.api.company.model.CompanyKey;
 import app.lightmove.api.company.model.CompanyRefRow;
 import app.lightmove.api.company.service.CompanyQueryService;
@@ -7,11 +10,8 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.project.constant.CompanySizeAxis;
-import app.lightmove.api.project.constant.EmployeeBand;
 import app.lightmove.api.project.constant.GeographyMarket;
 import app.lightmove.api.project.constant.OwnershipStructure;
-import app.lightmove.api.project.constant.RevenueBand;
 import app.lightmove.api.project.constant.StrategySectorKind;
 import app.lightmove.api.project.dto.StrategyDtos.ChipDto;
 import app.lightmove.api.project.dto.StrategyDtos.CompanyKeyDto;

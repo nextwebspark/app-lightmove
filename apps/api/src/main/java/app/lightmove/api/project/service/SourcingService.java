@@ -1,18 +1,21 @@
 package app.lightmove.api.project.service;
 
+import app.lightmove.api.company.constant.CompanySizeAxis;
+import app.lightmove.api.company.constant.EmployeeBand;
+import app.lightmove.api.company.constant.RevenueBand;
+import app.lightmove.api.company.model.CompanyKey;
 import app.lightmove.api.company.service.CompanyQueryService;
 import app.lightmove.api.company.service.CompanyQueryService.CompanyRow;
-import app.lightmove.api.company.service.CompanyQueryService.Range;
+import app.lightmove.api.company.service.CompanyQueryService.ScopeFilter;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.project.constant.CompanySizeAxis;
-import app.lightmove.api.project.constant.EmployeeBand;
-import app.lightmove.api.project.constant.RevenueBand;
+import app.lightmove.api.project.constant.GeographyMarket;
 import app.lightmove.api.project.constant.StrategySectorKind;
 import app.lightmove.api.project.dto.SourcingDtos.AppliedFilters;
 import app.lightmove.api.project.dto.SourcingDtos.CompanyResultDto;
 import app.lightmove.api.project.dto.SourcingDtos.SourcingResponse;
 import app.lightmove.api.project.model.Strategy;
+import app.lightmove.api.project.model.StrategyCompanyRef;
 import app.lightmove.api.project.model.StrategySizeBand;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.project.repository.StrategyRepository;
@@ -61,17 +64,21 @@ public class SourcingService {
         List<String> directSectors = labelsOf(strategy, StrategySectorKind.DIRECT);
         List<String> adjacentSectors = labelsOf(strategy, StrategySectorKind.ADJACENT);
         List<String> tags = labelsOf(strategy, StrategySectorKind.INFERRED);
-        List<Range> employeeRanges = rangesOf(strategy, CompanySizeAxis.EMPLOYEE);
-        List<Range> revenueRanges = rangesOf(strategy, CompanySizeAxis.REVENUE);
+        List<String> employeeBands = employeeBandsOf(strategy);
+        List<String> revenueBands = revenueBandsOf(strategy);
+        List<String> markets = marketsOf(strategy);
+        List<CompanyKey> targetKeys = keysOf(strategy.getTargetCompanies());
+        List<CompanyKey> offLimitsKeys = keysOf(strategy.getOffLimitsCompanies());
 
-        List<CompanyRow> rows = companies.search(
-                directSectors, adjacentSectors, tags, employeeRanges, revenueRanges, page, size);
+        ScopeFilter scope = new ScopeFilter(directSectors, adjacentSectors, tags, employeeBands,
+                revenueBands, markets, targetKeys, offLimitsKeys);
+        List<CompanyRow> rows = companies.search(scope, page, size);
+        long totalCount = companies.estimate(scope);
+
         List<String> allSectors = new ArrayList<>(directSectors);
         allSectors.addAll(adjacentSectors);
-        long totalCount = companies.estimate(allSectors, tags, employeeRanges, revenueRanges);
-
-        AppliedFilters appliedFilters = new AppliedFilters(
-                !allSectors.isEmpty() || !tags.isEmpty(), !employeeRanges.isEmpty(), !revenueRanges.isEmpty());
+        AppliedFilters appliedFilters = new AppliedFilters(!allSectors.isEmpty() || !tags.isEmpty(),
+                !employeeBands.isEmpty(), !revenueBands.isEmpty(), !markets.isEmpty());
         return new SourcingResponse(
                 rows.stream().map(SourcingService::toDto).toList(), totalCount, page, size, appliedFilters);
     }
@@ -101,27 +108,35 @@ public class SourcingService {
         return false;
     }
 
-    /** Selected bands on one axis, resolved to their numeric bounds. Presence in the list is selection. */
-    private static List<Range> rangesOf(Strategy strategy, CompanySizeAxis axis) {
-        List<Range> ranges = new ArrayList<>();
+    /** Selected employee bands, as their wire-format range strings. Presence in the list is selection. */
+    private static List<String> employeeBandsOf(Strategy strategy) {
+        List<String> bands = new ArrayList<>();
         for (StrategySizeBand band : strategy.getSizeBands()) {
-            if (band.getAxis() != axis) {
-                continue;
+            if (band.getAxis() == CompanySizeAxis.EMPLOYEE) {
+                bands.add(EmployeeBand.valueOf(band.getBand()).value());
             }
-            ranges.add(axis == CompanySizeAxis.EMPLOYEE
-                    ? employeeRange(EmployeeBand.valueOf(band.getBand()))
-                    : revenueRange(RevenueBand.valueOf(band.getBand())));
         }
-        return ranges;
+        return bands;
     }
 
-    private static Range employeeRange(EmployeeBand band) {
-        Long max = band.maxCount() == null ? null : band.maxCount().longValue();
-        return new Range((long) band.minCount(), max);
+    /** Selected revenue bands, as their wire-format range strings. Presence in the list is selection. */
+    private static List<String> revenueBandsOf(Strategy strategy) {
+        List<String> bands = new ArrayList<>();
+        for (StrategySizeBand band : strategy.getSizeBands()) {
+            if (band.getAxis() == CompanySizeAxis.REVENUE) {
+                bands.add(RevenueBand.valueOf(band.getBand()).value());
+            }
+        }
+        return bands;
     }
 
-    private static Range revenueRange(RevenueBand band) {
-        return new Range(band.minUsd(), band.maxUsd());
+    /** Selected markets, resolved from the stored enum names to their wire ISO codes. */
+    private static List<String> marketsOf(Strategy strategy) {
+        return strategy.getMarketNames().stream().map(name -> GeographyMarket.valueOf(name).value()).toList();
+    }
+
+    private static List<CompanyKey> keysOf(List<StrategyCompanyRef> refs) {
+        return refs.stream().map(ref -> new CompanyKey(ref.getSource(), ref.getSourceId())).toList();
     }
 
     private static CompanyResultDto toDto(CompanyRow row) {

@@ -25,10 +25,10 @@ import org.springframework.stereotype.Service;
  * answers each question directly.
  *
  * <p>The universe is shared, not workspace-scoped: any project browser reads the same ~54k companies.
- * Tenant isolation happens at the strategy that <i>stores</i> a selection, not here. This service stays
- * agnostic of the {@code project} feature's {@code EmployeeBand}/{@code RevenueBand} enums — callers
- * resolve a band to its numeric bounds and pass a plain {@link Range}, so this class never needs to know
- * where the bounds came from.
+ * Tenant isolation happens at the strategy that <i>stores</i> a selection, not here. Employee/revenue
+ * band filtering matches {@code employee_range}/{@code revenue_range} directly against the wire-format
+ * strings {@code EmployeeBand}/{@code RevenueBand} already carry — no numeric bound ever needs
+ * computing, and no row is dropped for having an unset or zero raw count/revenue figure.
  *
  * <p>{@link #refsByKeys} is a deliberate seam for the strategy write path: the target/off-limits
  * lists resolve their snapshots here at save time, so the client can only ever store companies the
@@ -49,12 +49,21 @@ public class CompanyQueryService {
     }
 
     /**
-     * A numeric size bound, in whichever unit the caller's column uses. Employee headcount bounds are
-     * inclusive {@code [min, max]}; revenue bounds are half-open {@code [min, max)} — this type doesn't
-     * know which, so {@link #buildWhere} takes that as a separate flag per axis. A {@code null} bound is
-     * open-ended.
+     * One scoped read's full set of criteria, bundled because {@link #estimate}/{@link #search} had
+     * outgrown a positional-parameter list. {@code directSectors}/{@code adjacentSectors} stay separate
+     * (rather than one combined list) purely so a matched row can report which bucket it came through.
+     * {@code employeeBands}/{@code revenueBands} are the wire-format range strings verbatim (e.g.
+     * {@code "1-10"}, {@code "<5M"}) — matched directly against the {@code employee_range}/
+     * {@code revenue_range} columns, never against the raw numeric {@code employee_count}/
+     * {@code revenue_usd} figures (those can be zero or missing on a row whose range is still known).
+     * {@code markets} are ISO-3166 alpha-2 codes, matched against {@code hq_country} or the {@code markets}
+     * array. {@code targetKeys} companies are included even if they match nothing else — Strategy's own
+     * copy for the list is "included in results directly, bypassing Required filters" — and
+     * {@code offLimitsKeys} companies are excluded outright, regardless of any other match.
      */
-    public record Range(Long min, Long max) {}
+    public record ScopeFilter(List<String> directSectors, List<String> adjacentSectors, List<String> tags,
+                              List<String> employeeBands, List<String> revenueBands, List<String> markets,
+                              List<CompanyKey> targetKeys, List<CompanyKey> offLimitsKeys) {}
 
     /** One row of the company universe, as read back for a filtered list. */
     public record CompanyRow(long id, String name, String domain, String primaryIndustry,
@@ -112,13 +121,13 @@ public class CompanyQueryService {
     }
 
     /**
-     * How many companies match the current scope: those in any selected sector or carrying any selected
-     * tag, narrowed further by the employee and/or revenue bands when given. An empty scope (no sectors,
-     * no tags) matches nothing without touching the database.
+     * How many companies match the scope: those in any selected sector or carrying any selected tag,
+     * narrowed further by the employee/revenue bands and geography when given, plus any target-listed
+     * companies (regardless of whether they match), minus any off-limits ones. A scope with nothing at
+     * all — no sector, no tag, no target list — matches nothing without touching the database.
      */
-    public long estimate(List<String> sectors, List<String> tags, List<Range> employeeRanges,
-                          List<Range> revenueRanges) {
-        WhereClause where = buildWhere(sectors, tags, employeeRanges, revenueRanges);
+    public long estimate(ScopeFilter scope) {
+        WhereClause where = buildWhere(scope);
         if (where == null) {
             return 0;
         }
@@ -128,28 +137,24 @@ public class CompanyQueryService {
     }
 
     /**
-     * The companies matching the scope, one page at a time, ordered by name for a stable page boundary.
-     * An empty scope returns an empty page without touching the database, mirroring {@link #estimate}.
-     * {@code directSectors} and {@code adjacentSectors} are kept separate (unlike {@link #estimate}'s
-     * single combined list) purely so each row can report which bucket it matched through.
+     * The companies matching the scope, one page at a time, ordered by revenue descending (nulls last,
+     * name breaking ties) — the same default order {@link #browse} already uses. An empty scope returns
+     * an empty page without touching the database, mirroring {@link #estimate}.
      */
-    public List<CompanyRow> search(List<String> directSectors, List<String> adjacentSectors,
-                                    List<String> tags, List<Range> employeeRanges,
-                                    List<Range> revenueRanges, int page, int size) {
-        List<String> allSectors = new ArrayList<>(directSectors);
-        allSectors.addAll(adjacentSectors);
-        WhereClause where = buildWhere(allSectors, tags, employeeRanges, revenueRanges);
+    public List<CompanyRow> search(ScopeFilter scope, int page, int size) {
+        WhereClause where = buildWhere(scope);
         if (where == null) {
             return List.of();
         }
         Map<String, Object> params = new LinkedHashMap<>(where.params());
-        String matchTier = matchTierExpression(directSectors, adjacentSectors, params);
+        String matchTier = matchTierExpression(scope.directSectors(), scope.adjacentSectors(),
+                scope.targetKeys(), params);
         String sql = """
                 SELECT id, name, domain, primary_industry, hq_country, hq_city, employee_range, revenue_range,
                        %s AS match_tier
                 FROM app_lm_companies
                 WHERE %s
-                ORDER BY name
+                ORDER BY revenue_usd DESC NULLS LAST, name
                 LIMIT :limit OFFSET :offset
                 """.formatted(matchTier, where.sql());
         StatementParams spec = bind(jdbc.sql(sql), params);
@@ -161,15 +166,21 @@ public class CompanyQueryService {
     }
 
     /**
-     * Which bucket a row matched through: a direct sector, an adjacent sector, or (by elimination) an
-     * inferred tag. Safe to fall through to {@code 'INFERRED'} unconditionally — the WHERE clause already
-     * guarantees every row matched on sector-or-tag, so anything neither list catches must be a tag match.
-     * Each {@code WHEN} is only added when its list is non-empty, matching {@link #buildWhere}'s own
-     * "never hand an empty list to {@code IN}" convention.
+     * Which bucket a row matched through: on the target list, a direct sector, an adjacent sector, or
+     * (by elimination) an inferred tag. Target is checked first — a company can be both a target and a
+     * sector match, and its being deliberately seeded is the more informative fact. Safe to fall through
+     * to {@code 'INFERRED'} unconditionally when neither target nor direct/adjacent catches a row: the
+     * WHERE clause already guarantees every non-target row matched on sector-or-tag, so anything neither
+     * list catches must be a tag match. Each {@code WHEN} is only added when its list is non-empty,
+     * matching {@link #buildWhere}'s own "never hand an empty list to {@code IN}" convention.
      */
     private static String matchTierExpression(List<String> directSectors, List<String> adjacentSectors,
-                                                Map<String, Object> params) {
+                                                List<CompanyKey> targetKeys, Map<String, Object> params) {
         StringBuilder expr = new StringBuilder("CASE");
+        String targetClause = keyClause(targetKeys, params, "target");
+        if (targetClause != null) {
+            expr.append(" WHEN ").append(targetClause).append(" THEN 'TARGET'");
+        }
         if (!directSectors.isEmpty()) {
             expr.append(" WHEN primary_industry IN (:directSectors) THEN 'DIRECT'");
             params.put("directSectors", directSectors);
@@ -187,66 +198,77 @@ public class CompanyQueryService {
     private record StatementParams(JdbcClient.StatementSpec spec) {}
 
     /**
-     * The shared filter behind every scoped read: sector/tag match (OR'd together), AND'd with an
-     * employee-band match (bands OR'd within the axis) AND a revenue-band match, each axis omitted
-     * entirely when its band list is empty. Returns {@code null} when there is no sector/tag scope at
-     * all — an intentionally unfiltered size-only query isn't a supported scope, matching the Strategy
-     * screen's own "zero until a sector or tag is picked" convention.
+     * The shared filter behind every scoped read: {@code (scopeMatch OR isTarget) AND NOT isOffLimits}.
+     * {@code scopeMatch} is sector/tag match (OR'd together) — required as the anchor, matching the
+     * Strategy screen's own "zero until a sector or tag is picked" convention — AND'd with an
+     * employee-band match, a revenue-band match and a geography match, each omitted entirely when its
+     * list is empty. Returns {@code null} only when there is truly nothing to show: no sector/tag scope
+     * at all <i>and</i> no target list.
      */
-    private WhereClause buildWhere(List<String> sectors, List<String> tags, List<Range> employeeRanges,
-                                    List<Range> revenueRanges) {
-        if (sectors.isEmpty() && tags.isEmpty()) {
+    private WhereClause buildWhere(ScopeFilter scope) {
+        List<String> allSectors = new ArrayList<>(scope.directSectors());
+        allSectors.addAll(scope.adjacentSectors());
+        Map<String, Object> params = new LinkedHashMap<>();
+
+        String scopeMatch = null;
+        if (!allSectors.isEmpty() || !scope.tags().isEmpty()) {
+            List<String> clauses = new ArrayList<>();
+            List<String> scopeParts = new ArrayList<>();
+            if (!allSectors.isEmpty()) {
+                scopeParts.add("primary_industry IN (:sectors)");
+                params.put("sectors", allSectors);
+            }
+            if (!scope.tags().isEmpty()) {
+                scopeParts.add("industry_tags && ARRAY[:tags]::text[]");
+                params.put("tags", scope.tags());
+            }
+            clauses.add("(" + String.join(" OR ", scopeParts) + ")");
+
+            if (!scope.employeeBands().isEmpty()) {
+                clauses.add("employee_range IN (:employeeBands)");
+                params.put("employeeBands", scope.employeeBands());
+            }
+            if (!scope.revenueBands().isEmpty()) {
+                clauses.add("revenue_range IN (:revenueBands)");
+                params.put("revenueBands", scope.revenueBands());
+            }
+            if (!scope.markets().isEmpty()) {
+                params.put("markets", scope.markets());
+                clauses.add("(hq_country IN (:markets) OR markets && ARRAY[:markets]::text[])");
+            }
+            scopeMatch = "(" + String.join(" AND ", clauses) + ")";
+        }
+
+        String targetClause = keyClause(scope.targetKeys(), params, "target");
+        if (scopeMatch == null && targetClause == null) {
             return null;
         }
-        Map<String, Object> params = new LinkedHashMap<>();
-        List<String> clauses = new ArrayList<>();
+        String overall = scopeMatch != null && targetClause != null
+                ? "(" + scopeMatch + " OR " + targetClause + ")"
+                : scopeMatch != null ? scopeMatch : targetClause;
 
-        List<String> scopeParts = new ArrayList<>();
-        if (!sectors.isEmpty()) {
-            scopeParts.add("primary_industry IN (:sectors)");
-            params.put("sectors", sectors);
+        String offLimitsClause = keyClause(scope.offLimitsKeys(), params, "offLimits");
+        if (offLimitsClause != null) {
+            overall = overall + " AND NOT " + offLimitsClause;
         }
-        if (!tags.isEmpty()) {
-            scopeParts.add("industry_tags && ARRAY[:tags]::text[]");
-            params.put("tags", tags);
-        }
-        clauses.add("(" + String.join(" OR ", scopeParts) + ")");
-
-        if (!employeeRanges.isEmpty()) {
-            clauses.add(axisClause("employee_count", employeeRanges, params, "e", true));
-        }
-        if (!revenueRanges.isEmpty()) {
-            clauses.add(axisClause("revenue_usd", revenueRanges, params, "r", false));
-        }
-
-        return new WhereClause(String.join(" AND ", clauses), params);
+        return new WhereClause(overall, params);
     }
 
     /**
-     * One axis's OR'd set of band ranges, each rendered as its own bound pair so an open-ended band
-     * (a {@code null} min or max) simply omits that side. {@code inclusiveUpper} follows each band
-     * enum's own convention — headcount is {@code [min, max]}, revenue is {@code [min, max)}.
+     * A {@code (source, source_id)} membership test against a key list, or {@code null} when the list is
+     * empty — the same "never hand an empty list to a set operator" convention as the rest of this
+     * builder. Reused verbatim by {@link #matchTierExpression} for the target list, so the bound
+     * parameters are only ever written once per key list per query.
      */
-    private static String axisClause(String column, List<Range> ranges, Map<String, Object> params,
-                                      String prefix, boolean inclusiveUpper) {
-        List<String> parts = new ArrayList<>();
-        int index = 0;
-        for (Range range : ranges) {
-            List<String> bounds = new ArrayList<>();
-            if (range.min() != null) {
-                String key = prefix + "Min" + index;
-                bounds.add(column + " >= :" + key);
-                params.put(key, range.min());
-            }
-            if (range.max() != null) {
-                String key = prefix + "Max" + index;
-                bounds.add(column + (inclusiveUpper ? " <= :" : " < :") + key);
-                params.put(key, range.max());
-            }
-            parts.add(bounds.isEmpty() ? "TRUE" : "(" + String.join(" AND ", bounds) + ")");
-            index++;
+    private static String keyClause(List<CompanyKey> keys, Map<String, Object> params, String prefix) {
+        if (keys.isEmpty()) {
+            return null;
         }
-        return "(" + String.join(" OR ", parts) + ")";
+        params.put(prefix + "Sources", keys.stream().map(CompanyKey::source).toList());
+        params.put(prefix + "SourceIds", keys.stream().map(CompanyKey::sourceId).toList());
+        return ("(source, source_id) IN "
+                + "(SELECT * FROM unnest(ARRAY[:%sSources]::text[], ARRAY[:%sSourceIds]::text[]))")
+                .formatted(prefix, prefix);
     }
 
     private static StatementParams bind(JdbcClient.StatementSpec spec, Map<String, Object> params) {

@@ -1,10 +1,11 @@
 import { request } from "../../../lib/apiClient";
 import type { SourcingResponse } from "./types";
 
-/** The companies matching one project's saved Strategy scope, one page at a time. */
+/** The companies matching one project's saved Strategy scope, fetched a page at a time and
+ *  accumulated as the user scrolls (see `SourcingPage`'s `useInfiniteQuery`). */
 
-export const SOURCING_KEY = (projectId: string, page: number, size: number) =>
-  ["sourcing", projectId, page, size] as const;
+export const SOURCING_KEY = (projectId: string, size: number) =>
+  ["sourcing", projectId, size] as const;
 
 export function getSourcingCompanies(
   projectId: string,

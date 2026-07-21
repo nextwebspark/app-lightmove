@@ -275,9 +275,15 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
   const hasScope = selectedSectors.length > 0 || selectedTags.length > 0;
 
   const estimate = useQuery({
-    queryKey: companiesApi.ESTIMATE_KEY(selectedSectors, selectedTags, draft.employee, draft.revenue),
+    queryKey: companiesApi.ESTIMATE_KEY(
+      selectedSectors,
+      selectedTags,
+      draft.employee,
+      draft.revenue,
+      draft.markets,
+    ),
     queryFn: () =>
-      companiesApi.getEstimate(selectedSectors, selectedTags, draft.employee, draft.revenue),
+      companiesApi.getEstimate(selectedSectors, selectedTags, draft.employee, draft.revenue, draft.markets),
     enabled: hasScope,
     placeholderData: keepPreviousData,
   });
@@ -339,9 +345,10 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
           }}
           onSelect={setActiveKey}
         />
-        {/* NOTE: the estimate above is wired to sector + company-size (bands included), but not yet to
-            geography or ownership — market codes and ownership structures don't narrow it. Wiring those
-            in is a later sourcing pass; until then the banner is unaffected by those two panels' pills. */}
+        {/* NOTE: the estimate above is wired to sector, company-size, and geography now. Ownership Type
+            still doesn't narrow it — the enum has no confirmed mapping onto any app_lm_companies column
+            yet, so it's tracked on the strategy but deliberately left out of both the estimate and
+            Sourcing until real column values are checked. */}
         {activeKey === "size" ? (
           <CompanySizePanel strategy={draft} onToggle={toggleBand} />
         ) : activeKey === "ownership" ? (

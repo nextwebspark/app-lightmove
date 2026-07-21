@@ -16,6 +16,7 @@ export const ESTIMATE_KEY = (
   tags: string[],
   employeeBands: string[],
   revenueBands: string[],
+  markets: string[],
 ) =>
   [
     "companyEstimate",
@@ -23,6 +24,7 @@ export const ESTIMATE_KEY = (
     [...tags].sort(),
     [...employeeBands].sort(),
     [...revenueBands].sort(),
+    [...markets].sort(),
   ] as const;
 
 /** Repeated query params — `sector=a&sector=b` — the way the backend binds a List. */
@@ -43,12 +45,14 @@ export function getEstimate(
   tags: string[],
   employeeBands: string[],
   revenueBands: string[],
+  markets: string[],
 ): Promise<Estimate> {
   const query = [
     repeated("sector", sectors),
     repeated("tag", tags),
     repeated("employeeBand", employeeBands),
     repeated("revenueBand", revenueBands),
+    repeated("market", markets),
   ]
     .filter(Boolean)
     .join("&");

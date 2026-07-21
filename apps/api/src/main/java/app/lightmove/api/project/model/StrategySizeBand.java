@@ -1,6 +1,6 @@
 package app.lightmove.api.project.model;
 
-import app.lightmove.api.project.constant.CompanySizeAxis;
+import app.lightmove.api.company.constant.CompanySizeAxis;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.EnumType;
