@@ -9,7 +9,6 @@ import app.lightmove.api.company.model.CompanyKey;
 import app.lightmove.api.company.model.CompanyRefRow;
 import app.lightmove.api.core.config.LightMoveProperties;
 import java.util.ArrayList;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -26,15 +25,14 @@ import org.springframework.stereotype.Service;
  * answers each question directly.
  *
  * <p>The universe is shared, not workspace-scoped: any project browser reads the same ~54k companies.
- * Tenant isolation happens at the strategy that <i>stores</i> a selection, not here.
- *
- * <p>{@link #refsByKeys} is a deliberate seam for the strategy write path: the target/off-limits
- * lists resolve their snapshots here at save time, so the client can only ever store companies the
- * universe actually holds.
  * Tenant isolation happens at the strategy that <i>stores</i> a selection, not here. This service stays
  * agnostic of the {@code project} feature's {@code EmployeeBand}/{@code RevenueBand} enums — callers
  * resolve a band to its numeric bounds and pass a plain {@link Range}, so this class never needs to know
  * where the bounds came from.
+ *
+ * <p>{@link #refsByKeys} is a deliberate seam for the strategy write path: the target/off-limits
+ * lists resolve their snapshots here at save time, so the client can only ever store companies the
+ * universe actually holds.
  */
 @Service
 public class CompanyQueryService {

@@ -6,14 +6,13 @@ import app.lightmove.api.company.dto.CompanyDtos.SearchResponse;
 import app.lightmove.api.company.dto.CompanyDtos.SectorsResponse;
 import app.lightmove.api.company.dto.CompanyDtos.SuggestionsResponse;
 import app.lightmove.api.company.service.CompanyQueryService;
-import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.company.service.CompanyQueryService.Range;
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,9 +28,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/companies")
 public class CompanyReferenceController {
-
-    /** A generous ceiling on how many labels one estimate may carry — a scope, not an attack. */
-    private static final int MAX_ESTIMATE_LABELS = 100;
 
     /**
      * The headcount bands' wire value → bounds, duplicated from {@code project.constant.EmployeeBand}
