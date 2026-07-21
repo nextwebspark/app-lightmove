@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Spinner, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
@@ -52,6 +52,7 @@ export function StrategyPage() {
 function StrategyEditor({ project, strategy }: { project: Project; strategy: Strategy }) {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const navigate = useNavigate();
   const key = strategyApi.STRATEGY_KEY(project.id);
 
   const [draft, setDraft] = useState<Strategy>(strategy);
@@ -274,8 +275,15 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
   const hasScope = selectedSectors.length > 0 || selectedTags.length > 0;
 
   const estimate = useQuery({
-    queryKey: companiesApi.ESTIMATE_KEY(selectedSectors, selectedTags),
-    queryFn: () => companiesApi.getEstimate(selectedSectors, selectedTags),
+    queryKey: companiesApi.ESTIMATE_KEY(
+      selectedSectors,
+      selectedTags,
+      draft.employee,
+      draft.revenue,
+      draft.markets,
+    ),
+    queryFn: () =>
+      companiesApi.getEstimate(selectedSectors, selectedTags, draft.employee, draft.revenue, draft.markets),
     enabled: hasScope,
     placeholderData: keepPreviousData,
   });
@@ -321,6 +329,7 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
       <EstimateBanner
         count={hasScope ? estimate.data?.count : 0}
         loading={hasScope && (estimate.isFetching || suggestionsQuery.isFetching)}
+        onGoToSourcing={() => navigate(`/projects/${project.id}/sourcing`)}
       />
 
       <div className="grid grid-cols-[250px_1fr] items-start gap-4">
@@ -336,10 +345,10 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
           }}
           onSelect={setActiveKey}
         />
-        {/* NOTE: the scope-filter selections beyond sectors do not yet narrow the estimate above — the
-            count query still reads sectors/tags only. Wiring the band bounds, market codes and ownership
-            structures into it is the sourcing session (see the enum docs); until then the banner is
-            deliberately unaffected by these pills. */}
+        {/* NOTE: the estimate above is wired to sector, company-size, and geography now. Ownership Type
+            still doesn't narrow it — the enum has no confirmed mapping onto any app_lm_companies column
+            yet, so it's tracked on the strategy but deliberately left out of both the estimate and
+            Sourcing until real column values are checked. */}
         {activeKey === "size" ? (
           <CompanySizePanel strategy={draft} onToggle={toggleBand} />
         ) : activeKey === "ownership" ? (

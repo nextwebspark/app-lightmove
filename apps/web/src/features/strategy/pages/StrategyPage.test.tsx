@@ -10,6 +10,11 @@ import * as strategyApi from "../api/strategyApi";
 import type { Strategy } from "../api/types";
 import { StrategyPage } from "./StrategyPage";
 
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react-router-dom")>()),
+  useNavigate: () => mockNavigate,
+}));
 vi.mock("../api/strategyApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/strategyApi")>()),
   getStrategy: vi.fn(),
@@ -252,6 +257,46 @@ describe("StrategyPage — the sector-scope editor", () => {
         ).toBe(true),
       { timeout: 2000 },
     );
+  });
+
+  it("narrows the live estimate by the selected company-size bands too", async () => {
+    renderPage();
+    await screen.findByText("4,200");
+    await userEvent.click(await screen.findByRole("button", { name: "Company Size" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "51–200" }));
+
+    await waitFor(() =>
+      expect(
+        vi.mocked(companiesApi.getEstimate).mock.calls.some(
+          ([, , employeeBands]) => employeeBands.includes("51-200"),
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("narrows the live estimate by the selected geography markets too", async () => {
+    renderPage();
+    await screen.findByText("4,200");
+    await userEvent.click(await screen.findByRole("button", { name: "Location" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Saudi Arabia" }));
+
+    await waitFor(() =>
+      expect(
+        vi.mocked(companiesApi.getEstimate).mock.calls.some(
+          ([, , , , markets]) => markets.includes("SA"),
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("navigates to the project's Sourcing screen from the Go to sourcing button", async () => {
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Go to sourcing/ }));
+
+    expect(mockNavigate).toHaveBeenCalledWith("/projects/p1/sourcing");
   });
 
   it("switches to Ownership Type and renders the structure catalog by display name", async () => {

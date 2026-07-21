@@ -281,6 +281,113 @@ class CompanyReferenceIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("employee and revenue bands narrow the estimate, AND'd with each other and with the sector scope")
+    void sizeBandsNarrowEstimateAndedAcrossAxes() throws Exception {
+        String admin = adminOf("Company Size Estimate Firm");
+        companyWithSize("Retail", "1-10", "<5M");      // in sector, 1-10 band, <5M — matches both bands
+        companyWithSize("Retail", "1-10", "5M-25M");   // in sector, 1-10 band, but wrong revenue band
+        companyWithSize("Retail", "201-500", "<5M");   // in sector, right revenue, wrong employee band
+        companyWithSize("Oil and Gas", "1-10", "<5M"); // right size, wrong sector
+
+        mvc.perform(get("/api/v1/companies/estimate")
+                        .param("sector", "Retail")
+                        .param("employeeBand", "1-10")
+                        .param("revenueBand", "<5M")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(1));
+    }
+
+    @Test
+    @DisplayName("bands within one axis OR together")
+    void bandsWithinAxisOr() throws Exception {
+        String admin = adminOf("Company Size Or Firm");
+        companyWithSize("Retail", "1-10", null);
+        companyWithSize("Retail", "51-200", null);
+        companyWithSize("Retail", "201-500", null); // not selected
+
+        mvc.perform(get("/api/v1/companies/estimate")
+                        .param("sector", "Retail")
+                        .param("employeeBand", "1-10")
+                        .param("employeeBand", "51-200")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(2));
+    }
+
+    @Test
+    @DisplayName("the open-ended top band has no upper bound")
+    void openEndedTopBandHasNoUpperBound() throws Exception {
+        String admin = adminOf("Company Size Open Firm");
+        companyWithSize("Retail", "10000+", null);
+
+        mvc.perform(get("/api/v1/companies/estimate")
+                        .param("sector", "Retail")
+                        .param("employeeBand", "10000+")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(1));
+    }
+
+    @Test
+    @DisplayName("a company still matches its employee band even when its raw employee_count is 0 or unset")
+    void employeeBandMatchesEvenWithMissingRawCount() throws Exception {
+        String admin = adminOf("Company Size Zero Count Firm");
+        // The exact real-data shape this test pins: employee_range is the warehouse's authoritative
+        // band label, but employee_count can independently be 0 or missing for the same row — filtering
+        // must match employee_range directly rather than recomputing bounds off employee_count.
+        companyWithSizeAndZeroCount("Retail", "1-10");
+
+        mvc.perform(get("/api/v1/companies/estimate")
+                        .param("sector", "Retail")
+                        .param("employeeBand", "1-10")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(1));
+    }
+
+    @Test
+    @DisplayName("an unknown band value is rejected")
+    void unknownBandValueRejected() throws Exception {
+        String admin = adminOf("Company Size Bad Band Firm");
+
+        MvcResult result = mvc.perform(get("/api/v1/companies/estimate")
+                        .param("sector", "Retail")
+                        .param("employeeBand", "not-a-band")
+                        .header("Authorization", "Bearer " + admin))
+                .andReturn();
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+    }
+
+    @Test
+    @DisplayName("a market code narrows the estimate to that HQ country")
+    void marketNarrowsEstimateToHqCountry() throws Exception {
+        String admin = adminOf("Company Market Firm");
+        companyWithGeography("Retail", "AE");
+        companyWithGeography("Retail", "SA");
+
+        mvc.perform(get("/api/v1/companies/estimate")
+                        .param("sector", "Retail")
+                        .param("market", "AE")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(1));
+    }
+
+    @Test
+    @DisplayName("an unknown market code is rejected")
+    void unknownMarketRejected() throws Exception {
+        String admin = adminOf("Company Bad Market Firm");
+
+        MvcResult result = mvc.perform(get("/api/v1/companies/estimate")
+                        .param("sector", "Retail")
+                        .param("market", "US")
+                        .header("Authorization", "Bearer " + admin))
+                .andReturn();
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+    }
+
+    @Test
     @DisplayName("the company universe is not readable without authentication")
     void anonymousIsRejected() throws Exception {
         mvc.perform(get("/api/v1/companies/sectors"))
@@ -316,6 +423,50 @@ class CompanyReferenceIntegrationTest extends FlowTestSupport {
                         INSERT INTO app_lm_companies (source, source_id, name, primary_industry, revenue_usd)
                         VALUES ('test', gen_random_uuid()::text, ?, ?, ?)""",
                 name, sector, revenueUsd);
+    }
+
+    /** {@code employeeRange}/{@code revenueRange} are the wire-format band strings filtering matches on;
+     *  either may be {@code null} to leave that axis unset. */
+    private void companyWithSize(String sector, String employeeRange, String revenueRange) {
+        db.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement("""
+                    INSERT INTO app_lm_companies
+                        (source, source_id, name, primary_industry, industry_tags, employee_range, revenue_range)
+                    VALUES ('test', gen_random_uuid()::text, 'Test Co', ?, ?, ?, ?)""");
+            ps.setString(1, sector);
+            ps.setArray(2, connection.createArrayOf("text", new String[0]));
+            ps.setString(3, employeeRange);
+            ps.setString(4, revenueRange);
+            return ps;
+        });
+    }
+
+    /** A company whose employee_range is set but employee_count is left at its real-data-observed 0 —
+     *  the exact shape of the 5,045-row bug this filtering fix corrects. */
+    private void companyWithSizeAndZeroCount(String sector, String employeeRange) {
+        db.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement("""
+                    INSERT INTO app_lm_companies
+                        (source, source_id, name, primary_industry, industry_tags, employee_count, employee_range)
+                    VALUES ('test', gen_random_uuid()::text, 'Test Co', ?, ?, 0, ?)""");
+            ps.setString(1, sector);
+            ps.setArray(2, connection.createArrayOf("text", new String[0]));
+            ps.setString(3, employeeRange);
+            return ps;
+        });
+    }
+
+    private void companyWithGeography(String sector, String hqCountry) {
+        db.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement("""
+                    INSERT INTO app_lm_companies
+                        (source, source_id, name, primary_industry, industry_tags, hq_country)
+                    VALUES ('test', gen_random_uuid()::text, 'Test Co', ?, ?, ?)""");
+            ps.setString(1, sector);
+            ps.setArray(2, connection.createArrayOf("text", new String[0]));
+            ps.setString(3, hqCountry);
+            return ps;
+        });
     }
 
     /** The id column is GENERATED ALWAYS, so it is left out; source_id just has to be unique. */
