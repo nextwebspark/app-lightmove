@@ -66,6 +66,9 @@ class SourcingFlowIntegrationTest extends FlowTestSupport {
 
         mvc.perform(get(sourcingUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.appliedFilters.sector").value(true))
+                .andExpect(jsonPath("$.appliedFilters.employee").value(true))
+                .andExpect(jsonPath("$.appliedFilters.revenue").value(true))
                 .andExpect(jsonPath("$.totalCount").value(1))
                 .andExpect(jsonPath("$.companies.length()").value(1))
                 .andExpect(jsonPath("$.companies[0].name").value("Alpha Retail"));
@@ -99,6 +102,48 @@ class SourcingFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.totalCount").value(3))
                 .andExpect(jsonPath("$.companies.length()").value(1))
                 .andExpect(jsonPath("$.companies[0].name").value("Charlie Retail"));
+    }
+
+    @Test
+    @DisplayName("appliedFilters reports only the categories actually in scope — size left unset stays false")
+    void appliedFiltersReflectsOnlyWhatsActuallyScoped() throws Exception {
+        String admin = adminOf("Sourcing Applied Filters Firm");
+        String projectId = project(admin);
+        company("Alpha Retail", "Retail", 5, 1_000_000L);
+
+        putSectors(admin, projectId, """
+                {"direct":[{"label":"Retail","selected":true}],"adjacent":[],"inferred":[]}""");
+
+        mvc.perform(get(sourcingUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.appliedFilters.sector").value(true))
+                .andExpect(jsonPath("$.appliedFilters.employee").value(false))
+                .andExpect(jsonPath("$.appliedFilters.revenue").value(false));
+    }
+
+    @Test
+    @DisplayName("each company reports which scope bucket it matched through: direct, adjacent, or inferred")
+    void matchTierReflectsWhichBucketMatched() throws Exception {
+        String admin = adminOf("Sourcing Tier Firm");
+        String projectId = project(admin);
+        company("Alpha DirectCo", "Retail", 5, 1_000_000L);         // matches the direct sector
+        company("Bravo AdjacentCo", "Wholesale", 5, 1_000_000L);    // matches the adjacent sector
+        companyWithTag("Charlie InferredCo", "Oil and Gas", "Grocery Retail", 5, 1_000_000L); // tag only
+
+        putSectors(admin, projectId, """
+                {"direct":[{"label":"Retail","selected":true}],
+                 "adjacent":[{"label":"Wholesale","selected":true}],
+                 "inferred":[{"label":"Grocery Retail","selected":true}]}""");
+
+        mvc.perform(get(sourcingUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(3))
+                .andExpect(jsonPath("$.companies[0].name").value("Alpha DirectCo"))
+                .andExpect(jsonPath("$.companies[0].matchTier").value("DIRECT"))
+                .andExpect(jsonPath("$.companies[1].name").value("Bravo AdjacentCo"))
+                .andExpect(jsonPath("$.companies[1].matchTier").value("ADJACENT"))
+                .andExpect(jsonPath("$.companies[2].name").value("Charlie InferredCo"))
+                .andExpect(jsonPath("$.companies[2].matchTier").value("INFERRED"));
     }
 
     @Test
@@ -161,6 +206,14 @@ class SourcingFlowIntegrationTest extends FlowTestSupport {
 
     /** The id column is GENERATED ALWAYS, so it is left out; source_id just has to be unique. */
     private void company(String name, String sector, int employeeCount, long revenueUsd) {
+        companyWithTags(name, sector, new String[0], employeeCount, revenueUsd);
+    }
+
+    private void companyWithTag(String name, String sector, String tag, int employeeCount, long revenueUsd) {
+        companyWithTags(name, sector, new String[] {tag}, employeeCount, revenueUsd);
+    }
+
+    private void companyWithTags(String name, String sector, String[] tags, int employeeCount, long revenueUsd) {
         db.update(connection -> {
             PreparedStatement ps = connection.prepareStatement("""
                     INSERT INTO app_lm_companies
@@ -168,7 +221,7 @@ class SourcingFlowIntegrationTest extends FlowTestSupport {
                     VALUES ('test', gen_random_uuid()::text, ?, ?, ?, ?, ?)""");
             ps.setString(1, name);
             ps.setString(2, sector);
-            ps.setArray(3, connection.createArrayOf("text", new String[0]));
+            ps.setArray(3, connection.createArrayOf("text", tags));
             ps.setInt(4, employeeCount);
             ps.setLong(5, revenueUsd);
             return ps;

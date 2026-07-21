@@ -13,7 +13,16 @@ public final class SourcingDtos {
 
     /** One matching company, projected down to what the Sourcing list shows. */
     public record CompanyResultDto(long id, String name, String domain, String sector,
-                                    String employeeRange, String revenueRange, String location) {}
+                                    String employeeRange, String revenueRange, String location,
+                                    String matchTier) {}
 
-    public record SourcingResponse(List<CompanyResultDto> companies, long totalCount, int page, int size) {}
+    /**
+     * Which of the scope categories the query actually filtered on. Every returned company is
+     * guaranteed to satisfy each {@code true} category (the query ANDs them together) — this isn't a
+     * per-company fit score, just which of the criteria the card's checkmarks should render at all.
+     */
+    public record AppliedFilters(boolean sector, boolean employee, boolean revenue) {}
+
+    public record SourcingResponse(List<CompanyResultDto> companies, long totalCount, int page, int size,
+                                    AppliedFilters appliedFilters) {}
 }

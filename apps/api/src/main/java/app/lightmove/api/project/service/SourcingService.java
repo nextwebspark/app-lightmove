@@ -9,6 +9,7 @@ import app.lightmove.api.project.constant.CompanySizeAxis;
 import app.lightmove.api.project.constant.EmployeeBand;
 import app.lightmove.api.project.constant.RevenueBand;
 import app.lightmove.api.project.constant.StrategySectorKind;
+import app.lightmove.api.project.dto.SourcingDtos.AppliedFilters;
 import app.lightmove.api.project.dto.SourcingDtos.CompanyResultDto;
 import app.lightmove.api.project.dto.SourcingDtos.SourcingResponse;
 import app.lightmove.api.project.model.Strategy;
@@ -57,15 +58,22 @@ public class SourcingService {
         requireProject(projectId, workspaceId);
         Strategy strategy = strategies.findByProjectId(projectId).orElseGet(() -> Strategy.forProject(projectId));
 
-        List<String> sectors = labelsOf(strategy, StrategySectorKind.DIRECT, StrategySectorKind.ADJACENT);
+        List<String> directSectors = labelsOf(strategy, StrategySectorKind.DIRECT);
+        List<String> adjacentSectors = labelsOf(strategy, StrategySectorKind.ADJACENT);
         List<String> tags = labelsOf(strategy, StrategySectorKind.INFERRED);
         List<Range> employeeRanges = rangesOf(strategy, CompanySizeAxis.EMPLOYEE);
         List<Range> revenueRanges = rangesOf(strategy, CompanySizeAxis.REVENUE);
 
-        List<CompanyRow> rows = companies.search(sectors, tags, employeeRanges, revenueRanges, page, size);
-        long totalCount = companies.estimate(sectors, tags, employeeRanges, revenueRanges);
+        List<CompanyRow> rows = companies.search(
+                directSectors, adjacentSectors, tags, employeeRanges, revenueRanges, page, size);
+        List<String> allSectors = new ArrayList<>(directSectors);
+        allSectors.addAll(adjacentSectors);
+        long totalCount = companies.estimate(allSectors, tags, employeeRanges, revenueRanges);
 
-        return new SourcingResponse(rows.stream().map(SourcingService::toDto).toList(), totalCount, page, size);
+        AppliedFilters appliedFilters = new AppliedFilters(
+                !allSectors.isEmpty() || !tags.isEmpty(), !employeeRanges.isEmpty(), !revenueRanges.isEmpty());
+        return new SourcingResponse(
+                rows.stream().map(SourcingService::toDto).toList(), totalCount, page, size, appliedFilters);
     }
 
     private void requireProject(UUID projectId, UUID workspaceId) {
@@ -118,7 +126,7 @@ public class SourcingService {
 
     private static CompanyResultDto toDto(CompanyRow row) {
         return new CompanyResultDto(row.id(), row.name(), row.domain(), row.primaryIndustry(),
-                row.employeeRange(), row.revenueRange(), locationOf(row));
+                row.employeeRange(), row.revenueRange(), locationOf(row), row.matchTier());
     }
 
     private static String locationOf(CompanyRow row) {

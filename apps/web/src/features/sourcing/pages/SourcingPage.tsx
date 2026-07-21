@@ -5,8 +5,38 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { EmptyState, Spinner } from "../../../components/ui";
 import * as sourcingApi from "../api/sourcingApi";
+import type { AppliedFilters, CompanyResult, MatchTier } from "../api/types";
 
 const PAGE_SIZE = 25;
+
+/** How each scope bucket a company matched through reads on the card badge. */
+const TIER_META: Record<MatchTier, { label: string; className: string }> = {
+  DIRECT: { label: "Direct", className: "text-sky bg-sky-dim" },
+  ADJACENT: { label: "Adjacent", className: "text-amber bg-amber-dim" },
+  INFERRED: { label: "AI Inferred", className: "text-text3 bg-line-soft" },
+};
+
+const CHECK_ICON = "m5 13 4 4L19 7";
+
+/**
+ * The scope categories actually in play for this query, each paired with this company's own value.
+ * Every row here is guaranteed met — a company only appears in the results because it satisfies all of
+ * them — so this isn't a per-company fit score, just which of the Strategy's criteria produced this match.
+ */
+function criteriaRowsFor(company: CompanyResult, applied: AppliedFilters): { label: string; value: string }[] {
+  const rows: { label: string; value: string }[] = [];
+  if (applied.sector) rows.push({ label: "Sector", value: company.sector ?? "—" });
+  if (applied.employee) rows.push({ label: "Employees", value: company.employeeRange ?? "—" });
+  if (applied.revenue) rows.push({ label: "Revenue", value: company.revenueRange ?? "—" });
+  return rows;
+}
+
+/** Placeholder triage actions — no candidate/pipeline tables exist yet to back them. */
+const PLACEHOLDER_ACTIONS = [
+  { label: "Comment", d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" },
+  { label: "Add to universe", d: "m5 13 4 4L19 7" },
+  { label: "Shortlist", d: "M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2Z" },
+] as const;
 
 /**
  * The companies matching this project's saved Strategy scope (Project.dc.html, Sourcing screen) — a
@@ -35,6 +65,7 @@ export function SourcingPage() {
   const totalCount = data?.totalCount ?? 0;
   const companies = data?.companies ?? [];
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const appliedFilters = data?.appliedFilters ?? { sector: false, employee: false, revenue: false };
 
   return (
     <div className="animate-fade-up">
@@ -97,36 +128,87 @@ export function SourcingPage() {
 
           {view === "card" ? (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-[14px]">
-              {companies.map((company) => (
-                <div
-                  key={company.id}
-                  className="rounded-[10px] border border-line-soft bg-panel2 p-[18px] hover:border-line"
-                >
-                  <div className="mb-3.5 flex items-start gap-3">
-                    <div className="flex size-10 flex-none items-center justify-center rounded-[8px] border border-line bg-panel font-mono text-[13px] font-semibold text-text2">
-                      {initialsOf(company.name)}
+              {companies.map((company) => {
+                const tier = TIER_META[company.matchTier];
+                const criteriaRows = criteriaRowsFor(company, appliedFilters);
+                return (
+                  <div
+                    key={company.id}
+                    className="rounded-[10px] border border-line-soft bg-panel2 p-[18px] hover:border-line"
+                  >
+                    <div className="mb-3.5 flex items-start gap-3">
+                      <div className="flex size-10 flex-none items-center justify-center rounded-[8px] border border-line bg-panel font-mono text-[13px] font-semibold text-text2">
+                        {initialsOf(company.name)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-sans text-[15px] font-semibold leading-[1.3] text-text">
+                            {company.name}
+                          </span>
+                          <span
+                            className={`inline-flex flex-none items-center rounded-[5px] px-[7px] py-[2px] font-mono text-[9.5px] font-bold uppercase tracking-[0.06em] ${tier.className}`}
+                          >
+                            {tier.label}
+                          </span>
+                        </div>
+                        <div className="mt-1 font-mono text-[11.5px] text-text3">
+                          {company.location || "—"} · {company.sector ?? "—"}
+                        </div>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="font-sans text-[15px] font-semibold leading-[1.3] text-text">
-                        {company.name}
+                    <div className="grid grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] gap-5 border-t border-line-soft pb-3 pt-3.5">
+                      <div className="min-w-0">
+                        <div className="mb-[9px] font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-text3">
+                          {criteriaRows.length} of {criteriaRows.length} met
+                        </div>
+                        <div className="flex flex-col gap-[5px] font-mono text-[12.5px]">
+                          {criteriaRows.map((row) => (
+                            <div key={row.label} className="flex items-center gap-2">
+                              <Icon d={CHECK_ICON} size={13} className="flex-none text-sky" />
+                              <span className="w-[70px] flex-none text-text3">{row.label}</span>
+                              <span className="min-w-0 flex-1 truncate text-sky" title={row.value}>
+                                {row.value}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="mt-1 font-mono text-[11.5px] text-text3">
-                        {company.location || "—"} · {company.sector ?? "—"}
+                      <div className="min-w-0">
+                        <div className="mb-[9px] font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-text3">
+                          Scale Snapshot
+                        </div>
+                        <div className="flex flex-col gap-[5px] font-mono text-[12.5px]">
+                          {[
+                            { label: "Revenue", value: company.revenueRange },
+                            { label: "Employees", value: company.employeeRange },
+                            { label: "Region", value: company.location },
+                            { label: "Sector", value: company.sector },
+                          ].map((row) => (
+                            <div key={row.label} className="flex items-center gap-2">
+                              <span className="w-[70px] flex-none text-text3">{row.label}</span>
+                              <span className="text-text">{row.value || "—"}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
+                    </div>
+                    <div className="flex items-center gap-1 border-t border-line-soft pt-2.5">
+                      {PLACEHOLDER_ACTIONS.map((action) => (
+                        <button
+                          key={action.label}
+                          type="button"
+                          disabled
+                          title="Not available yet"
+                          aria-label={action.label}
+                          className="flex size-[30px] items-center justify-center rounded-[7px] text-text3 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <Icon d={action.d} size={15} />
+                        </button>
+                      ))}
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 border-t border-line-soft pt-3.5 font-mono text-[12.5px]">
-                    <div className="flex items-center gap-2">
-                      <span className="w-[70px] flex-none text-text3">Employees</span>
-                      <span className="text-text">{company.employeeRange ?? "—"}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-[70px] flex-none text-text3">Revenue</span>
-                      <span className="text-text">{company.revenueRange ?? "—"}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="overflow-auto rounded-[10px] border border-line-soft">

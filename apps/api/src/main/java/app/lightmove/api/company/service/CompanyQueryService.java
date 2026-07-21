@@ -51,7 +51,7 @@ public class CompanyQueryService {
     /** One row of the company universe, as read back for a filtered list. */
     public record CompanyRow(long id, String name, String domain, String primaryIndustry,
                               String hqCountry, String hqCity, String employeeRange,
-                              String revenueRange) {}
+                              String revenueRange, String matchTier) {}
 
     /** Every sector (primary_industry) with its company count, most populous first. */
     public List<SectorCount> sectors() {
@@ -122,26 +122,56 @@ public class CompanyQueryService {
     /**
      * The companies matching the scope, one page at a time, ordered by name for a stable page boundary.
      * An empty scope returns an empty page without touching the database, mirroring {@link #estimate}.
+     * {@code directSectors} and {@code adjacentSectors} are kept separate (unlike {@link #estimate}'s
+     * single combined list) purely so each row can report which bucket it matched through.
      */
-    public List<CompanyRow> search(List<String> sectors, List<String> tags, List<Range> employeeRanges,
+    public List<CompanyRow> search(List<String> directSectors, List<String> adjacentSectors,
+                                    List<String> tags, List<Range> employeeRanges,
                                     List<Range> revenueRanges, int page, int size) {
-        WhereClause where = buildWhere(sectors, tags, employeeRanges, revenueRanges);
+        List<String> allSectors = new ArrayList<>(directSectors);
+        allSectors.addAll(adjacentSectors);
+        WhereClause where = buildWhere(allSectors, tags, employeeRanges, revenueRanges);
         if (where == null) {
             return List.of();
         }
+        Map<String, Object> params = new LinkedHashMap<>(where.params());
+        String matchTier = matchTierExpression(directSectors, adjacentSectors, params);
         String sql = """
-                SELECT id, name, domain, primary_industry, hq_country, hq_city, employee_range, revenue_range
+                SELECT id, name, domain, primary_industry, hq_country, hq_city, employee_range, revenue_range,
+                       %s AS match_tier
                 FROM app_lm_companies
                 WHERE %s
                 ORDER BY name
                 LIMIT :limit OFFSET :offset
-                """.formatted(where.sql());
-        StatementParams spec = bind(jdbc.sql(sql), where.params());
+                """.formatted(matchTier, where.sql());
+        StatementParams spec = bind(jdbc.sql(sql), params);
         return spec.spec()
                 .param("limit", size)
                 .param("offset", page * size)
                 .query(CompanyRow.class)
                 .list();
+    }
+
+    /**
+     * Which bucket a row matched through: a direct sector, an adjacent sector, or (by elimination) an
+     * inferred tag. Safe to fall through to {@code 'INFERRED'} unconditionally — the WHERE clause already
+     * guarantees every row matched on sector-or-tag, so anything neither list catches must be a tag match.
+     * Each {@code WHEN} is only added when its list is non-empty, matching {@link #buildWhere}'s own
+     * "never hand an empty list to {@code IN}" convention.
+     */
+    private static String matchTierExpression(List<String> directSectors, List<String> adjacentSectors,
+                                                Map<String, Object> params) {
+        StringBuilder expr = new StringBuilder("CASE");
+        if (!directSectors.isEmpty()) {
+            expr.append(" WHEN primary_industry IN (:directSectors) THEN 'DIRECT'");
+            params.put("directSectors", directSectors);
+        }
+        if (!adjacentSectors.isEmpty()) {
+            expr.append(" WHEN primary_industry IN (:adjacentSectors) THEN 'ADJACENT'");
+            params.put("adjacentSectors", adjacentSectors);
+        }
+        expr.append(" ELSE 'INFERRED' END");
+        return expr.toString();
     }
 
     private record WhereClause(String sql, Map<String, Object> params) {}
