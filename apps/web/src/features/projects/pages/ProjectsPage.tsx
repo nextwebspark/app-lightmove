@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, EmptyState } from "../../../components/ui";
+import { Button, EmptyState, TableSkeleton } from "../../../components/ui";
 import { useAuth } from "../../auth/AuthProvider";
 import * as clientsApi from "../../clients/api/clientsApi";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
@@ -26,7 +26,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
   const [openProjectId, setOpenProjectId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [], isPending } = useQuery({
     queryKey: projectsApi.PROJECTS_KEY,
     queryFn: projectsApi.projects,
   });
@@ -62,6 +62,23 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
       New project
     </Button>
   );
+
+  // While the list is in flight, `projects` is still the [] default — without this gate the
+  // "create your first project" empty state flashes before the table arrives.
+  if (isPending) {
+    return (
+      <>
+        <PageHeader
+          title={view === "my" ? "My projects" : "All projects"}
+          subtitle={`workspace ${user?.workspace?.name ?? ""}`}
+          action={newProjectButton}
+        />
+        <TableSkeleton
+          columns={["Client", "Position", "Stage", "Health", "Team", "Target", "Pipeline"]}
+        />
+      </>
+    );
+  }
 
   if (projects.length === 0) {
     return (

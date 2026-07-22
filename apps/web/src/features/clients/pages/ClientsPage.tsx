@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
-import { Button, EmptyState } from "../../../components/ui";
+import { Button, EmptyState, TableSkeleton } from "../../../components/ui";
 import { NewProjectModal } from "../../projects/components/NewProjectModal";
 import * as clientsApi from "../api/clientsApi";
 import { ClientDrawer } from "../components/ClientDrawer";
@@ -21,7 +21,7 @@ export function ClientsPage() {
   const [newClientOpen, setNewClientOpen] = useState(false);
   const [newMandateOpen, setNewMandateOpen] = useState(false);
 
-  const { data: clients = [] } = useQuery({
+  const { data: clients = [], isPending } = useQuery({
     queryKey: clientsApi.CLIENTS_KEY,
     queryFn: clientsApi.clients,
   });
@@ -38,6 +38,17 @@ export function ClientsPage() {
       New client
     </Button>
   );
+
+  // While the list is in flight, `clients` is still the [] default — without this gate the
+  // "add your first client" empty state flashes before the table arrives.
+  if (isPending) {
+    return (
+      <>
+        <PageHeader title="Clients" subtitle="records shared across projects" action={newClientButton} />
+        <TableSkeleton columns={["Client", "Type", "Client contact", "Sector", "Mandates", "Viewers"]} />
+      </>
+    );
+  }
 
   return (
     <>
