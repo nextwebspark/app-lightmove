@@ -40,11 +40,12 @@ class RbacCatalogTest {
     }
 
     @Test
-    @DisplayName("CLIENT roles grant nothing — the portal phase has not shipped")
+    @DisplayName("the PROJECT CLIENT role grants nothing — the project-seat portal has not shipped")
     @Transactional(readOnly = true) // walking role.getActions() needs an open session
-    void clientRolesAreEmpty() {
-        assertThat(roles.findByScopeAndName(RoleScope.WORKSPACE, WorkspaceRole.CLIENT.name()))
-                .hasValueSatisfying(role -> assertThat(role.getActions()).isEmpty());
+    void projectClientRoleIsEmpty() {
+        // The workspace CLIENT role is no longer empty — V15 gave it CLIENT_PORTAL_READ (asserted in
+        // roleGrantsMatchTheSeededMap). The project-seat CLIENT role stays groundwork until staff can
+        // seat a client on a mandate.
         assertThat(roles.findByScopeAndName(RoleScope.PROJECT, ProjectRole.CLIENT.name()))
                 .hasValueSatisfying(role -> assertThat(role.getActions()).isEmpty());
     }
@@ -63,7 +64,7 @@ class RbacCatalogTest {
         grantsAre(RoleScope.WORKSPACE, "ADMIN", "WORKSPACE_MANAGE", "MEMBER_MANAGE", "MEMBER_INVITE",
                 "PROJECT_CREATE", "PROJECT_BROWSE", "CLIENT_RECORD_MANAGE");
         grantsAre(RoleScope.WORKSPACE, "MEMBER", "PROJECT_CREATE", "PROJECT_BROWSE", "CLIENT_RECORD_MANAGE");
-        grantsAre(RoleScope.WORKSPACE, "CLIENT");
+        grantsAre(RoleScope.WORKSPACE, "CLIENT", "CLIENT_PORTAL_READ");
         grantsAre(RoleScope.PROJECT, "ADMIN", "PROJECT_EDIT", "TEAM_MANAGE", "WORK_EXECUTE",
                 "POSITION_UNLOCK");
         grantsAre(RoleScope.PROJECT, "LEAD", "PROJECT_EDIT", "WORK_EXECUTE");

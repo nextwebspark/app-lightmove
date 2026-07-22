@@ -64,20 +64,4 @@ public final class ProjectDtos {
             @NotEmpty(message = "Choose at least one role")
             Set<ProjectRole> roles
     ) {}
-
-    public record ClientResponse(
-            UUID id,
-            String name,
-            String hqCountry,
-            long activeMandates,
-            long deliveredMandates
-    ) {}
-
-    public record CreateClientRequest(
-            @NotBlank(message = "Enter the client's name")
-            @Size(max = 160, message = "That name is too long")
-            String name,
-
-            @Size(max = 64) String hqCountry
-    ) {}
 }

@@ -71,6 +71,17 @@ public class ProjectService {
     }
 
     /** The creator's seat holds {ADMIN, LEAD} from birth — they own the mandate and run it, until they delegate. */
+    /** The mandates of one client, fully assembled (team, health) — the client drawer and portal read this. */
+    @Transactional(readOnly = true)
+    public List<ProjectResponse> listForClient(UUID workspaceId, UUID clientId) {
+        List<Project> forClient = projects.findByWorkspaceIdAndClientIdOrderByCreatedAtDesc(workspaceId, clientId);
+        if (forClient.isEmpty()) {
+            return List.of();
+        }
+        Assembly assembly = assemblyFor(workspaceId, forClient);
+        return forClient.stream().map(project -> toResponse(project, assembly)).toList();
+    }
+
     @Transactional
     public ProjectResponse create(UUID userId, UUID workspaceId, CreateProjectRequest request,
                                   HttpServletRequest httpRequest) {

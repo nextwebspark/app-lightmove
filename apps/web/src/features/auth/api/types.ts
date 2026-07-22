@@ -6,7 +6,7 @@
  * OpenAPI document instead of maintaining it twice.
  */
 
-export type WorkspaceRole = "ADMIN" | "MEMBER";
+export type WorkspaceRole = "ADMIN" | "MEMBER" | "CLIENT";
 
 export interface WorkspaceSummary {
   id: string;

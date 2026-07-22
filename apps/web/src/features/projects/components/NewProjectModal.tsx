@@ -2,8 +2,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button, Field, FormError, Input, Modal, Select, useToast } from "../../../components/ui";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
+import * as clientsApi from "../../clients/api/clientsApi";
+import type { Client } from "../../clients/api/types";
 import * as projectsApi from "../api/projectsApi";
-import type { Client } from "../api/types";
 
 const NEW_CLIENT = "__new__";
 
@@ -38,12 +39,13 @@ export function NewProjectModal({
       let resolvedClientId = clientId;
       if (creatingClient) {
         try {
-          resolvedClientId = (await projectsApi.createClient({ name: newClientName })).id;
+          // A quick custom client from the project flow; the full registry create lives on Clients.
+          resolvedClientId = (await clientsApi.createClient({ customName: newClientName })).id;
         } catch (clientError) {
           if (codeOf(clientError) !== "CLIENT_ALREADY_EXISTS") throw clientError;
           // The user meant that client. Re-fetch rather than trust the prop — a colleague may have
           // created it after this modal's list was cached.
-          const fresh = await projectsApi.clients();
+          const fresh = await clientsApi.clients();
           const existing = fresh.find(
             (c) => c.name.toLowerCase() === newClientName.trim().toLowerCase(),
           );
@@ -59,7 +61,7 @@ export function NewProjectModal({
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
-      void queryClient.invalidateQueries({ queryKey: projectsApi.CLIENTS_KEY });
+      void queryClient.invalidateQueries({ queryKey: clientsApi.CLIENTS_KEY });
       toast("Project created — you're its admin and lead");
       onClose();
     },

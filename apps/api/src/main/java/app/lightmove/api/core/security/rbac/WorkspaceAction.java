@@ -26,5 +26,8 @@ public enum WorkspaceAction {
     PROJECT_BROWSE,
 
     /** The client registry — hiring-entity records, not client users. */
-    CLIENT_RECORD_MANAGE
+    CLIENT_RECORD_MANAGE,
+
+    /** The client portal: a representative reads their own client record and its mandates. */
+    CLIENT_PORTAL_READ
 }

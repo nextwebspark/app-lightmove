@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Outlet } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
+import * as clientsApi from "../../features/clients/api/clientsApi";
 import * as projectsApi from "../../features/projects/api/projectsApi";
 import * as workspaceApi from "../../features/workspace/api/workspaceApi";
 import { ICONS } from "./Icon";
@@ -24,8 +25,8 @@ export function WorkspaceLayout() {
     enabled: verified,
   });
   const { data: clients } = useQuery({
-    queryKey: projectsApi.CLIENTS_KEY,
-    queryFn: projectsApi.clients,
+    queryKey: clientsApi.CLIENTS_KEY,
+    queryFn: clientsApi.clients,
     enabled: verified,
   });
   const { data: members } = useQuery({

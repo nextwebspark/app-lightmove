@@ -253,7 +253,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"%s","hqCountry":%s}
+                                {"customName":"%s","hqCountry":%s}
                                 """.formatted(name, hq)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();

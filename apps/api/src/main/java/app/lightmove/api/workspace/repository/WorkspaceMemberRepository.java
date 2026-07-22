@@ -36,6 +36,20 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
     @EntityGraph(attributePaths = "roles")
     List<WorkspaceMember> findByWorkspaceIdAndStatus(UUID workspaceId, MemberStatus status);
 
+    /**
+     * The staff roster — members who are not client representatives. A CLIENT-role member is a portal
+     * guest, not a colleague, and the Team screen and its count must not surface them among staff.
+     */
+    @EntityGraph(attributePaths = "roles")
+    @Query("""
+            select m from WorkspaceMember m
+            where m.workspaceId = :workspaceId and m.status = :status
+              and not exists (select 1 from m.roles r where r.name = :excludedRole)
+            """)
+    List<WorkspaceMember> findStaff(@Param("workspaceId") UUID workspaceId,
+                                    @Param("status") MemberStatus status,
+                                    @Param("excludedRole") String excludedRole);
+
     long countByWorkspaceIdAndStatus(UUID workspaceId, MemberStatus status);
 
     @EntityGraph(attributePaths = "roles")

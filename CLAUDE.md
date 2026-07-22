@@ -283,7 +283,12 @@ feature→feature seam is sanctioned: `project`'s `StrategyService` calls `compa
 `CompanyQueryService.refsByKeys` to resolve strategy-list company snapshots at write time — the
 universe lookup lives with the universe rather than being duplicated SQL in `project`, and the seam
 is a public service method plus the `company/model` records it returns, never `company` internals.
-This is a deliberate trade of the old ports/adapters layering for a uniform, type-based shape, so
+A second seam is sanctioned for client representatives: `project`'s `ClientRepresentativeService`
+calls `workspace`'s `InvitationService.inviteClientRepresentative` to *issue* a portal invite (a
+representative is a CLIENT-role workspace member, and invitations are the only door in), while
+*acceptance* flows back the other way as a `ClientRepresentativeAcceptedEvent` the project side listens
+for — so `workspace` announces the accept in primitives and never depends on `project` (mirrors
+`EmailVerifiedEvent`). This is a deliberate trade of the old ports/adapters layering for a uniform, type-based shape, so
 `EmailSender`/`RateLimiter` are plain `service` interfaces rather than declared ports.
 
 Ports worth knowing: `EmailSender` (`core/email/service`; `LogEmailSender` prints the verification link to

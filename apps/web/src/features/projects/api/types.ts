@@ -38,11 +38,3 @@ export interface Project {
   candidates: number;
   createdAt: string;
 }
-
-export interface Client {
-  id: string;
-  name: string;
-  hqCountry: string | null;
-  activeMandates: number;
-  deliveredMandates: number;
-}

@@ -115,6 +115,46 @@ public class EmailTemplates {
                 html, text);
     }
 
+    /**
+     * A client representative's portal invitation. Framed around the client they will represent, not
+     * "join our workspace" — they are a guest with a read-only view of one client's mandates, not staff.
+     */
+    public EmailMessage buildClientInvitationEmail(String recipient, String inviterName, String workspaceName,
+                                                   String clientName, String acceptLink) {
+        String inviter = HtmlUtils.htmlEscape(inviterName);
+        String workspace = HtmlUtils.htmlEscape(workspaceName);
+        String client = HtmlUtils.htmlEscape(clientName);
+        String link = HtmlUtils.htmlEscape(acceptLink);
+
+        String html = wrap("""
+                <h1 style="margin:0 0 16px;font:600 20px/1.3 -apple-system,system-ui,sans-serif;color:#1b2230">
+                  %s invited you to the %s portal
+                </h1>
+                <p style="margin:0 0 24px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
+                  %s works with <strong>%s</strong> on LightMove and has invited you to follow the searches
+                  they are running for you. Set a password to open your portal.
+                </p>
+                %s
+                <p style="margin:24px 0 0;font:400 12px/1.6 -apple-system,system-ui,sans-serif;color:#98a1b3">
+                  This invitation expires in 7 days.
+                </p>
+                """.formatted(inviter, client, workspace, client, button("Open your portal", link)));
+
+        String text = """
+                %s invited you to the %s portal
+
+                %s works with %s on LightMove and has invited you to follow the searches they are
+                running for you. Set a password to open your portal:
+
+                %s
+
+                This invitation expires in 7 days.
+                """.formatted(inviterName, clientName, workspaceName, clientName, acceptLink);
+
+        return new EmailMessage(recipient,
+                "%s invited you to the %s portal on LightMove".formatted(inviterName, clientName), html, text);
+    }
+
     /** The amber call-to-action from the mockups. Table-based because Outlook still ignores flexbox. */
     private static String button(String label, String href) {
         return """

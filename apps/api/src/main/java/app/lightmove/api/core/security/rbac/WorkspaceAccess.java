@@ -82,4 +82,12 @@ public class WorkspaceAccess {
     public List<WorkspaceMember> activeMembers(UUID workspaceId) {
         return members.findByWorkspaceIdAndStatus(workspaceId, MemberStatus.ACTIVE);
     }
+
+    /**
+     * The active <i>staff</i> roster — everyone in {@link #activeMembers} who is not a client
+     * representative. The Team screen renders this, so a portal guest never appears among colleagues.
+     */
+    public List<WorkspaceMember> activeStaff(UUID workspaceId) {
+        return members.findStaff(workspaceId, MemberStatus.ACTIVE, WorkspaceRole.CLIENT.name());
+    }
 }

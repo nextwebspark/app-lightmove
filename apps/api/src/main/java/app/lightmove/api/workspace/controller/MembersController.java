@@ -52,7 +52,7 @@ public class MembersController {
     @PreAuthorize("@workspaceAuth.staff(principal)")
     public ResponseEntity<List<MemberResponse>> list() {
         AuthPrincipal principal = CurrentUser.require();
-        List<WorkspaceMember> roster = access.activeMembers(principal.requireWorkspaceId());
+        List<WorkspaceMember> roster = access.activeStaff(principal.requireWorkspaceId());
 
         Map<UUID, User> byId = users
                 .findAllById(roster.stream().map(WorkspaceMember::getUserId).toList())

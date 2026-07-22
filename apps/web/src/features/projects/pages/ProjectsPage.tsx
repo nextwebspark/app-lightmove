@@ -4,6 +4,7 @@ import { PageHeader } from "../../../components/layout/PageHeader";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, EmptyState } from "../../../components/ui";
 import { useAuth } from "../../auth/AuthProvider";
+import * as clientsApi from "../../clients/api/clientsApi";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as projectsApi from "../api/projectsApi";
 import { NewProjectModal } from "../components/NewProjectModal";
@@ -30,8 +31,8 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
     queryFn: projectsApi.projects,
   });
   const { data: clients = [] } = useQuery({
-    queryKey: projectsApi.CLIENTS_KEY,
-    queryFn: projectsApi.clients,
+    queryKey: clientsApi.CLIENTS_KEY,
+    queryFn: clientsApi.clients,
   });
   const { data: members = [] } = useQuery({
     queryKey: workspaceApi.MEMBERS_KEY,

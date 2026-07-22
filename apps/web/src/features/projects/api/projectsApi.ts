@@ -1,10 +1,13 @@
 import { request } from "../../../lib/apiClient";
-import type { Client, Project, ProjectRole } from "./types";
+import type { Project, ProjectRole } from "./types";
 
-/** Every call the projects feature makes, plus the query keys its screens share. */
+/**
+ * Every call the projects feature makes, plus the query keys its screens share. Clients are their own
+ * feature now — see {@code features/clients/api/clientsApi}; the New-project modal imports the client
+ * calls from there.
+ */
 
 export const PROJECTS_KEY = ["projects"] as const;
-export const CLIENTS_KEY = ["clients"] as const;
 
 export function projects(): Promise<Project[]> {
   return request<Project[]>("/projects");
@@ -40,12 +43,4 @@ export function putProjectMember(
 
 export function removeProjectMember(projectId: string, memberId: string): Promise<Project> {
   return request<Project>(`/projects/${projectId}/members/${memberId}`, { method: "DELETE" });
-}
-
-export function clients(): Promise<Client[]> {
-  return request<Client[]>("/clients");
-}
-
-export function createClient(payload: { name: string; hqCountry?: string }): Promise<Client> {
-  return request<Client>("/clients", { method: "POST", body: payload });
 }
