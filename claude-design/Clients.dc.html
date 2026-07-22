@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#f4f5f8;--panel:#ffffff;--panel2:#f7f8fa;--line:#e3e6ee;--line-soft:#edeff5;--text:#141b29;--text2:#47505f;--text3:#6e7890;--amber:#b47708;--amber-btn:#f0b429;--amber-dim:rgba(201,138,10,.10);--sky:#1a73c7;--sky-dim:rgba(26,115,199,.10);--red:#cc3a33;--red-dim:rgba(204,58,51,.08);--green:#1f8f60;--green-dim:rgba(31,143,96,.10);--shadow:0 8px 28px rgba(20,30,50,.10);--mono:'JetBrains Mono',ui-monospace,monospace;--sans:'Inter',system-ui,sans-serif}
+    body.dark{--bg:#0b0d11;--panel:#12151b;--panel2:#171b22;--line:#232833;--line-soft:#1c212b;--text:#f1f3f6;--text2:#b8c0cc;--text3:#8d96a6;--amber:#f0b429;--amber-dim:rgba(240,180,41,.12);--sky:#5cb3ff;--sky-dim:rgba(92,179,255,.12);--red:#e5534b;--red-dim:rgba(229,83,75,.12);--green:#3fb27f;--green-dim:rgba(63,178,127,.12);--shadow:0 8px 28px rgba(0,0,0,.45)}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+    a{color:var(--sky);text-decoration:none}
+    a:hover{text-decoration:underline}
+    input::placeholder,textarea::placeholder{color:var(--text3)}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    @keyframes slideIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+  </style>
+</helmet>
+<div data-screen-label="Clients" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
+
+  <header style="height:46px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px;position:relative;z-index:60">
+    <div style="position:relative">
+      <button onClick="{{ toggleWsMenu }}" style="display:flex;align-items:center;gap:8px;padding:5px 10px 5px 6px;border-radius:8px;background:none;border:none;cursor:pointer;color:var(--text)" style-hover="background:var(--panel2)">
+        <span style="width:22px;height:22px;border-radius:6px;background:#f0b429;color:#141414;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
+        <span style="font:600 13px var(--mono);letter-spacing:.02em">LightMove</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
+      </button>
+      <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;top:40px;left:0;width:268px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:6px;z-index:80">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--line-soft);margin-bottom:6px">
+            <span style="width:30px;height:30px;border-radius:8px;background:#f0b429;color:#141414;display:grid;place-items:center;font:700 13px var(--mono)">L</span>
+            <div>
+              <div style="font:600 13px var(--mono)">LightMove</div>
+              <div style="font:400 11px var(--mono);color:var(--text3)">5 members · Pro plan</div>
+            </div>
+          </div>
+          <a href="Settings.dc.html?section=general" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v4m0 14v4M4.2 4.2l2.8 2.8m10 10 2.8 2.8M1 12h4m14 0h4M4.2 19.8 7 17m10-10 2.8-2.8"></path></svg>
+            Workspace settings
+          </a>
+          <a href="Workspace.dc.html?view=team" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            Members
+          </a>
+          <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
+          <a href="Login.dc.html" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>
+            Sign out
+          </a>
+        </div>
+      </sc-if>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+      <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky)">YH</span>
+    </div>
+  </header>
+
+  <div style="flex:1;display:flex;gap:14px;padding:0 14px 14px;min-height:0">
+
+    <nav style="width:{{ sideWidth }};flex:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 8px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s ease">
+      <div style="display:{{ groupDisp }};font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:0 10px 6px">Projects</div>
+      <sc-for list="{{ projNav }}" as="it" hint-placeholder-count="2">
+        <a href="{{ it.href }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }};text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
+          <span style="display:{{ labelDisp }};white-space:nowrap">{{ it.label }}</span>
+          <span style="display:{{ labelDisp }};margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span>
+        </a>
+      </sc-for>
+      <div style="display:{{ groupDisp }};font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:14px 10px 6px">Workspace</div>
+      <sc-for list="{{ wsNav }}" as="it" hint-placeholder-count="3">
+        <a href="{{ it.href }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }};text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
+          <span style="display:{{ labelDisp }};white-space:nowrap">{{ it.label }}</span>
+          <span style="display:{{ labelDisp }};margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span>
+        </a>
+      </sc-for>
+      <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--line-soft)">
+        <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path></svg>
+          <span style="display:{{ labelDisp }};white-space:nowrap">{{ themeLabel }}</span>
+        </button>
+        <button onClick="{{ toggleCollapse }}" title="{{ collapseTitle }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ collapseIcon }}"></path></svg>
+          <span style="display:{{ labelDisp }};white-space:nowrap">Collapse</span>
+        </button>
+      </div>
+    </nav>
+
+    <main style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow-y:auto;min-width:0">
+      <div style="max-width:1160px;margin:0 auto;padding:28px 28px 60px">
+
+        <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:18px">
+          <div>
+            <div style="font:600 19px/1.2 var(--sans)">Clients</div>
+            <div style="color:var(--text3);font:400 12px var(--mono);margin-top:4px">{{ pageSub }}</div>
+          </div>
+          <div style="margin-left:auto">
+            <button onClick="{{ openModal }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
+              New client
+            </button>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 11px;width:300px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+            <input value="{{ q }}" onInput="{{ onSearch }}" placeholder="Search clients…" style="background:none;border:none;outline:none;width:100%;font:400 13px var(--mono);color:var(--text)">
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <sc-for list="{{ chips }}" as="c" hint-placeholder-count="3">
+              <button onClick="{{ setChip }}" data-chip="{{ c.key }}" style="padding:5px 11px;border-radius:999px;border:1px solid {{ c.border }};font:500 12px var(--mono);color:{{ c.color }};background:{{ c.bg }};cursor:pointer" style-hover="color:var(--text)">{{ c.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="width:22%;font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Client</th>
+              <th style="width:12%;font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Type</th>
+              <th style="width:16%;font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Client contact</th>
+              <th style="width:18%;font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Sector</th>
+              <th style="width:12%;font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Mandates</th>
+              <th style="width:20%;font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Viewers</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="4">
+              <tr onClick="{{ openRow }}" data-id="{{ r.id }}" style="cursor:pointer" style-hover="background:var(--panel2)">
+                <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);white-space:nowrap">
+                  <span style="display:inline-flex;align-items:center;gap:10px">
+                    <span style="width:26px;height:26px;border-radius:7px;display:grid;place-items:center;font:600 10px var(--mono);background:var(--amber-dim);color:var(--amber)">{{ r.initials }}</span>
+                    <span style="font:600 13px var(--sans)">{{ r.name }}</span>
+                  </span>
+                </td>
+                <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);white-space:nowrap">
+                  <span style="display:inline-flex;padding:3px 9px;border-radius:999px;font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:{{ r.typeColor }};background:{{ r.typeBg }}">{{ r.typeLabel }}</span>
+                </td>
+                <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);white-space:nowrap">
+                  <sc-if value="{{ r.hasReps }}" hint-placeholder-val="{{ true }}">
+                    <span style="display:inline-flex">
+                      <sc-for list="{{ r.contactTags }}" as="k" hint-placeholder-count="2">
+                        <span title="{{ k.tip }}" style="width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:600 9px var(--mono);background:{{ k.bg }};color:{{ k.color }};border:2px solid var(--panel);margin-left:-6px">{{ k.initials }}</span>
+                      </sc-for>
+                    </span>
+                  </sc-if>
+                  <sc-if value="{{ r.noReps }}" hint-placeholder-val="{{ false }}">
+                    <span style="font:400 12px var(--mono);color:var(--text3)">—</span>
+                  </sc-if>
+                </td>
+                <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);font:400 12px var(--mono);color:var(--text2);white-space:nowrap">{{ r.sector }}</td>
+                <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);font:500 12px var(--mono);color:var(--text);white-space:nowrap">{{ r.mandates }}</td>
+                <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);white-space:nowrap">
+                  <span style="display:inline-flex;align-items:center;gap:7px;font:400 12px var(--mono);color:var(--text2)">
+                    <span style="width:7px;height:7px;border-radius:50%;background:{{ r.viewerDot }};flex:none"></span>
+                    {{ r.viewerLabel }}
+                  </span>
+                </td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+        <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:48px;text-align:center;color:var(--text3);font:400 13px var(--mono)">No clients match. Clear the search or add a new client.</div>
+        </sc-if>
+
+      </div>
+    </main>
+  </div>
+
+  <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;background:rgba(15,20,30,.4);z-index:90"></div>
+    <aside style="position:fixed;top:10px;right:10px;bottom:10px;width:430px;max-width:92vw;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);z-index:95;display:flex;flex-direction:column;animation:fadeUp .22s ease both;overflow:hidden">
+
+      <sc-if value="{{ clientView }}" hint-placeholder-val="{{ true }}">
+        <div style="padding:18px 20px 14px;border-bottom:1px solid var(--line-soft);position:relative;flex:none">
+          <button onClick="{{ closeDrawer }}" aria-label="Close" style="position:absolute;top:14px;right:14px;color:var(--text3);padding:6px;border-radius:6px;background:none;border:none;cursor:pointer" style-hover="color:var(--text);background:var(--panel2)">✕</button>
+          <div style="font:500 11px var(--mono);color:var(--text3);letter-spacing:.08em;text-transform:uppercase">Client record</div>
+          <div style="font:600 17px var(--sans);margin-top:4px">{{ drawer.name }}</div>
+          <div style="font:400 12px var(--mono);color:var(--text3);margin-top:3px">{{ drawer.meta }}</div>
+        </div>
+        <div style="padding:18px 20px;overflow-y:auto;flex:1">
+          <div style="display:flex;gap:10px">
+            <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
+              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ drawer.active }}</b>
+              <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Active</span>
+            </div>
+            <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
+              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ drawer.delivered }}</b>
+              <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Delivered</span>
+            </div>
+            <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
+              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ drawer.repCount }}</b>
+              <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Reps</span>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;margin:18px 0 8px">
+            <span style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Details</span>
+            <sc-if value="{{ detailsDirty }}" hint-placeholder-val="{{ false }}">
+              <span style="margin-left:8px;font:500 10.5px var(--mono);color:var(--amber)">unsaved</span>
+            </sc-if>
+          </div>
+          <div style="border:1px solid var(--line-soft);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px">
+            <div>
+              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Client name</label>
+              <input value="{{ dName }}" onInput="{{ draftDName }}" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+            </div>
+            <div style="display:flex;gap:10px">
+              <div style="flex:1">
+                <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Sector</label>
+                <input value="{{ dSector }}" onInput="{{ draftDSector }}" placeholder="e.g. FMCG" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              </div>
+              <div style="flex:1">
+                <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">HQ</label>
+                <input value="{{ dHq }}" onInput="{{ draftDHq }}" placeholder="e.g. UAE" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              </div>
+            </div>
+            <div>
+              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Domain <span style="font-weight:400;letter-spacing:0;text-transform:none">· optional, used to match records</span></label>
+              <input value="{{ dDomain }}" onInput="{{ draftDDomain }}" placeholder="e.g. almarai.com" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+            </div>
+            <div>
+              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Off-limits <span style="font-weight:400;letter-spacing:0;text-transform:none">· optional</span></label>
+              <input value="{{ dOff }}" onInput="{{ draftDOff }}" placeholder="e.g. all employees protected until Jan 2027" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+            </div>
+            <sc-if value="{{ detailsDirty }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;justify-content:flex-end;gap:8px">
+                <button onClick="{{ revertDetails }}" style="padding:6px 12px;border-radius:8px;font:500 12.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Discard</button>
+                <button onClick="{{ saveDetails }}" style="padding:6px 12px;border-radius:8px;font:600 12.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Save changes</button>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="display:flex;align-items:center;margin:18px 0 8px">
+            <span style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Client representatives</span>
+            <button onClick="{{ openInviteFromDrawer }}" style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:7px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
+              Invite
+            </button>
+          </div>
+          <sc-if value="{{ drawer.hasReps }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ drawer.reps }}" as="p" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:7px" style-hover="background:var(--panel2)">
+                <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky);flex:none">{{ p.initials }}</span>
+                <div style="min-width:0">
+                  <div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</div>
+                  <div style="font:400 11px var(--mono);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.position }} · {{ p.email }}</div>
+                </div>
+                <span style="margin-left:auto;flex:none;font:600 10px var(--mono);letter-spacing:.06em;padding:2px 7px;border-radius:5px;color:{{ p.stColor }};background:{{ p.stBg }}">{{ p.stLabel }}</span>
+              </div>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{ drawer.noReps }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:18px;border:1px dashed var(--line);border-radius:8px;text-align:center;color:var(--text3);font:400 12px var(--mono)">No representatives yet. Invite one to give the client portal access.</div>
+          </sc-if>
+
+          <sc-if value="{{ drawer.inviteOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="border:1px solid var(--line);border-radius:10px;margin-top:10px;padding:14px;background:var(--panel2)">
+              <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Invite representative</div>
+              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Full name</label>
+              <input value="{{ repName }}" onInput="{{ draftRepName }}" placeholder="e.g. Khalid Al-Otaibi" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:12px 0 6px">Position</label>
+              <input value="{{ repPos }}" onInput="{{ draftRepPos }}" placeholder="e.g. Group CHRO" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:12px 0 6px">Work email</label>
+              <input value="{{ repEmail }}" onInput="{{ draftRepEmail }}" placeholder="name@company.com" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              <sc-if value="{{ repError }}" hint-placeholder-val="{{ false }}">
+                <div style="font:400 11.5px var(--mono);color:var(--red);margin-top:8px">{{ repErrorMsg }}</div>
+              </sc-if>
+              <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+                <button onClick="{{ cancelDrawerInvite }}" style="padding:6px 12px;border-radius:8px;font:500 12.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+                <button onClick="{{ sendDrawerInvite }}" style="padding:6px 12px;border-radius:8px;font:600 12.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Send invite</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Mandates</div>
+          <sc-if value="{{ drawer.hasMandates }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ drawer.mandateRows }}" as="m" hint-placeholder-count="2">
+              <button onClick="{{ openProj }}" data-id="{{ m.id }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 8px;border-radius:7px;background:none;border:none;cursor:pointer;text-align:left;color:var(--text)" style-hover="background:var(--panel2)">
+                <div style="min-width:0">
+                  <div style="font:500 13px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.pos }}</div>
+                  <div style="font:400 11px var(--mono);color:var(--text3)">Lead · {{ m.lead }}</div>
+                </div>
+                <span style="margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:6px;font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:{{ m.color }};background:{{ m.bg }};border:1px solid {{ m.border }}">
+                  <span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>
+                  {{ m.label }}
+                </span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none"><path d="m9 18 6-6-6-6"></path></svg>
+              </button>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{ drawer.noMandates }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:14px;border:1px dashed var(--line);border-radius:8px;text-align:center;color:var(--text3);font:400 12px var(--mono)">No mandates yet — create a project for this client.</div>
+          </sc-if>
+        </div>
+        <div style="padding:14px 20px;border-top:1px solid var(--line-soft);display:flex;gap:8px;flex:none">
+          <button onClick="{{ toastArchive }}" style="flex:none;display:inline-flex;align-items:center;justify-content:center;padding:8px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Archive</button>
+          <a href="Workspace.dc.html" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;text-decoration:none" style-hover="filter:brightness(1.05);text-decoration:none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
+            New mandate
+          </a>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ projView }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:14px 20px 14px;border-bottom:1px solid var(--line-soft);position:relative;flex:none;animation:slideIn .18s ease both">
+          <button onClick="{{ closeDrawer }}" aria-label="Close" style="position:absolute;top:14px;right:14px;color:var(--text3);padding:6px;border-radius:6px;background:none;border:none;cursor:pointer" style-hover="color:var(--text);background:var(--panel2)">✕</button>
+          <button onClick="{{ backToClient }}" style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px 4px 4px;margin:0 0 8px -6px;border-radius:7px;font:500 12px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="color:var(--text);background:var(--panel2)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"></path></svg>
+            {{ proj.clientName }}
+          </button>
+          <div style="font:500 11px var(--mono);color:var(--text3);letter-spacing:.08em;text-transform:uppercase">Mandate</div>
+          <div style="font:600 17px var(--sans);margin-top:4px">{{ proj.pos }}</div>
+          <div style="font:400 12px var(--mono);color:var(--text3);margin-top:3px">Lead · {{ proj.lead }} · created {{ proj.created }}</div>
+        </div>
+        <div style="padding:18px 20px;overflow-y:auto;flex:1;animation:slideIn .18s ease both">
+          <div style="display:flex;gap:10px">
+            <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
+              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ proj.companies }}</b>
+              <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Companies</span>
+            </div>
+            <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
+              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ proj.candidates }}</b>
+              <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Candidates</span>
+            </div>
+            <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
+              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ proj.target }}</b>
+              <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Target</span>
+            </div>
+          </div>
+
+          <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Stage</div>
+          <div style="border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px">
+            <sc-for list="{{ proj.gates }}" as="g" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:10px;padding:4px 0;font:{{ g.weight }} 13px var(--sans);color:{{ g.color }}">
+                <span style="width:13px;height:13px;border-radius:50%;border:2px solid {{ g.ringBorder }};background:{{ g.ringBg }};flex:none"></span>
+                {{ g.label }}
+                <span style="font:400 11px var(--mono);color:var(--text3)">{{ g.note }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Health</div>
+          <div style="border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px">
+            <div style="display:flex;align-items:center;gap:7px;font:600 13.5px var(--sans);color:{{ proj.healthColor }};margin-bottom:6px">
+              <span style="width:7px;height:7px;border-radius:50%;background:currentColor"></span>
+              {{ proj.healthLabel }}
+            </div>
+            <sc-for list="{{ proj.healthLines }}" as="h" hint-placeholder-count="2">
+              <div style="font:400 12px var(--sans);color:var(--text2);padding:2px 0">{{ h.text }}</div>
+            </sc-for>
+          </div>
+
+          <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Team</div>
+          <sc-for list="{{ proj.team }}" as="t" hint-placeholder-count="2">
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:7px" style-hover="background:var(--panel2)">
+              <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--amber-dim);color:var(--amber);flex:none">{{ t.initials }}</span>
+              <span style="font-size:13px">{{ t.name }}</span>
+              <span style="margin-left:auto;font:400 11.5px var(--mono);color:var(--text3)">{{ t.role }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="padding:14px 20px;border-top:1px solid var(--line-soft);display:flex;gap:8px;flex:none">
+          <button onClick="{{ backToClient }}" style="flex:none;display:inline-flex;align-items:center;justify-content:center;padding:8px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Back</button>
+          <a href="Project.dc.html" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;text-decoration:none" style-hover="filter:brightness(1.05);text-decoration:none">
+            Open project
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+          </a>
+        </div>
+      </sc-if>
+
+    </aside>
+  </sc-if>
+
+  <sc-if value="{{ modalOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:fixed;inset:0;background:rgba(15,20,30,.4);z-index:100;display:grid;place-items:center">
+      <div onClick="{{ stopClick }}" style="width:480px;max-width:94vw;max-height:90vh;overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:22px;animation:fadeUp .22s ease both">
+        <div style="display:flex;align-items:center;margin-bottom:4px">
+          <div style="font:600 16px var(--sans)">New client</div>
+        </div>
+        <div style="font:400 12px var(--sans);color:var(--text2);margin-bottom:14px">Search the company database first — most clients already exist as records.</div>
+
+        <sc-if value="{{ noSelection }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+            <input value="{{ dbq }}" onInput="{{ onDbSearch }}" placeholder="Search company database…" style="background:none;border:none;outline:none;width:100%;font:400 13px var(--mono);color:var(--text)">
+          </div>
+
+          <sc-if value="{{ dbHasResults }}" hint-placeholder-val="{{ false }}">
+            <div style="border:1px solid var(--line-soft);border-radius:8px;margin-top:10px;overflow:hidden">
+              <sc-for list="{{ dbResults }}" as="c" hint-placeholder-count="3">
+                <button onClick="{{ pickCompany }}" data-id="{{ c.id }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;background:none;border:none;border-bottom:1px solid var(--line-soft);cursor:pointer;text-align:left;color:var(--text)" style-hover="background:var(--panel2)">
+                  <span style="width:24px;height:24px;border-radius:6px;display:grid;place-items:center;font:600 9px var(--mono);background:var(--sky-dim);color:var(--sky);flex:none">{{ c.initials }}</span>
+                  <span style="min-width:0">
+                    <span style="display:block;font:600 12.5px var(--sans)">{{ c.name }}</span>
+                    <span style="display:block;font:400 11px var(--mono);color:var(--text3)">{{ c.meta }}</span>
+                  </span>
+                  <sc-if value="{{ c.isClient }}" hint-placeholder-val="{{ false }}">
+                    <span style="margin-left:auto;flex:none;font:600 10px var(--mono);letter-spacing:.06em;color:var(--green);background:var(--green-dim);border-radius:5px;padding:2px 7px">CLIENT</span>
+                  </sc-if>
+                  <sc-if value="{{ c.notClient }}" hint-placeholder-val="{{ true }}">
+                    <span style="margin-left:auto;flex:none;font:500 11px var(--mono);color:var(--sky)">Select →</span>
+                  </sc-if>
+                </button>
+              </sc-for>
+              <button onClick="{{ startNewCompany }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;background:none;border:none;cursor:pointer;text-align:left;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+                <span style="width:24px;height:24px;border-radius:6px;display:grid;place-items:center;background:var(--amber-dim);color:var(--amber);flex:none">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
+                </span>
+                <span style="font:500 12.5px var(--sans)">None of these — add “{{ dbq }}” as a new company</span>
+              </button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ dbNoResults }}" hint-placeholder-val="{{ false }}">
+            <div style="border:1px dashed var(--line);border-radius:8px;margin-top:10px;padding:18px;text-align:center">
+              <div style="font:400 12.5px var(--mono);color:var(--text3);margin-bottom:10px">No company found for “{{ dbq }}”</div>
+              <button onClick="{{ startNewCompany }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 12.5px var(--sans);border:1px solid var(--line);color:var(--text);background:none;cursor:pointer" style-hover="border-color:var(--text3)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
+                Add “{{ dbq }}” as a new company
+              </button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ dbIdle }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-top:10px;font:400 11.5px var(--mono);color:var(--text3);padding:4px 2px">Type at least 2 characters — searches 48,200 company records.</div>
+          </sc-if>
+
+          <sc-if value="{{ newCompanyOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="border:1px solid var(--line);border-radius:10px;margin-top:12px;padding:14px;background:var(--panel2)">
+              <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">New company record</div>
+              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Company name</label>
+              <input value="{{ ncName }}" onInput="{{ draftNcName }}" placeholder="e.g. Meridian Energy Group" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              <label style="display:flex;align-items:center;gap:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:12px 0 6px">Domain <span style="font-weight:400;letter-spacing:0;text-transform:none;color:var(--text3)">· optional, helps us match the client</span></label>
+              <input value="{{ ncDomain }}" onInput="{{ draftNcDomain }}" placeholder="e.g. meridian.ae" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              <div style="font:400 11px var(--mono);color:var(--text3);margin-top:8px">Just the essentials now — sector, HQ, off-limits and more live in the client panel, editable any time.</div>
+            </div>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:9px 12px">
+            <span style="width:24px;height:24px;border-radius:6px;display:grid;place-items:center;font:600 9px var(--mono);background:var(--amber-dim);color:var(--amber);flex:none">{{ selInitials }}</span>
+            <div>
+              <div style="font:600 12.5px var(--sans)">{{ selName }}</div>
+              <div style="font:400 11px var(--mono);color:var(--text3)">{{ selMeta }}</div>
+            </div>
+            <button onClick="{{ backToCompany }}" style="margin-left:auto;font:500 11.5px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer;padding:4px">Change</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showCreateFields }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:8px;margin:16px 0 6px">
+            <span style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Primary contact</span>
+            <span style="font:400 11px var(--mono);color:var(--text3)">· optional — gets a portal invite. Add more from the client panel later.</span>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:6px">
+            <div style="flex:1">
+              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Full name</label>
+              <input value="{{ repName }}" onInput="{{ draftRepName }}" placeholder="e.g. Khalid Al-Otaibi" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+            </div>
+            <div style="flex:1">
+              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Position</label>
+              <input value="{{ repPos }}" onInput="{{ draftRepPos }}" placeholder="e.g. Group CHRO" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+            </div>
+          </div>
+          <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:12px 0 6px">Work email</label>
+          <input value="{{ repEmail }}" onInput="{{ draftRepEmail }}" placeholder="name@company.com" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+          <sc-if value="{{ repError }}" hint-placeholder-val="{{ false }}">
+            <div style="font:400 11.5px var(--mono);color:var(--red);margin-top:8px">{{ repErrorMsg }}</div>
+          </sc-if>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
+            <button onClick="{{ closeModal }}" style="padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+            <button onClick="{{ createClient }}" style="padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">{{ createLabel }}</button>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toastVisible }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);z-index:120;animation:fadeUp .2s ease both">{{ toastMsg }}</div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.STAGES = {
+      brief: { label: 'Brief', color: 'var(--text2)', bg: 'transparent', border: 'var(--line)', idx: 0 },
+      universe: { label: 'Universe', color: 'var(--sky)', bg: 'var(--sky-dim)', border: 'transparent', idx: 1 },
+      locked: { label: 'Universe locked', color: 'var(--sky)', bg: 'transparent', border: 'var(--sky)', idx: 1 },
+      mapping: { label: 'Mapping', color: 'var(--amber)', bg: 'var(--amber-dim)', border: 'transparent', idx: 2 },
+      outreach: { label: 'Outreach live', color: 'var(--amber)', bg: 'transparent', border: 'var(--amber)', idx: 3 },
+      delivered: { label: 'Shortlist delivered', color: 'var(--green)', bg: 'var(--green-dim)', border: 'transparent', idx: 4 },
+    };
+    this.GATES = ['Brief', 'Universe', 'Mapping', 'Outreach live', 'Shortlist delivered'];
+    this.DB = [
+      { id: 'mer', name: 'Meridian Energy Group', hq: 'UAE', sector: 'Energy' },
+      { id: 'alr', name: 'Al Rabie Saudi Foods', hq: 'Saudi Arabia', sector: 'FMCG' },
+      { id: 'bdw', name: 'Bindawood Holding', hq: 'Saudi Arabia', sector: 'Retail' },
+      { id: 'agt', name: 'Agthia Group', hq: 'UAE', sector: 'FMCG' },
+      { id: 'alm', name: 'Almarai', hq: 'Saudi Arabia', sector: 'FMCG' },
+      { id: 'ads', name: 'ADNOC Distribution', hq: 'UAE', sector: 'Energy' },
+      { id: 'sav', name: 'Savola Group', hq: 'Saudi Arabia', sector: 'FMCG' },
+      { id: 'maf', name: 'Majid Al Futtaim', hq: 'UAE', sector: 'Retail' },
+      { id: 'ara', name: 'Aramex', hq: 'UAE', sector: 'Logistics' },
+      { id: 'qnb', name: 'QNB Group', hq: 'Qatar', sector: 'Banking' },
+      { id: 'oor', name: 'Ooredoo', hq: 'Qatar', sector: 'Telecom' },
+      { id: 'zai', name: 'Zain Group', hq: 'Kuwait', sector: 'Telecom' },
+      { id: 'als', name: 'Alshaya Group', hq: 'Kuwait', sector: 'Retail' },
+      { id: 'enb', name: 'Emirates NBD', hq: 'UAE', sector: 'Banking' },
+      { id: 'stc', name: 'stc Group', hq: 'Saudi Arabia', sector: 'Telecom' },
+      { id: 'lul', name: 'Lulu Group International', hq: 'UAE', sector: 'Retail' },
+    ];
+    this.MANDATES = [
+      { id: 'm1', client: 'mer', pos: 'Chief Financial Officer', stage: 'mapping', lead: 'Yara Haddad', created: '02 Jul', target: '28 Aug', companies: 64, candidates: 18,
+        team: [['Yara Haddad', 'Lead'], ['Omar Khalil', 'Researcher']],
+        health: 'atrisk', healthLines: ['37 days to target, mapping 40% done', 'Candidate response rate below plan'] },
+      { id: 'm2', client: 'mer', pos: 'VP, Renewables', stage: 'universe', lead: 'Sara Al-Mansour', created: '10 Jul', target: '05 Oct', companies: 31, candidates: 0,
+        team: [['Sara Al-Mansour', 'Lead']],
+        health: 'ontrack', healthLines: ['Universe build on schedule', '75 days to target'] },
+      { id: 'm3', client: 'alr', pos: 'Chief Human Resources Officer', stage: 'outreach', lead: 'Yara Haddad', created: '14 Jun', target: '30 Aug', companies: 58, candidates: 22,
+        team: [['Yara Haddad', 'Lead'], ['Sara Al-Mansour', 'Researcher']],
+        health: 'ontrack', healthLines: ['Outreach live, 9 conversations open', '39 days to target'] },
+      { id: 'm4', client: 'alr', pos: 'Supply Chain Director', stage: 'brief', lead: 'Sara Al-Mansour', created: '22 Jul', target: '12 Sep', companies: 0, candidates: 0,
+        team: [['Sara Al-Mansour', 'Lead']],
+        health: 'ontrack', healthLines: ['Brief in progress, 52 days to target', 'No blockers'] },
+      { id: 'm5', client: 'bdw', pos: 'Chief Digital Officer', stage: 'locked', lead: 'Yousef Iman', created: '20 Jun', target: '19 Sep', companies: 88, candidates: 0,
+        team: [['Yousef Iman', 'Lead'], ['Omar Khalil', 'Researcher']],
+        health: 'ontrack', healthLines: ['Universe locked, mapping starts this week', '59 days to target'] },
+      { id: 'm6', client: 'bdw', pos: 'Head of eCommerce', stage: 'mapping', lead: 'Omar Khalil', created: '01 Jul', target: '10 Sep', companies: 42, candidates: 6,
+        team: [['Omar Khalil', 'Lead']],
+        health: 'offtrack', healthLines: ['Mapping behind plan by 2 weeks', 'No researcher assigned'] },
+      { id: 'm7', client: 'agt', pos: 'Chief Executive Officer', stage: 'delivered', lead: 'Yara Haddad', created: '02 Apr', target: 'Done', companies: 112, candidates: 41,
+        team: [['Yara Haddad', 'Lead']],
+        health: 'ontrack', healthLines: ['Shortlist delivered', 'Portal access expires 30 days post-delivery'] },
+    ];
+    this.state = {
+      clients: [
+        { id: 'mer', dbId: 'mer', source: 'db', override: {}, reps: [{ name: 'Khalid Al-Otaibi', position: 'Group CHRO', email: 'k.alotaibi@meridian.ae', status: 'active' }] },
+        { id: 'alr', dbId: 'alr', source: 'db', override: {}, reps: [{ name: 'Noura Al-Fahad', position: 'VP People', email: 'n.alfahad@alrabie.sa', status: 'invited' }] },
+        { id: 'bdw', dbId: 'bdw', source: 'db', override: {}, reps: [] },
+        { id: 'agt', dbId: 'agt', source: 'db', override: {}, reps: [{ name: 'Hind Al-Suwaidi', position: 'Group HR Director', email: 'h.alsuwaidi@agthia.com', status: 'active' }, { name: 'Faisal Rahman', position: 'Talent Acquisition Lead', email: 'f.rahman@agthia.com', status: 'invited' }] },
+      ],
+      q: '', chip: 'all',
+      drawerId: null, drawerProjId: null, drawerInviteOpen: false, modalOpen: false, wsMenuOpen: false, dark: false, toast: '',
+      dName: '', dSector: '', dHq: '', dDomain: '', dOff: '',
+      step: 'company', dbq: '', newCompanyOpen: false,
+      ncName: '', ncDomain: '',
+      selDbId: null, selCustom: null,
+      repName: '', repPos: '', repEmail: '', repError: '',
+      collapsed: (() => { try { return localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) { return false; } })(),
+    };
+  }
+
+  componentDidMount() {
+    try { if (localStorage.getItem('lm-theme') === 'dark') { document.body.classList.add('dark'); this.setState({ dark: true }); } } catch (e) {}
+    this._esc = (e) => {
+      if (e.key !== 'Escape') return;
+      if (this.state.drawerProjId) { this.setState({ drawerProjId: null }); return; }
+      this.setState({ drawerId: null, modalOpen: false, wsMenuOpen: false });
+    };
+    document.addEventListener('keydown', this._esc);
+  }
+  componentWillUnmount() { document.removeEventListener('keydown', this._esc); }
+
+  db(id) { return this.DB.find(c => c.id === id); }
+  company(cl) { return Object.assign({}, cl.dbId ? this.db(cl.dbId) : cl.custom, cl.override || {}); }
+  initials(name) { return name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase(); }
+  showToast(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._tx);
+    this._tx = setTimeout(() => this.setState({ toast: '' }), 2400);
+  }
+  mandatesFor(cl) { return cl.dbId ? this.MANDATES.filter(m => m.client === cl.dbId) : []; }
+  validEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
+  repDraftValid() {
+    const st = this.state;
+    if (!st.repName.trim() || !st.repPos.trim() || !st.repEmail.trim()) return 'All three fields are required to send an invite.';
+    if (!this.validEmail(st.repEmail.trim())) return 'Enter a valid work email address.';
+    return '';
+  }
+  selectedCompany() {
+    return this.state.selDbId ? this.db(this.state.selDbId) : this.state.selCustom;
+  }
+  seedDetails(cl) {
+    const co = this.company(cl);
+    return { dName: co.name || '', dSector: co.sector || '', dHq: co.hq || '', dDomain: co.domain || '', dOff: co.offlimits || '' };
+  }
+  detailsDirty(cl) {
+    const seed = this.seedDetails(cl);
+    const st = this.state;
+    return seed.dName !== st.dName || seed.dSector !== st.dSector || seed.dHq !== st.dHq || seed.dDomain !== st.dDomain || seed.dOff !== st.dOff;
+  }
+
+  renderVals() {
+    const st = this.state;
+    const navItem = (key, label, icon, count, href, on) => ({
+      key, label, icon, href, count: count === undefined ? '' : String(count),
+      color: on ? 'var(--text)' : 'var(--text2)',
+      bg: on ? 'var(--panel2)' : 'transparent',
+      iconColor: on ? 'var(--amber)' : 'currentColor',
+    });
+
+    let rowsRaw = st.clients;
+    if (st.chip === 'active') rowsRaw = rowsRaw.filter(cl => this.mandatesFor(cl).some(m => m.stage !== 'delivered'));
+    else if (st.chip === 'noreps') rowsRaw = rowsRaw.filter(cl => cl.reps.length === 0);
+    if (st.q) rowsRaw = rowsRaw.filter(cl => this.company(cl).name.toLowerCase().includes(st.q.toLowerCase()));
+
+    const rows = rowsRaw.map(cl => {
+      const co = this.company(cl);
+      const mand = this.mandatesFor(cl);
+      const act = mand.filter(m => m.stage !== 'delivered').length;
+      const activeReps = cl.reps.filter(r => r.status === 'active').length;
+      const invited = cl.reps.filter(r => r.status === 'invited').length;
+      const type = cl.type || (mand.length > 0 ? 'Retained' : 'Prospect');
+      const shown = cl.reps.slice(0, 4);
+      return {
+        id: cl.id, name: co.name, initials: this.initials(co.name), sector: co.sector || '—',
+        mandates: String(act),
+        typeLabel: type,
+        typeColor: type === 'Retained' ? 'var(--sky)' : 'var(--text2)',
+        typeBg: type === 'Retained' ? 'var(--sky-dim)' : 'var(--panel2)',
+        hasReps: cl.reps.length > 0, noReps: cl.reps.length === 0,
+        contactTags: shown.map(p => ({
+          initials: this.initials(p.name), tip: p.name + (p.position ? ' · ' + p.position : ''),
+          bg: p.status === 'active' ? 'var(--green-dim)' : 'var(--amber-dim)',
+          color: p.status === 'active' ? 'var(--green)' : 'var(--amber)',
+        })).concat(cl.reps.length > 4 ? [{ initials: '+' + (cl.reps.length - 4), tip: (cl.reps.length - 4) + ' more', bg: 'var(--panel2)', color: 'var(--text3)' }] : []),
+        viewerDot: activeReps ? 'var(--green)' : invited ? 'var(--amber)' : 'var(--line)',
+        viewerLabel: activeReps ? activeReps + ' active' + (invited ? ' · ' + invited + ' invited' : '') : invited ? invited + ' invited' : 'None',
+      };
+    });
+
+    const chips = [['all', 'All clients'], ['active', 'Active mandates'], ['noreps', 'No representative']].map(([key, label]) => ({
+      key, label,
+      color: st.chip === key ? 'var(--amber)' : 'var(--text2)',
+      bg: st.chip === key ? 'var(--amber-dim)' : 'transparent',
+      border: st.chip === key ? 'var(--amber)' : 'var(--line)',
+    }));
+
+    let drawer = { name: '', meta: '', active: '', delivered: '', repCount: '', reps: [], mandateRows: [], hasReps: false, noReps: false, hasMandates: false, noMandates: false, inviteOpen: false };
+    let dirty = false;
+    const dc = st.clients.find(c => c.id === st.drawerId);
+    if (dc) {
+      const co = this.company(dc);
+      const mand = this.mandatesFor(dc);
+      const act = mand.filter(m => m.stage !== 'delivered').length;
+      dirty = this.detailsDirty(dc);
+      drawer = {
+        name: co.name, meta: (co.sector || '—') + ' · HQ ' + (co.hq || '—') + (co.domain ? ' · ' + co.domain : ''),
+        active: String(act), delivered: String(mand.length - act), repCount: String(dc.reps.length),
+        hasReps: dc.reps.length > 0, noReps: dc.reps.length === 0,
+        inviteOpen: st.drawerInviteOpen,
+        reps: dc.reps.map(r => ({
+          name: r.name, position: r.position, email: r.email, initials: this.initials(r.name),
+          stLabel: r.status === 'active' ? 'ACTIVE' : 'INVITED',
+          stColor: r.status === 'active' ? 'var(--green)' : 'var(--amber)',
+          stBg: r.status === 'active' ? 'var(--green-dim)' : 'var(--amber-dim)',
+        })),
+        hasMandates: mand.length > 0, noMandates: mand.length === 0,
+        mandateRows: mand.map(m => {
+          const s = this.STAGES[m.stage];
+          return { id: m.id, pos: m.pos, lead: m.lead, label: s.label, color: s.color, bg: s.bg, border: s.border };
+        }),
+      };
+    }
+
+    let proj = { clientName: '', pos: '', lead: '', created: '', companies: '', candidates: '', target: '', gates: [], healthLabel: '', healthColor: '', healthLines: [], team: [] };
+    const pm = st.drawerProjId ? this.MANDATES.find(m => m.id === st.drawerProjId) : null;
+    if (pm && dc) {
+      const sIdx = this.STAGES[pm.stage].idx;
+      const HEALTH = { ontrack: ['On track', 'var(--green)'], atrisk: ['At risk', 'var(--amber)'], offtrack: ['Off track', 'var(--red)'] };
+      proj = {
+        clientName: this.company(dc).name,
+        pos: pm.pos, lead: pm.lead, created: pm.created,
+        companies: String(pm.companies), candidates: String(pm.candidates), target: pm.target,
+        gates: this.GATES.map((g, i) => {
+          const done = i < sIdx || pm.stage === 'delivered';
+          const current = i === sIdx && pm.stage !== 'delivered';
+          return {
+            label: g,
+            note: (i === 1 && pm.stage === 'locked') ? '· locked' : '',
+            color: done ? 'var(--text2)' : current ? 'var(--amber)' : 'var(--text3)',
+            weight: current ? '600' : '400',
+            ringBorder: done ? 'var(--green)' : current ? 'var(--amber)' : 'var(--line)',
+            ringBg: done ? 'var(--green)' : current ? 'var(--amber-dim)' : 'transparent',
+          };
+        }),
+        healthLabel: HEALTH[pm.health][0], healthColor: HEALTH[pm.health][1],
+        healthLines: pm.healthLines.map(t => ({ text: t })),
+        team: pm.team.map(([name, role]) => ({ name, role, initials: this.initials(name) })),
+      };
+    }
+
+    const query = st.dbq.trim();
+    const searching = query.length >= 2;
+    const clientIds = new Set(st.clients.map(c => c.dbId).filter(Boolean));
+    const dbMatches = searching ? this.DB.filter(c => c.name.toLowerCase().includes(query.toLowerCase())).slice(0, 6) : [];
+    const dbResults = dbMatches.map(c => ({
+      id: c.id, name: c.name, initials: this.initials(c.name), meta: c.sector + ' · ' + c.hq,
+      isClient: clientIds.has(c.id), notClient: !clientIds.has(c.id),
+    }));
+
+    const sel = this.selectedCompany();
+    const err = st.repError;
+
+    return {
+      wsMenuOpen: st.wsMenuOpen,
+      themeLabel: st.dark ? 'Light mode' : 'Dark mode',
+      sideWidth: st.collapsed ? '56px' : '240px',
+      labelDisp: st.collapsed ? 'none' : 'inline',
+      groupDisp: st.collapsed ? 'none' : 'block',
+      navJustify: st.collapsed ? 'center' : 'flex-start',
+      collapseIcon: st.collapsed ? 'm13 17 5-5-5-5M6 17l5-5-5-5' : 'm11 17-5-5 5-5M18 17l-5-5 5-5',
+      collapseTitle: st.collapsed ? 'Expand sidebar' : 'Collapse sidebar',
+      toggleCollapse: () => {
+        const collapsed = !this.state.collapsed;
+        try { localStorage.setItem('lm-side-collapsed', collapsed ? '1' : '0'); } catch (e) {}
+        this.setState({ collapsed });
+      },
+      projNav: [
+        navItem('my', 'My projects', 'M12 2a10 10 0 1 0 .01 0M12 8a4 4 0 1 0 .01 0', 4, 'Workspace.dc.html', false),
+        navItem('all', 'All projects', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z', 7, 'Workspace.dc.html?view=all', false),
+      ],
+      wsNav: [
+        navItem('clients', 'Clients', 'M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01', st.clients.length, 'Clients.dc.html', true),
+        navItem('team', 'Team', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', 5, 'Workspace.dc.html?view=team', false),
+        { ...navItem('settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z', undefined, 'Settings.dc.html', false), count: '' },
+      ],
+      pageSub: st.clients.length + (st.clients.length === 1 ? ' client' : ' clients') + ' · records shared across projects',
+      q: st.q, chips, rows,
+      noResults: rows.length === 0,
+      drawerOpen: !!dc, drawer,
+      clientView: !!dc && !pm,
+      projView: !!dc && !!pm,
+      proj,
+      detailsDirty: dirty,
+      dName: st.dName, dSector: st.dSector, dHq: st.dHq, dDomain: st.dDomain, dOff: st.dOff,
+      modalOpen: st.modalOpen,
+      noSelection: !st.selDbId,
+      hasSelection: !!st.selDbId,
+      showCreateFields: !!st.selDbId || st.newCompanyOpen,
+      createLabel: st.repEmail.trim() ? 'Create client & send invite' : 'Create client',
+      dbq: st.dbq,
+      dbHasResults: searching && dbResults.length > 0 && !st.newCompanyOpen,
+      dbNoResults: searching && dbResults.length === 0 && !st.newCompanyOpen,
+      dbIdle: !searching && !st.newCompanyOpen,
+      dbResults,
+      newCompanyOpen: st.newCompanyOpen,
+      ncName: st.ncName, ncDomain: st.ncDomain,
+      selName: sel ? sel.name : '',
+      selInitials: sel ? this.initials(sel.name) : '',
+      selMeta: sel ? ((sel.sector || '—') + ' · ' + (sel.hq || '—') + (st.selDbId ? ' · from company DB' : ' · new company record')) : '',
+      repName: st.repName, repPos: st.repPos, repEmail: st.repEmail,
+      repError: !!err, repErrorMsg: err,
+      toastVisible: !!st.toast, toastMsg: st.toast,
+
+      toggleWsMenu: () => this.setState(s => ({ wsMenuOpen: !s.wsMenuOpen })),
+      toggleTheme: () => {
+        const dark = !this.state.dark;
+        document.body.classList.toggle('dark', dark);
+        try { localStorage.setItem('lm-theme', dark ? 'dark' : 'light'); } catch (e) {}
+        this.setState({ dark });
+      },
+      onSearch: (e) => this.setState({ q: e.target.value }),
+      setChip: (e) => this.setState({ chip: e.currentTarget.dataset.chip }),
+      openRow: (e) => {
+        const id = e.currentTarget.dataset.id;
+        const cl = this.state.clients.find(c => c.id === id);
+        this.setState({ drawerId: id, drawerProjId: null, drawerInviteOpen: false, repName: '', repPos: '', repEmail: '', repError: '', ...this.seedDetails(cl) });
+      },
+      closeDrawer: () => this.setState({ drawerId: null, drawerProjId: null, drawerInviteOpen: false }),
+      openProj: (e) => this.setState({ drawerProjId: e.currentTarget.dataset.id }),
+      backToClient: () => this.setState({ drawerProjId: null }),
+      draftDName: (e) => this.setState({ dName: e.target.value }),
+      draftDSector: (e) => this.setState({ dSector: e.target.value }),
+      draftDHq: (e) => this.setState({ dHq: e.target.value }),
+      draftDDomain: (e) => this.setState({ dDomain: e.target.value }),
+      draftDOff: (e) => this.setState({ dOff: e.target.value }),
+      revertDetails: () => {
+        const cl = this.state.clients.find(c => c.id === this.state.drawerId);
+        if (cl) this.setState(this.seedDetails(cl));
+      },
+      saveDetails: () => {
+        const s = this.state;
+        if (!s.dName.trim()) { this.showToast('Client name is required'); return; }
+        const override = { name: s.dName.trim(), sector: s.dSector.trim(), hq: s.dHq.trim(), domain: s.dDomain.trim(), offlimits: s.dOff.trim() };
+        const clients = s.clients.map(c => c.id === s.drawerId ? { ...c, override } : c);
+        this.setState({ clients });
+        this.showToast('Client details saved');
+      },
+      openInviteFromDrawer: () => this.setState({ drawerInviteOpen: true, repName: '', repPos: '', repEmail: '', repError: '' }),
+      cancelDrawerInvite: () => this.setState({ drawerInviteOpen: false, repError: '' }),
+      sendDrawerInvite: () => {
+        const msg = this.repDraftValid();
+        if (msg) { this.setState({ repError: msg }); return; }
+        const s = this.state;
+        const clients = s.clients.map(c => c.id === s.drawerId ? { ...c, reps: [...c.reps, { name: s.repName.trim(), position: s.repPos.trim(), email: s.repEmail.trim(), status: 'invited' }] } : c);
+        this.setState({ clients, drawerInviteOpen: false, repError: '' });
+        this.showToast('Invite sent to ' + s.repEmail.trim());
+      },
+
+      openModal: () => this.setState({ modalOpen: true, dbq: '', newCompanyOpen: false, ncName: '', ncDomain: '', selDbId: null, selCustom: null, repName: '', repPos: '', repEmail: '', repError: '' }),
+      closeModal: () => this.setState({ modalOpen: false }),
+      stopClick: (e) => e.stopPropagation(),
+      onDbSearch: (e) => this.setState({ dbq: e.target.value, newCompanyOpen: false }),
+      pickCompany: (e) => {
+        const id = e.currentTarget.dataset.id;
+        if (this.state.clients.some(c => c.dbId === id)) { this.showToast(this.db(id).name + ' is already a client'); return; }
+        this.setState({ selDbId: id, selCustom: null, newCompanyOpen: false, repError: '' });
+      },
+      startNewCompany: () => this.setState({ newCompanyOpen: true, selDbId: null, ncName: this.state.dbq.trim(), ncDomain: '' }),
+      draftNcName: (e) => this.setState({ ncName: e.target.value }),
+      draftNcDomain: (e) => this.setState({ ncDomain: e.target.value }),
+      backToCompany: () => this.setState({ selDbId: null, newCompanyOpen: false, repError: '' }),
+      draftRepName: (e) => this.setState({ repName: e.target.value }),
+      draftRepPos: (e) => this.setState({ repPos: e.target.value }),
+      draftRepEmail: (e) => this.setState({ repEmail: e.target.value }),
+      createClient: () => {
+        const s = this.state;
+        if (!s.selDbId) {
+          if (!s.ncName.trim()) { this.showToast('Company name is required'); return; }
+        }
+        const withRep = !!(s.repName.trim() || s.repPos.trim() || s.repEmail.trim());
+        if (withRep) {
+          const msg = this.repDraftValid();
+          if (msg) { this.setState({ repError: msg }); return; }
+        }
+        this.finishCreate(withRep);
+      },
+      toastArchive: () => this.showToast('Archive flow — confirm dialog in real build'),
+    };
+  }
+
+  finishCreate(withRep) {
+    const s = this.state;
+    const id = s.selDbId || ('new-' + Date.now());
+    const custom = s.selDbId ? null : { name: s.ncName.trim(), domain: s.ncDomain.trim(), hq: '', sector: '' };
+    const cl = {
+      id,
+      dbId: s.selDbId || null,
+      custom,
+      source: s.selDbId ? 'db' : 'new',
+      override: {},
+      reps: withRep ? [{ name: s.repName.trim(), position: s.repPos.trim(), email: s.repEmail.trim(), status: 'invited' }] : [],
+    };
+    const name = s.selDbId ? this.db(s.selDbId).name : custom.name;
+    this.setState({ clients: [cl, ...s.clients], modalOpen: false, drawerId: id, drawerProjId: null, drawerInviteOpen: false, ...this.seedDetailsFor(cl) });
+    this.showToast(withRep ? name + ' added — invite sent to ' + s.repEmail.trim() : name + ' added as client');
+  }
+  seedDetailsFor(cl) { return this.seedDetails(cl); }
+}
+</script>
+</body>
+</html>

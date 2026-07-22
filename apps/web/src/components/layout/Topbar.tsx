@@ -29,13 +29,9 @@ export function ProjectBreadcrumb({
   clientName: string;
   positionTitle: string;
 }) {
-  const { user } = useAuth();
-
   return (
     <div className="flex items-center gap-2">
-      <Link to="/" title="All projects" className="flex items-center rounded-[7px] p-1 hover:bg-panel2">
-        <LogoTile mark={user?.workspace?.logoMark ?? "L"} />
-      </Link>
+      <WorkspaceMenu compact />
       <Link
         to="/"
         className="whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-text3 hover:bg-panel2 hover:text-text"
@@ -57,14 +53,9 @@ export function ProjectBreadcrumb({
 
 /** The breadcrumb variant: `[L] Workspace / Settings / {section}`. */
 export function SettingsBreadcrumb({ section }: { section: string }) {
-  const { user } = useAuth();
-  const workspace = user?.workspace;
-
   return (
     <div className="flex items-center gap-2">
-      <Link to="/" title="Back to workspace" className="flex items-center rounded-[7px] p-1 hover:bg-panel2">
-        <LogoTile mark={workspace?.logoMark ?? "L"} />
-      </Link>
+      <WorkspaceMenu compact />
       <Link
         to="/"
         className="whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-text3 hover:bg-panel2 hover:text-text"
@@ -79,7 +70,7 @@ export function SettingsBreadcrumb({ section }: { section: string }) {
   );
 }
 
-function WorkspaceMenu() {
+function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -115,10 +106,17 @@ function WorkspaceMenu() {
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex items-center gap-2 rounded-lg py-[5px] pl-1.5 pr-2.5 hover:bg-panel2"
+        title={compact ? "LightMove workspace" : undefined}
+        className={
+          compact
+            ? "flex items-center gap-1 rounded-[7px] p-1 hover:bg-panel2"
+            : "flex items-center gap-2 rounded-lg py-[5px] pl-1.5 pr-2.5 hover:bg-panel2"
+        }
       >
         <LogoTile mark={workspace.logoMark ?? workspace.name[0]} />
-        <span className="font-mono text-[13px] font-semibold tracking-[0.02em]">{workspace.name}</span>
+        {!compact && (
+          <span className="font-mono text-[13px] font-semibold tracking-[0.02em]">{workspace.name}</span>
+        )}
         <Icon d={ICONS.chevronDown} size={13} className="text-text3" />
       </button>
 
