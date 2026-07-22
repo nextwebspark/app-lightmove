@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { Button, Card, Field, FormError, Input, Logo } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
+import { ThemeToggle } from "../../theme/ThemeToggle";
 import { useAuth } from "../AuthProvider";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import { signupSchema, type SignupValues } from "../schemas";
@@ -80,6 +81,7 @@ export function SignupPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
+      <ThemeToggle className="fixed right-4 top-4 z-50" />
       <Logo />
       <Stepper steps={SIGNUP_STEPS} current={1} />
 

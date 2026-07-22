@@ -20,9 +20,9 @@
   --color-line: #e3e6ee;
   --color-line-soft: #edeff5;
 
-  --color-text: #1b2230;
-  --color-text2: #5a6474;
-  --color-text3: #98a1b3;
+  --color-text: #141b29;
+  --color-text2: #47505f;
+  --color-text3: #6e7890;
 
   /* Amber is the brand: the logo tile and every primary action. */
   --color-amber: #b47708;
@@ -59,9 +59,9 @@
   --color-line: #232833;
   --color-line-soft: #1c212b;
 
-  --color-text: #e8eaee;
-  --color-text2: #9aa3b2;
-  --color-text3: #5f6877;
+  --color-text: #f1f3f6;
+  --color-text2: #b8c0cc;
+  --color-text3: #8d96a6;
 
   --color-amber: #f0b429;
   --color-amber-dim: rgba(240, 180, 41, 0.12);

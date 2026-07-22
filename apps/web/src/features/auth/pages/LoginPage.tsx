@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Card, Field, FormError, Input, Logo } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
+import { ThemeToggle } from "../../theme/ThemeToggle";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import { loginSchema, type LoginValues } from "../schemas";
@@ -80,6 +81,7 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
+      <ThemeToggle className="fixed right-4 top-4 z-50" />
       <Logo />
 
       <Card className="w-[400px] max-w-[94vw] [animation-delay:60ms]">

@@ -11,8 +11,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root{--bg:#f4f5f8;--panel:#ffffff;--panel2:#f7f8fa;--line:#e3e6ee;--line-soft:#edeff5;--text:#1b2230;--text2:#5a6474;--text3:#98a1b3;--amber:#b47708;--amber-btn:#f0b429;--amber-dim:rgba(201,138,10,.10);--sky:#1a73c7;--sky-dim:rgba(26,115,199,.10);--red:#cc3a33;--red-dim:rgba(204,58,51,.08);--green:#1f8f60;--green-dim:rgba(31,143,96,.10);--shadow:0 8px 28px rgba(20,30,50,.10);--mono:'JetBrains Mono',ui-monospace,monospace;--sans:'Inter',system-ui,sans-serif}
-    body.dark{--bg:#0b0d11;--panel:#12151b;--panel2:#171b22;--line:#232833;--line-soft:#1c212b;--text:#e8eaee;--text2:#9aa3b2;--text3:#5f6877;--amber:#f0b429;--amber-dim:rgba(240,180,41,.12);--sky:#5cb3ff;--sky-dim:rgba(92,179,255,.12);--red:#e5534b;--red-dim:rgba(229,83,75,.12);--green:#3fb27f;--green-dim:rgba(63,178,127,.12);--shadow:0 8px 28px rgba(0,0,0,.45)}
+    :root{--bg:#f4f5f8;--panel:#ffffff;--panel2:#f7f8fa;--line:#e3e6ee;--line-soft:#edeff5;--text:#141b29;--text2:#47505f;--text3:#6e7890;--amber:#b47708;--amber-btn:#f0b429;--amber-dim:rgba(201,138,10,.10);--sky:#1a73c7;--sky-dim:rgba(26,115,199,.10);--red:#cc3a33;--red-dim:rgba(204,58,51,.08);--green:#1f8f60;--green-dim:rgba(31,143,96,.10);--shadow:0 8px 28px rgba(20,30,50,.10);--mono:'JetBrains Mono',ui-monospace,monospace;--sans:'Inter',system-ui,sans-serif}
+    body.dark{--bg:#0b0d11;--panel:#12151b;--panel2:#171b22;--line:#232833;--line-soft:#1c212b;--text:#f1f3f6;--text2:#b8c0cc;--text3:#8d96a6;--amber:#f0b429;--amber-dim:rgba(240,180,41,.12);--sky:#5cb3ff;--sky-dim:rgba(92,179,255,.12);--red:#e5534b;--red-dim:rgba(229,83,75,.12);--green:#3fb27f;--green-dim:rgba(63,178,127,.12);--shadow:0 8px 28px rgba(0,0,0,.45)}
     *{box-sizing:border-box}
     html,body{height:100%;margin:0}
     body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
@@ -28,9 +28,36 @@
 <div data-screen-label="Project" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
 
   <header style="height:46px;flex:none;display:flex;align-items:center;gap:8px;padding:0 14px;position:relative;z-index:60">
-    <a href="Workspace.dc.html" title="Back to LightMove workspace" style="display:flex;align-items:center;padding:4px;border-radius:7px;text-decoration:none" style-hover="background:var(--panel2);text-decoration:none">
-      <span style="width:22px;height:22px;border-radius:6px;background:#f0b429;color:#141414;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
-    </a>
+    <div style="position:relative">
+      <button onClick="{{ toggleWsMenu }}" title="LightMove workspace" style="display:flex;align-items:center;gap:4px;padding:4px 5px 4px 4px;border-radius:7px;background:none;border:none;cursor:pointer;color:var(--text)" style-hover="background:var(--panel2)">
+        <span style="width:22px;height:22px;border-radius:6px;background:#f0b429;color:#141414;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
+      </button>
+      <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;top:40px;left:0;width:268px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:6px;z-index:80">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--line-soft);margin-bottom:6px">
+            <span style="width:30px;height:30px;border-radius:8px;background:#f0b429;color:#141414;display:grid;place-items:center;font:700 13px var(--mono)">L</span>
+            <div>
+              <div style="font:600 13px var(--mono)">LightMove</div>
+              <div style="font:400 11px var(--mono);color:var(--text3)">5 members · Pro plan</div>
+            </div>
+          </div>
+          <a href="Settings.dc.html?section=general" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v4m0 14v4M4.2 4.2l2.8 2.8m10 10 2.8 2.8M1 12h4m14 0h4M4.2 19.8 7 17m10-10 2.8-2.8"></path></svg>
+            Workspace settings
+          </a>
+          <a href="Workspace.dc.html?view=team" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            Members
+          </a>
+          <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
+          <a href="Login.dc.html" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>
+            Sign out
+          </a>
+        </div>
+      </sc-if>
+    </div>
     <a href="Workspace.dc.html" style="font:500 13px var(--mono);color:var(--text3);text-decoration:none;padding:4px 7px;border-radius:6px;white-space:nowrap" style-hover="color:var(--text);background:var(--panel2);text-decoration:none">Projects</a>
     <span style="color:var(--text3);opacity:.4;font-size:12px">/</span>
     <span style="width:9px;height:9px;border-radius:3px;background:var(--sky);flex:none"></span>
@@ -408,7 +435,7 @@
             <sc-if value="{{ srcIsCard }}" hint-placeholder-val="{{ true }}">
               <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px">
                 <sc-for list="{{ srcCards }}" as="co" hint-placeholder-count="4">
-                  <div style="position:relative;background:var(--panel2);border:1px solid var(--line-soft);border-left:{{ co.leftBorder }};border-radius:10px;padding:18px;opacity:{{ co.opacity }}" style-hover="border-color:var(--line)">
+                  <div onClick="{{ openCoDrawer }}" data-id="{{ co.id }}" style="position:relative;background:var(--panel2);border:1px solid var(--line-soft);border-left:{{ co.leftBorder }};border-radius:10px;padding:18px;opacity:{{ co.opacity }};cursor:pointer" style-hover="border-color:var(--line)">
                     <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
                       <div style="width:40px;height:40px;border-radius:8px;background:var(--panel);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font:600 13px var(--mono);color:var(--text2);flex:none">{{ co.initials }}</div>
                       <div style="flex:1;min-width:0">
@@ -481,7 +508,7 @@
                   </thead>
                   <tbody>
                     <sc-for list="{{ srcCards }}" as="co" hint-placeholder-count="6">
-                      <tr style="opacity:{{ co.opacity }}">
+                      <tr onClick="{{ openCoDrawer }}" data-id="{{ co.id }}" style="opacity:{{ co.opacity }};cursor:pointer" style-hover="background:var(--panel2)">
                         <td style="padding:10px 14px;border-bottom:1px solid var(--line-soft);white-space:nowrap">
                           <span style="display:flex;align-items:center;gap:8px;font:600 13px var(--sans);color:var(--text)">
                             <span style="width:7px;height:7px;border-radius:50%;flex:none;background:{{ co.dotColor }}"></span>
@@ -600,9 +627,382 @@
           </div>
         </sc-if>
 
+        <!-- ================= TEAM & ACCESS ================= -->
+        <sc-if value="{{ isTeam }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Team" style="animation:fadeUp .4s ease both">
+            <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:14px">
+              <div>
+                <div style="font:600 19px/1.2 var(--sans)">Team &amp; access</div>
+                <div style="color:var(--text3);font:400 12px var(--mono);margin-top:4px">Who works this mandate and what they can do · {{ teamCountLabel }}</div>
+              </div>
+              <sc-if value="{{ teamCanManage }}" hint-placeholder-val="{{ true }}">
+                <div style="margin-left:auto">
+                  <button onClick="{{ openTeamAdd }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
+                    Add team member
+                  </button>
+                </div>
+              </sc-if>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:9px;padding:10px 13px;border-radius:9px;margin-bottom:18px;font:400 12.5px var(--sans);color:{{ permColor }};background:{{ permBg }};border:1px solid {{ permBorder }}">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ permIcon }}"></path></svg>
+              <span>{{ permText }}</span>
+            </div>
+
+            <div style="display:flex;gap:8px 18px;flex-wrap:wrap;margin-bottom:16px">
+              <sc-for list="{{ roleLegend }}" as="r" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:8px;font:400 12px var(--sans);color:var(--text2)">
+                  <span style="font:600 9px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:5px;color:{{ r.color }};background:{{ r.bg }};border:1px solid {{ r.border }}">{{ r.label }}</span>
+                  <span style="color:var(--text3)">{{ r.desc }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="border:1px solid var(--line);border-radius:11px;overflow:hidden">
+              <div style="display:grid;grid-template-columns:1.5fr 2.4fr auto;gap:14px;padding:10px 16px;background:var(--panel2);border-bottom:1px solid var(--line);font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">
+                <div>Member</div><div>Roles on this project</div><div style="text-align:right">{{ manageColLabel }}</div>
+              </div>
+              <sc-for list="{{ teamRows }}" as="m" hint-placeholder-count="3">
+                <div style="display:grid;grid-template-columns:1.5fr 2.4fr auto;gap:14px;align-items:center;padding:13px 16px;border-bottom:1px solid var(--line-soft)">
+                  <div style="display:flex;align-items:center;gap:10px;min-width:0">
+                    <span style="width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font:600 11px var(--mono);background:{{ m.bg }};color:{{ m.fg }};flex:none">{{ m.initials }}</span>
+                    <div style="min-width:0">
+                      <div style="font:500 13.5px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.name }}</div>
+                      <div style="font:400 11px var(--mono);color:var(--text3)">{{ m.you }}</div>
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap">
+                    <sc-for list="{{ m.roleChips }}" as="rc" hint-placeholder-count="4">
+                      <button onClick="{{ toggleRole }}" data-mid="{{ m.id }}" data-role="{{ rc.key }}" disabled="{{ rc.disabled }}" title="{{ rc.title }}" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font:600 10.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;cursor:{{ rc.cursor }};color:{{ rc.color }};background:{{ rc.bg }};border:1px solid {{ rc.border }};opacity:{{ rc.opacity }}">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" style="display:{{ rc.checkDisp }};flex:none"><path d="m5 13 4 4L19 7"></path></svg>
+                        {{ rc.label }}
+                      </button>
+                    </sc-for>
+                  </div>
+                  <div style="text-align:right">
+                    <sc-if value="{{ m.showRemove }}" hint-placeholder-val="{{ false }}">
+                      <button onClick="{{ removeMember }}" data-mid="{{ m.id }}" title="Remove from project" style="color:var(--text3);padding:6px;border-radius:6px;background:none;border:none;cursor:pointer" style-hover="color:var(--red);background:var(--red-dim)">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"></path></svg>
+                      </button>
+                    </sc-if>
+                    <sc-if value="{{ m.lockRemove }}" hint-placeholder-val="{{ false }}">
+                      <span title="The lead can't be removed — reassign the lead first" style="display:inline-flex;color:var(--text3);padding:6px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:12px">Lead is unique per project — assigning a new lead moves it. Admins and the lead can manage the team; every member keeps at least one role.</div>
+
+            <!-- ===== CLIENT ===== -->
+            <div style="display:flex;align-items:flex-start;gap:16px;margin:32px 0 14px">
+              <div>
+                <div style="font:600 16px/1.2 var(--sans)">Client</div>
+                <div style="color:var(--text3);font:400 12px var(--mono);margin-top:4px">The client organisation and the people we report to on their side</div>
+              </div>
+              <sc-if value="{{ teamCanManage }}" hint-placeholder-val="{{ true }}">
+                <div style="margin-left:auto">
+                  <sc-if value="{{ hasClient }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ openClientPicker }}" style="display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:8px;font:500 12.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z"></path></svg>
+                      Change client
+                    </button>
+                  </sc-if>
+                </div>
+              </sc-if>
+            </div>
+
+            <sc-if value="{{ hasClient }}" hint-placeholder-val="{{ true }}">
+              <div style="border:1px solid var(--line);border-radius:11px;overflow:hidden">
+                <div style="display:flex;align-items:center;gap:12px;padding:15px 16px;background:var(--panel2);border-bottom:1px solid var(--line)">
+                  <span style="width:38px;height:38px;border-radius:9px;display:grid;place-items:center;font:700 13px var(--mono);background:var(--sky-dim);color:var(--sky);flex:none">{{ clientInitials }}</span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font:600 14px var(--sans)">{{ clientName }}</div>
+                    <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:2px">{{ clientSector }} · {{ clientContactCount }}</div>
+                  </div>
+                  <sc-if value="{{ teamCanManage }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ openContactAdd }}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;font:600 12.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
+                      Add contact
+                    </button>
+                  </sc-if>
+                </div>
+                <sc-for list="{{ clientContactRows }}" as="c" hint-placeholder-count="1">
+                  <div style="display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--line-soft)">
+                    <span style="width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font:600 11px var(--mono);background:var(--panel2);color:var(--text2);border:1px solid var(--line);flex:none">{{ c.initials }}</span>
+                    <div style="min-width:0;flex:1">
+                      <div style="font:500 13.5px var(--sans)">{{ c.name }}</div>
+                      <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:2px">{{ c.title }} · {{ c.email }}</div>
+                    </div>
+                    <span style="font:600 9.5px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:999px;color:{{ c.statusColor }};background:{{ c.statusBg }};white-space:nowrap">{{ c.statusLabel }}</span>
+                    <sc-if value="{{ c.canRemove }}" hint-placeholder-val="{{ true }}">
+                      <button onClick="{{ removeContact }}" data-id="{{ c.id }}" title="Remove contact" style="color:var(--text3);padding:6px;border-radius:6px;background:none;border:none;cursor:pointer" style-hover="color:var(--red);background:var(--red-dim)">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"></path></svg>
+                      </button>
+                    </sc-if>
+                  </div>
+                </sc-for>
+                <div style="padding:11px 16px;font:400 11px var(--mono);color:var(--text3)">Invited contacts join automatically once they accept — no action needed on your side.</div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ noClient }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px dashed var(--line);border-radius:11px;padding:34px 20px;text-align:center">
+                <div style="width:44px;height:44px;border-radius:11px;background:var(--sky-dim);display:grid;place-items:center;margin:0 auto 12px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sky)" stroke-width="2"><path d="M3 21h18M6 21V7l6-4 6 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"></path></svg></div>
+                <div style="font:600 14px var(--sans)">No client linked yet</div>
+                <div style="font:400 12px var(--mono);color:var(--text3);margin:5px 0 16px">Link the client organisation this mandate is for.</div>
+                <button onClick="{{ openClientPicker }}" style="display:inline-flex;align-items:center;gap:7px;padding:8px 15px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Add client</button>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
       </div>
     </main>
   </div>
+
+  <!-- Add team member modal -->
+  <sc-if value="{{ teamAddOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeTeamAdd }}" style="position:fixed;inset:0;background:rgba(15,20,30,.4);z-index:100;display:grid;place-items:center">
+      <div onClick="{{ stopClick }}" style="width:480px;max-width:94vw;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:22px;animation:fadeUp .22s ease both">
+        <div style="font:600 16px var(--sans)">Add team member</div>
+        <div style="font:400 12px var(--mono);color:var(--text3);margin:4px 0 16px">Pick from the LightMove firm directory and set their starting role</div>
+        <sc-if value="{{ hasAddable }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:7px;max-height:300px;overflow-y:auto">
+            <sc-for list="{{ addable }}" as="p" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:9px">
+                <span style="width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:600 11px var(--mono);background:{{ p.bg }};color:{{ p.fg }};flex:none">{{ p.initials }}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font:500 13px var(--sans)">{{ p.name }}</div>
+                  <div style="font:400 11px var(--mono);color:var(--text3)">Joins as {{ p.roleLabel }}</div>
+                </div>
+                <select onChange="{{ setAddRole }}" data-id="{{ p.id }}" style="background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:5px 8px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <option value="researcher">Researcher</option>
+                  <option value="admin">Admin</option>
+                  <option value="lead">Lead</option>
+                </select>
+                <button onClick="{{ addMember }}" data-id="{{ p.id }}" style="padding:6px 13px;border-radius:7px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Add</button>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ noAddable }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:30px;text-align:center;color:var(--text3);font:400 13px var(--mono)">Everyone in the directory is already on this project.</div>
+        </sc-if>
+        <div style="display:flex;justify-content:flex-end;margin-top:18px">
+          <button onClick="{{ closeTeamAdd }}" style="padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Done</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Select client modal -->
+  <sc-if value="{{ clientPickerOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeClientPicker }}" style="position:fixed;inset:0;background:rgba(15,20,30,.4);z-index:100;display:grid;place-items:center">
+      <div onClick="{{ stopClick }}" style="width:480px;max-width:94vw;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:22px;animation:fadeUp .22s ease both">
+        <div style="font:600 16px var(--sans)">Set client</div>
+        <div style="font:400 12px var(--mono);color:var(--text3);margin:4px 0 16px">Pick an existing organisation or add a new one</div>
+
+        <div style="display:flex;gap:6px;padding:4px;background:var(--panel2);border-radius:9px;margin-bottom:16px">
+          <button onClick="{{ setClientMode }}" data-mode="existing" style="flex:1;padding:7px;border-radius:6px;font:600 12.5px var(--sans);border:none;cursor:pointer;background:{{ cExistingTabBg }};color:{{ cExistingTabColor }}">Existing client</button>
+          <button onClick="{{ setClientMode }}" data-mode="new" style="flex:1;padding:7px;border-radius:6px;font:600 12.5px var(--sans);border:none;cursor:pointer;background:{{ cNewTabBg }};color:{{ cNewTabColor }}">Add new client</button>
+        </div>
+
+        <sc-if value="{{ clientExisting }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto">
+            <sc-for list="{{ clientDir }}" as="c" hint-placeholder-count="3">
+              <button onClick="{{ pickClient }}" data-id="{{ c.id }}" style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:none;cursor:pointer;text-align:left;width:100%" style-hover="border-color:var(--sky);background:var(--sky-dim)">
+                <span style="width:34px;height:34px;border-radius:8px;display:grid;place-items:center;font:700 12px var(--mono);background:var(--sky-dim);color:var(--sky);flex:none">{{ c.initials }}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font:600 13.5px var(--sans);color:var(--text)">{{ c.name }}</div>
+                  <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:2px">{{ c.sector }} · {{ c.peopleLabel }}</div>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="m9 6 6 6-6 6"></path></svg>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ clientNew }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <label style="display:block">
+              <span style="font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">Client name</span>
+              <input onInput="{{ setNewClient }}" data-field="name" value="{{ newClientName }}" placeholder="e.g. Horizon Retail Group" style="width:100%;margin-top:6px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:400 13px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+            </label>
+            <label style="display:block">
+              <span style="font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">Sector &amp; region <span style="text-transform:none;letter-spacing:0">(optional)</span></span>
+              <input onInput="{{ setNewClient }}" data-field="sector" value="{{ newClientSector }}" placeholder="e.g. Retail · UAE" style="width:100%;margin-top:6px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:400 13px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+            </label>
+            <div style="font:400 11px var(--mono);color:var(--text3)">Once added the client appears on this project — you can then invite their contacts.</div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">
+            <button onClick="{{ closeClientPicker }}" style="padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+            <button onClick="{{ createClient }}" disabled="{{ newClientInvalid }}" style="padding:7px 15px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer;opacity:{{ newClientBtnOpacity }}">Add client</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ clientExisting }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;justify-content:flex-end;margin-top:18px">
+            <button onClick="{{ closeClientPicker }}" style="padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Add client contact modal -->
+  <sc-if value="{{ contactAddOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeContactAdd }}" style="position:fixed;inset:0;background:rgba(15,20,30,.4);z-index:100;display:grid;place-items:center">
+      <div onClick="{{ stopClick }}" style="width:490px;max-width:94vw;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:22px;animation:fadeUp .22s ease both">
+        <div style="font:600 16px var(--sans)">Add client contact</div>
+        <div style="font:400 12px var(--mono);color:var(--text3);margin:4px 0 16px">Invite someone from {{ clientName }} to this project</div>
+
+        <div style="display:flex;gap:6px;padding:4px;background:var(--panel2);border-radius:9px;margin-bottom:16px">
+          <button onClick="{{ setInviteMode }}" data-mode="existing" style="flex:1;padding:7px;border-radius:6px;font:600 12.5px var(--sans);border:none;cursor:pointer;background:{{ existingTabBg }};color:{{ existingTabColor }}">Existing person</button>
+          <button onClick="{{ setInviteMode }}" data-mode="new" style="flex:1;padding:7px;border-radius:6px;font:600 12.5px var(--sans);border:none;cursor:pointer;background:{{ newTabBg }};color:{{ newTabColor }}">Invite by email</button>
+        </div>
+
+        <sc-if value="{{ inviteExisting }}" hint-placeholder-val="{{ true }}">
+          <sc-if value="{{ hasClientPeople }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:7px;max-height:260px;overflow-y:auto">
+              <sc-for list="{{ clientPeople }}" as="p" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:9px">
+                  <span style="width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--panel2);color:var(--text2);border:1px solid var(--line);flex:none">{{ p.initials }}</span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font:500 13px var(--sans)">{{ p.name }}</div>
+                    <div style="font:400 11px var(--mono);color:var(--text3)">{{ p.title }} · {{ p.email }}</div>
+                  </div>
+                  <sc-if value="{{ p.added }}" hint-placeholder-val="{{ false }}">
+                    <span style="font:600 10px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--text3);padding:6px 10px">Added</span>
+                  </sc-if>
+                  <sc-if value="{{ p.notAdded }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ inviteExistingPerson }}" data-id="{{ p.id }}" style="padding:6px 13px;border-radius:7px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Invite</button>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+            <div style="font:400 11px var(--mono);color:var(--text3);margin-top:12px">Selecting a person sends their invite automatically — no email needed.</div>
+          </sc-if>
+          <sc-if value="{{ noClientPeople }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:26px 16px;text-align:center;color:var(--text3);font:400 12.5px var(--mono)">No people on record for this client yet. Use <b style="color:var(--text2)">Invite by email</b> to add the first contact.</div>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ inviteNew }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <label style="display:block">
+              <span style="font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">Full name</span>
+              <input onInput="{{ setDraft }}" data-field="name" value="{{ draftName }}" placeholder="e.g. Amir Haddad" style="width:100%;margin-top:6px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:400 13px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+            </label>
+            <label style="display:block">
+              <span style="font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">Email address</span>
+              <input onInput="{{ setDraft }}" data-field="email" value="{{ draftEmail }}" placeholder="name@company.com" style="width:100%;margin-top:6px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:400 13px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+            </label>
+            <label style="display:block">
+              <span style="font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">Title <span style="text-transform:none;letter-spacing:0;color:var(--text3)">(optional)</span></span>
+              <input onInput="{{ setDraft }}" data-field="title" value="{{ draftTitle }}" placeholder="e.g. Chief People Officer" style="width:100%;margin-top:6px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:400 13px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+            </label>
+            <div style="font:400 11px var(--mono);color:var(--text3)">We'll email an invite. They join the project as a client contact once they accept.</div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">
+            <button onClick="{{ closeContactAdd }}" style="padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+            <button onClick="{{ sendNewInvite }}" disabled="{{ draftInvalid }}" style="padding:7px 15px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer;opacity:{{ inviteBtnOpacity }}">Send invite</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ inviteExisting }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;justify-content:flex-end;margin-top:18px">
+            <button onClick="{{ closeContactAdd }}" style="padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Done</button>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Company drawer -->
+  <sc-if value="{{ coDrawerOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeCoDrawer }}" style="position:fixed;inset:0;background:rgba(15,20,30,.4);z-index:90"></div>
+    <aside style="position:fixed;top:10px;right:10px;bottom:10px;width:520px;max-width:92vw;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);z-index:95;display:flex;flex-direction:column;animation:fadeUp .22s ease both">
+      <div style="padding:18px 20px 14px;border-bottom:1px solid var(--line-soft);position:relative">
+        <button onClick="{{ closeCoDrawer }}" aria-label="Close" style="position:absolute;top:14px;right:14px;color:var(--text3);padding:6px;border-radius:6px;background:none;border:none;cursor:pointer;z-index:2" style-hover="color:var(--text);background:var(--panel2)">✕</button>
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div style="width:52px;height:52px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font:600 16px var(--mono);color:var(--text2);flex:none">{{ cod.initials }}</div>
+          <div style="flex:1;min-width:0;padding-right:24px">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font:600 16px var(--sans);color:var(--text)">{{ cod.name }}</span>
+              <span style="display:inline-flex;align-items:center;font:700 9.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:5px;flex:none;color:{{ cod.tierColor }};background:{{ cod.tierBg }}">{{ cod.tierLabel }}</span>
+            </div>
+            <div style="font:400 12px var(--mono);color:var(--text3);margin-top:4px">{{ cod.meta }}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">
+              <sc-for list="{{ cod.tags }}" as="t" hint-placeholder-count="4">
+                <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font:500 11.5px var(--mono);color:var(--text2)">
+                  <span style="font:600 9px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--text3)">{{ t.label }}</span>
+                  {{ t.value }}
+                </span>
+              </sc-for>
+            </div>
+          </div>
+          <div style="flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:56px;padding:8px 0;border-radius:10px;border:1.5px solid var(--sky);color:var(--sky);margin-right:22px">
+            <b style="font:700 20px var(--mono);line-height:1">{{ cod.fit }}</b>
+            <span style="font:600 9px var(--mono);letter-spacing:.06em;color:var(--text3)">FIT</span>
+          </div>
+        </div>
+      </div>
+      <div style="padding:0 20px;overflow-y:auto;flex:1">
+        <div style="padding:16px 0;border-bottom:1px solid var(--line-soft)">
+          <div style="font:600 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">About</div>
+          <p style="font:400 13px var(--sans);color:var(--text2);line-height:1.6;margin:0">{{ cod.desc }}</p>
+        </div>
+        <div style="padding:16px 0;border-bottom:1px solid var(--line-soft)">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
+            <span style="font:600 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">Criteria Match</span>
+            <span style="font:600 11px var(--mono);color:var(--sky)">{{ cod.metLabel }}</span>
+          </div>
+          <sc-for list="{{ cod.critRows }}" as="r" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:8px;padding:5px 0;font:400 12.5px var(--mono)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{ r.iconColor }}" stroke-width="2.6" style="flex:none"><path d="{{ r.iconPath }}"></path></svg>
+              <span style="color:var(--text3);width:80px;flex:none">{{ r.label }}</span>
+              <span style="color:{{ r.valColor }};font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ r.value }}">{{ r.value }}</span>
+              <sc-if value="{{ r.preferred }}" hint-placeholder-val="{{ false }}">
+                <span style="font:600 9px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);border:1px solid var(--line);border-radius:5px;padding:1px 7px;white-space:nowrap;flex:none">preferred</span>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <div style="padding:16px 0;border-bottom:1px solid var(--line-soft)">
+          <div style="font:600 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Scale Snapshot</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 12px">
+            <sc-for list="{{ cod.scaleFields }}" as="f" hint-placeholder-count="4">
+              <div>
+                <div style="font:600 9.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:4px">{{ f.label }}</div>
+                <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:7px;padding:7px 10px;font:500 13px var(--mono);color:var(--text)">{{ f.value }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="padding:16px 0 20px">
+          <div style="font:600 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Comment</div>
+          <textarea value="{{ cod.comment }}" onInput="{{ onCoComment }}" placeholder="Private note on this company…" style="width:100%;min-height:60px;background:var(--panel2);border:1px dashed var(--line);border-radius:8px;padding:10px 12px;font:400 12.5px var(--mono);color:var(--text2);outline:none;resize:vertical" style-focus="border-color:var(--text3)"></textarea>
+        </div>
+      </div>
+      <div style="padding:14px 20px;border-top:1px solid var(--line-soft);display:flex;align-items:center;gap:8px">
+        <button onClick="{{ onTriage }}" data-id="{{ cod.id }}" data-act="universe" style="display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;font:600 12.5px var(--sans);border:1px solid {{ cod.uBorder }};color:{{ cod.uColor2 }};background:{{ cod.uBg }};cursor:pointer" style-hover="border-color:var(--green)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 13 4 4L19 7"></path></svg>
+          {{ cod.uLabel }}
+        </button>
+        <button onClick="{{ onTriage }}" data-id="{{ cod.id }}" data-act="shortlist" style="display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;font:600 12.5px var(--sans);border:1px solid {{ cod.sBorder }};color:{{ cod.sColor2 }};background:{{ cod.sBg }};cursor:pointer" style-hover="border-color:var(--amber)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2Z"></path></svg>
+          {{ cod.sLabel }}
+        </button>
+        <span style="flex:1"></span>
+        <button onClick="{{ onTriage }}" data-id="{{ cod.id }}" data-act="decline" style="display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;font:600 12.5px var(--sans);border:1px solid {{ cod.dBorder }};color:{{ cod.dColor2 }};background:{{ cod.dBg }};cursor:pointer" style-hover="border-color:var(--red)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+          {{ cod.dLabel }}
+        </button>
+      </div>
+    </aside>
+  </sc-if>
 
   <!-- Candidate drawer -->
   <sc-if value="{{ candDrawerOpen }}" hint-placeholder-val="{{ false }}">
@@ -732,13 +1132,44 @@
 
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;startPage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;position&quot;,&quot;options&quot;:[&quot;position&quot;,&quot;strategy&quot;,&quot;sourcing&quot;,&quot;candidates&quot;,&quot;outreach&quot;,&quot;reports&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;startPage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;position&quot;,&quot;options&quot;:[&quot;position&quot;,&quot;strategy&quot;,&quot;sourcing&quot;,&quot;candidates&quot;,&quot;outreach&quot;,&quot;reports&quot;,&quot;team&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
     this.CHECK = 'm5 13 4 4L19 7';
     this.DASH = 'M5 12h14';
     this.WARN = 'M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z';
+    this.ME = 'yh';
+    this.addRoleDraft = {};
+    this.ROLE_ORDER = ['lead', 'admin', 'researcher'];
+    this.ROLE_META = {
+      lead: { label: 'Lead', color: 'var(--amber)', bg: 'var(--amber-dim)', border: 'var(--amber)' },
+      admin: { label: 'Admin', color: 'var(--sky)', bg: 'var(--sky-dim)', border: 'transparent' },
+      researcher: { label: 'Researcher', color: 'var(--text2)', bg: 'var(--panel2)', border: 'var(--line)' },
+    };
+    this.ROLE_DESC = {
+      lead: 'owns the mandate & client relationship',
+      admin: 'can add members & change roles',
+      researcher: 'sources & verifies candidates',
+    };
+    this.CLIENT_DIR = [
+      { id: 'aurora', name: 'Aurora Capital', sector: 'Private Equity · UAE', people: [
+        { id: 'ac1', name: 'Nadia Rahman', title: 'Managing Partner', email: 'n.rahman@auroracap.ae' },
+        { id: 'ac2', name: 'Tariq Salem', title: 'Head of Portfolio Ops', email: 't.salem@auroracap.ae' },
+      ] },
+      { id: 'meridian', name: 'Meridian Foods', sector: 'FMCG · KSA', people: [
+        { id: 'mf1', name: 'Huda Kamal', title: 'Chief People Officer', email: 'h.kamal@meridianfoods.sa' },
+      ] },
+      { id: 'zenith', name: 'Zenith Industrial', sector: 'Manufacturing · Egypt', people: [] },
+    ];
+    this.newContactDraft = { name: '', email: '', title: '' };
+    this.newClientDraft = { name: '', sector: '' };
+    this.FIRM = [
+      { id: 'sa', name: 'Sara Al-Mansour', initials: 'SA', bg: 'var(--green-dim)', fg: 'var(--green)' },
+      { id: 'da', name: 'Dana Aboud', initials: 'DA', bg: 'var(--panel2)', fg: 'var(--text2)' },
+      { id: 'rf', name: 'Rami Fares', initials: 'RF', bg: 'var(--sky-dim)', fg: 'var(--sky)' },
+      { id: 'ln', name: 'Layla Nassar', initials: 'LN', bg: 'var(--amber-dim)', fg: 'var(--amber)' },
+    ];
     this.STATUS = {
       executive: { label: 'Executive', color: 'var(--text3)', bg: 'var(--line-soft)' },
       interested: { label: 'Interested', color: 'var(--green)', bg: 'var(--green-dim)' },
@@ -778,8 +1209,8 @@ class Component extends DCLogic {
       ownership: ['Publicly listed', 'Family-owned / private', 'State-linked / sovereign', 'PE or VC-backed', 'Subsidiary of foreign multinational'],
     };
     this.state = {
-      page: props.startPage ?? 'position',
-      dark: false, toast: '',
+      page: (() => { try { return new URLSearchParams(location.search).get('page') || props.startPage || 'position'; } catch (e) { return props.startPage || 'position'; } })(),
+      dark: false, toast: '', wsMenuOpen: false,
       collapsed: (() => { try { return localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) { return false; } })(),
       pos: {
         reportsTo: 'Group CEO',
@@ -840,7 +1271,18 @@ class Component extends DCLogic {
           verification: { emailVerified: false, linkedinMatched: false, compChecked: false }, confidence: 20,
         },
       ],
-      candSearch: '', candModalOpen: false, candDrawerId: null,
+      candSearch: '', candModalOpen: false, candDrawerId: null, coDrawerId: null,
+      team: [
+        { id: 'yh', name: 'Yara Haddad', initials: 'YH', bg: 'var(--sky-dim)', fg: 'var(--sky)', roles: ['lead', 'admin'] },
+        { id: 'yi', name: 'Yousef Iman', initials: 'YI', bg: 'var(--amber-dim)', fg: 'var(--amber)', roles: ['researcher'] },
+        { id: 'ok', name: 'Omar Khalil', initials: 'OK', bg: 'var(--red-dim)', fg: 'var(--red)', roles: ['researcher'] },
+      ],
+      teamAddOpen: false,
+      client: { id: 'aurora', name: 'Aurora Capital', sector: 'Private Equity · UAE' },
+      clientContacts: [
+        { id: 'ac1', name: 'Nadia Rahman', title: 'Managing Partner', email: 'n.rahman@auroracap.ae', status: 'active' },
+      ],
+      clientPickerOpen: false, contactAddOpen: false, inviteMode: 'existing', clientMode: 'existing',
     };
     this.candDraft = {};
   }
@@ -849,10 +1291,15 @@ class Component extends DCLogic {
     try {
       if (localStorage.getItem('lm-theme') === 'dark') { document.body.classList.add('dark'); this.setState({ dark: true }); }
     } catch (e) {}
-    this._esc = (e) => { if (e.key === 'Escape') this.setState({ candDrawerId: null, candModalOpen: false }); };
+    this._esc = (e) => { if (e.key === 'Escape') this.setState({ candDrawerId: null, candModalOpen: false, coDrawerId: null, teamAddOpen: false, clientPickerOpen: false, contactAddOpen: false, wsMenuOpen: false }); };
     document.addEventListener('keydown', this._esc);
   }
   componentWillUnmount() { document.removeEventListener('keydown', this._esc); }
+
+  canManage() {
+    const me = this.state.team.find(m => m.id === this.ME);
+    return !!me && (me.roles.includes('lead') || me.roles.includes('admin'));
+  }
 
   showToast(msg) {
     this.setState({ toast: msg });
@@ -934,6 +1381,9 @@ class Component extends DCLogic {
         navItem('candidates', 'Candidates', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z'),
         navItem('outreach', 'Outreach', 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z'),
         navItem('reports', 'Reports', 'M9 12h6m-6 4h6M9 8h1M5 21h14a2 2 0 0 0 2-2V7l-5-5H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2Z'),
+      ] },
+      { group: 'Project', items: [
+        navItem('team', 'Team & access', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'),
       ] },
     ];
     const counts = {
@@ -1058,6 +1508,51 @@ class Component extends DCLogic {
         dColor: co.declined ? 'var(--red)' : 'var(--text3)', dBg: co.declined ? 'var(--red-dim)' : 'transparent',
       };
     });
+    // ---------- company drawer ----------
+    let cod = { id: '', initials: '', name: '', tierLabel: '', tierColor: '', tierBg: '', meta: '', fit: '', desc: '', tags: [], metLabel: '', critRows: [], scaleFields: [], comment: '', uLabel: '', uColor2: '', uBg: '', uBorder: '', sLabel: '', sColor2: '', sBg: '', sBorder: '', dLabel: '', dColor2: '', dBg: '', dBorder: '' };
+    const dco = st.companies.find(c => c.id === st.coDrawerId);
+    if (dco) {
+      const m = this.companyMatch(dco);
+      const tier = dco.relevance;
+      cod = {
+        id: dco.id, initials: this.initials(dco.name), name: dco.name, desc: dco.desc,
+        meta: dco.location + ' · ' + dco.sector,
+        tierLabel: tier === 'inferred' ? 'AI Inferred' : tier === 'adjacent' ? 'Adjacent' : 'Direct',
+        tierColor: tier === 'direct' ? 'var(--sky)' : tier === 'adjacent' ? 'var(--amber)' : 'var(--text3)',
+        tierBg: tier === 'direct' ? 'var(--sky-dim)' : tier === 'adjacent' ? 'var(--amber-dim)' : 'var(--line-soft)',
+        fit: String(m.fit), metLabel: m.metCount + ' of 6 met',
+        tags: [
+          { label: 'Sector', value: dco.sector },
+          { label: 'HQ', value: dco.location },
+          { label: 'Ownership', value: dco.ownership },
+        ],
+        critRows: m.rows.map(r => ({
+          label: r.label, value: r.value, preferred: r.mode === 'preferred',
+          iconPath: r.isOff && !r.met ? this.WARN : r.met ? this.CHECK : this.DASH,
+          iconColor: r.isOff && !r.met ? 'var(--red)' : r.met ? 'var(--sky)' : 'var(--text3)',
+          valColor: r.isOff && !r.met ? 'var(--red)' : 'var(--sky)',
+        })),
+        scaleFields: [
+          { label: 'Revenue', value: dco.revenueBand },
+          { label: 'Employees', value: dco.employeeBand },
+          { label: 'Region', value: dco.location },
+          { label: 'Ownership', value: dco.ownership },
+        ],
+        comment: dco.comment,
+        uLabel: dco.inUniverse ? 'In universe ✓' : 'Add to universe',
+        uColor2: dco.inUniverse ? 'var(--green)' : 'var(--text2)',
+        uBg: dco.inUniverse ? 'var(--green-dim)' : 'transparent',
+        uBorder: dco.inUniverse ? 'var(--green)' : 'var(--line)',
+        sLabel: dco.shortlisted ? 'Shortlisted ✓' : 'Shortlist',
+        sColor2: dco.shortlisted ? 'var(--amber)' : 'var(--text2)',
+        sBg: dco.shortlisted ? 'var(--amber-dim)' : 'transparent',
+        sBorder: dco.shortlisted ? 'var(--amber)' : 'var(--line)',
+        dLabel: dco.declined ? 'Declined ✓' : 'Decline',
+        dColor2: dco.declined ? 'var(--red)' : 'var(--text2)',
+        dBg: dco.declined ? 'var(--red-dim)' : 'transparent',
+        dBorder: dco.declined ? 'var(--red)' : 'var(--line)',
+      };
+    }
     const chipLbl = (vals) => vals.length === 0 ? 'None set' : vals.length > 1 ? vals[0] + ' +' + (vals.length - 1) : vals[0];
     const srcChips = [
       ['sector', 'Sector'], ['size', 'Size'], ['geography', 'Geography'], ['ownership', 'Ownership'], ['offlimits', 'Off-limits'], ['seeding', 'Seeding'],
@@ -1144,7 +1639,53 @@ class Component extends DCLogic {
       { key: 'ltip', label: 'LTIP / Equity', value: pos.ltip },
     ];
 
+    // ---------- team & access ----------
+    const canManage = this.canManage();
+    const teamRows = st.team.map(m => ({
+      id: m.id, name: m.name, initials: m.initials, bg: m.bg, fg: m.fg,
+      you: m.id === this.ME ? 'You' : '',
+      roleChips: this.ROLE_ORDER.map(k => {
+        const on = m.roles.includes(k), meta = this.ROLE_META[k];
+        return {
+          key: k, label: meta.label,
+          color: on ? meta.color : 'var(--text3)',
+          bg: on ? meta.bg : 'transparent',
+          border: on ? (meta.border === 'transparent' ? meta.color : meta.border) : 'var(--line)',
+          checkDisp: on ? 'inline' : 'none',
+          disabled: !canManage,
+          cursor: canManage ? 'pointer' : 'default',
+          opacity: (canManage || on) ? '1' : '.5',
+          title: canManage ? (on ? 'Remove ' + meta.label : 'Assign ' + meta.label) : 'Only leads and admins can change roles',
+        };
+      }),
+      showRemove: canManage && !m.roles.includes('lead'),
+      lockRemove: m.roles.includes('lead'),
+    }));
+    const addable = this.FIRM.filter(p => !st.team.some(m => m.id === p.id)).map(p => ({
+      ...p, roleLabel: this.ROLE_META[this.addRoleDraft[p.id] || 'researcher'].label,
+    }));
+
+    // ---------- client & contacts ----------
+    const clientContactRows = st.clientContacts.map(c => ({
+      id: c.id, name: c.name, title: c.title, email: c.email,
+      initials: this.initials(c.name),
+      isActive: c.status === 'active', isInvited: c.status === 'invited',
+      statusLabel: c.status === 'active' ? 'Active' : 'Invite sent',
+      statusColor: c.status === 'active' ? 'var(--green)' : 'var(--amber)',
+      statusBg: c.status === 'active' ? 'var(--green-dim)' : 'var(--amber-dim)',
+      canRemove: canManage,
+    }));
+    const dirClient = this.CLIENT_DIR.find(c => st.client && c.id === st.client.id);
+    const clientPeople = (dirClient ? dirClient.people : []).map(p => ({
+      ...p, added: st.clientContacts.some(c => c.id === p.id),
+    }));
+    const draft = this.newContactDraft;
+    const draftValid = draft.name.trim() && /.+@.+\..+/.test(draft.email.trim());
+    const existing = st.inviteMode === 'existing';
+
     return {
+      wsMenuOpen: st.wsMenuOpen,
+      toggleWsMenu: () => this.setState(s => ({ wsMenuOpen: !s.wsMenuOpen })),
       themeLabel: st.dark ? 'Light mode' : 'Dark mode',
       sideWidth: st.collapsed ? '56px' : '240px',
       labelDisp: st.collapsed ? 'none' : 'inline',
@@ -1162,6 +1703,137 @@ class Component extends DCLogic {
       navGroups, triageSubs,
       isPosition: page === 'position', isStrategy: page === 'strategy', isSourcing: page === 'sourcing',
       isCandidates: page === 'candidates', isOutreach: page === 'outreach', isReports: page === 'reports',
+      isTeam: page === 'team',
+
+      // client & contacts
+      hasClient: !!st.client,
+      noClient: !st.client,
+      clientName: st.client ? st.client.name : '',
+      clientSector: st.client ? st.client.sector : '',
+      clientInitials: st.client ? this.initials(st.client.name) : '',
+      clientContactRows,
+      clientContactCount: clientContactRows.length + (clientContactRows.length === 1 ? ' contact' : ' contacts'),
+      clientPickerOpen: st.clientPickerOpen,
+      contactAddOpen: st.contactAddOpen,
+      inviteExisting: st.inviteMode === 'existing',
+      inviteNew: st.inviteMode === 'new',
+      clientDir: this.CLIENT_DIR.map(c => ({ id: c.id, name: c.name, initials: this.initials(c.name), sector: c.sector,
+        peopleLabel: c.people.length + (c.people.length === 1 ? ' contact' : ' contacts'),
+        selected: st.client && st.client.id === c.id })),
+      clientPeople: clientPeople.map(p => ({ ...p, initials: this.initials(p.name), notAdded: !p.added })),
+      hasClientPeople: clientPeople.length > 0, noClientPeople: clientPeople.length === 0,
+      draftName: draft.name, draftEmail: draft.email, draftTitle: draft.title,
+      draftInvalid: !draftValid, inviteBtnOpacity: draftValid ? '1' : '.5',
+      existingTabBg: existing ? 'var(--panel)' : 'transparent',
+      existingTabColor: existing ? 'var(--text)' : 'var(--text3)',
+      newTabBg: existing ? 'transparent' : 'var(--panel)',
+      newTabColor: existing ? 'var(--text3)' : 'var(--text)',
+      openClientPicker: () => { if (!this.canManage()) { this.showToast('Only leads and admins can change the client'); return; } this.newClientDraft = { name: '', sector: '' }; this.setState({ clientPickerOpen: true, clientMode: 'existing' }); },
+      closeClientPicker: () => this.setState({ clientPickerOpen: false }),
+      clientExisting: st.clientMode === 'existing', clientNew: st.clientMode === 'new',
+      cExistingTabBg: st.clientMode === 'existing' ? 'var(--panel)' : 'transparent',
+      cExistingTabColor: st.clientMode === 'existing' ? 'var(--text)' : 'var(--text3)',
+      cNewTabBg: st.clientMode === 'existing' ? 'transparent' : 'var(--panel)',
+      cNewTabColor: st.clientMode === 'existing' ? 'var(--text3)' : 'var(--text)',
+      setClientMode: (e) => this.setState({ clientMode: e.currentTarget.dataset.mode }),
+      newClientName: this.newClientDraft.name, newClientSector: this.newClientDraft.sector,
+      newClientInvalid: !this.newClientDraft.name.trim(),
+      newClientBtnOpacity: this.newClientDraft.name.trim() ? '1' : '.5',
+      setNewClient: (e) => { this.newClientDraft[e.currentTarget.dataset.field] = e.target.value; this.forceUpdate(); },
+      createClient: () => {
+        const name = this.newClientDraft.name.trim();
+        if (!name) return;
+        const sector = this.newClientDraft.sector.trim() || 'Client organisation';
+        const id = 'client-' + Date.now();
+        this.CLIENT_DIR.push({ id, name, sector, people: [] });
+        this.newClientDraft = { name: '', sector: '' };
+        this.setState({ client: { id, name, sector }, clientContacts: [], clientPickerOpen: false });
+        this.showToast(name + ' added as client');
+      },
+      pickClient: (e) => {
+        const c = this.CLIENT_DIR.find(x => x.id === e.currentTarget.dataset.id);
+        if (!c) return;
+        this.setState({ client: { id: c.id, name: c.name, sector: c.sector }, clientContacts: [], clientPickerOpen: false });
+        this.showToast('Client set to ' + c.name);
+      },
+      openContactAdd: () => { if (!this.canManage()) { this.showToast('Only leads and admins can add client contacts'); return; } this.newContactDraft = { name: '', email: '', title: '' }; this.setState({ contactAddOpen: true, inviteMode: 'existing' }); },
+      closeContactAdd: () => this.setState({ contactAddOpen: false }),
+      setInviteMode: (e) => this.setState({ inviteMode: e.currentTarget.dataset.mode }),
+      inviteExistingPerson: (e) => {
+        const pid = e.currentTarget.dataset.id;
+        const p = (dirClient ? dirClient.people : []).find(x => x.id === pid);
+        if (!p) return;
+        this.setState(s => ({ clientContacts: [...s.clientContacts, { ...p, status: 'invited' }] }));
+        this.showToast('Invite sent to ' + p.name);
+      },
+      setDraft: (e) => { this.newContactDraft[e.currentTarget.dataset.field] = e.target.value; this.forceUpdate(); },
+      sendNewInvite: () => {
+        if (!draftValid) return;
+        const id = 'new-' + Date.now();
+        const nc = { id, name: draft.name.trim(), title: draft.title.trim() || 'Client contact', email: draft.email.trim(), status: 'invited' };
+        this.setState(s => ({ clientContacts: [...s.clientContacts, nc], contactAddOpen: false }));
+        this.newContactDraft = { name: '', email: '', title: '' };
+        this.showToast('Invite sent to ' + nc.email);
+      },
+      removeContact: (e) => {
+        if (!this.canManage()) { this.showToast('Only leads and admins can remove client contacts'); return; }
+        const id = e.currentTarget.dataset.id;
+        const c = this.state.clientContacts.find(x => x.id === id);
+        this.setState(s => ({ clientContacts: s.clientContacts.filter(x => x.id !== id) }));
+        if (c) this.showToast(c.name + ' removed');
+      },
+
+      // team & access
+      teamRows,
+      teamCountLabel: st.team.length + (st.team.length === 1 ? ' member' : ' members'),
+      teamCanManage: canManage,
+      manageColLabel: canManage ? 'Manage' : '',
+      roleLegend: this.ROLE_ORDER.map(k => ({ ...this.ROLE_META[k], desc: this.ROLE_DESC[k] })),
+      permIcon: canManage ? 'M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z' : 'M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 10 0v4',
+      permText: canManage ? "You're a lead / admin on this mandate — you can add members and change their roles." : 'You have view-only access to team roles. Ask a lead or admin to make changes.',
+      permColor: canManage ? 'var(--sky)' : 'var(--text2)',
+      permBg: canManage ? 'var(--sky-dim)' : 'var(--panel2)',
+      permBorder: canManage ? 'var(--sky)' : 'var(--line)',
+      teamAddOpen: st.teamAddOpen,
+      addable, hasAddable: addable.length > 0, noAddable: addable.length === 0,
+      openTeamAdd: () => { if (!this.canManage()) { this.showToast('Only leads and admins can add members'); return; } this.setState({ teamAddOpen: true }); },
+      closeTeamAdd: () => this.setState({ teamAddOpen: false }),
+      setAddRole: (e) => { this.addRoleDraft[e.currentTarget.dataset.id] = e.target.value; this.forceUpdate(); },
+      addMember: (e) => {
+        const id = e.currentTarget.dataset.id;
+        const p = this.FIRM.find(x => x.id === id);
+        if (!p) return;
+        const role = this.addRoleDraft[id] || 'researcher';
+        this.setState(s => ({ team: [...s.team, { id: p.id, name: p.name, initials: p.initials, bg: p.bg, fg: p.fg, roles: [role] }] }));
+        this.showToast(p.name + ' added as ' + this.ROLE_META[role].label);
+      },
+      removeMember: (e) => {
+        const id = e.currentTarget.dataset.mid;
+        const m = this.state.team.find(x => x.id === id);
+        if (!this.canManage()) { this.showToast('Only leads and admins can remove members'); return; }
+        if (m && m.roles.includes('lead')) { this.showToast('Reassign the lead before removing this member'); return; }
+        this.setState(s => ({ team: s.team.filter(x => x.id !== id) }));
+        if (m) this.showToast(m.name + ' removed from project');
+      },
+      toggleRole: (e) => {
+        if (!this.canManage()) { this.showToast('Only leads and admins can change roles'); return; }
+        const mid = e.currentTarget.dataset.mid, role = e.currentTarget.dataset.role;
+        const team = this.state.team.map(x => ({ ...x, roles: [...x.roles] }));
+        const m = team.find(x => x.id === mid);
+        if (!m) return;
+        if (role === 'lead') {
+          if (m.roles.includes('lead')) { this.showToast('Assign the lead to another member to change it'); return; }
+          team.forEach(x => { x.roles = x.roles.filter(r => r !== 'lead'); });
+          m.roles = ['lead', ...m.roles.filter(r => r !== 'lead')];
+          this.showToast(m.name + ' is now the project lead');
+        } else if (m.roles.includes(role)) {
+          if (m.roles.length === 1) { this.showToast('Each member needs at least one role'); return; }
+          m.roles = m.roles.filter(r => r !== role);
+        } else {
+          m.roles = [...m.roles, role];
+        }
+        this.setState({ team });
+      },
 
       // position
       posReportsTo: pos.reportsTo, posDirectReports: pos.directReports, posLocation: pos.location,
@@ -1204,6 +1876,13 @@ class Component extends DCLogic {
         ? 'of ' + matching.length + ' matching — ' + ({ universe: 'In universe', shortlisted: 'Shortlisted', declined: 'Declined' }[st.triage])
         : 'of ' + st.companies.length + ' companies match the criteria',
       hasTriage: !!st.triage,
+      coDrawerOpen: !!dco, cod,
+      openCoDrawer: (e) => {
+        const id = e.currentTarget.dataset.id;
+        if (id) this.setState({ coDrawerId: id });
+      },
+      closeCoDrawer: () => this.setState({ coDrawerId: null }),
+      onCoComment: (e) => { if (dco) { dco.comment = e.target.value; this.forceUpdate(); } },
 
       // candidates
       candSearch: st.candSearch,

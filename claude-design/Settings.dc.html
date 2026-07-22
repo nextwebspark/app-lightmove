@@ -11,8 +11,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root{--bg:#f4f5f8;--panel:#ffffff;--panel2:#f7f8fa;--line:#e3e6ee;--line-soft:#edeff5;--text:#1b2230;--text2:#5a6474;--text3:#98a1b3;--amber:#b47708;--amber-btn:#f0b429;--amber-dim:rgba(201,138,10,.10);--sky:#1a73c7;--sky-dim:rgba(26,115,199,.10);--red:#cc3a33;--red-dim:rgba(204,58,51,.08);--green:#1f8f60;--green-dim:rgba(31,143,96,.10);--shadow:0 8px 28px rgba(20,30,50,.10);--mono:'JetBrains Mono',ui-monospace,monospace;--sans:'Inter',system-ui,sans-serif}
-    body.dark{--bg:#0b0d11;--panel:#12151b;--panel2:#171b22;--line:#232833;--line-soft:#1c212b;--text:#e8eaee;--text2:#9aa3b2;--text3:#5f6877;--amber:#f0b429;--amber-dim:rgba(240,180,41,.12);--sky:#5cb3ff;--sky-dim:rgba(92,179,255,.12);--red:#e5534b;--red-dim:rgba(229,83,75,.12);--green:#3fb27f;--green-dim:rgba(63,178,127,.12);--shadow:0 8px 28px rgba(0,0,0,.45)}
+    :root{--bg:#f4f5f8;--panel:#ffffff;--panel2:#f7f8fa;--line:#e3e6ee;--line-soft:#edeff5;--text:#141b29;--text2:#47505f;--text3:#6e7890;--amber:#b47708;--amber-btn:#f0b429;--amber-dim:rgba(201,138,10,.10);--sky:#1a73c7;--sky-dim:rgba(26,115,199,.10);--red:#cc3a33;--red-dim:rgba(204,58,51,.08);--green:#1f8f60;--green-dim:rgba(31,143,96,.10);--shadow:0 8px 28px rgba(20,30,50,.10);--mono:'JetBrains Mono',ui-monospace,monospace;--sans:'Inter',system-ui,sans-serif}
+    body.dark{--bg:#0b0d11;--panel:#12151b;--panel2:#171b22;--line:#232833;--line-soft:#1c212b;--text:#f1f3f6;--text2:#b8c0cc;--text3:#8d96a6;--amber:#f0b429;--amber-dim:rgba(240,180,41,.12);--sky:#5cb3ff;--sky-dim:rgba(92,179,255,.12);--red:#e5534b;--red-dim:rgba(229,83,75,.12);--green:#3fb27f;--green-dim:rgba(63,178,127,.12);--shadow:0 8px 28px rgba(0,0,0,.45)}
     *{box-sizing:border-box}
     html,body{height:100%;margin:0}
     body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
@@ -25,9 +25,36 @@
 <div data-screen-label="Settings" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
 
   <header style="height:46px;flex:none;display:flex;align-items:center;gap:8px;padding:0 14px;position:relative;z-index:60">
-    <a href="Workspace.dc.html" title="Back to LightMove workspace" style="display:flex;align-items:center;padding:4px;border-radius:7px;text-decoration:none" style-hover="background:var(--panel2);text-decoration:none">
-      <span style="width:22px;height:22px;border-radius:6px;background:#f0b429;color:#141414;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
-    </a>
+    <div style="position:relative">
+      <button onClick="{{ toggleWsMenu }}" title="LightMove workspace" style="display:flex;align-items:center;gap:4px;padding:4px 5px 4px 4px;border-radius:7px;background:none;border:none;cursor:pointer;color:var(--text)" style-hover="background:var(--panel2)">
+        <span style="width:22px;height:22px;border-radius:6px;background:#f0b429;color:#141414;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
+      </button>
+      <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;top:40px;left:0;width:268px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:6px;z-index:80">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--line-soft);margin-bottom:6px">
+            <span style="width:30px;height:30px;border-radius:8px;background:#f0b429;color:#141414;display:grid;place-items:center;font:700 13px var(--mono)">L</span>
+            <div>
+              <div style="font:600 13px var(--mono)">LightMove</div>
+              <div style="font:400 11px var(--mono);color:var(--text3)">5 members · Pro plan</div>
+            </div>
+          </div>
+          <button onClick="{{ menuSettingsGeneral }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v4m0 14v4M4.2 4.2l2.8 2.8m10 10 2.8 2.8M1 12h4m14 0h4M4.2 19.8 7 17m10-10 2.8-2.8"></path></svg>
+            Workspace settings
+          </button>
+          <a href="Workspace.dc.html?view=team" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            Members
+          </a>
+          <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
+          <a href="Login.dc.html" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>
+            Sign out
+          </a>
+        </div>
+      </sc-if>
+    </div>
     <a href="Workspace.dc.html" style="font:500 13px var(--mono);color:var(--text3);text-decoration:none;padding:4px 7px;border-radius:6px;white-space:nowrap" style-hover="color:var(--text);background:var(--panel2);text-decoration:none">Workspace</a>
     <span style="color:var(--text3);opacity:.4;font-size:12px">/</span>
     <span style="color:var(--text);font:600 14px var(--sans);white-space:nowrap">Settings</span>
@@ -286,7 +313,7 @@
                     <div style="font:400 11px var(--mono);color:var(--text3);margin-top:1px">{{ m.email }}</div>
                   </div>
                   <select value="{{ m.role }}" onChange="{{ onMemberRole }}" data-id="{{ m.id }}" style="width:130px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none;flex:none" style-focus="border-color:var(--sky)">
-                    <option>Admin</option><option>Member</option>
+                    <option>Admin</option><option>Consultant</option><option>Researcher</option>
                   </select>
                   <button onClick="{{ toastRemove }}" title="Remove member" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:6px;border-radius:6px;flex:none" style-hover="color:var(--red);background:var(--red-dim)">✕</button>
                 </div>
@@ -381,13 +408,13 @@ class Component extends DCLogic {
         } catch (e) {}
         return props.startSection ?? 'profile';
       })(),
-      dark: false, toast: '',
+      dark: false, toast: '', wsMenuOpen: false,
       collapsed: (() => { try { return localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) { return false; } })(),
       pName: 'Yara Haddad', pEmail: 'yara@lightmove.app', pTitle: 'Managing Partner',
       wsName: 'LightMove',
       tfa: true,
       notif: { stage: true, cand: true, mentions: true, digest: true, product: false, email: true, inapp: true },
-      memberRoles: { yh: 'Admin', yi: 'Member', sa: 'Member', ok: 'Member', da: 'Member' },
+      memberRoles: { yh: 'Admin', yi: 'Consultant', sa: 'Consultant', ok: 'Researcher', da: 'Researcher' },
       integrations: {
         clockwork: true, bullhorn: false, slack: true, gcal: false, smtp: false,
       },
@@ -487,6 +514,9 @@ class Component extends DCLogic {
     const tfa = tglVals(st.tfa);
 
     return {
+      wsMenuOpen: st.wsMenuOpen,
+      toggleWsMenu: () => this.setState(s => ({ wsMenuOpen: !s.wsMenuOpen })),
+      menuSettingsGeneral: () => this.setState({ wsMenuOpen: false, section: 'general' }),
       sectionLabel: labels[sec],
       themeLabel: st.dark ? 'Light mode' : 'Dark mode',
       sideWidth: st.collapsed ? '56px' : '240px',

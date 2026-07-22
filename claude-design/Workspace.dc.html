@@ -11,8 +11,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root{--bg:#f4f5f8;--panel:#ffffff;--panel2:#f7f8fa;--line:#e3e6ee;--line-soft:#edeff5;--text:#1b2230;--text2:#5a6474;--text3:#98a1b3;--amber:#b47708;--amber-btn:#f0b429;--amber-dim:rgba(201,138,10,.10);--sky:#1a73c7;--sky-dim:rgba(26,115,199,.10);--red:#cc3a33;--red-dim:rgba(204,58,51,.08);--green:#1f8f60;--green-dim:rgba(31,143,96,.10);--shadow:0 8px 28px rgba(20,30,50,.10);--mono:'JetBrains Mono',ui-monospace,monospace;--sans:'Inter',system-ui,sans-serif}
-    body.dark{--bg:#0b0d11;--panel:#12151b;--panel2:#171b22;--line:#232833;--line-soft:#1c212b;--text:#e8eaee;--text2:#9aa3b2;--text3:#5f6877;--amber:#f0b429;--amber-dim:rgba(240,180,41,.12);--sky:#5cb3ff;--sky-dim:rgba(92,179,255,.12);--red:#e5534b;--red-dim:rgba(229,83,75,.12);--green:#3fb27f;--green-dim:rgba(63,178,127,.12);--shadow:0 8px 28px rgba(0,0,0,.45)}
+    :root{--bg:#f4f5f8;--panel:#ffffff;--panel2:#f7f8fa;--line:#e3e6ee;--line-soft:#edeff5;--text:#141b29;--text2:#47505f;--text3:#6e7890;--amber:#b47708;--amber-btn:#f0b429;--amber-dim:rgba(201,138,10,.10);--sky:#1a73c7;--sky-dim:rgba(26,115,199,.10);--red:#cc3a33;--red-dim:rgba(204,58,51,.08);--green:#1f8f60;--green-dim:rgba(31,143,96,.10);--shadow:0 8px 28px rgba(20,30,50,.10);--mono:'JetBrains Mono',ui-monospace,monospace;--sans:'Inter',system-ui,sans-serif}
+    body.dark{--bg:#0b0d11;--panel:#12151b;--panel2:#171b22;--line:#232833;--line-soft:#1c212b;--text:#f1f3f6;--text2:#b8c0cc;--text3:#8d96a6;--amber:#f0b429;--amber-dim:rgba(240,180,41,.12);--sky:#5cb3ff;--sky-dim:rgba(92,179,255,.12);--red:#e5534b;--red-dim:rgba(229,83,75,.12);--green:#3fb27f;--green-dim:rgba(63,178,127,.12);--shadow:0 8px 28px rgba(0,0,0,.45)}
     *{box-sizing:border-box}
     html,body{height:100%;margin:0}
     body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
@@ -146,6 +146,7 @@
                 <th style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Team</th>
                 <th style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer" onClick="{{ setSort }}" data-key="date">Target <span style="color:var(--amber)">{{ arrowDate }}</span></th>
                 <th style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Pipeline</th>
+                <th style="border-bottom:1px solid var(--line)"></th>
               </tr>
             </thead>
             <tbody>
@@ -177,6 +178,12 @@
                   </td>
                   <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);font:400 12px var(--mono);color:var(--text2);white-space:nowrap">{{ r.dateLabel }}</td>
                   <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);font:400 12px var(--mono);color:var(--text2);white-space:nowrap"><b style="color:var(--text);font-weight:600">{{ r.cos }}</b> cos · <b style="color:var(--text);font-weight:600">{{ r.cand }}</b> cand</td>
+                  <td style="padding:11px 10px 11px 12px;border-bottom:1px solid var(--line-soft);text-align:right;white-space:nowrap">
+                    <a href="Project.dc.html" onClick="{{ stopClick }}" title="Open {{ r.pos }}" style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:7px;font:600 12px var(--sans);border:1px solid var(--line);color:var(--text2);text-decoration:none" style-hover="color:var(--text);border-color:var(--text3);background:var(--panel);text-decoration:none">
+                      Open
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+                    </a>
+                  </td>
                 </tr>
               </sc-for>
             </tbody>
@@ -279,28 +286,27 @@
             {{ g.label }}
           </div>
         </sc-for>
-        <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Team</div>
-        <sc-for list="{{ drawer.members }}" as="m" hint-placeholder-count="5">
-          <div style="padding:7px 8px;border-radius:7px" style-hover="background:var(--panel2)">
-            <div style="display:flex;align-items:center;gap:10px">
-              <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:{{ m.bg }};color:{{ m.fg }}">{{ m.initials }}</span>
-              <div>
-                <div style="font-size:13px">{{ m.name }}</div>
-                <div style="font:400 11px var(--mono);color:var(--text3)">{{ m.role }}</div>
-              </div>
-              <button onClick="{{ toggleMember }}" data-mid="{{ m.id }}" aria-label="Toggle {{ m.name }}" style="margin-left:auto;width:32px;height:18px;border-radius:999px;background:{{ m.tglBg }};position:relative;flex:none;border:none;cursor:pointer;padding:0">
-                <span style="position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:{{ m.tglKnob }};transition:transform .15s;transform:{{ m.tglTransform }}"></span>
-              </button>
-            </div>
-            <sc-if value="{{ m.on }}" hint-placeholder-val="{{ false }}">
-              <div style="display:flex;gap:6px;margin:6px 0 0 36px">
-                <sc-for list="{{ m.chips }}" as="c" hint-placeholder-count="3">
-                  <button onClick="{{ setMemberRole }}" data-mid="{{ m.id }}" data-role="{{ c.role }}" style="font:500 10.5px var(--mono);letter-spacing:.04em;padding:2px 9px;border-radius:999px;cursor:pointer;color:{{ c.color }};background:{{ c.bg }};border:1px solid {{ c.border }}">{{ c.label }}</button>
+        <div style="display:flex;align-items:baseline;gap:8px;margin:18px 0 8px">
+          <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Project team</div>
+          <span style="font:500 11px var(--mono);color:var(--text3)">{{ drawer.teamCount }}</span>
+        </div>
+        <sc-for list="{{ drawer.members }}" as="m" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:7px" style-hover="background:var(--panel2)">
+            <span style="width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:{{ m.bg }};color:{{ m.fg }};flex:none">{{ m.initials }}</span>
+            <div style="min-width:0">
+              <div style="font-size:13px">{{ m.name }}</div>
+              <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:4px">
+                <sc-for list="{{ m.roles }}" as="r" hint-placeholder-count="1">
+                  <span style="font:600 9px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:5px;color:{{ r.color }};background:{{ r.bg }};border:1px solid {{ r.border }}">{{ r.label }}</span>
                 </sc-for>
               </div>
-            </sc-if>
+            </div>
           </div>
         </sc-for>
+        <a href="Project.dc.html?page=team" style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;font:500 12px var(--sans);color:var(--text2);text-decoration:none" style-hover="color:var(--text);text-decoration:underline">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"></path></svg>
+          Manage team &amp; roles in project settings
+        </a>
       </div>
       <div style="padding:14px 20px;border-top:1px solid var(--line-soft);display:flex;gap:8px">
         <button onClick="{{ toastArchive }}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Archive</button>
@@ -322,7 +328,12 @@
         <div style="font:400 11px var(--mono);color:var(--text3);margin-top:6px">Inherits jurisdiction, group structure and off-limits from the client record.</div>
         <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:14px 0 6px">Position</label>
         <input onInput="{{ draftPos }}" placeholder="e.g. Chief Financial Officer" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-        <div style="font:400 11px var(--mono);color:var(--text3);margin-top:6px">You start as the project's admin and lead — delegate from the project drawer.</div>
+        <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:14px 0 6px">Lead</label>
+        <select onChange="{{ draftLead }}" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+          <sc-for list="{{ leadOptions }}" as="m" hint-placeholder-count="3">
+            <option value="{{ m.id }}">{{ m.name }}</option>
+          </sc-for>
+        </select>
         <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:14px 0 6px">Target date</label>
         <input type="date" onInput="{{ draftDate }}" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
@@ -346,11 +357,17 @@ class Component extends DCLogic {
     const fresh = (typeof location !== 'undefined' && location.search.includes('fresh=1')) || !!props.startEmpty;
     this.MEMBERS = [
       { id: 'yh', name: 'Yara Haddad', initials: 'YH', role: 'Admin', bg: 'var(--sky-dim)', fg: 'var(--sky)' },
-      { id: 'yi', name: 'Yousef Iman', initials: 'YI', role: 'Member', bg: 'var(--amber-dim)', fg: 'var(--amber)' },
-      { id: 'sa', name: 'Sara Al-Mansour', initials: 'SA', role: 'Member', bg: 'var(--green-dim)', fg: 'var(--green)' },
-      { id: 'ok', name: 'Omar Khalil', initials: 'OK', role: 'Member', bg: 'var(--red-dim)', fg: 'var(--red)' },
-      { id: 'da', name: 'Dana Aboud', initials: 'DA', role: 'Member', bg: 'var(--panel2)', fg: 'var(--text2)' },
+      { id: 'yi', name: 'Yousef Iman', initials: 'YI', role: 'Consultant', bg: 'var(--amber-dim)', fg: 'var(--amber)' },
+      { id: 'sa', name: 'Sara Al-Mansour', initials: 'SA', role: 'Consultant', bg: 'var(--green-dim)', fg: 'var(--green)' },
+      { id: 'ok', name: 'Omar Khalil', initials: 'OK', role: 'Researcher', bg: 'var(--red-dim)', fg: 'var(--red)' },
+      { id: 'da', name: 'Dana Aboud', initials: 'DA', role: 'Researcher', bg: 'var(--panel2)', fg: 'var(--text2)' },
     ];
+    this.ROLE_BADGE = {
+      lead: { label: 'Lead', color: 'var(--amber)', bg: 'var(--amber-dim)', border: 'var(--amber)' },
+      admin: { label: 'Admin', color: 'var(--sky)', bg: 'var(--sky-dim)', border: 'transparent' },
+      consultant: { label: 'Consultant', color: 'var(--green)', bg: 'var(--green-dim)', border: 'transparent' },
+      researcher: { label: 'Researcher', color: 'var(--text2)', bg: 'var(--panel2)', border: 'var(--line)' },
+    };
     this.CLIENTS = [
       { id: 'mer', name: 'Meridian Energy Group', hq: 'UAE', note: '2 active mandates' },
       { id: 'alr', name: 'Al Rabie Saudi Foods', hq: 'Saudi Arabia', note: '1 active mandate' },
@@ -372,21 +389,18 @@ class Component extends DCLogic {
       off: { dot: 'var(--red)', text: 'var(--red)', label: 'Off track' },
       done: { dot: 'var(--text3)', text: 'var(--text3)', label: 'Complete' },
     };
-    // A seat holds a SET of project roles: the creator starts as {admin, lead}, several seats may
-    // hold lead at once (see project 3), and permissions are the union. Roles live on the seat, not
-    // the person — the workspace role above is governance, not project standing.
     const seed = fresh ? [] : [
-      { id: 1, client: 'Meridian Energy Group', pos: 'Chief Financial Officer', stage: 'mapping', team: [{ id: 'yh', roles: ['admin', 'lead'] }, { id: 'yi', roles: ['researcher'] }, { id: 'ok', roles: ['researcher'] }], date: '2026-09-15', cos: 21, cand: 14, health: 'ok' },
-      { id: 2, client: 'Meridian Energy Group', pos: 'VP, Renewables', stage: 'universe', team: [{ id: 'sa', roles: ['admin', 'lead'] }, { id: 'da', roles: ['researcher'] }], date: '2026-10-30', cos: 34, cand: 0, health: 'ok' },
-      { id: 3, client: 'Al Rabie Saudi Foods', pos: 'Chief Human Resources Officer', stage: 'outreach', team: [{ id: 'yh', roles: ['admin', 'lead'] }, { id: 'da', roles: ['lead', 'researcher'] }], date: '2026-08-07', cos: 18, cand: 22, health: 'risk' },
-      { id: 4, client: 'Bindawood Holding', pos: 'Chief Digital Officer', stage: 'locked', team: [{ id: 'yi', roles: ['admin', 'lead'] }, { id: 'ok', roles: ['researcher'] }], date: '2026-11-20', cos: 27, cand: 0, health: 'ok' },
-      { id: 5, client: 'Al Rabie Saudi Foods', pos: 'Supply Chain Director', stage: 'brief', team: [{ id: 'sa', roles: ['admin', 'lead'] }], date: '2026-12-04', cos: 0, cand: 0, health: 'ok' },
-      { id: 6, client: 'Agthia Group', pos: 'Chief Executive Officer', stage: 'delivered', team: [{ id: 'yh', roles: ['admin'] }, { id: 'yi', roles: ['lead'] }, { id: 'sa', roles: ['researcher'] }], date: '2026-06-01', cos: 42, cand: 31, health: 'done' },
-      { id: 7, client: 'Bindawood Holding', pos: 'Head of eCommerce', stage: 'mapping', team: [{ id: 'ok', roles: ['admin', 'lead'] }, { id: 'da', roles: ['researcher'] }], date: '2026-08-25', cos: 15, cand: 6, health: 'off' },
+      { id: 1, client: 'Meridian Energy Group', pos: 'Chief Financial Officer', stage: 'mapping', lead: 'yh', team: ['yh', 'yi', 'ok'], date: '2026-09-15', cos: 21, cand: 14, health: 'ok' },
+      { id: 2, client: 'Meridian Energy Group', pos: 'VP, Renewables', stage: 'universe', lead: 'sa', team: ['sa', 'da'], date: '2026-10-30', cos: 34, cand: 0, health: 'ok' },
+      { id: 3, client: 'Al Rabie Saudi Foods', pos: 'Chief Human Resources Officer', stage: 'outreach', lead: 'yh', team: ['yh', 'da'], date: '2026-08-07', cos: 18, cand: 22, health: 'risk' },
+      { id: 4, client: 'Bindawood Holding', pos: 'Chief Digital Officer', stage: 'locked', lead: 'yi', team: ['yi', 'ok'], date: '2026-11-20', cos: 27, cand: 0, health: 'ok' },
+      { id: 5, client: 'Al Rabie Saudi Foods', pos: 'Supply Chain Director', stage: 'brief', lead: 'sa', team: ['sa'], date: '2026-12-04', cos: 0, cand: 0, health: 'ok' },
+      { id: 6, client: 'Agthia Group', pos: 'Chief Executive Officer', stage: 'delivered', lead: 'yh', team: ['yh', 'yi', 'sa'], date: '2026-06-01', cos: 42, cand: 31, health: 'done' },
+      { id: 7, client: 'Bindawood Holding', pos: 'Head of eCommerce', stage: 'mapping', lead: 'ok', team: ['ok', 'da'], date: '2026-08-25', cos: 15, cand: 6, health: 'off' },
     ];
     this.state = {
       fresh, projects: seed,
-      view: props.defaultView ?? 'my', q: '', chip: 'active', sortKey: 'date', sortDir: 1,
+      view: (typeof location !== 'undefined' && new URLSearchParams(location.search).get('view')) || props.defaultView || 'my', q: '', chip: 'active', sortKey: 'date', sortDir: 1,
       drawerId: null, modalOpen: false, wsMenuOpen: false, dark: false, toast: '',
       collapsed: (() => { try { return localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) { return false; } })(),
     };
@@ -405,13 +419,6 @@ class Component extends DCLogic {
   componentWillUnmount() { document.removeEventListener('keydown', this._esc); }
 
   member(id) { return this.MEMBERS.find(m => m.id === id); }
-  onTeam(p, id) { return p.team.some(t => t.id === id); }
-  /** Leads are plural now, and a project may have none beyond its admin — whoever runs it. */
-  leadName(p) {
-    const seat = p.team.find(t => t.roles.includes('lead')) || p.team.find(t => t.roles.includes('admin'));
-    return seat ? this.member(seat.id).name : '—';
-  }
-  adminSeats(p) { return p.team.filter(t => t.roles.includes('admin')).length; }
   stageIdx(k) { return this.STAGES.findIndex(s => s.key === k); }
   fmtDate(d) { return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
   showToast(msg) {
@@ -424,7 +431,7 @@ class Component extends DCLogic {
 
   filtered() {
     const { view, chip, q, sortKey, sortDir, projects } = this.state;
-    let rows = projects.filter(p => view === 'all' || this.onTeam(p, this.ME));
+    let rows = projects.filter(p => view === 'all' || p.team.includes(this.ME));
     if (chip === 'active') rows = rows.filter(p => !['delivered', 'closed'].includes(p.stage));
     else if (chip !== 'allstages') rows = rows.filter(p => p.stage === chip);
     if (q) rows = rows.filter(p => (p.client + ' ' + p.pos).toLowerCase().includes(q.toLowerCase()));
@@ -449,17 +456,17 @@ class Component extends DCLogic {
       bg: active(key) ? 'var(--panel2)' : 'transparent',
       iconColor: active(key) ? 'var(--amber)' : 'currentColor',
     });
-    const myCount = st.projects.filter(p => this.onTeam(p, this.ME) && !['delivered', 'closed'].includes(p.stage)).length;
+    const myCount = st.projects.filter(p => p.team.includes(this.ME) && !['delivered', 'closed'].includes(p.stage)).length;
     const arrow = (k) => st.sortKey === k ? (st.sortDir === 1 ? '↑' : '↓') : '';
 
     const rows = rowsRaw.map(p => {
       const s = this.STAGES[this.stageIdx(p.stage)];
       const h = this.HEALTH[p.health];
       return {
-        id: String(p.id), client: p.client, pos: p.pos, leadName: this.leadName(p),
+        id: String(p.id), client: p.client, pos: p.pos, leadName: this.member(p.lead).name,
         stageLabel: s.label, stageColor: s.color, stageBg: s.bg, stageBorder: s.border,
         healthDot: h.dot, healthText: h.text, healthLabel: h.label,
-        team: p.team.map((t, i) => { const m = this.member(t.id); return { initials: m.initials, bg: m.bg, fg: m.fg, name: m.name, ml: i === 0 ? '0' : '-7px' }; }),
+        team: p.team.map((id, i) => { const m = this.member(id); return { initials: m.initials, bg: m.bg, fg: m.fg, name: m.name, ml: i === 0 ? '0' : '-7px' }; }),
         dateLabel: this.fmtDate(p.date), cos: String(p.cos), cand: String(p.cand),
       };
     });
@@ -472,7 +479,7 @@ class Component extends DCLogic {
       border: st.chip === key ? 'var(--amber)' : 'var(--line)',
     }));
 
-    let drawer = { client: '', pos: '', cos: '', cand: '', dateShort: '', gates: [], members: [] };
+    let drawer = { client: '', pos: '', cos: '', cand: '', dateShort: '', gates: [], members: [], teamCount: '' };
     const dp = st.projects.find(p => p.id === st.drawerId);
     if (dp) {
       const cur = this.stageIdx(dp.stage);
@@ -490,26 +497,18 @@ class Component extends DCLogic {
             dotInner: done ? 'var(--green)' : now ? 'var(--amber)' : 'transparent',
           };
         }),
-        members: this.MEMBERS.map(m => {
-          const seat = dp.team.find(t => t.id === m.id);
-          const on = !!seat;
-          const chip = (role, label) => {
-            const held = on && seat.roles.includes(role);
-            return {
-              role, label,
-              color: held ? 'var(--amber)' : 'var(--text3)',
-              bg: held ? 'var(--amber-dim)' : 'transparent',
-              border: held ? 'var(--amber)' : 'var(--line)',
-            };
-          };
+        members: dp.team.map(id => {
+          const m = this.member(id);
+          const roles = [];
+          if (dp.lead === id) roles.push('lead');
+          const base = (m.role || '').toLowerCase();
+          if (base && base !== 'lead') roles.push(base);
           return {
-            id: m.id, name: m.name, role: m.role, initials: m.initials, bg: m.bg, fg: m.fg, on,
-            chips: on ? [chip('admin', 'Admin'), chip('lead', 'Lead'), chip('researcher', 'Researcher')] : [],
-            tglBg: on ? 'var(--amber-btn)' : 'var(--line)',
-            tglKnob: on ? '#141414' : 'var(--text3)',
-            tglTransform: on ? 'translateX(14px)' : 'none',
+            id: m.id, name: m.name, initials: m.initials, bg: m.bg, fg: m.fg,
+            roles: roles.filter(r => this.ROLE_BADGE[r]).map(r => ({ ...this.ROLE_BADGE[r] })),
           };
         }),
+        teamCount: dp.team.length + (dp.team.length === 1 ? ' member' : ' members'),
       };
     }
 
@@ -552,12 +551,13 @@ class Component extends DCLogic {
       noClients: this.clients().length === 0,
       teamSub: this.members().length + (this.members().length === 1 ? ' member' : ' members') + ' · roles apply per project',
       teamRows: this.members().map(m => {
-        const n = this.state.projects.filter(p => this.onTeam(p, m.id) && !['delivered', 'closed'].includes(p.stage)).length;
+        const n = this.state.projects.filter(p => p.team.includes(m.id) && !['delivered', 'closed'].includes(p.stage)).length;
         return { ...m, activeLabel: n + (n === 1 ? ' active project' : ' active projects') };
       }),
       drawerOpen: !!dp, drawer,
       modalOpen: st.modalOpen,
       clientOptions: (this.clients().length ? this.clients() : this.CLIENTS).map(c => c.name),
+      leadOptions: this.members().map(m => ({ id: m.id, name: m.name })),
       toastVisible: !!st.toast, toastMsg: st.toast,
 
       toggleWsMenu: () => this.setState(s => ({ wsMenuOpen: !s.wsMenuOpen })),
@@ -566,6 +566,7 @@ class Component extends DCLogic {
       setView: (e) => {
         const v = e.currentTarget.dataset.view;
         if (v === 'settings') { window.location.href = 'Settings.dc.html'; return; }
+        if (v === 'clients') { window.location.href = 'Clients.dc.html'; return; }
         this.setState({ view: v, wsMenuOpen: false });
       },
       setChip: (e) => this.setState({ chip: e.currentTarget.dataset.chip }),
@@ -579,55 +580,27 @@ class Component extends DCLogic {
       toggleMember: (e) => {
         const mid = e.currentTarget.dataset.mid;
         const p = this.state.projects.find(x => x.id === this.state.drawerId);
-        if (!p) return;
-        const seat = p.team.find(t => t.id === mid);
-        if (seat) {
-          // The one structural rule: a project never loses its last admin seat.
-          if (seat.roles.includes('admin') && this.adminSeats(p) <= 1) {
-            this.showToast('A project must keep at least one admin'); return;
-          }
-          p.team = p.team.filter(t => t.id !== mid);
-          this.showToast(this.member(mid).name + ' removed from project');
-        } else {
-          p.team = [...p.team, { id: mid, roles: ['researcher'] }];
-          this.showToast(this.member(mid).name + ' added to project');
-        }
-        this.forceUpdate();
-      },
-      setMemberRole: (e) => {
-        const mid = e.currentTarget.dataset.mid, role = e.currentTarget.dataset.role;
-        const p = this.state.projects.find(x => x.id === this.state.drawerId);
-        const seat = p && p.team.find(t => t.id === mid);
-        if (!seat) return;
-        if (seat.roles.includes(role)) {
-          if (role === 'admin' && this.adminSeats(p) <= 1) {
-            this.showToast('A project must keep at least one admin'); return;
-          }
-          if (seat.roles.length === 1) {
-            this.showToast('A seat keeps at least one role — remove them instead'); return;
-          }
-          seat.roles = seat.roles.filter(r => r !== role);
-        } else {
-          seat.roles = [...seat.roles, role];
-        }
+        if (!p || p.lead === mid) { if (p && p.lead === mid) this.showToast('Lead cannot be removed'); return; }
+        if (p.team.includes(mid)) { p.team = p.team.filter(x => x !== mid); this.showToast(this.member(mid).name + ' removed from project'); }
+        else { p.team = [...p.team, mid]; this.showToast(this.member(mid).name + ' added to project'); }
         this.forceUpdate();
       },
       openModal: () => {
-        this.draft = { client: (this.clients().length ? this.clients() : this.CLIENTS)[0].name, pos: '', date: '' };
+        this.draft = { client: (this.clients().length ? this.clients() : this.CLIENTS)[0].name, pos: '', lead: this.members()[0].id, date: '' };
         this.setState({ modalOpen: true });
       },
       closeModal: () => this.setState({ modalOpen: false }),
       stopClick: (e) => e.stopPropagation(),
       draftClient: (e) => { this.draft.client = e.target.value; },
       draftPos: (e) => { this.draft.pos = e.target.value; },
+      draftLead: (e) => { this.draft.lead = e.target.value; },
       draftDate: (e) => { this.draft.date = e.target.value; },
       createProject: () => {
         const d = this.draft;
         if (!d.pos || !d.pos.trim()) { this.showToast('Position title is required'); return; }
-        // The creator is seated as the project's admin and lead — there is no lead to choose up front.
-        const proj = { id: Date.now(), client: d.client, pos: d.pos.trim(), stage: 'brief', team: [{ id: this.ME, roles: ['admin', 'lead'] }], date: d.date || '2026-12-31', cos: 0, cand: 0, health: 'ok' };
+        const proj = { id: Date.now(), client: d.client, pos: d.pos.trim(), stage: 'brief', lead: d.lead, team: [d.lead], date: d.date || '2026-12-31', cos: 0, cand: 0, health: 'ok' };
         this.setState(s => ({ projects: [proj, ...s.projects], modalOpen: false, chip: 'active' }));
-        this.showToast("Project created — you're its admin and lead");
+        this.showToast('Project created — starts at Brief');
       },
       toggleTheme: () => {
         const dark = !this.state.dark;
