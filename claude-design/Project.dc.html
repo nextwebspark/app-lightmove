@@ -23,6 +23,7 @@
     input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--sky);cursor:pointer;border:2px solid var(--panel)}
     input[type="range"].beh::-webkit-slider-thumb{background:var(--amber-btn)}
     @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    @keyframes pdspin{to{transform:rotate(360deg)}}
   </style>
 </helmet>
 <div data-screen-label="Project" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
@@ -126,16 +127,57 @@
                 <div style="font:700 21px var(--sans);color:var(--text);margin-bottom:4px">Chief Financial Officer</div>
                 <div style="font:400 12.5px var(--mono);color:var(--text3)"><b style="color:var(--text2);font-weight:600">Meridian Energy Group</b> · Reports to {{ posReportsTo }} · {{ posLocation }}</div>
                 <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:14px">
-                  <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font:500 12px var(--mono);color:var(--text2)">Seniority N-1</span>
-                  <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font:500 12px var(--mono);color:var(--text2)">{{ compRange }}</span>
-                  <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font:500 12px var(--mono);color:var(--text2)">Target start {{ posStartTarget }}</span>
-                  <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font:500 12px var(--mono);color:var(--text2)">{{ posEmploymentType }}</span>
+                  <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font:500 12px var(--mono);color:var(--text2);white-space:nowrap">Seniority {{ posSeniority }}</span>
+                  <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font:500 12px var(--mono);color:var(--text2);white-space:nowrap">{{ compRange }}</span>
+                  <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font:500 12px var(--mono);color:var(--text2);white-space:nowrap">Target start {{ posStartTarget }}</span>
+                  <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font:500 12px var(--mono);color:var(--text2);white-space:nowrap">{{ posEmploymentType }}</span>
                 </div>
               </div>
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;flex:none">
                 <button onClick="{{ toggleConf }}" title="Click to toggle confidentiality" style="display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:6px;font:600 10.5px var(--mono);letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;cursor:pointer;color:{{ confColor }};background:{{ confBg }};border:1px solid {{ confBorder }}">{{ confLabel }}</button>
                 <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:6px;font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;color:{{ lockBadgeColor }};background:{{ lockBadgeBg }};border:1px solid {{ lockBadgeBorder }}">{{ lockBadgeLabel }}</span>
               </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:14px;margin:6px 0 16px">
+              <span style="font:700 16px var(--sans);color:var(--text);white-space:nowrap">The Brief</span>
+              <span style="flex:1;height:1px;background:var(--line-soft)"></span>
+            </div>
+
+            <div style="margin-bottom:22px">
+              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
+                <span style="font:600 15px var(--sans);color:var(--text)">Position Description</span>
+                <span style="font:400 11.5px var(--mono);color:var(--text3)">source document — parsed automatically to help fill this page</span>
+              </div>
+              <input type="file" ref="{{ pdInputRef }}" accept=".pdf,.doc,.docx" onChange="{{ onPdChosen }}" style="display:none">
+              <sc-if value="{{ pdEmpty }}" hint-placeholder-val="{{ false }}">
+                <div onClick="{{ pdBrowse }}" style="border:1.5px dashed var(--line);border-radius:10px;padding:24px;text-align:center;color:var(--text3);font:400 12.5px var(--mono);cursor:pointer" style-hover="border-color:var(--sky);color:var(--sky);background:var(--sky-dim)">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="display:inline-block;margin-bottom:6px"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg>
+                  <div>Drop a PD here, or click to browse</div>
+                  <div style="font-size:11px;margin-top:2px">PDF or Word — parsed automatically to help fill this page</div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ pdPresent }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px">
+                  <div style="width:34px;height:34px;border-radius:7px;background:var(--sky-dim);color:var(--sky);display:flex;align-items:center;justify-content:center;flex:none">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path></svg>
+                  </div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font:600 13px var(--sans);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pdName }}</div>
+                    <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:1px">{{ pdMeta }}</div>
+                  </div>
+                  <div style="display:flex;gap:6px;flex:none">
+                    <button onClick="{{ pdBrowse }}" style="padding:5px 10px;border-radius:7px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Replace</button>
+                    <button onClick="{{ pdRemove }}" style="padding:5px 10px;border-radius:7px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--red);background:none;cursor:pointer" style-hover="border-color:var(--red)">Remove</button>
+                  </div>
+                </div>
+                <sc-if value="{{ pdParsing }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;align-items:center;gap:7px;font:400 11.5px var(--mono);color:var(--text3);margin-top:10px">
+                    <span style="width:11px;height:11px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--sky);animation:pdspin .7s linear infinite;flex:none"></span>
+                    Parsing document and extracting details…
+                  </div>
+                </sc-if>
+              </sc-if>
             </div>
 
             <div style="margin-bottom:22px">
@@ -168,6 +210,11 @@
               <textarea value="{{ posNarrative }}" onInput="{{ onNarrative }}" style="width:100%;min-height:88px;background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:14px 16px;font:400 13.5px var(--sans);color:var(--text2);line-height:1.65;outline:none;resize:vertical" style-focus="border-color:var(--sky)"></textarea>
             </div>
 
+            <div style="display:flex;align-items:center;gap:14px;margin:26px 0 16px">
+              <span style="font:700 16px var(--sans);color:var(--text);white-space:nowrap">The Package</span>
+              <span style="flex:1;height:1px;background:var(--line-soft)"></span>
+            </div>
+
             <div style="margin-bottom:22px">
               <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
                 <span style="font:600 15px var(--sans);color:var(--text)">Reporting Structure</span>
@@ -175,7 +222,7 @@
               <div style="display:flex;align-items:stretch;margin-bottom:16px">
                 <div style="flex:1;background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px;min-width:0">
                   <div style="font:600 9.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Reports to</div>
-                  <div style="font:600 13px var(--sans);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ posReportsTo }}</div>
+                  <input value="{{ posReportsTo }}" onInput="{{ onReportsTo }}" placeholder="e.g. CEO" style="width:100%;min-width:0;background:none;border:none;outline:none;font:600 13px var(--sans);color:var(--text);padding:0">
                 </div>
                 <div style="display:flex;align-items:center;justify-content:center;width:34px;flex:none;color:var(--text3)">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 6 6 6-6 6"></path></svg>
@@ -189,11 +236,19 @@
                 </div>
                 <div style="flex:1;background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px;min-width:0">
                   <div style="font:600 9.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Direct reports</div>
-                  <div style="font:600 13px var(--sans);color:var(--text)">{{ posDirectReports }}</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:5px">
+                    <sc-for list="{{ directReports }}" as="dr" hint-placeholder-count="3">
+                      <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 5px 3px 10px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font:500 11.5px var(--mono);color:var(--text2)">
+                        {{ dr }}
+                        <button onClick="{{ rmDirectReport }}" data-idx="{{ $index }}" style="background:none;border:none;padding:2px 4px;color:var(--text3);cursor:pointer;font-size:11px;line-height:1" style-hover="color:var(--red)">✕</button>
+                      </span>
+                    </sc-for>
+                  </div>
+                  <input onKeyDown="{{ onDirectReportKey }}" placeholder="+ add role, press Enter" style="margin-top:6px;width:100%;border:1px dashed var(--line);background:transparent;border-radius:999px;padding:5px 12px;font:400 11.5px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                 </div>
               </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px">
-                <sc-for list="{{ orgFields }}" as="f" hint-placeholder-count="6">
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px 20px">
+                <sc-for list="{{ orgFields }}" as="f" hint-placeholder-count="3">
                   <div>
                     <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">{{ f.label }}</label>
                     <input value="{{ f.value }}" onInput="{{ onPosField }}" data-field="{{ f.key }}" style="width:100%;background:none;border:none;border-bottom:1px solid transparent;padding:4px 0;font:500 13.5px var(--mono);color:var(--text);outline:none" style-hover="border-bottom-color:var(--line)" style-focus="border-bottom-color:var(--sky)">
@@ -204,34 +259,94 @@
 
             <div style="margin-bottom:22px">
               <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
-                <span style="font:600 15px var(--sans);color:var(--text)">Package Details</span>
+                <span style="font:600 15px var(--sans);color:var(--text)">Employment &amp; Package</span>
+                <span style="font:400 11.5px var(--mono);color:var(--text3)">shared with candidates during outreach</span>
               </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-                <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px">
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px">
-                    <sc-for list="{{ pkgFields }}" as="f" hint-placeholder-count="6">
-                      <div>
-                        <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">{{ f.label }}</label>
-                        <input value="{{ f.value }}" onInput="{{ onPosField }}" data-field="{{ f.key }}" style="width:100%;background:none;border:none;border-bottom:1px solid transparent;padding:4px 0;font:500 13.5px var(--mono);color:var(--text);outline:none" style-hover="border-bottom-color:var(--line)" style-focus="border-bottom-color:var(--sky)">
-                      </div>
-                    </sc-for>
+              <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:18px">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px">
+                  <div>
+                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Employment type</label>
+                    <select value="{{ posEmploymentType }}" onChange="{{ onPosField }}" data-field="employmentType" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                      <option>Full-time, permanent</option><option>Full-time, fixed-term</option><option>Part-time</option><option>Interim / contract</option><option>Advisory</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Target start</label>
+                    <input value="{{ posStartTarget }}" onInput="{{ onPosField }}" data-field="startTarget" placeholder="e.g. 15 Sep 2026" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                   </div>
                 </div>
-                <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px">
-                  <div style="font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:7px">Benefits</div>
-                  <div style="display:flex;flex-wrap:wrap;gap:6px">
-                    <sc-for list="{{ benefits }}" as="b" hint-placeholder-count="4">
-                      <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font:500 12px var(--mono);color:var(--text2)">
-                        {{ b.name }}
-                        <button onClick="{{ rmBenefit }}" data-idx="{{ $index }}" style="background:none;border:none;padding:0;color:var(--text3);cursor:pointer;display:flex;line-height:0;font-size:11px" style-hover="color:var(--red)">✕</button>
-                      </span>
-                    </sc-for>
-                    <span style="display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;background:transparent;border:1px dashed var(--line)">
-                      <input onKeyDown="{{ onBenefitKey }}" placeholder="+ add" style="background:none;border:none;outline:none;font:500 12px var(--mono);color:var(--text);width:80px;padding:3px 0">
-                    </span>
+                <div style="height:1px;background:var(--line-soft);margin:16px 0"></div>
+                <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Base salary</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;margin-bottom:14px">
+                  <div>
+                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Min (monthly)</label>
+                    <input value="{{ posSalaryMin }}" onInput="{{ onPosField }}" data-field="salaryMin" placeholder="e.g. 90,000" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  </div>
+                  <div>
+                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Max (monthly)</label>
+                    <input value="{{ posSalaryMax }}" onInput="{{ onPosField }}" data-field="salaryMax" placeholder="e.g. 120,000" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                   </div>
                 </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;margin-bottom:14px">
+                  <div>
+                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Currency</label>
+                    <select value="{{ posCurrency }}" onChange="{{ onPosField }}" data-field="currency" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                      <option>AED</option><option>USD</option><option>SAR</option><option>QAR</option><option>KWD</option><option>GBP</option><option>EUR</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Notice period</label>
+                    <div style="display:flex;gap:6px">
+                      <input value="{{ posNoticeNum }}" onInput="{{ onPosField }}" data-field="noticeNum" placeholder="3" style="width:60px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                      <select value="{{ posNoticeUnit }}" onChange="{{ onPosField }}" data-field="noticeUnit" style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                        <option>Months</option><option>Weeks</option><option>Days</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px">
+                  <div>
+                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Bonus target</label>
+                    <div style="display:flex;gap:6px">
+                      <input value="{{ posBonusNum }}" onInput="{{ onPosField }}" data-field="bonusNum" placeholder="e.g. 40" style="width:70px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                      <select value="{{ posBonusType }}" onChange="{{ onPosField }}" data-field="bonusType" style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                        <option>% of base salary</option><option>% of total fixed</option><option>Months of base salary</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">LTIP / equity</label>
+                    <input value="{{ posLtip }}" onInput="{{ onPosField }}" data-field="ltip" placeholder="e.g. Eligible after 1 year" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  </div>
+                </div>
+                <div style="height:1px;background:var(--line-soft);margin:16px 0"></div>
+                <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:4px">Benefits &amp; allowances</div>
+                <sc-for list="{{ benefits }}" as="b" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-soft)">
+                    <span style="flex:1;min-width:0;font:500 13px var(--sans);color:var(--text)">{{ b.name }}</span>
+                    <span style="font:{{ b.amountFont }};color:var(--text3);white-space:nowrap">{{ b.amountLabel }}</span>
+                    <button onClick="{{ rmBenefit }}" data-idx="{{ $index }}" style="background:none;border:none;padding:2px 4px;color:var(--text3);cursor:pointer;font-size:12px;line-height:1;flex:none" style-hover="color:var(--red)">✕</button>
+                  </div>
+                </sc-for>
+                <div style="display:flex;gap:8px;margin-top:12px">
+                  <input value="{{ benefitName }}" onInput="{{ onBenefitName }}" onKeyDown="{{ benefitEnter }}" placeholder="e.g. Housing allowance" style="flex:1.3;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <input value="{{ benefitAmt }}" onInput="{{ onBenefitAmt }}" onKeyDown="{{ benefitEnter }}" placeholder="Amount (optional)" style="flex:.9;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <select value="{{ benefitFreq }}" onChange="{{ onBenefitFreq }}" style="flex:.7;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <option>Monthly</option><option>Yearly</option>
+                  </select>
+                  <button onClick="{{ addBenefit }}" style="display:inline-flex;align-items:center;padding:7px 14px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Add</button>
+                </div>
               </div>
+              <div style="margin-top:16px;background:var(--amber-dim);border:1px solid var(--amber-btn);border-radius:10px;padding:16px 18px">
+                <div style="font:700 10.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--amber);margin-bottom:5px">Total yearly compensation</div>
+                <div style="font:700 26px var(--mono);color:var(--amber);letter-spacing:-.01em">{{ compHero }}</div>
+                <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:5px">{{ compHeroSub }}</div>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:14px;margin:26px 0 16px">
+              <span style="font:700 16px var(--sans);color:var(--text);white-space:nowrap">Candidate Requirements</span>
+              <span style="flex:1;height:1px;background:var(--line-soft)"></span>
             </div>
 
             <div style="margin-bottom:22px">
@@ -263,7 +378,7 @@
             <div style="margin-bottom:22px">
               <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
                 <span style="font:600 15px var(--sans);color:var(--text)">Competency Weighting</span>
-                <span style="font:400 11.5px var(--mono);color:var(--text3)">drag to rebalance · type a number to set exactly</span>
+                <span style="font:400 11.5px var(--mono);color:var(--text3)">drag to rebalance · type a number to set exactly · add or remove to fit this role</span>
               </div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
                 <sc-for list="{{ compPanels }}" as="p" hint-placeholder-count="2">
@@ -281,10 +396,14 @@
                           <input value="{{ r.name }}" onInput="{{ onCompName }}" data-panel="{{ p.key }}" data-idx="{{ $index }}" style="flex:1;background:none;border:none;outline:none;font:500 13px var(--sans);color:var(--text);min-width:0">
                           <input type="number" min="0" max="100" value="{{ r.weight }}" onInput="{{ onCompNum }}" data-panel="{{ p.key }}" data-idx="{{ $index }}" style="width:52px;text-align:right;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px 6px;font:600 12px var(--mono);color:var(--text);outline:none">
                           <span style="font:500 12px var(--mono);color:var(--text3)">%</span>
+                          <sc-if value="{{ r.canRm }}" hint-placeholder-val="{{ false }}">
+                            <button onClick="{{ rmComp }}" data-panel="{{ p.key }}" data-idx="{{ $index }}" style="background:none;border:none;padding:2px;color:var(--text3);cursor:pointer;font-size:11px;line-height:1;flex:none" style-hover="color:var(--red)">✕</button>
+                          </sc-if>
                         </div>
                         <input type="range" min="0" max="100" value="{{ r.weight }}" onInput="{{ onCompSlide }}" data-panel="{{ p.key }}" data-idx="{{ $index }}" class="{{ p.sliderClass }}" style="width:100%">
                       </div>
                     </sc-for>
+                    <button onClick="{{ addComp }}" data-panel="{{ p.key }}" style="width:100%;padding:7px;border:1px dashed var(--line);border-radius:8px;background:none;font:500 12px var(--mono);color:var(--text3);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">+ Add competency</button>
                   </div>
                 </sc-for>
               </div>
@@ -1141,6 +1260,7 @@ class Component extends DCLogic {
     this.WARN = 'M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z';
     this.ME = 'yh';
     this.addRoleDraft = {};
+    this.pdInputRef = React.createRef();
     this.ROLE_ORDER = ['lead', 'admin', 'researcher'];
     this.ROLE_META = {
       lead: { label: 'Lead', color: 'var(--amber)', bg: 'var(--amber-dim)', border: 'var(--amber)' },
@@ -1214,14 +1334,22 @@ class Component extends DCLogic {
       collapsed: (() => { try { return localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) { return false; } })(),
       pos: {
         reportsTo: 'Group CEO',
-        directReports: '4 direct reports (Treasury, FP&A, Controllership, IR)',
+        directReports: ['Financial Controller', 'Group Treasurer', 'FP&A Director', 'IR Director'],
+        seniority: 'N-1',
         teamSize: '38 across the finance function',
         location: 'Abu Dhabi, UAE',
         employmentType: 'Full-time, permanent',
         startTarget: '15 Sep 2026',
-        salaryMin: '450,000', salaryMax: '550,000', currency: 'USD',
-        notice: '90 days', bonusTarget: '40% of base, performance-linked', ltip: 'Eligible — 3-year vesting LTIP pool',
-        benefits: ['Housing allowance', 'Schooling for dependents', 'Annual home leave', 'Company car & driver'],
+        salaryMin: '90,000', salaryMax: '120,000', currency: 'AED',
+        noticeNum: '3', noticeUnit: 'Months', bonusNum: '40', bonusType: '% of base salary', ltip: 'Eligible after 1 year',
+        benefits: [
+          { name: 'Housing allowance', amount: '8,000', freq: 'Monthly' },
+          { name: 'Schooling allowance', amount: '30,000', freq: 'Yearly' },
+          { name: 'Annual home leave', amount: '', freq: 'Yearly' },
+          { name: 'Company car & driver', amount: '', freq: 'Monthly' },
+        ],
+        pd: { name: 'CFO Position Description.pdf', size: '248 KB', added: 'today' },
+        pdParsing: false,
         mandateReason: 'New role',
         internalContext: "Newly created role as part of the group's finance function build-out. The shareholder wants a fresh perspective rather than an internal promotion — please keep the search discreet until shortlist stage.",
         narrative: 'The Chief Financial Officer will sit on the executive committee at Meridian Energy Group, reporting directly to the Group CEO with board-level exposure. This is a hands-on leadership role for someone who has operated at scale within a diversified or multi-business-unit environment, and who can bring rigor to the function while remaining a trusted advisor to the shareholder.',
@@ -1245,7 +1373,7 @@ class Component extends DCLogic {
         ],
         confidential: false, locked: false,
       },
-      critDraft: '',
+      critDraft: '', benefitName: '', benefitAmt: '', benefitFreq: 'Monthly',
       stratSection: 'sector',
       srcView: 'card', triage: null,
       companies,
@@ -1408,7 +1536,7 @@ class Component extends DCLogic {
       { key: 'behavioural', title: 'Behavioural Competencies', rows: pos.behavioural, total: String(totB), dotColor: 'var(--amber-btn)',
         totalColor: totB === 100 ? 'var(--green)' : 'var(--red)', totalBg: totB === 100 ? 'var(--green-dim)' : 'var(--red-dim)',
         borderColor: 'color-mix(in srgb, var(--amber-btn) 35%, var(--line-soft))', bgGrad: 'linear-gradient(180deg, var(--amber-dim), transparent 40%)', sliderClass: 'beh' },
-    ].map(p => ({ ...p, rows: p.rows.map(r => ({ name: r.name, weight: String(r.weight) })) }));
+    ].map(p => ({ ...p, rows: p.rows.map(r => ({ name: r.name, weight: String(r.weight), canRm: p.rows.length > 1 })) }));
 
     const criteria = pos.criteria.map(c => ({
       id: c.id, text: c.text, fromBrief: c.fromBrief,
@@ -1623,21 +1751,22 @@ class Component extends DCLogic {
     }
 
     const orgFields = [
-      { key: 'reportsTo', label: 'Reports to', value: pos.reportsTo },
-      { key: 'directReports', label: 'Direct reports', value: pos.directReports },
+      { key: 'seniority', label: 'Seniority', value: pos.seniority },
       { key: 'teamSize', label: 'Team size', value: pos.teamSize },
       { key: 'location', label: 'Location', value: pos.location },
-      { key: 'employmentType', label: 'Employment type', value: pos.employmentType },
-      { key: 'startTarget', label: 'Target start', value: pos.startTarget },
     ];
-    const pkgFields = [
-      { key: 'salaryMin', label: 'Base salary min', value: pos.salaryMin },
-      { key: 'salaryMax', label: 'Base salary max', value: pos.salaryMax },
-      { key: 'currency', label: 'Currency', value: pos.currency },
-      { key: 'notice', label: 'Notice period', value: pos.notice },
-      { key: 'bonusTarget', label: 'Bonus target', value: pos.bonusTarget },
-      { key: 'ltip', label: 'LTIP / Equity', value: pos.ltip },
-    ];
+    // Total yearly compensation = base (monthly) ×12 + quantified allowances, annualized
+    const numOf = (s) => Number(String(s).replace(/[^0-9.]/g, '')) || 0;
+    const minM = numOf(pos.salaryMin), maxM = numOf(pos.salaryMax);
+    const allowY = pos.benefits.reduce((s, b) => { const a = numOf(b.amount); return s + (b.freq === 'Yearly' ? a : a * 12); }, 0);
+    const compHero = minM ? pos.currency + ' ' + Math.round(minM * 12 + allowY).toLocaleString() + ' – ' + Math.round((maxM || minM) * 12 + allowY).toLocaleString() + ' / year' : '—';
+    const compHeroSub = minM ? 'Base salary ×12 plus quantified allowances · bonus & LTIP not included' : 'Add a base salary to see the total yearly package';
+    const addBenefit = () => {
+      const name = st.benefitName.trim();
+      if (!name) { this.showToast('Enter a benefit name first'); return; }
+      pos.benefits.push({ name, amount: st.benefitAmt.trim(), freq: st.benefitFreq });
+      this.setState({ benefitName: '', benefitAmt: '' });
+    };
 
     // ---------- team & access ----------
     const canManage = this.canManage();
@@ -1836,10 +1965,40 @@ class Component extends DCLogic {
       },
 
       // position
-      posReportsTo: pos.reportsTo, posDirectReports: pos.directReports, posLocation: pos.location,
+      posReportsTo: pos.reportsTo, directReports: pos.directReports, posLocation: pos.location,
+      posSeniority: pos.seniority,
       posEmploymentType: pos.employmentType, posStartTarget: pos.startTarget,
+      posSalaryMin: pos.salaryMin, posSalaryMax: pos.salaryMax, posCurrency: pos.currency,
+      posNoticeNum: pos.noticeNum, posNoticeUnit: pos.noticeUnit, posBonusNum: pos.bonusNum, posBonusType: pos.bonusType, posLtip: pos.ltip,
+      compHero, compHeroSub, addBenefit,
+      benefitName: st.benefitName, benefitAmt: st.benefitAmt, benefitFreq: st.benefitFreq,
+      benefitEnter: (e) => { if (e.key === 'Enter') addBenefit(); },
+      onBenefitName: (e) => this.setState({ benefitName: e.target.value }),
+      onBenefitAmt: (e) => this.setState({ benefitAmt: e.target.value }),
+      onBenefitFreq: (e) => this.setState({ benefitFreq: e.target.value }),
+      onReportsTo: (e) => { pos.reportsTo = e.target.value; this.forceUpdate(); },
+      rmDirectReport: (e) => { pos.directReports.splice(+e.currentTarget.dataset.idx, 1); this.forceUpdate(); },
+      onDirectReportKey: (e) => { if (e.key === 'Enter' && e.target.value.trim()) { pos.directReports.push(e.target.value.trim()); e.target.value = ''; this.forceUpdate(); } },
+      pdPresent: !!pos.pd, pdEmpty: !pos.pd,
+      pdName: pos.pd ? pos.pd.name : '', pdMeta: pos.pd ? pos.pd.size + ' · added ' + pos.pd.added : '',
+      pdParsing: pos.pdParsing, pdInputRef: this.pdInputRef,
+      pdBrowse: () => { if (this.pdInputRef.current) this.pdInputRef.current.click(); },
+      pdRemove: () => { pos.pd = null; pos.pdParsing = false; this.forceUpdate(); },
+      onPdChosen: (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        const kb = f.size / 1024;
+        pos.pd = { name: f.name, size: kb < 1024 ? Math.round(kb) + ' KB' : (kb / 1024).toFixed(1) + ' MB', added: 'today' };
+        pos.pdParsing = true;
+        e.target.value = '';
+        this.forceUpdate();
+        clearTimeout(this._pdT);
+        this._pdT = setTimeout(() => { this.state.pos.pdParsing = false; this.showToast('Parsed — details extracted to help fill this page'); }, 1600);
+      },
+      addComp: (e) => { pos[e.currentTarget.dataset.panel].push({ name: 'New competency', weight: 0 }); this.forceUpdate(); },
+      rmComp: (e) => { pos[e.currentTarget.dataset.panel].splice(+e.currentTarget.dataset.idx, 1); this.forceUpdate(); },
       posMandateReason: pos.mandateReason, posInternalContext: pos.internalContext, posNarrative: pos.narrative,
-      compRange: pos.currency + ' ' + pos.salaryMin.replace(',000', 'K') + '–' + pos.salaryMax.replace(',000', 'K'),
+      compRange: pos.currency + ' ' + pos.salaryMin.replace(',000', 'K') + '–' + pos.salaryMax.replace(',000', 'K') + ' / month',
       confLabel: pos.confidential ? 'Confidential' : 'Standard',
       confColor: pos.confidential ? 'var(--red)' : 'var(--text3)',
       confBg: pos.confidential ? 'var(--red-dim)' : 'var(--panel)',
@@ -1849,8 +2008,12 @@ class Component extends DCLogic {
       lockBadgeBg: pos.locked ? 'var(--green-dim)' : 'var(--panel)',
       lockBadgeBorder: pos.locked ? 'transparent' : 'var(--line)',
       posLocked: pos.locked, posUnlocked: !pos.locked,
-      orgFields, pkgFields,
-      benefits: pos.benefits.map(name => ({ name })),
+      orgFields,
+      benefits: pos.benefits.map(b => ({
+        name: b.name,
+        amountLabel: b.amount ? pos.currency + ' ' + b.amount + ' / ' + (b.freq === 'Yearly' ? 'year' : 'month') : 'No fixed value',
+        amountFont: b.amount ? '500 12px var(--mono)' : 'italic 400 12px var(--sans)',
+      })),
       criteria, critDraft: st.critDraft, compPanels,
 
       // strategy
