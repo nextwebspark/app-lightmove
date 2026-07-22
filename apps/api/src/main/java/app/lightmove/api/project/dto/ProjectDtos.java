@@ -64,4 +64,10 @@ public final class ProjectDtos {
             @NotEmpty(message = "Choose at least one role")
             Set<ProjectRole> roles
     ) {}
+
+    /** Attach a client representative to this mandate as a read-only CLIENT seat. */
+    public record AttachRepresentativeRequest(
+            @NotNull(message = "Choose a representative")
+            UUID representativeId
+    ) {}
 }

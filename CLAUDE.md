@@ -2,10 +2,13 @@
 
 Multi-tenant SaaS for executive search and talent mapping.
 
-A **Workspace** is the tenant. It holds **Members** (workspace roles: `ADMIN` / `MEMBER`) who run
-**Projects** — search mandates for client companies — where each seat holds a *set* of project roles
-(`ADMIN` / `LEAD` / `RESEARCHER`). `CLIENT` exists in both catalogs as groundwork for the hiring-company
-portal, grants nothing, and cannot be minted yet.
+A **Workspace** is the tenant. It holds **Members** whose membership carries a *set* of workspace roles
+(`ADMIN` / `MEMBER` / `CLIENT`) who run **Projects** — search mandates for client companies — where each
+seat holds a *set* of project roles (`ADMIN` / `LEAD` / `RESEARCHER` / `CLIENT`). `CLIENT` is a
+hiring-company representative: read-only, scoped to the mandates they're attached to. It is not a fence —
+a member may hold `CLIENT` **alongside** a staff role and is then treated as staff. A *pure* client (only
+`CLIENT`) is the one kept out of staff surfaces. The workspace `CLIENT` role grants nothing; access is the
+project `CLIENT` seat, which grants `WORK_VIEW` (read a mandate's content, never edit).
 
 **Built so far: auth, workspace management, minimal projects, and the RBAC layer.** Signup (3 steps),
 login, Google OAuth, invitations, the roster, the projects/clients/team screens with per-seat roles.
@@ -284,11 +287,15 @@ feature→feature seam is sanctioned: `project`'s `StrategyService` calls `compa
 universe lookup lives with the universe rather than being duplicated SQL in `project`, and the seam
 is a public service method plus the `company/model` records it returns, never `company` internals.
 A second seam is sanctioned for client representatives: `project`'s `ClientRepresentativeService`
-calls `workspace`'s `InvitationService.inviteClientRepresentative` to *issue* a portal invite (a
-representative is a CLIENT-role workspace member, and invitations are the only door in), while
-*acceptance* flows back the other way as a `ClientRepresentativeAcceptedEvent` the project side listens
-for — so `workspace` announces the accept in primitives and never depends on `project` (mirrors
-`EmailVerifiedEvent`). This is a deliberate trade of the old ports/adapters layering for a uniform, type-based shape, so
+calls `workspace`'s `InvitationService.onboardClientRepresentative` to grant membership (a representative
+is a CLIENT-role workspace member, and membership is the workspace's to grant). That call chooses the
+path: an email that is **already an active member** gains the `CLIENT` role on their existing membership
+plus an informational email — no invite, because a user is unique to a workspace and this person is in;
+a **stranger** gets the ordinary invitation, and *acceptance* flows back as a
+`ClientRepresentativeAcceptedEvent` the project side listens for — so `workspace` announces the accept in
+primitives and never depends on `project` (mirrors `EmailVerifiedEvent`). Attaching a representative to a
+mandate is a plain project seat (`ProjectService.attachRepresentative`), no seam. This is a deliberate
+trade of the old ports/adapters layering for a uniform, type-based shape, so
 `EmailSender`/`RateLimiter` are plain `service` interfaces rather than declared ports.
 
 Ports worth knowing: `EmailSender` (`core/email/service`; `LogEmailSender` prints the verification link to

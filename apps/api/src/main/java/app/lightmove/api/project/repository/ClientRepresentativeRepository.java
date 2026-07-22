@@ -15,9 +15,8 @@ public interface ClientRepresentativeRepository extends JpaRepository<ClientRepr
     /** One drawer's worth of representatives, and the list-screen enrichment for a set of clients. */
     List<ClientRepresentative> findByWorkspaceIdAndClientIdIn(UUID workspaceId, List<UUID> clientIds);
 
-    /** The portal's scoping lookup: which client does this signed-in representative belong to? */
-    Optional<ClientRepresentative> findByWorkspaceIdAndUserIdAndStatus(
-            UUID workspaceId, UUID userId, ClientRepStatus status);
+    /** Resolve a representative by id within the workspace — for attaching them to a mandate. */
+    Optional<ClientRepresentative> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
     /** Dedupe on invite: an outstanding or revoked row for this address is reused, not duplicated. */
     Optional<ClientRepresentative> findByClientIdAndEmailIgnoreCase(UUID clientId, String email);

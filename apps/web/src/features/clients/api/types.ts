@@ -42,7 +42,7 @@ export interface ClientRepresentative {
   status: ClientRepStatus;
 }
 
-/** A mandate as the client drawer and the portal list it. */
+/** A mandate as the client drawer lists it. */
 export interface ClientMandate {
   id: string;
   positionTitle: string;
@@ -63,17 +63,6 @@ export interface ClientDetail {
   deliveredMandates: number;
   representatives: ClientRepresentative[];
   mandates: ClientMandate[];
-}
-
-/** One universe company as the New-client search surfaces it (a subset of the company search result). */
-export interface CompanyHit {
-  source: string;
-  sourceId: string;
-  name: string;
-  domain: string | null;
-  primaryIndustry: string | null;
-  hqCity: string | null;
-  hqCountry: string | null;
 }
 
 /** Either a universe pick (`company`) or a custom record (`customName`), plus an optional primary contact. */
@@ -98,13 +87,4 @@ export interface InviteRepresentativePayload {
   fullName: string;
   position?: string;
   email: string;
-}
-
-/** The representative's own read: their client and its mandates, and nothing else. */
-export interface PortalClient {
-  id: string;
-  name: string;
-  sector: string | null;
-  hqCountry: string | null;
-  mandates: ClientMandate[];
 }

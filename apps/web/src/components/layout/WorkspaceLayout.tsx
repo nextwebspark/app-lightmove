@@ -17,7 +17,11 @@ import { UnverifiedBanner } from "./UnverifiedBanner";
 export function WorkspaceLayout() {
   const { user } = useAuth();
   const verified = user?.emailVerified ?? false;
-  const isAdmin = user?.workspace?.roles.includes("ADMIN") ?? false;
+  const roles = user?.workspace?.roles ?? [];
+  const isAdmin = roles.includes("ADMIN");
+  // A pure client (only the CLIENT role) is read-only and scoped to the mandates they're attached to.
+  // The registry and roster are staff surfaces they can't read — don't query them, don't show them.
+  const clientOnly = roles.includes("CLIENT") && !roles.some((role) => role === "ADMIN" || role === "MEMBER");
 
   const { data: projects } = useQuery({
     queryKey: projectsApi.PROJECTS_KEY,
@@ -27,12 +31,12 @@ export function WorkspaceLayout() {
   const { data: clients } = useQuery({
     queryKey: clientsApi.CLIENTS_KEY,
     queryFn: clientsApi.clients,
-    enabled: verified,
+    enabled: verified && !clientOnly,
   });
   const { data: members } = useQuery({
     queryKey: workspaceApi.MEMBERS_KEY,
     queryFn: workspaceApi.members,
-    enabled: verified,
+    enabled: verified && !clientOnly,
   });
 
   const myMemberId = members?.find((m) => m.userId === user?.id)?.memberId;
@@ -41,25 +45,34 @@ export function WorkspaceLayout() {
     ? active?.filter((p) => p.team.some((seat) => seat.memberId === myMemberId)).length
     : undefined;
 
-  const groups: SidebarGroup[] = [
-    {
-      label: "Projects",
-      items: [
-        { to: "/", label: "My projects", icon: ICONS.myProjects, count: myCount, end: true },
-        { to: "/all", label: "All projects", icon: ICONS.allProjects, count: projects?.length },
-      ],
-    },
-    {
-      label: "Workspace",
-      items: [
-        { to: "/clients", label: "Clients", icon: ICONS.clients, count: clients?.length },
-        { to: "/team", label: "Team", icon: ICONS.team, count: members?.length },
-        ...(isAdmin
-          ? [{ to: "/settings/general", label: "Settings", icon: ICONS.settings }]
-          : []),
-      ],
-    },
-  ];
+  const projectsGroup: SidebarGroup = clientOnly
+    ? {
+        label: "Projects",
+        items: [{ to: "/", label: "My projects", icon: ICONS.myProjects, end: true }],
+      }
+    : {
+        label: "Projects",
+        items: [
+          { to: "/", label: "My projects", icon: ICONS.myProjects, count: myCount, end: true },
+          { to: "/all", label: "All projects", icon: ICONS.allProjects, count: projects?.length },
+        ],
+      };
+
+  const groups: SidebarGroup[] = clientOnly
+    ? [projectsGroup]
+    : [
+        projectsGroup,
+        {
+          label: "Workspace",
+          items: [
+            { to: "/clients", label: "Clients", icon: ICONS.clients, count: clients?.length },
+            { to: "/team", label: "Team", icon: ICONS.team, count: members?.length },
+            ...(isAdmin
+              ? [{ to: "/settings/general", label: "Settings", icon: ICONS.settings }]
+              : []),
+          ],
+        },
+      ];
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">

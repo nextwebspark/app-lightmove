@@ -1,15 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Button, Field, FormError, Input, Modal, Spinner, useToast } from "../../../components/ui";
+import { isValidEmail } from "../../../lib/email";
 import { messageFor } from "../../../lib/errorCodes";
+import { SEARCH_KEY, searchCompanies } from "../../strategy/api/companiesApi";
+import type { CompanySearchResult } from "../../strategy/api/types";
 import * as clientsApi from "../api/clientsApi";
-import type { CompanyHit } from "../api/types";
 
 /**
  * The New-client modal — company-database-first, matching Clients.dc.html.
  *
  * Stage one picks the company: search the universe, or add a custom record when it isn't there. Stage
- * two adds an optional primary contact, who gets a portal invite immediately. A DB pick stores the
+ * two adds an optional primary contact, who is invited as a representative immediately. A DB pick stores the
  * company's rebuild-stable key; the server resolves its canonical name and domain.
  */
 export function NewClientModal({
@@ -29,7 +31,7 @@ export function NewClientModal({
 
   const [companyQuery, setCompanyQuery] = useState("");
   const [debounced, setDebounced] = useState("");
-  const [selected, setSelected] = useState<CompanyHit | null>(null);
+  const [selected, setSelected] = useState<CompanySearchResult | null>(null);
   const [custom, setCustom] = useState<{ name: string; domain: string } | null>(null);
   const [newCompanyOpen, setNewCompanyOpen] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState("");
@@ -48,9 +50,11 @@ export function NewClientModal({
     return () => clearTimeout(handle);
   }, [companyQuery]);
 
+  // The same shared universe reader the Strategy pickers use — a non-empty query name-matches, so
+  // sectors/order are inert here, and the result shares one cache entry with those pickers.
   const { data: hits = [], isFetching } = useQuery({
-    queryKey: ["company-search", debounced],
-    queryFn: () => clientsApi.searchCompanies(debounced),
+    queryKey: SEARCH_KEY(debounced, [], "revenue_desc"),
+    queryFn: () => searchCompanies(debounced, [], "revenue_desc").then((page) => page.companies),
     enabled: open && !hasSelection && debounced.length >= 2,
   });
 
@@ -84,7 +88,7 @@ export function NewClientModal({
     onError: (mutationError) => setError(messageFor(mutationError)),
   });
 
-  const pickHit = (hit: CompanyHit) => {
+  const pickHit = (hit: CompanySearchResult) => {
     if (existingNames.has(hit.name.toLowerCase())) {
       toast(`${hit.name} is already a client`);
       return;
@@ -122,7 +126,7 @@ export function NewClientModal({
       setError("All three fields are required to send an invite.");
       return;
     }
-    if (contactEmail.trim() && !contactEmail.includes("@")) {
+    if (contactEmail.trim() && !isValidEmail(contactEmail)) {
       setError("Enter a valid work email address.");
       return;
     }
@@ -188,13 +192,22 @@ export function NewClientModal({
                     </button>
                   );
                 })}
-              <button
-                type="button"
-                onClick={openNewCompany}
-                className="flex w-full items-center gap-1.5 px-3 py-2.5 text-left font-mono text-[11.5px] text-amber hover:bg-panel2"
-              >
-                ＋ None of these — add “{companyQuery.trim()}” as a new company
-              </button>
+              {!isFetching && hits.length === 0 && (
+                <p className="px-3 py-3 font-mono text-[11.5px] text-text3">
+                  No company found for “{debounced}”.
+                </p>
+              )}
+              {/* The add-a-company escape hatch waits for the search to settle, so it never sits under the
+                  "Searching…" spinner as a second, competing action. */}
+              {!isFetching && (
+                <button
+                  type="button"
+                  onClick={openNewCompany}
+                  className="flex w-full items-center gap-1.5 px-3 py-2.5 text-left font-mono text-[11.5px] text-amber hover:bg-panel2"
+                >
+                  ＋ None of these — add “{companyQuery.trim()}” as a new company
+                </button>
+              )}
             </div>
           )}
 
@@ -253,7 +266,7 @@ export function NewClientModal({
           <div className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
             Primary contact
             <span className="ml-1 font-normal normal-case tracking-normal text-text3">
-              · optional — gets a portal invite. Add more from the client panel later.
+              · optional — gets an invite as a representative. Add more from the client panel later.
             </span>
           </div>
           <div className="flex gap-2.5">

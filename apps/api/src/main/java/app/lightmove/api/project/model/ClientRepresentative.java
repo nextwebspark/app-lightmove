@@ -13,13 +13,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * A client-side contact invited to the portal. Belongs to the client record, not a mandate — the
- * Clients drawer invites representatives before any project exists.
+ * A client-side contact who represents a client record. Belongs to the client, not a mandate — a
+ * representative exists before any project, and is later attached to specific mandates as a read-only
+ * CLIENT project seat.
  *
- * <p>A lifecycle row: it is born INVITED against an outstanding {@link app.lightmove.api.workspace.model.Invitation},
- * gains a {@code userId} and turns ACTIVE when that invitation is accepted, and carries a denormalised
- * {@code workspaceId} so the portal can resolve "which client does this signed-in user represent?"
- * from {@code (workspaceId, userId)} alone.
+ * <p>A lifecycle row. An external contact is born INVITED against an outstanding
+ * {@link app.lightmove.api.workspace.model.Invitation}, then gains a {@code userId} and turns ACTIVE when
+ * that invitation is accepted. A contact who is already a workspace member skips the invite entirely and
+ * is born ACTIVE (see {@link #active}).
  */
 @Entity
 @Table(name = "app_lm_client_representative")
@@ -68,6 +69,24 @@ public class ClientRepresentative extends BaseEntity {
         return representative;
     }
 
+    /**
+     * A representative who is already a workspace member: no invitation, ACTIVE from birth, bound to
+     * their existing account. The CLIENT role is added to that membership separately.
+     */
+    public static ClientRepresentative active(UUID workspaceId, UUID clientId, String fullName,
+                                              String position, String email, UUID userId, UUID createdBy) {
+        ClientRepresentative representative = new ClientRepresentative();
+        representative.workspaceId = workspaceId;
+        representative.clientId = clientId;
+        representative.fullName = fullName.trim();
+        representative.position = position;
+        representative.email = email;
+        representative.status = ClientRepStatus.ACTIVE;
+        representative.userId = userId;
+        representative.createdBy = createdBy;
+        return representative;
+    }
+
     /** Re-issue an invite to a previously revoked row, rather than leaving a second live representative. */
     public void reinvite(String fullName, String position, UUID invitationId) {
         this.fullName = fullName.trim();
@@ -81,12 +100,13 @@ public class ClientRepresentative extends BaseEntity {
         this.invitationId = invitationId;
     }
 
-    /** They accepted: an account now exists, and the portal opens to them. */
+    /** They accepted: an account now exists, so the representative is live and can be attached to mandates. */
     public void activate(UUID userId) {
         this.userId = userId;
         this.status = ClientRepStatus.ACTIVE;
     }
 
+    /** Withdraw a representative. The row is kept (REVOKED) so re-inviting the same address reuses it. */
     public void revoke() {
         this.status = ClientRepStatus.REVOKED;
     }

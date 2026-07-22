@@ -2,6 +2,7 @@ package app.lightmove.api.project.service;
 
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.email.service.EmailAddressValidator;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.project.constant.ClientRepStatus;
@@ -11,7 +12,7 @@ import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.repository.ClientRepository;
 import app.lightmove.api.project.repository.ClientRepresentativeRepository;
 import app.lightmove.api.workspace.model.ClientRepresentativeAcceptedEvent;
-import app.lightmove.api.workspace.model.Invitation;
+import app.lightmove.api.workspace.model.ClientRepresentativeOnboarding;
 import app.lightmove.api.workspace.service.InvitationService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
@@ -46,9 +47,19 @@ public class ClientRepresentativeService {
      */
     @Transactional
     public RepresentativeResponse invite(UUID actorId, UUID workspaceId, UUID clientId, String fullName,
-                                         String position, String email, HttpServletRequest request) {
+                                         String position, String rawEmail, HttpServletRequest request) {
         Client client = clients.findByIdAndWorkspaceId(clientId, workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+
+        // Normalise once so the representative row and the invitation store the identical address —
+        // matching survives only by IgnoreCase lookups otherwise. The workspace side re-normalises, which
+        // is idempotent on an already-normalised value.
+        String email = EmailAddressValidator.normalise(rawEmail);
+
+        // Membership is the workspace's to grant: an existing member gains the CLIENT role and a notice,
+        // a stranger gets the invitation flow. We only decide what the representative row should say.
+        ClientRepresentativeOnboarding onboarding = invitations.onboardClientRepresentative(
+                workspaceId, clientId, client.getName(), email, actorId, request);
 
         ClientRepresentative representative = representatives
                 .findByClientIdAndEmailIgnoreCase(clientId, email)
@@ -57,19 +68,26 @@ public class ClientRepresentativeService {
                         throw new ApiException(ErrorCode.VALIDATION_FAILED,
                                 "That person is already a representative of this client");
                     }
-                    existing.reinvite(fullName, position, null);
+                    if (onboarding.existingMember()) {
+                        existing.activate(onboarding.memberUserId());
+                    } else {
+                        existing.reinvite(fullName, position, onboarding.invitation().getId());
+                    }
                     return existing;
                 })
-                .orElseGet(() -> representatives.save(ClientRepresentative.invited(
-                        workspaceId, clientId, fullName, position, email, actorId)));
+                .orElseGet(() -> representatives.save(onboarding.existingMember()
+                        ? ClientRepresentative.active(workspaceId, clientId, fullName, position, email,
+                                onboarding.memberUserId(), actorId)
+                        : ClientRepresentative.invited(workspaceId, clientId, fullName, position, email, actorId)));
 
-        Invitation invitation = invitations.inviteClientRepresentative(
-                workspaceId, clientId, client.getName(), email, actorId, request);
-        representative.linkInvitation(invitation.getId());
+        if (!onboarding.existingMember()) {
+            representative.linkInvitation(onboarding.invitation().getId());
+        }
 
         audit.event(ProjectEventType.CLIENT_REP_INVITED)
                 .actor(actorId).workspace(workspaceId).target("client", clientId).from(request)
                 .detail("representativeId", representative.getId().toString())
+                .detail("existingMember", String.valueOf(onboarding.existingMember()))
                 .record();
 
         return new RepresentativeResponse(representative.getId(), representative.getFullName(),

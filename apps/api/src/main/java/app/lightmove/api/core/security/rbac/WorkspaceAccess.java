@@ -6,6 +6,7 @@ import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -35,13 +36,15 @@ public class WorkspaceAccess {
     }
 
     /**
-     * An active member who is not a CLIENT. Every staff-facing read gates on this rather than mere
-     * membership, so a future client login can never see a roster, a registry or another mandate.
+     * An active member who is <b>not a pure client</b>. Every staff-facing read gates on this rather than
+     * mere membership, so a client representative can never see the roster, the registry or a mandate they
+     * are not attached to. A CLIENT role held <i>alongside</i> a staff role does not fence anyone: a
+     * colleague who also represents a client is still staff.
      */
     public WorkspaceMember requireStaff(UUID userId, UUID workspaceId) {
         WorkspaceMember member = requireActiveMember(userId, workspaceId);
-        if (members.findRoleNames(member.getId()).contains(WorkspaceRole.CLIENT.name())) {
-            throw new ApiException(ErrorCode.FORBIDDEN, "Client access is scoped to shared projects");
+        if (isPureClient(member.getId())) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "Client access is scoped to the projects you are on");
         }
         return member;
     }
@@ -76,6 +79,29 @@ public class WorkspaceAccess {
         return members.findByIdAndWorkspaceId(memberId, workspaceId)
                 .filter(WorkspaceMember::isActive)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_A_MEMBER));
+    }
+
+    /**
+     * A membership row that belongs to <b>staff</b> — the by-id counterpart of {@link #requireStaff}.
+     * A CLIENT (portal guest) is never seatable on a project team, so naming one here is refused; the
+     * project's requested-role guard only covers the roles asked for, not the nature of the member.
+     */
+    public WorkspaceMember requireStaffRow(UUID memberId, UUID workspaceId) {
+        WorkspaceMember member = requireActiveMemberRow(memberId, workspaceId);
+        if (isPureClient(member.getId())) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "Client access is scoped to the projects you are on");
+        }
+        return member;
+    }
+
+    /**
+     * A member whose <b>only</b> role is CLIENT — a client representative with no staff role. This, not
+     * "holds CLIENT", is what fences someone out of staff surfaces: a member may hold CLIENT alongside a
+     * staff role and is then treated as staff.
+     */
+    public boolean isPureClient(UUID memberId) {
+        Set<String> roleNames = members.findRoleNames(memberId);
+        return roleNames.size() == 1 && roleNames.contains(WorkspaceRole.CLIENT.name());
     }
 
     /** The active roster, for features that render members. Caller must already be authorised. */

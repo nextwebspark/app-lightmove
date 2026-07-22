@@ -37,7 +37,7 @@ public class StrategyController {
     private final StrategyService strategy;
 
     @GetMapping
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'WORK_EXECUTE')")
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'WORK_VIEW')")
     public ResponseEntity<StrategyResponse> get(@PathVariable UUID projectId) {
         AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(strategy.get(principal.requireWorkspaceId(), projectId));

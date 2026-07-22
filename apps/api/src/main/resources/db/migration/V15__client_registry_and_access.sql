@@ -1,4 +1,4 @@
--- The client registry becomes a first-class screen, and its representatives get real portal access.
+-- The client registry becomes a first-class screen, and its representatives get real, scoped access.
 --
 -- Three things land together because they reshape the same client aggregate:
 --
@@ -9,13 +9,14 @@
 --      custom record. app_lm_companies is ETL-owned and unwritable here, so a "new company" lives on
 --      the client row itself, never upstream.
 --
---   2. Client representatives. A client-side contact who is invited to a portal. They belong to the
---      client record, independent of any mandate — the Clients drawer invites them before a project
---      exists — so the row is keyed by client, not project.
+--   2. Client representatives. A client-side contact who represents a client record. They belong to the
+--      client, independent of any mandate — the Clients drawer names them before a project exists — so
+--      the row is keyed by client, not project.
 --
---   3. The client portal ships in seed form. The workspace CLIENT role, until now granting nothing
---      (V6), gains its first action: CLIENT_PORTAL_READ. That re-scopes the invitation groundwork —
---      a CLIENT invite was tied to a project (V6); it is now tied to a client.
+--   3. Read-only project access. A representative is later attached to a mandate as a PROJECT CLIENT
+--      seat and reads it through the new WORK_VIEW action. The workspace CLIENT role grants nothing;
+--      this migration also re-scopes the invitation groundwork — a CLIENT invite was tied to a project
+--      (V6); it is now tied to a client.
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 1. Enrich the client record. Extend in place: app_lm_project.client_id still FKs this table, so a
@@ -77,6 +78,15 @@ ALTER TABLE app_lm_invitation DROP COLUMN project_id;
 ALTER TABLE app_lm_invitation
     ADD COLUMN client_id uuid REFERENCES app_lm_client (id) ON DELETE CASCADE;
 
+-- The live-invite uniqueness (V1) forbade two PENDING invites to one (workspace, email) — correct when
+-- every invite was staff. A representative and a staff colleague can now share a work address, so the
+-- index gains client_id, and NULLS NOT DISTINCT keeps the staff side (client_id NULL) collapsing to one
+-- while letting a staff invite and a client-rep invite to the same email coexist.
+DROP INDEX app_lm_invitation_pending_uk;
+CREATE UNIQUE INDEX app_lm_invitation_pending_uk
+    ON app_lm_invitation (workspace_id, email, client_id) NULLS NOT DISTINCT
+    WHERE status = 'PENDING';
+
 -- A CLIENT invitation names the client its representative joins; a staff invitation names none. The
 -- CHECK compares against the seeded CLIENT role id, computed here — role ids are stable from V6 on.
 DO $$
@@ -90,18 +100,22 @@ BEGIN
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 4. The portal's one action. CLIENT stops being an empty groundwork role: it may read its own client
---    record and mandates, and nothing else. Every staff action stays out of its reach.
+-- 4. Read access is a project seat, not a workspace grant. A client representative is attached to a
+--    mandate as a PROJECT CLIENT seat and reads it read-only through the new WORK_VIEW action — the
+--    view half of WORK_EXECUTE, split out so a client can see a project's content without editing it.
+--    The workspace CLIENT role grants nothing: a client is scoped entirely by the projects they sit on.
 -- ─────────────────────────────────────────────────────────────────────────────
 
 INSERT INTO app_lm_action (scope, name, description)
-VALUES ('WORKSPACE', 'CLIENT_PORTAL_READ', 'Read one''s own client record and its mandates in the portal');
+VALUES ('PROJECT', 'WORK_VIEW', 'Read a project''s team-only content — strategy, brief, sourcing');
 
+-- Every seated role can read; only the staff roles keep WORK_EXECUTE (the writes). CLIENT gets WORK_VIEW
+-- alone, so an attached representative views the mandate and can change nothing.
 INSERT INTO app_lm_role_action (role_id, action_id)
 SELECT r.id, a.id
 FROM app_lm_role r
-JOIN app_lm_action a ON a.scope = 'WORKSPACE' AND a.name = 'CLIENT_PORTAL_READ'
-WHERE r.scope = 'WORKSPACE' AND r.name = 'CLIENT';
+JOIN app_lm_action a ON a.scope = 'PROJECT' AND a.name = 'WORK_VIEW'
+WHERE r.scope = 'PROJECT' AND r.name IN ('ADMIN', 'LEAD', 'RESEARCHER', 'CLIENT');
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 5. Keep updated_at honest on the new table.

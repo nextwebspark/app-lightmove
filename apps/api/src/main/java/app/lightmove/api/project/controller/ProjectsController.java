@@ -2,6 +2,7 @@ package app.lightmove.api.project.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.service.CurrentUser;
+import app.lightmove.api.project.dto.ProjectDtos.AttachRepresentativeRequest;
 import app.lightmove.api.project.dto.ProjectDtos.CreateProjectRequest;
 import app.lightmove.api.project.dto.ProjectDtos.ProjectResponse;
 import app.lightmove.api.project.dto.ProjectDtos.PutTeamMemberRequest;
@@ -41,10 +42,10 @@ public class ProjectsController {
     private final ProjectService projects;
 
     @GetMapping
-    @PreAuthorize("@workspaceAuth.can(principal, 'PROJECT_BROWSE')")
+    @PreAuthorize("@workspaceAuth.member(principal)")
     public ResponseEntity<List<ProjectResponse>> list() {
         AuthPrincipal principal = CurrentUser.require();
-        return ResponseEntity.ok(projects.list(principal.requireWorkspaceId()));
+        return ResponseEntity.ok(projects.list(principal.userId(), principal.requireWorkspaceId()));
     }
 
     @PostMapping
@@ -88,5 +89,29 @@ public class ProjectsController {
         AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(projects.removeMember(
                 principal.userId(), principal.requireWorkspaceId(), projectId, memberId, httpRequest));
+    }
+
+    /** Give a client representative read-only view of this mandate — a lead-or-admin decision. */
+    @PostMapping("/{projectId}/representatives")
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    public ResponseEntity<ProjectResponse> attachRepresentative(
+            @PathVariable UUID projectId,
+            @Valid @RequestBody AttachRepresentativeRequest request,
+            HttpServletRequest httpRequest) {
+        AuthPrincipal principal = CurrentUser.require();
+        return ResponseEntity.ok(projects.attachRepresentative(
+                principal.userId(), principal.requireWorkspaceId(), projectId,
+                request.representativeId(), httpRequest));
+    }
+
+    @DeleteMapping("/{projectId}/representatives/{representativeId}")
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    public ResponseEntity<ProjectResponse> detachRepresentative(@PathVariable UUID projectId,
+                                                                @PathVariable UUID representativeId,
+                                                                HttpServletRequest httpRequest) {
+        AuthPrincipal principal = CurrentUser.require();
+        return ResponseEntity.ok(projects.detachRepresentative(
+                principal.userId(), principal.requireWorkspaceId(), projectId,
+                representativeId, httpRequest));
     }
 }

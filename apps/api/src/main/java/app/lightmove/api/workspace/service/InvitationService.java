@@ -23,6 +23,7 @@ import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.ClientRepresentativeAcceptedEvent;
+import app.lightmove.api.workspace.model.ClientRepresentativeOnboarding;
 import app.lightmove.api.workspace.model.Invitation;
 import app.lightmove.api.workspace.model.InviteCommand;
 import app.lightmove.api.workspace.model.Workspace;
@@ -35,7 +36,9 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -140,8 +143,12 @@ public class InvitationService {
         String hash = Tokens.hash(plaintext);
         Role granted = rbac.role(role);
 
+        // Scoped to staff (client_id IS NULL): a client-rep invitation to the same address must not be
+        // refreshed into a staff one — that would rotate its token and, worse, leave its CLIENT role and
+        // client id in place while the email promises MEMBER.
         Invitation invitation = invitations
-                .findByWorkspaceIdAndEmailAndStatus(workspace.getId(), email, InvitationStatus.PENDING)
+                .findByWorkspaceIdAndEmailAndClientIdIsNullAndStatus(
+                        workspace.getId(), email, InvitationStatus.PENDING)
                 .map(existing -> {
                     existing.refresh(hash, expiry);
                     return existing;
@@ -218,6 +225,54 @@ public class InvitationService {
                 .record();
 
         return invitation;
+    }
+
+    /**
+     * Onboards a client representative, choosing the path by whether the address is already one of our
+     * members. An existing active member skips the invitation entirely — they gain the CLIENT role on
+     * their current membership and an informational email, no signup, because a user is unique to a
+     * workspace and this person is already in. A stranger gets the ordinary invitation flow. Either way
+     * the project side turns the result into its representative row.
+     */
+    @Transactional
+    public ClientRepresentativeOnboarding onboardClientRepresentative(
+            UUID workspaceId, UUID clientId, String clientName, String rawEmail, UUID addedBy,
+            HttpServletRequest request) {
+        String email = EmailAddressValidator.normalise(rawEmail);
+        emailValidator.validateWorkEmail(email);
+
+        Optional<WorkspaceMember> existing = users.findByEmail(email)
+                .flatMap(user -> members.findByWorkspaceIdAndUserIdAndStatus(
+                        workspaceId, user.getId(), MemberStatus.ACTIVE));
+        if (existing.isEmpty()) {
+            Invitation invitation = inviteClientRepresentative(
+                    workspaceId, clientId, clientName, email, addedBy, request);
+            return new ClientRepresentativeOnboarding(false, null, invitation);
+        }
+
+        WorkspaceMember member = existing.get();
+        if (member.getRoles().stream().noneMatch(role -> role.is(WorkspaceRole.CLIENT))) {
+            Set<Role> roles = new HashSet<>(member.getRoles());
+            roles.add(rbac.role(WorkspaceRole.CLIENT));
+            member.changeRoles(roles);
+        }
+
+        Workspace workspace = workspaces.findById(workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
+        User adder = users.findById(addedBy)
+                .orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
+        User recipient = users.findById(member.getUserId())
+                .orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
+
+        emailSender.send(templates.buildRepresentativeAddedEmail(
+                email, recipient.getFullName(), adder.getFullName(), workspace.getName(), clientName));
+
+        audit.event(WorkspaceEventType.MEMBER_ROLE_CHANGED)
+                .actor(addedBy).workspace(workspaceId).target("member", member.getId()).from(request)
+                .detail("addedRole", WorkspaceRole.CLIENT.name()).detail("clientId", clientId.toString())
+                .record();
+
+        return new ClientRepresentativeOnboarding(true, member.getUserId(), null);
     }
 
     /**
@@ -389,11 +444,15 @@ public class InvitationService {
         return invitation;
     }
 
-    /** Outstanding invitations, for the Settings → Members screen. */
+    /**
+     * Outstanding <b>staff</b> invitations, for the Settings → Members screen. Client-rep invitations
+     * (which carry a client id) are the client portal's concern and never surface on the roster — nor
+     * are their ids reachable by the staff revoke/resend below.
+     */
     @Transactional(readOnly = true)
     public List<Invitation> pending(UUID userId, UUID workspaceId) {
         access.requireAdmin(userId, workspaceId);
-        return invitations.findByWorkspaceIdAndStatus(workspaceId, InvitationStatus.PENDING);
+        return invitations.findByWorkspaceIdAndClientIdIsNullAndStatus(workspaceId, InvitationStatus.PENDING);
     }
 
     /** Withdraws an invitation — the emailed link stops working immediately. */
@@ -429,6 +488,10 @@ public class InvitationService {
         return invitations.findById(invitationId)
                 .filter(inv -> inv.getWorkspaceId().equals(workspaceId))
                 .filter(inv -> inv.getStatus() == InvitationStatus.PENDING)
+                // Staff management never touches a client-rep invitation: revoking one would strand its
+                // representative row at INVITED, and resending one would rotate its token through the
+                // staff email template. A client id is invisible here, exactly like a foreign workspace's.
+                .filter(inv -> inv.getClientId() == null)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 

@@ -18,15 +18,18 @@ export function NewProjectModal({
   open,
   onClose,
   clients,
+  initialClientId,
 }: {
   open: boolean;
   onClose: () => void;
   clients: Client[];
+  /** Pre-selects a client — set when opening from that client's drawer ("New mandate"). */
+  initialClientId?: string;
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
 
-  const [clientId, setClientId] = useState(clients[0]?.id ?? NEW_CLIENT);
+  const [clientId, setClientId] = useState(initialClientId ?? clients[0]?.id ?? NEW_CLIENT);
   const [newClientName, setNewClientName] = useState("");
   const [positionTitle, setPositionTitle] = useState("");
   const [targetDate, setTargetDate] = useState("");

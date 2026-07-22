@@ -5,6 +5,7 @@ import app.lightmove.api.company.model.CompanyRefRow;
 import app.lightmove.api.company.service.CompanyQueryService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.email.service.EmailAddressValidator;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.rbac.ProjectRole;
@@ -53,6 +54,7 @@ public class ClientService {
     private final CompanyQueryService companies;
     private final ClientRepresentativeService representativeService;
     private final ProjectService projectService;
+    private final EmailAddressValidator emailValidator;
     private final AuditService audit;
 
     @Transactional(readOnly = true)
@@ -99,6 +101,13 @@ public class ClientService {
     @Transactional
     public ClientListResponse create(UUID userId, UUID workspaceId, CreateClientRequest request,
                                      HttpServletRequest httpRequest) {
+        // Validate the primary contact's work address before any write, so a consumer-domain email fails
+        // as a clean validation error rather than rolling back a client that was already inserted. The
+        // representative invite re-validates the same address; this only moves the check earlier.
+        if (request.primaryContact() != null) {
+            emailValidator.validateWorkEmail(request.primaryContact().email());
+        }
+
         Client client = request.company() != null
                 ? fromUniverse(userId, workspaceId, request)
                 : fromCustom(userId, workspaceId, request);

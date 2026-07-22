@@ -75,17 +75,6 @@ public final class ClientDtos {
             LocalDate targetDate
     ) {}
 
-    // ── Portal (the representative's own read) ─────────────────────────────────
-
-    /** The strict subset a client representative may see: their client, and its mandates. Nothing else. */
-    public record PortalClientResponse(
-            UUID id,
-            String name,
-            String sector,
-            String hqCountry,
-            List<ClientMandateResponse> mandates
-    ) {}
-
     // ── Requests ───────────────────────────────────────────────────────────────
 
     /** A company chosen from the universe — its rebuild-stable key. Null on the request means custom. */
