@@ -1,37 +1,47 @@
 package app.lightmove.api.project.constant;
 
 /**
- * The holding structures a project's ownership scope selects from — a fixed catalog. The wire value is
- * the constant name itself: unlike {@link GeographyMarket} there is no external key to carry, so the
- * name is the stable token and display labels ("Publicly listed", "Family-owned / private") live only
- * in the frontend catalog, free to change without an API break or a data migration.
+ * The organization types a project's ownership scope selects from — a fixed catalog of the distinct
+ * {@code app_lm_companies.org_type} buckets the company universe actually holds (LinkedIn's org-type
+ * taxonomy, copied verbatim from the brightdata warehouse). Like {@link GeographyMarket}, this enum is
+ * the source of truth: {@link #value} is the {@code org_type} string verbatim, which is both the wire
+ * value and the exact join key a later sourcing filter runs against {@code org_type} — no translation
+ * layer. Display labels live in the frontend catalog, so UI copy can change without an API break or a
+ * data migration.
  *
- * <p>Deliberately carries no mapping onto the company universe's ownership columns. None of
- * {@code org_type}, {@code ownership} or {@code ipo_status} lines up cleanly with this business
- * taxonomy (is "State-linked / sovereign" {@code org_type = 'Government Agency'}, or
- * {@code ownership = 'Government'}, or both?), so encoding a guess here would bake a sourcing decision
- * into a catalog enum. The mapping belongs to the session that builds the sourcing filter.
+ * <p>Declared in descending frequency of the universe's distinct values, which is the order the
+ * response emits and the chips render. The NULL {@code org_type} bucket is deliberately absent: it is
+ * not a selectable type — a company with no type simply matches no ownership filter.
  *
  * <p>The frontend keeps a mirror of the same values for instant rendering; a drift test on each side
  * keeps the two in step.
  */
 public enum OwnershipStructure {
 
-    PUBLICLY_LISTED,
-    FAMILY_OWNED_PRIVATE,
-    STATE_LINKED_SOVEREIGN,
-    PE_VC_BACKED,
-    FOREIGN_MULTINATIONAL_SUBSIDIARY;
+    PRIVATELY_HELD("Privately Held"),
+    PARTNERSHIP("Partnership"),
+    PUBLIC_COMPANY("Public Company"),
+    SELF_OWNED("Self-Owned"),
+    EDUCATIONAL("Educational"),
+    SELF_EMPLOYED("Self-Employed"),
+    GOVERNMENT_AGENCY("Government Agency"),
+    NONPROFIT("Nonprofit");
 
-    /** The wire value — the constant name, which is its own stable token. */
-    public String value() {
-        return name();
+    private final String orgType;
+
+    OwnershipStructure(String orgType) {
+        this.orgType = orgType;
     }
 
-    /** Resolve a wire value (the constant name) to its structure, or {@code null} if unknown. */
+    /** The {@code org_type} string — the wire value, and {@code app_lm_companies.org_type} verbatim. */
+    public String value() {
+        return orgType;
+    }
+
+    /** Resolve a wire value (the {@code org_type} string) to its structure, or {@code null} if unknown. */
     public static OwnershipStructure fromValue(String value) {
         for (OwnershipStructure structure : values()) {
-            if (structure.name().equals(value)) {
+            if (structure.orgType.equals(value)) {
                 return structure;
             }
         }

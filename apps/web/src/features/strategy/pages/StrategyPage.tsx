@@ -73,7 +73,9 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
 
   // Sourcing reads the saved scope through a selection-blind query key, so a scope write must mark
   // that list stale for it to refetch on the next visit. Fired only from the writes Sourcing's
-  // ScopeFilter actually reads — sectors, size, geography, and the company lists, but never ownership.
+  // ScopeFilter actually reads — sectors, size, geography, and the company lists, but never ownership:
+  // ownership now maps onto app_lm_companies.org_type, but wiring that join into Sourcing is a
+  // separate session, so for now the selection is tracked without narrowing the list.
   const invalidateSourcing = () =>
     void queryClient.invalidateQueries({ queryKey: sourcingApi.SOURCING_KEY_PREFIX(project.id) });
 
@@ -354,15 +356,15 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
           onSelect={setActiveKey}
         />
         {/* NOTE: the estimate above is wired to sector, company-size, and geography now. Ownership Type
-            still doesn't narrow it — the enum has no confirmed mapping onto any app_lm_companies column
-            yet, so it's tracked on the strategy but deliberately left out of both the estimate and
-            Sourcing until real column values are checked. */}
+            still doesn't narrow it — the enum now maps onto app_lm_companies.org_type, but wiring that
+            join into the estimate and Sourcing is a separate session, so for now it's tracked on the
+            strategy and deliberately left out of both. */}
         {activeKey === "size" ? (
           <CompanySizePanel strategy={draft} onToggle={toggleBand} />
         ) : activeKey === "ownership" ? (
           <ScopeChipPanel
             title="Ownership Type"
-            subtitle="Narrows by holding structure, not sector"
+            subtitle="Narrows by organization type, not sector"
             groupLabel="Structures"
             options={OWNERSHIP_STRUCTURES}
             selected={draft.structures}

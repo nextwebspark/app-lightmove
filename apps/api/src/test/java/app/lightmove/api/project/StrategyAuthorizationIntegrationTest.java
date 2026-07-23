@@ -102,7 +102,7 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
         String geographyBody = """
                 {"markets":["AE"]}""";
         String ownershipBody = """
-                {"structures":["PUBLICLY_LISTED"]}""";
+                {"structures":["Privately Held"]}""";
 
         seat(f.admin, f.projectId, f.saraId, "[\"RESEARCHER\"]");
         String sara = login(f.saraEmail);

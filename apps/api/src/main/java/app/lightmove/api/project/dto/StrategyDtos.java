@@ -39,7 +39,7 @@ public final class StrategyDtos {
             List<String> employee,
             List<String> revenue,
             // Geography and ownership follow the same selected-values-only model. markets carries ISO
-            // country codes ("AE", "SA"), structures carries stable tokens ("PUBLICLY_LISTED") — the
+            // country codes ("AE", "SA"), structures carries org_type values ("Privately Held") — the
             // client's catalog mirror owns the display names.
             List<String> markets,
             List<String> structures,
@@ -125,12 +125,13 @@ public final class StrategyDtos {
     ) {}
 
     /**
-     * The selected ownership structures as stable tokens. Capped at the catalog's full size; unknown
-     * values are rejected in the service against the {@code OwnershipStructure} enum.
+     * The selected ownership structures as org_type values ("Privately Held", "Public Company").
+     * Capped at the catalog's full size; unknown values are rejected in the service against the
+     * {@code OwnershipStructure} enum.
      */
     public record PutOwnershipRequest(
             @NotNull
-            @Size(max = 5, message = "Too many ownership structures")
+            @Size(max = 8, message = "Too many ownership structures")
             List<String> structures
     ) {}
 }
