@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Button, Field, FormError, Input, Modal, Select, useToast } from "../../../components/ui";
+import { Button, DateInput, Field, FormError, Input, Modal, Select, useToast } from "../../../components/ui";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import * as clientsApi from "../../clients/api/clientsApi";
 import type { Client } from "../../clients/api/types";
@@ -119,7 +119,7 @@ export function NewProjectModal({
       </Field>
 
       <Field label="Target date">
-        <Input type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} />
+        <DateInput value={targetDate} onChange={setTargetDate} />
       </Field>
 
       <div className="mt-5 flex justify-end gap-2">
