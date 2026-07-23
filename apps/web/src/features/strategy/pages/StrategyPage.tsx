@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
@@ -6,6 +6,7 @@ import { Spinner, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAutosave } from "../../../lib/useAutosave";
 import type { Project } from "../../projects/api/types";
+import * as sourcingApi from "../../sourcing/api/sourcingApi";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
 import type { Chip, CompanyRef, CompanySearchResult, SectorGroup, Strategy } from "../api/types";
@@ -23,6 +24,13 @@ import { OWNERSHIP_STRUCTURES } from "../lib/ownershipStructures";
 /** How many chips each suggestion group holds at most; the DTO ceilings sit above these. */
 const ADJACENT_CAP = 20;
 const INFERRED_CAP = 15;
+
+/** One scope autosave: the PUT to run, whether it changes the Sourcing scope, and any rollback. */
+interface ScopeWrite {
+  run: () => Promise<Strategy>;
+  affectsSourcing?: boolean;
+  onError?: () => void;
+}
 
 /** The Strategy tab: loads the sector scope, then hands the editor a snapshot to draft against. */
 export function StrategyPage() {
@@ -63,15 +71,38 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
   // one shared universe), rather than being separate routes.
   const [activeKey, setActiveKey] = useState("sector");
 
-  const persist = async (payload: Strategy) => {
-    try {
-      queryClient.setQueryData(key, await strategyApi.putSectors(project.id, payload));
-    } catch (error) {
-      toast(messageFor(error));
-      throw error;
-    }
-  };
-  const autosave = useAutosave(persist);
+  // Sourcing reads the saved scope through a selection-blind query key, so a scope write must mark
+  // that list stale for it to refetch on the next visit. Fired only from the writes Sourcing's
+  // ScopeFilter actually reads — sectors, size, geography, and the company lists, but never ownership.
+  const invalidateSourcing = () =>
+    void queryClient.invalidateQueries({ queryKey: sourcingApi.SOURCING_KEY_PREFIX(project.id) });
+
+  // A single tracked mutation stands behind every scope autosave. Its shared key lets Sourcing detect an
+  // in-flight save via useIsMutating and hold its own read until this commits — closing the window where a
+  // just-navigated Sourcing would otherwise show the pre-edit list. The side effects live in mutationFn
+  // (not onSuccess) so they still run when the autosave flushes on unmount, i.e. mid-navigation.
+  const strategyWrite = useMutation({
+    mutationKey: strategyApi.STRATEGY_WRITE_KEY(project.id),
+    mutationFn: async (write: ScopeWrite) => {
+      try {
+        queryClient.setQueryData(key, await write.run());
+        if (write.affectsSourcing) invalidateSourcing();
+      } catch (error) {
+        write.onError?.();
+        toast(messageFor(error));
+        throw error;
+      }
+    },
+  });
+
+  const persist =
+    (call: (payload: Strategy) => Promise<Strategy>, options?: Omit<ScopeWrite, "run">) =>
+    (payload: Strategy) =>
+      strategyWrite.mutateAsync({ run: () => call(payload), ...options });
+
+  const autosave = useAutosave(
+    persist((payload) => strategyApi.putSectors(project.id, payload), { affectsSourcing: true }),
+  );
 
   const change = (next: Strategy) => {
     setDraft(next);
@@ -79,18 +110,11 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
   };
 
   // Company Size saves its own snapshot on its own endpoint, independent of the sector autosave.
-  const persistSize = async (payload: Strategy) => {
-    try {
-      queryClient.setQueryData(
-        key,
-        await strategyApi.putCompanySize(project.id, payload.employee, payload.revenue),
-      );
-    } catch (error) {
-      toast(messageFor(error));
-      throw error;
-    }
-  };
-  const sizeAutosave = useAutosave(persistSize);
+  const sizeAutosave = useAutosave(
+    persist((payload) => strategyApi.putCompanySize(project.id, payload.employee, payload.revenue), {
+      affectsSourcing: true,
+    }),
+  );
 
   const toggleBand = (axis: "employee" | "revenue", value: string) => {
     const current = draftRef.current[axis];
@@ -103,25 +127,13 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
   };
 
   // Ownership and Location each save their own snapshot on their own endpoint, like Company Size.
-  const persistOwnership = async (payload: Strategy) => {
-    try {
-      queryClient.setQueryData(key, await strategyApi.putOwnership(project.id, payload.structures));
-    } catch (error) {
-      toast(messageFor(error));
-      throw error;
-    }
-  };
-  const ownershipAutosave = useAutosave(persistOwnership);
-
-  const persistGeography = async (payload: Strategy) => {
-    try {
-      queryClient.setQueryData(key, await strategyApi.putGeography(project.id, payload.markets));
-    } catch (error) {
-      toast(messageFor(error));
-      throw error;
-    }
-  };
-  const geographyAutosave = useAutosave(persistGeography);
+  // Ownership is not part of the Sourcing scope, so it alone does not invalidate that list.
+  const ownershipAutosave = useAutosave(
+    persist((payload) => strategyApi.putOwnership(project.id, payload.structures)),
+  );
+  const geographyAutosave = useAutosave(
+    persist((payload) => strategyApi.putGeography(project.id, payload.markets), { affectsSourcing: true }),
+  );
 
   const toggleCatalogValue = (
     field: "markets" | "structures",
@@ -144,21 +156,17 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
   // keys and the server resolves the display snapshot, so the PUT strips the refs down to keys.
   // A rejected save rolls the list back to the last server-acknowledged state: leaving the bad ref
   // in the draft would wedge every subsequent autosave of that list on the same 400.
-  const persistCompanyList =
-    (
-      field: "targets" | "offLimits",
-      putList: (projectId: string, companies: strategyApi.CompanyKey[]) => Promise<Strategy>,
-    ) =>
-    async (payload: Strategy) => {
-      try {
-        queryClient.setQueryData(key, await putList(project.id, keysOf(payload[field])));
-      } catch (error) {
+  const persistCompanyList = (
+    field: "targets" | "offLimits",
+    putList: (projectId: string, companies: strategyApi.CompanyKey[]) => Promise<Strategy>,
+  ) =>
+    persist((payload) => putList(project.id, keysOf(payload[field])), {
+      affectsSourcing: true,
+      onError: () => {
         const server = queryClient.getQueryData<Strategy>(key);
         setDraft((current) => ({ ...current, [field]: server?.[field] ?? [] }));
-        toast(messageFor(error));
-        throw error;
-      }
-    };
+      },
+    });
   const targetsAutosave = useAutosave(persistCompanyList("targets", strategyApi.putTargets));
   const offLimitsAutosave = useAutosave(persistCompanyList("offLimits", strategyApi.putOffLimits));
 

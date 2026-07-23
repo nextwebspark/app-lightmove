@@ -80,10 +80,10 @@ const sectors = {
   ],
 };
 
-const renderPage = () =>
+const renderPage = (client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) =>
   render(
     <MemoryRouter>
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <QueryClientProvider client={client}>
         <ToastProvider>
           <Routes>
             <Route element={<Outlet context={{ project }} />}>
@@ -188,6 +188,35 @@ describe("StrategyPage — the sector-scope editor", () => {
         )).toBe(true),
       { timeout: 2000 },
     );
+  });
+
+  it("invalidates the Sourcing list after a scope save, so it refetches with the new criteria", async () => {
+    // No suggestions to merge, so the only save is the user's own sector toggle.
+    vi.mocked(companiesApi.getSuggestions).mockResolvedValue({ adjacent: [], inferredTags: [] });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    renderPage(client);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Retail" }));
+
+    await waitFor(
+      () => expect(invalidate).toHaveBeenCalledWith({ queryKey: ["sourcing", "p1"] }),
+      { timeout: 2000 },
+    );
+  });
+
+  it("does not invalidate the Sourcing list after an ownership save — ownership is not in scope", async () => {
+    vi.mocked(companiesApi.getSuggestions).mockResolvedValue({ adjacent: [], inferredTags: [] });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    renderPage(client);
+
+    await screen.findByRole("button", { name: "Retail" });
+    await userEvent.click(screen.getByRole("button", { name: "Ownership Type" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Publicly listed" }));
+
+    await waitFor(() => expect(strategyApi.putOwnership).toHaveBeenCalled(), { timeout: 2000 });
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ["sourcing", "p1"] });
   });
 
   it("removes a sector from Adjacent when it is added as Direct", async () => {

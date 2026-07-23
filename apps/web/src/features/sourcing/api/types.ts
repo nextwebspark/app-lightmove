@@ -1,6 +1,6 @@
-/** Which scope bucket a company matched through — a direct sector, an adjacent sector, a tag, or a
- *  manually-seeded target (which bypasses the other criteria entirely). */
-export type MatchTier = "DIRECT" | "ADJACENT" | "INFERRED" | "TARGET";
+/** Which scope bucket a company matched through — a direct sector, an adjacent sector, or a tag.
+ *  (Targets are surfaced in the universe, never in the Sourcing list, so there is no target tier.) */
+export type MatchTier = "DIRECT" | "ADJACENT" | "INFERRED";
 
 /** One company matching the project's saved Strategy scope. */
 export interface CompanyResult {

@@ -1,9 +1,10 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useIsMutating } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { EmptyState, Spinner } from "../../../components/ui";
+import * as strategyApi from "../../strategy/api/strategyApi";
 import * as sourcingApi from "../api/sourcingApi";
 import type { AppliedFilters, CompanyResult, MatchTier } from "../api/types";
 
@@ -11,7 +12,6 @@ const PAGE_SIZE = 25;
 
 /** How each scope bucket a company matched through reads on the card badge. */
 const TIER_META: Record<MatchTier, { label: string; className: string }> = {
-  TARGET: { label: "Target", className: "text-green bg-green-dim" },
   DIRECT: { label: "Direct", className: "text-sky bg-sky-dim" },
   ADJACENT: { label: "Adjacent", className: "text-amber bg-amber-dim" },
   INFERRED: { label: "AI Inferred", className: "text-text3 bg-line-soft" },
@@ -50,10 +50,16 @@ export function SourcingPage() {
   const [view, setView] = useState<"card" | "list">("card");
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const { data, isPending, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+  // A Strategy scope save is in flight (invalidation lands only once it commits). Hold this list until
+  // then: keep the query disabled so it can't read a not-yet-written scope, and show the loader rather
+  // than the pre-edit list. Without this, arriving here mid-save shows the stale companies for seconds.
+  const isStrategySaving = useIsMutating({ mutationKey: strategyApi.STRATEGY_WRITE_KEY(project.id) }) > 0;
+
+  const { data, fetchNextPage, hasNextPage, isFetching, isFetchingNextPage } = useInfiniteQuery({
     queryKey: sourcingApi.SOURCING_KEY(project.id, PAGE_SIZE),
     queryFn: ({ pageParam }) => sourcingApi.getSourcingCompanies(project.id, pageParam, PAGE_SIZE),
     initialPageParam: 0,
+    enabled: !isStrategySaving,
     getNextPageParam: (lastPage) => {
       const nextPage = lastPage.page + 1;
       return nextPage * lastPage.size < lastPage.totalCount ? nextPage : undefined;
@@ -74,7 +80,11 @@ export function SourcingPage() {
     return () => observer.disconnect();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  if (isPending) {
+  // Show the loader while a Strategy save is settling and for a base fetch (initial load or a
+  // criteria-change refetch) alike — but not for infinite-scroll paging, which keeps the accumulated
+  // list on screen. Without this, the pre-edit list renders during the save-and-refetch window and the
+  // old companies flicker to the new ones in front of the user.
+  if (isStrategySaving || (isFetching && !isFetchingNextPage)) {
     return (
       <div className="flex justify-center pt-24">
         <Spinner />
