@@ -213,7 +213,7 @@ describe("StrategyPage — the sector-scope editor", () => {
 
     await screen.findByRole("button", { name: "Retail" });
     await userEvent.click(screen.getByRole("button", { name: "Ownership Type" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Publicly listed" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Privately Held" }));
 
     await waitFor(() => expect(strategyApi.putOwnership).toHaveBeenCalled(), { timeout: 2000 });
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ["sourcing", "p1"] });
@@ -333,26 +333,26 @@ describe("StrategyPage — the sector-scope editor", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Ownership Type" }));
 
     expect(screen.getByText("Structures")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Publicly listed" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "Privately Held" })).toHaveAttribute(
       "aria-pressed",
       "false",
     );
     expect(
-      screen.getByRole("button", { name: "Subsidiary of foreign multinational" }),
+      screen.getByRole("button", { name: "Government Agency" }),
     ).toBeInTheDocument();
   });
 
-  it("toggles a structure on and autosaves its wire token, not its display name", async () => {
+  it("toggles a structure on and autosaves its wire value, not its display label", async () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: "Ownership Type" }));
 
-    await userEvent.click(screen.getByRole("button", { name: "Publicly listed" }));
+    await userEvent.click(screen.getByRole("button", { name: "Privately Held" }));
 
     await waitFor(
       () =>
         expect(
           vi.mocked(strategyApi.putOwnership).mock.calls.some(([, structures]) =>
-            structures.includes("PUBLICLY_LISTED"),
+            structures.includes("Privately Held"),
           ),
         ).toBe(true),
       { timeout: 2000 },

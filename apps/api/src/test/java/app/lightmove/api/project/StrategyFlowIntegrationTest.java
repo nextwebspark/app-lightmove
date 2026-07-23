@@ -222,7 +222,7 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
         // Seed a sibling section first, so the untouched-by-a-geography-write assertions below actually
         // prove isolation rather than reading a still-empty scope.
         putOwnership(admin, projectId, """
-                {"structures":["PUBLICLY_LISTED"]}""");
+                {"structures":["Privately Held"]}""");
 
         // Sent out of catalog order; the response comes back ordered by the enum declaration.
         mvc.perform(put(geographyUrl(projectId))
@@ -239,7 +239,7 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.markets.length()").value(3))
                 // The seeded ownership scope survives a geography write.
                 .andExpect(jsonPath("$.structures.length()").value(1))
-                .andExpect(jsonPath("$.structures[0]").value("PUBLICLY_LISTED"));
+                .andExpect(jsonPath("$.structures[0]").value("Privately Held"));
     }
 
     @Test
@@ -255,10 +255,10 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"structures":["STATE_LINKED_SOVEREIGN","PUBLICLY_LISTED"]}"""))
+                                {"structures":["Public Company","Privately Held"]}"""))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.structures[0]").value("PUBLICLY_LISTED"))
-                .andExpect(jsonPath("$.structures[1]").value("STATE_LINKED_SOVEREIGN"));
+                .andExpect(jsonPath("$.structures[0]").value("Privately Held"))
+                .andExpect(jsonPath("$.structures[1]").value("Public Company"));
 
         mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$.structures.length()").value(2))
@@ -290,13 +290,13 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
         String projectId = project(admin);
 
         putOwnership(admin, projectId, """
-                {"structures":["PUBLICLY_LISTED","PE_VC_BACKED"]}""");
+                {"structures":["Privately Held","Partnership"]}""");
         putOwnership(admin, projectId, """
-                {"structures":["FAMILY_OWNED_PRIVATE"]}""");
+                {"structures":["Public Company"]}""");
 
         mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$.structures.length()").value(1))
-                .andExpect(jsonPath("$.structures[0]").value("FAMILY_OWNED_PRIVATE"));
+                .andExpect(jsonPath("$.structures[0]").value("Public Company"));
     }
 
     @Test
@@ -357,7 +357,7 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"structures":["PUBLICLY_LISTED","PUBLICLY_LISTED"]}"""))
+                                {"structures":["Privately Held","Privately Held"]}"""))
                 .andReturn();
         assertThat(result.getResponse().getStatus()).isEqualTo(400);
         assertThat(codeOf(result)).isEqualTo("VALIDATION_FAILED");

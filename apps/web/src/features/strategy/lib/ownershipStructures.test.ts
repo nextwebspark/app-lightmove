@@ -9,11 +9,14 @@ import { OWNERSHIP_STRUCTURES } from "./ownershipStructures";
 describe("ownership structure catalog", () => {
   it("carries exactly the backend structure values, in catalog order", () => {
     expect(OWNERSHIP_STRUCTURES.map((structure) => structure.value)).toEqual([
-      "PUBLICLY_LISTED",
-      "FAMILY_OWNED_PRIVATE",
-      "STATE_LINKED_SOVEREIGN",
-      "PE_VC_BACKED",
-      "FOREIGN_MULTINATIONAL_SUBSIDIARY",
+      "Privately Held",
+      "Partnership",
+      "Public Company",
+      "Self-Owned",
+      "Educational",
+      "Self-Employed",
+      "Government Agency",
+      "Nonprofit",
     ]);
   });
 
