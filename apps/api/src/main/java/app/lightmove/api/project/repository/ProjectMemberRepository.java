@@ -22,6 +22,9 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, UU
     @EntityGraph(attributePaths = "roles")
     Optional<ProjectMember> findByProjectIdAndMemberId(UUID projectId, UUID memberId);
 
+    /** Every seat a workspace member holds — the mandates a client representative may see. */
+    List<ProjectMember> findByMemberId(UUID memberId);
+
     /**
      * The union of the seat's roles' actions. A projection, not a lazy walk — authorisation runs in
      * {@code @PreAuthorize}, outside any transaction.

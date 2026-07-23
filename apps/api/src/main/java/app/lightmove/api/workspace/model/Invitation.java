@@ -45,11 +45,12 @@ public class Invitation extends BaseEntity {
     private Role role;
 
     /**
-     * Groundwork for client invitations: a CLIENT invite is scoped to one project. Null for staff.
-     * The database CHECK ties the two together; until the portal ships, nothing sets this.
+     * The client whose portal this invitation admits a representative to. Null for a staff invitation.
+     * The database CHECK ties this to the CLIENT role: a CLIENT invite names a client, a staff invite
+     * names none.
      */
-    @Column(name = "project_id")
-    private UUID projectId;
+    @Column(name = "client_id")
+    private UUID clientId;
 
     @Column(name = "token_hash", nullable = false, unique = true, length = 64)
     private String tokenHash;
@@ -72,8 +73,23 @@ public class Invitation extends BaseEntity {
 
     public static Invitation create(UUID workspaceId, String email, Role role,
                                     String tokenHash, UUID invitedBy, Instant expiresAt) {
+        return build(workspaceId, null, email, role, tokenHash, invitedBy, expiresAt);
+    }
+
+    /**
+     * A client-portal invitation: same token machinery as a staff invite, but it names the client its
+     * acceptor represents. The CLIENT role and a non-null client id satisfy the {@code client_id} CHECK.
+     */
+    public static Invitation createForClient(UUID workspaceId, UUID clientId, String email, Role role,
+                                             String tokenHash, UUID invitedBy, Instant expiresAt) {
+        return build(workspaceId, clientId, email, role, tokenHash, invitedBy, expiresAt);
+    }
+
+    private static Invitation build(UUID workspaceId, UUID clientId, String email, Role role,
+                                    String tokenHash, UUID invitedBy, Instant expiresAt) {
         Invitation invitation = new Invitation();
         invitation.workspaceId = workspaceId;
+        invitation.clientId = clientId;
         invitation.email = email;
         invitation.role = role;
         invitation.tokenHash = tokenHash;

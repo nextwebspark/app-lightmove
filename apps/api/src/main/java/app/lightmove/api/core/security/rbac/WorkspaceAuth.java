@@ -33,9 +33,19 @@ public class WorkspaceAuth {
         return true;
     }
 
-    /** Active, non-CLIENT membership — the gate on staff-facing reads. */
+    /** Active, non-pure-client membership — the gate on staff-facing reads. */
     public boolean staff(AuthPrincipal principal) {
         access.requireStaff(principal.userId(), principal.requireWorkspaceId());
+        return true;
+    }
+
+    /**
+     * Any active membership, client included — the gate on the project list, whose service scopes the
+     * result (staff see every mandate; a client sees only the ones they are attached to). Existence of a
+     * list is not secret; its contents are, and the scoping is where that is enforced.
+     */
+    public boolean member(AuthPrincipal principal) {
+        access.requireActiveMember(principal.userId(), principal.requireWorkspaceId());
         return true;
     }
 }

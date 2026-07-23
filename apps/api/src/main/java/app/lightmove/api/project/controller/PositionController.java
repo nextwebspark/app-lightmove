@@ -36,7 +36,7 @@ public class PositionController {
     private final PositionService position;
 
     @GetMapping
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'WORK_EXECUTE')")
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'WORK_VIEW')")
     public ResponseEntity<PositionResponse> get(@PathVariable UUID projectId) {
         AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(position.get(principal.requireWorkspaceId(), projectId));

@@ -311,7 +311,7 @@ class SourcingFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Sourcing Client"}"""))
+                                {"customName":"Sourcing Client"}"""))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
         return body(mvc.perform(post("/api/v1/projects")

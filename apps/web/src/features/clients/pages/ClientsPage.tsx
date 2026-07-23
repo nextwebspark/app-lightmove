@@ -1,54 +1,121 @@
 import { useQuery } from "@tanstack/react-query";
-import { PageHeader } from "../../../components/layout/PageHeader";
+import { useMemo, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, useToast } from "../../../components/ui";
-import * as projectsApi from "../../projects/api/projectsApi";
+import { PageHeader } from "../../../components/layout/PageHeader";
+import { Button, EmptyState } from "../../../components/ui";
+import { NewProjectModal } from "../../projects/components/NewProjectModal";
+import * as clientsApi from "../api/clientsApi";
+import { ClientDrawer } from "../components/ClientDrawer";
+import { ClientsTable } from "../components/ClientsTable";
+import { NewClientModal } from "../components/NewClientModal";
+import { CHIPS, filterClients, type ChipKey } from "../lib/filtering";
 
 /**
- * Read-only client cards. The registry form is a separate build — the mockup's own "New client"
- * button says so with a toast; clients are born from the New-project modal.
+ * The client registry: the list table, company-database-first create, and the record drawer. Records
+ * are shared across projects — a client created here or inline from a mandate is the same row.
  */
 export function ClientsPage() {
-  const toast = useToast();
+  const [query, setQuery] = useState("");
+  const [chip, setChip] = useState<ChipKey>("all");
+  const [openClientId, setOpenClientId] = useState<string | null>(null);
+  const [newClientOpen, setNewClientOpen] = useState(false);
+  const [newMandateOpen, setNewMandateOpen] = useState(false);
+
   const { data: clients = [] } = useQuery({
-    queryKey: projectsApi.CLIENTS_KEY,
-    queryFn: projectsApi.clients,
+    queryKey: clientsApi.CLIENTS_KEY,
+    queryFn: clientsApi.clients,
   });
+
+  const rows = useMemo(() => filterClients(clients, { chip, query }), [clients, chip, query]);
+  const existingNames = useMemo(
+    () => new Set(clients.map((client) => client.name.toLowerCase())),
+    [clients],
+  );
+
+  const newClientButton = (
+    <Button onClick={() => setNewClientOpen(true)} className="!px-3.5 !py-[7px] !text-[13px]">
+      <Icon d={ICONS.plus} size={15} />
+      New client
+    </Button>
+  );
 
   return (
     <>
       <PageHeader
         title="Clients"
-        subtitle="Hiring entity registry · projects inherit these records one-way"
-        action={
-          <Button
-            variant="secondary"
-            className="!px-3.5 !py-[7px] !text-[13px]"
-            onClick={() => toast("Entity registry form — separate build")}
-          >
-            <Icon d={ICONS.plus} size={15} />
-            New client
-          </Button>
-        }
+        subtitle={`${clients.length} ${clients.length === 1 ? "client" : "clients"} · records shared across projects`}
+        action={newClientButton}
       />
 
       {clients.length === 0 ? (
-        <div className="p-12 text-center font-mono text-[13px] text-text3">
-          No clients yet — a client record is created with your first project.
-        </div>
+        <EmptyState
+          icon={<Icon d={ICONS.clients} size={24} />}
+          title="Add your first client"
+          body="A client is the hiring entity a mandate is run for. Most already exist in the company database — search it first."
+        >
+          {newClientButton}
+        </EmptyState>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
-          {clients.map((client) => (
-            <div key={client.id} className="rounded-[10px] border border-line-soft bg-panel2 p-3.5">
-              <h4 className="mb-1 font-mono text-[13px] font-semibold">{client.name}</h4>
-              <p className="font-mono text-[11.5px] text-text3">
-                {client.hqCountry ? `${client.hqCountry} · ` : ""}
-                {client.activeMandates} active {client.activeMandates === 1 ? "mandate" : "mandates"}
-                {client.deliveredMandates > 0 && ` · ${client.deliveredMandates} delivered`}
-              </p>
+        <>
+          <div className="mb-3.5 flex flex-wrap items-center gap-2.5">
+            <div className="flex w-[300px] items-center gap-2 rounded-lg border border-line bg-panel2 px-[11px] py-[7px]">
+              <Icon d={ICONS.search} size={14} className="text-text3" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search clients…"
+                className="w-full bg-transparent font-mono text-[13px] text-text outline-none placeholder:text-text3"
+              />
             </div>
-          ))}
-        </div>
+
+            <div className="flex flex-wrap gap-1.5">
+              {CHIPS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setChip(key)}
+                  className={`rounded-full border px-[11px] py-[5px] font-mono text-xs font-medium transition hover:text-text ${
+                    chip === key ? "border-amber bg-amber-dim text-amber" : "border-line text-text2"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <ClientsTable clients={rows} onOpen={setOpenClientId} />
+
+          {rows.length === 0 && (
+            <div className="p-12 text-center font-mono text-[13px] text-text3">
+              No clients match. Clear the search or add a new client.
+            </div>
+          )}
+        </>
+      )}
+
+      <ClientDrawer
+        clientId={openClientId}
+        onClose={() => setOpenClientId(null)}
+        onNewMandate={() => setNewMandateOpen(true)}
+      />
+
+      {newClientOpen && (
+        <NewClientModal
+          open
+          onClose={() => setNewClientOpen(false)}
+          existingNames={existingNames}
+          onCreated={(client) => setOpenClientId(client.id)}
+        />
+      )}
+
+      {newMandateOpen && (
+        <NewProjectModal
+          open
+          onClose={() => setNewMandateOpen(false)}
+          clients={clients}
+          initialClientId={openClientId ?? undefined}
+        />
       )}
     </>
   );

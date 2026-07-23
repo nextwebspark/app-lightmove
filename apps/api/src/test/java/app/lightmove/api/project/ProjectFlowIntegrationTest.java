@@ -34,14 +34,14 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Meridian Energy","hqCountry":"UAE"}"""))
+                                {"customName":"Meridian Energy","hqCountry":"UAE"}"""))
                 .andExpect(status().isCreated());
 
         MvcResult duplicate = mvc.perform(post("/api/v1/clients")
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"MERIDIAN ENERGY"}"""))
+                                {"customName":"MERIDIAN ENERGY"}"""))
                 .andReturn();
         assertThat(duplicate.getResponse().getStatus()).isEqualTo(409);
         assertThat(codeOf(duplicate)).isEqualTo("CLIENT_ALREADY_EXISTS");
@@ -275,7 +275,7 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"%s"}
+                                {"customName":"%s"}
                                 """.formatted(name)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();

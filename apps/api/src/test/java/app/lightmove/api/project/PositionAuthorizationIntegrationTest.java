@@ -116,7 +116,7 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Matrix Client"}"""))
+                                {"customName":"Matrix Client"}"""))
                 .andReturn()).get("id").asText();
         String projectId = body(mvc.perform(post("/api/v1/projects")
                         .header("Authorization", "Bearer " + admin)

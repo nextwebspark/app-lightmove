@@ -125,10 +125,11 @@ function AnonymousOnly({ children }: { children: ReactNode }) {
  * the moment they verify.
  */
 function homeFor(user: {
-  workspace: unknown;
+  workspace: { roles: string[] } | null;
   onboardingHeld: boolean;
   pendingInvitation: unknown;
 }) {
+  // Everyone in a workspace lands on the projects list; the server scopes a pure client's to their seats.
   if (user.workspace) return "/";
   if (user.onboardingHeld) return "/signup/verify";
   if (user.pendingInvitation) return "/auth/accept-invite";

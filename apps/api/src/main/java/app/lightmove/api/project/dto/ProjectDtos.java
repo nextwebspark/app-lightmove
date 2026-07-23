@@ -65,19 +65,9 @@ public final class ProjectDtos {
             Set<ProjectRole> roles
     ) {}
 
-    public record ClientResponse(
-            UUID id,
-            String name,
-            String hqCountry,
-            long activeMandates,
-            long deliveredMandates
-    ) {}
-
-    public record CreateClientRequest(
-            @NotBlank(message = "Enter the client's name")
-            @Size(max = 160, message = "That name is too long")
-            String name,
-
-            @Size(max = 64) String hqCountry
+    /** Attach a client representative to this mandate as a read-only CLIENT seat. */
+    public record AttachRepresentativeRequest(
+            @NotNull(message = "Choose a representative")
+            UUID representativeId
     ) {}
 }

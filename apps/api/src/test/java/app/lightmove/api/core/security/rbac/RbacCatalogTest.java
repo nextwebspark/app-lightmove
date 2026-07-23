@@ -40,12 +40,12 @@ class RbacCatalogTest {
     }
 
     @Test
-    @DisplayName("CLIENT roles grant nothing — the portal phase has not shipped")
+    @DisplayName("the workspace CLIENT role grants nothing — a client is scoped by project seats, not a workspace action")
     @Transactional(readOnly = true) // walking role.getActions() needs an open session
-    void clientRolesAreEmpty() {
+    void workspaceClientRoleIsEmpty() {
+        // Client access is entirely a project seat (the project CLIENT role grants WORK_VIEW). The
+        // workspace CLIENT role therefore grants nothing: it marks a representative, it does not permit.
         assertThat(roles.findByScopeAndName(RoleScope.WORKSPACE, WorkspaceRole.CLIENT.name()))
-                .hasValueSatisfying(role -> assertThat(role.getActions()).isEmpty());
-        assertThat(roles.findByScopeAndName(RoleScope.PROJECT, ProjectRole.CLIENT.name()))
                 .hasValueSatisfying(role -> assertThat(role.getActions()).isEmpty());
     }
 
@@ -64,11 +64,11 @@ class RbacCatalogTest {
                 "PROJECT_CREATE", "PROJECT_BROWSE", "CLIENT_RECORD_MANAGE");
         grantsAre(RoleScope.WORKSPACE, "MEMBER", "PROJECT_CREATE", "PROJECT_BROWSE", "CLIENT_RECORD_MANAGE");
         grantsAre(RoleScope.WORKSPACE, "CLIENT");
-        grantsAre(RoleScope.PROJECT, "ADMIN", "PROJECT_EDIT", "TEAM_MANAGE", "WORK_EXECUTE",
+        grantsAre(RoleScope.PROJECT, "ADMIN", "PROJECT_EDIT", "TEAM_MANAGE", "WORK_VIEW", "WORK_EXECUTE",
                 "POSITION_UNLOCK");
-        grantsAre(RoleScope.PROJECT, "LEAD", "PROJECT_EDIT", "WORK_EXECUTE");
-        grantsAre(RoleScope.PROJECT, "RESEARCHER", "WORK_EXECUTE");
-        grantsAre(RoleScope.PROJECT, "CLIENT");
+        grantsAre(RoleScope.PROJECT, "LEAD", "PROJECT_EDIT", "WORK_VIEW", "WORK_EXECUTE");
+        grantsAre(RoleScope.PROJECT, "RESEARCHER", "WORK_VIEW", "WORK_EXECUTE");
+        grantsAre(RoleScope.PROJECT, "CLIENT", "WORK_VIEW");
     }
 
     private void grantsAre(RoleScope scope, String roleName, String... expectedActions) {

@@ -175,7 +175,7 @@ class MemberManagementIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Meridian Energy"}"""))
+                                {"customName":"Meridian Energy"}"""))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
 
@@ -227,7 +227,7 @@ class MemberManagementIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Northwind"}"""))
+                                {"customName":"Northwind"}"""))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
 
