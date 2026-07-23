@@ -11,6 +11,7 @@ import {
   stageLabel,
   useToast,
 } from "../../../components/ui";
+import { isValidEmail } from "../../../lib/email";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatDate } from "../../../lib/format";
 import { STAGE_ORDER } from "../../projects/lib/filtering";
@@ -32,6 +33,12 @@ export function ClientDrawer({
 }) {
   const [mandateId, setMandateId] = useState<string | null>(null);
 
+  // Always land on the record view: reopening a client (or switching to another) must not resurrect the
+  // mandate sub-view the drawer was last left in.
+  useEffect(() => {
+    setMandateId(null);
+  }, [clientId]);
+
   const { data: client } = useQuery({
     queryKey: clientsApi.clientKey(clientId ?? ""),
     queryFn: () => clientsApi.client(clientId as string),
@@ -47,7 +54,10 @@ export function ClientDrawer({
       ) : mandate ? (
         <MandateView mandate={mandate} clientName={client.name} onBack={() => setMandateId(null)} />
       ) : (
+        // Keyed on the client id so a refetch of the same client (e.g. after inviting a rep) does not
+        // remount and clobber unsaved detail edits — only switching clients re-seeds the form.
         <ClientView
+          key={client.id}
           client={client}
           onClose={onClose}
           onOpenMandate={setMandateId}
@@ -77,15 +87,6 @@ function ClientView({
   const [hqCountry, setHqCountry] = useState(client.hqCountry ?? "");
   const [domain, setDomain] = useState(client.domain ?? "");
   const [offLimits, setOffLimits] = useState(client.offLimitsNote ?? "");
-
-  // Re-seed the form whenever a different client loads into the drawer.
-  useEffect(() => {
-    setName(client.name);
-    setSector(client.sector ?? "");
-    setHqCountry(client.hqCountry ?? "");
-    setDomain(client.domain ?? "");
-    setOffLimits(client.offLimitsNote ?? "");
-  }, [client]);
 
   const dirty =
     name !== client.name ||
@@ -184,7 +185,11 @@ function ClientView({
             <Button variant="secondary" onClick={discard}>
               Discard
             </Button>
-            <Button loading={save.isPending} onClick={() => save.mutate()}>
+            <Button
+              loading={save.isPending}
+              disabled={!name.trim()}
+              onClick={() => save.mutate()}
+            >
               Save changes
             </Button>
           </div>
@@ -241,7 +246,7 @@ function Representatives({ client }: { client: ClientDetail }) {
     mutationFn: () =>
       clientsApi.inviteRepresentative(client.id, {
         fullName: fullName.trim(),
-        position: position.trim() || undefined,
+        position: position.trim(),
         email: email.trim(),
       }),
     onSuccess: () => {
@@ -258,11 +263,12 @@ function Representatives({ client }: { client: ClientDetail }) {
 
   const submit = () => {
     setError(null);
-    if (!fullName.trim() || !email.trim()) {
-      setError("Name and work email are required.");
+    // All three move together, matching the New-client modal and the mockup's repDraftValid.
+    if (!fullName.trim() || !position.trim() || !email.trim()) {
+      setError("Name, position and work email are required.");
       return;
     }
-    if (!email.includes("@")) {
+    if (!isValidEmail(email)) {
       setError("Enter a valid work email address.");
       return;
     }
@@ -286,7 +292,7 @@ function Representatives({ client }: { client: ClientDetail }) {
 
       {client.representatives.length === 0 && !open && (
         <p className="py-1 font-mono text-[12px] text-text3">
-          No representatives yet. Invite one to give the client portal access.
+          No representatives yet. Invite one to give the client access to their mandates.
         </p>
       )}
 
@@ -323,7 +329,6 @@ function Representatives({ client }: { client: ClientDetail }) {
 const REP_BADGE: Record<ClientRepresentative["status"], { label: string; className: string }> = {
   ACTIVE: { label: "Active", className: "text-green bg-green-dim" },
   INVITED: { label: "Invited", className: "text-amber bg-amber-dim" },
-  REVOKED: { label: "Revoked", className: "text-text3 bg-panel2" },
 };
 
 function RepRow({ rep }: { rep: ClientRepresentative }) {

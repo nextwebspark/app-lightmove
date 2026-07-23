@@ -3,10 +3,8 @@ import type {
   Client,
   ClientDetail,
   ClientRepresentative,
-  CompanyHit,
   CreateClientPayload,
   InviteRepresentativePayload,
-  PortalClient,
   UpdateClientPayload,
 } from "./types";
 
@@ -14,7 +12,6 @@ import type {
 
 export const CLIENTS_KEY = ["clients"] as const;
 export const clientKey = (clientId: string) => ["clients", clientId] as const;
-export const PORTAL_KEY = ["portal"] as const;
 
 export function clients(): Promise<Client[]> {
   return request<Client[]>("/clients");
@@ -40,16 +37,4 @@ export function inviteRepresentative(
     method: "POST",
     body: payload,
   });
-}
-
-/** The New-client company search reuses the shared universe endpoint (gated PROJECT_BROWSE). */
-export function searchCompanies(query: string): Promise<CompanyHit[]> {
-  return request<{ companies: CompanyHit[] }>(
-    `/companies/search?q=${encodeURIComponent(query)}`,
-  ).then((response) => response.companies);
-}
-
-/** The representative's portal read — their own client and its mandates. */
-export function portalClient(): Promise<PortalClient> {
-  return request<PortalClient>("/portal/me");
 }

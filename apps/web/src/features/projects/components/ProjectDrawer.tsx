@@ -20,10 +20,13 @@ const PROJECT_ROLES: ProjectRole[] = ["ADMIN", "LEAD", "RESEARCHER"];
 export function ProjectDrawer({
   project,
   members,
+  canManageTeam,
   onClose,
 }: {
   project: Project | null;
   members: Member[];
+  /** False for a pure client — team management is a staff surface; they read, never seat. */
+  canManageTeam: boolean;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -114,71 +117,75 @@ export function ProjectDrawer({
           );
         })}
 
-        <SectionLabel className="mt-[18px]">Team</SectionLabel>
-        {members.map((member) => {
-          const seat = seatOf(member.memberId);
-          const on = Boolean(seat);
-          return (
-            <div key={member.memberId} className="rounded-[7px] px-2 py-[7px] hover:bg-panel2">
-              <div className="flex items-center gap-2.5">
-                <Avatar id={member.memberId} name={member.fullName} />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px]">{member.fullName}</div>
-                  <div className="font-mono text-[11px] text-text3">
-                    {member.roles.map(titleCase).join(" · ")}
+        {canManageTeam && (
+          <>
+            <SectionLabel className="mt-[18px]">Team</SectionLabel>
+            {members.map((member) => {
+              const seat = seatOf(member.memberId);
+              const on = Boolean(seat);
+              return (
+                <div key={member.memberId} className="rounded-[7px] px-2 py-[7px] hover:bg-panel2">
+                  <div className="flex items-center gap-2.5">
+                    <Avatar id={member.memberId} name={member.fullName} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px]">{member.fullName}</div>
+                      <div className="font-mono text-[11px] text-text3">
+                        {member.roles.map(titleCase).join(" · ")}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={on}
+                      aria-label={`Toggle ${member.fullName}`}
+                      disabled={busy}
+                      onClick={() => toggle.mutate({ memberId: member.memberId, on: !on })}
+                      className={`relative h-[18px] w-8 flex-none rounded-full transition ${on ? "bg-amber-btn" : "bg-line"}`}
+                    >
+                      <span
+                        className={`absolute left-0.5 top-0.5 size-3.5 rounded-full transition-transform ${
+                          on ? "translate-x-3.5 bg-on-amber" : "bg-text3"
+                        }`}
+                      />
+                    </button>
                   </div>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={on}
-                  aria-label={`Toggle ${member.fullName}`}
-                  disabled={busy}
-                  onClick={() => toggle.mutate({ memberId: member.memberId, on: !on })}
-                  className={`relative h-[18px] w-8 flex-none rounded-full transition ${on ? "bg-amber-btn" : "bg-line"}`}
-                >
-                  <span
-                    className={`absolute left-0.5 top-0.5 size-3.5 rounded-full transition-transform ${
-                      on ? "translate-x-3.5 bg-on-amber" : "bg-text3"
-                    }`}
-                  />
-                </button>
-              </div>
 
-              {seat && (
-                <div className="ml-9 mt-1.5 flex gap-3">
-                  {PROJECT_ROLES.map((role) => {
-                    const checked = seat.projectRoles.includes(role);
-                    return (
-                      <label
-                        key={role}
-                        className="flex cursor-pointer items-center gap-1.5 font-mono text-[11px] text-text2"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={busy}
-                          onChange={() => {
-                            const next = checked
-                              ? seat.projectRoles.filter((held) => held !== role)
-                              : [...seat.projectRoles, role];
-                            if (next.length === 0) {
-                              toast("A seat keeps at least one role — remove them instead");
-                              return;
-                            }
-                            changeRoles.mutate({ memberId: member.memberId, roles: next });
-                          }}
-                          className="size-3 accent-amber-btn"
-                        />
-                        {titleCase(role)}
-                      </label>
-                    );
-                  })}
+                  {seat && (
+                    <div className="ml-9 mt-1.5 flex gap-3">
+                      {PROJECT_ROLES.map((role) => {
+                        const checked = seat.projectRoles.includes(role);
+                        return (
+                          <label
+                            key={role}
+                            className="flex cursor-pointer items-center gap-1.5 font-mono text-[11px] text-text2"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={busy}
+                              onChange={() => {
+                                const next = checked
+                                  ? seat.projectRoles.filter((held) => held !== role)
+                                  : [...seat.projectRoles, role];
+                                if (next.length === 0) {
+                                  toast("A seat keeps at least one role — remove them instead");
+                                  return;
+                                }
+                                changeRoles.mutate({ memberId: member.memberId, roles: next });
+                              }}
+                              className="size-3 accent-amber-btn"
+                            />
+                            {titleCase(role)}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          );
-        })}
+              );
+            })}
+          </>
+        )}
       </div>
     </Drawer>
   );

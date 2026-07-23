@@ -15,7 +15,6 @@ import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 import { SignupPage } from "../features/auth/pages/SignupPage";
 import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { WorkspaceStepPage } from "../features/auth/pages/WorkspaceStepPage";
-import { ClientPortalPage } from "../features/clients/pages/ClientPortalPage";
 import { ClientsPage } from "../features/clients/pages/ClientsPage";
 import { PositionPage } from "../features/position/pages/PositionPage";
 import { ProjectPlaceholderPage } from "../features/position/pages/ProjectPlaceholderPage";
@@ -62,10 +61,6 @@ export function AppRoutes() {
           this with RequireWorkspace bounced them straight back to step 2, in a loop. */}
       <Route path="/signup/invite" element={<RequireAuth><InviteStepPage /></RequireAuth>} />
       <Route path="/signup/verify" element={<RequireAuth><CheckInboxPage /></RequireAuth>} />
-
-      {/* The client portal — a representative's own read-only view. Standalone: no staff shell, whose
-          projects/clients/members queries a CLIENT principal would 403 on. */}
-      <Route path="/portal" element={<RequirePortal><ClientPortalPage /></RequirePortal>} />
 
       {/* The app shell. Sidebar views are routes so every screen is deep-linkable. */}
       <Route element={<RequireWorkspace><WorkspaceLayout /></RequireWorkspace>}>
@@ -134,18 +129,11 @@ function homeFor(user: {
   onboardingHeld: boolean;
   pendingInvitation: unknown;
 }) {
-  if (user.workspace) return isClientOnly(user.workspace.roles) ? "/portal" : "/";
+  // Everyone in a workspace lands on the projects list; the server scopes a pure client's to their seats.
+  if (user.workspace) return "/";
   if (user.onboardingHeld) return "/signup/verify";
   if (user.pendingInvitation) return "/auth/accept-invite";
   return "/signup/workspace";
-}
-
-/**
- * A client representative holds only the CLIENT role. They belong in the portal, never the staff shell —
- * whose projects/clients/members queries would 403 the moment it mounted.
- */
-function isClientOnly(roles: string[]): boolean {
-  return roles.includes("CLIENT") && !roles.some((role) => role === "ADMIN" || role === "MEMBER");
 }
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -175,24 +163,6 @@ function RequireWorkspace({ children }: { children: ReactNode }) {
   if (loading) return <Booting />;
   if (!user) return <Navigate to="/login" replace />;
   if (!user.workspace) return <Navigate to={homeFor(user)} replace />;
-  // A client representative never mounts the staff shell — send them to their portal.
-  if (isClientOnly(user.workspace.roles)) return <Navigate to="/portal" replace />;
-
-  return <>{children}</>;
-}
-
-/**
- * The client portal. Requires an account, a workspace, and only the CLIENT role — a staff member who
- * wandered here is bounced back to their own home.
- */
-function RequirePortal({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth();
-
-  if (loading) return <Booting />;
-  if (!user) return <Navigate to="/login" replace />;
-  if (!user.workspace || !isClientOnly(user.workspace.roles)) {
-    return <Navigate to={homeFor(user)} replace />;
-  }
 
   return <>{children}</>;
 }

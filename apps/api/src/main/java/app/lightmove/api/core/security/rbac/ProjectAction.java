@@ -13,9 +13,16 @@ public enum ProjectAction {
     TEAM_MANAGE,
 
     /**
-     * Work the mandate: read its strategy and position brief, sourcing, triage, candidates, notes.
-     * Held by every project role, so it is the gate for reading a project's team-only content; the
-     * Project screen's own tables will consume it too as they arrive.
+     * Read a project's team-only content: its strategy, position brief, sourcing, and future tables.
+     * Held by every seated role, including a read-only CLIENT representative — it is the gate on every
+     * project-content GET. Distinct from {@link #WORK_EXECUTE} precisely so a client can view without
+     * being able to change anything.
+     */
+    WORK_VIEW,
+
+    /**
+     * Work the mandate: the writes — sourcing, triage, candidates, notes. Held by the staff roles
+     * (ADMIN/LEAD/RESEARCHER), never a CLIENT, so read access and write access can be granted apart.
      */
     WORK_EXECUTE,
 

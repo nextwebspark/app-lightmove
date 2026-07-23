@@ -121,7 +121,12 @@ export function ClientsPage() {
       )}
 
       {newMandateOpen && (
-        <NewProjectModal open onClose={() => setNewMandateOpen(false)} clients={clients} />
+        <NewProjectModal
+          open
+          onClose={() => setNewMandateOpen(false)}
+          clients={clients}
+          initialClientId={openClientId ?? undefined}
+        />
       )}
     </>
   );

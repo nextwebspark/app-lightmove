@@ -21,8 +21,6 @@ public final class ClientDtos {
     private ClientDtos() {
     }
 
-    // ── List screen ──────────────────────────────────────────────────────────
-
     /** One row of the Clients table. {@code type} and every count are derived, never stored. */
     public record ClientListResponse(
             UUID id,
@@ -36,13 +34,9 @@ public final class ClientDtos {
             ViewerSummary viewers
     ) {}
 
-    /** A representative reduced to what the avatar stack renders: an initialled name and its status. */
     public record RepAvatar(String fullName, ClientRepStatus status) {}
 
-    /** The "Viewers" column: how many representatives are active versus still invited. */
     public record ViewerSummary(long active, long invited) {}
-
-    // ── Detail drawer ────────────────────────────────────────────────────────
 
     public record ClientDetailResponse(
             UUID id,
@@ -74,19 +68,6 @@ public final class ClientDtos {
             String leadName,
             LocalDate targetDate
     ) {}
-
-    // ── Portal (the representative's own read) ─────────────────────────────────
-
-    /** The strict subset a client representative may see: their client, and its mandates. Nothing else. */
-    public record PortalClientResponse(
-            UUID id,
-            String name,
-            String sector,
-            String hqCountry,
-            List<ClientMandateResponse> mandates
-    ) {}
-
-    // ── Requests ───────────────────────────────────────────────────────────────
 
     /** A company chosen from the universe — its rebuild-stable key. Null on the request means custom. */
     public record CompanyPickDto(

@@ -79,11 +79,9 @@ function TypePill({ type }: { type: ClientType }) {
   );
 }
 
-/** Green tint for active representatives, amber for invited — up to four, then a +N overflow chip. */
 const REP_TINT: Record<ClientRepStatus, string> = {
   ACTIVE: "bg-green-dim text-green",
   INVITED: "bg-amber-dim text-amber",
-  REVOKED: "bg-panel2 text-text3",
 };
 
 function RepStack({ contacts }: { contacts: { fullName: string; status: ClientRepStatus }[] }) {

@@ -82,8 +82,8 @@ public class ClientService {
     @Transactional(readOnly = true)
     public ClientDetailResponse get(UUID workspaceId, UUID clientId) {
         Client client = requireClient(workspaceId, clientId);
-        List<Project> mandates = projects.findByWorkspaceIdAndClientId(workspaceId, clientId);
-        long active = mandates.stream().filter(project -> !project.getStage().isDone()).count();
+        List<ClientMandateResponse> mandates = mandatesFor(workspaceId, clientId);
+        long active = mandates.stream().filter(mandate -> !mandate.stage().isDone()).count();
 
         List<RepresentativeResponse> reps = representatives.findByClientIdOrderByCreatedAtAsc(clientId).stream()
                 .filter(rep -> rep.getStatus() != ClientRepStatus.REVOKED)
@@ -93,7 +93,7 @@ public class ClientService {
 
         return new ClientDetailResponse(client.getId(), client.getName(), client.getSector(),
                 client.getHqCountry(), client.getDomain(), client.getOffLimitsNote(),
-                active, mandates.size() - active, reps, mandatesFor(workspaceId, clientId));
+                active, mandates.size() - active, reps, mandates);
     }
 
     @Transactional
@@ -114,15 +114,19 @@ public class ClientService {
                 .detail("source", saved.getCompanySource() == null ? "custom" : "universe")
                 .record();
 
-        if (request.primaryContact() != null) {
-            representativeService.invite(userId, workspaceId, saved.getId(),
-                    request.primaryContact().fullName(), request.primaryContact().position(),
-                    request.primaryContact().email(), httpRequest);
-        }
+        RepresentativeResponse primaryContact = request.primaryContact() == null ? null
+                : representativeService.invite(userId, workspaceId, saved.getId(),
+                        request.primaryContact().fullName(), request.primaryContact().position(),
+                        request.primaryContact().email(), httpRequest);
 
-        // Re-read the representative just created so the row's avatar reflects the invite immediately.
-        List<ClientRepresentative> reps = representatives.findByClientIdOrderByCreatedAtAsc(saved.getId());
-        return toListResponse(saved, List.of(), reps);
+        // A newborn client has no mandates; the row reflects only the invite just sent.
+        return new ClientListResponse(saved.getId(), saved.getName(), ClientType.PROSPECT,
+                saved.getSector(), saved.getHqCountry(), 0, 0,
+                primaryContact == null ? List.of()
+                        : List.of(new RepAvatar(primaryContact.fullName(), primaryContact.status())),
+                new ViewerSummary(
+                        primaryContact != null && primaryContact.status() == ClientRepStatus.ACTIVE ? 1 : 0,
+                        primaryContact != null && primaryContact.status() == ClientRepStatus.INVITED ? 1 : 0));
     }
 
     @Transactional
@@ -146,9 +150,8 @@ public class ClientService {
         return get(workspaceId, clientId);
     }
 
-    /** One client's mandates as the drawer and the portal render them — lead and health resolved. */
-    @Transactional(readOnly = true)
-    public List<ClientMandateResponse> mandatesFor(UUID workspaceId, UUID clientId) {
+    /** One client's mandates as the drawer renders them — lead and health resolved. */
+    private List<ClientMandateResponse> mandatesFor(UUID workspaceId, UUID clientId) {
         return projectService.listForClient(workspaceId, clientId).stream()
                 .map(ClientService::toMandate)
                 .toList();

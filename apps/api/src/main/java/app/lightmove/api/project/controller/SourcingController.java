@@ -28,7 +28,7 @@ public class SourcingController {
     private final SourcingService sourcing;
 
     @GetMapping
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'WORK_EXECUTE')")
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'WORK_VIEW')")
     public ResponseEntity<SourcingResponse> get(@PathVariable UUID projectId,
                                                  @RequestParam(defaultValue = "0") int page,
                                                  @RequestParam(defaultValue = "25") int size) {
