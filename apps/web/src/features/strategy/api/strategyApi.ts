@@ -5,6 +5,10 @@ import type { Strategy } from "./types";
 
 export const STRATEGY_KEY = (projectId: string) => ["strategy", projectId] as const;
 
+/** Mutation key shared by every scope-write autosave, so other screens (Sourcing) can tell a
+ *  strategy save is in flight via `useIsMutating` and hold their own reads until it commits. */
+export const STRATEGY_WRITE_KEY = (projectId: string) => ["strategy-write", projectId] as const;
+
 export function getStrategy(projectId: string): Promise<Strategy> {
   return request<Strategy>(`/projects/${projectId}/strategy`);
 }

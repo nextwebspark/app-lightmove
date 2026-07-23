@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MutationObserver, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
@@ -70,10 +70,10 @@ function page(overrides: Partial<SourcingResponse> = {}): SourcingResponse {
   };
 }
 
-const renderPage = () =>
+const renderPage = (client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) =>
   render(
     <MemoryRouter initialEntries={["/"]}>
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <QueryClientProvider client={client}>
         <Routes>
           <Route element={<Outlet context={{ project }} />}>
             <Route path="/" element={<SourcingPage />} />
@@ -97,6 +97,53 @@ describe("SourcingPage — the filtered company list", () => {
     expect(screen.getByText("Dubai, UAE · Retail")).toBeInTheDocument();
     // The List-only column headers are not shown until the user switches views.
     expect(screen.queryByRole("columnheader", { name: "Company" })).not.toBeInTheDocument();
+  });
+
+  it("holds the list behind the loader while a Strategy save is in flight, then loads once it settles", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    vi.mocked(sourcingApi.getSourcingCompanies).mockResolvedValue(page());
+
+    // Simulate an in-flight Strategy scope save on the shared client (the real one is StrategyPage's autosave).
+    let resolveSave!: () => void;
+    const savePromise = new Promise<void>((resolve) => (resolveSave = resolve));
+    const save = new MutationObserver(client, {
+      mutationKey: ["strategy-write", "p1"],
+      mutationFn: () => savePromise,
+    });
+    void save.mutate();
+
+    renderPage(client);
+
+    // While saving: the loader is shown and the list query never fires against the not-yet-written scope.
+    expect(screen.queryByText("Alpha Retail")).not.toBeInTheDocument();
+    expect(sourcingApi.getSourcingCompanies).not.toHaveBeenCalled();
+
+    // The save settles → the list fetches and renders.
+    resolveSave();
+    expect(await screen.findByText("Alpha Retail")).toBeInTheDocument();
+  });
+
+  it("replaces the stale list with the loader while refetching after a criteria change", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    vi.mocked(sourcingApi.getSourcingCompanies).mockResolvedValue(page());
+    renderPage(client);
+    await screen.findByText("Alpha Retail");
+
+    // Hold the invalidation-driven refetch open so the in-flight state is observable.
+    let resolveRefetch!: (value: SourcingResponse) => void;
+    vi.mocked(sourcingApi.getSourcingCompanies).mockReturnValueOnce(
+      new Promise<SourcingResponse>((resolve) => {
+        resolveRefetch = resolve;
+      }),
+    );
+
+    void client.invalidateQueries({ queryKey: ["sourcing", "p1"] });
+
+    // The stale companies are hidden behind the loader, not left flickering on screen.
+    await waitFor(() => expect(screen.queryByText("Alpha Retail")).not.toBeInTheDocument());
+
+    resolveRefetch(page({ companies: [{ ...page().companies[0], id: 9, name: "Nova Retail" }], totalCount: 1 }));
+    expect(await screen.findByText("Nova Retail")).toBeInTheDocument();
   });
 
   it("switches to List view and back to Card view", async () => {
@@ -226,18 +273,6 @@ describe("SourcingPage — the filtered company list", () => {
     expect(screen.getByText("4 of 4 met")).toBeInTheDocument();
     // Region's value ("Dubai, UAE") appears twice: the checkmarked row and Scale Snapshot's own Region row.
     expect(screen.getAllByText("Dubai, UAE")).toHaveLength(2);
-  });
-
-  it("shows a Target badge for a manually-seeded company", async () => {
-    vi.mocked(sourcingApi.getSourcingCompanies).mockResolvedValue(
-      page({
-        companies: [{ ...page().companies[0], matchTier: "TARGET" }],
-      }),
-    );
-    renderPage();
-
-    await screen.findByText("Alpha Retail");
-    expect(screen.getByText("Target")).toBeInTheDocument();
   });
 
   it("renders the placeholder triage buttons as disabled", async () => {

@@ -170,19 +170,21 @@ class SourcingFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a target company appears even with no sector scope at all, bypassing required filters")
-    void targetCompanyBypassesRequiredFilters() throws Exception {
+    @DisplayName("a target company never appears in the Sourcing list — targets live in the universe")
+    void targetCompanyIsExcludedFromSourcing() throws Exception {
         String admin = adminOf("Sourcing Target Firm");
         String projectId = project(admin);
-        companyWithKey("target-co", "Oil and Gas", "1-10", "<5M");
+        companyWithKey("target-co", "Retail", "1-10", "<5M");
 
+        putSectors(admin, projectId, """
+                {"direct":[{"label":"Retail","selected":true}],"adjacent":[],"inferred":[]}""");
         putTargets(admin, projectId, """
                 {"companies":[{"source":"test","sourceId":"target-co"}]}""");
 
         mvc.perform(get(sourcingUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalCount").value(1))
-                .andExpect(jsonPath("$.companies[0].matchTier").value("TARGET"));
+                .andExpect(jsonPath("$.totalCount").value(0))
+                .andExpect(jsonPath("$.companies").isEmpty());
     }
 
     @Test
@@ -205,11 +207,12 @@ class SourcingFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a company that is both a scope match and a target still reports TARGET")
-    void targetTierTakesPriorityOverSectorMatch() throws Exception {
+    @DisplayName("a target that also matches the scope is still excluded; only normal matches remain")
+    void targetCompanyExcludedEvenWhenItMatchesScope() throws Exception {
         String admin = adminOf("Sourcing Target Priority Firm");
         String projectId = project(admin);
         companyWithKey("both-co", "Retail", "1-10", "<5M");
+        company("Kept Retail", "Retail", "1-10", "<5M");
 
         putSectors(admin, projectId, """
                 {"direct":[{"label":"Retail","selected":true}],"adjacent":[],"inferred":[]}""");
@@ -218,7 +221,8 @@ class SourcingFlowIntegrationTest extends FlowTestSupport {
 
         mvc.perform(get(sourcingUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.companies[0].matchTier").value("TARGET"));
+                .andExpect(jsonPath("$.totalCount").value(1))
+                .andExpect(jsonPath("$.companies[0].name").value("Kept Retail"));
     }
 
     @Test
@@ -240,6 +244,54 @@ class SourcingFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.companies[1].name").value("Mid Retail"))
                 .andExpect(jsonPath("$.companies[2].name").value("Low Retail"))
                 .andExpect(jsonPath("$.companies[3].name").value("NoRevenue Retail"));
+    }
+
+    @Test
+    @DisplayName("a tag-only scope (no sectors selected) returns its inferred matches without error")
+    void tagOnlyScopeReturnsInferredMatches() throws Exception {
+        String admin = adminOf("Sourcing Tag Only Firm");
+        String projectId = project(admin);
+        companyWithTag("Grocery One", "Oil and Gas", "Grocery Retail", "1-10", "<5M");
+
+        putSectors(admin, projectId, """
+                {"direct":[],"adjacent":[],"inferred":[{"label":"Grocery Retail","selected":true}]}""");
+
+        // No sector WHENs in the tier CASE — the match tier is a bare 'INFERRED' literal, not invalid SQL.
+        mvc.perform(get(sourcingUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(1))
+                .andExpect(jsonPath("$.companies[0].name").value("Grocery One"))
+                .andExpect(jsonPath("$.companies[0].matchTier").value("INFERRED"));
+    }
+
+    @Test
+    @DisplayName("results sort by tier (direct, then adjacent, then inferred) before revenue within a tier")
+    void sortsByTierThenRevenueWithinTier() throws Exception {
+        String admin = adminOf("Sourcing Tier Order Firm");
+        String projectId = project(admin);
+        companyWithRevenue("Aaa DirectHigh", "Retail", 8_000_000L);       // DIRECT, higher revenue
+        companyWithRevenue("Alpha DirectLow", "Retail", 1_000_000L);      // DIRECT, lower revenue
+        companyWithRevenue("Bravo AdjacentCo", "Wholesale", 5_000_000L);  // ADJACENT
+        companyWithTagAndRevenue("Zeta InferredCo", "Oil and Gas", "Grocery Retail", 9_000_000_000L); // INFERRED, richest
+
+        putSectors(admin, projectId, """
+                {"direct":[{"label":"Retail","selected":true}],
+                 "adjacent":[{"label":"Wholesale","selected":true}],
+                 "inferred":[{"label":"Grocery Retail","selected":true}]}""");
+
+        // The 9-billion Inferred company outweighs every Direct on revenue, yet still sorts last: tier
+        // leads, revenue only orders within a tier.
+        mvc.perform(get(sourcingUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(4))
+                .andExpect(jsonPath("$.companies[0].name").value("Aaa DirectHigh"))
+                .andExpect(jsonPath("$.companies[0].matchTier").value("DIRECT"))
+                .andExpect(jsonPath("$.companies[1].name").value("Alpha DirectLow"))
+                .andExpect(jsonPath("$.companies[1].matchTier").value("DIRECT"))
+                .andExpect(jsonPath("$.companies[2].name").value("Bravo AdjacentCo"))
+                .andExpect(jsonPath("$.companies[2].matchTier").value("ADJACENT"))
+                .andExpect(jsonPath("$.companies[3].name").value("Zeta InferredCo"))
+                .andExpect(jsonPath("$.companies[3].matchTier").value("INFERRED"));
     }
 
     @Test
@@ -363,6 +415,23 @@ class SourcingFlowIntegrationTest extends FlowTestSupport {
             ps.setString(1, name);
             ps.setString(2, sector);
             ps.setArray(3, connection.createArrayOf("text", new String[0]));
+            ps.setLong(4, revenueUsd);
+            return ps;
+        });
+    }
+
+    /** A tag-matching company that also carries a numeric revenue_usd — for the tier-vs-revenue
+     *  ordering test, where an inferred (tag-only) match must sort below a direct match despite a
+     *  larger revenue. */
+    private void companyWithTagAndRevenue(String name, String sector, String tag, long revenueUsd) {
+        db.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement("""
+                    INSERT INTO app_lm_companies
+                        (source, source_id, name, primary_industry, industry_tags, revenue_usd)
+                    VALUES ('test', gen_random_uuid()::text, ?, ?, ?, ?)""");
+            ps.setString(1, name);
+            ps.setString(2, sector);
+            ps.setArray(3, connection.createArrayOf("text", new String[] {tag}));
             ps.setLong(4, revenueUsd);
             return ps;
         });

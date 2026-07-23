@@ -57,9 +57,9 @@ public class CompanyQueryService {
      * {@code revenue_range} columns, never against the raw numeric {@code employee_count}/
      * {@code revenue_usd} figures (those can be zero or missing on a row whose range is still known).
      * {@code markets} are ISO-3166 alpha-2 codes, matched against {@code hq_country} or the {@code markets}
-     * array. {@code targetKeys} companies are included even if they match nothing else — Strategy's own
-     * copy for the list is "included in results directly, bypassing Required filters" — and
-     * {@code offLimitsKeys} companies are excluded outright, regardless of any other match.
+     * array. {@code targetKeys} and {@code offLimitsKeys} companies are both excluded outright, regardless
+     * of any other match — targets are surfaced in the universe rather than the Sourcing list, off-limits
+     * are barred by mandate.
      */
     public record ScopeFilter(List<String> directSectors, List<String> adjacentSectors, List<String> tags,
                               List<String> employeeBands, List<String> revenueBands, List<String> markets,
@@ -137,8 +137,9 @@ public class CompanyQueryService {
     }
 
     /**
-     * The companies matching the scope, one page at a time, ordered by revenue descending (nulls last,
-     * name breaking ties) — the same default order {@link #browse} already uses. An empty scope returns
+     * The companies matching the scope, one page at a time, ordered by match tier (direct, then
+     * adjacent, then inferred) and by revenue descending (nulls last, name breaking ties) within each
+     * tier — so the strongest matches lead regardless of a weaker tier's revenue. An empty scope returns
      * an empty page without touching the database, mirroring {@link #estimate}.
      */
     public List<CompanyRow> search(ScopeFilter scope, int page, int size) {
@@ -147,14 +148,21 @@ public class CompanyQueryService {
             return List.of();
         }
         Map<String, Object> params = new LinkedHashMap<>(where.params());
-        String matchTier = matchTierExpression(scope.directSectors(), scope.adjacentSectors(),
-                scope.targetKeys(), params);
+        String matchTier = matchTierExpression(scope.directSectors(), scope.adjacentSectors(), params);
+        // The tier label is materialised in a subquery so it can drive the ORDER BY: Postgres allows an
+        // output alias as a bare ORDER BY term but not inside a CASE, and revenue_usd rides along to break
+        // ties within a tier.
         String sql = """
                 SELECT id, name, domain, primary_industry, hq_country, hq_city, employee_range, revenue_range,
-                       %s AS match_tier
-                FROM app_lm_companies
-                WHERE %s
-                ORDER BY revenue_usd DESC NULLS LAST, name
+                       match_tier
+                FROM (
+                    SELECT id, name, domain, primary_industry, hq_country, hq_city, employee_range,
+                           revenue_range, revenue_usd, %s AS match_tier
+                    FROM app_lm_companies
+                    WHERE %s
+                ) matched
+                ORDER BY CASE match_tier WHEN 'DIRECT' THEN 0 WHEN 'ADJACENT' THEN 1 ELSE 2 END,
+                         revenue_usd DESC NULLS LAST, name
                 LIMIT :limit OFFSET :offset
                 """.formatted(matchTier, where.sql());
         StatementParams spec = bind(jdbc.sql(sql), params);
@@ -166,21 +174,21 @@ public class CompanyQueryService {
     }
 
     /**
-     * Which bucket a row matched through: on the target list, a direct sector, an adjacent sector, or
-     * (by elimination) an inferred tag. Target is checked first — a company can be both a target and a
-     * sector match, and its being deliberately seeded is the more informative fact. Safe to fall through
-     * to {@code 'INFERRED'} unconditionally when neither target nor direct/adjacent catches a row: the
-     * WHERE clause already guarantees every non-target row matched on sector-or-tag, so anything neither
-     * list catches must be a tag match. Each {@code WHEN} is only added when its list is non-empty,
-     * matching {@link #buildWhere}'s own "never hand an empty list to {@code IN}" convention.
+     * Which bucket a row matched through: a direct sector, an adjacent sector, or (by elimination) an
+     * inferred tag. Safe to fall through to {@code 'INFERRED'} unconditionally when neither direct nor
+     * adjacent catches a row: the WHERE clause already guarantees every row matched on sector-or-tag, so
+     * anything neither list catches must be a tag match. Each {@code WHEN} is only added when its list is
+     * non-empty, matching {@link #buildWhere}'s own "never hand an empty list to {@code IN}" convention.
+     * With neither sector list present (a tag-only scope) every match is inferred, so the expression is
+     * the bare {@code 'INFERRED'} literal — a {@code CASE} with no {@code WHEN} is invalid SQL.
+     * (Targets are excluded from the result set entirely, so there is no {@code TARGET} tier here.)
      */
     private static String matchTierExpression(List<String> directSectors, List<String> adjacentSectors,
-                                                List<CompanyKey> targetKeys, Map<String, Object> params) {
-        StringBuilder expr = new StringBuilder("CASE");
-        String targetClause = keyClause(targetKeys, params, "target");
-        if (targetClause != null) {
-            expr.append(" WHEN ").append(targetClause).append(" THEN 'TARGET'");
+                                                Map<String, Object> params) {
+        if (directSectors.isEmpty() && adjacentSectors.isEmpty()) {
+            return "'INFERRED'";
         }
+        StringBuilder expr = new StringBuilder("CASE");
         if (!directSectors.isEmpty()) {
             expr.append(" WHEN primary_industry IN (:directSectors) THEN 'DIRECT'");
             params.put("directSectors", directSectors);
@@ -198,12 +206,13 @@ public class CompanyQueryService {
     private record StatementParams(JdbcClient.StatementSpec spec) {}
 
     /**
-     * The shared filter behind every scoped read: {@code (scopeMatch OR isTarget) AND NOT isOffLimits}.
+     * The shared filter behind every scoped read: {@code scopeMatch AND NOT isTarget AND NOT isOffLimits}.
      * {@code scopeMatch} is sector/tag match (OR'd together) — required as the anchor, matching the
      * Strategy screen's own "zero until a sector or tag is picked" convention — AND'd with an
      * employee-band match, a revenue-band match and a geography match, each omitted entirely when its
-     * list is empty. Returns {@code null} only when there is truly nothing to show: no sector/tag scope
-     * at all <i>and</i> no target list.
+     * list is empty. Target and off-limits companies are both subtracted: neither belongs in the
+     * Sourcing list (targets live in the universe, off-limits are barred by mandate). Returns
+     * {@code null} when there is no sector/tag scope at all — a target list no longer forces a match.
      */
     private WhereClause buildWhere(ScopeFilter scope) {
         List<String> allSectors = new ArrayList<>(scope.directSectors());
@@ -239,14 +248,17 @@ public class CompanyQueryService {
             scopeMatch = "(" + String.join(" AND ", clauses) + ")";
         }
 
-        String targetClause = keyClause(scope.targetKeys(), params, "target");
-        if (scopeMatch == null && targetClause == null) {
+        if (scopeMatch == null) {
             return null;
         }
-        String overall = scopeMatch != null && targetClause != null
-                ? "(" + scopeMatch + " OR " + targetClause + ")"
-                : scopeMatch != null ? scopeMatch : targetClause;
+        String overall = scopeMatch;
 
+        // Target and off-limits companies are both kept out of the Sourcing list, so each is subtracted
+        // from the match when present.
+        String targetClause = keyClause(scope.targetKeys(), params, "target");
+        if (targetClause != null) {
+            overall = overall + " AND NOT " + targetClause;
+        }
         String offLimitsClause = keyClause(scope.offLimitsKeys(), params, "offLimits");
         if (offLimitsClause != null) {
             overall = overall + " AND NOT " + offLimitsClause;
