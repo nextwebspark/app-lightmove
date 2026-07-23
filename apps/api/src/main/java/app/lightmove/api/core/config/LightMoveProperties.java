@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.util.unit.DataSize;
 
 /**
  * Every tunable the application has, in one typed tree.
@@ -16,7 +17,8 @@ public record LightMoveProperties(
         Auth auth,
         Email email,
         Web web,
-        Company company
+        Company company,
+        Llm llm
 ) {
 
     public record Auth(
@@ -214,6 +216,32 @@ public record LightMoveProperties(
 
                 /** How many co-occurring tags to pull before filtering out ground the sectors already cover. */
                 @DefaultValue("30") int inferredTagFetchSize
+        ) {}
+    }
+
+    /** The brief-document upload → text-extraction → LLM-extraction pipeline behind the Position screen. */
+    public record Llm(
+            /**
+             * {@code log} logs the extracted text length and returns nothing found; {@code vertex-ai}
+             * actually calls Gemini.
+             *
+             * <p>Defaults to {@code log} so a fresh clone and the test suite need no GCP AI setup — same
+             * reasoning as {@link Email#provider()} defaulting differently in {@code
+             * application-local.yml.example}.
+             */
+            @DefaultValue("log") String provider,
+
+            /** Rejected above this size before any text extraction or LLM call is attempted. */
+            @DefaultValue("15MB") DataSize maxDocumentSize,
+
+            VertexAi vertexAi
+    ) {
+
+        public record VertexAi(
+                /** No default: startup fails fast if {@code vertex-ai} is selected without a project. */
+                String projectId,
+                @DefaultValue("us-central1") String location,
+                @DefaultValue("gemini-2.5-flash") String model
         ) {}
     }
 }

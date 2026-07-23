@@ -126,6 +126,7 @@ class EmailAddressValidatorTest {
                 null,
                 new LightMoveProperties.Email("log", "LightMove", "noreply@lightmove.app", null, validation),
                 null,
+                null,
                 null));
     }
 

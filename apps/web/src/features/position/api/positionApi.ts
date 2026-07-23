@@ -31,10 +31,16 @@ export function putCompetencies(
   });
 }
 
-export function lockPosition(projectId: string): Promise<Position> {
-  return request<Position>(`/projects/${projectId}/position/lock`, { method: "POST" });
+/** Uploads a position-description document; the server extracts and applies what it finds. */
+export function uploadBriefDocument(projectId: string, file: File): Promise<Position> {
+  const form = new FormData();
+  form.append("file", file);
+  return request<Position>(`/projects/${projectId}/position/brief-document`, {
+    method: "POST",
+    body: form,
+  });
 }
 
-export function unlockPosition(projectId: string): Promise<Position> {
-  return request<Position>(`/projects/${projectId}/position/unlock`, { method: "POST" });
+export function removeBriefDocument(projectId: string): Promise<Position> {
+  return request<Position>(`/projects/${projectId}/position/brief-document`, { method: "DELETE" });
 }

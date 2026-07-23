@@ -19,8 +19,8 @@ vi.mock("../api/positionApi", async (importOriginal) => ({
   putPosition: vi.fn(),
   putCriteria: vi.fn(),
   putCompetencies: vi.fn(),
-  lockPosition: vi.fn(),
-  unlockPosition: vi.fn(),
+  uploadBriefDocument: vi.fn(),
+  removeBriefDocument: vi.fn(),
 }));
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
@@ -94,6 +94,7 @@ const seeded: Position = {
   behavioural: [{ name: "Strategic Leadership", weight: 100 }],
   locked: false,
   lockedAt: null,
+  briefDocument: null,
 };
 
 const renderPage = () =>
@@ -106,6 +107,7 @@ const renderPage = () =>
               <Route element={<Outlet context={{ project }} />}>
                 <Route path="/" element={<PositionPage />} />
               </Route>
+              <Route path="/projects/:projectId/strategy" element={<div>Strategy screen</div>} />
             </Routes>
           </ToastProvider>
         </AuthProvider>
@@ -160,43 +162,95 @@ describe("PositionPage — the brief editor", () => {
     expect(lastCall[1].benefits).toContain("Car allowance");
   });
 
-  it("keeps Lock disabled while a panel is off 100%, with the checklist saying which", async () => {
-    vi.mocked(positionApi.getPosition).mockResolvedValue({
-      ...seeded,
-      technical: [{ name: "Treasury", weight: 90 }],
-    });
-    renderPage();
-    await screen.findAllByText("Chief Financial Officer");
-
-    expect(screen.getByRole("button", { name: "Lock position" })).toBeDisabled();
-    expect(screen.getByText("Technical weights total 100% (currently 90%)")).toBeInTheDocument();
-  });
-
-  it("locks a ready brief and reports the new benchmark", async () => {
-    vi.mocked(positionApi.lockPosition).mockResolvedValue({ ...seeded, locked: true, lockedAt: "2026-07-17T00:00:00Z" });
-    renderPage();
-    await screen.findAllByText("Chief Financial Officer");
-
-    await userEvent.click(screen.getByRole("button", { name: "Lock position" }));
-
-    expect(await screen.findByText("Position locked")).toBeInTheDocument();
-    expect(positionApi.lockPosition).toHaveBeenCalledWith("p1");
-  });
-
-  it("a locked brief is read-only, and Unlock is not offered to a plain member", async () => {
+  it("a locked brief is read-only", async () => {
     vi.mocked(positionApi.getPosition).mockResolvedValue({ ...seeded, locked: true, lockedAt: "2026-07-17T00:00:00Z" });
     renderPage();
-    await screen.findByText("Position locked");
+    await screen.findAllByText("Chief Financial Officer");
 
     expect(screen.getByDisplayValue("Experience reporting to a board")).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "Unlock" })).not.toBeInTheDocument();
   });
 
-  it("offers Unlock to a workspace admin", async () => {
-    vi.mocked(authApi.me).mockResolvedValue(userOf(["ADMIN"]));
-    vi.mocked(positionApi.getPosition).mockResolvedValue({ ...seeded, locked: true, lockedAt: "2026-07-17T00:00:00Z" });
+  it("the footer offers Go to Strategy and navigates there", async () => {
     renderPage();
+    await screen.findAllByText("Chief Financial Officer");
 
-    expect(await screen.findByRole("button", { name: "Unlock" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Go to Strategy/ }));
+
+    expect(await screen.findByText("Strategy screen")).toBeInTheDocument();
+  });
+
+  describe("the Position Description upload", () => {
+    const withDocument = {
+      fileName: "cfo-pd.pdf",
+      contentType: "application/pdf",
+      fileSize: 248_000,
+      uploadedAt: "2026-07-17T00:00:00Z",
+      status: "COMPLETED" as const,
+    };
+
+    it("shows the empty dropzone, uploads a chosen file, and shows the parsed result", async () => {
+      vi.mocked(positionApi.uploadBriefDocument).mockResolvedValue({
+        ...seeded,
+        reportsTo: "Group CFO",
+        briefDocument: withDocument,
+      });
+      renderPage();
+      await screen.findAllByText("Chief Financial Officer");
+
+      expect(screen.getByText("Drop a PD here, or click to browse")).toBeInTheDocument();
+
+      const file = new File(["pd text"], "cfo-pd.pdf", { type: "application/pdf" });
+      await userEvent.upload(screen.getByLabelText("Upload position description"), file);
+
+      expect(positionApi.uploadBriefDocument).toHaveBeenCalledWith("p1", file);
+      expect(await screen.findByText("Parsed — details extracted to help fill this page")).toBeInTheDocument();
+      // The remount-on-uploadedAt-change picked up the freshly extracted field.
+      expect(await screen.findByDisplayValue("Group CFO")).toBeInTheDocument();
+      expect(screen.getByText("cfo-pd.pdf")).toBeInTheDocument();
+    });
+
+    it("shows a parsing spinner while the upload is in flight", async () => {
+      let resolveUpload!: (position: Position) => void;
+      vi.mocked(positionApi.uploadBriefDocument).mockReturnValue(
+        new Promise((resolve) => (resolveUpload = resolve)),
+      );
+      renderPage();
+      await screen.findAllByText("Chief Financial Officer");
+
+      const file = new File(["pd text"], "cfo-pd.pdf", { type: "application/pdf" });
+      await userEvent.upload(screen.getByLabelText("Upload position description"), file);
+
+      expect(await screen.findByText("Parsing document and extracting details…")).toBeInTheDocument();
+      resolveUpload({ ...seeded, briefDocument: withDocument });
+      await waitFor(() =>
+        expect(screen.queryByText("Parsing document and extracting details…")).not.toBeInTheDocument(),
+      );
+    });
+
+    it("Remove clears the file chip back to the dropzone", async () => {
+      vi.mocked(positionApi.getPosition).mockResolvedValue({ ...seeded, briefDocument: withDocument });
+      vi.mocked(positionApi.removeBriefDocument).mockResolvedValue({ ...seeded, briefDocument: null });
+      renderPage();
+      await screen.findByText("cfo-pd.pdf");
+
+      await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+
+      expect(positionApi.removeBriefDocument).toHaveBeenCalledWith("p1");
+      expect(await screen.findByText("Drop a PD here, or click to browse")).toBeInTheDocument();
+    });
+
+    it("an extraction failure toasts and leaves the dropzone empty", async () => {
+      vi.mocked(positionApi.uploadBriefDocument).mockRejectedValue(
+        Object.assign(new Error("failed"), { code: "BRIEF_EXTRACTION_FAILED", problem: {} }),
+      );
+      renderPage();
+      await screen.findAllByText("Chief Financial Officer");
+
+      const file = new File(["pd text"], "broken.pdf", { type: "application/pdf" });
+      await userEvent.upload(screen.getByLabelText("Upload position description"), file);
+
+      expect(await screen.findByText("Something went wrong. Try again.")).toBeInTheDocument();
+      expect(screen.getByText("Drop a PD here, or click to browse")).toBeInTheDocument();
+    });
   });
 });

@@ -1,14 +1,14 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Spinner, useToast } from "../../../components/ui";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
-import { useAuth } from "../../auth/AuthProvider";
 import * as projectsApi from "../../projects/api/projectsApi";
 import type { Project } from "../../projects/api/types";
 import * as positionApi from "../api/positionApi";
 import type { Competency, Criterion, Position, PositionDetails } from "../api/types";
+import { BriefDocumentCard } from "../components/BriefDocumentCard";
 import { CompetencyPanel } from "../components/CompetencyPanel";
 import { CriteriaCard } from "../components/CriteriaCard";
 import { IdealProfileCard } from "../components/IdealProfileCard";
@@ -19,7 +19,7 @@ import { PositionHero } from "../components/PositionHero";
 import { ReportingStructureCard } from "../components/ReportingStructureCard";
 import { SectionHeading } from "../components/fields";
 import { useAutosave } from "../../../lib/useAutosave";
-import { completion, readiness } from "../lib/readiness";
+import { completion } from "../lib/readiness";
 
 /** The Position tab: loads the brief, then hands the editor a snapshot to draft against. */
 export function PositionPage() {
@@ -37,19 +37,28 @@ export function PositionPage() {
     );
   }
 
-  // Remounting on lock-state changes resyncs the drafts with the server — including a lock made in
-  // another tab, which arrives via the POSITION_LOCKED-triggered refetch.
-  return <PositionEditor key={`${project.id}-${position.locked}`} project={project} position={position} />;
+  // Remounting resyncs the drafts with the server: on a lock-state change (including a lock made in
+  // another tab, which arrives via the POSITION_LOCKED-triggered refetch), and on every successful
+  // brief-document upload — extraction overwrites fields this component already drafted from, and
+  // uploadedAt changing is the signal that a fresh snapshot just landed in the query cache.
+  const briefDocumentKey = position.briefDocument?.uploadedAt ?? "none";
+  return (
+    <PositionEditor
+      key={`${project.id}-${position.locked}-${briefDocumentKey}`}
+      project={project}
+      position={position}
+    />
+  );
 }
 
 /**
  * The brief editor (Project.dc.html, Position page). There is no Save button: each section's draft
  * autosaves as a snapshot PUT — scalars, criteria and competencies independently — and the hero
- * shows the collective Saving…/Saved state. Locking freezes the whole brief; the fieldset disables
- * every input at once and Unlock is offered to admins.
+ * shows the collective Saving…/Saved state. A brief can still be locked (server-side, via a direct
+ * API call) — the fieldset disables every input at once when it is — but this screen offers no
+ * Lock/Unlock control of its own; its footer only points on to Strategy.
  */
 function PositionEditor({ project, position }: { project: Project; position: Position }) {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
   const toast = useToast();
   const key = positionApi.POSITION_KEY(project.id);
@@ -109,41 +118,13 @@ function PositionEditor({ project, position }: { project: Project; position: Pos
     competenciesSave.schedule(next);
   };
 
-  const lock = useMutation({
-    mutationFn: async () => {
-      // A half-typed edit must land before the gate is judged server-side.
-      await Promise.all([detailsSave.flush(), criteriaSave.flush(), competenciesSave.flush()]);
-      return positionApi.lockPosition(project.id);
-    },
-    onSuccess: (saved) => {
-      queryClient.setQueryData(key, saved);
-      toast("Position locked — this is now the benchmark for candidate fit");
-    },
-    onError: (error) => toast(messageFor(error)),
-  });
-
-  const unlock = useMutation({
-    mutationFn: () => positionApi.unlockPosition(project.id),
-    onSuccess: (saved) => {
-      queryClient.setQueryData(key, saved);
-      toast("Position unlocked — edits are live again");
-    },
-    onError: (error) => toast(messageFor(error)),
-  });
-
   const locked = position.locked;
-  const gate = readiness({ technical, behavioural, criteria });
   const statuses = [detailsSave.status, criteriaSave.status, competenciesSave.status];
   const saveStatus = statuses.includes("saving")
     ? "saving"
     : statuses.includes("saved")
       ? "saved"
       : "idle";
-
-  const seat = project.team.find((member) => member.userId === user?.id);
-  const canUnlock =
-    (user?.workspace?.roles.includes("ADMIN") ?? false) ||
-    (seat?.projectRoles.includes("ADMIN") ?? false);
 
   return (
     <div className="animate-fade-up">
@@ -156,8 +137,14 @@ function PositionEditor({ project, position }: { project: Project; position: Pos
         onToggleConfidential={() => changeDetails({ confidential: !details.confidential }, true)}
       />
 
-      {/* One switch freezes every control in the brief — the unlock button lives outside it. */}
+      {/* One switch freezes every control in the brief. */}
       <fieldset disabled={locked} className="min-w-0">
+        <BriefDocumentCard
+          projectId={project.id}
+          briefDocument={position.briefDocument}
+          disabled={locked}
+        />
+
         <MandateContextCard
           reason={details.mandateReason}
           internalContext={details.internalContext}
@@ -202,19 +189,20 @@ function PositionEditor({ project, position }: { project: Project; position: Pos
         </div>
       </fieldset>
 
-      <LockFooter
-        locked={locked}
-        readiness={gate}
-        canUnlock={canUnlock}
-        locking={lock.isPending}
-        onLock={() => lock.mutate()}
-        onUnlock={() => unlock.mutate()}
-      />
+      <LockFooter projectId={project.id} />
     </div>
   );
 }
 
 function detailsOf(position: Position): PositionDetails {
-  const { criteria: _c, technical: _t, behavioural: _b, locked: _l, lockedAt: _a, ...details } = position;
+  const {
+    criteria: _c,
+    technical: _t,
+    behavioural: _b,
+    locked: _l,
+    lockedAt: _a,
+    briefDocument: _d,
+    ...details
+  } = position;
   return details;
 }

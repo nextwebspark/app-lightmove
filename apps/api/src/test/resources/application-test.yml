@@ -30,6 +30,11 @@ lightmove:
     rate-limit:
       enabled: false
 
+  llm:
+    # No GCP AI account in CI; PositionBriefDocumentFlowIntegrationTest swaps in a FakeBriefLlmClient
+    # where it needs an actual extraction to assert against.
+    provider: log
+
   email:
     provider: log
     validation:

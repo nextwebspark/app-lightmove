@@ -2,6 +2,7 @@ package app.lightmove.api.project.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.service.CurrentUser;
+import app.lightmove.api.project.dto.PositionDtos.BriefDocumentDto;
 import app.lightmove.api.project.dto.PositionDtos.PositionResponse;
 import app.lightmove.api.project.dto.PositionDtos.PutCompetenciesRequest;
 import app.lightmove.api.project.dto.PositionDtos.PutCriteriaRequest;
@@ -11,15 +12,19 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * The position brief of one mandate. Reading needs a seat on the project (WORK_EXECUTE, which every
@@ -87,6 +92,33 @@ public class PositionController {
                                                    HttpServletRequest httpRequest) {
         AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(position.unlock(
+                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
+    }
+
+    @PostMapping(value = "/brief-document", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    public ResponseEntity<PositionResponse> uploadBriefDocument(@PathVariable UUID projectId,
+                                                                 @RequestParam("file") MultipartFile file,
+                                                                 HttpServletRequest httpRequest) {
+        AuthPrincipal principal = CurrentUser.require();
+        return ResponseEntity.ok(position.uploadBriefDocument(
+                principal.userId(), principal.requireWorkspaceId(), projectId, file, httpRequest));
+    }
+
+    @GetMapping("/brief-document")
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'WORK_VIEW')")
+    public ResponseEntity<BriefDocumentDto> getBriefDocument(@PathVariable UUID projectId) {
+        AuthPrincipal principal = CurrentUser.require();
+        BriefDocumentDto document = position.getBriefDocument(principal.requireWorkspaceId(), projectId);
+        return document == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(document);
+    }
+
+    @DeleteMapping("/brief-document")
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    public ResponseEntity<PositionResponse> removeBriefDocument(@PathVariable UUID projectId,
+                                                                 HttpServletRequest httpRequest) {
+        AuthPrincipal principal = CurrentUser.require();
+        return ResponseEntity.ok(position.removeBriefDocument(
                 principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
     }
 }

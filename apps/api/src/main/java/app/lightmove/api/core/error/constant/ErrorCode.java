@@ -74,6 +74,17 @@ public enum ErrorCode {
     POSITION_NOT_READY(HttpStatus.CONFLICT,
             "Balance both competency panels to exactly 100% and keep at least one required criterion"),
 
+    /** The uploaded brief document is above {@code lightmove.llm.max-document-size}. */
+    BRIEF_DOCUMENT_TOO_LARGE(HttpStatus.BAD_REQUEST, "That file is too large"),
+
+    /** Not a PDF, Word document, or plain text file. */
+    BRIEF_DOCUMENT_UNSUPPORTED_TYPE(HttpStatus.BAD_REQUEST,
+            "Upload a PDF, Word document, or text file"),
+
+    /** Text extraction or the LLM call failed. Nothing is persisted — the request rolled back. */
+    BRIEF_EXTRACTION_FAILED(HttpStatus.BAD_GATEWAY,
+            "Could not read that document. Please try again or upload a different file"),
+
     /** The typed confirmation on workspace deletion did not match. */
     WORKSPACE_NAME_MISMATCH(HttpStatus.BAD_REQUEST,
             "Type the workspace name exactly to confirm deletion"),

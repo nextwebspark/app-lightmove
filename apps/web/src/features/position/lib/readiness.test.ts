@@ -61,6 +61,7 @@ describe("completion", () => {
     behavioural: rows(100),
     locked: false,
     lockedAt: null,
+    briefDocument: null,
   };
 
   it("scores a freshly seeded brief part-done, not zero and not complete", () => {

@@ -1,7 +1,9 @@
 package app.lightmove.api.project;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -9,10 +11,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MvcResult;
 
 /**
@@ -78,6 +82,37 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
         mvc.perform(post(positionUrl(f.projectId) + "/unlock")
                         .header("Authorization", "Bearer " + f.admin))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("the brief-document endpoints follow the same WORK_VIEW/PROJECT_EDIT matrix")
+    void briefDocumentEndpointsFollowTheSameActionMatrix() throws Exception {
+        Fixture f = fixture("Brief Document Matrix Firm");
+        String sara = login(f.saraEmail);
+        MockMultipartFile file = new MockMultipartFile("file", "pd.txt", "text/plain",
+                "text".getBytes(StandardCharsets.UTF_8));
+
+        // Unseated: neither read nor write.
+        mvc.perform(get(positionUrl(f.projectId) + "/brief-document")
+                        .header("Authorization", "Bearer " + sara))
+                .andExpect(status().isForbidden());
+        mvc.perform(multipart(positionUrl(f.projectId) + "/brief-document")
+                        .file(file)
+                        .header("Authorization", "Bearer " + sara))
+                .andExpect(status().isForbidden());
+
+        // Seated as RESEARCHER: reads, but PROJECT_EDIT is out of reach — same as every other write.
+        seat(f.admin, f.projectId, f.saraId, "[\"RESEARCHER\"]");
+        mvc.perform(get(positionUrl(f.projectId) + "/brief-document")
+                        .header("Authorization", "Bearer " + sara))
+                .andExpect(status().isNoContent());
+        mvc.perform(multipart(positionUrl(f.projectId) + "/brief-document")
+                        .file(file)
+                        .header("Authorization", "Bearer " + sara))
+                .andExpect(status().isForbidden());
+        mvc.perform(delete(positionUrl(f.projectId) + "/brief-document")
+                        .header("Authorization", "Bearer " + sara))
+                .andExpect(status().isForbidden());
     }
 
     @Test

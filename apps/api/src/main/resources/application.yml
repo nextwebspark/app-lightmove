@@ -73,6 +73,13 @@ spring:
     virtual:
       enabled: true           # Java 21 virtual threads: auth endpoints are IO-bound (DB, DNS, email).
 
+  servlet:
+    multipart:
+      # Matches lightmove.llm.max-document-size — reject an oversized brief document before the
+      # controller (and a Tika parse of a huge file) ever sees it.
+      max-file-size: 15MB
+      max-request-size: 15MB
+
 server:
   port: ${PORT:8080}          # Cloud Run injects PORT and expects the container to honour it.
   error:
@@ -173,6 +180,16 @@ lightmove:
       inferred-tag-limit: ${COMPANY_SUGGESTIONS_INFERRED_LIMIT:8}
       # How many co-occurring tags to pull before filtering out ground the sectors already cover.
       inferred-tag-fetch-size: ${COMPANY_SUGGESTIONS_INFERRED_FETCH:30}
+
+  # The brief-document upload behind the Position screen: text extraction is local (Tika); the
+  # structured-field extraction is an LLM call, off by default (see Llm.provider above it).
+  llm:
+    provider: ${LLM_PROVIDER:log}
+    max-document-size: 15MB
+    vertex-ai:
+      project-id: ${GCP_PROJECT_ID:}
+      location: ${GCP_LOCATION:us-central1}
+      model: ${VERTEX_MODEL:gemini-2.5-flash}
 
 management:
   # Actuator listens on its own port, bound to loopback — it is not reachable from the internet at all.

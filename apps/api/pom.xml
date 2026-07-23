@@ -21,6 +21,8 @@
 		<bucket4j.version>8.14.0</bucket4j.version>
 		<cloud-sql.version>1.25.2</cloud-sql.version>
 		<logstash-encoder.version>8.1</logstash-encoder.version>
+		<tika.version>3.3.1</tika.version>
+		<google-genai.version>1.63.0</google-genai.version>
 	</properties>
 
 	<dependencies>
@@ -106,6 +108,25 @@
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
 			<optional>true</optional>
+		</dependency>
+
+		<!-- Brief-document text extraction: one dependency reads PDF/DOC/DOCX/TXT uniformly. -->
+		<dependency>
+			<groupId>org.apache.tika</groupId>
+			<artifactId>tika-core</artifactId>
+			<version>${tika.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.tika</groupId>
+			<artifactId>tika-parsers-standard-package</artifactId>
+			<version>${tika.version}</version>
+		</dependency>
+
+		<!-- Vertex AI Gemini client for brief-document extraction -->
+		<dependency>
+			<groupId>com.google.genai</groupId>
+			<artifactId>google-genai</artifactId>
+			<version>${google-genai.version}</version>
 		</dependency>
 
 		<!-- ─── Test ─── -->

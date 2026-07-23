@@ -40,6 +40,13 @@ lightmove:
     # and signup is fully testable today. Switch to `resend` when you have an API key.
     provider: log
 
+  llm:
+    # `log` logs the extracted document text and returns nothing found: no GCP AI setup needed to
+    # exercise the Position screen's upload flow. Switch to `vertex-ai` (and set
+    # lightmove.llm.vertex-ai.project-id) to actually populate the brief from a real document — it
+    # authenticates with the same `gcloud auth application-default login` credentials as Cloud SQL.
+    provider: log
+
 logging:
   level:
     app.lightmove.api: DEBUG

@@ -13,6 +13,16 @@ export type EmploymentType =
 
 export type NoticeUnit = "WEEKS" | "MONTHS";
 
+export type BriefDocumentStatus = "COMPLETED" | "FAILED";
+
+export interface BriefDocument {
+  fileName: string;
+  contentType: string;
+  fileSize: number;
+  uploadedAt: string;
+  status: BriefDocumentStatus;
+}
+
 export interface Criterion {
   text: string;
   mode: CriterionMode;
@@ -51,7 +61,12 @@ export interface Position {
   behavioural: Competency[];
   locked: boolean;
   lockedAt: string | null;
+  /** Null until a position description has been uploaded. */
+  briefDocument: BriefDocument | null;
 }
 
-/** The scalar snapshot the autosave PUTs — Position minus the two lists and the lock state. */
-export type PositionDetails = Omit<Position, "criteria" | "technical" | "behavioural" | "locked" | "lockedAt">;
+/** The scalar snapshot the autosave PUTs — Position minus the two lists, the lock state, and the file. */
+export type PositionDetails = Omit<
+  Position,
+  "criteria" | "technical" | "behavioural" | "locked" | "lockedAt" | "briefDocument"
+>;

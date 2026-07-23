@@ -1,6 +1,7 @@
 package app.lightmove.api.project.dto;
 
 import app.lightmove.api.project.constant.CriterionMode;
+import app.lightmove.api.project.constant.DocumentExtractionStatus;
 import app.lightmove.api.project.constant.EmploymentType;
 import app.lightmove.api.project.constant.MandateReason;
 import app.lightmove.api.project.constant.NoticeUnit;
@@ -49,7 +50,17 @@ public final class PositionDtos {
             List<CompetencyDto> technical,
             List<CompetencyDto> behavioural,
             boolean locked,
-            Instant lockedAt
+            Instant lockedAt,
+            /** Null when no position description has been uploaded yet. */
+            BriefDocumentDto briefDocument
+    ) {}
+
+    public record BriefDocumentDto(
+            String fileName,
+            String contentType,
+            long fileSize,
+            Instant uploadedAt,
+            DocumentExtractionStatus status
     ) {}
 
     public record CriterionResponse(String text, CriterionMode mode, boolean fromBrief) {}

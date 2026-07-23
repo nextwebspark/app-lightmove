@@ -175,9 +175,13 @@ interface RequestOptions {
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", body, anonymous = false, withCsrf = false } = options;
 
+  // A FormData body (the brief-document upload) must NOT get a Content-Type header — the browser
+  // sets one itself, with the multipart boundary the server needs to split the parts back apart.
+  const isFormData = body instanceof FormData;
+
   const send = async (token: string | null): Promise<Response> => {
     const headers: Record<string, string> = {};
-    if (body !== undefined) {
+    if (body !== undefined && !isFormData) {
       headers["Content-Type"] = "application/json";
     }
     if (token) {
@@ -196,7 +200,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       // Always: the refresh cookie must ride along on the auth routes, and sending it elsewhere is
       // harmless because the cookie is path-scoped and the browser will not attach it anyway.
       credentials: "include",
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body),
     });
   };
 
