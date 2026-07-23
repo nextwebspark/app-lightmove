@@ -57,7 +57,8 @@ public class ClientRepresentative extends BaseEntity {
     private UUID createdBy;
 
     public static ClientRepresentative invited(UUID workspaceId, UUID clientId, String fullName,
-                                               String position, String email, UUID createdBy) {
+                                               String position, String email, UUID invitationId,
+                                               UUID createdBy) {
         ClientRepresentative representative = new ClientRepresentative();
         representative.workspaceId = workspaceId;
         representative.clientId = clientId;
@@ -65,6 +66,7 @@ public class ClientRepresentative extends BaseEntity {
         representative.position = position;
         representative.email = email;
         representative.status = ClientRepStatus.INVITED;
+        representative.invitationId = invitationId;
         representative.createdBy = createdBy;
         return representative;
     }
@@ -87,7 +89,7 @@ public class ClientRepresentative extends BaseEntity {
         return representative;
     }
 
-    /** Re-issue an invite to a previously revoked row, rather than leaving a second live representative. */
+    /** Re-issue an invite to an existing row, rather than leaving a second live representative. */
     public void reinvite(String fullName, String position, UUID invitationId) {
         this.fullName = fullName.trim();
         this.position = position;
@@ -96,18 +98,15 @@ public class ClientRepresentative extends BaseEntity {
         this.invitationId = invitationId;
     }
 
-    public void linkInvitation(UUID invitationId) {
-        this.invitationId = invitationId;
+    /** The registry details as last typed by staff — refreshed on a re-invite, whichever path it takes. */
+    public void refreshDetails(String fullName, String position) {
+        this.fullName = fullName.trim();
+        this.position = position;
     }
 
     /** They accepted: an account now exists, so the representative is live and can be attached to mandates. */
     public void activate(UUID userId) {
         this.userId = userId;
         this.status = ClientRepStatus.ACTIVE;
-    }
-
-    /** Withdraw a representative. The row is kept (REVOKED) so re-inviting the same address reuses it. */
-    public void revoke() {
-        this.status = ClientRepStatus.REVOKED;
     }
 }

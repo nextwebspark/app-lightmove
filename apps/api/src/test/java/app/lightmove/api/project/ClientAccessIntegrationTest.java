@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -219,6 +220,63 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
                                 {"roles":["RESEARCHER"]}
                                 """))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("a representative of one client cannot be attached to another client's mandate")
+    void representativeOfAnotherClientCannotBeAttached() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Boundary Firm");
+        String admin = login(alok);
+
+        String clientA = createCustomClient(admin, "Client A");
+        String clientB = createCustomClient(admin, "Client B");
+        String mandateOfB = createProject(admin, clientB, "CEO Search");
+
+        String repEmail = "rep@client-a.example";
+        JsonNode representative = inviteRepresentative(admin, clientA, "Rep A", "Chair", repEmail);
+        String rep = acceptAsNewUser(email.latestTokenFor(repEmail), "Rep A");
+
+        MvcResult crossAttach = mvc.perform(post("/api/v1/projects/" + mandateOfB + "/representatives")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"representativeId":"%s"}
+                                """.formatted(representative.get("id").asText())))
+                .andReturn();
+        assertThat(crossAttach.getResponse().getStatus()).isEqualTo(400);
+        assertThat(codeOf(crossAttach)).isEqualTo("VALIDATION_FAILED");
+
+        // The other client's mandate never appears in the representative's scoped list.
+        mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + rep))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("re-inviting an ACTIVE representative is refused before any email goes out")
+    void duplicateInviteOfActiveRepresentativeSendsNoEmail() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Dupe Firm");
+        String admin = login(alok);
+
+        String colleague = "sam@" + domain;
+        inviteAndAccept(admin, "Sam Staff", colleague, "MEMBER");
+
+        String clientId = createCustomClient(admin, "Acme Corp");
+        inviteRepresentative(admin, clientId, "Sam Staff", "Sponsor", colleague);
+
+        email.clear();
+        MvcResult duplicate = mvc.perform(post("/api/v1/clients/" + clientId + "/representatives")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Sam Staff","position":"Sponsor","email":"%s"}
+                                """.formatted(colleague)))
+                .andReturn();
+        assertThat(duplicate.getResponse().getStatus()).isEqualTo(400);
+        assertThat(codeOf(duplicate)).isEqualTo("VALIDATION_FAILED");
+        assertThat(email.sent()).isEmpty();
     }
 
     private String createCustomClient(String adminToken, String name) throws Exception {

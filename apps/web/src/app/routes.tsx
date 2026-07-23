@@ -129,8 +129,7 @@ function homeFor(user: {
   onboardingHeld: boolean;
   pendingInvitation: unknown;
 }) {
-  // Everyone in a workspace lands on the projects list — staff see every mandate, a client sees only the
-  // ones they're attached to (the server scopes it), and the shell hides the staff nav from a pure client.
+  // Everyone in a workspace lands on the projects list; the server scopes a pure client's to their seats.
   if (user.workspace) return "/";
   if (user.onboardingHeld) return "/signup/verify";
   if (user.pendingInvitation) return "/auth/accept-invite";

@@ -85,8 +85,7 @@ public class ProjectService {
         return all.stream().map(project -> toResponse(project, assembly)).toList();
     }
 
-    /** The creator's seat holds {ADMIN, LEAD} from birth — they own the mandate and run it, until they delegate. */
-    /** The mandates of one client, fully assembled (team, health) — the client drawer and portal read this. */
+    /** The mandates of one client, fully assembled (team, health) — the client drawer reads this. */
     @Transactional(readOnly = true)
     public List<ProjectResponse> listForClient(UUID workspaceId, UUID clientId) {
         List<Project> forClient = projects.findByWorkspaceIdAndClientIdOrderByCreatedAtDesc(workspaceId, clientId);
@@ -97,6 +96,7 @@ public class ProjectService {
         return forClient.stream().map(project -> toResponse(project, assembly)).toList();
     }
 
+    /** The creator's seat holds {ADMIN, LEAD} from birth — they own the mandate and run it, until they delegate. */
     @Transactional
     public ProjectResponse create(UUID userId, UUID workspaceId, CreateProjectRequest request,
                                   HttpServletRequest httpRequest) {
@@ -143,11 +143,9 @@ public class ProjectService {
     public ProjectResponse putMember(UUID userId, UUID workspaceId, UUID projectId, UUID memberId,
                                      Set<ProjectRole> roles, HttpServletRequest httpRequest) {
         Project project = requireProject(projectId, workspaceId);
-        // A portal-guest (workspace CLIENT) is never seated, whatever roles are asked for — the
-        // requested-role guard below only covers the roles named, not the nature of the member.
         access.requireStaffRow(memberId, workspaceId);
 
-        // Clients are invited through the portal flow (a later phase), never seated by staff.
+        // Clients are attached via attachRepresentative, never seated here.
         if (roles.contains(ProjectRole.CLIENT)) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED,
                     "Clients are invited to a project, not seated on the team");
@@ -199,7 +197,7 @@ public class ProjectService {
     public ProjectResponse attachRepresentative(UUID actorId, UUID workspaceId, UUID projectId,
                                                 UUID representativeId, HttpServletRequest httpRequest) {
         Project project = requireProject(projectId, workspaceId);
-        WorkspaceMember membership = requireActiveRepresentativeMembership(representativeId, workspaceId);
+        WorkspaceMember membership = requireActiveRepresentativeMembership(representativeId, project);
         Role clientRole = rbac.role(ProjectRole.CLIENT);
 
         ProjectMember seat = seats.findByProjectIdAndMemberId(projectId, membership.getId()).orElse(null);
@@ -224,7 +222,7 @@ public class ProjectService {
     public ProjectResponse detachRepresentative(UUID actorId, UUID workspaceId, UUID projectId,
                                                 UUID representativeId, HttpServletRequest httpRequest) {
         Project project = requireProject(projectId, workspaceId);
-        WorkspaceMember membership = requireActiveRepresentativeMembership(representativeId, workspaceId);
+        WorkspaceMember membership = requireActiveRepresentativeMembership(representativeId, project);
 
         ProjectMember seat = seats.findByProjectIdAndMemberId(projectId, membership.getId()).orElse(null);
         if (seat != null && seat.getRoles().stream().anyMatch(role -> role.is(ProjectRole.CLIENT))) {
@@ -242,16 +240,24 @@ public class ProjectService {
         return toResponse(project, assemblyFor(workspaceId, List.of(project)));
     }
 
-    /** The workspace membership behind an ACTIVE representative — the row a mandate seat references. */
-    private WorkspaceMember requireActiveRepresentativeMembership(UUID representativeId, UUID workspaceId) {
+    /**
+     * The workspace membership behind an ACTIVE representative — the row a mandate seat references.
+     * The representative must belong to the project's own client: a rep of one client must never be
+     * granted a view of another client's mandate.
+     */
+    private WorkspaceMember requireActiveRepresentativeMembership(UUID representativeId, Project project) {
         ClientRepresentative representative = representatives
-                .findByIdAndWorkspaceId(representativeId, workspaceId)
+                .findByIdAndWorkspaceId(representativeId, project.getWorkspaceId())
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         if (representative.getStatus() != ClientRepStatus.ACTIVE || representative.getUserId() == null) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED,
                     "The representative must accept their invitation before joining a mandate");
         }
-        return access.requireActiveMember(representative.getUserId(), workspaceId);
+        if (!representative.getClientId().equals(project.getClientId())) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED,
+                    "That representative belongs to a different client");
+        }
+        return access.requireActiveMember(representative.getUserId(), project.getWorkspaceId());
     }
 
     private boolean holdsAdmin(ProjectMember seat) {

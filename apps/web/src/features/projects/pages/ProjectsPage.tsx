@@ -4,6 +4,7 @@ import { PageHeader } from "../../../components/layout/PageHeader";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, EmptyState } from "../../../components/ui";
 import { useAuth } from "../../auth/AuthProvider";
+import { isPureClient } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as projectsApi from "../api/projectsApi";
@@ -19,6 +20,9 @@ import { CHIPS, filterProjects, sortProjects, type ChipKey, type SortKey } from 
  */
 export function ProjectsPage({ view }: { view: "my" | "all" }) {
   const { user } = useAuth();
+  // The registry and roster are staff surfaces a pure client can't read; the server already scopes
+  // their project list to the mandates they're attached to, so that list IS "my projects" for them.
+  const clientOnly = isPureClient(user?.workspace?.roles ?? []);
   const [query, setQuery] = useState("");
   const [chip, setChip] = useState<ChipKey>("active");
   const [sortKey, setSortKey] = useState<SortKey>("date");
@@ -30,20 +34,29 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
     queryKey: projectsApi.PROJECTS_KEY,
     queryFn: projectsApi.projects,
   });
+  // Gated on a known user: until the session resolves we can't tell staff from client, and firing the
+  // staff-only queries for a client would 403.
   const { data: clients = [] } = useQuery({
     queryKey: clientsApi.CLIENTS_KEY,
     queryFn: clientsApi.clients,
+    enabled: Boolean(user) && !clientOnly,
   });
   const { data: members = [] } = useQuery({
     queryKey: workspaceApi.MEMBERS_KEY,
     queryFn: workspaceApi.members,
+    enabled: Boolean(user) && !clientOnly,
   });
 
   const myMemberId = members.find((m) => m.userId === user?.id)?.memberId;
 
   const rows = useMemo(
-    () => sortProjects(filterProjects(projects, { view, myMemberId, chip, query }), sortKey, sortDirection),
-    [projects, view, myMemberId, chip, query, sortKey, sortDirection],
+    () =>
+      sortProjects(
+        filterProjects(projects, { view: clientOnly ? "all" : view, myMemberId, chip, query }),
+        sortKey,
+        sortDirection,
+      ),
+    [projects, view, clientOnly, myMemberId, chip, query, sortKey, sortDirection],
   );
 
   const onSort = (key: SortKey) => {
@@ -64,6 +77,15 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
   );
 
   if (projects.length === 0) {
+    if (clientOnly) {
+      return (
+        <EmptyState
+          icon={<Icon d={ICONS.briefcase} size={24} />}
+          title="No projects shared with you yet"
+          body="When your search firm attaches you to a mandate, it will appear here."
+        />
+      );
+    }
     return (
       <>
         <EmptyState
@@ -94,7 +116,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
       <PageHeader
         title={view === "my" ? "My projects" : "All projects"}
         subtitle={`${rows.length} ${rows.length === 1 ? "project" : "projects"} · workspace ${user?.workspace?.name ?? ""}`}
-        action={newProjectButton}
+        action={clientOnly ? undefined : newProjectButton}
       />
 
       <div className="mb-3.5 flex flex-wrap items-center gap-2.5">
@@ -134,11 +156,16 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
 
       {rows.length === 0 && (
         <div className="p-12 text-center font-mono text-[13px] text-text3">
-          No projects match. Clear filters or create a new project.
+          {clientOnly ? "No projects match. Clear filters." : "No projects match. Clear filters or create a new project."}
         </div>
       )}
 
-      <ProjectDrawer project={openProject} members={members} onClose={() => setOpenProjectId(null)} />
+      <ProjectDrawer
+        project={openProject}
+        members={members}
+        canManageTeam={!clientOnly}
+        onClose={() => setOpenProjectId(null)}
+      />
 
       {modalOpen && (
         <NewProjectModal open onClose={() => setModalOpen(false)} clients={clients} />

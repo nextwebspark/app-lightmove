@@ -11,7 +11,8 @@ a member may hold `CLIENT` **alongside** a staff role and is then treated as sta
 project `CLIENT` seat, which grants `WORK_VIEW` (read a mandate's content, never edit).
 
 **Built so far: auth, workspace management, minimal projects, and the RBAC layer.** Signup (3 steps),
-login, Google OAuth, invitations, the roster, the projects/clients/team screens with per-seat roles.
+login, Google OAuth, invitations, the roster, the projects/clients/team screens with per-seat roles,
+the client registry with representative invites and their scoped read-only project access.
 The Project screen's own tables (candidates, pipeline) don't exist yet. Don't build ahead of the
 mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
 
@@ -89,9 +90,12 @@ Invariants that need loaded state stay imperative too — a workspace and every 
 of the ADMIN role (`LAST_ADMIN` / `PROJECT_LAST_ADMIN`).
 
 A project's **content** reads (its strategy, position brief, and future tables) are seat-gated on the
-project action `WORK_EXECUTE` (held by every project role; workspace-admin bypasses), **not** workspace
-`PROJECT_BROWSE` — a mandate's scope and brief are team-only. Only the project *list* and shared
-reference data (`CompanyReferenceController`) ride `PROJECT_BROWSE`: existence isn't secret, content is.
+project action `WORK_VIEW` (held by every seated role including CLIENT; workspace-admin bypasses),
+**not** workspace `PROJECT_BROWSE` — a mandate's scope and brief are team-only. `WORK_EXECUTE` is the
+write half, held by the staff roles and never CLIENT, so read and write access can be granted apart.
+The project *list* rides any active membership (`@workspaceAuth.member`; the service scopes a pure
+client to the mandates they're seated on), and shared reference data (`CompanyReferenceController`)
+rides `PROJECT_BROWSE`: existence isn't secret, content is.
 
 ### Tokens are never stored raw
 

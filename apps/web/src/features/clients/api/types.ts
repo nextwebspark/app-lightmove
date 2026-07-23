@@ -8,7 +8,8 @@ import type { ProjectHealth, ProjectStage } from "../../projects/api/types";
 
 export type ClientType = "RETAINED" | "PROSPECT";
 
-export type ClientRepStatus = "INVITED" | "ACTIVE" | "REVOKED";
+/** The server filters revoked representatives out of every response, so only these two reach the UI. */
+export type ClientRepStatus = "INVITED" | "ACTIVE";
 
 /** A representative reduced to what the table's avatar stack renders. */
 export interface RepAvatar {

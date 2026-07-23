@@ -88,9 +88,6 @@ function ClientView({
   const [domain, setDomain] = useState(client.domain ?? "");
   const [offLimits, setOffLimits] = useState(client.offLimitsNote ?? "");
 
-  // No re-seed effect: ClientView is keyed on client.id by its parent, so a different client remounts
-  // (re-seeding via useState initialisers) while a refetch of the same client leaves edits intact.
-
   const dirty =
     name !== client.name ||
     sector !== (client.sector ?? "") ||
@@ -332,7 +329,6 @@ function Representatives({ client }: { client: ClientDetail }) {
 const REP_BADGE: Record<ClientRepresentative["status"], { label: string; className: string }> = {
   ACTIVE: { label: "Active", className: "text-green bg-green-dim" },
   INVITED: { label: "Invited", className: "text-amber bg-amber-dim" },
-  REVOKED: { label: "Revoked", className: "text-text3 bg-panel2" },
 };
 
 function RepRow({ rep }: { rep: ClientRepresentative }) {

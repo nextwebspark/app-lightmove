@@ -44,7 +44,6 @@ export function NewClientModal({
 
   const hasSelection = selected !== null || custom !== null;
 
-  // Debounce the search so a request does not fire on every keystroke.
   useEffect(() => {
     const handle = setTimeout(() => setDebounced(companyQuery.trim()), 250);
     return () => clearTimeout(handle);

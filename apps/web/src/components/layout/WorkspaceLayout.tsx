@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Outlet } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
+import { isPureClient } from "../../features/auth/roles";
 import * as clientsApi from "../../features/clients/api/clientsApi";
 import * as projectsApi from "../../features/projects/api/projectsApi";
 import * as workspaceApi from "../../features/workspace/api/workspaceApi";
@@ -19,9 +20,7 @@ export function WorkspaceLayout() {
   const verified = user?.emailVerified ?? false;
   const roles = user?.workspace?.roles ?? [];
   const isAdmin = roles.includes("ADMIN");
-  // A pure client (only the CLIENT role) is read-only and scoped to the mandates they're attached to.
-  // The registry and roster are staff surfaces they can't read — don't query them, don't show them.
-  const clientOnly = roles.includes("CLIENT") && !roles.some((role) => role === "ADMIN" || role === "MEMBER");
+  const clientOnly = isPureClient(roles);
 
   const { data: projects } = useQuery({
     queryKey: projectsApi.PROJECTS_KEY,

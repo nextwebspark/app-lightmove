@@ -15,6 +15,7 @@ import app.lightmove.api.workspace.model.ClientRepresentativeAcceptedEvent;
 import app.lightmove.api.workspace.model.ClientRepresentativeOnboarding;
 import app.lightmove.api.workspace.service.InvitationService;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,8 +43,9 @@ public class ClientRepresentativeService {
     private final AuditService audit;
 
     /**
-     * Invites a representative to a client's portal. The representative row is upserted first (a revoked
-     * row for the same address is reused, not duplicated), then the invitation is issued and linked.
+     * Invites a representative to a client's portal. A duplicate of an ACTIVE representative is refused
+     * before any membership or email side effect; otherwise an existing row (outstanding or revoked) is
+     * reused, never duplicated.
      */
     @Transactional
     public RepresentativeResponse invite(UUID actorId, UUID workspaceId, UUID clientId, String fullName,
@@ -51,38 +53,36 @@ public class ClientRepresentativeService {
         Client client = clients.findByIdAndWorkspaceId(clientId, workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
 
-        // Normalise once so the representative row and the invitation store the identical address —
-        // matching survives only by IgnoreCase lookups otherwise. The workspace side re-normalises, which
-        // is idempotent on an already-normalised value.
+        // Normalise once so the representative row and the invitation store the identical address.
         String email = EmailAddressValidator.normalise(rawEmail);
 
-        // Membership is the workspace's to grant: an existing member gains the CLIENT role and a notice,
-        // a stranger gets the invitation flow. We only decide what the representative row should say.
+        // Refuse a duplicate before onboarding runs: its notice email is not transactional, so a throw
+        // after it would still have mailed the person.
+        Optional<ClientRepresentative> existing = representatives
+                .findByClientIdAndEmailIgnoreCase(clientId, email);
+        if (existing.filter(row -> row.getStatus() == ClientRepStatus.ACTIVE).isPresent()) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED,
+                    "That person is already a representative of this client");
+        }
+
         ClientRepresentativeOnboarding onboarding = invitations.onboardClientRepresentative(
                 workspaceId, clientId, client.getName(), email, actorId, request);
 
-        ClientRepresentative representative = representatives
-                .findByClientIdAndEmailIgnoreCase(clientId, email)
-                .map(existing -> {
-                    if (existing.getStatus() == ClientRepStatus.ACTIVE) {
-                        throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                                "That person is already a representative of this client");
-                    }
+        ClientRepresentative representative = existing
+                .map(row -> {
                     if (onboarding.existingMember()) {
-                        existing.activate(onboarding.memberUserId());
+                        row.refreshDetails(fullName, position);
+                        row.activate(onboarding.memberUserId());
                     } else {
-                        existing.reinvite(fullName, position, onboarding.invitation().getId());
+                        row.reinvite(fullName, position, onboarding.invitation().getId());
                     }
-                    return existing;
+                    return row;
                 })
                 .orElseGet(() -> representatives.save(onboarding.existingMember()
                         ? ClientRepresentative.active(workspaceId, clientId, fullName, position, email,
                                 onboarding.memberUserId(), actorId)
-                        : ClientRepresentative.invited(workspaceId, clientId, fullName, position, email, actorId)));
-
-        if (!onboarding.existingMember()) {
-            representative.linkInvitation(onboarding.invitation().getId());
-        }
+                        : ClientRepresentative.invited(workspaceId, clientId, fullName, position, email,
+                                onboarding.invitation().getId(), actorId)));
 
         audit.event(ProjectEventType.CLIENT_REP_INVITED)
                 .actor(actorId).workspace(workspaceId).target("client", clientId).from(request)

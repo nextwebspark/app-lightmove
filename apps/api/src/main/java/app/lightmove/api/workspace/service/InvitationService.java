@@ -143,9 +143,6 @@ public class InvitationService {
         String hash = Tokens.hash(plaintext);
         Role granted = rbac.role(role);
 
-        // Scoped to staff (client_id IS NULL): a client-rep invitation to the same address must not be
-        // refreshed into a staff one — that would rotate its token and, worse, leave its CLIENT role and
-        // client id in place while the email promises MEMBER.
         Invitation invitation = invitations
                 .findByWorkspaceIdAndEmailAndClientIdIsNullAndStatus(
                         workspace.getId(), email, InvitationStatus.PENDING)
@@ -488,9 +485,7 @@ public class InvitationService {
         return invitations.findById(invitationId)
                 .filter(inv -> inv.getWorkspaceId().equals(workspaceId))
                 .filter(inv -> inv.getStatus() == InvitationStatus.PENDING)
-                // Staff management never touches a client-rep invitation: revoking one would strand its
-                // representative row at INVITED, and resending one would rotate its token through the
-                // staff email template. A client id is invisible here, exactly like a foreign workspace's.
+                // A client-rep invitation's id is invisible here, exactly like a foreign workspace's.
                 .filter(inv -> inv.getClientId() == null)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
