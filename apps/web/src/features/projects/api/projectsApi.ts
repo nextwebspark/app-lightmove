@@ -44,3 +44,26 @@ export function putProjectMember(
 export function removeProjectMember(projectId: string, memberId: string): Promise<Project> {
   return request<Project>(`/projects/${projectId}/members/${memberId}`, { method: "DELETE" });
 }
+
+/**
+ * Attach a client contact to this mandate. An ACTIVE representative is seated read-only at once; an
+ * INVITED one is parked server-side and seated automatically when they accept.
+ */
+export function attachRepresentative(
+  projectId: string,
+  representativeId: string,
+): Promise<Project> {
+  return request<Project>(`/projects/${projectId}/representatives`, {
+    method: "POST",
+    body: { representativeId },
+  });
+}
+
+export function detachRepresentative(
+  projectId: string,
+  representativeId: string,
+): Promise<Project> {
+  return request<Project>(`/projects/${projectId}/representatives/${representativeId}`, {
+    method: "DELETE",
+  });
+}

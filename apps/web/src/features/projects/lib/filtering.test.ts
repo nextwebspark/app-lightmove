@@ -13,6 +13,7 @@ const project = (overrides: Partial<Project>): Project => ({
   health: "OK",
   targetDate: "2026-09-15",
   team: [{ memberId: "m1", userId: "u1", fullName: "Alok", workspaceRoles: ["ADMIN"], projectRoles: ["ADMIN", "LEAD"] }],
+  representatives: [],
   companies: 0,
   candidates: 0,
   createdAt: "2026-07-01T00:00:00Z",

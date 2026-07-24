@@ -15,6 +15,7 @@ import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.repository.ClientRepresentativeRepository;
+import app.lightmove.api.project.repository.PendingRepresentativeAttachmentRepository;
 import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.Invitation;
@@ -41,6 +42,7 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
 
     @Autowired InvitationRepository invitations;
     @Autowired ClientRepresentativeRepository representatives;
+    @Autowired PendingRepresentativeAttachmentRepository pendingAttachments;
     @Autowired WorkspaceMemberRepository members;
 
     @Test
@@ -101,11 +103,15 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
 
         attachRepresentative(admin, attached, representative.get("id").asText());
 
-        // The list is scoped to the one mandate they're attached to.
+        // The list is scoped to the one mandate they're attached to. Its representatives[] carries only
+        // their own client's contacts on this same mandate — that is the whole exposure.
         mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + rep))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].id").value(attached));
+                .andExpect(jsonPath("$[0].id").value(attached))
+                .andExpect(jsonPath("$[0].representatives.length()").value(1))
+                .andExpect(jsonPath("$[0].representatives[0].email").value(repEmail))
+                .andExpect(jsonPath("$[0].representatives[0].status").value("ACTIVE"));
 
         // They may read the attached mandate's content...
         mvc.perform(get("/api/v1/projects/" + attached + "/position").header("Authorization", "Bearer " + rep))
@@ -277,6 +283,110 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
         assertThat(duplicate.getResponse().getStatus()).isEqualTo(400);
         assertThat(codeOf(duplicate)).isEqualTo("VALIDATION_FAILED");
         assertThat(email.sent()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("attaching an INVITED representative parks the intent and seats them on accept")
+    void attachingAnInvitedRepresentativeSeatsThemOnAccept() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Pending Firm");
+        String admin = login(alok);
+
+        String clientId = createCustomClient(admin, "Gamma Client");
+        String projectId = createProject(admin, clientId, "COO Search");
+
+        String repEmail = "pending@gamma-client.example";
+        JsonNode representative = inviteRepresentative(admin, clientId, "Pending Rep", "CHRO", repEmail);
+        UUID representativeId = UUID.fromString(representative.get("id").asText());
+
+        // Attaching before they accept parks a pending row, reported as an INVITED contact.
+        JsonNode attached = body(mvc.perform(post("/api/v1/projects/" + projectId + "/representatives")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"representativeId":"%s"}
+                                """.formatted(representativeId)))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(attached.get("representatives").size()).isEqualTo(1);
+        assertThat(attached.get("representatives").get(0).get("status").asText()).isEqualTo("INVITED");
+        assertThat(attached.get("team").size()).as("no seat exists before accept").isEqualTo(1);
+
+        // Re-attaching is a no-op, not a queue.
+        attachRepresentative(admin, projectId, representativeId.toString());
+        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).hasSize(1);
+
+        // Accepting turns the parked intent into a real seat, atomically with the activation.
+        String rep = acceptAsNewUser(email.latestTokenFor(repEmail), "Pending Rep");
+        mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + rep))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(projectId));
+
+        JsonNode afterAccept = body(mvc.perform(get("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andReturn()).get(0);
+        assertThat(afterAccept.get("representatives").get(0).get("status").asText()).isEqualTo("ACTIVE");
+        assertThat(afterAccept.get("team").toString()).contains("CLIENT");
+        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("detaching an INVITED representative cancels the pending attachment before it lands")
+    void detachingAPendingRepresentativeCancelsTheAttachment() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Cancel Firm");
+        String admin = login(alok);
+
+        String clientId = createCustomClient(admin, "Delta Client");
+        String projectId = createProject(admin, clientId, "CMO Search");
+
+        String repEmail = "cancel@delta-client.example";
+        JsonNode representative = inviteRepresentative(admin, clientId, "Cancel Rep", "Chair", repEmail);
+        UUID representativeId = UUID.fromString(representative.get("id").asText());
+        attachRepresentative(admin, projectId, representativeId.toString());
+
+        JsonNode detached = body(mvc.perform(delete(
+                        "/api/v1/projects/" + projectId + "/representatives/" + representativeId)
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(detached.get("representatives").size()).isEqualTo(0);
+        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).isEmpty();
+
+        // Accepting after the cancel lands them nowhere.
+        String rep = acceptAsNewUser(email.latestTokenFor(repEmail), "Cancel Rep");
+        mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + rep))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("a re-invite keeps the pending attachments — the same row is reused, so they still land")
+    void reinviteKeepsPendingAttachments() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Reinvite Firm");
+        String admin = login(alok);
+
+        String clientId = createCustomClient(admin, "Epsilon Client");
+        String projectId = createProject(admin, clientId, "CIO Search");
+
+        String repEmail = "again@epsilon-client.example";
+        JsonNode representative = inviteRepresentative(admin, clientId, "Again Rep", "Advisor", repEmail);
+        UUID representativeId = UUID.fromString(representative.get("id").asText());
+        attachRepresentative(admin, projectId, representativeId.toString());
+
+        // Re-inviting reuses the row (same id), so the parked attachment survives.
+        JsonNode reinvited = inviteRepresentative(admin, clientId, "Again Rep", "Advisor", repEmail);
+        assertThat(reinvited.get("id").asText()).isEqualTo(representativeId.toString());
+        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).hasSize(1);
+
+        String rep = acceptAsNewUser(email.latestTokenFor(repEmail), "Again Rep");
+        mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + rep))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(projectId));
+        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).isEmpty();
     }
 
     private String createCustomClient(String adminToken, String name) throws Exception {

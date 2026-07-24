@@ -2,6 +2,7 @@ package app.lightmove.api.project.dto;
 
 import app.lightmove.api.core.security.rbac.ProjectRole;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
+import app.lightmove.api.project.constant.ClientRepStatus;
 import app.lightmove.api.project.constant.ProjectHealth;
 import app.lightmove.api.project.constant.ProjectStage;
 import jakarta.validation.constraints.NotBlank;
@@ -29,9 +30,22 @@ public final class ProjectDtos {
             ProjectHealth health,
             LocalDate targetDate,
             List<TeamMemberResponse> team,
+            List<AttachedRepresentativeResponse> representatives,
             int companies,
             int candidates,
             Instant createdAt
+    ) {}
+
+    /**
+     * A client-side contact on this mandate: seated with a CLIENT seat (ACTIVE) or attached while
+     * their portal invitation is still outstanding (INVITED — they are seated automatically on accept).
+     */
+    public record AttachedRepresentativeResponse(
+            UUID representativeId,
+            String fullName,
+            String position,
+            String email,
+            ClientRepStatus status
     ) {}
 
     /** A seat on the team. Both tiers' roles are sets — the creator holds {ADMIN, LEAD} from birth. */

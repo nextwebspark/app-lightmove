@@ -40,6 +40,7 @@ public class ClientRepresentativeService {
     private final ClientRepository clients;
     private final ClientRepresentativeRepository representatives;
     private final InvitationService invitations;
+    private final ProjectService projects;
     private final AuditService audit;
 
     /**
@@ -84,6 +85,12 @@ public class ClientRepresentativeService {
                         : ClientRepresentative.invited(workspaceId, clientId, fullName, position, email,
                                 onboarding.invitation().getId(), actorId)));
 
+        // The second INVITED→ACTIVE path: a previously-invited address re-invited once it is already a
+        // member activates right here, with no acceptance event — pending attachments must not orphan.
+        if (onboarding.existingMember()) {
+            projects.seatAcceptedRepresentative(representative);
+        }
+
         audit.event(ProjectEventType.CLIENT_REP_INVITED)
                 .actor(actorId).workspace(workspaceId).target("client", clientId).from(request)
                 .detail("representativeId", representative.getId().toString())
@@ -108,6 +115,7 @@ public class ClientRepresentativeService {
                 .ifPresentOrElse(
                         representative -> {
                             representative.activate(event.userId());
+                            projects.seatAcceptedRepresentative(representative);
                             audit.event(ProjectEventType.CLIENT_REP_ACCEPTED)
                                     .actor(event.userId()).workspace(event.workspaceId())
                                     .target("client", event.clientId())

@@ -49,6 +49,7 @@ const project: Project = {
   health: "OK",
   targetDate: null,
   team: [],
+  representatives: [],
   companies: 0,
   candidates: 0,
   createdAt: "2026-07-01T00:00:00Z",

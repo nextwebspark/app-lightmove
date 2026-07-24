@@ -58,6 +58,10 @@ export function ProjectLayout() {
         { to: `${base}/reports`, label: "Reports", icon: ICONS.reports },
       ],
     },
+    {
+      label: "Project",
+      items: [{ to: `${base}/team`, label: "Team & access", icon: ICONS.team }],
+    },
   ];
 
   return (
