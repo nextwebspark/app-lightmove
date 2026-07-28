@@ -84,6 +84,13 @@ public enum ErrorCode {
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Too many requests. Please slow down"),
 
     /**
+     * The external sourcing data provider (CoreSignal) failed or is not configured. The detail —
+     * bad key, out of credits, unreachable — stays in the run's error state and the logs, never in
+     * this client-facing message.
+     */
+    SOURCING_PROVIDER_FAILED(HttpStatus.BAD_GATEWAY, "The sourcing data provider is unavailable"),
+
+    /**
      * The CSRF token was missing or did not match. Distinct from FORBIDDEN on purpose: the SPA recovers
      * from this by re-fetching {@code /auth/csrf} and retrying, and it cannot recover from "you lack
      * permission". Reporting them as the same thing turns a self-healing case into a dead end.

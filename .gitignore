@@ -22,6 +22,12 @@ apps/api/src/main/resources/application-local.yml.*
 *.rej
 *.tmp
 
+# --- One-off data migrations ---
+# Working scripts for a single load that has already happened, not product code: the crosswalk CSVs are
+# hand-authored against one snapshot of the warehouse and would rot the moment it is rebuilt. What the
+# migration did is recorded in each folder's README, which is the part worth reading later.
+ops/migrations/
+
 # --- Java / Maven ---
 target/
 !.mvn/wrapper/maven-wrapper.jar

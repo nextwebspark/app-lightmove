@@ -174,6 +174,16 @@ lightmove:
       # How many co-occurring tags to pull before filtering out ground the sectors already cover.
       inferred-tag-fetch-size: ${COMPANY_SUGGESTIONS_INFERRED_FETCH:30}
 
+  # CoreSignal Multi-source Company API (POC sourcing provider). Every successful search request and
+  # every successful collect costs credits; the collect cache (app_lm_coresignal_company) is the only
+  # thing standing between a repeat run and a repeat bill. Blank key = sourcing disabled, app boots.
+  coresignal:
+    api-key: ${CORESIGNAL_API_KEY:}
+    # Companies collected per run and per "load more" — each uncached one costs collect credits.
+    collect-batch-size: ${CORESIGNAL_COLLECT_BATCH:25}
+    # Search-result ids kept from the single search page; ceiling on total collects per criteria.
+    max-search-ids: ${CORESIGNAL_MAX_SEARCH_IDS:200}
+
 management:
   # Actuator listens on its own port, bound to loopback — it is not reachable from the internet at all.
   #

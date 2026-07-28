@@ -40,6 +40,12 @@ lightmove:
     # and signup is fully testable today. Switch to `resend` when you have an API key.
     provider: log
 
+  coresignal:
+    # console.coresignal.com → API key. 2 credits per search request, 2 per collected company;
+    # already-collected companies are served from the cache for free. Leave unset to boot with
+    # CoreSignal sourcing disabled.
+    api-key: CHANGEME
+
 logging:
   level:
     app.lightmove.api: DEBUG

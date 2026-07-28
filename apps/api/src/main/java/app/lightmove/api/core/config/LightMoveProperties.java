@@ -16,7 +16,8 @@ public record LightMoveProperties(
         Auth auth,
         Email email,
         Web web,
-        Company company
+        Company company,
+        CoreSignal coresignal
 ) {
 
     public record Auth(
@@ -216,4 +217,23 @@ public record LightMoveProperties(
                 @DefaultValue("30") int inferredTagFetchSize
         ) {}
     }
+
+    /**
+     * The CoreSignal Multi-source Company API — the POC sourcing provider. Every successful search
+     * request and every successful collect costs credits, so the two spend knobs here are limits,
+     * not tuning: {@code collectBatchSize} is how many companies one run (or one "load more") pays
+     * to collect, and {@code maxSearchIds} caps how deep into the search results those batches can
+     * ever reach. A blank {@code apiKey} leaves the application fully bootable with sourcing
+     * disabled — see {@code CoreSignalConfig}.
+     */
+    public record CoreSignal(
+            String apiKey,
+            @DefaultValue("https://api.coresignal.com/cdapi/v2") String baseUrl,
+
+            /** Companies collected per run and per extend — each uncached one costs collect credits. */
+            @DefaultValue("25") int collectBatchSize,
+
+            /** Search-result ids kept from the (single) search page; the ceiling on total collects per criteria. */
+            @DefaultValue("200") int maxSearchIds
+    ) {}
 }

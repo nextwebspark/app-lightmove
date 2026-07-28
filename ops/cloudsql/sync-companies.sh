@@ -141,9 +141,14 @@ FROM upserted;
 
 -- Companies we hold that the warehouse no longer publishes. Reported, never deleted: a project may
 -- already reference one, and what should happen to it is a product decision nobody has made yet.
+--
+-- Scoped to source = 'brightdata'. app_lm_companies now also holds rows this script never loads
+-- (ops/migrations/company-enrichment/ loads 'AI_enrichment'), and comparing every source against a
+-- brightdata-only staging table would report all of them as vanished upstream on every run.
 SELECT count(*) AS gone_upstream_kept
 FROM app_lm_companies c
-WHERE NOT EXISTS (
+WHERE c.source = 'brightdata'
+  AND NOT EXISTS (
     SELECT 1 FROM app_lm_companies_load l
      WHERE l.source = c.source AND l.source_id = c.source_id
 );

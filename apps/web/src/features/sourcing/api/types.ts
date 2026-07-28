@@ -33,3 +33,49 @@ export interface SourcingResponse {
   size: number;
   appliedFilters: AppliedFilters;
 }
+
+// ── CoreSignal run flow (POC) ────────────────────────────────────────────────
+
+/** PENDING/SEARCHING/COLLECTING are the polling window; READY and FAILED are terminal. */
+export type RunStatus = "PENDING" | "SEARCHING" | "COLLECTING" | "READY" | "FAILED";
+
+/** One company collected from CoreSignal — card and detail drawer share this one shape. */
+export interface SourcedCompany {
+  coresignalId: number;
+  name: string;
+  website: string | null;
+  linkedinUrl: string | null;
+  logoUrl: string | null;
+  industry: string | null;
+  sizeRange: string | null;
+  employeesCount: number | null;
+  revenueRange: string | null;
+  revenueAnnualUsd: number | null;
+  location: string | null;
+  country: string | null;
+  foundedYear: number | null;
+  description: string | null;
+  matchTier: MatchTier;
+}
+
+/**
+ * A poll of the current run. `companies` grows toward `requestedCount` during COLLECTING, already
+ * in the provider's revenue-desc order — new results append/fill, they never reshuffle.
+ * `criteriaMatchesStrategy` false means the results describe an older scope: start a fresh run.
+ */
+export interface SourcingRun {
+  status: RunStatus;
+  requestedCount: number;
+  collectedCount: number;
+  /** How many ids the search kept — `requestedCount < searchedCount` means more can be loaded. */
+  searchedCount: number;
+  totalMatched: number;
+  criteriaMatchesStrategy: boolean;
+  error: string | null;
+  companies: SourcedCompany[];
+}
+
+/** `run` is null when this project has never sourced from CoreSignal — the page auto-starts one. */
+export interface SourcingRunResponse {
+  run: SourcingRun | null;
+}
