@@ -6,7 +6,7 @@ import {
   rowSortingFeature,
   tableFeatures,
 } from "@tanstack/react-table";
-import type { VisibilityState } from "@tanstack/react-table";
+import type { ColumnVisibilityState } from "@tanstack/react-table";
 import { ICONS } from "../../../components/layout/Icon";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import type { CompanyResult, MatchTier } from "../api/types";
@@ -224,7 +224,7 @@ export const COLUMN_GROUPS: { label: string; columnIds: string[] }[] = [
  *  picker rather than whether a reader starts with it. */
 const DEFAULT_COLUMN_IDS = [...COLUMN_GROUPS[0].columnIds, "links"];
 
-export const DEFAULT_COLUMN_VISIBILITY: VisibilityState = Object.fromEntries(
+export const DEFAULT_COLUMN_VISIBILITY: ColumnVisibilityState = Object.fromEntries(
   sourcingColumns.map((column) => [
     column.id as string,
     DEFAULT_COLUMN_IDS.includes(column.id as string),

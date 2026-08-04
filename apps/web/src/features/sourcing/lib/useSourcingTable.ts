@@ -1,4 +1,4 @@
-import type { SortingState, VisibilityState } from "@tanstack/react-table";
+import type { SortingState, ColumnVisibilityState } from "@tanstack/react-table";
 import { useTable } from "@tanstack/react-table";
 import type { CompanyResult } from "../api/types";
 import { sourcingColumns, sourcingTableFeatures } from "../components/columns";
@@ -27,8 +27,8 @@ export function useSourcingTable({
   isReloading: boolean;
   sorting: SortingState;
   onSortingChange: (updater: SortingState | ((old: SortingState) => SortingState)) => void;
-  visibility: VisibilityState;
-  onVisibilityChange: (updater: VisibilityState | ((old: VisibilityState) => VisibilityState)) => void;
+  visibility: ColumnVisibilityState;
+  onVisibilityChange: (updater: ColumnVisibilityState | ((old: ColumnVisibilityState) => ColumnVisibilityState)) => void;
 }) {
   return useTable({
     features: sourcingTableFeatures,
