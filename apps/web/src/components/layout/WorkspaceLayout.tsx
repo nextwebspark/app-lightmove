@@ -82,7 +82,9 @@ export function WorkspaceLayout() {
         <Sidebar groups={groups} />
 
         <main className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-line bg-panel">
-          <div className="mx-auto max-w-[1160px] px-7 pb-[60px] pt-7">
+          {/* Wider than the mockups' 1160px on purpose: the data tables need the room, and a wide
+              monitor was otherwise leaving ~280px unused. Text blocks cap themselves. */}
+          <div className="mx-auto max-w-[1440px] px-7 pb-[60px] pt-7">
             <Outlet />
           </div>
         </main>

@@ -24,6 +24,11 @@ export function CompanyLogo({ name, logo, size }: { name: string; logo: string |
       width={size}
       height={size}
       onError={() => setFailed(true)}
+      // A table page is 25 of these against as many third-party hosts.
+      loading="lazy"
+      decoding="async"
+      // The host is named by pipeline data, so don't hand it the URL of the screen it loaded from.
+      referrerPolicy="no-referrer"
       className="flex-none rounded object-cover"
     />
   );

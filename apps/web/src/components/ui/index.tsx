@@ -2,6 +2,7 @@ import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAt
 import { cn } from "../../lib/cn";
 
 export { Avatar } from "./Avatar";
+export { CompanyLogo } from "./CompanyLogo";
 export { HealthDot, StagePill, stageLabel } from "./Badge";
 export { DateInput } from "./DateInput";
 export { Drawer } from "./Drawer";

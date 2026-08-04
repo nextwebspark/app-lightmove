@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Navigate, Outlet, useParams } from "react-router-dom";
+import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import * as projectsApi from "../../features/projects/api/projectsApi";
 import type { Project } from "../../features/projects/api/types";
@@ -9,6 +9,14 @@ import { Sidebar, type SidebarGroup } from "./Sidebar";
 import { ProjectBreadcrumb, Topbar } from "./Topbar";
 
 /**
+ * Tabs whose own content scrolls, so the shell must not. They need a *definite* height to size that
+ * region against: `min-height` leaves the wrapper's height auto, an auto-height flex column grows to
+ * its content, and the table pushes the page into scrolling instead. `h-full` is opt-in rather than
+ * shared because it caps the wrapper — a tab that scrolls normally would have its overflow clipped.
+ */
+const VIEWPORT_FILLING_TABS = ["/sourcing"];
+
+/**
  * The project workspace shell (Project.dc.html): breadcrumb topbar, the mandate sidebar — Position
  * and Strategy under "Mandate", Sourcing under "Companies", the people tabs — and the routed page.
  * The project itself is resolved from the cached list query; a deep link waits for the load and only
@@ -16,6 +24,8 @@ import { ProjectBreadcrumb, Topbar } from "./Topbar";
  */
 export function ProjectLayout() {
   const { projectId } = useParams();
+  const { pathname } = useLocation();
+  const fillsViewport = VIEWPORT_FILLING_TABS.some((tab) => pathname.endsWith(tab));
   const { user } = useAuth();
   const verified = user?.emailVerified ?? false;
 
@@ -76,7 +86,12 @@ export function ProjectLayout() {
         />
 
         <main className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-line bg-panel">
-          <div className="mx-auto max-w-[1160px] px-7 pb-[60px] pt-7">
+          {/* Wider than the mockups' 1160px on purpose — see WorkspaceLayout for the reasoning. */}
+          <div
+            className={`mx-auto max-w-[1440px] px-7 pb-[60px] pt-7 ${
+              fillsViewport ? "flex h-full flex-col" : ""
+            }`}
+          >
             <Outlet context={{ project } satisfies ProjectOutletContext} />
           </div>
         </main>

@@ -15,10 +15,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The companies matching one mandate's Strategy scope. Gated the same as {@code StrategyController}
- * (WORK_EXECUTE, held by every project role) — sourcing results reveal the team's chosen scope just as
- * directly as the scope itself, so they get the same team-only gate rather than the workspace-level
- * PROJECT_BROWSE that CompanyReferenceController uses for caller-parameterised reads.
+ * The companies matching one mandate's Strategy scope. Seat-gated on WORK_VIEW, the read half held by
+ * every seated role including CLIENT — sourcing results reveal the team's chosen scope as directly as
+ * the scope itself, so they get a team-only gate rather than the workspace-level PROJECT_BROWSE that
+ * CompanyReferenceController uses for caller-parameterised reads.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/sourcing")
@@ -30,9 +30,13 @@ public class SourcingController {
     @GetMapping
     @PreAuthorize("@projectAuth.can(principal, #projectId, 'WORK_VIEW')")
     public ResponseEntity<SourcingResponse> get(@PathVariable UUID projectId,
+                                                 @RequestParam(name = "q", required = false) String query,
+                                                 @RequestParam(required = false) String sort,
+                                                 @RequestParam(required = false) String direction,
                                                  @RequestParam(defaultValue = "0") int page,
                                                  @RequestParam(defaultValue = "25") int size) {
         AuthPrincipal principal = CurrentUser.require();
-        return ResponseEntity.ok(sourcing.get(principal.requireWorkspaceId(), projectId, page, size));
+        return ResponseEntity.ok(sourcing.get(principal.requireWorkspaceId(), projectId, query, sort,
+                direction, page, size));
     }
 }
