@@ -14,6 +14,7 @@
     "@hookform/resolvers": "^5.4.0",
     "@tailwindcss/vite": "^4.3.2",
     "@tanstack/react-query": "^5.101.2",
+    "@tanstack/react-table": "^9.0.0",
     "clsx": "^2.1.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

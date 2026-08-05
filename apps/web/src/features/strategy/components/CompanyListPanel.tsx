@@ -1,7 +1,7 @@
 import type { CompanySearchOrder } from "../api/companiesApi";
 import type { CompanyRef, CompanySearchResult } from "../api/types";
 import { companyKeyOf } from "../lib/companyKey";
-import { CompanyLogo } from "./CompanyLogo";
+import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { CompanySearchCombobox } from "./CompanySearchCombobox";
 
 /**
