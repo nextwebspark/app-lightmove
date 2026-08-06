@@ -35,6 +35,10 @@ export const ICONS = {
   calendar:
     "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z",
   search: "M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm10 18-4.3-4.3",
+  globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.5 9h17M3.5 15h17M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z",
+  // Stroked like every other glyph here rather than the filled brand mark, which would be the only
+  // filled icon in the app and would need its own component to hold it.
+  linkedin: "M16 8.5a5.5 5.5 0 0 1 5.5 5.5V21h-3.6v-7a1.9 1.9 0 0 0-3.8 0v7h-3.6v-12h3.6v1.4M3 9.5h3.6V21H3zM4.8 4a1.6 1.6 0 1 0 .01 0",
   briefcase: "M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2ZM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2",
   chevronDown: "m6 9 6 6 6-6",
   position: "M12 2 3 7l9 5 9-5-9-5ZM3 12l9 5 9-5M3 17l9 5 9-5",

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import * as companiesApi from "../api/companiesApi";
 import type { CompanySearchResult } from "../api/types";
 import { companyKeyOf } from "../lib/companyKey";
-import { CompanyLogo } from "./CompanyLogo";
+import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 
 /** How long a pause in typing must last before the query fires. */
 const DEBOUNCE_MS = 250;

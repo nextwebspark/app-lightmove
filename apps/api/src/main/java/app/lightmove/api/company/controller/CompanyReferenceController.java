@@ -78,7 +78,7 @@ public class CompanyReferenceController {
         List<String> revenueBandList = resolveBands(revenueBands, RevenueBand::fromValue, "revenue");
         List<String> marketList = resolveMarkets(markets);
         ScopeFilter scope = new ScopeFilter(sectorList, List.of(), tagList, employeeBandList, revenueBandList,
-                marketList, List.of(), List.of());
+                marketList, List.of(), List.of(), null);
         return ResponseEntity.ok(new EstimateResponse(companies.estimate(scope)));
     }
 

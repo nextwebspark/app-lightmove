@@ -76,8 +76,13 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
   // ScopeFilter actually reads — sectors, size, geography, and the company lists, but never ownership:
   // ownership now maps onto app_lm_companies.org_type, but wiring that join into Sourcing is a
   // separate session, so for now the selection is tracked without narrowing the list.
-  const invalidateSourcing = () =>
-    void queryClient.invalidateQueries({ queryKey: sourcingApi.SOURCING_KEY_PREFIX(project.id) });
+  // Cancel first: a read still in flight against the pre-edit scope would resolve after the
+  // invalidation and clear the stale flag, stranding the pre-edit companies in the cache as fresh.
+  const refreshSourcing = async () => {
+    const sourcingKey = sourcingApi.SOURCING_KEY_PREFIX(project.id);
+    await queryClient.cancelQueries({ queryKey: sourcingKey });
+    void queryClient.invalidateQueries({ queryKey: sourcingKey });
+  };
 
   // A single tracked mutation stands behind every scope autosave. Its shared key lets Sourcing detect an
   // in-flight save via useIsMutating and hold its own read until this commits — closing the window where a
@@ -88,7 +93,7 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
     mutationFn: async (write: ScopeWrite) => {
       try {
         queryClient.setQueryData(key, await write.run());
-        if (write.affectsSourcing) invalidateSourcing();
+        if (write.affectsSourcing) await refreshSourcing();
       } catch (error) {
         write.onError?.();
         toast(messageFor(error));
