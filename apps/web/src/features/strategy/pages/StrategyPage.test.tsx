@@ -205,9 +205,27 @@ describe("StrategyPage — the sector-scope editor", () => {
     );
   });
 
+  it("cancels the Sourcing list before invalidating it, so a read of the pre-edit scope cannot win", async () => {
+    vi.mocked(companiesApi.getSuggestions).mockResolvedValue({ adjacent: [], inferredTags: [] });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const cancel = vi.spyOn(client, "cancelQueries");
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    renderPage(client);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Retail" }));
+
+    await waitFor(() => expect(cancel).toHaveBeenCalledWith({ queryKey: ["sourcing", "p1"] }), {
+      timeout: 2000,
+    });
+    // A read left running would resolve after the invalidation and clear the stale flag, stranding the
+    // pre-edit companies in the cache as fresh for the whole staleTime.
+    expect(cancel.mock.invocationCallOrder[0]).toBeLessThan(invalidate.mock.invocationCallOrder[0]);
+  });
+
   it("does not invalidate the Sourcing list after an ownership save — ownership is not in scope", async () => {
     vi.mocked(companiesApi.getSuggestions).mockResolvedValue({ adjacent: [], inferredTags: [] });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const cancel = vi.spyOn(client, "cancelQueries");
     const invalidate = vi.spyOn(client, "invalidateQueries");
     renderPage(client);
 
@@ -217,6 +235,7 @@ describe("StrategyPage — the sector-scope editor", () => {
 
     await waitFor(() => expect(strategyApi.putOwnership).toHaveBeenCalled(), { timeout: 2000 });
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ["sourcing", "p1"] });
+    expect(cancel).not.toHaveBeenCalledWith({ queryKey: ["sourcing", "p1"] });
   });
 
   it("removes a sector from Adjacent when it is added as Direct", async () => {

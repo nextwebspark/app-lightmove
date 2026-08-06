@@ -52,8 +52,8 @@ export function SourcingPage() {
 
   const { data, fetchNextPage, hasNextPage, isFetching, isFetchingNextPage } = useInfiniteQuery({
     queryKey: sourcingApi.SOURCING_KEY(project.id, PAGE_SIZE, query, sort),
-    queryFn: ({ pageParam }) =>
-      sourcingApi.getSourcingCompanies(project.id, pageParam, PAGE_SIZE, query, sort),
+    queryFn: ({ pageParam, signal }) =>
+      sourcingApi.getSourcingCompanies(project.id, pageParam, PAGE_SIZE, query, sort, signal),
     initialPageParam: 0,
     enabled: !isStrategySaving,
     getNextPageParam: (lastPage) => {
@@ -72,7 +72,10 @@ export function SourcingPage() {
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
-    if (!sentinel) {
+    // Not while reloading: the six skeleton rows leave the sentinel in view, and `fetchNextPage`
+    // ignores `enabled`, so it would page the pre-edit scope on a loop — each page landing as a
+    // success that clears the invalidation this reload is waiting on.
+    if (!sentinel || isReloading) {
       return;
     }
     // Rooted at the sentinel's own scrollport: a wide table scrolls inside its wrapper and the page

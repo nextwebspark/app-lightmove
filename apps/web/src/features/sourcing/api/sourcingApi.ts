@@ -31,6 +31,7 @@ export function getSourcingCompanies(
   size: number,
   query: string,
   sort: SourcingSort | null,
+  signal?: AbortSignal,
 ): Promise<SourcingResponse> {
   const params = new URLSearchParams({ page: String(page), size: String(size) });
   if (query) {
@@ -40,5 +41,5 @@ export function getSourcingCompanies(
     params.set("sort", sort.field);
     params.set("direction", sort.direction);
   }
-  return request<SourcingResponse>(`/projects/${projectId}/sourcing?${params}`);
+  return request<SourcingResponse>(`/projects/${projectId}/sourcing?${params}`, { signal });
 }
