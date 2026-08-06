@@ -170,10 +170,11 @@ interface RequestOptions {
   anonymous?: boolean;
   /** Set for the cookie-authenticated routes, which need the double-submit header. */
   withCsrf?: boolean;
+  signal?: AbortSignal;
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", body, anonymous = false, withCsrf = false } = options;
+  const { method = "GET", body, anonymous = false, withCsrf = false, signal } = options;
 
   const send = async (token: string | null): Promise<Response> => {
     const headers: Record<string, string> = {};
@@ -197,6 +198,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       // harmless because the cookie is path-scoped and the browser will not attach it anyway.
       credentials: "include",
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
     });
   };
 

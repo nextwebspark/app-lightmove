@@ -4,8 +4,10 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.service.Problems;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ProblemDetail;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -32,6 +35,10 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    private static final Pattern DISCONNECT_MESSAGE =
+            Pattern.compile("Broken pipe|Connection reset|An established connection was aborted",
+                    Pattern.CASE_INSENSITIVE);
 
     @ExceptionHandler(ApiException.class)
     public ProblemDetail handleApiException(ApiException ex, HttpServletRequest request) {
@@ -177,11 +184,41 @@ public class GlobalExceptionHandler {
     /**
      * The catch-all. Anything reaching here is a bug: it was not anticipated, so we have no idea what
      * its message contains and must assume the worst.
+     *
+     * <p>Except a client that hung up. The SPA cancels a Sourcing read the moment a Strategy save
+     * supersedes it, so a half-written response is routine rather than a fault; logging each one at
+     * error with a stack trace would bury the failures that really are ours.
      */
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleUnexpected(Exception ex, HttpServletRequest request) {
+        if (isClientDisconnect(ex)) {
+            log.debug("Client hung up during {} {}", request.getMethod(), request.getRequestURI());
+            // Returned but never written: the socket it would go to is already gone.
+            return problem(ErrorCode.INTERNAL_ERROR, ErrorCode.INTERNAL_ERROR.defaultMessage());
+        }
         log.error("Unhandled exception at {} {}", request.getMethod(), request.getRequestURI(), ex);
         return problem(ErrorCode.INTERNAL_ERROR, ErrorCode.INTERNAL_ERROR.defaultMessage());
+    }
+
+    /**
+     * Whether the request died because the client went away rather than because we broke. Matched on
+     * the cause chain: the write failure surfaces wrapped, as {@code HttpMessageNotWritableException}
+     * around Tomcat's {@code ClientAbortException} around the socket's {@code IOException}.
+     */
+    private boolean isClientDisconnect(Throwable ex) {
+        for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+            if (cause instanceof AsyncRequestNotUsableException
+                    || cause.getClass().getSimpleName().equals("ClientAbortException")) {
+                return true;
+            }
+            if (cause instanceof IOException && DISCONNECT_MESSAGE.matcher(String.valueOf(cause.getMessage())).find()) {
+                return true;
+            }
+            if (cause.getCause() == cause) {
+                return false;
+            }
+        }
+        return false;
     }
 
     /** One definition of the error body, shared with ProblemAccessDeniedHandler. See {@link Problems}. */

@@ -25,12 +25,20 @@ class IntersectionObserverMock implements IntersectionObserver {
   readonly rootMargin = "";
   readonly scrollMargin = "";
   readonly thresholds: ReadonlyArray<number> = [];
+  #callback: IntersectionObserverCallback;
   constructor(callback: IntersectionObserverCallback) {
+    this.#callback = callback;
     observerCallback = callback;
   }
   observe() {}
   unobserve() {}
-  disconnect() {}
+  // A disconnected observer delivers nothing — without this the tests can fire a callback the page
+  // has already torn down, and a screen that stops observing looks exactly like one that never did.
+  disconnect() {
+    if (observerCallback === this.#callback) {
+      observerCallback = null;
+    }
+  }
   takeRecords(): IntersectionObserverEntry[] {
     return [];
   }
@@ -236,6 +244,53 @@ describe("SourcingPage — the filtered company table", () => {
     expect(await screen.findByText("Alpha Retail")).toBeInTheDocument();
   });
 
+  it("stops paging while a Strategy save is settling, instead of walking the pre-edit scope", async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    // More companies than one page holds, so the accumulated list has a next page to reach for.
+    vi.mocked(sourcingApi.getSourcingCompanies).mockResolvedValue(page({ totalCount: 100 }));
+    renderPage(client);
+    await screen.findByText("Alpha Retail");
+
+    const save = new MutationObserver(client, {
+      mutationKey: ["strategy-write", "p1"],
+      mutationFn: () => new Promise<void>(() => {}),
+    });
+    void save.mutate();
+    await waitFor(() => expect(screen.queryByText("Alpha Retail")).not.toBeInTheDocument());
+
+    // The skeleton rows leave the sentinel in view, and fetchNextPage ignores `enabled` — page 1 of
+    // the scope being replaced would land as a success and clear the pending invalidation.
+    triggerSentinelIntersect();
+    await waitFor(() => expect(sourcingApi.getSourcingCompanies).toHaveBeenCalled());
+    expect(sourcingApi.getSourcingCompanies).not.toHaveBeenCalledWith(
+      "p1",
+      1,
+      25,
+      "",
+      null,
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("aborts a read that a criteria change supersedes, rather than leaving it to run out", async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    vi.mocked(sourcingApi.getSourcingCompanies).mockReturnValue(new Promise<SourcingResponse>(() => {}));
+    renderPage(client);
+
+    await waitFor(() => expect(sourcingApi.getSourcingCompanies).toHaveBeenCalled());
+    const signal = vi.mocked(sourcingApi.getSourcingCompanies).mock.calls[0][5];
+    expect(signal?.aborted).toBe(false);
+
+    // The count and search behind this run over the whole company universe; a read nobody will read
+    // should stop at the server, not just be dropped on arrival.
+    await client.cancelQueries({ queryKey: ["sourcing", "p1"] });
+    expect(signal?.aborted).toBe(true);
+  });
+
   it("replaces the stale rows with placeholders while refetching after a criteria change", async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -310,6 +365,7 @@ describe("SourcingPage — the filtered company table", () => {
         25,
         "",
         null,
+        expect.any(AbortSignal),
       ),
     );
     expect(await screen.findByText("Charlie Retail")).toBeInTheDocument();
@@ -394,6 +450,7 @@ describe("SourcingPage — the filtered company table", () => {
             field: "revenue",
             direction: "asc",
           },
+          expect.any(AbortSignal),
         ),
       );
       expect(
@@ -411,6 +468,7 @@ describe("SourcingPage — the filtered company table", () => {
             field: "revenue",
             direction: "desc",
           },
+          expect.any(AbortSignal),
         ),
       );
       expect(
@@ -426,6 +484,7 @@ describe("SourcingPage — the filtered company table", () => {
           25,
           "",
           null,
+          expect.any(AbortSignal),
         ),
       );
       expect(
@@ -452,6 +511,7 @@ describe("SourcingPage — the filtered company table", () => {
             field: "name",
             direction: "asc",
           },
+          expect.any(AbortSignal),
         ),
       );
       expect(
@@ -506,6 +566,7 @@ describe("SourcingPage — the filtered company table", () => {
             field: "tier",
             direction: "asc",
           },
+          expect.any(AbortSignal),
         ),
       );
       expect(
@@ -754,6 +815,7 @@ describe("SourcingPage — the filtered company table", () => {
           25,
           "brav",
           null,
+          expect.any(AbortSignal),
         ),
       );
     });
@@ -774,6 +836,7 @@ describe("SourcingPage — the filtered company table", () => {
           25,
           "brav",
           null,
+          expect.any(AbortSignal),
         ),
       );
 
@@ -827,6 +890,7 @@ describe("SourcingPage — the filtered company table", () => {
                   totalCount: 1,
                 })
               : page(),
+            expect.any(AbortSignal),
           ),
       );
       renderPage();
