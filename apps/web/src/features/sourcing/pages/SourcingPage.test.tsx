@@ -849,6 +849,7 @@ describe("SourcingPage — the filtered company table", () => {
           25,
           prefix,
           null,
+          expect.any(AbortSignal),
         );
       }
     });
@@ -890,7 +891,6 @@ describe("SourcingPage — the filtered company table", () => {
                   totalCount: 1,
                 })
               : page(),
-            expect.any(AbortSignal),
           ),
       );
       renderPage();
