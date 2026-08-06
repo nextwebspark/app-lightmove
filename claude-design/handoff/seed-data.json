@@ -1,0 +1,208 @@
+{
+  "_about": "Canonical seed records for the ALAC talent-map prototypes. Extracted verbatim from the logic classes of Workspace.dc.html, Clients.dc.html and Project.dc.html. The HTML prototypes render these at runtime, so exported static HTML contains no <tr> rows — read this file for the data, and DATA-MODEL.md for the schema.",
+
+  "members": [
+    { "id": "yh", "name": "Yara Haddad", "initials": "YH", "role": "Admin" },
+    { "id": "yi", "name": "Yousef Iman", "initials": "YI", "role": "Consultant" },
+    { "id": "sa", "name": "Sara Al-Mansour", "initials": "SA", "role": "Consultant" },
+    { "id": "ok", "name": "Omar Khalil", "initials": "OK", "role": "Researcher" },
+    { "id": "da", "name": "Dana Aboud", "initials": "DA", "role": "Researcher" }
+  ],
+  "currentUserId": "yh",
+
+  "firmDirectory": [
+    { "id": "sa", "name": "Sara Al-Mansour", "initials": "SA" },
+    { "id": "da", "name": "Dana Aboud", "initials": "DA" },
+    { "id": "rf", "name": "Rami Fares", "initials": "RF" },
+    { "id": "ln", "name": "Layla Nassar", "initials": "LN" }
+  ],
+
+  "companyDb": [
+    { "id": "mer", "name": "Meridian Energy Group", "hq": "UAE", "sector": "Energy" },
+    { "id": "alr", "name": "Al Rabie Saudi Foods", "hq": "Saudi Arabia", "sector": "FMCG" },
+    { "id": "bdw", "name": "Bindawood Holding", "hq": "Saudi Arabia", "sector": "Retail" },
+    { "id": "agt", "name": "Agthia Group", "hq": "UAE", "sector": "FMCG" },
+    { "id": "alm", "name": "Almarai", "hq": "Saudi Arabia", "sector": "FMCG" },
+    { "id": "ads", "name": "ADNOC Distribution", "hq": "UAE", "sector": "Energy" },
+    { "id": "sav", "name": "Savola Group", "hq": "Saudi Arabia", "sector": "FMCG" },
+    { "id": "maf", "name": "Majid Al Futtaim", "hq": "UAE", "sector": "Retail" },
+    { "id": "ara", "name": "Aramex", "hq": "UAE", "sector": "Logistics" },
+    { "id": "qnb", "name": "QNB Group", "hq": "Qatar", "sector": "Banking" },
+    { "id": "oor", "name": "Ooredoo", "hq": "Qatar", "sector": "Telecom" },
+    { "id": "zai", "name": "Zain Group", "hq": "Kuwait", "sector": "Telecom" },
+    { "id": "als", "name": "Alshaya Group", "hq": "Kuwait", "sector": "Retail" },
+    { "id": "enb", "name": "Emirates NBD", "hq": "UAE", "sector": "Banking" },
+    { "id": "stc", "name": "stc Group", "hq": "Saudi Arabia", "sector": "Telecom" },
+    { "id": "lul", "name": "Lulu Group International", "hq": "UAE", "sector": "Retail" }
+  ],
+
+  "clients": [
+    {
+      "id": "mer", "companyId": "mer", "source": "db", "override": {},
+      "representatives": [
+        { "name": "Khalid Al-Otaibi", "position": "Group CHRO", "email": "k.alotaibi@meridian.ae", "status": "active" }
+      ]
+    },
+    {
+      "id": "alr", "companyId": "alr", "source": "db", "override": {},
+      "representatives": [
+        { "name": "Noura Al-Fahad", "position": "VP People", "email": "n.alfahad@alrabie.sa", "status": "invited" }
+      ]
+    },
+    { "id": "bdw", "companyId": "bdw", "source": "db", "override": {}, "representatives": [] },
+    {
+      "id": "agt", "companyId": "agt", "source": "db", "override": {},
+      "representatives": [
+        { "name": "Hind Al-Suwaidi", "position": "Group HR Director", "email": "h.alsuwaidi@agthia.com", "status": "active" },
+        { "name": "Faisal Rahman", "position": "Talent Acquisition Lead", "email": "f.rahman@agthia.com", "status": "invited" }
+      ]
+    }
+  ],
+
+  "mandates": [
+    { "id": "m1", "clientId": "mer", "position": "Chief Financial Officer", "stage": "mapping", "lead": "Yara Haddad", "created": "02 Jul", "target": "28 Aug", "companies": 64, "candidates": 18,
+      "team": [["Yara Haddad", "Lead"], ["Omar Khalil", "Researcher"]],
+      "health": "atrisk", "healthLines": ["37 days to target, mapping 40% done", "Candidate response rate below plan"] },
+    { "id": "m2", "clientId": "mer", "position": "VP, Renewables", "stage": "universe", "lead": "Sara Al-Mansour", "created": "10 Jul", "target": "05 Oct", "companies": 31, "candidates": 0,
+      "team": [["Sara Al-Mansour", "Lead"]],
+      "health": "ontrack", "healthLines": ["Universe build on schedule", "75 days to target"] },
+    { "id": "m3", "clientId": "alr", "position": "Chief Human Resources Officer", "stage": "outreach", "lead": "Yara Haddad", "created": "14 Jun", "target": "30 Aug", "companies": 58, "candidates": 22,
+      "team": [["Yara Haddad", "Lead"], ["Sara Al-Mansour", "Researcher"]],
+      "health": "ontrack", "healthLines": ["Outreach live, 9 conversations open", "39 days to target"] },
+    { "id": "m4", "clientId": "alr", "position": "Supply Chain Director", "stage": "brief", "lead": "Sara Al-Mansour", "created": "22 Jul", "target": "12 Sep", "companies": 0, "candidates": 0,
+      "team": [["Sara Al-Mansour", "Lead"]],
+      "health": "ontrack", "healthLines": ["Brief in progress, 52 days to target", "No blockers"] },
+    { "id": "m5", "clientId": "bdw", "position": "Chief Digital Officer", "stage": "locked", "lead": "Yousef Iman", "created": "20 Jun", "target": "19 Sep", "companies": 88, "candidates": 0,
+      "team": [["Yousef Iman", "Lead"], ["Omar Khalil", "Researcher"]],
+      "health": "ontrack", "healthLines": ["Universe locked, mapping starts this week", "59 days to target"] },
+    { "id": "m6", "clientId": "bdw", "position": "Head of eCommerce", "stage": "mapping", "lead": "Omar Khalil", "created": "01 Jul", "target": "10 Sep", "companies": 42, "candidates": 6,
+      "team": [["Omar Khalil", "Lead"]],
+      "health": "offtrack", "healthLines": ["Mapping behind plan by 2 weeks", "No researcher assigned"] },
+    { "id": "m7", "clientId": "agt", "position": "Chief Executive Officer", "stage": "delivered", "lead": "Yara Haddad", "created": "02 Apr", "target": "Done", "companies": 112, "candidates": 41,
+      "team": [["Yara Haddad", "Lead"]],
+      "health": "ontrack", "healthLines": ["Shortlist delivered", "Portal access expires 30 days post-delivery"] }
+  ],
+
+  "projects": [
+    { "id": 1, "client": "Meridian Energy Group", "position": "Chief Financial Officer", "stage": "mapping", "lead": "yh", "team": ["yh", "yi", "ok"], "targetDate": "2026-09-15", "companies": 21, "candidates": 14, "health": "ok" },
+    { "id": 2, "client": "Meridian Energy Group", "position": "VP, Renewables", "stage": "universe", "lead": "sa", "team": ["sa", "da"], "targetDate": "2026-10-30", "companies": 34, "candidates": 0, "health": "ok" },
+    { "id": 3, "client": "Al Rabie Saudi Foods", "position": "Chief Human Resources Officer", "stage": "outreach", "lead": "yh", "team": ["yh", "da"], "targetDate": "2026-08-07", "companies": 18, "candidates": 22, "health": "risk" },
+    { "id": 4, "client": "Bindawood Holding", "position": "Chief Digital Officer", "stage": "locked", "lead": "yi", "team": ["yi", "ok"], "targetDate": "2026-11-20", "companies": 27, "candidates": 0, "health": "ok" },
+    { "id": 5, "client": "Al Rabie Saudi Foods", "position": "Supply Chain Director", "stage": "brief", "lead": "sa", "team": ["sa"], "targetDate": "2026-12-04", "companies": 0, "candidates": 0, "health": "ok" },
+    { "id": 6, "client": "Agthia Group", "position": "Chief Executive Officer", "stage": "delivered", "lead": "yh", "team": ["yh", "yi", "sa"], "targetDate": "2026-06-01", "companies": 42, "candidates": 31, "health": "done" },
+    { "id": 7, "client": "Bindawood Holding", "position": "Head of eCommerce", "stage": "mapping", "lead": "ok", "team": ["ok", "da"], "targetDate": "2026-08-25", "companies": 15, "candidates": 6, "health": "off" }
+  ],
+
+  "projectWorkspace": {
+    "_about": "Data for the single open project in Project.dc.html (Aurora Capital · CFO). Its client directory is separate from clients/companyDb above — see DATA-MODEL.md §Known inconsistencies.",
+    "client": { "id": "aurora", "name": "Aurora Capital", "sector": "Private Equity · UAE" },
+    "clientContacts": [
+      { "id": "ac1", "name": "Nadia Rahman", "title": "Managing Partner", "email": "n.rahman@auroracap.ae", "status": "active" }
+    ],
+    "team": [
+      { "id": "yh", "name": "Yara Haddad", "initials": "YH", "roles": ["lead", "admin"] },
+      { "id": "yi", "name": "Yousef Iman", "initials": "YI", "roles": ["researcher"] },
+      { "id": "ok", "name": "Omar Khalil", "initials": "OK", "roles": ["researcher"] }
+    ],
+    "clientDirectory": [
+      { "id": "aurora", "name": "Aurora Capital", "sector": "Private Equity · UAE", "people": [
+        { "id": "ac1", "name": "Nadia Rahman", "title": "Managing Partner", "email": "n.rahman@auroracap.ae" },
+        { "id": "ac2", "name": "Tariq Salem", "title": "Head of Portfolio Ops", "email": "t.salem@auroracap.ae" }
+      ] },
+      { "id": "meridian", "name": "Meridian Foods", "sector": "FMCG · KSA", "people": [
+        { "id": "mf1", "name": "Huda Kamal", "title": "Chief People Officer", "email": "h.kamal@meridianfoods.sa" }
+      ] },
+      { "id": "zenith", "name": "Zenith Industrial", "sector": "Manufacturing · Egypt", "people": [] }
+    ],
+    "position": {
+      "reportsTo": "Group CEO",
+      "reportsToName": "Hassan Al Marri",
+      "seniority": "N-1",
+      "directReports": [
+        { "title": "Financial Controller", "name": "Layla Nasser" },
+        { "title": "Group Treasurer", "name": "Omar Said" },
+        { "title": "FP&A Director", "name": "" },
+        { "title": "IR Director", "name": "" }
+      ]
+    },
+    "criteria": {
+      "sector": { "mode": "required", "values": ["Food & Beverage Manufacturing", "Retail & Distribution", "FMCG Conglomerates", "Agribusiness"] },
+      "size": { "mode": "preferred", "values": ["$500M–1B", "1K–2.5K", "2.5K–5K"] },
+      "geography": { "mode": "required", "values": ["UAE", "Saudi Arabia", "Kuwait", "Egypt"] },
+      "ownership": { "mode": "preferred", "values": ["Publicly listed", "State-linked / sovereign"] },
+      "offlimits": { "mode": "required", "values": ["Al Futtaim Group", "Saudi Aramco"] },
+      "seeding": { "mode": "preferred", "values": ["Al Ain Farms"] }
+    },
+    "criteriaPools": {
+      "sector": ["Food & Beverage Manufacturing", "Retail & Distribution", "FMCG Conglomerates", "Agribusiness", "Cold Chain & Logistics", "Consumer Packaging", "Hospitality & Catering"],
+      "size": ["$100M–250M", "$250M–500M", "$500M–1B", "$1B–2B", "$2B–5B", "500–1K", "1K–2.5K", "2.5K–5K", "5K–10K", "10K–25K", "25K–50K"],
+      "geography": ["UAE", "Saudi Arabia", "Kuwait", "Qatar", "Bahrain", "Oman", "Jordan", "Egypt"],
+      "ownership": ["Publicly listed", "Family-owned / private", "State-linked / sovereign", "PE or VC-backed", "Subsidiary of foreign multinational"]
+    },
+    "universeCompanies": [
+      { "id": "co0", "name": "Al Rawabi Dairy", "location": "UAE", "sector": "Food & Beverage Manufacturing", "revenueBand": "$250M–500M", "employeeBand": "1K–2.5K", "ownership": "Family-owned / private", "desc": "Leading UAE dairy and juice producer with integrated farm-to-shelf operations.", "relevance": "inferred", "inUniverse": true },
+      { "id": "co1", "name": "Almarai", "location": "Saudi Arabia", "sector": "Agribusiness", "revenueBand": "$2B–5B", "employeeBand": "10K–25K", "ownership": "Publicly listed", "desc": "Region's largest dairy and food company, listed on Tadawul.", "relevance": "direct", "inUniverse": true },
+      { "id": "co2", "name": "Savola Group", "location": "Saudi Arabia", "sector": "FMCG Conglomerates", "revenueBand": "$2B–5B", "employeeBand": "25K–50K", "ownership": "Publicly listed", "desc": "Diversified Saudi conglomerate spanning food manufacturing and retail.", "relevance": "direct", "inUniverse": true },
+      { "id": "co3", "name": "Agthia Group", "location": "UAE", "sector": "FMCG Conglomerates", "revenueBand": "$500M–1B", "employeeBand": "1K–2.5K", "ownership": "Publicly listed", "desc": "Abu Dhabi-listed F&B conglomerate with agribusiness and water divisions.", "relevance": "adjacent", "inUniverse": false },
+      { "id": "co4", "name": "NADEC", "location": "Saudi Arabia", "sector": "Agribusiness", "revenueBand": "$500M–1B", "employeeBand": "2.5K–5K", "ownership": "State-linked / sovereign", "desc": "Saudi dairy and agribusiness producer, majority state-linked ownership.", "relevance": "direct", "inUniverse": false },
+      { "id": "co5", "name": "Spinneys Group", "location": "UAE", "sector": "Retail & Distribution", "revenueBand": "$500M–1B", "employeeBand": "2.5K–5K", "ownership": "Family-owned / private", "desc": "Premium UAE supermarket chain serving expatriate and affluent local shoppers.", "relevance": "inferred", "inUniverse": false },
+      { "id": "co6", "name": "Americana Group", "location": "Kuwait", "sector": "FMCG Conglomerates", "revenueBand": "$1B–2B", "employeeBand": "25K–50K", "ownership": "PE or VC-backed", "desc": "Pan-regional QSR and food manufacturing conglomerate, Kuwait-headquartered.", "relevance": "adjacent", "inUniverse": false },
+      { "id": "co7", "name": "Juhayna Food Industries", "location": "Egypt", "sector": "Food & Beverage Manufacturing", "revenueBand": "$250M–500M", "employeeBand": "2.5K–5K", "ownership": "Publicly listed", "desc": "Listed Egyptian dairy and juice producer with a strong brand portfolio.", "relevance": "direct", "inUniverse": false },
+      { "id": "co8", "name": "KDD (Kuwaiti Danish Dairy)", "location": "Kuwait", "sector": "Agribusiness", "revenueBand": "$250M–500M", "employeeBand": "1K–2.5K", "ownership": "State-linked / sovereign", "desc": "Long-established Kuwaiti dairy producer with GCC distribution.", "relevance": "direct", "inUniverse": false }
+    ],
+    "candidates": [
+      {
+        "id": "c1", "companyId": "co0", "name": "Yasmin El-Sayed", "title": "VP Finance", "level": "N-1", "status": "interested",
+        "email": "yasmin.elsayed@example.com",
+        "notes": "Strong regulatory background, met at a conference last year.",
+        "comp": { "base": 420000, "bonus": 80000, "allowances": 40000, "ltip": 0, "currency": "AED" },
+        "summary": "Experienced finance executive with a decade in FMCG regional finance leadership, known for strong board communication and audit-committee experience.",
+        "career": [
+          { "company": "Al Rawabi Dairy", "title": "VP Finance", "years": "2021–Present" },
+          { "company": "Regional Foods Co.", "title": "Finance Director", "years": "2017–2021" }
+        ],
+        "languages": ["English", "Arabic"],
+        "verification": { "emailVerified": true, "linkedinMatched": true, "compChecked": false },
+        "confidence": 72
+      },
+      {
+        "id": "c2", "companyId": "co1", "name": "Omar Haddad", "title": "Chief Financial Officer", "level": "N", "status": null,
+        "email": "", "notes": "",
+        "comp": { "base": 0, "bonus": 0, "allowances": 0, "ltip": 0, "currency": "USD" },
+        "summary": "", "career": [], "languages": [],
+        "verification": { "emailVerified": false, "linkedinMatched": false, "compChecked": false },
+        "confidence": 20
+      }
+    ]
+  },
+
+  "enums": {
+    "projectStage": ["brief", "universe", "locked", "mapping", "outreach", "delivered", "closed"],
+    "stageLabels": {
+      "brief": "Brief", "universe": "Universe", "locked": "Universe locked", "mapping": "Mapping",
+      "outreach": "Outreach live", "delivered": "Shortlist delivered", "closed": "Closed"
+    },
+    "gates": ["Brief", "Universe", "Mapping", "Outreach live", "Shortlist delivered"],
+    "health": { "ok": "On track", "risk": "At risk", "off": "Off track", "done": "Complete" },
+    "healthAltKeys": { "ontrack": "On track", "atrisk": "At risk", "offtrack": "Off track" },
+    "projectRole": ["lead", "admin", "researcher"],
+    "roleDescriptions": {
+      "lead": "owns the mandate & client relationship",
+      "admin": "can add members & change roles",
+      "researcher": "sources & verifies candidates"
+    },
+    "firmRole": ["Admin", "Consultant", "Researcher"],
+    "candidateStatus": ["executive", "interested", "not_interested", "offlimits", "out_of_scope"],
+    "candidateStatusLabels": {
+      "executive": "Executive", "interested": "Interested", "not_interested": "Not Interested",
+      "offlimits": "Off-Limits", "out_of_scope": "Out of Scope"
+    },
+    "candidateLevel": ["N", "N-1", "N-2"],
+    "relevance": ["direct", "adjacent", "inferred"],
+    "criterionMode": ["required", "preferred"],
+    "representativeStatus": ["active", "invited"],
+    "clientSource": ["db", "custom"]
+  },
+
+  "billing": { "plan": "Team", "pricePerSeatMonthly": 49, "seatsUsed": 5, "seatsTotal": 10, "renewsOn": "2026-08-01", "currency": "USD" }
+}

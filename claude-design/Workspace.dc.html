@@ -93,7 +93,7 @@
     </nav>
 
     <main style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow-y:auto;min-width:0">
-      <div style="max-width:1160px;margin:0 auto;padding:28px 28px 60px">
+      <div style="max-width:1440px;padding:26px 32px 60px">
 
         <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
           <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:90px 20px 70px;text-align:center;animation:fadeUp .5s ease both">
@@ -113,11 +113,8 @@
         </sc-if>
 
         <sc-if value="{{ showProjects }}" hint-placeholder-val="{{ true }}">
-          <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:18px">
-            <div>
-              <div style="font:600 19px/1.2 var(--sans)">{{ pageTitle }}</div>
-              <div style="color:var(--text3);font:400 12px var(--mono);margin-top:4px">{{ pageSub }}</div>
-            </div>
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
+            <div style="color:var(--text3);font:400 12px var(--mono);letter-spacing:.02em">{{ pageSub }}</div>
             <div style="margin-left:auto;display:flex;gap:8px">
               <button onClick="{{ openModal }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
@@ -139,14 +136,9 @@
           <table style="width:100%;border-collapse:collapse">
             <thead>
               <tr>
-                <th style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer" onClick="{{ setSort }}" data-key="client">Client <span style="color:var(--amber)">{{ arrowClient }}</span></th>
-                <th style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Position</th>
-                <th style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer" onClick="{{ setSort }}" data-key="stage">Stage <span style="color:var(--amber)">{{ arrowStage }}</span></th>
-                <th style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Health</th>
-                <th style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Team</th>
-                <th style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer" onClick="{{ setSort }}" data-key="date">Target <span style="color:var(--amber)">{{ arrowDate }}</span></th>
-                <th style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Pipeline</th>
-                <th style="border-bottom:1px solid var(--line)"></th>
+                <sc-for list="{{ headers }}" as="h" hint-placeholder-count="8">
+                  <th onClick="{{ setSort }}" data-key="{{ h.key }}" style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;width:{{ h.width }};cursor:{{ h.cursor }}">{{ h.label }} <span style="color:var(--amber)">{{ h.arrow }}</span></th>
+                </sc-for>
               </tr>
             </thead>
             <tbody>
@@ -164,15 +156,15 @@
                     </span>
                   </td>
                   <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft)">
-                    <span style="display:inline-flex;align-items:center;gap:6px;font:500 12px var(--mono);white-space:nowrap;color:{{ r.healthText }}">
-                      <span style="width:7px;height:7px;border-radius:50%;background:{{ r.healthDot }}"></span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;font:600 12.5px var(--sans);white-space:nowrap;color:{{ r.healthText }}">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="{{ r.healthIcon }}"></path></svg>
                       {{ r.healthLabel }}
                     </span>
                   </td>
                   <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft)">
-                    <span style="display:flex">
+                    <span style="display:flex;align-items:center">
                       <sc-for list="{{ r.team }}" as="m" hint-placeholder-count="2">
-                        <span title="{{ m.name }}" style="width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:{{ m.bg }};color:{{ m.fg }};border:2px solid var(--panel);margin-left:{{ m.ml }}">{{ m.initials }}</span>
+                        <span title="{{ m.name }}" style="width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font:700 10.5px var(--mono);background:{{ m.bg }};color:{{ m.fg }};border:2px solid var(--panel);margin-left:{{ m.ml }};flex:none">{{ m.initials }}</span>
                       </sc-for>
                     </span>
                   </td>
@@ -255,14 +247,27 @@
 
   <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;background:rgba(15,20,30,.4);z-index:90"></div>
-    <aside style="position:fixed;top:10px;right:10px;bottom:10px;width:420px;max-width:92vw;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);z-index:95;display:flex;flex-direction:column;animation:fadeUp .22s ease both">
+    <aside style="position:fixed;top:10px;right:10px;bottom:10px;width:520px;max-width:94vw;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);z-index:95;display:flex;flex-direction:column;animation:fadeUp .22s ease both">
       <div style="padding:18px 20px 14px;border-bottom:1px solid var(--line-soft);position:relative">
         <button onClick="{{ closeDrawer }}" aria-label="Close" style="position:absolute;top:14px;right:14px;color:var(--text3);padding:6px;border-radius:6px;background:none;border:none;cursor:pointer" style-hover="color:var(--text);background:var(--panel2)">✕</button>
         <div style="font:500 11px var(--mono);color:var(--text3);letter-spacing:.08em;text-transform:uppercase">{{ drawer.client }}</div>
         <div style="font:600 17px var(--sans);margin-top:4px">{{ drawer.pos }}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <span style="display:inline-flex;align-items:center;font:600 10px var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:999px;color:{{ drawer.stageColor }};background:{{ drawer.stageBg }};border:1px solid {{ drawer.stageBorder }}">{{ drawer.stageLabel }}</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;font:600 12.5px var(--sans);color:{{ drawer.healthText }}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="{{ drawer.healthIcon }}"></path></svg>
+            {{ drawer.healthLabel }}
+          </span>
+        </div>
       </div>
-      <div style="padding:18px 20px;overflow-y:auto;flex:1">
-        <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:0 0 8px">Pipeline</div>
+      <div style="padding:16px 20px 20px;overflow-y:auto;flex:1">
+
+        <a href="Project.dc.html" style="display:flex;align-items:center;justify-content:center;gap:7px;padding:10px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;text-decoration:none;margin-bottom:4px" style-hover="filter:brightness(1.05);text-decoration:none">
+          Open project
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+        </a>
+
+        <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:22px 0 8px">Pipeline</div>
         <div style="display:flex;gap:10px">
           <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
             <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ drawer.cos }}</b>
@@ -277,40 +282,65 @@
             <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Target</span>
           </div>
         </div>
-        <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Stage gates</div>
-        <sc-for list="{{ drawer.gates }}" as="g" hint-placeholder-count="6">
-          <div style="display:flex;align-items:center;gap:10px;padding:7px 0;font:{{ g.font }};color:{{ g.color }}">
-            <span style="width:14px;height:14px;border-radius:50%;border:1.5px solid {{ g.dotBorder }};background:{{ g.dotBg }};flex:none;display:grid;place-items:center">
-              <span style="width:6px;height:6px;border-radius:50%;background:{{ g.dotInner }}"></span>
-            </span>
-            {{ g.label }}
+
+        <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:22px 0 10px">Stage gates &amp; health</div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start">
+          <div>
+            <sc-for list="{{ drawer.gates }}" as="g" hint-placeholder-count="6">
+              <div style="display:flex;align-items:center;gap:10px;padding:6px 0;font:{{ g.font }};color:{{ g.color }}">
+                <span style="width:14px;height:14px;border-radius:50%;border:1.5px solid {{ g.dotBorder }};background:{{ g.dotBg }};flex:none;display:grid;place-items:center">
+                  <span style="width:6px;height:6px;border-radius:50%;background:{{ g.dotInner }}"></span>
+                </span>
+                {{ g.label }}
+              </div>
+            </sc-for>
           </div>
-        </sc-for>
-        <div style="display:flex;align-items:baseline;gap:8px;margin:18px 0 8px">
+          <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:12px">
+            <div style="display:flex;align-items:center;gap:7px;font:700 14px var(--sans);white-space:nowrap;margin-bottom:8px;color:{{ drawer.healthText }}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="{{ drawer.healthIcon }}"></path></svg>
+              {{ drawer.healthLabel }}
+            </div>
+            <sc-for list="{{ drawer.healthLines }}" as="l" hint-placeholder-count="2">
+              <div style="font:400 11.5px var(--sans);color:var(--text2);padding:3px 0;line-height:1.4">{{ l }}</div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:baseline;gap:8px;margin:22px 0 8px">
           <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Project team</div>
           <span style="font:500 11px var(--mono);color:var(--text3)">{{ drawer.teamCount }}</span>
         </div>
-        <sc-for list="{{ drawer.members }}" as="m" hint-placeholder-count="3">
-          <div style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:7px" style-hover="background:var(--panel2)">
-            <span style="width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:{{ m.bg }};color:{{ m.fg }};flex:none">{{ m.initials }}</span>
-            <div style="min-width:0">
-              <div style="font-size:13px">{{ m.name }}</div>
-              <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:4px">
+        <div style="border:1px solid var(--line-soft);border-radius:10px;overflow:hidden;margin-bottom:8px">
+          <sc-for list="{{ drawer.members }}" as="m" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:11px;padding:11px 13px;border-bottom:1px solid var(--line-soft);background:var(--panel)">
+              <span style="width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:700 10.5px var(--mono);background:{{ m.bg }};color:{{ m.fg }};flex:none">{{ m.initials }}</span>
+              <div style="flex:1;min-width:0">
+                <div style="font:500 13px var(--sans);color:var(--text)">{{ m.name }}</div>
+              </div>
+              <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;flex:none;max-width:52%">
                 <sc-for list="{{ m.roles }}" as="r" hint-placeholder-count="1">
-                  <span style="font:600 9px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:5px;color:{{ r.color }};background:{{ r.bg }};border:1px solid {{ r.border }}">{{ r.label }}</span>
+                  <span style="font:600 9px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:999px;white-space:nowrap;color:{{ r.color }};background:{{ r.bg }};border:1px solid {{ r.border }}">{{ r.label }}</span>
                 </sc-for>
               </div>
             </div>
+          </sc-for>
+        </div>
+        <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:22px 0 8px">Client</div>
+        <div style="border:1px solid var(--line-soft);border-radius:10px;overflow:hidden;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:11px;padding:11px 13px;background:var(--panel)">
+            <span style="width:30px;height:30px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);display:grid;place-items:center;font:700 10.5px var(--mono);color:var(--text2);flex:none">{{ drawer.clientInitials }}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font:500 13px var(--sans);color:var(--text)">{{ drawer.client }}</div>
+              <div style="font:400 11px var(--mono);color:var(--text3);margin-top:2px">{{ drawer.clientMeta }}</div>
+            </div>
+            <span style="font:600 9px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:999px;white-space:nowrap;color:var(--text2);background:var(--panel2);border:1px solid var(--line);flex:none">Hiring entity</span>
           </div>
-        </sc-for>
-        <a href="Project.dc.html?page=team" style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;font:500 12px var(--sans);color:var(--text2);text-decoration:none" style-hover="color:var(--text);text-decoration:underline">
+        </div>
+        <a href="Project.dc.html?page=team" style="display:inline-flex;align-items:center;gap:6px;font:500 12px var(--sans);color:var(--text2);text-decoration:none" style-hover="color:var(--text);text-decoration:underline">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"></path></svg>
-          Manage team &amp; roles in project settings
+          Manage team &amp; client access in project settings
         </a>
-      </div>
-      <div style="padding:14px 20px;border-top:1px solid var(--line-soft);display:flex;gap:8px">
-        <button onClick="{{ toastArchive }}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Archive</button>
-        <a href="Project.dc.html" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;text-decoration:none" style-hover="filter:brightness(1.05);text-decoration:none">Open project →</a>
+
       </div>
     </aside>
   </sc-if>
@@ -349,6 +379,8 @@
   </sc-if>
 
 </div>
+
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#15213a"></rect><text x="50" y="50" fill="#f59c0b" font-family="Montserrat,sans-serif" font-size="26" font-weight="700" text-anchor="middle" dominant-baseline="central">LM</text></svg></template>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;startEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;defaultView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;my&quot;,&quot;options&quot;:[&quot;my&quot;,&quot;all&quot;,&quot;clients&quot;,&quot;team&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
@@ -383,6 +415,12 @@ class Component extends DCLogic {
       { key: 'delivered', label: 'Shortlist delivered', color: 'var(--green)', bg: 'var(--green-dim)', border: 'transparent' },
       { key: 'closed', label: 'Closed', color: 'var(--text3)', bg: 'transparent', border: 'var(--line-soft)' },
     ];
+    this.HEALTH_ICON = {
+      ok: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20M8 12.5 10.5 15 16 9',
+      done: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20M8 12.5 10.5 15 16 9',
+      risk: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0M12 9v4M12 16.5v.01',
+      off: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20M14.5 9.5l-5 5M9.5 9.5l5 5',
+    };
     this.HEALTH = {
       ok: { dot: 'var(--green)', text: 'var(--text2)', label: 'On track' },
       risk: { dot: 'var(--amber)', text: 'var(--amber)', label: 'At risk' },
@@ -445,10 +483,102 @@ class Component extends DCLogic {
     return rows;
   }
 
+  componentDidMount() {
+    if (this._ttLoad) return;
+    this._ttLoad = true;
+    import('https://esm.sh/@tanstack/table-core@8.20.5')
+      .then(m => { this.TT = m; this.forceUpdate(); })
+      .catch(() => {});
+  }
+
+  // Column definitions — the single source of truth for every table in the app.
+  projectColumns() {
+    return [
+      { id: 'client', header: 'Client', accessorKey: 'client', meta: { w: '12%' } },
+      { id: 'pos', header: 'Position', accessorKey: 'pos', enableSorting: false, meta: { w: '20%' } },
+      { id: 'stage', header: 'Stage', accessorFn: r => this.stageIdx(r.stage), enableGlobalFilter: false, meta: { w: '12%' } },
+      { id: 'health', header: 'Health', accessorKey: 'health', enableSorting: false, enableGlobalFilter: false, meta: { w: '10%' } },
+      { id: 'team', header: 'Team', accessorFn: r => r.team.length, enableSorting: false, enableGlobalFilter: false, meta: { w: '9%' } },
+      { id: 'date', header: 'Target', accessorKey: 'date', enableGlobalFilter: false, meta: { w: '10%' } },
+      { id: 'pipeline', header: 'Pipeline', accessorFn: r => r.cand, enableSorting: false, enableGlobalFilter: false, meta: { w: '14%' } },
+      { id: 'actions', header: '', enableSorting: false, enableGlobalFilter: false, meta: { w: '9%' } },
+    ];
+  }
+
+  // Scope filters (view + stage chip) stay outside the table; search + sort are the table's.
+  scoped() {
+    const { projects, view, chip } = this.state;
+    let rows = projects.filter(p => view === 'all' || p.team.includes(this.ME));
+    if (chip === 'active') rows = rows.filter(p => !['delivered', 'closed'].includes(p.stage));
+    else if (chip !== 'allstages') rows = rows.filter(p => p.stage === chip);
+    return rows;
+  }
+
+  table() {
+    const m = this.TT;
+    if (!m) return null;
+    try {
+      return this.buildTable(m);
+    } catch (e) {
+      this.TT = null; // fall back to the built-in sort/filter path
+      return null;
+    }
+  }
+
+  buildTable(m) {
+    const st = this.state;
+    const sorting = st.sorting && st.sorting.length ? st.sorting : [{ id: 'date', desc: false }];
+    this.tbl = m.createTable({
+      data: this.scoped(),
+      columns: this.projectColumns(),
+      state: {
+        columnPinning: { left: [], right: [] },
+        columnVisibility: {},
+        columnOrder: [],
+        columnSizing: {},
+        columnSizingInfo: { startOffset: null, startSize: null, deltaOffset: null, deltaPercentage: null, isResizingColumn: false, columnSizingStart: [] },
+        rowSelection: {},
+        expanded: {},
+        grouping: [],
+        columnFilters: [],
+        sorting,
+        globalFilter: st.q || '',
+      },
+      onStateChange: () => {},
+      renderFallbackValue: null,
+      enableSortingRemoval: false,
+      globalFilterFn: (row, colId, value) => String(row.getValue(colId) ?? '').toLowerCase().includes(String(value).toLowerCase()),
+      onSortingChange: (up) => this.setState(s => ({ sorting: typeof up === 'function' ? up(s.sorting && s.sorting.length ? s.sorting : [{ id: 'date', desc: false }]) : up })),
+      onGlobalFilterChange: (v) => this.setState({ q: v }),
+      getCoreRowModel: m.getCoreRowModel(),
+      getFilteredRowModel: m.getFilteredRowModel(),
+      getSortedRowModel: m.getSortedRowModel(),
+    });
+    return this.tbl;
+  }
+
   renderVals() {
     const st = this.state;
     const isProjects = st.view === 'my' || st.view === 'all';
-    const rowsRaw = isProjects ? this.filtered() : [];
+    let tbl = isProjects ? this.table() : null;
+    let hdrs = null;
+    if (tbl) {
+      try { hdrs = tbl.getHeaderGroups()[0].headers; }
+      catch (e) { this.TT = null; this.tbl = null; tbl = null; }
+    }
+    const rowsRaw = !isProjects ? [] : tbl ? tbl.getRowModel().rows.map(r => r.original) : this.filtered();
+    const headers = hdrs
+      ? hdrs.map(h => {
+          const dir = h.column.getIsSorted();
+          return {
+            key: h.column.id,
+            label: typeof h.column.columnDef.header === 'string' ? h.column.columnDef.header : '',
+            width: (h.column.columnDef.meta || {}).w || 'auto',
+            cursor: h.column.getCanSort() ? 'pointer' : 'default',
+            arrow: dir === 'asc' ? '↑' : dir === 'desc' ? '↓' : '',
+          };
+        })
+      : this.projectColumns().map(c => ({ key: c.id, label: typeof c.header === 'string' ? c.header : '', width: (c.meta || {}).w || 'auto', cursor: c.enableSorting === false ? 'default' : 'pointer', arrow: '' }));
     const active = (v) => st.view === v;
     const navItem = (key, label, icon, count) => ({
       key, label, icon, count: count === undefined ? '' : String(count),
@@ -465,7 +595,7 @@ class Component extends DCLogic {
       return {
         id: String(p.id), client: p.client, pos: p.pos, leadName: this.member(p.lead).name,
         stageLabel: s.label, stageColor: s.color, stageBg: s.bg, stageBorder: s.border,
-        healthDot: h.dot, healthText: h.text, healthLabel: h.label,
+        healthDot: h.dot, healthText: h.text, healthLabel: h.label, healthIcon: this.HEALTH_ICON[p.health],
         team: p.team.map((id, i) => { const m = this.member(id); return { initials: m.initials, bg: m.bg, fg: m.fg, name: m.name, ml: i === 0 ? '0' : '-7px' }; }),
         dateLabel: this.fmtDate(p.date), cos: String(p.cos), cand: String(p.cand),
       };
@@ -479,12 +609,28 @@ class Component extends DCLogic {
       border: st.chip === key ? 'var(--amber)' : 'var(--line)',
     }));
 
-    let drawer = { client: '', pos: '', cos: '', cand: '', dateShort: '', gates: [], members: [], teamCount: '' };
+    let drawer = { stageLabel: '', stageColor: '', stageBg: '', stageBorder: '', healthDot: '', healthText: '', healthLabel: '', healthIcon: '', healthLines: [], client: '', clientInitials: '', clientMeta: '', pos: '', cos: '', cand: '', dateShort: '', gates: [], members: [], teamCount: '' };
     const dp = st.projects.find(p => p.id === st.drawerId);
     if (dp) {
       const cur = this.stageIdx(dp.stage);
+      const ds = this.STAGES[cur], dh = this.HEALTH[dp.health];
       drawer = {
+        stageLabel: ds.label, stageColor: ds.color, stageBg: ds.bg, stageBorder: ds.border,
+        healthDot: dh.dot, healthText: dh.text, healthLabel: dh.label, healthIcon: this.HEALTH_ICON[dp.health],
+        healthLines: (() => {
+          const days = Math.round((Date.parse(dp.date) - Date.now()) / 86400000);
+          const lines = [dp.cos + ' companies in universe, ' + dp.cand + ' candidates engaged'];
+          const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+          if (dp.health === 'done') lines.push('Delivered · viewer access expires 30 days post-delivery');
+          else if (days < 0) lines.push('Target date passed ' + plural(Math.abs(days), 'day') + ' ago');
+          else lines.push(plural(days, 'day') + ' to target · ' + this.fmtDate(dp.date));
+          if (dp.health === 'risk') lines.push('Candidate response rate below plan');
+          if (dp.health === 'off') lines.push('Mapping stalled — no activity this week');
+          return lines;
+        })(),
         client: dp.client, pos: dp.pos, cos: String(dp.cos), cand: String(dp.cand),
+        clientInitials: dp.client.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase(),
+        clientMeta: (() => { const c = this.CLIENTS.find(x => x.name === dp.client); return c ? c.hq + ' · ' + c.note : 'Client record'; })(),
         dateShort: this.fmtDate(dp.date).slice(0, 6),
         gates: this.STAGES.filter(s => s.key !== 'closed').map((s, i) => {
           const done = i < cur, now = i === cur;
@@ -543,7 +689,7 @@ class Component extends DCLogic {
       pageTitle: st.view === 'my' ? 'My projects' : 'All projects',
       pageSub: rows.length + (rows.length === 1 ? ' project' : ' projects') + ' · workspace LightMove',
       q: st.q,
-      chips, rows,
+      chips, rows, headers,
       noResults: rows.length === 0,
       arrowClient: arrow('client'), arrowStage: arrow('stage'), arrowDate: arrow('date'),
       clients: this.clients().map(c => ({ name: c.name, meta: c.hq + ' · ' + c.note })),
@@ -572,9 +718,14 @@ class Component extends DCLogic {
       setChip: (e) => this.setState({ chip: e.currentTarget.dataset.chip }),
       setSort: (e) => {
         const k = e.currentTarget.dataset.key;
+        if (this.tbl) {
+          const col = this.tbl.getColumn(k);
+          if (col && col.getCanSort()) col.toggleSorting();
+          return;
+        }
         this.setState(s => s.sortKey === k ? { sortDir: -s.sortDir } : { sortKey: k, sortDir: 1 });
       },
-      onSearch: (e) => this.setState({ q: e.target.value }),
+      onSearch: (e) => { if (this.tbl) this.tbl.setGlobalFilter(e.target.value); else this.setState({ q: e.target.value }); },
       openRow: (e) => this.setState({ drawerId: +e.currentTarget.dataset.id }),
       closeDrawer: () => this.setState({ drawerId: null }),
       toggleMember: (e) => {
@@ -611,7 +762,6 @@ class Component extends DCLogic {
       toastClients: () => this.showToast('Entity registry form — separate build'),
       toastRecord: () => this.showToast('Opens read-only entity record'),
       toastInvite: () => this.showToast('Invite flow — see Signup step 3'),
-      toastArchive: () => this.showToast('Archive flow — confirm dialog in real build'),
     };
   }
 }

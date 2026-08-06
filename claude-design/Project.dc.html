@@ -116,7 +116,7 @@
     </nav>
 
     <main style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow-y:auto;min-width:0">
-      <div style="max-width:1160px;margin:0 auto;padding:28px 28px 60px">
+      <div style="max-width:1440px;padding:26px 32px 60px">
 
         <!-- ================= POSITION ================= -->
         <sc-if value="{{ isPosition }}" hint-placeholder-val="{{ true }}">
@@ -144,62 +144,62 @@
               <span style="flex:1;height:1px;background:var(--line-soft)"></span>
             </div>
 
-            <div style="margin-bottom:22px">
-              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
-                <span style="font:600 15px var(--sans);color:var(--text)">Position Description</span>
-                <span style="font:400 11.5px var(--mono);color:var(--text3)">source document — parsed automatically to help fill this page</span>
-              </div>
-              <input type="file" ref="{{ pdInputRef }}" accept=".pdf,.doc,.docx" onChange="{{ onPdChosen }}" style="display:none">
-              <sc-if value="{{ pdEmpty }}" hint-placeholder-val="{{ false }}">
-                <div onClick="{{ pdBrowse }}" style="border:1.5px dashed var(--line);border-radius:10px;padding:24px;text-align:center;color:var(--text3);font:400 12.5px var(--mono);cursor:pointer" style-hover="border-color:var(--sky);color:var(--sky);background:var(--sky-dim)">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="display:inline-block;margin-bottom:6px"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg>
-                  <div>Drop a PD here, or click to browse</div>
-                  <div style="font-size:11px;margin-top:2px">PDF or Word — parsed automatically to help fill this page</div>
-                </div>
-              </sc-if>
-              <sc-if value="{{ pdPresent }}" hint-placeholder-val="{{ true }}">
-                <div style="display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px">
-                  <div style="width:34px;height:34px;border-radius:7px;background:var(--sky-dim);color:var(--sky);display:flex;align-items:center;justify-content:center;flex:none">
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path></svg>
-                  </div>
-                  <div style="flex:1;min-width:0">
-                    <div style="font:600 13px var(--sans);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pdName }}</div>
-                    <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:1px">{{ pdMeta }}</div>
-                  </div>
-                  <div style="display:flex;gap:6px;flex:none">
-                    <button onClick="{{ pdBrowse }}" style="padding:5px 10px;border-radius:7px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Replace</button>
-                    <button onClick="{{ pdRemove }}" style="padding:5px 10px;border-radius:7px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--red);background:none;cursor:pointer" style-hover="border-color:var(--red)">Remove</button>
-                  </div>
-                </div>
-                <sc-if value="{{ pdParsing }}" hint-placeholder-val="{{ false }}">
-                  <div style="display:flex;align-items:center;gap:7px;font:400 11.5px var(--mono);color:var(--text3);margin-top:10px">
-                    <span style="width:11px;height:11px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--sky);animation:pdspin .7s linear infinite;flex:none"></span>
-                    Parsing document and extracting details…
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start;margin-bottom:22px">
+
+              <div style="background:var(--panel2);border:1px solid var(--line-soft);border-left:3px solid var(--sky);border-radius:10px;padding:18px 20px 20px">
+                <div style="font:600 14.5px var(--sans);color:var(--text)">Position Description</div>
+                <div style="font:400 11.5px var(--mono);color:var(--text3);margin:3px 0 14px">Source document — parsed automatically</div>
+                <input type="file" ref="{{ pdInputRef }}" accept=".pdf,.doc,.docx" onChange="{{ onPdChosen }}" style="display:none">
+                <sc-if value="{{ pdEmpty }}" hint-placeholder-val="{{ false }}">
+                  <div onClick="{{ pdBrowse }}" style="border:1.5px dashed var(--line);border-radius:10px;padding:22px;text-align:center;color:var(--text3);font:400 12.5px var(--mono);cursor:pointer" style-hover="border-color:var(--sky);color:var(--sky);background:var(--sky-dim)">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="display:inline-block;margin-bottom:6px"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg>
+                    <div>Drop a PD here, or click to browse</div>
+                    <div style="font-size:11px;margin-top:2px">PDF or Word — parsed automatically</div>
                   </div>
                 </sc-if>
-              </sc-if>
-            </div>
+                <sc-if value="{{ pdPresent }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;align-items:center;flex-wrap:wrap;gap:12px;background:var(--panel);border:1px solid var(--line-soft);border-radius:8px;padding:12px 14px">
+                    <div style="width:34px;height:34px;border-radius:7px;background:var(--sky-dim);color:var(--sky);display:flex;align-items:center;justify-content:center;flex:none">
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path></svg>
+                    </div>
+                    <div style="flex:1 1 140px;min-width:120px">
+                      <div style="font:600 13px var(--sans);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pdName }}</div>
+                      <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:1px">{{ pdMeta }}</div>
+                    </div>
+                    <div style="display:flex;gap:6px;flex:none;margin-left:auto">
+                      <button onClick="{{ pdBrowse }}" style="padding:5px 10px;border-radius:7px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Replace</button>
+                      <button onClick="{{ pdRemove }}" style="padding:5px 10px;border-radius:7px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--red);background:none;cursor:pointer" style-hover="border-color:var(--red)">Remove</button>
+                    </div>
+                  </div>
+                  <sc-if value="{{ pdParsing }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;gap:7px;font:400 11.5px var(--mono);color:var(--text3);margin-top:10px">
+                      <span style="width:11px;height:11px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--sky);animation:pdspin .7s linear infinite;flex:none"></span>
+                      Parsing document and extracting details…
+                    </div>
+                  </sc-if>
+                </sc-if>
+              </div>
 
-            <div style="margin-bottom:22px">
-              <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-                  <span style="font:600 13px var(--sans)">Mandate Context</span>
-                  <span style="font:600 9.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:5px;color:var(--text3);background:var(--line-soft)">Internal only — not shown to candidates</span>
+              <div style="background:var(--panel2);border:1px solid var(--line-soft);border-left:3px solid var(--sky);border-radius:10px;padding:18px 20px 20px">
+                <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                  <span style="font:600 14.5px var(--sans);color:var(--text)">Mandate Context</span>
+                  <span style="font:700 10px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--text3)">Internal only — not shown to candidates</span>
                 </div>
-                <div style="font:400 11.5px var(--mono);color:var(--text3);margin:4px 0 14px">Why this mandate exists and anything sensitive the hiring manager shared.</div>
-                <div style="display:grid;grid-template-columns:200px 1fr;gap:16px">
+                <div style="font:400 11.5px var(--mono);color:var(--text3);margin:5px 0 16px">Why this mandate exists and anything sensitive the hiring manager shared.</div>
+                <div style="display:flex;flex-direction:column;gap:14px">
                   <div>
-                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Reason for mandate</label>
-                    <select value="{{ posMandateReason }}" onChange="{{ onMandateReason }}" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                      <option>New role</option><option>Backfill</option><option>Succession</option><option>Restructuring</option>
+                    <label style="display:block;font:600 10.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Reason for mandate</label>
+                    <select value="{{ posMandateReason }}" onChange="{{ onMandateReason }}" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:8px 11px;font:500 13.5px var(--sans);color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--sky)">
+                      <option>New role</option><option>Backfill</option><option>Restructure</option><option>Succession plan</option><option>Growth / expansion</option>
                     </select>
                   </div>
                   <div>
-                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Internal context</label>
-                    <textarea value="{{ posInternalContext }}" onInput="{{ onInternalContext }}" style="width:100%;min-height:70px;background:var(--panel);border:1px dashed var(--line);border-radius:8px;padding:12px 14px;font:400 13px var(--mono);color:var(--text2);line-height:1.6;outline:none;resize:vertical" style-focus="border-color:var(--text3)"></textarea>
+                    <label style="display:block;font:600 10.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Internal context</label>
+                    <textarea value="{{ posInternalContext }}" onInput="{{ onInternalContext }}" rows="6" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:10px 12px;font:400 13px var(--sans);color:var(--text2);line-height:1.6;outline:none;resize:vertical" style-focus="border-color:var(--sky)"></textarea>
                   </div>
                 </div>
               </div>
+
             </div>
 
             <div style="margin-bottom:22px">
@@ -219,128 +219,155 @@
               <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
                 <span style="font:600 15px var(--sans);color:var(--text)">Reporting Structure</span>
               </div>
-              <div style="display:flex;align-items:stretch;margin-bottom:16px">
-                <div style="flex:1;background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px;min-width:0">
-                  <div style="font:600 9.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Reports to</div>
-                  <input value="{{ posReportsTo }}" onInput="{{ onReportsTo }}" placeholder="e.g. CEO" style="width:100%;min-width:0;background:none;border:none;outline:none;font:600 13px var(--sans);color:var(--text);padding:0">
-                </div>
-                <div style="display:flex;align-items:center;justify-content:center;width:34px;flex:none;color:var(--text3)">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 6 6 6-6 6"></path></svg>
-                </div>
-                <div style="flex:1;background:var(--sky-dim);border:1px solid var(--sky);border-radius:10px;padding:12px 14px;min-width:0">
-                  <div style="font:600 9.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">This role</div>
-                  <div style="font:600 13px var(--sans);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Chief Financial Officer</div>
-                </div>
-                <div style="display:flex;align-items:center;justify-content:center;width:34px;flex:none;color:var(--text3)">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 6 6 6-6 6"></path></svg>
-                </div>
-                <div style="flex:1;background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px;min-width:0">
-                  <div style="font:600 9.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Direct reports</div>
-                  <div style="display:flex;flex-wrap:wrap;gap:5px">
-                    <sc-for list="{{ directReports }}" as="dr" hint-placeholder-count="3">
-                      <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 5px 3px 10px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font:500 11.5px var(--mono);color:var(--text2)">
-                        {{ dr }}
-                        <button onClick="{{ rmDirectReport }}" data-idx="{{ $index }}" style="background:none;border:none;padding:2px 4px;color:var(--text3);cursor:pointer;font-size:11px;line-height:1" style-hover="color:var(--red)">✕</button>
-                      </span>
+              <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:22px 18px 18px">
+                <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:20px">
+                  <div style="background:var(--panel);border:1px solid var(--line-soft);border-radius:9px;padding:10px 14px;min-width:180px;max-width:220px">
+                    <div style="font:700 9.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Reports to</div>
+                    <input value="{{ posReportsTo }}" onInput="{{ onReportsTo }}" placeholder="Title — e.g. CEO" style="width:100%;background:none;border:none;outline:none;font:600 13px var(--sans);color:var(--text);padding:0;margin-bottom:4px">
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <span style="width:6px;height:6px;border-radius:50%;background:var(--text3);flex:none"></span>
+                      <input value="{{ posReportsToName }}" onInput="{{ onReportsToName }}" placeholder="Name" style="width:100%;background:none;border:none;outline:none;font:400 11.5px var(--mono);color:var(--text2);padding:0">
+                    </div>
+                  </div>
+                  <span style="width:1px;height:26px;background:var(--line)"></span>
+                  <div style="background:var(--sky-dim);border:1px solid var(--sky);border-radius:9px;padding:10px 14px;min-width:180px;max-width:220px">
+                    <div style="font:700 9.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--sky);margin-bottom:5px">This role</div>
+                    <div style="font:600 13px var(--sans);color:var(--sky)">Chief Financial Officer</div>
+                  </div>
+                  <span style="width:1px;height:26px;background:var(--line)"></span>
+                  <div style="position:relative;width:100%;display:flex;justify-content:center;flex-wrap:wrap;gap:16px">
+                    <span style="position:absolute;top:0;left:14%;right:14%;height:1px;background:var(--line)"></span>
+                    <sc-for list="{{ orgChildren }}" as="c" hint-placeholder-count="4">
+                      <div style="display:flex;flex-direction:column;align-items:center">
+                        <span style="width:1px;height:18px;background:var(--line)"></span>
+                        <div style="position:relative;background:var(--panel);border:1px solid var(--line-soft);border-radius:9px;padding:10px 24px 10px 14px;min-width:170px;max-width:220px">
+                          <button onClick="{{ rmDirectReport }}" data-idx="{{ c.idx }}" title="Remove" style="position:absolute;top:5px;right:6px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;line-height:1;padding:2px" style-hover="color:var(--red)">✕</button>
+                          <input value="{{ c.title }}" onInput="{{ onChildTitle }}" data-idx="{{ c.idx }}" placeholder="Title" style="width:100%;background:none;border:none;outline:none;font:600 12.5px var(--sans);color:var(--text);padding:0;margin-bottom:4px">
+                          <div style="display:flex;align-items:center;gap:6px">
+                            <span style="width:6px;height:6px;border-radius:50%;background:var(--text3);flex:none"></span>
+                            <input value="{{ c.name }}" onInput="{{ onChildName }}" data-idx="{{ c.idx }}" placeholder="Name" style="width:100%;background:none;border:none;outline:none;font:400 11.5px var(--mono);color:var(--text2);padding:0">
+                          </div>
+                        </div>
+                      </div>
                     </sc-for>
+                    <div style="display:flex;flex-direction:column;align-items:center">
+                      <span style="width:1px;height:18px;background:var(--line)"></span>
+                      <button onClick="{{ addDirectReport }}" style="background:transparent;border:1px dashed var(--line);border-radius:9px;padding:10px 14px;min-width:150px;color:var(--text3);cursor:pointer;font:400 12px var(--sans);align-self:stretch" style-hover="border-color:var(--sky);color:var(--sky);background:var(--sky-dim)">+ Add direct report</button>
+                    </div>
                   </div>
-                  <input onKeyDown="{{ onDirectReportKey }}" placeholder="+ add role, press Enter" style="margin-top:6px;width:100%;border:1px dashed var(--line);background:transparent;border-radius:999px;padding:5px 12px;font:400 11.5px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                 </div>
-              </div>
-              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px 20px">
-                <sc-for list="{{ orgFields }}" as="f" hint-placeholder-count="3">
-                  <div>
-                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">{{ f.label }}</label>
-                    <input value="{{ f.value }}" onInput="{{ onPosField }}" data-field="{{ f.key }}" style="width:100%;background:none;border:none;border-bottom:1px solid transparent;padding:4px 0;font:500 13.5px var(--mono);color:var(--text);outline:none" style-hover="border-bottom-color:var(--line)" style-focus="border-bottom-color:var(--sky)">
-                  </div>
-                </sc-for>
-              </div>
-            </div>
 
-            <div style="margin-bottom:22px">
-              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
-                <span style="font:600 15px var(--sans);color:var(--text)">Employment &amp; Package</span>
-                <span style="font:400 11.5px var(--mono);color:var(--text3)">shared with candidates during outreach</span>
-              </div>
-              <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:18px">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 20px">
+                  <div>
+                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Seniority</label>
+                    <select value="{{ posSeniority }}" onChange="{{ onPosField }}" data-field="seniority" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:500 13.5px var(--sans);color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--sky)">
+                      <option>C-suite</option><option>N-1</option><option>N-2</option><option>N-3</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Team size</label>
+                    <input value="{{ posTeamSize }}" onInput="{{ onPosField }}" data-field="teamSize" placeholder="e.g. 12" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:500 13.5px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  </div>
+                  <div>
+                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Location</label>
+                    <input value="{{ posLocation }}" onInput="{{ onPosField }}" data-field="location" placeholder="e.g. Dubai, UAE" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:500 13.5px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  </div>
+                </div>
+
+                <div style="height:1px;background:var(--line-soft);margin:18px 0"></div>
+
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px">
                   <div>
                     <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Employment type</label>
-                    <select value="{{ posEmploymentType }}" onChange="{{ onPosField }}" data-field="employmentType" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <select value="{{ posEmploymentType }}" onChange="{{ onPosField }}" data-field="employmentType" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:500 13.5px var(--sans);color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--sky)">
                       <option>Full-time, permanent</option><option>Full-time, fixed-term</option><option>Part-time</option><option>Interim / contract</option><option>Advisory</option>
                     </select>
                   </div>
                   <div>
                     <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Target start</label>
-                    <input value="{{ posStartTarget }}" onInput="{{ onPosField }}" data-field="startTarget" placeholder="e.g. 15 Sep 2026" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <input value="{{ posStartTarget }}" onInput="{{ onPosField }}" data-field="startTarget" placeholder="e.g. 15 Sep 2026" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:500 13.5px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                   </div>
                 </div>
-                <div style="height:1px;background:var(--line-soft);margin:16px 0"></div>
-                <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Base salary</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;margin-bottom:14px">
-                  <div>
-                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Min (monthly)</label>
-                    <input value="{{ posSalaryMin }}" onInput="{{ onPosField }}" data-field="salaryMin" placeholder="e.g. 90,000" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                  </div>
-                  <div>
-                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Max (monthly)</label>
-                    <input value="{{ posSalaryMax }}" onInput="{{ onPosField }}" data-field="salaryMax" placeholder="e.g. 120,000" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                  </div>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;margin-bottom:14px">
-                  <div>
-                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Currency</label>
-                    <select value="{{ posCurrency }}" onChange="{{ onPosField }}" data-field="currency" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              </div>
+            </div>
+
+            <div style="margin-bottom:22px">
+              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
+                <span style="font:600 15px var(--sans);color:var(--text)">Compensation</span>
+                <span style="font:400 11.5px var(--mono);color:var(--text3)">shared with candidates during outreach</span>
+              </div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:stretch">
+
+                <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+                    <span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Base salary</span>
+                    <select value="{{ posCurrency }}" onChange="{{ onPosField }}" data-field="currency" style="background:var(--panel);border:1px solid var(--line-soft);border-radius:6px;padding:4px 8px;font:700 11.5px var(--mono);color:var(--text2);cursor:pointer;outline:none" style-hover="color:var(--text);border-color:var(--line)">
                       <option>AED</option><option>USD</option><option>SAR</option><option>QAR</option><option>KWD</option><option>GBP</option><option>EUR</option>
                     </select>
                   </div>
-                  <div>
+                  <div style="margin-bottom:14px">
+                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Min – Max (monthly)</label>
+                    <div style="display:flex;align-items:center;gap:10px">
+                      <div style="display:flex;align-items:stretch;border:1px solid var(--line);border-radius:7px;background:var(--panel);overflow:hidden;flex:1;min-width:0">
+                        <span style="display:flex;align-items:center;padding:0 8px;font:700 11px var(--mono);color:var(--text3);border-right:1px solid var(--line-soft);background:var(--panel2);white-space:nowrap">{{ posCurrency }}</span>
+                        <input value="{{ posSalaryMin }}" onInput="{{ onPosField }}" data-field="salaryMin" placeholder="90,000" style="border:none;background:transparent;width:100%;min-width:0;padding:8px 9px;font:400 13px var(--mono);color:var(--text);outline:none">
+                      </div>
+                      <span style="color:var(--text3);font-size:13px;flex:none">–</span>
+                      <div style="display:flex;align-items:stretch;border:1px solid var(--line);border-radius:7px;background:var(--panel);overflow:hidden;flex:1;min-width:0">
+                        <span style="display:flex;align-items:center;padding:0 8px;font:700 11px var(--mono);color:var(--text3);border-right:1px solid var(--line-soft);background:var(--panel2);white-space:nowrap">{{ posCurrency }}</span>
+                        <input value="{{ posSalaryMax }}" onInput="{{ onPosField }}" data-field="salaryMax" placeholder="120,000" style="border:none;background:transparent;width:100%;min-width:0;padding:8px 9px;font:400 13px var(--mono);color:var(--text);outline:none">
+                      </div>
+                    </div>
+                  </div>
+                  <div style="margin-bottom:14px">
                     <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Notice period</label>
-                    <div style="display:flex;gap:6px">
-                      <input value="{{ posNoticeNum }}" onInput="{{ onPosField }}" data-field="noticeNum" placeholder="3" style="width:60px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                      <select value="{{ posNoticeUnit }}" onChange="{{ onPosField }}" data-field="noticeUnit" style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <div style="display:flex;gap:6px;align-items:center">
+                      <input value="{{ posNoticeNum }}" onInput="{{ onPosField }}" data-field="noticeNum" placeholder="3" style="width:56px;flex:none;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                      <select value="{{ posNoticeUnit }}" onChange="{{ onPosField }}" data-field="noticeUnit" style="flex:none;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 13px var(--mono);color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--sky)">
                         <option>Months</option><option>Weeks</option><option>Days</option>
                       </select>
                     </div>
                   </div>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px">
-                  <div>
+                  <div style="margin-bottom:14px">
                     <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Bonus target</label>
-                    <div style="display:flex;gap:6px">
-                      <input value="{{ posBonusNum }}" onInput="{{ onPosField }}" data-field="bonusNum" placeholder="e.g. 40" style="width:70px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                      <select value="{{ posBonusType }}" onChange="{{ onPosField }}" data-field="bonusType" style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <div style="display:flex;gap:6px;align-items:center">
+                      <input value="{{ posBonusNum }}" onInput="{{ onPosField }}" data-field="bonusNum" placeholder="30" style="width:56px;flex:none;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                      <select value="{{ posBonusType }}" onChange="{{ onPosField }}" data-field="bonusType" style="flex:none;max-width:190px;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 13px var(--mono);color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--sky)">
                         <option>% of base salary</option><option>% of total fixed</option><option>Months of base salary</option>
                       </select>
                     </div>
                   </div>
                   <div>
                     <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">LTIP / equity</label>
-                    <input value="{{ posLtip }}" onInput="{{ onPosField }}" data-field="ltip" placeholder="e.g. Eligible after 1 year" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <input value="{{ posLtip }}" onInput="{{ onPosField }}" data-field="ltip" placeholder="e.g. Eligible after 1 year" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                   </div>
                 </div>
-                <div style="height:1px;background:var(--line-soft);margin:16px 0"></div>
-                <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:4px">Benefits &amp; allowances</div>
-                <sc-for list="{{ benefits }}" as="b" hint-placeholder-count="4">
-                  <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-soft)">
-                    <span style="flex:1;min-width:0;font:500 13px var(--sans);color:var(--text)">{{ b.name }}</span>
-                    <span style="font:{{ b.amountFont }};color:var(--text3);white-space:nowrap">{{ b.amountLabel }}</span>
-                    <button onClick="{{ rmBenefit }}" data-idx="{{ $index }}" style="background:none;border:none;padding:2px 4px;color:var(--text3);cursor:pointer;font-size:12px;line-height:1;flex:none" style-hover="color:var(--red)">✕</button>
+
+                <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px">
+                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Benefits &amp; allowances</div>
+                  <sc-for list="{{ benefits }}" as="b" hint-placeholder-count="4">
+                    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-soft)">
+                      <span style="flex:1;min-width:0;font:500 13px var(--sans);color:var(--text)">{{ b.name }}</span>
+                      <span style="font:{{ b.amountFont }};color:var(--text3);white-space:nowrap">{{ b.amountLabel }}</span>
+                      <button onClick="{{ rmBenefit }}" data-idx="{{ $index }}" style="background:none;border:none;padding:2px 4px;color:var(--text3);cursor:pointer;font-size:12px;line-height:1;flex:none" style-hover="color:var(--red)">✕</button>
+                    </div>
+                  </sc-for>
+                  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
+                    <input value="{{ benefitName }}" onInput="{{ onBenefitName }}" onKeyDown="{{ benefitEnter }}" placeholder="e.g. Housing allowance" style="flex:1 1 100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <input value="{{ benefitAmt }}" onInput="{{ onBenefitAmt }}" onKeyDown="{{ benefitEnter }}" placeholder="Amount (optional)" style="flex:1.1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <select value="{{ benefitFreq }}" onChange="{{ onBenefitFreq }}" style="flex:.8;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--sky)">
+                      <option>Monthly</option><option>Yearly</option>
+                    </select>
+                    <button onClick="{{ addBenefit }}" style="display:inline-flex;align-items:center;padding:7px 14px;border-radius:7px;font:500 12.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer;flex:none" style-hover="color:var(--text);border-color:var(--text3)">Add</button>
                   </div>
-                </sc-for>
-                <div style="display:flex;gap:8px;margin-top:12px">
-                  <input value="{{ benefitName }}" onInput="{{ onBenefitName }}" onKeyDown="{{ benefitEnter }}" placeholder="e.g. Housing allowance" style="flex:1.3;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                  <input value="{{ benefitAmt }}" onInput="{{ onBenefitAmt }}" onKeyDown="{{ benefitEnter }}" placeholder="Amount (optional)" style="flex:.9;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                  <select value="{{ benefitFreq }}" onChange="{{ onBenefitFreq }}" style="flex:.7;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                    <option>Monthly</option><option>Yearly</option>
-                  </select>
-                  <button onClick="{{ addBenefit }}" style="display:inline-flex;align-items:center;padding:7px 14px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Add</button>
                 </div>
+
               </div>
-              <div style="margin-top:16px;background:var(--amber-dim);border:1px solid var(--amber-btn);border-radius:10px;padding:16px 18px">
-                <div style="font:700 10.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--amber);margin-bottom:5px">Total yearly compensation</div>
-                <div style="font:700 26px var(--mono);color:var(--amber);letter-spacing:-.01em">{{ compHero }}</div>
-                <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:5px">{{ compHeroSub }}</div>
+
+              <div style="margin-top:16px;background:var(--amber-dim);border:1px solid var(--amber-btn);border-radius:10px;padding:14px 18px">
+                <div style="font:700 10px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--amber);margin-bottom:4px">Total yearly compensation</div>
+                <div style="font:700 22px var(--mono);color:var(--amber);letter-spacing:-.01em">{{ compHero }}</div>
+                <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:4px">{{ compHeroSub }}</div>
               </div>
             </div>
 
@@ -534,14 +561,6 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-4"></path></svg>
                   Edit criteria in Strategy
                 </button>
-                <span style="display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden">
-                  <button onClick="{{ setViewCard }}" title="Card view" style="padding:6px 10px;display:flex;border:none;cursor:pointer;color:{{ cardBtnColor }};background:{{ cardBtnBg }}">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"></path></svg>
-                  </button>
-                  <button onClick="{{ setViewList }}" title="List view" style="padding:6px 10px;display:flex;border:none;cursor:pointer;color:{{ listBtnColor }};background:{{ listBtnBg }}">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg>
-                  </button>
-                </span>
               </div>
             </div>
             <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px">
@@ -551,110 +570,63 @@
               </sc-if>
             </div>
 
-            <sc-if value="{{ srcIsCard }}" hint-placeholder-val="{{ true }}">
-              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px">
-                <sc-for list="{{ srcCards }}" as="co" hint-placeholder-count="4">
-                  <div onClick="{{ openCoDrawer }}" data-id="{{ co.id }}" style="position:relative;background:var(--panel2);border:1px solid var(--line-soft);border-left:{{ co.leftBorder }};border-radius:10px;padding:18px;opacity:{{ co.opacity }};cursor:pointer" style-hover="border-color:var(--line)">
-                    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
-                      <div style="width:40px;height:40px;border-radius:8px;background:var(--panel);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font:600 13px var(--mono);color:var(--text2);flex:none">{{ co.initials }}</div>
-                      <div style="flex:1;min-width:0">
-                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                          <span style="font:600 15px var(--sans);color:var(--text);line-height:1.3">{{ co.name }}</span>
-                          <span style="display:inline-flex;align-items:center;font:700 9.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:5px;flex:none;color:{{ co.tierColor }};background:{{ co.tierBg }}">{{ co.tierLabel }}</span>
-                        </div>
-                        <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:4px">{{ co.meta }}</div>
-                      </div>
-                      <div style="flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:56px;padding:8px 0;border-radius:10px;border:1.5px solid var(--sky);color:var(--sky)">
-                        <b style="font:700 20px var(--mono);line-height:1">{{ co.fit }}</b>
-                        <span style="font:600 9px var(--mono);letter-spacing:.06em;color:var(--text3)">FIT</span>
-                      </div>
-                    </div>
-                    <div style="display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:20px;padding:14px 0;border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);margin-bottom:12px">
-                      <div style="min-width:0">
-                        <div style="font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:9px">{{ co.metLabel }}</div>
-                        <sc-for list="{{ co.critRows }}" as="r" hint-placeholder-count="5">
-                          <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font:400 12.5px var(--mono)">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{ r.iconColor }}" stroke-width="2.6" style="flex:none"><path d="{{ r.iconPath }}"></path></svg>
-                            <span style="color:var(--text3);width:70px;flex:none">{{ r.label }}</span>
-                            <span style="color:{{ r.valColor }};font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ r.value }}">{{ r.value }}</span>
-                            <sc-if value="{{ r.preferred }}" hint-placeholder-val="{{ false }}">
-                              <span style="font:600 9px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);border:1px solid var(--line);border-radius:5px;padding:1px 7px;white-space:nowrap;flex:none">preferred</span>
-                            </sc-if>
-                          </div>
-                        </sc-for>
-                      </div>
-                      <div style="min-width:0">
-                        <div style="font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:9px">Scale Snapshot</div>
-                        <sc-for list="{{ co.scaleRows }}" as="r" hint-placeholder-count="4">
-                          <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font:400 12.5px var(--mono);color:var(--text)">
-                            <span style="color:var(--text3);width:70px;flex:none">{{ r.label }}</span>
-                            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ r.value }}">{{ r.value }}</span>
-                          </div>
-                        </sc-for>
-                      </div>
-                    </div>
-                    <div style="font:400 12.5px var(--sans);color:var(--text2);line-height:1.5;margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ co.desc }}</div>
-                    <div style="display:flex;align-items:center;gap:4px">
-                      <button onClick="{{ onTriage }}" data-id="{{ co.id }}" data-act="comment" title="Comment" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;border:none;cursor:pointer;color:{{ co.commentColor }};background:none" style-hover="background:var(--panel);color:var(--text)">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"></path></svg>
-                      </button>
-                      <button onClick="{{ onTriage }}" data-id="{{ co.id }}" data-act="universe" title="Add to universe" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;border:none;cursor:pointer;color:{{ co.uColor }};background:{{ co.uBg }}" style-hover="background:var(--panel)">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 13 4 4L19 7"></path></svg>
-                      </button>
-                      <button onClick="{{ onTriage }}" data-id="{{ co.id }}" data-act="shortlist" title="Shortlist" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;border:none;cursor:pointer;color:{{ co.sColor }};background:{{ co.sBg }}" style-hover="background:var(--panel)">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2Z"></path></svg>
-                      </button>
-                      <span style="flex:1"></span>
-                      <button onClick="{{ onTriage }}" data-id="{{ co.id }}" data-act="decline" title="Decline" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;border:none;cursor:pointer;color:{{ co.dColor }};background:{{ co.dBg }}" style-hover="background:var(--panel)">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
-                      </button>
-                    </div>
-                  </div>
-                </sc-for>
-              </div>
-            </sc-if>
-
-            <sc-if value="{{ srcIsList }}" hint-placeholder-val="{{ false }}">
-              <div style="border:1px solid var(--line-soft);border-radius:10px;overflow:auto">
-                <table style="width:100%;border-collapse:collapse">
-                  <thead>
-                    <tr>
-                      <th style="position:sticky;top:0;background:var(--panel2);text-align:left;padding:10px 14px;font:600 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--line);white-space:nowrap">Company</th>
-                      <th style="position:sticky;top:0;background:var(--panel2);text-align:left;padding:10px 14px;font:600 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--line);white-space:nowrap">Fit</th>
-                      <th style="position:sticky;top:0;background:var(--panel2);text-align:left;padding:10px 14px;font:600 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--line);white-space:nowrap">Criteria</th>
-                      <th style="position:sticky;top:0;background:var(--panel2);text-align:right;padding:10px 14px;font:600 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--line);white-space:nowrap">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <sc-for list="{{ srcCards }}" as="co" hint-placeholder-count="6">
-                      <tr onClick="{{ openCoDrawer }}" data-id="{{ co.id }}" style="opacity:{{ co.opacity }};cursor:pointer" style-hover="background:var(--panel2)">
-                        <td style="padding:10px 14px;border-bottom:1px solid var(--line-soft);white-space:nowrap">
-                          <span style="display:flex;align-items:center;gap:8px;font:600 13px var(--sans);color:var(--text)">
-                            <span style="width:7px;height:7px;border-radius:50%;flex:none;background:{{ co.dotColor }}"></span>
-                            {{ co.name }}
-                          </span>
-                        </td>
-                        <td style="padding:10px 14px;border-bottom:1px solid var(--line-soft)"><span style="font:700 13px var(--mono);color:var(--sky)">{{ co.fit }}</span></td>
-                        <td style="padding:10px 14px;border-bottom:1px solid var(--line-soft);font:400 12px var(--mono);color:var(--text3);white-space:nowrap">{{ co.metShort }}</td>
-                        <td style="padding:10px 14px;border-bottom:1px solid var(--line-soft);text-align:right;white-space:nowrap">
-                          <span style="display:inline-flex;align-items:center;gap:4px">
-                            <button onClick="{{ onTriage }}" data-id="{{ co.id }}" data-act="universe" title="Add to universe" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;border:none;cursor:pointer;color:{{ co.uColor }};background:{{ co.uBg }}" style-hover="background:var(--panel2)">
-                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 13 4 4L19 7"></path></svg>
-                            </button>
-                            <button onClick="{{ onTriage }}" data-id="{{ co.id }}" data-act="shortlist" title="Shortlist" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;border:none;cursor:pointer;color:{{ co.sColor }};background:{{ co.sBg }}" style-hover="background:var(--panel2)">
-                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2Z"></path></svg>
-                            </button>
-                            <button onClick="{{ onTriage }}" data-id="{{ co.id }}" data-act="decline" title="Decline" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;border:none;cursor:pointer;color:{{ co.dColor }};background:{{ co.dBg }}" style-hover="background:var(--panel2)">
-                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
-                            </button>
-                          </span>
-                        </td>
-                      </tr>
+            <div style="border:1px solid var(--line-soft);border-radius:10px;overflow:auto;max-height:calc(100vh - 330px)">
+              <table style="width:100%;border-collapse:collapse">
+                <thead>
+                  <tr>
+                    <sc-for list="{{ srcCols }}" as="c" hint-placeholder-count="9">
+                      <th style="position:sticky;top:0;z-index:5;background:var(--panel2);padding:9px 14px;font:600 10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--line);white-space:nowrap;width:{{ c.w }};text-align:{{ c.align }}">{{ c.label }}</th>
                     </sc-for>
-                  </tbody>
-                </table>
-              </div>
-            </sc-if>
+                  </tr>
+                </thead>
+                <tbody>
+                  <sc-for list="{{ srcCards }}" as="co" hint-placeholder-count="6">
+                    <tr onClick="{{ openCoDrawer }}" data-id="{{ co.id }}" style="cursor:pointer;opacity:{{ co.opacity }}" style-hover="background:var(--panel2)">
+                      <td style="padding:9px 14px;border-bottom:1px solid var(--line-soft);white-space:nowrap">
+                        <span style="display:flex;align-items:center;gap:9px">
+                          <span style="width:26px;height:26px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);display:grid;place-items:center;font:600 10.5px var(--mono);color:var(--text2);flex:none">{{ co.initials }}</span>
+                          <span style="min-width:0">
+                            <span style="display:block;font:600 13px var(--sans);color:var(--text)">{{ co.name }}</span>
+                            <span style="display:block;font:400 11px var(--mono);color:var(--text3);margin-top:1px">{{ co.meta }}</span>
+                          </span>
+                        </span>
+                      </td>
+                      <td style="padding:9px 14px;border-bottom:1px solid var(--line-soft);white-space:nowrap">
+                        <span style="display:inline-flex;align-items:center;font:700 9.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:5px;color:{{ co.tierColor }};background:{{ co.tierBg }}">{{ co.tierLabel }}</span>
+                      </td>
+                      <td style="padding:9px 14px;border-bottom:1px solid var(--line-soft);white-space:nowrap"><span style="font:700 13.5px var(--mono);color:var(--sky)">{{ co.fit }}</span></td>
+                      <td style="padding:9px 14px;border-bottom:1px solid var(--line-soft);white-space:nowrap">
+                        <span style="display:flex;align-items:center;gap:8px">
+                          <span style="width:52px;height:4px;border-radius:2px;background:var(--line-soft);flex:none;overflow:hidden">
+                            <span style="display:block;height:4px;border-radius:2px;width:{{ co.metPct }};background:{{ co.metBarColor }}"></span>
+                          </span>
+                          <span style="font:400 11.5px var(--mono);color:var(--text3)">{{ co.metShort }}</span>
+                        </span>
+                      </td>
+                      <td style="padding:9px 14px;border-bottom:1px solid var(--line-soft);font:400 12px var(--mono);color:var(--text2);white-space:nowrap">{{ co.revenue }}</td>
+                      <td style="padding:9px 14px;border-bottom:1px solid var(--line-soft);font:400 12px var(--mono);color:var(--text2);white-space:nowrap">{{ co.employees }}</td>
+                      <td style="padding:9px 14px;border-bottom:1px solid var(--line-soft);font:400 12px var(--mono);color:var(--text2);white-space:nowrap">{{ co.sector }}</td>
+                      <td style="padding:9px 14px;border-bottom:1px solid var(--line-soft);text-align:right;white-space:nowrap">
+                        <span style="display:inline-flex;align-items:center;gap:4px">
+                          <button onClick="{{ onTriage }}" data-id="{{ co.id }}" data-act="universe" title="Add to universe" style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;color:{{ co.uColor }};background:{{ co.uBg }}" style-hover="background:var(--panel)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 13 4 4L19 7"></path></svg>
+                          </button>
+                          <button onClick="{{ onTriage }}" data-id="{{ co.id }}" data-act="shortlist" title="Shortlist" style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;color:{{ co.sColor }};background:{{ co.sBg }}" style-hover="background:var(--panel)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2Z"></path></svg>
+                          </button>
+                          <button onClick="{{ onTriage }}" data-id="{{ co.id }}" data-act="decline" title="Decline" style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:7px;border:none;cursor:pointer;color:{{ co.dColor }};background:{{ co.dBg }}" style-hover="background:var(--panel)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+                          </button>
+                        </span>
+                      </td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+              <sc-if value="{{ srcEmpty }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:40px;text-align:center;color:var(--text3);font:400 13px var(--mono)">No companies match the current criteria.</div>
+              </sc-if>
+            </div>
           </div>
         </sc-if>
 
@@ -1250,6 +1222,8 @@
   </sc-if>
 
 </div>
+
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#15213a"></rect><text x="50" y="50" fill="#f59c0b" font-family="Montserrat,sans-serif" font-size="26" font-weight="700" text-anchor="middle" dominant-baseline="central">PR</text></svg></template>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;startPage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;position&quot;,&quot;options&quot;:[&quot;position&quot;,&quot;strategy&quot;,&quot;sourcing&quot;,&quot;candidates&quot;,&quot;outreach&quot;,&quot;reports&quot;,&quot;team&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
@@ -1334,7 +1308,13 @@ class Component extends DCLogic {
       collapsed: (() => { try { return localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) { return false; } })(),
       pos: {
         reportsTo: 'Group CEO',
-        directReports: ['Financial Controller', 'Group Treasurer', 'FP&A Director', 'IR Director'],
+        reportsToName: 'Hassan Al Marri',
+        directReports: [
+          { title: 'Financial Controller', name: 'Layla Nasser' },
+          { title: 'Group Treasurer', name: 'Omar Said' },
+          { title: 'FP&A Director', name: '' },
+          { title: 'IR Director', name: '' },
+        ],
         seniority: 'N-1',
         teamSize: '38 across the finance function',
         location: 'Abu Dhabi, UAE',
@@ -1616,6 +1596,12 @@ class Component extends DCLogic {
         tierBg: tier === 'direct' ? 'var(--sky-dim)' : tier === 'adjacent' ? 'var(--amber-dim)' : 'var(--line-soft)',
         dotColor: tier === 'direct' ? 'var(--sky)' : tier === 'adjacent' ? 'var(--amber-btn)' : 'var(--text3)',
         fit: String(m.fit), metLabel: m.metCount + ' of 6 met', metShort: m.metCount + '/6 met',
+        metPct: Math.round(m.metCount / 6 * 100) + '%',
+        metBarColor: m.metCount >= 5 ? 'var(--green)' : m.metCount >= 3 ? 'var(--amber-btn)' : 'var(--text3)',
+        revenue: co.revenueBand, employees: co.employeeBand, sector: co.sector,
+        statusLabel: co.declined ? 'Declined' : co.shortlisted ? 'Shortlisted' : co.inUniverse ? 'In universe' : 'Untriaged',
+        statusColor: co.declined ? 'var(--red)' : co.shortlisted ? 'var(--amber)' : co.inUniverse ? 'var(--green)' : 'var(--text3)',
+        statusBg: co.declined ? 'var(--red-dim)' : co.shortlisted ? 'var(--amber-dim)' : co.inUniverse ? 'var(--green-dim)' : 'var(--line-soft)',
         leftBorder: co.inUniverse ? '3px solid var(--green)' : '1px solid var(--line-soft)',
         opacity: co.declined ? '.5' : '1',
         critRows: m.rows.map(r => ({
@@ -1750,11 +1736,7 @@ class Component extends DCLogic {
       };
     }
 
-    const orgFields = [
-      { key: 'seniority', label: 'Seniority', value: pos.seniority },
-      { key: 'teamSize', label: 'Team size', value: pos.teamSize },
-      { key: 'location', label: 'Location', value: pos.location },
-    ];
+
     // Total yearly compensation = base (monthly) ×12 + quantified allowances, annualized
     const numOf = (s) => Number(String(s).replace(/[^0-9.]/g, '')) || 0;
     const minM = numOf(pos.salaryMin), maxM = numOf(pos.salaryMax);
@@ -1965,7 +1947,8 @@ class Component extends DCLogic {
       },
 
       // position
-      posReportsTo: pos.reportsTo, directReports: pos.directReports, posLocation: pos.location,
+      posReportsTo: pos.reportsTo, posReportsToName: pos.reportsToName, posLocation: pos.location, posTeamSize: pos.teamSize,
+      orgChildren: pos.directReports.map((d, i) => ({ idx: i, title: d.title, name: d.name })),
       posSeniority: pos.seniority,
       posEmploymentType: pos.employmentType, posStartTarget: pos.startTarget,
       posSalaryMin: pos.salaryMin, posSalaryMax: pos.salaryMax, posCurrency: pos.currency,
@@ -1978,7 +1961,10 @@ class Component extends DCLogic {
       onBenefitFreq: (e) => this.setState({ benefitFreq: e.target.value }),
       onReportsTo: (e) => { pos.reportsTo = e.target.value; this.forceUpdate(); },
       rmDirectReport: (e) => { pos.directReports.splice(+e.currentTarget.dataset.idx, 1); this.forceUpdate(); },
-      onDirectReportKey: (e) => { if (e.key === 'Enter' && e.target.value.trim()) { pos.directReports.push(e.target.value.trim()); e.target.value = ''; this.forceUpdate(); } },
+      addDirectReport: () => { pos.directReports.push({ title: '', name: '' }); this.forceUpdate(); },
+      onReportsToName: (e) => { pos.reportsToName = e.target.value; this.forceUpdate(); },
+      onChildTitle: (e) => { pos.directReports[+e.currentTarget.dataset.idx].title = e.target.value; this.forceUpdate(); },
+      onChildName: (e) => { pos.directReports[+e.currentTarget.dataset.idx].name = e.target.value; this.forceUpdate(); },
       pdPresent: !!pos.pd, pdEmpty: !pos.pd,
       pdName: pos.pd ? pos.pd.name : '', pdMeta: pos.pd ? pos.pd.size + ' · added ' + pos.pd.added : '',
       pdParsing: pos.pdParsing, pdInputRef: this.pdInputRef,
@@ -2008,7 +1994,6 @@ class Component extends DCLogic {
       lockBadgeBg: pos.locked ? 'var(--green-dim)' : 'var(--panel)',
       lockBadgeBorder: pos.locked ? 'transparent' : 'var(--line)',
       posLocked: pos.locked, posUnlocked: !pos.locked,
-      orgFields,
       benefits: pos.benefits.map(b => ({
         name: b.name,
         amountLabel: b.amount ? pos.currency + ' ' + b.amount + ' / ' + (b.freq === 'Yearly' ? 'year' : 'month') : 'No fixed value',
@@ -2028,7 +2013,17 @@ class Component extends DCLogic {
       stratPrefBg: activeCrit.mode === 'preferred' ? 'var(--sky-dim)' : 'var(--panel)',
 
       // sourcing
-      srcChips, srcCards,
+      srcChips, srcCards, srcEmpty: srcCards.length === 0,
+      srcCols: [
+        { label: 'Company', w: '26%', align: 'left' },
+        { label: 'Relevance', w: '10%', align: 'left' },
+        { label: 'Fit', w: '6%', align: 'left' },
+        { label: 'Criteria', w: '13%', align: 'left' },
+        { label: 'Revenue', w: '11%', align: 'left' },
+        { label: 'Employees', w: '10%', align: 'left' },
+        { label: 'Sector', w: '14%', align: 'left' },
+        { label: '', w: '6%', align: 'right' },
+      ],
       srcIsCard: st.srcView === 'card', srcIsList: st.srcView === 'list',
       cardBtnColor: st.srcView === 'card' ? 'var(--amber)' : 'var(--text3)',
       cardBtnBg: st.srcView === 'card' ? 'var(--panel)' : 'transparent',
