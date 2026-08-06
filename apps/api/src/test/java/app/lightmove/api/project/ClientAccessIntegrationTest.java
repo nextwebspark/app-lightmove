@@ -103,6 +103,14 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
 
         attachRepresentative(admin, attached, representative.get("id").asText());
 
+        // Sharing a mandate with an already-active representative is announced, not silent — a person
+        // with a working login gets no accept flow, so the notice is their only signal.
+        EmailMessage sharedNotice = email.sent().reversed().stream()
+                .filter(message -> repEmail.equalsIgnoreCase(message.to()))
+                .findFirst().orElseThrow();
+        assertThat(sharedNotice.subject()).contains("CFO Search");
+        assertThat(sharedNotice.textBody()).doesNotContain("token=");
+
         // The list is scoped to the one mandate they're attached to. Its representatives[] carries only
         // their own client's contacts on this same mandate — that is the whole exposure.
         mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + rep))

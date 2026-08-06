@@ -57,7 +57,8 @@ export function TeamAccessPage() {
   const contactCount = `${contacts.length} contact${contacts.length === 1 ? "" : "s"}`;
 
   return (
-    <div className="animate-fade-up">
+    <>
+      <div className="animate-fade-up">
       <div className="mb-3.5">
         <h1 className="text-[19px] font-semibold leading-tight">Team &amp; access</h1>
         <p className="mt-1 font-mono text-xs text-text3">
@@ -112,6 +113,10 @@ export function TeamAccessPage() {
         </div>
       </div>
 
+      </div>
+
+      {/* Outside the animated wrapper: while that ancestor's transform runs, it is the containing
+          block for position:fixed, and the modal overlay would dim only this section, not the page. */}
       {addOpen && (
         <AddClientContactModal
           project={project}
@@ -119,7 +124,7 @@ export function TeamAccessPage() {
           onClose={() => setAddOpen(false)}
         />
       )}
-    </div>
+    </>
   );
 }
 

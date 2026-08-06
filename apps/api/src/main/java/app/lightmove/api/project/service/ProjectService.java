@@ -2,6 +2,8 @@ package app.lightmove.api.project.service;
 
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.email.service.EmailSender;
+import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
@@ -70,6 +72,8 @@ public class ProjectService {
     private final RbacService rbac;
     private final UserRepository users;
     private final AuditService audit;
+    private final EmailSender emailSender;
+    private final EmailTemplates templates;
 
     @Transactional(readOnly = true)
     public List<ProjectResponse> list(UUID userId, UUID workspaceId) {
@@ -212,6 +216,7 @@ public class ProjectService {
             if (seatRepresentative(projectId, membership, actorId)) {
                 auditTeamChange(actorId, workspaceId, projectId, membership.getId(),
                         "attach-client", httpRequest);
+                notifyRepresentativeAttached(actorId, project, representative);
             }
         } else if (representative.getStatus() == ClientRepStatus.INVITED) {
             if (!pendingAttachments.existsByProjectIdAndRepresentativeId(projectId, representativeId)) {
@@ -291,6 +296,22 @@ public class ProjectService {
             }
         }
         pendingAttachments.deleteAll(pending);
+    }
+
+    /**
+     * A courtesy notice to an already-active representative that a mandate was just shared with them —
+     * a person with a working login gets no other signal. Only the ACTIVE attach path sends it: an
+     * INVITED representative's signal is the portal invitation already in their inbox, and the seat
+     * granted on accept is the thing that invitation promised.
+     */
+    private void notifyRepresentativeAttached(UUID actorId, Project project,
+                                              ClientRepresentative representative) {
+        String adderName = users.findById(actorId).map(User::getFullName).orElse("A colleague");
+        String clientName = clients.findByIdAndWorkspaceId(project.getClientId(), project.getWorkspaceId())
+                .map(Client::getName).orElse("your client");
+        emailSender.send(templates.buildAttachedToMandateEmail(
+                representative.getEmail(), representative.getFullName(), adderName, clientName,
+                project.getPositionTitle()));
     }
 
     /** Seats (or extends) the membership with the CLIENT role. Returns whether anything changed. */
