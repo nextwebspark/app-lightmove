@@ -17,10 +17,12 @@ vi.mock("../api/projectsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/projectsApi")>()),
   attachRepresentative: vi.fn(),
   detachRepresentative: vi.fn(),
+  inviteRepresentativeToProject: vi.fn(),
 }));
 vi.mock("../../clients/api/clientsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../clients/api/clientsApi")>()),
   client: vi.fn(),
+  inviteRepresentative: vi.fn(),
 }));
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
@@ -195,8 +197,41 @@ describe("TeamAccessPage", () => {
     await userEvent.click(await screen.findByText("Add contact"));
     expect(await screen.findByText("Added")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByText("Invite"));
+    await userEvent.click(screen.getByText("Add"));
     expect(projectsApi.attachRepresentative).toHaveBeenCalledWith("p1", "r3");
+  });
+
+  it("invites a new contact and attaches them in a single call", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(admin);
+    vi.mocked(clientsApi.client).mockResolvedValue({
+      id: "c1",
+      name: "Beta Client",
+      sector: "Energy",
+      hqCountry: null,
+      domain: null,
+      offLimitsNote: null,
+      activeMandates: 1,
+      deliveredMandates: 0,
+      representatives: [],
+      mandates: [],
+    });
+    vi.mocked(projectsApi.inviteRepresentativeToProject).mockResolvedValue(project);
+
+    renderPage();
+
+    await userEvent.click(await screen.findByText("Add contact"));
+    await userEvent.click(screen.getByRole("button", { name: "Invite by email" }));
+    await userEvent.type(screen.getByPlaceholderText("e.g. Amir Haddad"), "Fresh Rep");
+    await userEvent.type(screen.getByPlaceholderText("name@company.com"), "fresh@beta-client.example");
+    await userEvent.click(screen.getByText("Send invite"));
+
+    // One request, not a registry write followed by an attach that can fail on its own.
+    expect(projectsApi.inviteRepresentativeToProject).toHaveBeenCalledWith("p1", {
+      fullName: "Fresh Rep",
+      position: undefined,
+      email: "fresh@beta-client.example",
+    });
+    expect(clientsApi.inviteRepresentative).not.toHaveBeenCalled();
   });
 
   it("renders read-only for a pure client, without touching the client registry", async () => {

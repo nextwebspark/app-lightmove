@@ -996,12 +996,12 @@
                     <span style="font:600 10px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--text3);padding:6px 10px">Added</span>
                   </sc-if>
                   <sc-if value="{{ p.notAdded }}" hint-placeholder-val="{{ true }}">
-                    <button onClick="{{ inviteExistingPerson }}" data-id="{{ p.id }}" style="padding:6px 13px;border-radius:7px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Invite</button>
+                    <button onClick="{{ inviteExistingPerson }}" data-id="{{ p.id }}" style="padding:6px 13px;border-radius:7px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Add</button>
                   </sc-if>
                 </div>
               </sc-for>
             </div>
-            <div style="font:400 11px var(--mono);color:var(--text3);margin-top:12px">Selecting a person sends their invite automatically — no email needed.</div>
+            <div style="font:400 11px var(--mono);color:var(--text3);margin-top:12px">Someone who has already accepted gets this mandate straight away. Anyone still holding an unaccepted invite joins it the moment they accept.</div>
           </sc-if>
           <sc-if value="{{ noClientPeople }}" hint-placeholder-val="{{ false }}">
             <div style="padding:26px 16px;text-align:center;color:var(--text3);font:400 12.5px var(--mono)">No people on record for this client yet. Use <b style="color:var(--text2)">Invite by email</b> to add the first contact.</div>

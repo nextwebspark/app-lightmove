@@ -2,10 +2,9 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
-import { useToast } from "../../../components/ui";
-import { Avatar } from "../../../components/ui";
-import { initials } from "../../../lib/format";
+import { Avatar, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
+import { initials } from "../../../lib/format";
 import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
@@ -59,60 +58,59 @@ export function TeamAccessPage() {
   return (
     <>
       <div className="animate-fade-up">
-      <div className="mb-3.5">
-        <h1 className="text-[19px] font-semibold leading-tight">Team &amp; access</h1>
-        <p className="mt-1 font-mono text-xs text-text3">
-          Who works this mandate and what they can do
-        </p>
-      </div>
-
-      <div className="mb-3.5 mt-8 flex items-start gap-4">
-        <div>
-          <h2 className="text-base font-semibold leading-tight">Client</h2>
+        <div className="mb-3.5">
+          <h1 className="text-[19px] font-semibold leading-tight">Team &amp; access</h1>
           <p className="mt-1 font-mono text-xs text-text3">
-            The client organisation and the people we report to on their side
+            Who works this mandate and what they can do
           </p>
         </div>
-      </div>
 
-      <div className="overflow-hidden rounded-[11px] border border-line">
-        <div className="flex items-center gap-3 border-b border-line bg-panel2 px-4 py-[15px]">
-          <span className="grid size-[38px] flex-none place-items-center rounded-[9px] bg-sky-dim font-mono text-[13px] font-bold text-sky">
-            {initials(project.clientName)}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-semibold">{project.clientName}</div>
-            <div className="mt-0.5 font-mono text-[11.5px] text-text3">
-              {[client?.sector, contactCount].filter(Boolean).join(" · ")}
-            </div>
+        <div className="mb-3.5 mt-8 flex items-start gap-4">
+          <div>
+            <h2 className="text-base font-semibold leading-tight">Client</h2>
+            <p className="mt-1 font-mono text-xs text-text3">
+              The client organisation and the people we report to on their side
+            </p>
           </div>
-          {canManage && (
-            <button
-              type="button"
-              onClick={() => setAddOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-btn bg-amber-btn px-3 py-1.5 text-[12.5px] font-semibold text-on-amber hover:brightness-105"
-            >
-              <PlusIcon />
-              Add contact
-            </button>
-          )}
         </div>
 
-        {contacts.map((contact) => (
-          <ContactRow
-            key={contact.representativeId}
-            contact={contact}
-            canRemove={canManage}
-            removing={detach.isPending}
-            onRemove={() => detach.mutate(contact.representativeId)}
-          />
-        ))}
+        <div className="overflow-hidden rounded-[11px] border border-line">
+          <div className="flex items-center gap-3 border-b border-line bg-panel2 px-4 py-[15px]">
+            <span className="grid size-[38px] flex-none place-items-center rounded-[9px] bg-sky-dim font-mono text-[13px] font-bold text-sky">
+              {initials(project.clientName)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold">{project.clientName}</div>
+              <div className="mt-0.5 font-mono text-[11.5px] text-text3">
+                {[client?.sector, contactCount].filter(Boolean).join(" · ")}
+              </div>
+            </div>
+            {canManage && (
+              <button
+                type="button"
+                onClick={() => setAddOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-btn bg-amber-btn px-3 py-1.5 text-[12.5px] font-semibold text-on-amber hover:brightness-105"
+              >
+                <PlusIcon />
+                Add contact
+              </button>
+            )}
+          </div>
 
-        <div className="px-4 py-[11px] font-mono text-[11px] text-text3">
-          Invited contacts join automatically once they accept — no action needed on your side.
+          {contacts.map((contact) => (
+            <ContactRow
+              key={contact.representativeId}
+              contact={contact}
+              canRemove={canManage}
+              removing={detach.isPending}
+              onRemove={() => detach.mutate(contact.representativeId)}
+            />
+          ))}
+
+          <div className="px-4 py-[11px] font-mono text-[11px] text-text3">
+            Invited contacts join automatically once they accept — no action needed on your side.
+          </div>
         </div>
-      </div>
-
       </div>
 
       {/* Outside the animated wrapper: while that ancestor's transform runs, it is the containing

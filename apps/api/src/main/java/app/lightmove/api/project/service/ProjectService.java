@@ -207,18 +207,49 @@ public class ProjectService {
     @Transactional
     public ProjectResponse attachRepresentative(UUID actorId, UUID workspaceId, UUID projectId,
                                                 UUID representativeId, HttpServletRequest httpRequest) {
+        return attachRepresentative(actorId, workspaceId, projectId, representativeId, true, httpRequest);
+    }
+
+    /**
+     * The attach above, with the courtesy notice made optional.
+     *
+     * @param announce false when the caller has already mailed this person about the very same
+     *                 decision — the invite-and-attach flow, where {@code onboardClientRepresentative}
+     *                 sends the "added as a representative" notice moments earlier. Two mails for one
+     *                 click reads as a bug to the recipient.
+     */
+    @Transactional
+    public ProjectResponse attachRepresentative(UUID actorId, UUID workspaceId, UUID projectId,
+                                                UUID representativeId, boolean announce,
+                                                HttpServletRequest httpRequest) {
         Project project = requireProject(projectId, workspaceId);
         ClientRepresentative representative = requireRepresentativeOfClient(representativeId, project);
 
-        if (representative.getStatus() == ClientRepStatus.ACTIVE && representative.getUserId() != null) {
+        if (representative.getStatus() == ClientRepStatus.REVOKED) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED,
+                    "That representative's access was revoked — re-invite them first");
+        }
+        // ACTIVE without an account is an invariant break, not a state a caller can act on: the row
+        // claims an accepted invitation with nobody behind it. Masked as NOT_FOUND rather than
+        // explained — there is no request that would make it true.
+        if (representative.getStatus() == ClientRepStatus.ACTIVE && representative.getUserId() == null) {
+            log.error("Representative {} is ACTIVE with no bound account", representativeId);
+            throw ApiException.of(ErrorCode.NOT_FOUND);
+        }
+
+        if (representative.getStatus() == ClientRepStatus.ACTIVE) {
             WorkspaceMember membership =
                     access.requireActiveMember(representative.getUserId(), project.getWorkspaceId());
             if (seatRepresentative(projectId, membership, actorId)) {
                 auditTeamChange(actorId, workspaceId, projectId, membership.getId(),
                         "attach-client", httpRequest);
-                notifyRepresentativeAttached(actorId, project, representative);
+                if (announce) {
+                    notifyRepresentativeAttached(actorId, project, representative);
+                }
             }
         } else if (representative.getStatus() == ClientRepStatus.INVITED) {
+            // Named, not left as the fall-through: a status added later must fail loudly here rather
+            // than be parked as though someone had been invited.
             if (!pendingAttachments.existsByProjectIdAndRepresentativeId(projectId, representativeId)) {
                 pendingAttachments.save(
                         PendingRepresentativeAttachment.of(projectId, representativeId, actorId));
@@ -227,7 +258,7 @@ public class ProjectService {
             }
         } else {
             throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    "That representative's access was revoked — re-invite them first");
+                    "That representative cannot be added to a mandate in their current state");
         }
 
         return toResponse(project, assemblyFor(workspaceId, List.of(project)));
@@ -309,6 +340,10 @@ public class ProjectService {
         String adderName = users.findById(actorId).map(User::getFullName).orElse("A colleague");
         String clientName = clients.findByIdAndWorkspaceId(project.getClientId(), project.getWorkspaceId())
                 .map(Client::getName).orElse("your client");
+        // Sent inline, and last: mail is the one side effect a rollback cannot undo, so the discipline
+        // here — as in ClientRepresentativeService.invite — is to order the code so nothing that can
+        // throw comes after it, not to defer the send. Deferring only this one would be worse than
+        // useless: the "added as a representative" notice from the same transaction is sent inline too.
         emailSender.send(templates.buildAttachedToMandateEmail(
                 representative.getEmail(), representative.getFullName(), adderName, clientName,
                 project.getPositionTitle()));
@@ -430,6 +465,10 @@ public class ProjectService {
 
         // The client-side contacts on this mandate. Seated wins over a stale pending row, and the
         // reported status is the attachment's ("Active" vs invitation still out), not the registry's.
+        //
+        // Which means a REVOKED representative whose CLIENT seat was never dropped would still read
+        // "Active" here. Nothing revokes today, so nothing is wrong yet — but whoever adds that flow
+        // must drop the CLIENT seat and any pending row with it, not merely flip the registry status.
         Set<UUID> clientSeatUserIds = assembly.seatsByProject()
                 .getOrDefault(project.getId(), List.of()).stream()
                 .filter(seat -> seat.getRoles().stream().anyMatch(role -> role.is(ProjectRole.CLIENT)))

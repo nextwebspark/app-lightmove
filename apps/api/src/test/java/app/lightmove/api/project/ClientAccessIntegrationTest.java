@@ -397,6 +397,110 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
         assertThat(pendingAttachments.findByRepresentativeId(representativeId)).isEmpty();
     }
 
+    @Test
+    @DisplayName("a re-invite of an address that is already a member seats its parked attachments")
+    void reinviteOfAnExistingMemberSeatsPendingAttachments() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Zeta Firm");
+        String admin = login(alok);
+
+        String clientId = createCustomClient(admin, "Zeta Client");
+        String projectId = createProject(admin, clientId, "CTO Search");
+
+        // Invited as a representative and parked on the mandate before accepting anything.
+        String repEmail = "dual@zeta-client.example";
+        JsonNode representative = inviteRepresentative(admin, clientId, "Dual Rep", "Advisor", repEmail);
+        UUID representativeId = UUID.fromString(representative.get("id").asText());
+        attachRepresentative(admin, projectId, representativeId.toString());
+        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).hasSize(1);
+
+        // Meanwhile the same person joins the workspace as staff — an ordinary MEMBER invitation.
+        inviteAndAccept(admin, "Dual Rep", repEmail, "MEMBER");
+
+        // The re-invite now finds an active member: the row activates here, with no acceptance event
+        // to carry the parked attachments. They must be seated on this path too, or they orphan.
+        JsonNode reinvited = inviteRepresentative(admin, clientId, "Dual Rep", "Advisor", repEmail);
+        assertThat(reinvited.get("id").asText()).isEqualTo(representativeId.toString());
+        assertThat(reinvited.get("status").asText()).isEqualTo("ACTIVE");
+        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).isEmpty();
+
+        JsonNode mandate = body(mvc.perform(get("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andReturn()).get(0);
+        assertThat(mandate.get("representatives").get(0).get("status").asText()).isEqualTo("ACTIVE");
+        assertThat(mandate.get("team").toString()).contains("CLIENT");
+    }
+
+    @Test
+    @DisplayName("inviting a contact from the mandate creates and attaches them in one call")
+    void invitingFromTheMandateCreatesAndAttachesInOneCall() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Eta Firm");
+        String admin = login(alok);
+
+        String clientId = createCustomClient(admin, "Eta Client");
+        String projectId = createProject(admin, clientId, "CRO Search");
+
+        String repEmail = "onecall@eta-client.example";
+        JsonNode mandate = body(mvc.perform(
+                        post("/api/v1/projects/" + projectId + "/representatives/invitations")
+                                .header("Authorization", "Bearer " + admin)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {"fullName":"One Call","position":"CFO","email":"%s"}
+                                        """.formatted(repEmail)))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        // The registry row and the mandate attachment both landed, from the one request.
+        assertThat(mandate.get("representatives").size()).isEqualTo(1);
+        assertThat(mandate.get("representatives").get(0).get("email").asText()).isEqualTo(repEmail);
+        assertThat(mandate.get("representatives").get(0).get("status").asText()).isEqualTo("INVITED");
+        assertThat(representatives.findByClientIdOrderByCreatedAtAsc(UUID.fromString(clientId)))
+                .hasSize(1);
+
+        // A stranger gets their portal invitation and nothing else — parking an attachment is silent.
+        // (The announce=false suppression is exercised by the already-a-member test below, where an
+        // attach notice is actually reachable.)
+        assertThat(email.sent().stream().filter(message -> repEmail.equalsIgnoreCase(message.to())))
+                .hasSize(1);
+
+        String rep = acceptAsNewUser(email.latestTokenFor(repEmail), "One Call");
+        mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + rep))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(projectId));
+    }
+
+    @Test
+    @DisplayName("inviting an existing member from the mandate mails them once, not twice")
+    void invitingAnExistingMemberFromTheMandateMailsOnce() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Theta Firm");
+        String admin = login(alok);
+
+        String clientId = createCustomClient(admin, "Theta Client");
+        String projectId = createProject(admin, clientId, "CISO Search");
+
+        String colleague = "colleague@" + domain;
+        inviteAndAccept(admin, "A Colleague", colleague, "MEMBER");
+        email.clear();
+
+        mvc.perform(post("/api/v1/projects/" + projectId + "/representatives/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"A Colleague","position":"Chair","email":"%s"}
+                                """.formatted(colleague)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.representatives[0].status").value("ACTIVE"));
+
+        // The "added as a representative" notice, and nothing else — the attach must not mail again
+        // about the same click.
+        assertThat(email.sent().stream().filter(message -> colleague.equalsIgnoreCase(message.to())))
+                .hasSize(1);
+    }
+
     private String createCustomClient(String adminToken, String name) throws Exception {
         return body(mvc.perform(post("/api/v1/clients")
                         .header("Authorization", "Bearer " + adminToken)

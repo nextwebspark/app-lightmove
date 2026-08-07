@@ -59,6 +59,21 @@ export function attachRepresentative(
   });
 }
 
+/**
+ * Create a client contact and attach them here in one call. One decision, one transaction — issuing
+ * the registry write and the attach separately stranded the contact on the client whenever the second
+ * request failed, and mailed them twice when it didn't.
+ */
+export function inviteRepresentativeToProject(
+  projectId: string,
+  payload: { fullName: string; position?: string; email: string },
+): Promise<Project> {
+  return request<Project>(`/projects/${projectId}/representatives/invitations`, {
+    method: "POST",
+    body: payload,
+  });
+}
+
 export function detachRepresentative(
   projectId: string,
   representativeId: string,

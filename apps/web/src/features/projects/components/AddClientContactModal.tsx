@@ -87,17 +87,21 @@ export function AddClientContactModal({
                     ) : (
                       <Button
                         className="px-3 py-1.5 text-xs"
-                        loading={attach.isPending}
+                        // `isPending` alone is shared by every row — `variables` is the id in flight,
+                        // so one click spins one button.
+                        loading={attach.isPending && attach.variables === person.id}
+                        disabled={attach.isPending}
                         onClick={() => attach.mutate(person.id)}
                       >
-                        Invite
+                        Add
                       </Button>
                     )}
                   </div>
                 ))}
               </div>
               <p className="mt-3 font-mono text-[11px] text-text3">
-                Selecting a person sends their invite automatically — no email needed.
+                Someone who has already accepted gets this mandate straight away. Anyone still holding
+                an unaccepted invite joins it the moment they accept.
               </p>
             </>
           ) : (
@@ -135,16 +139,14 @@ function InviteByEmail({
   const [error, setError] = useState<string | null>(null);
 
   const invite = useMutation({
-    // One decision, two calls: the representative is created on the client, then attached to this
-    // mandate — so an accepted invite lands them exactly here, per the modal's promise.
-    mutationFn: async () => {
-      const representative = await clientsApi.inviteRepresentative(project.clientId, {
+    // One decision, one call: the server creates the representative on the client and attaches them
+    // here in a single transaction, so a failure can't leave them on the client with no mandate.
+    mutationFn: () =>
+      projectsApi.inviteRepresentativeToProject(project.id, {
         fullName: fullName.trim(),
         position: position.trim() || undefined,
         email: email.trim(),
-      });
-      return projectsApi.attachRepresentative(project.id, representative.id);
-    },
+      }),
     onSuccess: () => {
       onSettled();
       toast(`Invite sent to ${email.trim()}`);

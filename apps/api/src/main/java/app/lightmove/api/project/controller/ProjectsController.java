@@ -2,11 +2,13 @@ package app.lightmove.api.project.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.service.CurrentUser;
+import app.lightmove.api.project.dto.ClientDtos.InviteRepresentativeRequest;
 import app.lightmove.api.project.dto.ProjectDtos.AttachRepresentativeRequest;
 import app.lightmove.api.project.dto.ProjectDtos.CreateProjectRequest;
 import app.lightmove.api.project.dto.ProjectDtos.ProjectResponse;
 import app.lightmove.api.project.dto.ProjectDtos.PutTeamMemberRequest;
 import app.lightmove.api.project.dto.ProjectDtos.UpdateProjectRequest;
+import app.lightmove.api.project.service.ClientRepresentativeService;
 import app.lightmove.api.project.service.ProjectService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -40,6 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProjectsController {
 
     private final ProjectService projects;
+    private final ClientRepresentativeService representatives;
 
     @GetMapping
     @PreAuthorize("@workspaceAuth.member(principal)")
@@ -102,6 +105,25 @@ public class ProjectsController {
         return ResponseEntity.ok(projects.attachRepresentative(
                 principal.userId(), principal.requireWorkspaceId(), projectId,
                 request.representativeId(), httpRequest));
+    }
+
+    /**
+     * Create a client contact and give them this mandate in one decision — the modal's "Invite by
+     * email" tab. Gated on <b>both</b> tiers: the attach is a lead-or-admin call on the mandate, and
+     * minting a representative writes the client registry, which is {@code CLIENT_RECORD_MANAGE}. Every
+     * project lead holds both today; naming them separately keeps that true if the tiers ever diverge.
+     */
+    @PostMapping("/{projectId}/representatives/invitations")
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT') "
+            + "and @workspaceAuth.can(principal, 'CLIENT_RECORD_MANAGE')")
+    public ResponseEntity<ProjectResponse> inviteRepresentative(
+            @PathVariable UUID projectId,
+            @Valid @RequestBody InviteRepresentativeRequest request,
+            HttpServletRequest httpRequest) {
+        AuthPrincipal principal = CurrentUser.require();
+        return ResponseEntity.ok(representatives.inviteToMandate(
+                principal.userId(), principal.requireWorkspaceId(), projectId,
+                request.fullName(), request.position(), request.email(), httpRequest));
     }
 
     @DeleteMapping("/{projectId}/representatives/{representativeId}")

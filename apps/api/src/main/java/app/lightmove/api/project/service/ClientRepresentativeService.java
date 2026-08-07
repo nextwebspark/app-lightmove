@@ -7,10 +7,13 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.project.constant.ClientRepStatus;
 import app.lightmove.api.project.dto.ClientDtos.RepresentativeResponse;
+import app.lightmove.api.project.dto.ProjectDtos.ProjectResponse;
 import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.model.ClientRepresentative;
+import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ClientRepository;
 import app.lightmove.api.project.repository.ClientRepresentativeRepository;
+import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.workspace.model.ClientRepresentativeAcceptedEvent;
 import app.lightmove.api.workspace.model.ClientRepresentativeOnboarding;
 import app.lightmove.api.workspace.service.InvitationService;
@@ -39,6 +42,7 @@ public class ClientRepresentativeService {
 
     private final ClientRepository clients;
     private final ClientRepresentativeRepository representatives;
+    private final ProjectRepository projectRepository;
     private final InvitationService invitations;
     private final ProjectService projects;
     private final AuditService audit;
@@ -99,6 +103,34 @@ public class ClientRepresentativeService {
 
         return new RepresentativeResponse(representative.getId(), representative.getFullName(),
                 representative.getPosition(), representative.getEmail(), representative.getStatus());
+    }
+
+    /**
+     * Invites a representative <i>to a mandate</i>: creates them on the project's client and attaches
+     * them, as one transaction. The Add-client-contact modal's "Invite by email" tab is one decision,
+     * and splitting it across two calls left a representative stranded on the client with no seat
+     * whenever the second call failed.
+     *
+     * <p>Lives here rather than in {@code ProjectService} because that direction already exists —
+     * {@code ProjectService} must not depend back on this bean. The inner {@code invite} call is a
+     * plain self-call: its {@code @Transactional} is inert through the proxy, which costs nothing
+     * because this method already opened the transaction it would have joined.
+     */
+    @Transactional
+    public ProjectResponse inviteToMandate(UUID actorId, UUID workspaceId, UUID projectId,
+                                           String fullName, String position, String rawEmail,
+                                           HttpServletRequest request) {
+        Project project = projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+
+        RepresentativeResponse invited = invite(
+                actorId, workspaceId, project.getClientId(), fullName, position, rawEmail, request);
+
+        // announce = false: whichever notice this person was owed — the portal invitation, or the
+        // "added as a representative" mail for an address already in the workspace — has just gone
+        // out. The attach notice would be a second mail for the same click.
+        return projects.attachRepresentative(
+                actorId, workspaceId, projectId, invited.id(), false, request);
     }
 
     /**

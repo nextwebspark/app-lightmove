@@ -14,6 +14,11 @@ import lombok.NoArgsConstructor;
  * representative has no workspace membership to seat, so the intent is parked here and converted into a
  * real CLIENT project seat when they accept — then the row is deleted. Unique per
  * {@code (project, representative)}: re-attaching is a no-op, not a queue.
+ *
+ * <p>Nothing sweeps these. An invitation that expires unaccepted leaves its row parked indefinitely,
+ * and a later acceptance still lands the seat however long after — including on a mandate that has
+ * since closed. Detaching cancels it, which is the only exit today; a real sweep belongs with the
+ * representative-revoke flow, which does not exist yet.
  */
 @Entity
 @Table(name = "app_lm_project_pending_representative")
