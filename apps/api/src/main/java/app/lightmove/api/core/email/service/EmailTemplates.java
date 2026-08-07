@@ -191,6 +191,42 @@ public class EmailTemplates {
                 html, text);
     }
 
+    /**
+     * Told to an <b>active</b> representative when a mandate is shared with them. Like
+     * {@link #buildRepresentativeAddedEmail}, a notice with no link and no action — they already sign
+     * in. An INVITED representative gets nothing here: their portal invitation is already in their
+     * inbox, and accepting it seats them on every mandate parked for them.
+     */
+    public EmailMessage buildAttachedToMandateEmail(String recipient, String recipientName,
+                                                    String adderName, String clientName,
+                                                    String positionTitle) {
+        String name = HtmlUtils.htmlEscape(firstName(recipientName));
+        String adder = HtmlUtils.htmlEscape(adderName);
+        String client = HtmlUtils.htmlEscape(clientName);
+        String position = HtmlUtils.htmlEscape(positionTitle);
+
+        String html = wrap("""
+                <h1 style="margin:0 0 16px;font:600 20px/1.3 -apple-system,system-ui,sans-serif;color:#1b2230">
+                  A search was shared with you
+                </h1>
+                <p style="margin:0 0 8px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
+                  Hi %s — %s gave you access to the <strong>%s</strong> search for <strong>%s</strong> on
+                  LightMove. You'll find it in your portal next time you sign in. Nothing to do — your
+                  existing login already works.
+                </p>
+                """.formatted(name, adder, position, client));
+
+        String text = """
+                A search was shared with you
+
+                Hi %s — %s gave you access to the %s search for %s on LightMove. You'll find it in
+                your portal next time you sign in. Nothing to do — your existing login already works.
+                """.formatted(firstName(recipientName), adderName, positionTitle, clientName);
+
+        return new EmailMessage(recipient,
+                "The %s search was shared with you on LightMove".formatted(positionTitle), html, text);
+    }
+
     /** The amber call-to-action from the mockups. Table-based because Outlook still ignores flexbox. */
     private static String button(String label, String href) {
         return """

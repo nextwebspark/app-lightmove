@@ -15,6 +15,7 @@ import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.repository.ClientRepresentativeRepository;
+import app.lightmove.api.project.repository.PendingRepresentativeAttachmentRepository;
 import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.Invitation;
@@ -41,6 +42,7 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
 
     @Autowired InvitationRepository invitations;
     @Autowired ClientRepresentativeRepository representatives;
+    @Autowired PendingRepresentativeAttachmentRepository pendingAttachments;
     @Autowired WorkspaceMemberRepository members;
 
     @Test
@@ -101,11 +103,23 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
 
         attachRepresentative(admin, attached, representative.get("id").asText());
 
-        // The list is scoped to the one mandate they're attached to.
+        // Sharing a mandate with an already-active representative is announced, not silent — a person
+        // with a working login gets no accept flow, so the notice is their only signal.
+        EmailMessage sharedNotice = email.sent().reversed().stream()
+                .filter(message -> repEmail.equalsIgnoreCase(message.to()))
+                .findFirst().orElseThrow();
+        assertThat(sharedNotice.subject()).contains("CFO Search");
+        assertThat(sharedNotice.textBody()).doesNotContain("token=");
+
+        // The list is scoped to the one mandate they're attached to. Its representatives[] carries only
+        // their own client's contacts on this same mandate — that is the whole exposure.
         mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + rep))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].id").value(attached));
+                .andExpect(jsonPath("$[0].id").value(attached))
+                .andExpect(jsonPath("$[0].representatives.length()").value(1))
+                .andExpect(jsonPath("$[0].representatives[0].email").value(repEmail))
+                .andExpect(jsonPath("$[0].representatives[0].status").value("ACTIVE"));
 
         // They may read the attached mandate's content...
         mvc.perform(get("/api/v1/projects/" + attached + "/position").header("Authorization", "Bearer " + rep))
@@ -277,6 +291,214 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
         assertThat(duplicate.getResponse().getStatus()).isEqualTo(400);
         assertThat(codeOf(duplicate)).isEqualTo("VALIDATION_FAILED");
         assertThat(email.sent()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("attaching an INVITED representative parks the intent and seats them on accept")
+    void attachingAnInvitedRepresentativeSeatsThemOnAccept() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Pending Firm");
+        String admin = login(alok);
+
+        String clientId = createCustomClient(admin, "Gamma Client");
+        String projectId = createProject(admin, clientId, "COO Search");
+
+        String repEmail = "pending@gamma-client.example";
+        JsonNode representative = inviteRepresentative(admin, clientId, "Pending Rep", "CHRO", repEmail);
+        UUID representativeId = UUID.fromString(representative.get("id").asText());
+
+        // Attaching before they accept parks a pending row, reported as an INVITED contact.
+        JsonNode attached = body(mvc.perform(post("/api/v1/projects/" + projectId + "/representatives")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"representativeId":"%s"}
+                                """.formatted(representativeId)))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(attached.get("representatives").size()).isEqualTo(1);
+        assertThat(attached.get("representatives").get(0).get("status").asText()).isEqualTo("INVITED");
+        assertThat(attached.get("team").size()).as("no seat exists before accept").isEqualTo(1);
+
+        // Re-attaching is a no-op, not a queue.
+        attachRepresentative(admin, projectId, representativeId.toString());
+        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).hasSize(1);
+
+        // Accepting turns the parked intent into a real seat, atomically with the activation.
+        String rep = acceptAsNewUser(email.latestTokenFor(repEmail), "Pending Rep");
+        mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + rep))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(projectId));
+
+        JsonNode afterAccept = body(mvc.perform(get("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andReturn()).get(0);
+        assertThat(afterAccept.get("representatives").get(0).get("status").asText()).isEqualTo("ACTIVE");
+        assertThat(afterAccept.get("team").toString()).contains("CLIENT");
+        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("detaching an INVITED representative cancels the pending attachment before it lands")
+    void detachingAPendingRepresentativeCancelsTheAttachment() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Cancel Firm");
+        String admin = login(alok);
+
+        String clientId = createCustomClient(admin, "Delta Client");
+        String projectId = createProject(admin, clientId, "CMO Search");
+
+        String repEmail = "cancel@delta-client.example";
+        JsonNode representative = inviteRepresentative(admin, clientId, "Cancel Rep", "Chair", repEmail);
+        UUID representativeId = UUID.fromString(representative.get("id").asText());
+        attachRepresentative(admin, projectId, representativeId.toString());
+
+        JsonNode detached = body(mvc.perform(delete(
+                        "/api/v1/projects/" + projectId + "/representatives/" + representativeId)
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(detached.get("representatives").size()).isEqualTo(0);
+        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).isEmpty();
+
+        // Accepting after the cancel lands them nowhere.
+        String rep = acceptAsNewUser(email.latestTokenFor(repEmail), "Cancel Rep");
+        mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + rep))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("a re-invite keeps the pending attachments — the same row is reused, so they still land")
+    void reinviteKeepsPendingAttachments() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Reinvite Firm");
+        String admin = login(alok);
+
+        String clientId = createCustomClient(admin, "Epsilon Client");
+        String projectId = createProject(admin, clientId, "CIO Search");
+
+        String repEmail = "again@epsilon-client.example";
+        JsonNode representative = inviteRepresentative(admin, clientId, "Again Rep", "Advisor", repEmail);
+        UUID representativeId = UUID.fromString(representative.get("id").asText());
+        attachRepresentative(admin, projectId, representativeId.toString());
+
+        // Re-inviting reuses the row (same id), so the parked attachment survives.
+        JsonNode reinvited = inviteRepresentative(admin, clientId, "Again Rep", "Advisor", repEmail);
+        assertThat(reinvited.get("id").asText()).isEqualTo(representativeId.toString());
+        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).hasSize(1);
+
+        String rep = acceptAsNewUser(email.latestTokenFor(repEmail), "Again Rep");
+        mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + rep))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(projectId));
+        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a re-invite of an address that is already a member seats its parked attachments")
+    void reinviteOfAnExistingMemberSeatsPendingAttachments() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Zeta Firm");
+        String admin = login(alok);
+
+        String clientId = createCustomClient(admin, "Zeta Client");
+        String projectId = createProject(admin, clientId, "CTO Search");
+
+        // Invited as a representative and parked on the mandate before accepting anything.
+        String repEmail = "dual@zeta-client.example";
+        JsonNode representative = inviteRepresentative(admin, clientId, "Dual Rep", "Advisor", repEmail);
+        UUID representativeId = UUID.fromString(representative.get("id").asText());
+        attachRepresentative(admin, projectId, representativeId.toString());
+        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).hasSize(1);
+
+        // Meanwhile the same person joins the workspace as staff — an ordinary MEMBER invitation.
+        inviteAndAccept(admin, "Dual Rep", repEmail, "MEMBER");
+
+        // The re-invite now finds an active member: the row activates here, with no acceptance event
+        // to carry the parked attachments. They must be seated on this path too, or they orphan.
+        JsonNode reinvited = inviteRepresentative(admin, clientId, "Dual Rep", "Advisor", repEmail);
+        assertThat(reinvited.get("id").asText()).isEqualTo(representativeId.toString());
+        assertThat(reinvited.get("status").asText()).isEqualTo("ACTIVE");
+        assertThat(pendingAttachments.findByRepresentativeId(representativeId)).isEmpty();
+
+        JsonNode mandate = body(mvc.perform(get("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andReturn()).get(0);
+        assertThat(mandate.get("representatives").get(0).get("status").asText()).isEqualTo("ACTIVE");
+        assertThat(mandate.get("team").toString()).contains("CLIENT");
+    }
+
+    @Test
+    @DisplayName("inviting a contact from the mandate creates and attaches them in one call")
+    void invitingFromTheMandateCreatesAndAttachesInOneCall() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Eta Firm");
+        String admin = login(alok);
+
+        String clientId = createCustomClient(admin, "Eta Client");
+        String projectId = createProject(admin, clientId, "CRO Search");
+
+        String repEmail = "onecall@eta-client.example";
+        JsonNode mandate = body(mvc.perform(
+                        post("/api/v1/projects/" + projectId + "/representatives/invitations")
+                                .header("Authorization", "Bearer " + admin)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {"fullName":"One Call","position":"CFO","email":"%s"}
+                                        """.formatted(repEmail)))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        // The registry row and the mandate attachment both landed, from the one request.
+        assertThat(mandate.get("representatives").size()).isEqualTo(1);
+        assertThat(mandate.get("representatives").get(0).get("email").asText()).isEqualTo(repEmail);
+        assertThat(mandate.get("representatives").get(0).get("status").asText()).isEqualTo("INVITED");
+        assertThat(representatives.findByClientIdOrderByCreatedAtAsc(UUID.fromString(clientId)))
+                .hasSize(1);
+
+        // A stranger gets their portal invitation and nothing else — parking an attachment is silent.
+        // (The announce=false suppression is exercised by the already-a-member test below, where an
+        // attach notice is actually reachable.)
+        assertThat(email.sent().stream().filter(message -> repEmail.equalsIgnoreCase(message.to())))
+                .hasSize(1);
+
+        String rep = acceptAsNewUser(email.latestTokenFor(repEmail), "One Call");
+        mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + rep))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(projectId));
+    }
+
+    @Test
+    @DisplayName("inviting an existing member from the mandate mails them once, not twice")
+    void invitingAnExistingMemberFromTheMandateMailsOnce() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Theta Firm");
+        String admin = login(alok);
+
+        String clientId = createCustomClient(admin, "Theta Client");
+        String projectId = createProject(admin, clientId, "CISO Search");
+
+        String colleague = "colleague@" + domain;
+        inviteAndAccept(admin, "A Colleague", colleague, "MEMBER");
+        email.clear();
+
+        mvc.perform(post("/api/v1/projects/" + projectId + "/representatives/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"A Colleague","position":"Chair","email":"%s"}
+                                """.formatted(colleague)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.representatives[0].status").value("ACTIVE"));
+
+        // The "added as a representative" notice, and nothing else — the attach must not mail again
+        // about the same click.
+        assertThat(email.sent().stream().filter(message -> colleague.equalsIgnoreCase(message.to())))
+                .hasSize(1);
     }
 
     private String createCustomClient(String adminToken, String name) throws Exception {

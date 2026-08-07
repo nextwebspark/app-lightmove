@@ -70,6 +70,7 @@ describe("ProjectsPage — pure client", () => {
     health: "OK",
     targetDate: null,
     team: [],
+    representatives: [],
     companies: 0,
     candidates: 0,
     createdAt: "2026-07-13T10:00:00Z",

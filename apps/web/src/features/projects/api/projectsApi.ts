@@ -44,3 +44,41 @@ export function putProjectMember(
 export function removeProjectMember(projectId: string, memberId: string): Promise<Project> {
   return request<Project>(`/projects/${projectId}/members/${memberId}`, { method: "DELETE" });
 }
+
+/**
+ * Attach a client contact to this mandate. An ACTIVE representative is seated read-only at once; an
+ * INVITED one is parked server-side and seated automatically when they accept.
+ */
+export function attachRepresentative(
+  projectId: string,
+  representativeId: string,
+): Promise<Project> {
+  return request<Project>(`/projects/${projectId}/representatives`, {
+    method: "POST",
+    body: { representativeId },
+  });
+}
+
+/**
+ * Create a client contact and attach them here in one call. One decision, one transaction — issuing
+ * the registry write and the attach separately stranded the contact on the client whenever the second
+ * request failed, and mailed them twice when it didn't.
+ */
+export function inviteRepresentativeToProject(
+  projectId: string,
+  payload: { fullName: string; position?: string; email: string },
+): Promise<Project> {
+  return request<Project>(`/projects/${projectId}/representatives/invitations`, {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export function detachRepresentative(
+  projectId: string,
+  representativeId: string,
+): Promise<Project> {
+  return request<Project>(`/projects/${projectId}/representatives/${representativeId}`, {
+    method: "DELETE",
+  });
+}

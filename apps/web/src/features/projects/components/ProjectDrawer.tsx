@@ -61,7 +61,14 @@ export function ProjectDrawer({
 
   if (!project) return null;
 
-  const seatOf = (memberId: string) => project.team.find((seat) => seat.memberId === memberId);
+  // A CLIENT role on a seat is managed from the project's Team & access screen, never here — strip it
+  // so the checkboxes cannot echo it back into a replace-set PUT (the server refuses CLIENT there).
+  const seatOf = (memberId: string) => {
+    const seat = project.team.find((held) => held.memberId === memberId);
+    if (!seat) return undefined;
+    const staffRoles: ProjectRole[] = seat.projectRoles.filter((role) => role !== "CLIENT");
+    return staffRoles.length > 0 ? { ...seat, projectRoles: staffRoles } : undefined;
+  };
   const currentStage = STAGE_ORDER.indexOf(project.stage);
   const gates = STAGE_ORDER.filter((stage) => stage !== "CLOSED");
   const busy = toggle.isPending || changeRoles.isPending;
