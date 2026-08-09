@@ -60,14 +60,14 @@ public enum ErrorCode {
     LAST_ADMIN(HttpStatus.CONFLICT, "A workspace must keep at least one admin"),
 
     MEMBER_LEADS_PROJECTS(HttpStatus.CONFLICT,
-            "This member is the only admin on active projects. Hand those over first"),
+            "This member is the only lead on active projects. Hand those over first"),
 
     CLIENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "A client with this name already exists"),
 
     /** A project must always keep someone who can run it — the mirror of {@link #LAST_ADMIN}. */
-    PROJECT_LAST_ADMIN(HttpStatus.CONFLICT, "A project must keep at least one admin"),
+    PROJECT_LAST_LEAD(HttpStatus.CONFLICT, "A project must keep at least one lead"),
 
-    /** Every write to a locked position lands here; only a project admin can unlock. */
+    /** Every write to a locked position lands here; only a project lead can unlock. */
     POSITION_LOCKED(HttpStatus.CONFLICT, "This position is locked"),
 
     /** The lock gate: both competency panels at exactly 100% and at least one required criterion. */

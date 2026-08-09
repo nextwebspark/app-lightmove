@@ -4,15 +4,20 @@ Multi-tenant SaaS for executive search and talent mapping.
 
 A **Workspace** is the tenant. It holds **Members** whose membership carries a *set* of workspace roles
 (`ADMIN` / `MEMBER` / `CLIENT`) who run **Projects** — search mandates for client companies — where each
-seat holds a *set* of project roles (`ADMIN` / `LEAD` / `RESEARCHER` / `CLIENT`). `CLIENT` is a
-hiring-company representative: read-only, scoped to the mandates they're attached to. It is not a fence —
+seat holds **one** staff project role (`LEAD` / `RESEARCHER`) — the project tier has no admin; `LEAD`
+owns the mandate. The assignment table still models a *set*, so re-admitting a second staff role costs
+no migration, but the service and the HTTP contract permit only one. `CLIENT` is the exception, and a
+hiring-company representative: read-only, scoped to the mandates they're attached to, granted by
+attaching a representative and never by the team table, so it sits *alongside* a staff role on the
+seat of someone who is both. It is not a fence —
 a member may hold `CLIENT` **alongside** a staff role and is then treated as staff. A *pure* client (only
 `CLIENT`) is the one kept out of staff surfaces. The workspace `CLIENT` role grants nothing; access is the
 project `CLIENT` seat, which grants `WORK_VIEW` (read a mandate's content, never edit).
 
 **Built so far: auth, workspace management, minimal projects, and the RBAC layer.** Signup (3 steps),
-login, Google OAuth, invitations, the roster, the projects/clients/team screens with per-seat roles,
-the client registry with representative invites and their scoped read-only project access.
+login, Google OAuth, invitations, the roster, the projects/clients screens, a project's Team & access
+tab (staff seats with their role, plus the client contacts on the mandate), and the client registry
+with representative invites and their scoped read-only project access.
 The Project screen's own tables (candidates, pipeline) don't exist yet. Don't build ahead of the
 mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
 
@@ -86,8 +91,9 @@ throwing `ApiException`, so denials keep their codes and the 404 masking. The JW
 coarse material only — up to 15 minutes stale, never trusted for a role-sensitive decision.
 Annotations live on **controllers only**: services reachable outside a request's SecurityContext
 (everything `PendingOnboardingMaterialiser` calls with its synthetic principal) keep imperative checks.
-Invariants that need loaded state stay imperative too — a workspace and every project keep ≥1 holder
-of the ADMIN role (`LAST_ADMIN` / `PROJECT_LAST_ADMIN`).
+Invariants that need loaded state stay imperative too — a workspace keeps ≥1 holder of the workspace
+`ADMIN` role (`LAST_ADMIN`) and every project ≥1 holder of `LEAD` (`PROJECT_LAST_LEAD`), and a project
+seat holds no more than one staff role.
 
 A project's **content** reads (its strategy, position brief, and future tables) are seat-gated on the
 project action `WORK_VIEW` (held by every seated role including CLIENT; workspace-admin bypasses),

@@ -75,7 +75,7 @@ function MemberRow({ member }: { member: Member }) {
   const isSelf = member.userId === user?.id;
 
   // The workspace tier has two roles, so the picker stays a single select; the API takes the full
-  // set, and picking one writes exactly that set. Multi-role selection matters at the project tier.
+  // set, and picking one writes exactly that set.
   const primaryRole: WorkspaceRole = member.roles.includes("ADMIN") ? "ADMIN" : "MEMBER";
 
   const refresh = async () => {

@@ -20,7 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
-/** Mandates end to end: inline clients, creation, multi-role teams, the last-admin rule, isolation. */
+/** Mandates end to end: inline clients, creation, seating, the last-lead rule, isolation. */
 @IntegrationTest
 @Import(RecordingEmailSender.Config.class)
 class ProjectFlowIntegrationTest extends FlowTestSupport {
@@ -48,8 +48,8 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a new project lands at BRIEF with its creator seated as admin and lead")
-    void createLandsAtBriefWithCreatorAsAdmin() throws Exception {
+    @DisplayName("a new project lands at BRIEF with its creator seated as its lead, and nothing else")
+    void createLandsAtBriefWithCreatorAsLead() throws Exception {
         String admin = adminOf("Brief Firm");
         String clientId = createClient(admin, "Meridian Energy");
 
@@ -65,8 +65,8 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.health").value("OK"))
                 .andExpect(jsonPath("$.clientName").value("Meridian Energy"))
                 .andExpect(jsonPath("$.team.length()").value(1))
-                .andExpect(jsonPath("$.team[0].projectRoles[0]").value("ADMIN"))
-                .andExpect(jsonPath("$.team[0].projectRoles[1]").value("LEAD"))
+                .andExpect(jsonPath("$.team[0].projectRoles.length()").value(1))
+                .andExpect(jsonPath("$.team[0].projectRoles[0]").value("LEAD"))
                 .andExpect(jsonPath("$.companies").value(0))
                 .andExpect(jsonPath("$.candidates").value(0));
 
@@ -88,7 +88,7 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roles":["LEAD"]}"""))
+                                {"role":"LEAD"}"""))
                 .andExpect(status().isOk());
 
         JsonNode team = body(mvc.perform(get("/api/v1/projects")
@@ -100,8 +100,8 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a seat can hold several roles, and several seats can hold LEAD at once")
-    void multiRoleSeatsAndPluralLeads() throws Exception {
+    @DisplayName("a seat holds one staff role at a time, though several seats may hold LEAD at once")
+    void oneRolePerSeatAndPluralLeads() throws Exception {
         String alok = "alok@" + domain;
         String sara = "sara@" + domain;
         String omar = "omar@" + domain;
@@ -110,18 +110,15 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
         inviteAndAccept(admin, "Omar Khalil", omar, "MEMBER");
         String projectId = createProject(admin, createClient(admin, "Bindawood"), "CDO");
 
-        // Sara gets both LEAD and RESEARCHER on one seat; Omar becomes a second LEAD.
-        mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberIdOf(admin, sara))
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"roles":["LEAD","RESEARCHER"]}"""))
-                .andExpect(status().isOk());
+        // Sara starts a researcher and is moved to lead: the PUT replaces, it does not accumulate.
+        seat(admin, projectId, memberIdOf(admin, sara), "RESEARCHER");
+        seat(admin, projectId, memberIdOf(admin, sara), "LEAD");
+        // Omar becomes a second lead — plural leads are legal; the single-role rule is per seat.
         mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberIdOf(admin, omar))
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roles":["LEAD"]}"""))
+                                {"role":"LEAD"}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.team.length()").value(3));
 
@@ -129,58 +126,73 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin))
                 .andReturn()).get(0).get("team");
         assertThat(seatOf(team, memberIdOf(admin, sara)).get("projectRoles"))
-                .extracting(JsonNode::asText).containsExactly("LEAD", "RESEARCHER");
+                .extracting(JsonNode::asText).containsExactly("LEAD");
         assertThat(seatOf(team, memberIdOf(admin, omar)).get("projectRoles"))
                 .extracting(JsonNode::asText).containsExactly("LEAD");
 
-        // PUT is replace-set and idempotent: the same PUT again changes nothing.
+        // The same PUT again changes nothing.
         mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberIdOf(admin, omar))
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roles":["LEAD"]}"""))
+                                {"role":"LEAD"}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.team.length()").value(3));
     }
 
     @Test
-    @DisplayName("a project never loses its last admin — demotion and removal are both refused")
-    void lastProjectAdminGuard() throws Exception {
+    @DisplayName("CLIENT is not a role the team table can hand out")
+    void clientIsNotSeatableThroughTheTeam() throws Exception {
         String alok = "alok@" + domain;
         String sara = "sara@" + domain;
-        String admin = adminOf("Last Admin Firm", alok);
+        String admin = adminOf("No Client Seat Firm", alok);
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+        String projectId = createProject(admin, createClient(admin, "Almarai"), "COO");
+
+        MvcResult refused = mvc.perform(
+                        put("/api/v1/projects/" + projectId + "/members/" + memberIdOf(admin, sara))
+                                .header("Authorization", "Bearer " + admin)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {"role":"CLIENT"}"""))
+                .andReturn();
+        assertThat(refused.getResponse().getStatus()).isEqualTo(400);
+        assertThat(codeOf(refused)).isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
+    @DisplayName("a project never loses its last lead — demotion and removal are both refused, until a handover")
+    void lastProjectLeadGuardAndHandover() throws Exception {
+        String alok = "alok@" + domain;
+        String sara = "sara@" + domain;
+        String admin = adminOf("Last Lead Firm", alok);
         inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
         String projectId = createProject(admin, createClient(admin, "Tanmiah"), "CFO");
         String alokSeat = memberIdOf(admin, alok);
 
-        // Demoting the only admin seat is refused...
+        // Demoting the only lead is refused...
         MvcResult demote = mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + alokSeat)
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roles":["RESEARCHER"]}"""))
+                                {"role":"RESEARCHER"}"""))
                 .andReturn();
         assertThat(demote.getResponse().getStatus()).isEqualTo(409);
-        assertThat(codeOf(demote)).isEqualTo("PROJECT_LAST_ADMIN");
+        assertThat(codeOf(demote)).isEqualTo("PROJECT_LAST_LEAD");
 
         // ...and so is pulling the seat off the team.
         MvcResult pull = mvc.perform(delete("/api/v1/projects/" + projectId + "/members/" + alokSeat)
                         .header("Authorization", "Bearer " + admin))
                 .andReturn();
-        assertThat(codeOf(pull)).isEqualTo("PROJECT_LAST_ADMIN");
+        assertThat(codeOf(pull)).isEqualTo("PROJECT_LAST_LEAD");
 
-        // A second admin unlocks both.
-        mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberIdOf(admin, sara))
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"roles":["ADMIN"]}"""))
-                .andExpect(status().isOk());
+        // Handover: promote a second lead, and the creator is free to step down.
+        seat(admin, projectId, memberIdOf(admin, sara), "LEAD");
         mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + alokSeat)
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roles":["RESEARCHER"]}"""))
+                                {"role":"RESEARCHER"}"""))
                 .andExpect(status().isOk());
     }
 
@@ -213,7 +225,7 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + rival)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roles":["RESEARCHER"]}"""))
+                                {"role":"RESEARCHER"}"""))
                 .andExpect(status().isNotFound());
 
         // Another firm's client id is not a client as far as this caller is concerned.
@@ -250,6 +262,16 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                                 """.formatted(clientId, LocalDate.now().minusDays(1))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.health").value("OFF"));
+    }
+
+    private void seat(String leadToken, String projectId, String memberId, String role)
+            throws Exception {
+        mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberId)
+                        .header("Authorization", "Bearer " + leadToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"%s"}""".formatted(role)))
+                .andExpect(status().isOk());
     }
 
     private static JsonNode seatOf(JsonNode team, String memberId) {

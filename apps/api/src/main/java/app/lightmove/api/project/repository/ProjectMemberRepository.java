@@ -35,7 +35,7 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, UU
             """)
     Set<String> findActionNames(@Param("seatId") UUID seatId);
 
-    /** Backs the last-admin guard: a project must never lose its only ADMIN-role seat. */
+    /** Backs the last-lead guard: a project must never lose its only LEAD-role seat. */
     @Query("""
             select count(distinct pm.id) from ProjectMember pm join pm.roles r
             where pm.projectId = :projectId and r.name = :roleName
@@ -43,20 +43,20 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, UU
     long countByRoleName(@Param("projectId") UUID projectId, @Param("roleName") String roleName);
 
     /**
-     * Whether removing this workspace member would leave a live mandate without any project admin —
-     * seats where this member holds ADMIN and nobody else on the project does. Delivered/closed
-     * mandates don't count; blocking on finished work would make removal impossible over time.
+     * Whether removing this workspace member would leave a live mandate without any lead — seats where
+     * this member holds LEAD and nobody else on the project does. Delivered/closed mandates don't
+     * count; blocking on finished work would make removal impossible over time.
      */
     @Query("""
             select count(distinct pm.id) from ProjectMember pm join pm.roles r, Project p
             where p.id = pm.projectId and pm.memberId = :memberId
-              and r.name = 'ADMIN' and p.stage not in :doneStages
+              and r.name = 'LEAD' and p.stage not in :doneStages
               and not exists (
                   select 1 from ProjectMember other join other.roles r2
-                  where other.projectId = pm.projectId and other.id <> pm.id and r2.name = 'ADMIN')
+                  where other.projectId = pm.projectId and other.id <> pm.id and r2.name = 'LEAD')
             """)
-    long countSoleAdminSeatsExcludingStages(@Param("memberId") UUID memberId,
-                                            @Param("doneStages") Collection<ProjectStage> doneStages);
+    long countSoleLeadSeatsExcludingStages(@Param("memberId") UUID memberId,
+                                           @Param("doneStages") Collection<ProjectStage> doneStages);
 
     @Modifying
     long deleteByMemberId(UUID memberId);

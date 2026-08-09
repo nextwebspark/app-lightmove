@@ -1,34 +1,32 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth/AuthProvider";
 import { Avatar, Button, Drawer, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatDate, titleCase } from "../../../lib/format";
 import type { Member } from "../../workspace/api/types";
 import * as projectsApi from "../api/projectsApi";
-import type { Project, ProjectRole } from "../api/types";
+import type { Project, ProjectRole, StaffRole } from "../api/types";
 import { STAGE_ORDER } from "../lib/filtering";
 import { stageLabel } from "../../../components/ui";
-
-const PROJECT_ROLES: ProjectRole[] = ["ADMIN", "LEAD", "RESEARCHER"];
+import { ProjectRoleChips } from "./ProjectRoleChips";
 
 /**
- * The right slide-over: pipeline stats, display-only stage gates, and the team panel — the one place
- * a member is seated on or taken off a mandate, and where their project roles are granted. A seat
- * holds a set of roles (the creator starts as Admin + Lead; several seats may hold Lead at once).
- * The server owns the invariants: the last admin seat refuses demotion and removal with a toast.
+ * The right slide-over: pipeline stats, display-only stage gates, and a quick team panel — seat a
+ * member on a mandate, take them off, or move their one staff role. The mandate's own Team & access
+ * screen is the fuller surface; this is the list view's shortcut, sharing its role chips so the two
+ * cannot drift. The server owns the invariants: the last lead refuses demotion and removal with a toast.
  */
 export function ProjectDrawer({
   project,
   members,
-  canManageTeam,
   onClose,
 }: {
   project: Project | null;
   members: Member[];
-  /** False for a pure client — team management is a staff surface; they read, never seat. */
-  canManageTeam: boolean;
   onClose: () => void;
 }) {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const toast = useToast();
   const navigate = useNavigate();
@@ -40,7 +38,7 @@ export function ProjectDrawer({
   const toggle = useMutation({
     mutationFn: ({ memberId, on }: { memberId: string; on: boolean }) =>
       on
-        ? projectsApi.putProjectMember(project!.id, memberId, ["RESEARCHER"])
+        ? projectsApi.putProjectMember(project!.id, memberId, "RESEARCHER")
         : projectsApi.removeProjectMember(project!.id, memberId),
     onSuccess: (_, { on }) => {
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
@@ -49,29 +47,35 @@ export function ProjectDrawer({
     ...settle,
   });
 
-  const changeRoles = useMutation({
-    mutationFn: ({ memberId, roles }: { memberId: string; roles: ProjectRole[] }) =>
-      projectsApi.putProjectMember(project!.id, memberId, roles),
+  const changeRole = useMutation({
+    mutationFn: ({ memberId, role }: { memberId: string; role: StaffRole }) =>
+      projectsApi.putProjectMember(project!.id, memberId, role),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
-      toast("Roles updated");
+      toast("Role updated");
     },
     ...settle,
   });
 
   if (!project) return null;
 
-  // A CLIENT role on a seat is managed from the project's Team & access screen, never here — strip it
-  // so the checkboxes cannot echo it back into a replace-set PUT (the server refuses CLIENT there).
-  const seatOf = (memberId: string) => {
+  // The server's TEAM_MANAGE gate, mirrored per project: the mandate's lead, or a workspace admin by
+  // bypass. Gating on "not a pure client" instead would offer a researcher controls that only 403.
+  const canManageTeam =
+    (user?.workspace?.roles.includes("ADMIN") ?? false) ||
+    project.team.some((seat) => seat.userId === user?.id && seat.projectRoles.includes("LEAD"));
+
+  // A CLIENT-only seat is a client contact, not a team member: it is granted and dropped from the
+  // project's Team & access screen, and must not read as "on the team" here.
+  const staffRoleOf = (memberId: string): StaffRole | undefined => {
     const seat = project.team.find((held) => held.memberId === memberId);
-    if (!seat) return undefined;
-    const staffRoles: ProjectRole[] = seat.projectRoles.filter((role) => role !== "CLIENT");
-    return staffRoles.length > 0 ? { ...seat, projectRoles: staffRoles } : undefined;
+    const staffRoles: ProjectRole[] = seat?.projectRoles.filter((role) => role !== "CLIENT") ?? [];
+    if (staffRoles.length === 0) return undefined;
+    return staffRoles.includes("LEAD") ? "LEAD" : "RESEARCHER";
   };
   const currentStage = STAGE_ORDER.indexOf(project.stage);
   const gates = STAGE_ORDER.filter((stage) => stage !== "CLOSED");
-  const busy = toggle.isPending || changeRoles.isPending;
+  const busy = toggle.isPending || changeRole.isPending;
 
   return (
     <Drawer open onClose={onClose}>
@@ -128,8 +132,8 @@ export function ProjectDrawer({
           <>
             <SectionLabel className="mt-[18px]">Team</SectionLabel>
             {members.map((member) => {
-              const seat = seatOf(member.memberId);
-              const on = Boolean(seat);
+              const role = staffRoleOf(member.memberId);
+              const on = Boolean(role);
               return (
                 <div key={member.memberId} className="rounded-[7px] px-2 py-[7px] hover:bg-panel2">
                   <div className="flex items-center gap-2.5">
@@ -157,35 +161,17 @@ export function ProjectDrawer({
                     </button>
                   </div>
 
-                  {seat && (
-                    <div className="ml-9 mt-1.5 flex gap-3">
-                      {PROJECT_ROLES.map((role) => {
-                        const checked = seat.projectRoles.includes(role);
-                        return (
-                          <label
-                            key={role}
-                            className="flex cursor-pointer items-center gap-1.5 font-mono text-[11px] text-text2"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              disabled={busy}
-                              onChange={() => {
-                                const next = checked
-                                  ? seat.projectRoles.filter((held) => held !== role)
-                                  : [...seat.projectRoles, role];
-                                if (next.length === 0) {
-                                  toast("A seat keeps at least one role — remove them instead");
-                                  return;
-                                }
-                                changeRoles.mutate({ memberId: member.memberId, roles: next });
-                              }}
-                              className="size-3 accent-amber-btn"
-                            />
-                            {titleCase(role)}
-                          </label>
-                        );
-                      })}
+                  {role && (
+                    <div className="ml-9 mt-1.5">
+                      <ProjectRoleChips
+                        memberName={member.fullName}
+                        role={role}
+                        canManage={canManageTeam}
+                        pending={busy}
+                        onChange={(next) =>
+                          changeRole.mutate({ memberId: member.memberId, role: next })
+                        }
+                      />
                     </div>
                   )}
                 </div>

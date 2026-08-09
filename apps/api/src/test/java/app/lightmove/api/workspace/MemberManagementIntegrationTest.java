@@ -161,8 +161,8 @@ class MemberManagementIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the only project admin on a live mandate cannot be removed until it is handed over")
-    void soleProjectAdminBlocksRemoval() throws Exception {
+    @DisplayName("the only lead on a live mandate cannot be removed until it is handed over")
+    void soleProjectLeadBlocksRemoval() throws Exception {
         String alok = "alok@" + domain;
         String sara = "sara@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", alok), "Handover Firm");
@@ -179,7 +179,7 @@ class MemberManagementIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
 
-        // Sara creates the mandate, becoming its only project admin.
+        // Sara creates the mandate, becoming its only lead.
         String projectId = body(mvc.perform(post("/api/v1/projects")
                         .header("Authorization", "Bearer " + saraToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -194,31 +194,31 @@ class MemberManagementIntegrationTest extends FlowTestSupport {
                 .andReturn();
         assertThat(codeOf(blocked)).isEqualTo("MEMBER_LEADS_PROJECTS");
 
-        // Hand the mandate over — seat the workspace admin as a project admin — and removal goes through.
+        // Hand the mandate over — seat the workspace admin as a second lead — and removal goes through.
         mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberIdOf(admin, alok))
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roles":["ADMIN"]}"""))
+                                {"role":"LEAD"}"""))
                 .andExpect(status().isOk());
 
         mvc.perform(delete("/api/v1/members/" + saraMemberId)
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isNoContent());
 
-        // Her seat went with her; the team is just the new admin now.
+        // Her seat went with her; the team is just the new lead now.
         mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].team.length()").value(1))
-                .andExpect(jsonPath("$[0].team[0].projectRoles[0]").value("ADMIN"));
+                .andExpect(jsonPath("$[0].team[0].projectRoles[0]").value("LEAD"));
     }
 
     @Test
-    @DisplayName("a plain lead — not the only admin — is removable; leads are not structural")
-    void leadDoesNotBlockRemoval() throws Exception {
+    @DisplayName("a researcher is removable — only the sole lead of a live mandate is structural")
+    void researcherDoesNotBlockRemoval() throws Exception {
         String alok = "alok@" + domain;
         String sara = "sara@" + domain;
-        createWorkspace(verifiedUser("Alok Kumar", alok), "Plural Leads Firm");
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Researcher Removal Firm");
         String admin = login(alok);
         inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
         String saraMemberId = memberIdOf(admin, sara);
@@ -244,7 +244,7 @@ class MemberManagementIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roles":["LEAD"]}"""))
+                                {"role":"RESEARCHER"}"""))
                 .andExpect(status().isOk());
 
         mvc.perform(delete("/api/v1/members/" + saraMemberId)

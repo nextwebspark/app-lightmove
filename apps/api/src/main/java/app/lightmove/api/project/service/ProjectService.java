@@ -54,8 +54,8 @@ import org.springframework.transaction.annotation.Transactional;
  * Mandates inside one workspace. Tier gating lives on the controllers as {@code @PreAuthorize}
  * (create/browse are workspace actions; edit and team changes are project actions resolved through
  * the seat's roles). What stays here are the invariants that need loaded state — above all: a project
- * never loses its last ADMIN-role seat. Every load is scoped {@code (id, workspaceId)} with the
- * workspace id taken from the principal, never a request.
+ * never loses its last LEAD-role seat, and a seat never holds more than one staff role. Every load is
+ * scoped {@code (id, workspaceId)} with the workspace id taken from the principal, never a request.
  */
 @Service
 @RequiredArgsConstructor
@@ -106,7 +106,10 @@ public class ProjectService {
         return forClient.stream().map(project -> toResponse(project, assembly)).toList();
     }
 
-    /** The creator's seat holds {ADMIN, LEAD} from birth — they own the mandate and run it, until they delegate. */
+    /**
+     * The creator is the mandate's LEAD from birth — they own it and run it. Handover is an ordinary
+     * seat change: promote a second lead, then demote or remove the first.
+     */
     @Transactional
     public ProjectResponse create(UUID userId, UUID workspaceId, CreateProjectRequest request,
                                   HttpServletRequest httpRequest) {
@@ -116,7 +119,7 @@ public class ProjectService {
         Project project = projects.save(Project.create(
                 workspaceId, request.clientId(), request.positionTitle(), request.targetDate(), userId));
         seats.save(ProjectMember.of(project.getId(), creator.getId(),
-                rbac.projectRoles(EnumSet.of(ProjectRole.ADMIN, ProjectRole.LEAD)), userId));
+                rbac.projectRoles(EnumSet.of(ProjectRole.LEAD)), userId));
         // The brief arrives drafted, not blank — seeded from the role-template library.
         positionService.seedFor(project);
 
@@ -146,32 +149,41 @@ public class ProjectService {
     }
 
     /**
-     * PUT of a seat, replace-set: seats the member with these roles, or replaces the roles they hold.
-     * Idempotent — a PUT of the current state changes nothing.
+     * PUT of a seat: the member holds this one staff role on the mandate afterwards — seated if they
+     * had no seat, moved if they did. Idempotent — a PUT of the role they already hold changes nothing.
      */
     @Transactional
     public ProjectResponse putMember(UUID userId, UUID workspaceId, UUID projectId, UUID memberId,
-                                     Set<ProjectRole> roles, HttpServletRequest httpRequest) {
+                                     ProjectRole role, HttpServletRequest httpRequest) {
         Project project = requireProject(projectId, workspaceId);
         access.requireStaffRow(memberId, workspaceId);
 
         // Clients are attached via attachRepresentative, never seated here.
-        if (roles.contains(ProjectRole.CLIENT)) {
+        if (role == ProjectRole.CLIENT) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED,
                     "Clients are invited to a project, not seated on the team");
         }
 
-        Set<Role> granted = rbac.projectRoles(roles);
         ProjectMember seat = seats.findByProjectIdAndMemberId(projectId, memberId).orElse(null);
 
         if (seat == null) {
-            seats.save(ProjectMember.of(projectId, memberId, granted, userId));
+            seats.save(ProjectMember.of(projectId, memberId, Set.of(rbac.role(role)), userId));
             auditTeamChange(userId, workspaceId, projectId, memberId, "add", httpRequest);
-        } else if (!granted.equals(seat.getRoles())) {
-            // A PUT of the current role set changes nothing — skip the guard, the write and the audit
-            // event, so the "idempotent" claim holds in side effects too, not just in the response.
-            if (holdsAdmin(seat) && !roles.contains(ProjectRole.ADMIN)) {
-                requireAnotherProjectAdmin(projectId);
+            return toResponse(project, assemblyFor(workspaceId, List.of(project)));
+        }
+
+        // The staff role is replaced; a CLIENT role the seat already carries survives. A representative
+        // of the client who also staffs the mandate holds both, and staffing them must not silently
+        // revoke the read access their client contact was granted separately.
+        Set<Role> granted = new HashSet<>();
+        granted.add(rbac.role(role));
+        seat.getRoles().stream().filter(existing -> existing.is(ProjectRole.CLIENT)).forEach(granted::add);
+
+        // A PUT of the current role set changes nothing — skip the guard, the write and the audit
+        // event, so the "idempotent" claim holds in side effects too, not just in the response.
+        if (!granted.equals(seat.getRoles())) {
+            if (holdsLead(seat) && role != ProjectRole.LEAD) {
+                requireAnotherProjectLead(projectId);
             }
             seat.changeRoles(granted);
             auditTeamChange(userId, workspaceId, projectId, memberId, "roles", httpRequest);
@@ -187,8 +199,8 @@ public class ProjectService {
 
         ProjectMember seat = seats.findByProjectIdAndMemberId(projectId, memberId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-        if (holdsAdmin(seat)) {
-            requireAnotherProjectAdmin(projectId);
+        if (holdsLead(seat)) {
+            requireAnotherProjectLead(projectId);
         }
 
         seats.delete(seat);
@@ -202,7 +214,7 @@ public class ProjectService {
      * other. An INVITED one has no membership to seat yet, so the intent is parked as a pending
      * attachment and converted into a seat when they accept ({@link #seatAcceptedRepresentative}).
      * Idempotent on both paths — re-attaching adds nothing. Gated PROJECT_EDIT at the controller — a
-     * lead or admin decides who on the client side sees a mandate.
+     * lead decides who on the client side sees a mandate.
      */
     @Transactional
     public ProjectResponse attachRepresentative(UUID actorId, UUID workspaceId, UUID projectId,
@@ -381,14 +393,14 @@ public class ProjectService {
         return representative;
     }
 
-    private boolean holdsAdmin(ProjectMember seat) {
-        return seat.getRoles().stream().anyMatch(role -> role.is(ProjectRole.ADMIN));
+    private boolean holdsLead(ProjectMember seat) {
+        return seat.getRoles().stream().anyMatch(role -> role.is(ProjectRole.LEAD));
     }
 
-    /** The project-tier mirror of the workspace's last-admin rule. */
-    private void requireAnotherProjectAdmin(UUID projectId) {
-        if (seats.countByRoleName(projectId, ProjectRole.ADMIN.name()) <= 1) {
-            throw ApiException.of(ErrorCode.PROJECT_LAST_ADMIN);
+    /** The project-tier mirror of the workspace's last-admin rule: a mandate always has someone running it. */
+    private void requireAnotherProjectLead(UUID projectId) {
+        if (seats.countByRoleName(projectId, ProjectRole.LEAD.name()) <= 1) {
+            throw ApiException.of(ErrorCode.PROJECT_LAST_LEAD);
         }
     }
 
@@ -461,6 +473,9 @@ public class ProjectService {
                             names(member.getRoles(), WorkspaceRole::valueOf),
                             names(seat.getRoles(), ProjectRole::valueOf)));
                 })
+                // Sorted here, not in the query: the seat rows come back in whatever order the join
+                // produced, so the Team & access table would otherwise reshuffle between fetches.
+                .sorted(Comparator.comparing(TeamMemberResponse::fullName, String.CASE_INSENSITIVE_ORDER))
                 .toList();
 
         // The client-side contacts on this mandate. Seated wins over a stale pending row, and the

@@ -45,7 +45,7 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
     @DisplayName("a seated researcher reads the scope but does not shape it")
     void researcherReadsButCannotWrite() throws Exception {
         Fixture f = fixture("Strategy Researcher Firm");
-        seat(f.admin, f.projectId, f.saraId, "[\"RESEARCHER\"]");
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
         String sara = login(f.saraEmail);
 
         mvc.perform(get(strategyUrl(f.projectId)).header("Authorization", "Bearer " + sara))
@@ -62,7 +62,7 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
     @DisplayName("a lead with PROJECT_EDIT can write the scope")
     void leadCanWrite() throws Exception {
         Fixture f = fixture("Strategy Lead Firm");
-        seat(f.admin, f.projectId, f.saraId, "[\"LEAD\"]");
+        seat(f.admin, f.projectId, f.saraId, "LEAD");
         String sara = login(f.saraEmail);
 
         mvc.perform(put(sectorsUrl(f.projectId))
@@ -79,7 +79,7 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
         String body = """
                 {"employee":["51-200"],"revenue":[]}""";
 
-        seat(f.admin, f.projectId, f.saraId, "[\"RESEARCHER\"]");
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
         String sara = login(f.saraEmail);
         mvc.perform(put(companySizeUrl(f.projectId))
                         .header("Authorization", "Bearer " + sara)
@@ -87,7 +87,7 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
                         .content(body))
                 .andExpect(status().isForbidden());
 
-        seat(f.admin, f.projectId, f.saraId, "[\"LEAD\"]");
+        seat(f.admin, f.projectId, f.saraId, "LEAD");
         mvc.perform(put(companySizeUrl(f.projectId))
                         .header("Authorization", "Bearer " + login(f.saraEmail))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -104,7 +104,7 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
         String ownershipBody = """
                 {"structures":["Privately Held"]}""";
 
-        seat(f.admin, f.projectId, f.saraId, "[\"RESEARCHER\"]");
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
         String sara = login(f.saraEmail);
         mvc.perform(put(geographyUrl(f.projectId))
                         .header("Authorization", "Bearer " + sara)
@@ -117,7 +117,7 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
                         .content(ownershipBody))
                 .andExpect(status().isForbidden());
 
-        seat(f.admin, f.projectId, f.saraId, "[\"LEAD\"]");
+        seat(f.admin, f.projectId, f.saraId, "LEAD");
         String saraAsLead = login(f.saraEmail);
         mvc.perform(put(geographyUrl(f.projectId))
                         .header("Authorization", "Bearer " + saraAsLead)
@@ -139,7 +139,7 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
         String body = """
                 {"companies":[]}""";
 
-        seat(f.admin, f.projectId, f.saraId, "[\"RESEARCHER\"]");
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
         String sara = login(f.saraEmail);
         mvc.perform(put(targetsUrl(f.projectId))
                         .header("Authorization", "Bearer " + sara)
@@ -152,7 +152,7 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
                         .content(body))
                 .andExpect(status().isForbidden());
 
-        seat(f.admin, f.projectId, f.saraId, "[\"LEAD\"]");
+        seat(f.admin, f.projectId, f.saraId, "LEAD");
         String saraAsLead = login(f.saraEmail);
         mvc.perform(put(targetsUrl(f.projectId))
                         .header("Authorization", "Bearer " + saraAsLead)
@@ -222,13 +222,13 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
         return new Fixture(admin, projectId, sara, memberIdOf(admin, sara));
     }
 
-    private void seat(String adminToken, String projectId, String memberId, String rolesJson)
+    private void seat(String leadToken, String projectId, String memberId, String role)
             throws Exception {
         mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberId)
-                        .header("Authorization", "Bearer " + adminToken)
+                        .header("Authorization", "Bearer " + leadToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roles":%s}""".formatted(rolesJson)))
+                                {"role":"%s"}""".formatted(role)))
                 .andExpect(status().isOk());
     }
 }

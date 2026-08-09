@@ -29,7 +29,7 @@ export type ApiErrorCode =
   | "LAST_ADMIN"
   | "MEMBER_LEADS_PROJECTS"
   | "CLIENT_ALREADY_EXISTS"
-  | "PROJECT_LAST_ADMIN"
+  | "PROJECT_LAST_LEAD"
   | "POSITION_LOCKED"
   | "POSITION_NOT_READY"
   | "WORKSPACE_NAME_MISMATCH"
@@ -42,10 +42,10 @@ export type ApiErrorCode =
 
 const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   LAST_ADMIN: "A workspace must keep at least one admin.",
-  MEMBER_LEADS_PROJECTS: "They are the only admin on active projects — hand those over first.",
+  MEMBER_LEADS_PROJECTS: "They are the only lead on active projects — hand those over first.",
   CLIENT_ALREADY_EXISTS: "A client with this name already exists.",
-  PROJECT_LAST_ADMIN: "A project must keep at least one admin.",
-  POSITION_LOCKED: "This position is locked — an admin can unlock it.",
+  PROJECT_LAST_LEAD: "A project must keep at least one lead.",
+  POSITION_LOCKED: "This position is locked — a project lead can unlock it.",
   POSITION_NOT_READY: "Balance both panels to 100% and add a required criterion first.",
   WORKSPACE_NAME_MISMATCH: "Type the workspace name exactly to confirm.",
   FORBIDDEN: "You don't have permission to do this.",

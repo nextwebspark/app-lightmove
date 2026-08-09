@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useOutletContext } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
+import { Icon, ICONS } from "../../../components/layout/Icon";
+import { PageHeader } from "../../../components/layout/PageHeader";
 import { Avatar, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { initials } from "../../../lib/format";
@@ -9,31 +11,40 @@ import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
 import * as projectsApi from "../api/projectsApi";
-import type { AttachedRepresentative } from "../api/types";
+import type { AttachedRepresentative, StaffRole, TeamMember } from "../api/types";
 import { AddClientContactModal } from "../components/AddClientContactModal";
+import { AddTeamMemberModal } from "../components/AddTeamMemberModal";
+import { ProjectRoleChips, ProjectRoleLegend } from "../components/ProjectRoleChips";
 
 /**
- * The Team & access tab's Client section (Project.dc.html): the linked client organisation and the
- * client-side contacts who may read this mandate. Contacts render from the project itself — a pure
- * client sees their own colleagues here without ever touching the staff-only client registry, which
- * is why the registry query is gated off for them. The staff team table is a later session.
+ * The Team & access tab (Project.dc.html): who staffs this mandate and what they may do, then the
+ * client organisation and the people we report to on their side.
+ *
+ * The two halves are separate on purpose. Staff hold one project role apiece and it is editable here;
+ * client contacts hold the read-only CLIENT seat, which is granted by attaching a representative and
+ * never by the team table — so they render below with a lifecycle status, not a role.
+ *
+ * Contacts render from the project itself, so a pure client sees their own colleagues without ever
+ * touching the staff-only client registry — which is why the registry query is gated off for them.
  */
 export function TeamAccessPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const toast = useToast();
-  const [addOpen, setAddOpen] = useState(false);
+  const [addTeamOpen, setAddTeamOpen] = useState(false);
+  const [addContactOpen, setAddContactOpen] = useState(false);
 
   const clientOnly = isPureClient(user?.workspace?.roles ?? []);
   const seat = project.team.find((member) => member.userId === user?.id);
-  // Mirrors the server's PROJECT_EDIT gate: project admins and leads, with the workspace-admin bypass.
+  // Mirrors the server: TEAM_MANAGE and PROJECT_EDIT are both the lead's now, so one flag covers the
+  // team table and the client section alike. The workspace-admin bypass applies to both.
   const canManage =
     (user?.workspace?.roles.includes("ADMIN") ?? false) ||
-    (seat?.projectRoles.some((role) => role === "ADMIN" || role === "LEAD") ?? false);
+    (seat?.projectRoles.includes("LEAD") ?? false);
 
-  // The registry supplies the sector line and the modal's roster. Staff-only — a pure client's page
-  // renders entirely from the project, and firing this for them would just 403.
+  // The registry supplies the sector line and the contact modal's roster. Staff-only — a pure client's
+  // page renders entirely from the project, and firing this for them would just 403.
   const { data: client } = useQuery({
     queryKey: clientsApi.clientKey(project.clientId),
     queryFn: () => clientsApi.client(project.clientId),
@@ -52,18 +63,63 @@ export function TeamAccessPage() {
     onError: (error) => toast(messageFor(error)),
   });
 
+  // Staff only: a seat holding nothing but CLIENT belongs to the section below, not this table.
+  const staff = project.team.filter((member) =>
+    member.projectRoles.some((role) => role !== "CLIENT"),
+  );
+  const leadCount = staff.filter((member) => member.projectRoles.includes("LEAD")).length;
+
   const contacts = project.representatives;
   const contactCount = `${contacts.length} contact${contacts.length === 1 ? "" : "s"}`;
 
   return (
     <>
       <div className="animate-fade-up">
-        <div className="mb-3.5">
-          <h1 className="text-[19px] font-semibold leading-tight">Team &amp; access</h1>
-          <p className="mt-1 font-mono text-xs text-text3">
-            Who works this mandate and what they can do
-          </p>
+        <PageHeader
+          title="Team & access"
+          subtitle={`Who works this mandate and what they can do · ${staff.length} member${
+            staff.length === 1 ? "" : "s"
+          }`}
+          action={
+            canManage && (
+              <button
+                type="button"
+                onClick={() => setAddTeamOpen(true)}
+                className="inline-flex items-center gap-[7px] rounded-lg border border-amber-btn bg-amber-btn px-[13px] py-[7px] text-[13px] font-semibold text-on-amber hover:brightness-105"
+              >
+                <Icon d={ICONS.plus} size={14} />
+                Add team member
+              </button>
+            )
+          }
+        />
+
+        <PermissionBanner canManage={canManage} />
+        <ProjectRoleLegend />
+
+        <div className="overflow-hidden rounded-[11px] border border-line">
+          <div className="grid grid-cols-[1.5fr_2.4fr_auto] gap-[14px] border-b border-line bg-panel2 px-4 py-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+            <div>Member</div>
+            <div>Roles on this project</div>
+            <div className="text-right">{canManage ? "Manage" : ""}</div>
+          </div>
+
+          {staff.map((member) => (
+            <TeamRow
+              key={member.memberId}
+              projectId={project.id}
+              member={member}
+              isSelf={member.userId === user?.id}
+              canManage={canManage}
+              isSoleLead={leadCount === 1 && member.projectRoles.includes("LEAD")}
+            />
+          ))}
         </div>
+
+        <p className="mt-3 font-mono text-[11.5px] text-text3">
+          A mandate always keeps at least one lead. Leads add members, set their role and decide who on
+          the client side may read it.
+        </p>
 
         <div className="mb-3.5 mt-8 flex items-start gap-4">
           <div>
@@ -88,10 +144,10 @@ export function TeamAccessPage() {
             {canManage && (
               <button
                 type="button"
-                onClick={() => setAddOpen(true)}
+                onClick={() => setAddContactOpen(true)}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-amber-btn bg-amber-btn px-3 py-1.5 text-[12.5px] font-semibold text-on-amber hover:brightness-105"
               >
-                <PlusIcon />
+                <Icon d={ICONS.plus} size={14} />
                 Add contact
               </button>
             )}
@@ -115,14 +171,132 @@ export function TeamAccessPage() {
 
       {/* Outside the animated wrapper: while that ancestor's transform runs, it is the containing
           block for position:fixed, and the modal overlay would dim only this section, not the page. */}
-      {addOpen && (
+      {addTeamOpen && (
+        <AddTeamMemberModal project={project} onClose={() => setAddTeamOpen(false)} />
+      )}
+      {addContactOpen && (
         <AddClientContactModal
           project={project}
           roster={client?.representatives ?? []}
-          onClose={() => setAddOpen(false)}
+          onClose={() => setAddContactOpen(false)}
         />
       )}
     </>
+  );
+}
+
+function PermissionBanner({ canManage }: { canManage: boolean }) {
+  return (
+    <div
+      className={`mb-[18px] flex items-center gap-2.5 rounded-[9px] border px-[13px] py-2.5 text-[12.5px] ${
+        canManage
+          ? "border-sky bg-sky-dim text-sky"
+          : "border-line bg-panel2 text-text2"
+      }`}
+    >
+      <Icon d={canManage ? ICONS.info : ICONS.lock} size={15} className="shrink-0" />
+      <span>
+        {canManage
+          ? "You're a lead on this mandate — you can add members and change their roles."
+          : "You have view-only access to team roles. Ask a project lead to make changes."}
+      </span>
+    </div>
+  );
+}
+
+function TeamRow({
+  projectId,
+  member,
+  isSelf,
+  canManage,
+  isSoleLead,
+}: {
+  projectId: string;
+  member: TeamMember;
+  isSelf: boolean;
+  canManage: boolean;
+  /** The last lead standing: the server refuses to demote or unseat them, so the row says so first. */
+  isSoleLead: boolean;
+}) {
+  const { reload } = useAuth();
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const navigate = useNavigate();
+
+  const role: StaffRole = member.projectRoles.includes("LEAD") ? "LEAD" : "RESEARCHER";
+
+  // A change to your own seat changes what you may do here, so the session has to catch up before the
+  // page re-renders off it — otherwise a lead who just demoted themselves keeps the manage controls.
+  const refresh = async () => {
+    if (isSelf) await reload();
+    void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
+  };
+
+  const changeRole = useMutation({
+    mutationFn: (next: StaffRole) => projectsApi.putProjectMember(projectId, member.memberId, next),
+    onSuccess: async (_project, next) => {
+      await refresh();
+      toast(
+        next === "LEAD"
+          ? `${member.fullName} is now a lead on this project`
+          : `${member.fullName} is now a researcher`,
+      );
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  const remove = useMutation({
+    mutationFn: () => projectsApi.removeProjectMember(projectId, member.memberId),
+    onSuccess: async () => {
+      await refresh();
+      toast(`${member.fullName} removed from project`);
+      // Removing your own seat can take the mandate with it — a non-lead loses WORK_VIEW entirely.
+      if (isSelf) navigate("/projects");
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  return (
+    <div className="grid grid-cols-[1.5fr_2.4fr_auto] items-center gap-[14px] border-b border-line-soft px-4 py-[13px]">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <Avatar id={member.memberId} name={member.fullName} size="lg" className="size-8" />
+        <div className="min-w-0">
+          <div className="truncate text-[13.5px] font-medium">{member.fullName}</div>
+          {isSelf && <div className="mt-0.5 font-mono text-[11px] text-text3">You</div>}
+        </div>
+      </div>
+
+      <ProjectRoleChips
+        memberName={member.fullName}
+        role={role}
+        canManage={canManage}
+        isSoleLead={isSoleLead}
+        pending={changeRole.isPending || remove.isPending}
+        onChange={(next) => changeRole.mutate(next)}
+      />
+
+      <div className="flex justify-end">
+        {isSoleLead ? (
+          <span
+            title="A mandate must keep a lead — make someone else lead first"
+            className="p-1.5 text-text3"
+          >
+            <Icon d={ICONS.lock} size={15} />
+          </span>
+        ) : canManage ? (
+          <button
+            type="button"
+            title="Remove from project"
+            aria-label={`Remove ${member.fullName}`}
+            disabled={remove.isPending || changeRole.isPending}
+            onClick={() => remove.mutate()}
+            className="rounded-md p-1.5 text-text3 hover:bg-red-dim hover:text-red disabled:opacity-50"
+          >
+            <Icon d={ICONS.trash} size={15} />
+          </button>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -166,25 +340,9 @@ function ContactRow({
           onClick={onRemove}
           className="rounded-md p-1.5 text-text3 hover:bg-red-dim hover:text-red disabled:opacity-50"
         >
-          <TrashIcon />
+          <Icon d={ICONS.trash} size={15} />
         </button>
       )}
     </div>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6" />
-    </svg>
   );
 }

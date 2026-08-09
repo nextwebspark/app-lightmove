@@ -12,7 +12,7 @@ const project = (overrides: Partial<Project>): Project => ({
   stage: "MAPPING",
   health: "OK",
   targetDate: "2026-09-15",
-  team: [{ memberId: "m1", userId: "u1", fullName: "Alok", workspaceRoles: ["ADMIN"], projectRoles: ["ADMIN", "LEAD"] }],
+  team: [{ memberId: "m1", userId: "u1", fullName: "Alok", workspaceRoles: ["ADMIN"], projectRoles: ["LEAD"] }],
   representatives: [],
   companies: 0,
   candidates: 0,

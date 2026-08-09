@@ -231,7 +231,7 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roles":["RESEARCHER"]}
+                                {"role":"RESEARCHER"}
                                 """))
                 .andExpect(status().isForbidden());
     }
@@ -499,6 +499,62 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
         // about the same click.
         assertThat(email.sent().stream().filter(message -> colleague.equalsIgnoreCase(message.to())))
                 .hasSize(1);
+    }
+
+    @Test
+    @DisplayName("staffing an attached representative keeps their client seat — and unstaffing keeps the client seat too")
+    void staffAndClientSeatsCoexistOnOneMandate() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Both Hats Firm");
+        String admin = login(alok);
+
+        String colleague = "sam@" + domain;
+        inviteAndAccept(admin, "Sam Staff", colleague, "MEMBER");
+        String samMemberId = memberIdOf(admin, colleague);
+
+        String clientId = createCustomClient(admin, "Gamma Client");
+        String projectId = createProject(admin, clientId, "COO Search");
+        JsonNode representative = inviteRepresentative(admin, clientId, "Sam Staff", "Sponsor", colleague);
+        attachRepresentative(admin, projectId, representative.get("id").asText());
+
+        // Seating them as staff replaces the staff role only. The CLIENT role came from the attach and is
+        // not the team table's to revoke — dropping it here would silently unshare the mandate.
+        mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + samMemberId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"RESEARCHER"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.representatives.length()").value(1))
+                .andExpect(jsonPath("$.representatives[0].status").value("ACTIVE"));
+
+        JsonNode seat = seatOf(body(mvc.perform(get("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin))
+                .andReturn()).get(0).get("team"), samMemberId);
+        assertThat(seat.get("projectRoles")).extracting(JsonNode::asText)
+                .containsExactly("CLIENT", "RESEARCHER");
+
+        // The mirror image: detaching the contact leaves the staff seat standing.
+        mvc.perform(delete("/api/v1/projects/" + projectId + "/representatives/"
+                        + representative.get("id").asText())
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.representatives.length()").value(0));
+
+        JsonNode afterDetach = seatOf(body(mvc.perform(get("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin))
+                .andReturn()).get(0).get("team"), samMemberId);
+        assertThat(afterDetach.get("projectRoles")).extracting(JsonNode::asText)
+                .containsExactly("RESEARCHER");
+    }
+
+    private static JsonNode seatOf(JsonNode team, String memberId) {
+        for (JsonNode seat : team) {
+            if (seat.get("memberId").asText().equals(memberId)) {
+                return seat;
+            }
+        }
+        throw new AssertionError(memberId + " not on the team: " + team);
     }
 
     private String createCustomClient(String adminToken, String name) throws Exception {

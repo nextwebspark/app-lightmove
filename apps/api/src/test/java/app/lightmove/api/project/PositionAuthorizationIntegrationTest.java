@@ -16,9 +16,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
 /**
- * The position brief's action matrix: reading needs a seat (WORK_EXECUTE, held by every project
- * role), writes need PROJECT_EDIT on the seat, and unlocking is the ADMIN-only POSITION_UNLOCK — a
- * lead can lock a brief but cannot reopen one. Cross-tenant reads keep the 404 masking.
+ * The position brief's action matrix: reading needs a seat (WORK_EXECUTE, held by both staff roles),
+ * writes need PROJECT_EDIT on the seat, and unlocking is the LEAD-only POSITION_UNLOCK — a researcher
+ * can read a brief but neither define, lock nor reopen one. Cross-tenant reads keep the 404 masking.
  */
 @IntegrationTest
 @Import(RecordingEmailSender.Config.class)
@@ -44,7 +44,7 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
     @DisplayName("a seated researcher reads the brief but does not define it")
     void researcherReadsButCannotWriteTheBrief() throws Exception {
         Fixture f = fixture("Researcher Position Firm");
-        seat(f.admin, f.projectId, f.saraId, "[\"RESEARCHER\"]");
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
         String sara = login(f.saraEmail);
 
         mvc.perform(get(positionUrl(f.projectId)).header("Authorization", "Bearer " + sara))
@@ -59,10 +59,10 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a lead locks the brief but only an admin can reopen it")
-    void leadLocksButOnlyAdminUnlocks() throws Exception {
+    @DisplayName("a lead locks the brief and reopens it; a researcher can do neither")
+    void leadLocksAndUnlocksButResearcherCannot() throws Exception {
         Fixture f = fixture("Unlock Matrix Firm");
-        seat(f.admin, f.projectId, f.saraId, "[\"LEAD\"]");
+        seat(f.admin, f.projectId, f.saraId, "LEAD");
         String sara = login(f.saraEmail);
 
         // The seeded template is lockable as-is.
@@ -70,14 +70,21 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + sara))
                 .andExpect(status().isOk());
 
+        // POSITION_UNLOCK came to LEAD when the project tier lost its ADMIN role: the person who owns
+        // the mandate is the person who may reopen its benchmark.
         mvc.perform(post(positionUrl(f.projectId) + "/unlock")
                         .header("Authorization", "Bearer " + sara))
-                .andExpect(status().isForbidden());
-
-        // The workspace admin's bypass covers POSITION_UNLOCK like every project action.
-        mvc.perform(post(positionUrl(f.projectId) + "/unlock")
-                        .header("Authorization", "Bearer " + f.admin))
                 .andExpect(status().isOk());
+
+        // A researcher holds neither half.
+        seat(f.admin, f.projectId, f.omarId, "RESEARCHER");
+        String omar = login(f.omarEmail);
+        mvc.perform(post(positionUrl(f.projectId) + "/lock")
+                        .header("Authorization", "Bearer " + omar))
+                .andExpect(status().isForbidden());
+        mvc.perform(post(positionUrl(f.projectId) + "/unlock")
+                        .header("Authorization", "Bearer " + omar))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -102,15 +109,18 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
 
     // ── fixture ──────────────────────────────────────────────────────────────
 
-    private record Fixture(String admin, String projectId, String saraEmail, String saraId) {}
+    private record Fixture(String admin, String projectId, String saraEmail, String saraId,
+                           String omarEmail, String omarId) {}
 
-    /** A workspace admin, a project the admin created, and one plain member (Sara). */
+    /** A workspace admin, a project the admin created, and two plain members (Sara, Omar). */
     private Fixture fixture(String firmName) throws Exception {
         String alok = "alok@" + domain;
         String sara = "sara@" + domain;
+        String omar = "omar@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", alok), firmName);
         String admin = login(alok);
         inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+        inviteAndAccept(admin, "Omar Khalil", omar, "MEMBER");
 
         String clientId = body(mvc.perform(post("/api/v1/clients")
                         .header("Authorization", "Bearer " + admin)
@@ -126,16 +136,17 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
                                 """.formatted(clientId)))
                 .andReturn()).get("id").asText();
 
-        return new Fixture(admin, projectId, sara, memberIdOf(admin, sara));
+        return new Fixture(admin, projectId, sara, memberIdOf(admin, sara),
+                omar, memberIdOf(admin, omar));
     }
 
-    private void seat(String adminToken, String projectId, String memberId, String rolesJson)
+    private void seat(String leadToken, String projectId, String memberId, String role)
             throws Exception {
         mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberId)
-                        .header("Authorization", "Bearer " + adminToken)
+                        .header("Authorization", "Bearer " + leadToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roles":%s}""".formatted(rolesJson)))
+                                {"role":"%s"}""".formatted(role)))
                 .andExpect(status().isOk());
     }
 }

@@ -141,9 +141,10 @@ function PositionEditor({ project, position }: { project: Project; position: Pos
       : "idle";
 
   const seat = project.team.find((member) => member.userId === user?.id);
+  // POSITION_UNLOCK is the lead's, with the workspace-admin bypass — the mirror of the server gate.
   const canUnlock =
     (user?.workspace?.roles.includes("ADMIN") ?? false) ||
-    (seat?.projectRoles.includes("ADMIN") ?? false);
+    (seat?.projectRoles.includes("LEAD") ?? false);
 
   return (
     <div className="animate-fade-up">
