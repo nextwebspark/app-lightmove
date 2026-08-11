@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
  * The position brief of one mandate. Reading needs a seat on the project (WORK_EXECUTE, which every
  * project role holds), with the workspace-admin bypass so an admin sees every project — a brief is
  * team content, not browsable to the whole workspace. Every write is PROJECT_EDIT on the seat, except
- * unlocking — a locked brief is the downstream benchmark, so reopening it is the ADMIN-only
+ * unlocking — a locked brief is the downstream benchmark, so reopening it is the LEAD-only
  * POSITION_UNLOCK. The workspace comes from the principal, never the path.
  */
 @RestController

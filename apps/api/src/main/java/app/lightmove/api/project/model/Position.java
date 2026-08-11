@@ -28,7 +28,7 @@ import lombok.NoArgsConstructor;
  *
  * <p>The three lists are owned ordered values (replace-list writes), not entities. Locking freezes
  * the <i>whole</i> brief — every write path checks {@link #isLocked()} in the service — because a
- * locked brief is the benchmark candidate fit is scored against downstream. Only a project ADMIN
+ * locked brief is the benchmark candidate fit is scored against downstream. Only a project LEAD
  * may unlock (the {@code POSITION_UNLOCK} action).
  */
 @Entity

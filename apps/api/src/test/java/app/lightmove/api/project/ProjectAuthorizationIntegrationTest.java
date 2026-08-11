@@ -18,7 +18,8 @@ import org.springframework.test.web.servlet.MvcResult;
 
 /**
  * The action matrix, exercised over HTTP through {@code @PreAuthorize}: who may edit a mandate, who
- * may reshape its team, and what a denial looks like on the wire.
+ * may reshape its team, and what a denial looks like on the wire. LEAD is the mandate owner — the
+ * project tier has no ADMIN role — so the interesting line is between LEAD and RESEARCHER.
  *
  * <p>The last test is the regression net for the guard-bean design itself: an {@code ApiException}
  * thrown inside a SpEL-invoked bean must surface as its own RFC 9457 problem (with the 404 masking
@@ -32,7 +33,7 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
     @DisplayName("a researcher works the mandate but cannot edit it or reshape the team")
     void researcherIsExecutionOnly() throws Exception {
         Fixture f = fixture("Researcher Matrix Firm");
-        seat(f.admin, f.projectId, f.saraId, "[\"RESEARCHER\"]");
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
         String sara = login(f.saraEmail);
 
         mvc.perform(patch("/api/v1/projects/" + f.projectId)
@@ -46,7 +47,7 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + sara)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roles":["RESEARCHER"]}"""))
+                                {"role":"RESEARCHER"}"""))
                 .andExpect(status().isForbidden());
 
         mvc.perform(delete("/api/v1/projects/" + f.projectId + "/members/" + f.saraId)
@@ -55,10 +56,10 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a lead edits the mandate but the team is still not theirs to reshape")
-    void leadEditsButDoesNotStaff() throws Exception {
+    @DisplayName("a lead does everything on their mandate — editing it and reshaping its team")
+    void leadDoesEverything() throws Exception {
         Fixture f = fixture("Lead Matrix Firm");
-        seat(f.admin, f.projectId, f.saraId, "[\"LEAD\"]");
+        seat(f.admin, f.projectId, f.saraId, "LEAD");
         String sara = login(f.saraEmail);
 
         mvc.perform(patch("/api/v1/projects/" + f.projectId)
@@ -72,29 +73,11 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + sara)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roles":["RESEARCHER"]}"""))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    @DisplayName("a project admin does everything on their mandate")
-    void projectAdminDoesEverything() throws Exception {
-        Fixture f = fixture("Project Admin Matrix Firm");
-        seat(f.admin, f.projectId, f.saraId, "[\"ADMIN\"]");
-        String sara = login(f.saraEmail);
-
-        mvc.perform(patch("/api/v1/projects/" + f.projectId)
-                        .header("Authorization", "Bearer " + sara)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"targetDate":"2027-06-01"}"""))
+                                {"role":"RESEARCHER"}"""))
                 .andExpect(status().isOk());
 
-        mvc.perform(put("/api/v1/projects/" + f.projectId + "/members/" + f.omarId)
-                        .header("Authorization", "Bearer " + sara)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"roles":["LEAD","RESEARCHER"]}"""))
+        mvc.perform(delete("/api/v1/projects/" + f.projectId + "/members/" + f.omarId)
+                        .header("Authorization", "Bearer " + sara))
                 .andExpect(status().isOk());
     }
 
@@ -115,12 +98,12 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + sara)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roles":["RESEARCHER"]}"""))
+                                {"role":"RESEARCHER"}"""))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @DisplayName("a workspace admin needs no seat — implicit project admin everywhere")
+    @DisplayName("a workspace admin needs no seat — implicitly a lead everywhere")
     void workspaceAdminBypass() throws Exception {
         String alok = "alok@" + domain;
         String sara = "sara@" + domain;
@@ -156,7 +139,7 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
     @DisplayName("a denial through @PreAuthorize is still an RFC 9457 problem with its own code")
     void denialKeepsItsProblemShape() throws Exception {
         Fixture f = fixture("Problem Shape Firm");
-        seat(f.admin, f.projectId, f.saraId, "[\"RESEARCHER\"]");
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
 
         MvcResult denied = mvc.perform(patch("/api/v1/projects/" + f.projectId)
                         .header("Authorization", "Bearer " + login(f.saraEmail))
@@ -211,13 +194,13 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
         return new Fixture(admin, projectId, sara, memberIdOf(admin, sara), memberIdOf(admin, omar));
     }
 
-    private void seat(String adminToken, String projectId, String memberId, String rolesJson)
+    private void seat(String leadToken, String projectId, String memberId, String role)
             throws Exception {
         mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberId)
-                        .header("Authorization", "Bearer " + adminToken)
+                        .header("Authorization", "Bearer " + leadToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roles":%s}""".formatted(rolesJson)))
+                                {"role":"%s"}""".formatted(role)))
                 .andExpect(status().isOk());
     }
 }

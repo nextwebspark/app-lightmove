@@ -71,7 +71,7 @@ public class ProjectsController {
                 principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
     }
 
-    /** Replace-set: seats the member with these roles, or replaces the roles an existing seat holds. */
+    /** Seats the member with this staff role, or moves an existing seat to it. Idempotent. */
     @PutMapping("/{projectId}/members/{memberId}")
     @PreAuthorize("@projectAuth.can(principal, #projectId, 'TEAM_MANAGE')")
     public ResponseEntity<ProjectResponse> putMember(@PathVariable UUID projectId,
@@ -81,7 +81,7 @@ public class ProjectsController {
         AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(projects.putMember(
                 principal.userId(), principal.requireWorkspaceId(), projectId, memberId,
-                request.roles(), httpRequest));
+                request.role(), httpRequest));
     }
 
     @DeleteMapping("/{projectId}/members/{memberId}")
@@ -94,7 +94,7 @@ public class ProjectsController {
                 principal.userId(), principal.requireWorkspaceId(), projectId, memberId, httpRequest));
     }
 
-    /** Give a client representative read-only view of this mandate — a lead-or-admin decision. */
+    /** Give a client representative read-only view of this mandate — the lead's decision. */
     @PostMapping("/{projectId}/representatives")
     @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
     public ResponseEntity<ProjectResponse> attachRepresentative(
@@ -109,7 +109,7 @@ public class ProjectsController {
 
     /**
      * Create a client contact and give them this mandate in one decision — the modal's "Invite by
-     * email" tab. Gated on <b>both</b> tiers: the attach is a lead-or-admin call on the mandate, and
+     * email" tab. Gated on <b>both</b> tiers: the attach is the lead's call on the mandate, and
      * minting a representative writes the client registry, which is {@code CLIENT_RECORD_MANAGE}. Every
      * project lead holds both today; naming them separately keeps that true if the tiers ever diverge.
      */

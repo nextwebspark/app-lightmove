@@ -21,7 +21,8 @@ Two scopes, nested:
 Workspace (the tenant)
 ├── WorkspaceMember  → holds a SET of WORKSPACE roles  {ADMIN | MEMBER | CLIENT}
 └── Project (a search mandate)
-    └── ProjectMember (a "seat") → holds a SET of PROJECT roles {ADMIN | LEAD | RESEARCHER | CLIENT}
+    └── ProjectMember (a "seat") → column models a SET of PROJECT roles, but the rules permit
+                                    ONE staff role {LEAD | RESEARCHER}, optionally + CLIENT
 ```
 
 Key facts that shape everything:
@@ -31,15 +32,20 @@ Key facts that shape everything:
   `workspace_id` — a workspace holds many members.
 - **A project seat references the *membership* (`member_id` → `app_lm_workspace_member.id`), not the
   user.** So a project team physically cannot contain someone from another workspace.
-- **Roles are held as sets, permissions are the union.** A project creator starts as `{ADMIN, LEAD}`
-  — the same person is both admin and lead, exactly as you described.
+- **Permissions are the union of the roles held.** Workspace roles are a genuine set. A project seat
+  is not: it holds one staff role, `LEAD` or `RESEARCHER`, and a creator starts as `{LEAD}` — the
+  project tier has no ADMIN, and LEAD owns the mandate. `CLIENT` is the one role that sits *alongside*
+  a staff role, because it is granted by attaching a client representative rather than by the team
+  table. The assignment table keeps its set shape so re-admitting a second staff role costs no
+  migration; `ProjectService` and `PutTeamMemberRequest` are what enforce the one-role rule.
 - **Tenant isolation is application-enforced only.** Every query carries `workspace_id` from the
   signed token. There is no database-level isolation yet (this is the RLS gap — see §7).
 
-This matches your description: workspace has ADMIN/MEMBER (and CLIENT groundwork); anyone with
-`PROJECT_CREATE` (ADMIN or MEMBER) can create a project; inside a project there are ADMIN/LEAD/
-RESEARCHER; everyone can do the day-to-day work (`WORK_EXECUTE`); locking/unlocking the position
-brief ("locking the universe") is gated to ADMIN via `POSITION_UNLOCK`.
+So: workspace has ADMIN/MEMBER (plus CLIENT, which grants nothing); anyone with `PROJECT_CREATE`
+(ADMIN or MEMBER) can create a project, becoming its LEAD; inside a project there are LEAD/RESEARCHER
+for staff and CLIENT for a hiring-company contact; both staff roles do the day-to-day work
+(`WORK_EXECUTE`) while CLIENT reads only (`WORK_VIEW`); locking/unlocking the position brief
+("locking the universe") is the lead's call via `POSITION_UNLOCK`.
 
 ---
 
@@ -50,29 +56,33 @@ brief ("locking the universe") is gated to ADMIN via `POSITION_UNLOCK`.
 | Role | Actions granted (the union) | Meaning |
 |---|---|---|
 | **ADMIN** | `WORKSPACE_MANAGE`, `MEMBER_MANAGE`, `MEMBER_INVITE`, `PROJECT_CREATE`, `PROJECT_BROWSE`, `CLIENT_RECORD_MANAGE` | Governance: settings, billing, membership. **Implicit project-admin everywhere** (bypasses project gates). |
-| **MEMBER** | `PROJECT_CREATE`, `PROJECT_BROWSE`, `CLIENT_RECORD_MANAGE` | Staff. Creates projects (becoming their project ADMIN+LEAD), works the ones they are seated on. |
-| **CLIENT** | *(none — seeded with zero actions)* | Hiring-company contact. Groundwork only. **Currently inert — no path mints it, no action grants it.** |
+| **MEMBER** | `PROJECT_CREATE`, `PROJECT_BROWSE`, `CLIENT_RECORD_MANAGE` | Staff. Creates projects (becoming their LEAD), works the ones they are seated on. |
+| **CLIENT** | *(none — seeded with zero actions)* | Hiring-company contact. Marks a representative; it permits nothing. All their access is the project CLIENT seat. |
 
 ### Project roles (`ProjectRole` enum + `app_lm_role` seed, scope=PROJECT)
 
 | Role | Actions granted (the union) | Meaning |
 |---|---|---|
-| **ADMIN** | `PROJECT_EDIT`, `TEAM_MANAGE`, `WORK_EXECUTE`, `POSITION_UNLOCK` | Owns the mandate: team, roles, archival, and the unlock decision. Creator holds it from the start. |
-| **LEAD** | `PROJECT_EDIT`, `WORK_EXECUTE` | Runs the search day-to-day. A project may have several. |
-| **RESEARCHER** | `WORK_EXECUTE` | Executes: sourcing, triage, candidates, notes. |
-| **CLIENT** | *(none — seeded with zero actions)* | Hiring-company seat. Groundwork only, inert. |
+| **LEAD** | `PROJECT_EDIT`, `TEAM_MANAGE`, `WORK_VIEW`, `WORK_EXECUTE`, `POSITION_UNLOCK` | Owns the mandate: runs the search, seats the team, decides client access, unlocks the brief. Creator holds it from the start, and a project keeps at least one. Several is legal, none is not. |
+| **RESEARCHER** | `WORK_VIEW`, `WORK_EXECUTE` | Executes: sourcing, triage, candidates, notes. |
+| **CLIENT** | `WORK_VIEW` | The hiring-company contact's seat: reads this one mandate, edits nothing. Granted by attaching a representative, never by the team table. |
+
+There is no project ADMIN. V19 collapsed it into LEAD — two roles meaning "runs this mandate" was a
+distinction nobody made on the screen and nobody could explain.
 
 ### Actions (the permission atoms)
 
 **Workspace-scope** (`WorkspaceAction`): `WORKSPACE_MANAGE`, `MEMBER_MANAGE`, `MEMBER_INVITE`,
 `PROJECT_CREATE`, `PROJECT_BROWSE`, `CLIENT_RECORD_MANAGE`.
 
-**Project-scope** (`ProjectAction`): `PROJECT_EDIT`, `TEAM_MANAGE`, `WORK_EXECUTE`, `POSITION_UNLOCK`.
+**Project-scope** (`ProjectAction`): `PROJECT_EDIT`, `TEAM_MANAGE`, `WORK_VIEW`, `WORK_EXECUTE`,
+`POSITION_UNLOCK`.
 
-`WORK_EXECUTE` is held by **every** project role — it is the gate for reading team-only project
-content (strategy, position brief, sourcing). `POSITION_UNLOCK` is deliberately *not* folded into
-`PROJECT_EDIT`: reopening a locked brief is an ADMIN-only decision because the locked brief is the
-scoring benchmark.
+`WORK_VIEW` is held by **every** seated role including CLIENT — it is the gate for reading team-only
+project content (strategy, position brief, sourcing). `WORK_EXECUTE` is its write half, held by the
+staff roles and never CLIENT, so read and write can be granted apart. `POSITION_UNLOCK` is
+deliberately *not* folded into `PROJECT_EDIT`: reopening a locked brief is the lead's decision alone,
+because the locked brief is the scoring benchmark.
 
 ---
 
@@ -224,9 +234,9 @@ Every method reads the workspace from the **principal**, never the path.
 | `PositionController` | `POST /unlock` | `can(principal, #projectId, 'POSITION_UNLOCK')` |
 
 **Read vs write pattern:** project *content reads* (`GET strategy/sourcing/position`) gate on
-`WORK_EXECUTE` (any team member); *writes* gate on `PROJECT_EDIT` (ADMIN or LEAD); the *unlock* gates
-on `POSITION_UNLOCK` (ADMIN only). This is the "anyone can update, only lead/admin locks the
-universe" rule, expressed as actions.
+`WORK_VIEW` (every seated role, including CLIENT); *writes* gate on `PROJECT_EDIT` (LEAD); the
+*unlock* gates on `POSITION_UNLOCK` (LEAD too, since V19). This is the "everyone seated can see it,
+staff can work it, only the lead locks the universe" rule, expressed as actions.
 
 ---
 
@@ -368,7 +378,7 @@ also make the eventual CLIENT portal gating explicit rather than implicit in `re
 | Principal + JWT | `core/security/model/AuthPrincipal.java`, `core/security/jwt/JwtPrincipalConverter.java` |
 | Filter chains + method security | `core/security/config/SecurityConfig.java` (`@EnableMethodSecurity`) |
 | Imperative-check services | `workspace/service/{InvitationService,OnboardingService,MemberService,PendingOnboardingMaterialiser}.java` |
-| Last-admin invariants | `MemberService.requireAnotherAdmin`, `ProjectService.requireAnotherProjectAdmin` |
+| Last-admin / last-lead invariants | `MemberService.requireAnotherAdmin`, `ProjectService.requireAnotherProjectLead` |
 | Schema seeds | `db/migration/V6__invite_only_and_rbac.sql` (+ `V7__position.sql`) |
 | DB hardening (not RLS) | `ops/cloudsql/harden.sql` |
 | Anti-drift gate | `test/.../rbac/RbacCatalogTest.java` |
@@ -380,8 +390,8 @@ also make the eventual CLIENT portal gating explicit rather than implicit in `re
 
 - **Last workspace admin** — `MemberService.requireAnotherAdmin` blocks removing/demoting the final
   workspace ADMIN (`LAST_ADMIN`, HTTP 409).
-- **Last project admin** — `ProjectService.requireAnotherProjectAdmin` blocks removing the final
-  project ADMIN seat (`PROJECT_LAST_ADMIN`, HTTP 409).
+- **Last project lead** — `ProjectService.requireAnotherProjectLead` blocks demoting or removing the
+  final LEAD seat (`PROJECT_LAST_LEAD`, HTTP 409).
 - **One active workspace per user** — partial unique index (§1).
 - **Cross-project sole-admin guard** — `countSoleAdminSeatsExcludingStages` prevents removing a
   workspace member who is the sole ADMIN of a live mandate.

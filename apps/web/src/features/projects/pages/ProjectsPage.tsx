@@ -180,7 +180,6 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
       <ProjectDrawer
         project={openProject}
         members={members}
-        canManageTeam={!clientOnly}
         onClose={() => setOpenProjectId(null)}
       />
 

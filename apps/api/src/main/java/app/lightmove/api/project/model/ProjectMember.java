@@ -20,9 +20,11 @@ import lombok.NoArgsConstructor;
  * A workspace member's seat on one project. References the membership row, not the user, so a team
  * physically cannot contain a member of another workspace.
  *
- * <p>A seat holds a <i>set</i> of project roles — the creator starts as {@code {ADMIN, LEAD}}, several
- * seats may hold LEAD at once, and permissions are the union of the roles' actions. The one structural
- * rule is enforced in {@code ProjectService}: a project never loses its last ADMIN-role seat.
+ * <p>The column models a <i>set</i> of project roles, but the rules that fill it are narrower and live
+ * in {@code ProjectService}: a seat holds one staff role (LEAD or RESEARCHER), CLIENT may accompany it
+ * when the same person is also a client representative on the mandate, and a project never loses its
+ * last LEAD-role seat. Permissions are the union of the roles' actions. The set is kept because
+ * re-admitting a second staff role must not cost a migration.
  */
 @Entity
 @Table(name = "app_lm_project_member")

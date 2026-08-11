@@ -21,7 +21,7 @@ import org.springframework.stereotype.Service;
  *   <li>the project exists in this workspace, else 404 (a foreign id confirms nothing) — checked
  *       <b>before</b> the admin bypass, so the guard stands on its own and a workspace admin is never
  *       authorised against a project outside their tenant;
- *   <li>the workspace-ADMIN bypass — a workspace admin is implicitly a project admin everywhere in
+ *   <li>the workspace-ADMIN bypass — a workspace admin is implicitly a lead on every project in
  *       their own workspace, so a departed mandate owner can never strand a search;
  *   <li>a seat on the team, else 403 — projects are browsable to staff, so existence is not a secret,
  *       but working one requires being on it;

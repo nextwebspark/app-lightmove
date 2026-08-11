@@ -89,9 +89,6 @@ export function ProjectsTable({
 }
 
 export function leadOf(team: TeamMember[]): TeamMember | undefined {
-  // Leads are plural now, and a fresh project may have none beyond its admin — whoever runs it.
-  return (
-    team.find((seat) => seat.projectRoles.includes("LEAD")) ??
-    team.find((seat) => seat.projectRoles.includes("ADMIN"))
-  );
+  // Leads are plural — a mandate always has at least one, and the first is who the list names.
+  return team.find((seat) => seat.projectRoles.includes("LEAD"));
 }

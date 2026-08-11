@@ -13,9 +13,17 @@ export type ProjectStage =
 
 export type ProjectHealth = "OK" | "RISK" | "OFF" | "DONE";
 
-export type ProjectRole = "ADMIN" | "LEAD" | "RESEARCHER" | "CLIENT";
+export type ProjectRole = "LEAD" | "RESEARCHER" | "CLIENT";
 
-/** A seat on a project's team. Both tiers' roles are sets — the creator holds ADMIN and LEAD. */
+/** The staff roles the team table hands out. CLIENT is not one of them — it comes from an attach. */
+export const STAFF_ROLES = ["LEAD", "RESEARCHER"] as const satisfies readonly ProjectRole[];
+
+export type StaffRole = (typeof STAFF_ROLES)[number];
+
+/**
+ * A seat on a project's team. `projectRoles` holds one staff role; a client representative who also
+ * staffs the mandate carries CLIENT alongside it.
+ */
 export interface TeamMember {
   memberId: string;
   userId: string;

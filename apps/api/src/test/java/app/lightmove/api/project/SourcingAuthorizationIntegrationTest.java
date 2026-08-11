@@ -15,7 +15,7 @@ import org.springframework.http.MediaType;
 
 /**
  * Sourcing's action matrix: it shares Strategy's read gate (WORK_EXECUTE), so an unseated member is
- * shut out and every seated project role — RESEARCHER, LEAD, ADMIN — gets in. There is no write side.
+ * shut out and both staff roles — RESEARCHER and LEAD — get in. There is no write side.
  */
 @IntegrationTest
 @Import(RecordingEmailSender.Config.class)
@@ -35,7 +35,7 @@ class SourcingAuthorizationIntegrationTest extends FlowTestSupport {
     @DisplayName("a seated researcher can read sourcing results")
     void seatedResearcherCanRead() throws Exception {
         Fixture f = fixture("Sourcing Researcher Firm");
-        seat(f.admin, f.projectId, f.saraId, "[\"RESEARCHER\"]");
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
         String sara = login(f.saraEmail);
 
         mvc.perform(get(sourcingUrl(f.projectId)).header("Authorization", "Bearer " + sara))
@@ -46,18 +46,7 @@ class SourcingAuthorizationIntegrationTest extends FlowTestSupport {
     @DisplayName("a seated lead can read sourcing results")
     void seatedLeadCanRead() throws Exception {
         Fixture f = fixture("Sourcing Lead Firm");
-        seat(f.admin, f.projectId, f.saraId, "[\"LEAD\"]");
-        String sara = login(f.saraEmail);
-
-        mvc.perform(get(sourcingUrl(f.projectId)).header("Authorization", "Bearer " + sara))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @DisplayName("a seated project admin can read sourcing results")
-    void seatedAdminCanRead() throws Exception {
-        Fixture f = fixture("Sourcing Admin Firm");
-        seat(f.admin, f.projectId, f.saraId, "[\"ADMIN\"]");
+        seat(f.admin, f.projectId, f.saraId, "LEAD");
         String sara = login(f.saraEmail);
 
         mvc.perform(get(sourcingUrl(f.projectId)).header("Authorization", "Bearer " + sara))
@@ -105,13 +94,13 @@ class SourcingAuthorizationIntegrationTest extends FlowTestSupport {
         return new Fixture(admin, projectId, sara, memberIdOf(admin, sara));
     }
 
-    private void seat(String adminToken, String projectId, String memberId, String rolesJson)
+    private void seat(String leadToken, String projectId, String memberId, String role)
             throws Exception {
         mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberId)
-                        .header("Authorization", "Bearer " + adminToken)
+                        .header("Authorization", "Bearer " + leadToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roles":%s}""".formatted(rolesJson)))
+                                {"role":"%s"}""".formatted(role)))
                 .andExpect(status().isOk());
     }
 }

@@ -38,7 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
  * principal, so a foreign project 404s before any position row is touched.
  *
  * <p>Locking freezes the whole brief: every write rejects with {@code POSITION_LOCKED} until a
- * project admin unlocks. Readiness (both panels exactly 100%, at least one required criterion) is
+ * project lead unlocks. Readiness (both panels exactly 100%, at least one required criterion) is
  * validated only at lock time — autosave must be free to persist half-balanced panels.
  */
 @Service

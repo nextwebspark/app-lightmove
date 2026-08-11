@@ -21,7 +21,7 @@ This document is the record of what was built and why. It supersedes nothing in
 
 **In:** the Position page and the project workspace shell needed to host it. One position per
 project, seeded at creation from a role-template library, edited by debounced autosave, lockable
-once its criteria and competency weighting are the benchmark, unlockable by a project admin.
+once its criteria and competency weighting are the benchmark, unlockable by a project lead.
 
 **Out (placeholders only):** Strategy, Sourcing, Candidates, Outreach, Reports. Their tabs exist in
 the shell and render a "not built yet" empty state — we do not build ahead of the mockups. No
@@ -40,9 +40,9 @@ pipeline tables, no AI drafting.
    (`PositionService.seedFor`) are exactly what an AI drafter will populate later *instead of* the
    static templates. Nothing else changes when it lands.
 
-3. **Locking freezes the whole brief, and only a project ADMIN can unlock.** Every write — scalars,
+3. **Locking freezes the whole brief, and only a project LEAD can unlock.** Every write — scalars,
    package, benefits, confidentiality, criteria, competencies — rejects with `409 POSITION_LOCKED`
-   while locked. Unlock is a separate ADMIN-only action, not part of `PROJECT_EDIT`, because a
+   while locked. Unlock is a separate LEAD-only action, not part of `PROJECT_EDIT`, because a
    locked brief is the reference downstream candidate scoring rests on and reopening it invalidates
    that benchmark.
 
@@ -67,7 +67,8 @@ no timestamps.
 | `app_lm_position_competency` | `panel` (CHECK `TECHNICAL`/`BEHAVIOURAL`), `name`, `weight integer` (CHECK 0–100), ordered — one list for both panels; `panel` is a field, `sort_order` spans the whole collection. |
 
 The migration also seeds the new RBAC action: `INSERT` `('PROJECT','POSITION_UNLOCK', …)` into
-`app_lm_action` and grants it to the PROJECT `ADMIN` role only in `app_lm_role_action`. `integer`
+`app_lm_action` and grants it in `app_lm_role_action` to the PROJECT role that owns the mandate —
+`ADMIN` when this shipped, moved to `LEAD` by V19 when the project tier lost its ADMIN role. `integer`
 (not `smallint`) for `weight`/`sort_order` so the test profile's `ddl-auto: validate` matches Java
 `int` exactly.
 
@@ -117,7 +118,7 @@ path).
 |---|---|
 | `GET` | `@workspaceAuth.can(principal, 'PROJECT_BROWSE')` — whoever sees the project list may read its brief |
 | `PUT`, `PUT /criteria`, `PUT /competencies`, `POST /lock` | `@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')` |
-| `POST /unlock` | `@projectAuth.can(principal, #projectId, 'POSITION_UNLOCK')` — ADMIN-only via the catalog, plus the standing workspace-admin bypass |
+| `POST /unlock` | `@projectAuth.can(principal, #projectId, 'POSITION_UNLOCK')` — LEAD-only via the catalog, plus the standing workspace-admin bypass |
 
 ### Constants touched in `core`
 
@@ -190,8 +191,8 @@ state. Cards, all built from the existing UI kit over `tokens.css` (so light and
 - `CompetencyPanel` (×2, technical = sky, behavioural = amber) — name/number/slider with
   `rebalance()`; total badge green only at exactly 100.
 - **Locked = whole page read-only**: a single `<fieldset disabled>` freezes every control at once;
-  the Unlock button lives outside it and is shown only when the current user is a workspace or
-  project admin (the server enforces regardless).
+  the Unlock button lives outside it and is shown only when the current user is a workspace admin or
+  the project's lead (the server enforces regardless).
 - `LockFooter` — unlocked shows the live **readiness checklist** (✓/✗ per rule with current totals)
   and the Lock button, disabled until ready; locked shows the green banner + Unlock.
 
@@ -199,7 +200,7 @@ State wiring: `useQuery(POSITION_KEY)` + draft `useState`, three mutations wrapp
 `setQueryData` on success, `toast(messageFor(error))` on failure — and on `POSITION_LOCKED` it also
 invalidates the query (another tab locked it). `PositionPage.test.tsx` covers seeded render,
 debounced criterion autosave, the lock-disabled-until-ready gate, the read-only locked state, and
-admin-only Unlock.
+lead-only Unlock.
 
 ---
 
@@ -207,7 +208,7 @@ admin-only Unlock.
 
 - Backend: `cd apps/api && ./mvnw test` — **111 tests green**, including 10 new
   (`PositionFlowIntegrationTest`, `PositionAuthorizationIntegrationTest`) covering template seeding,
-  snapshot round-trips, the lock gate, whole-brief freeze, admin-only unlock, lazy re-seed for
+  snapshot round-trips, the lock gate, whole-brief freeze, lead-only unlock, lazy re-seed for
   legacy projects, and cross-tenant 404 masking.
 - Frontend: `npx vitest` — **57 tests green** (18 new); `tsc -b` and `vite build` clean.
 - End-to-end (real API + SPA, driven live): CFO project seeded the finance template with the

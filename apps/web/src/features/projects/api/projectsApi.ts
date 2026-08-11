@@ -1,5 +1,5 @@
 import { request } from "../../../lib/apiClient";
-import type { Project, ProjectRole } from "./types";
+import type { Project, StaffRole } from "./types";
 
 /**
  * Every call the projects feature makes, plus the query keys its screens share. Clients are their own
@@ -18,7 +18,7 @@ export function createProject(payload: {
   positionTitle: string;
   targetDate?: string;
 }): Promise<Project> {
-  // No lead to choose: the creator is seated as the project's admin (and lead) by the server.
+  // No lead to choose: the server seats the creator as the mandate's lead.
   return request<Project>("/projects", { method: "POST", body: payload });
 }
 
@@ -29,15 +29,18 @@ export function updateProject(
   return request<Project>(`/projects/${projectId}`, { method: "PATCH", body: payload });
 }
 
-/** Replace-set: seats the member with these roles, or replaces the roles an existing seat holds. */
+/**
+ * Seats the member with this staff role, or moves an existing seat to it. One role per seat; a CLIENT
+ * role the seat already carries survives, so staffing a client contact never revokes their read access.
+ */
 export function putProjectMember(
   projectId: string,
   memberId: string,
-  roles: ProjectRole[],
+  role: StaffRole,
 ): Promise<Project> {
   return request<Project>(`/projects/${projectId}/members/${memberId}`, {
     method: "PUT",
-    body: { roles },
+    body: { role },
   });
 }
 

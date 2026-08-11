@@ -6,13 +6,11 @@ import app.lightmove.api.project.constant.ClientRepStatus;
 import app.lightmove.api.project.constant.ProjectHealth;
 import app.lightmove.api.project.constant.ProjectStage;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 /** The HTTP contract for projects and clients. Pipeline counts are 0 until pipeline tables exist. */
@@ -48,7 +46,10 @@ public final class ProjectDtos {
             ClientRepStatus status
     ) {}
 
-    /** A seat on the team. Both tiers' roles are sets — the creator holds {ADMIN, LEAD} from birth. */
+    /**
+     * A seat on the team. {@code projectRoles} stays a list although a seat holds one staff role: a
+     * client representative who also staffs the mandate holds {@code [CLIENT, LEAD]}.
+     */
     public record TeamMemberResponse(
             UUID memberId,
             UUID userId,
@@ -57,7 +58,7 @@ public final class ProjectDtos {
             List<ProjectRole> projectRoles
     ) {}
 
-    /** The creator becomes the project's ADMIN (and LEAD); there is no lead to choose up front. */
+    /** The creator becomes the project's lead; there is no lead to choose up front. */
     public record CreateProjectRequest(
             @NotNull(message = "Choose a client")
             UUID clientId,
@@ -73,10 +74,15 @@ public final class ProjectDtos {
             LocalDate targetDate
     ) {}
 
-    /** PUT of a seat: replace-set — the full set of project roles the member holds afterwards. */
+    /**
+     * PUT of a seat: the one staff role the member holds on this mandate afterwards. Singular by
+     * contract, so the one-role-per-seat rule cannot be forgotten in a runtime check. CLIENT is not
+     * seatable here — it comes from attaching a representative — and a seat that already holds it
+     * keeps it.
+     */
     public record PutTeamMemberRequest(
-            @NotEmpty(message = "Choose at least one role")
-            Set<ProjectRole> roles
+            @NotNull(message = "Choose a role")
+            ProjectRole role
     ) {}
 
     /** Attach a client representative to this mandate as a read-only CLIENT seat. */
