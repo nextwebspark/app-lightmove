@@ -38,6 +38,8 @@ export type ApiErrorCode =
   | "CSRF_TOKEN_INVALID"
   | "NOT_FOUND"
   | "METHOD_NOT_ALLOWED"
+  | "UNSUPPORTED_MEDIA_TYPE"
+  | "NOT_ACCEPTABLE"
   | "INTERNAL_ERROR";
 
 const MESSAGES: Partial<Record<ApiErrorCode, string>> = {

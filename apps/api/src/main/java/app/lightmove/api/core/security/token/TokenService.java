@@ -90,7 +90,14 @@ public class TokenService {
                         "No refresh token matches the presented hash"));
 
         if (existing.isRevoked()) {
-            handleReuse(existing, request, now);
+            // Why it was revoked, not merely that it was. A logout or a password change leaves a dead
+            // token behind by design, and calling that theft revoked the family, alarmed the user, and
+            // burned the reuse alert on routine events. A null reason is unexplained, so it fails closed.
+            RevokeReason reason = existing.getRevokedReason();
+            if (reason == null || reason.indicatesTheftOnReplay()) {
+                handleReuse(existing, request, now);
+            }
+            throw new ApiException(ErrorCode.REFRESH_TOKEN_INVALID, "Refresh token was revoked: " + reason);
         }
 
         if (existing.isExpired(now)) {

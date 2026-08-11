@@ -210,7 +210,9 @@ class PasswordResetFlowIntegrationTest extends FlowTestSupport {
         for (int attempt = 0; attempt < 5; attempt++) {
             loginRaw(alok, "wrongpassword1");
         }
-        assertThat(codeOf(loginRaw(alok, PASSWORD))).isEqualTo("ACCOUNT_LOCKED");
+        // The refusal is deliberately indistinguishable from any other failed login — see
+        // AuthService.login. The lock is real all the same, which is what the reset below undoes.
+        assertThat(codeOf(loginRaw(alok, PASSWORD))).isEqualTo("INVALID_CREDENTIALS");
 
         forgot(alok);
         resetOk(email.latestTokenFor(alok), NEW_PASSWORD);

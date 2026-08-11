@@ -96,6 +96,12 @@ public enum ErrorCode {
     /** The route exists; it does not answer to that verb. A GET of a POST-only endpoint lands here. */
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "That method is not supported on this endpoint"),
 
+    /** The body arrived in a format the endpoint does not read. Every endpoint here wants JSON. */
+    UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "That content type is not supported"),
+
+    /** The caller's Accept header asks for a format we do not produce. */
+    NOT_ACCEPTABLE(HttpStatus.NOT_ACCEPTABLE, "No representation matches what you asked to accept"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

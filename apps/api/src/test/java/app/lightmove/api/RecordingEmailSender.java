@@ -48,6 +48,14 @@ public class RecordingEmailSender implements EmailSender {
                 .orElseThrow(() -> new AssertionError("No email with a token was sent to " + recipient));
     }
 
+    /** The subjects of everything sent to this address, oldest first — for mail carrying no link. */
+    public List<String> subjectsFor(String recipient) {
+        return sent.stream()
+                .filter(message -> recipient.equalsIgnoreCase(message.to()))
+                .map(EmailMessage::subject)
+                .toList();
+    }
+
     private static String extractToken(EmailMessage message) {
         Matcher matcher = TOKEN.matcher(message.textBody());
         return matcher.find() ? matcher.group(1) : null;

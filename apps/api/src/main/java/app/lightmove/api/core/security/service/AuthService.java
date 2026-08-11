@@ -17,6 +17,8 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
+import app.lightmove.api.core.email.service.EmailSender;
+import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
@@ -52,13 +54,16 @@ public class AuthService {
     private final EmailAddressValidator emailValidator;
     private final RateLimitGuard rateLimit;
     private final AuditService audit;
+    private final EmailSender emailSender;
+    private final EmailTemplates templates;
     private final LightMoveProperties.Auth config;
 
     public AuthService(UserRepository users, UserIdentityRepository identities,
                        WorkspaceMemberRepository members,
                        PasswordPolicy passwords, TokenService tokens, VerificationService verification,
                        EmailAddressValidator emailValidator, RateLimitGuard rateLimit,
-                       AuditService audit, LightMoveProperties properties) {
+                       AuditService audit, EmailSender emailSender, EmailTemplates templates,
+                       LightMoveProperties properties) {
         this.users = users;
         this.identities = identities;
         this.members = members;
@@ -68,6 +73,8 @@ public class AuthService {
         this.emailValidator = emailValidator;
         this.rateLimit = rateLimit;
         this.audit = audit;
+        this.emailSender = emailSender;
+        this.templates = templates;
         this.config = properties.auth();
     }
 
@@ -179,8 +186,18 @@ public class AuthService {
      * Sign in with an email and password.
      *
      * <p>Every failure returns the same {@link ErrorCode#INVALID_CREDENTIALS} — unknown address, wrong
-     * password, or a Google-only account — so the endpoint is not an account-enumeration oracle. The
-     * audit log records which case it was; the caller is told only that the pair did not match.
+     * password, a Google-only account, a locked account, a suspended one — so the endpoint is not an
+     * account-enumeration oracle. The audit log records which case it was; the caller is told only that
+     * the pair did not match.
+     *
+     * <p>That includes the lockout, which used to answer its own 423. It was reachable only for an
+     * address that exists, so five wrong guesses confirmed an account — cheaper and more certain than
+     * any timing attack. A locked-out user is told by <i>email</i> instead, at the moment the lock arms:
+     * the mailbox already proves ownership, so it can carry what the login response must not.
+     *
+     * <p>Every refusal also pays for one BCrypt comparison, via
+     * {@link PasswordPolicy#equaliseFailureCost}. Identical answers arriving in 26 ms and 276 ms are not
+     * identical answers.
      *
      * <p><b>{@code noRollbackFor = ApiException.class}, and the lockout depends on it:</b> otherwise the
      * failed-attempt increment is rolled back with the thrown ApiException, the counter never climbs,
@@ -193,6 +210,7 @@ public class AuthService {
 
         Optional<User> found = users.findByEmail(email);
         if (found.isEmpty()) {
+            passwords.equaliseFailureCost(password);
             audit.event(AuthEventType.LOGIN_FAILED).failed().from(request)
                     .reason("no_such_user").detail("email", email).record();
             throw ApiException.of(ErrorCode.INVALID_CREDENTIALS);
@@ -202,17 +220,20 @@ public class AuthService {
         Instant now = Instant.now();
 
         // Before the password: a lockout must stop the work, not just suppress the answer, or timing
-        // leaks when a guess against a locked account was the right one.
+        // leaks when a guess against a locked account was the right one. The decoy comparison replaces
+        // the cost it skips, so the refusal is not faster than the wrong-password one it imitates.
         if (user.isLocked(now)) {
+            passwords.equaliseFailureCost(password);
             audit.event(AuthEventType.LOGIN_FAILED).failed().actor(user.getId()).from(request)
                     .reason("account_locked").record();
-            throw ApiException.of(ErrorCode.ACCOUNT_LOCKED);
+            throw ApiException.of(ErrorCode.INVALID_CREDENTIALS);
         }
 
         if (user.getStatus() == UserStatus.SUSPENDED || user.getStatus() == UserStatus.DELETED) {
+            passwords.equaliseFailureCost(password);
             audit.event(AuthEventType.LOGIN_FAILED).failed().actor(user.getId()).from(request)
                     .reason("status_" + user.getStatus()).record();
-            throw ApiException.of(ErrorCode.ACCOUNT_SUSPENDED);
+            throw ApiException.of(ErrorCode.INVALID_CREDENTIALS);
         }
 
         if (!passwords.matches(password, user.getPasswordHash())) {
@@ -229,6 +250,13 @@ public class AuthService {
                 log.warn("Account {} locked after {} failed attempts", user.getId(), user.getFailedLoginAttempts());
                 audit.event(AuthEventType.ACCOUNT_LOCKED).failed().actor(user.getId()).from(request)
                         .detail("until", String.valueOf(user.getLockedUntil())).record();
+
+                // Here, not on every later refusal: the lock arms once, so the owner gets one mail per
+                // window rather than one per guess an attacker makes. It is the only channel that can
+                // say "you are locked out" — the login response deliberately cannot, since that would
+                // confirm the account exists.
+                emailSender.send(templates.buildAccountLockedEmail(
+                        user.getEmail(), user.getFullName(), String.valueOf(user.getLockedUntil())));
             }
 
             throw ApiException.of(ErrorCode.INVALID_CREDENTIALS);

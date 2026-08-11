@@ -177,9 +177,16 @@ public class OnboardingService {
      * step 2 can now be done in their name.
      *
      * <p>Deliberately forgiving. Verification is the user's act and must succeed — if the held intent
-     * can no longer be honoured (it expired, they accepted an invitation in the meantime), the intent
-     * is dropped and verification still stands. The alternative is a user who clicks a valid link and
-     * is told their email could not be verified, for reasons that have nothing to do with their email.
+     * can no longer be honoured (they accepted an invitation in the meantime), the intent is dropped and
+     * verification still stands. The alternative is a user who clicks a valid link and is told their
+     * email could not be verified, for reasons that have nothing to do with their email.
+     *
+     * <p>The hold's own expiry is <b>not</b> consulted here, and that is the point. It exists to sweep
+     * up drafts nobody came back for; by the time this runs the user has just proved the mailbox, and
+     * the row holds nothing but the workspace name, size and region they typed. Refusing it bought no
+     * security and cost them everything they had entered — the old code deleted the row <i>before</i>
+     * checking, so the draft was destroyed by the very path that declined to use it, and the SPA sent
+     * them back to a blank form with no explanation.
      *
      * @return the created workspace and the invitations to send for it, now that it exists.
      */
@@ -190,16 +197,14 @@ public class OnboardingService {
             return Optional.empty();
         }
 
-        pendingOnboardings.delete(held);
-
-        if (held.isExpired(Instant.now())) {
-            log.info("Discarding an expired held wizard for user {}", userId);
-            return Optional.empty();
-        }
+        // After the guard, never before it: a path that declines to use the hold must not destroy it.
         if (members.findByUserIdAndStatus(userId, MemberStatus.ACTIVE).isPresent()) {
             log.info("Discarding a held wizard for user {} — they are already in a workspace", userId);
+            pendingOnboardings.delete(held);
             return Optional.empty();
         }
+
+        pendingOnboardings.delete(held);
 
         User user = requireUser(userId);
 

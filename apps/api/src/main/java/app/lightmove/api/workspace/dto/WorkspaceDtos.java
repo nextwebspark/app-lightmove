@@ -1,5 +1,6 @@
 package app.lightmove.api.workspace.dto;
 
+import app.lightmove.api.core.email.service.EmailAddressNormaliser;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.service.PasswordPolicy;
 import jakarta.validation.constraints.Email;
@@ -11,6 +12,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import tools.jackson.databind.annotation.JsonDeserialize;
 
 /**
  * The HTTP contract for workspace onboarding and membership.
@@ -47,6 +49,7 @@ public final class WorkspaceDtos {
 
     /** One row of signup step 3. */
     public record InviteRequest(
+            @JsonDeserialize(converter = EmailAddressNormaliser.class)
             @NotBlank(message = "Enter an email address")
             @Email(message = "That doesn't look like a valid email")
             String email,

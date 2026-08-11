@@ -81,6 +81,12 @@ If `application-local.yml` sets the property *literally*, the placeholder is nev
 var silently does nothing. Use the full property path — `LIGHTMOVE_EMAIL_PROVIDER` — which outranks both
 files.
 
+This is not specific to email: **any** `${FOO:default}` in `application.yml` is dead on the `local`
+profile if a profile file hardcodes that property, and nothing warns you. The rate-limit budgets are the
+other one that bites — `application-local.yml` pins them to 100, so `AUTH_LOGIN_ATTEMPTS_PER_MINUTE` and
+its siblings do nothing and the server looks unthrottled. Override with the property's own name
+(`LIGHTMOVE_AUTH_RATE_LIMIT_LOGIN_ATTEMPTS_PER_MINUTE`) or the whole test run measures an unlimited API.
+
 **Real email** needs Resend *and a verified domain*. Until a domain is verified, Resend delivers only to
 the address your Resend account is registered under and 403s everything else — whatever `from` you set
 (`onboarding@resend.dev` does not lift this). Verify at [resend.com/domains](https://resend.com/domains),

@@ -15,6 +15,8 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -139,6 +141,33 @@ public class GlobalExceptionHandler {
         log.debug("Method {} not supported at {} (supported: {})",
                 request.getMethod(), request.getRequestURI(), ex.getSupportedHttpMethods());
         return problem(ErrorCode.METHOD_NOT_ALLOWED, ErrorCode.METHOD_NOT_ALLOWED.defaultMessage());
+    }
+
+    /**
+     * The body arrived as something we do not parse — {@code text/plain}, a form post, a missing
+     * {@code Content-Type} on a JSON endpoint.
+     *
+     * <p>Third of the same family as {@link #handleNoResource} and {@link #handleMethodNotSupported},
+     * and it affects every endpoint: without it, {@code curl -H 'Content-Type: text/plain'} against any
+     * route answers <b>500</b> and writes an ERROR stack trace. That makes a malformed client request
+     * indistinguishable from a real fault in our own alerting, and hands anyone a one-line recipe for
+     * generating server errors at will.
+     */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ProblemDetail handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException ex,
+                                                     HttpServletRequest request) {
+        log.debug("Unsupported content type {} at {} {} (supported: {})",
+                ex.getContentType(), request.getMethod(), request.getRequestURI(), ex.getSupportedMediaTypes());
+        return problem(ErrorCode.UNSUPPORTED_MEDIA_TYPE, ErrorCode.UNSUPPORTED_MEDIA_TYPE.defaultMessage());
+    }
+
+    /** The mirror of {@link #handleMediaTypeNotSupported} for a request's {@code Accept} header. */
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    public ProblemDetail handleMediaTypeNotAcceptable(HttpMediaTypeNotAcceptableException ex,
+                                                      HttpServletRequest request) {
+        log.debug("Unacceptable Accept header at {} {} (we produce: {})",
+                request.getMethod(), request.getRequestURI(), ex.getSupportedMediaTypes());
+        return problem(ErrorCode.NOT_ACCEPTABLE, ErrorCode.NOT_ACCEPTABLE.defaultMessage());
     }
 
     /**

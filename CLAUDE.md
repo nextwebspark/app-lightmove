@@ -46,9 +46,16 @@ The Cloud SQL connector authenticates as you — `gcloud auth application-defaul
 
 ### Identity is a work email; the organization is a workspace
 
-Signup **rejects consumer email domains** (gmail, outlook, …). LightMove is sold to firms, and the email
-domain is what tells us which firm someone works at. Configurable via
-`lightmove.email.validation.block-public-domains` and `.public-domains` / `.extra-public-domains`.
+**Signup asks for a work email**, because LightMove is sold to firms and the email domain is what tells
+us which firm someone works at — it becomes the workspace's `email_domain` and it is what an invited
+colleague's address is expected to look like.
+
+That is a *signal*, not an enforced gate. Signup **can** reject consumer domains (gmail, outlook, …) via
+`lightmove.email.validation.block-public-domains`, with `.public-domains` / `.extra-public-domains` as
+the list — but it **defaults to `false`**, so a stock build accepts them. The test profile turns it on.
+The address is still checked for shape, for disposable domains, and (via `mx-check-enabled`, on by
+default) for a domain that exists and accepts mail: a non-existent domain and RFC 7505's "no mail here"
+are both refused, while a resolver that times out fails open — our outage must not block a signup.
 
 **A domain does not own a workspace.** One firm may run several — so `email_domain` is *not* unique.
 
@@ -74,6 +81,17 @@ is on and an unverified user reaches no workspace data. It gates the *creator* p
 their own address into signup. An invited user skips it: the invitation link already proved the mailbox,
 because the emailed token is the same proof a verification email exists to collect.
 
+The verification link is not the *only* thing that proves it. A **password reset also verifies** the
+address and materialises a held workspace — `PasswordResetService` publishes `EmailVerifiedEvent` on
+purpose, because a reset link proves the same mailbox the verification link would. An unverified creator
+who resets a password comes out verified, with their workspace built. What is gated is the *proof*, not
+which email carried it.
+
+A **held wizard is redeemed whenever its owner proves the mailbox**, however late. `PendingOnboarding`
+carries an `expires_at`, but `materialise` does not consult it: the row holds the workspace name, size,
+region and invitees the user typed, and refusing to honour it protects nothing while losing all of it.
+The column is for a future cleanup job.
+
 ### Tenant isolation
 
 Every workspace-scoped query filters by the `workspace_id` **from the authenticated principal**, never
@@ -94,6 +112,12 @@ Annotations live on **controllers only**: services reachable outside a request's
 Invariants that need loaded state stay imperative too — a workspace keeps ≥1 holder of the workspace
 `ADMIN` role (`LAST_ADMIN`) and every project ≥1 holder of `LEAD` (`PROJECT_LAST_LEAD`), and a project
 seat holds no more than one staff role.
+
+**Roles are re-read every request; account *status* is not.** It is checked at login and at refresh
+(`TokenService.rotate`), so a user whose status turns `SUSPENDED` keeps a working access token for up to
+15 minutes. Nothing sets that status today — there is no suspension surface, only the enum. Whoever
+builds one must call `tokens.revokeAllSessions(userId, …)` there to close the refresh path, and accept
+the ≤15-minute window on the access token or add a per-request status check to the guard beans.
 
 A project's **content** reads (its strategy, position brief, and future tables) are seat-gated on the
 project action `WORK_VIEW` (held by every seated role including CLIENT; workspace-admin bypasses),
@@ -133,9 +157,24 @@ that way**; `SpaSecurityTest` holds the line.
 
 ### Auth errors are deliberately vague
 
-"Invalid email or password" covers wrong password, unknown account, and Google-only account. The audit
-log records which; the client is told only that the pair did not match. Anything else is a free
-account-enumeration oracle.
+"Invalid email or password" covers **every** password-login failure: wrong password, unknown account,
+Google-only account, **locked account, suspended account**. The audit log records which; the client is
+told only that the pair did not match. Anything else is a free account-enumeration oracle — a distinct
+`423 ACCOUNT_LOCKED` was reachable only for an address that exists, so five wrong guesses confirmed an
+account, more cheaply and more reliably than any timing attack. (`ACCOUNT_SUSPENDED` still exists and is
+still thrown by the OAuth and password-reset paths; only password login stopped using it.)
+
+Sameness is about the clock too. Every refusal that skips the password check pays for one BCrypt
+comparison anyway — `PasswordPolicy.equaliseFailureCost`, against a decoy hash derived at startup.
+Without it an unknown address answered in 26 ms and a real one in 276 ms, which told anyone who asked
+whether an address is a customer.
+
+A locked-out user therefore learns it **by email**, sent once when the lock arms (not on each later
+attempt, or an attacker's dictionary run would flood the owner's inbox). The mailbox already proves
+ownership, so it can carry what the login response must not. Note the lockout counter does not decay:
+five failures lock for 15 minutes, and after the lock lapses the counter is still five, so the next
+wrong password re-locks immediately. Only a successful login or a password reset clears it — deliberate,
+since a decaying counter gives an attacker a free retry budget every window.
 
 ## Traps this codebase has already fallen into
 
@@ -156,6 +195,24 @@ reintroduce them.
   supplied an override" emptied the consumer-domain blocklist and let Gmail signups through.
 - **Every auth route needs `JwtPrincipalConverter`.** With Spring's default converter the principal is a
   raw `Jwt`, `CurrentUser` finds no `AuthPrincipal`, and the endpoint 401s on a valid token.
+- **BCrypt measures the password in bytes; `String.length()` counts characters.** 41 accented characters
+  is 83 bytes: it passed a 72-*character* policy and then threw inside `encode`, 500ing signup, password
+  reset and invited signup alike. `PasswordPolicy` measures UTF-8 bytes, and the message no longer
+  promises a character count it cannot keep.
+- **Bean Validation runs before the service ever sees the request.** Jakarta `@Email` rejected a pasted
+  address with a trailing space while the normaliser that would have trimmed it sat one layer down,
+  unreached. Address fields carry `@JsonDeserialize(converter = EmailAddressNormaliser.class)` so
+  canonicalisation happens at binding — never do this to a password, where trimming changes the secret.
+- **A revoked refresh token is not automatically a stolen one.** Branch on `RevokeReason`: `ROTATED` and
+  `REUSE_DETECTED` are theft, `LOGOUT` and `PASSWORD_CHANGED` are how a session is *supposed* to end.
+  Testing only `isRevoked()` declared theft on every ordinary logout — alarming the user and firing the
+  one alert meant to page a human, which made it worthless. `ROTATED` must stay theft: that is the
+  actual attack signature.
+- **A caught `NamingException` is not proof of an outage.** The MX check swallowed `NameNotFoundException`
+  — the resolver's answer that the domain does not exist — as "inconclusive" and let it through, so the
+  typo'd domain it exists to catch was the case it passed. Fail open on timeouts, not on answers.
+- **Deleting before deciding.** `materialise` deleted the held wizard, *then* checked whether it was
+  usable, so the path that refused it was also the path that destroyed it. Decide first, delete after.
 
 ## Stack notes
 
