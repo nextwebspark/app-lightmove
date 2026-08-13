@@ -84,6 +84,9 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
         String samToken = login(colleague);
         mvc.perform(get("/api/v1/clients").header("Authorization", "Bearer " + samToken))
                 .andExpect(status().isOk());
+        // Including in what /me tells them: only a *pure* client is narrowed to the brand alone.
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + samToken))
+                .andExpect(jsonPath("$.workspace.emailDomain").value(domain));
     }
 
     @Test
@@ -143,6 +146,31 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/companies/sectors").header("Authorization", "Bearer " + rep))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("a portal guest's /me carries the firm's brand but not its email domain")
+    void pureClientIsNotToldTheFirmsEmailDomain() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Meridian Partners");
+        String admin = login(alok);
+
+        String clientId = createCustomClient(admin, "Northwind");
+        String repEmail = "chair@northwind.example";
+        inviteRepresentative(admin, clientId, "Ext Rep", "Chair", repEmail);
+        String rep = acceptAsNewUser(email.latestTokenFor(repEmail), "Ext Rep");
+
+        // The name is the brand they are dealing with and the portal renders it. The email domain
+        // describes the firm's own colleagues, and an outside contact has no use for it.
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + rep))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.workspace.name").value("Meridian Partners"))
+                .andExpect(jsonPath("$.workspace.emailDomain").doesNotExist());
+
+        // Staff still get it — the narrowing is by role, not a removal from the contract.
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.workspace.emailDomain").value(domain));
     }
 
     @Test

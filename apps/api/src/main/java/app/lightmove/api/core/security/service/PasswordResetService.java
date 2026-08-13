@@ -129,7 +129,7 @@ public class PasswordResetService {
         if (passwordProblem != null) {
             // Before consume(): a weak password must not burn the link, or the user's only retry is
             // a fresh email round-trip.
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, passwordProblem);
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "password", passwordProblem);
         }
 
         token.consume(now);

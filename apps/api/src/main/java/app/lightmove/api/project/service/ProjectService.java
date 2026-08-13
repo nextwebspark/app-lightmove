@@ -160,7 +160,7 @@ public class ProjectService {
 
         // Clients are attached via attachRepresentative, never seated here.
         if (role == ProjectRole.CLIENT) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                     "Clients are invited to a project, not seated on the team");
         }
 
@@ -238,7 +238,7 @@ public class ProjectService {
         ClientRepresentative representative = requireRepresentativeOfClient(representativeId, project);
 
         if (representative.getStatus() == ClientRepStatus.REVOKED) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                     "That representative's access was revoked — re-invite them first");
         }
         // ACTIVE without an account is an invariant break, not a state a caller can act on: the row
@@ -269,7 +269,7 @@ public class ProjectService {
                         "attach-client-pending", httpRequest);
             }
         } else {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                     "That representative cannot be added to a mandate in their current state");
         }
 
@@ -387,7 +387,7 @@ public class ProjectService {
                 .findByIdAndWorkspaceId(representativeId, project.getWorkspaceId())
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         if (!representative.getClientId().equals(project.getClientId())) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                     "That representative belongs to a different client");
         }
         return representative;

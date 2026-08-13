@@ -91,12 +91,15 @@ public class AuthService {
         rateLimit.checkSignup(email, request);
 
         if (!command.termsAccepted()) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Terms must be accepted");
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "termsAccepted",
+                    "Terms must be accepted");
         }
 
+        // As a field error, so the rule the encoder will enforce anyway reaches the form the same way
+        // the DTO's own @Size does. Dropping it left a user retyping a password we had already refused.
         String passwordProblem = passwords.validate(command.password());
         if (passwordProblem != null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, passwordProblem);
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "password", passwordProblem);
         }
 
         String domain = emailValidator.validateWorkEmail(email);
@@ -157,7 +160,7 @@ public class AuthService {
 
         String passwordProblem = passwords.validate(rawPassword);
         if (passwordProblem != null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, passwordProblem);
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "password", passwordProblem);
         }
 
         if (users.existsByEmail(email)) {
@@ -302,7 +305,7 @@ public class AuthService {
 
         String problem = passwords.validate(newPassword);
         if (problem != null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, problem);
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "password", problem);
         }
 
         user.changePassword(passwords.hash(newPassword));

@@ -2,7 +2,9 @@ package app.lightmove.api.core.error;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.handler.GlobalExceptionHandler;
+import app.lightmove.api.core.error.model.ApiException;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -10,6 +12,7 @@ import ch.qos.logback.core.read.ListAppender;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -57,6 +60,39 @@ class GlobalExceptionHandlerTest {
 
         assertThat(problem.getStatus()).isEqualTo(409);
         assertThat(problem.getProperties()).containsEntry("code", "CONFLICT");
+    }
+
+    @Test
+    @DisplayName("a thrower's message stays internal unless it was written for the caller")
+    void internalDetailIsNeverReflectedToTheClient() {
+        // Several rules quote the request — an unknown sort token, a company label. Reflecting those
+        // is exactly what this channel exists to prevent, so the default is the code's own wording.
+        ProblemDetail problem = handler.handleApiException(
+                new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown sort field: <script>"),
+                new MockHttpServletRequest());
+
+        assertThat(problem.getDetail()).isEqualTo(ErrorCode.VALIDATION_FAILED.defaultMessage());
+        assertThat(problem.getProperties()).doesNotContainKey("fieldErrors");
+    }
+
+    @Test
+    @DisplayName("a message written for the caller reaches them, as detail or under its field")
+    void userFacingDetailIsRendered() {
+        ProblemDetail banner = handler.handleApiException(
+                ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
+                        "Clients are invited to a project, not granted through the roster"),
+                new MockHttpServletRequest());
+
+        assertThat(banner.getDetail()).isEqualTo("Clients are invited to a project, not granted through the roster");
+
+        ProblemDetail field = handler.handleApiException(
+                ApiException.withField(ErrorCode.VALIDATION_FAILED, "password", "Include at least one number"),
+                new MockHttpServletRequest());
+
+        // Same shape Bean Validation produces, so a service-level rule lands under the input like a
+        // @Size does — which is what the password-length wording needed to reach the form at all.
+        assertThat(field.getProperties()).containsEntry("fieldErrors",
+                Map.of("password", "Include at least one number"));
     }
 
     @Test

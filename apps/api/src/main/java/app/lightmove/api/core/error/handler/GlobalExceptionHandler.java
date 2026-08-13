@@ -56,7 +56,16 @@ public class GlobalExceptionHandler {
             log.debug("[{}] {}", code, ex.getMessage());
         }
 
-        return problem(code, code.defaultMessage());
+        // The default is the code's own wording — a thrower's message is internal unless it was built
+        // through ApiException.userFacing/withField, which is the deliberate opt-in for text a caller
+        // is meant to read. Without that distinction every rule's message would be reflected, and
+        // several of them quote the request.
+        ProblemDetail problem = problem(code,
+                ex.getClientDetail() == null ? code.defaultMessage() : ex.getClientDetail());
+        if (ex.getFieldErrors() != null) {
+            problem.setProperty("fieldErrors", ex.getFieldErrors());
+        }
+        return problem;
     }
 
     /** Bean Validation failures, unpacked into a field → message map the form can render inline. */

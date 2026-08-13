@@ -103,6 +103,51 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the two tiers of client access: a researcher mints representatives but seats none")
+    void clientAccessOnAMandateIsTheLeadsAlone() throws Exception {
+        Fixture f = fixture("Client Access Matrix Firm");
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+        String sara = login(f.saraEmail);
+
+        // Workspace tier: the registry is any staff member's, and minting a contact there shows them
+        // nothing — no mandate is named, and none is granted.
+        String representativeId = body(mvc.perform(post("/api/v1/clients/" + f.clientId + "/representatives")
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Ext Rep","position":"Chair","email":"chair@matrix-client.example"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+
+        // Project tier: giving that contact sight of this search is not the researcher's to decide.
+        mvc.perform(post("/api/v1/projects/" + f.projectId + "/representatives")
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"representativeId":"%s"}""".formatted(representativeId)))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(post("/api/v1/projects/" + f.projectId + "/representatives/invitations")
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Other Rep","position":"CFO","email":"cfo@matrix-client.example"}"""))
+                .andExpect(status().isForbidden());
+
+        // The lead's, though — and only then can the researcher's own contact see the mandate.
+        mvc.perform(post("/api/v1/projects/" + f.projectId + "/representatives")
+                        .header("Authorization", "Bearer " + f.admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"representativeId":"%s"}""".formatted(representativeId)))
+                .andExpect(status().isOk());
+
+        mvc.perform(delete("/api/v1/projects/" + f.projectId + "/representatives/" + representativeId)
+                        .header("Authorization", "Bearer " + sara))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("a workspace admin needs no seat — implicitly a lead everywhere")
     void workspaceAdminBypass() throws Exception {
         String alok = "alok@" + domain;
@@ -164,8 +209,8 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
 
     // ── fixture ──────────────────────────────────────────────────────────────
 
-    private record Fixture(String admin, String projectId, String saraEmail, String saraId,
-                           String omarId) {}
+    private record Fixture(String admin, String clientId, String projectId, String saraEmail,
+                           String saraId, String omarId) {}
 
     /** A workspace admin, a project the admin created, and two plain members (Sara, Omar). */
     private Fixture fixture(String firmName) throws Exception {
@@ -191,7 +236,8 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
                                 """.formatted(clientId)))
                 .andReturn()).get("id").asText();
 
-        return new Fixture(admin, projectId, sara, memberIdOf(admin, sara), memberIdOf(admin, omar));
+        return new Fixture(admin, clientId, projectId, sara, memberIdOf(admin, sara),
+                memberIdOf(admin, omar));
     }
 
     private void seat(String leadToken, String projectId, String memberId, String role)

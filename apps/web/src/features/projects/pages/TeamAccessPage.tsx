@@ -37,8 +37,10 @@ export function TeamAccessPage() {
 
   const clientOnly = isPureClient(user?.workspace?.roles ?? []);
   const seat = project.team.find((member) => member.userId === user?.id);
-  // Mirrors the server: TEAM_MANAGE and PROJECT_EDIT are both the lead's now, so one flag covers the
-  // team table and the client section alike. The workspace-admin bypass applies to both.
+  // Mirrors the server: TEAM_MANAGE (the staff table) and CLIENT_ACCESS_MANAGE (who from the client
+  // sees this mandate) are both the lead's, so one flag covers both sections. The workspace-admin
+  // bypass applies to both. Note the client *registry* is a wider grant — any staff member may mint a
+  // representative there; this flag is only about granting one sight of this search.
   const canManage =
     (user?.workspace?.roles.includes("ADMIN") ?? false) ||
     (seat?.projectRoles.includes("LEAD") ?? false);

@@ -66,7 +66,7 @@ public class ClientRepresentativeService {
         Optional<ClientRepresentative> existing = representatives
                 .findByClientIdAndEmailIgnoreCase(clientId, email);
         if (existing.filter(row -> row.getStatus() == ClientRepStatus.ACTIVE).isPresent()) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                     "That person is already a representative of this client");
         }
 

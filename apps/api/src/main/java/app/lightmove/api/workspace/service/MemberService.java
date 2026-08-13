@@ -50,7 +50,7 @@ public class MemberService {
         // Clients are invited to a project, never granted through the roster. Groundwork guard: it
         // keeps the CLIENT role unreachable until the portal exists to receive one.
         if (newRoles.contains(WorkspaceRole.CLIENT)) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                     "Clients are invited to a project, not granted through the roster");
         }
 

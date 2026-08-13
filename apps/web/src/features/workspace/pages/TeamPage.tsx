@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Avatar, Button } from "../../../components/ui";
+import { Avatar, Button, EmptyState } from "../../../components/ui";
 import { titleCase } from "../../../lib/format";
 import { useAuth } from "../../auth/AuthProvider";
 import * as projectsApi from "../../projects/api/projectsApi";
@@ -16,7 +16,7 @@ export function TeamPage() {
   const isAdmin = user?.workspace?.roles.includes("ADMIN") ?? false;
   const [inviteOpen, setInviteOpen] = useState(false);
 
-  const { data: members = [] } = useQuery({
+  const { data: members = [], isError } = useQuery({
     queryKey: workspaceApi.MEMBERS_KEY,
     queryFn: workspaceApi.members,
   });
@@ -27,6 +27,21 @@ export function TeamPage() {
 
   const activeCount = (memberId: string) =>
     projects.filter((p) => isActive(p) && p.team.some((seat) => seat.memberId === memberId)).length;
+
+  // A refused roster falls back to the [] default, and the header would then report "0 members" — a
+  // count the caller was never allowed to read, stated as fact. Say what happened instead.
+  if (isError) {
+    return (
+      <>
+        <PageHeader title="Team" subtitle="roles apply per project" />
+        <EmptyState
+          icon={<Icon d={ICONS.lock} size={24} />}
+          title="Couldn't load the roster"
+          body="You may no longer have access to it, or the request failed. Reload the page, and ask an admin if it keeps happening."
+        />
+      </>
+    );
+  }
 
   return (
     <>

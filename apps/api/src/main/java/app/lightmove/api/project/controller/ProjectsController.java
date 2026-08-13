@@ -94,9 +94,9 @@ public class ProjectsController {
                 principal.userId(), principal.requireWorkspaceId(), projectId, memberId, httpRequest));
     }
 
-    /** Give a client representative read-only view of this mandate — the lead's decision. */
+    /** Map a representative the registry already holds onto this mandate — the lead's decision. */
     @PostMapping("/{projectId}/representatives")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'CLIENT_ACCESS_MANAGE')")
     public ResponseEntity<ProjectResponse> attachRepresentative(
             @PathVariable UUID projectId,
             @Valid @RequestBody AttachRepresentativeRequest request,
@@ -109,12 +109,13 @@ public class ProjectsController {
 
     /**
      * Create a client contact and give them this mandate in one decision — the modal's "Invite by
-     * email" tab. Gated on <b>both</b> tiers: the attach is the lead's call on the mandate, and
-     * minting a representative writes the client registry, which is {@code CLIENT_RECORD_MANAGE}. Every
-     * project lead holds both today; naming them separately keeps that true if the tiers ever diverge.
+     * email" tab. Gated on <b>both</b> tiers, because it does one thing from each: minting a
+     * representative writes the registry ({@code CLIENT_RECORD_MANAGE}, any staff member), and giving
+     * them sight of this search is the lead's ({@code CLIENT_ACCESS_MANAGE}). A member who is not this
+     * mandate's lead can still do the first, through the registry — just not both at once, here.
      */
     @PostMapping("/{projectId}/representatives/invitations")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT') "
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'CLIENT_ACCESS_MANAGE') "
             + "and @workspaceAuth.can(principal, 'CLIENT_RECORD_MANAGE')")
     public ResponseEntity<ProjectResponse> inviteRepresentative(
             @PathVariable UUID projectId,
@@ -127,7 +128,7 @@ public class ProjectsController {
     }
 
     @DeleteMapping("/{projectId}/representatives/{representativeId}")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    @PreAuthorize("@projectAuth.can(principal, #projectId, 'CLIENT_ACCESS_MANAGE')")
     public ResponseEntity<ProjectResponse> detachRepresentative(@PathVariable UUID projectId,
                                                                 @PathVariable UUID representativeId,
                                                                 HttpServletRequest httpRequest) {

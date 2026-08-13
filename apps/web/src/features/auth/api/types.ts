@@ -13,7 +13,8 @@ export interface WorkspaceSummary {
   name: string;
   slug: string;
   logoMark: string | null;
-  emailDomain: string;
+  /** Null for a pure client: it describes the firm's own people, and a portal guest is not one. */
+  emailDomain: string | null;
   /** The caller's workspace roles — a set. Admin checks read `roles.includes("ADMIN")`. */
   roles: WorkspaceRole[];
 }

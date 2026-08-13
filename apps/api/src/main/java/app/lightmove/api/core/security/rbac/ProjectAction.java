@@ -13,6 +13,20 @@ public enum ProjectAction {
     TEAM_MANAGE,
 
     /**
+     * Give or withdraw a client representative's read-only view of this mandate — attaching one the
+     * registry already holds, minting one and attaching in a single step, or detaching.
+     *
+     * <p>The mandate half of client access, and held by LEAD alone. Its workspace counterpart is
+     * {@code CLIENT_RECORD_MANAGE}, which is ADMIN or MEMBER and covers the registry: who exists as a
+     * client contact. A representative created there sees nothing until a lead grants them a mandate.
+     *
+     * <p>Deliberately not part of {@link #PROJECT_EDIT}. Admitting an outsider to a search is a
+     * different decision from moving its target date, and folding them together would hand the first
+     * away the moment the second was widened.
+     */
+    CLIENT_ACCESS_MANAGE,
+
+    /**
      * Read a project's team-only content: its strategy, position brief, sourcing, and future tables.
      * Held by every seated role, including a read-only CLIENT representative — it is the gate on every
      * project-content GET. Distinct from {@link #WORK_EXECUTE} precisely so a client can view without
