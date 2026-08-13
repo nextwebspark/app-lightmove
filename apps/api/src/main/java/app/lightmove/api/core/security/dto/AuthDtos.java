@@ -1,5 +1,6 @@
 package app.lightmove.api.core.security.dto;
 
+import app.lightmove.api.core.email.service.EmailAddressNormaliser;
 import app.lightmove.api.core.security.service.PasswordPolicy;
 import app.lightmove.api.workspace.dto.WorkspaceDtos.WorkspaceSummary;
 import jakarta.validation.constraints.AssertTrue;
@@ -8,6 +9,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.util.UUID;
+import tools.jackson.databind.annotation.JsonDeserialize;
 
 /**
  * The HTTP contract for authentication.
@@ -27,6 +29,7 @@ public final class AuthDtos {
             @Size(max = 160, message = "That name is too long")
             String fullName,
 
+            @JsonDeserialize(converter = EmailAddressNormaliser.class)
             @NotBlank(message = "Enter your work email")
             @Email(message = "That doesn't look like a valid email")
             @Size(max = 255)
@@ -42,6 +45,7 @@ public final class AuthDtos {
     ) {}
 
     public record LoginRequest(
+            @JsonDeserialize(converter = EmailAddressNormaliser.class)
             @NotBlank(message = "Enter your email")
             @Email(message = "That doesn't look like a valid email")
             String email,
@@ -51,10 +55,12 @@ public final class AuthDtos {
     ) {}
 
     public record ResendVerificationRequest(
+            @JsonDeserialize(converter = EmailAddressNormaliser.class)
             @NotBlank @Email String email
     ) {}
 
     public record ForgotPasswordRequest(
+            @JsonDeserialize(converter = EmailAddressNormaliser.class)
             @NotBlank(message = "Enter your email")
             @Email(message = "That doesn't look like a valid email")
             String email

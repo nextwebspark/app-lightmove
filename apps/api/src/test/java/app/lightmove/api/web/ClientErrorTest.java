@@ -9,6 +9,7 @@ import app.lightmove.api.IntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -58,5 +59,27 @@ class ClientErrorTest {
         mvc.perform(get("/api/v1/auth/signup"))
                 .andExpect(status().isMethodNotAllowed())
                 .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
+    }
+
+    /**
+     * A client that posts the right URL with the wrong {@code Content-Type} has made a client mistake,
+     * and this one reaches every endpoint — a single curl with {@code text/plain} used to hand back a
+     * 500 and an ERROR-level stack trace from any route in the application.
+     */
+    @Test
+    @DisplayName("an unsupported content type is a 415, not a 500")
+    void unsupportedContentTypeIsUnsupportedMediaType() throws Exception {
+        mvc.perform(post("/api/v1/auth/signup").contentType(MediaType.TEXT_PLAIN).content("hello"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.code").value("UNSUPPORTED_MEDIA_TYPE"));
+    }
+
+    /** The same mistake in the other direction: asking for a representation we do not produce. */
+    @Test
+    @DisplayName("an unsatisfiable Accept header is a 406, not a 500")
+    void unacceptableAcceptHeaderIsNotAcceptable() throws Exception {
+        mvc.perform(get("/api/v1/auth/providers").accept(MediaType.IMAGE_PNG))
+                .andExpect(status().isNotAcceptable())
+                .andExpect(jsonPath("$.code").value("NOT_ACCEPTABLE"));
     }
 }

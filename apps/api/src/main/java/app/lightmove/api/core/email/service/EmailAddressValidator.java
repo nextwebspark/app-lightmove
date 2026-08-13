@@ -5,7 +5,9 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import java.util.Hashtable;
 import java.util.Locale;
+import javax.naming.NameNotFoundException;
 import javax.naming.NamingException;
+import javax.naming.directory.Attribute;
 import javax.naming.directory.Attributes;
 import javax.naming.directory.InitialDirContext;
 import lombok.extern.slf4j.Slf4j;
@@ -96,12 +98,16 @@ public class EmailAddressValidator {
     }
 
     /**
-     * True if the domain publishes an MX record — or if we could not find out.
+     * True if the domain can receive mail — or if we could not find out.
      *
-     * <p>Failing open is deliberate. A resolver that is slow, rate-limited or briefly unreachable is
-     * our problem, not the user's, and treating our own outage as "your email is fake" would block
-     * every legitimate signup for as long as it lasted. An address that slips through merely fails to
-     * receive its verification email, which is what would have happened anyway.
+     * <p>Failing open is deliberate, but only for the cases where the resolver told us nothing. A
+     * resolver that is slow, rate-limited or briefly unreachable is our problem, not the user's, and
+     * treating our own outage as "your email is fake" would block every legitimate signup for as long
+     * as it lasted.
+     *
+     * <p>An answer, though, is not an outage. Catching every {@link NamingException} together meant
+     * NXDOMAIN — the resolver stating that the domain does not exist — was filed as inconclusive and
+     * let through, so the typo'd domain this check exists to catch was exactly the case it passed.
      */
     private boolean hasMailExchanger(String domain) {
         Hashtable<String, String> env = new Hashtable<>();
@@ -112,17 +118,49 @@ public class EmailAddressValidator {
         InitialDirContext context = null;
         try {
             context = new InitialDirContext(env);
-            Attributes attributes = context.getAttributes(domain, new String[]{"MX"});
-            return attributes.get("MX") != null;
+            return acceptsMail(context.getAttributes(domain, new String[]{"MX"}));
+        } catch (NameNotFoundException ex) {
+            // The resolver answered, and the answer was "no such domain". A decision, not a failure.
+            log.debug("No such domain: {}", domain);
+            return false;
         } catch (NamingException ex) {
-            // NameNotFoundException means the domain genuinely has no MX; anything else means the
-            // lookup failed. JNDI does not distinguish them reliably across resolvers, so the whole
-            // class is treated as inconclusive and the address is let through.
             log.debug("MX lookup inconclusive for {}: {}", domain, ex.getMessage());
             return true;
         } finally {
             closeQuietly(context);
         }
+    }
+
+    /**
+     * Whether an MX answer names somewhere a message could actually go.
+     *
+     * <p>Separated from the lookup so it can be tested without a resolver, and because the answer needs
+     * reading rather than counting: a domain that publishes the single record {@code 0 .} is declaring
+     * "no mail is accepted here" (RFC 7505). {@code example.com} does exactly that, and testing only
+     * for the attribute's presence let it through as deliverable.
+     */
+    static boolean acceptsMail(Attributes attributes) throws NamingException {
+        Attribute mailExchangers = attributes.get("MX");
+        if (mailExchangers == null || mailExchangers.size() == 0) {
+            return false;
+        }
+
+        for (int index = 0; index < mailExchangers.size(); index++) {
+            if (!isNullMailExchanger(String.valueOf(mailExchangers.get(index)))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** An MX record is {@code "<preference> <exchange>"}; RFC 7505's null MX names the root, ".". */
+    private static boolean isNullMailExchanger(String record) {
+        String exchange = record.trim();
+        int separator = exchange.indexOf(' ');
+        if (separator >= 0) {
+            exchange = exchange.substring(separator + 1).trim();
+        }
+        return exchange.equals(".") || exchange.isEmpty();
     }
 
     private static void closeQuietly(InitialDirContext context) {

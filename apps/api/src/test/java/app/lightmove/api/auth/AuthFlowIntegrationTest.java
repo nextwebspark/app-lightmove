@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -49,6 +50,7 @@ class AuthFlowIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired RecordingEmailSender email;
+    @Autowired JdbcTemplate jdbc;
 
     private String domain;
     private String alokEmail;
@@ -96,6 +98,36 @@ class AuthFlowIntegrationTest {
 
         assertThat(codeOf(signupRaw("Impostor", alokEmail, PASSWORD)))
                 .isEqualTo("EMAIL_ALREADY_REGISTERED");
+    }
+
+    /**
+     * A pasted address commonly arrives with a space on it, from a mail client or a mobile keyboard.
+     *
+     * <p>It used to be rejected as malformed: Jakarta's {@code @Email} runs during argument resolution,
+     * and the normaliser that would have trimmed it only ran once the service had the request — so the
+     * user was told their own address was invalid. Both halves are asserted, because trimming that
+     * happens after the duplicate check would still let the same person register twice.
+     */
+    @Test
+    @DisplayName("a space-padded address is trimmed on the way in, not refused")
+    void spacePaddedAddressIsTrimmed() throws Exception {
+        signup("Alok Kumar", "  %s  ".formatted(alokEmail), PASSWORD);
+
+        assertThat(codeOf(signupRaw("Impostor", "  %s  ".formatted(alokEmail), PASSWORD)))
+                .as("the padded form must resolve to the same account, not a second one")
+                .isEqualTo("EMAIL_ALREADY_REGISTERED");
+    }
+
+    @Test
+    @DisplayName("a space-padded address signs in")
+    void spacePaddedAddressLogsIn() throws Exception {
+        signup("Alok Kumar", alokEmail, PASSWORD);
+
+        mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"  %s  ","password":"%s"}
+                                """.formatted(alokEmail, PASSWORD)))
+                .andExpect(status().isOk());
     }
 
     // ── Verification gates access ─────────────────────────────────────────────
@@ -232,6 +264,45 @@ class AuthFlowIntegrationTest {
         assertThat(user.at("/workspace/name").asText()).isEqualTo("NextWebSpark Search");
         assertThat(user.at("/workspace/roles/0").asText()).isEqualTo("ADMIN");
         assertThat(user.at("/workspace/emailDomain").asText()).isEqualTo(domain);
+    }
+
+    /**
+     * A verification link clicked late still builds what the wizard was holding.
+     *
+     * <p>The hold and the verification token both last 24 hours, but a resend restarts only the token —
+     * so verifying from the second email routinely arrived after the hold's own clock had run out.
+     * {@code materialise} deleted the row before testing that clock, then refused to use it, so the
+     * workspace name, size, region and every invitee the user had typed were destroyed by the path that
+     * declined them, and the SPA sent them back to an empty form saying nothing.
+     */
+    @Test
+    @DisplayName("a wizard held past its own expiry is still honoured when the mailbox is proved")
+    void anExpiredHoldIsStillMaterialised() throws Exception {
+        String unverified = bearer(signup("Alok Kumar", alokEmail, PASSWORD));
+
+        mvc.perform(post("/api/v1/onboarding/workspace")
+                        .header("Authorization", unverified)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"NextWebSpark Search","companySize":"11-50 people",
+                                 "primaryRegion":"GCC","teamFocus":"Executive search"}
+                                """))
+                .andExpect(status().isAccepted());
+
+        // Age the hold past its deadline, the way a slow signup and a resent link would.
+        jdbc.update("""
+                UPDATE app_lm_pending_onboarding SET expires_at = now() - interval '1 hour'
+                WHERE user_id = (SELECT id FROM app_lm_user WHERE email = ?)
+                """, alokEmail);
+
+        MvcResult verified = mvc.perform(post("/api/v1/auth/verify")
+                        .param("token", email.latestTokenFor(alokEmail)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(body(verified).at("/workspace/name").asText())
+                .as("what they typed must not be thrown away in silence")
+                .isEqualTo("NextWebSpark Search");
     }
 
     /**
@@ -540,7 +611,35 @@ class AuthFlowIntegrationTest {
         // Even the *correct* password is now refused — a lockout that yields to the right password
         // would be no lockout at all.
         MvcResult locked = loginRaw(alokEmail, PASSWORD);
-        assertThat(codeOf(locked)).isEqualTo("ACCOUNT_LOCKED");
+
+        // And it is refused in the same words as any other failure. A distinct 423 was reachable only
+        // for an address that exists, so five wrong guesses confirmed an account — a cheaper oracle
+        // than any timing attack. What the response cannot say, the mailbox does.
+        assertThat(codeOf(locked)).isEqualTo("INVALID_CREDENTIALS");
+        assertThat(codeOf(loginRaw("nobody@" + domain, PASSWORD)))
+                .as("a locked account and an address with no account must be indistinguishable")
+                .isEqualTo(codeOf(locked));
+        assertThat(email.subjectsFor(alokEmail))
+                .anyMatch(subject -> subject.contains("temporarily locked"));
+    }
+
+    /**
+     * One mail per lockout window, not one per guess. An attacker running a dictionary against a real
+     * address must not be able to use us to flood that person's inbox.
+     */
+    @Test
+    @DisplayName("the lockout email is sent once when the lock arms, not on every later attempt")
+    void lockoutEmailIsSentOncePerLock() throws Exception {
+        signup("Alok Kumar", alokEmail, PASSWORD);
+
+        for (int attempt = 0; attempt < 8; attempt++) {
+            loginRaw(alokEmail, "wrongpassword1");
+        }
+
+        assertThat(email.subjectsFor(alokEmail).stream()
+                .filter(subject -> subject.contains("temporarily locked"))
+                .count())
+                .isEqualTo(1);
     }
 
     // ── Refresh token rotation and theft detection ────────────────────────────
@@ -622,6 +721,62 @@ class AuthFlowIntegrationTest {
         MvcResult afterLogout = mvc.perform(post("/api/v1/auth/refresh").cookie(cookie).with(csrf()))
                 .andReturn();
         assertThat(afterLogout.getResponse().getStatus()).isEqualTo(401);
+    }
+
+    /**
+     * Signing out ends a session; it does not mean somebody stole a token.
+     *
+     * <p>The reuse branch used to test only <i>whether</i> the presented token was revoked, so a
+     * logged-out cookie replayed by a browser that still held it was declared theft: the user was told
+     * their session ended "for security reasons", and TOKEN_REUSE_DETECTED — the one event meant to page
+     * a human — fired on ordinary logouts. Both halves are asserted here, because either one alone would
+     * pass with the bug half-fixed.
+     */
+    @Test
+    @DisplayName("replaying a logged-out token is a dead session, not theft")
+    void replayAfterLogoutIsNotReportedAsTheft() throws Exception {
+        signup("Alok Kumar", alokEmail, PASSWORD);
+        Cookie cookie = refreshCookie(loginRaw(alokEmail, PASSWORD));
+
+        mvc.perform(post("/api/v1/auth/logout").cookie(cookie).with(csrf()))
+                .andExpect(status().isNoContent());
+
+        MvcResult replay = mvc.perform(post("/api/v1/auth/refresh").cookie(cookie).with(csrf()))
+                .andExpect(status().isUnauthorized())
+                .andReturn();
+
+        assertThat(codeOf(replay)).isEqualTo("REFRESH_TOKEN_INVALID");
+        assertThat(reuseDetectionsRecordedFor(alokEmail))
+                .as("a logout must not fire the alert that means a token leaked")
+                .isZero();
+    }
+
+    /** The counterpart that must keep passing: a genuinely superseded token is still theft. */
+    @Test
+    @DisplayName("replaying a rotated token is still theft, and still fires the alert")
+    void replayOfARotatedTokenIsStillTheft() throws Exception {
+        signup("Alok Kumar", alokEmail, PASSWORD);
+        Cookie original = refreshCookie(loginRaw(alokEmail, PASSWORD));
+
+        mvc.perform(post("/api/v1/auth/refresh").cookie(original).with(csrf()))
+                .andExpect(status().isOk());
+
+        MvcResult replay = mvc.perform(post("/api/v1/auth/refresh").cookie(original).with(csrf()))
+                .andExpect(status().isUnauthorized())
+                .andReturn();
+
+        assertThat(codeOf(replay)).isEqualTo("REFRESH_TOKEN_REUSED");
+        assertThat(reuseDetectionsRecordedFor(alokEmail)).isEqualTo(1);
+    }
+
+    /** Scoped to one address: the audit trail is append-only, so earlier tests' rows are still there. */
+    private int reuseDetectionsRecordedFor(String email) {
+        Integer count = jdbc.queryForObject("""
+                SELECT count(*) FROM app_lm_audit_event event
+                JOIN app_lm_user actor ON actor.id = event.actor_user_id
+                WHERE event.event_type = 'TOKEN_REUSE_DETECTED' AND actor.email = ?
+                """, Integer.class, email);
+        return count == null ? 0 : count;
     }
 
     @Test

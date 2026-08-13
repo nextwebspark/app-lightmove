@@ -7,7 +7,7 @@ import org.springframework.web.util.HtmlUtils;
 /**
  * Builds the transactional emails.
  *
- * <p>Hand-built rather than templated through Thymeleaf: there are three of them, they are the only
+ * <p>Hand-built rather than templated through Thymeleaf: there are a handful of them, they are the only
  * ones the product needs, and a template engine would add a rendering step to debug for no gain. When
  * marketing wants control of the copy, that is the moment to introduce templates — not before.
  *
@@ -79,6 +79,45 @@ public class EmailTemplates {
                 """.formatted(firstName(recipientName), resetLink);
 
         return new EmailMessage(recipient, "Reset your LightMove password", html, text);
+    }
+
+    /**
+     * Tells someone their account is locked, because the login response deliberately will not.
+     *
+     * <p>Login answers the same {@code INVALID_CREDENTIALS} for a locked account as for an unknown
+     * address, so that five wrong guesses cannot confirm an account exists. That leaves the real owner
+     * with a correct password that keeps failing and no explanation — this is the explanation, sent to a
+     * mailbox only they can read. No link and no token: nothing here needs to be a credential.
+     */
+    public EmailMessage buildAccountLockedEmail(String recipient, String recipientName, String lockedUntil) {
+        String name = HtmlUtils.htmlEscape(firstName(recipientName));
+        String until = HtmlUtils.htmlEscape(lockedUntil);
+
+        String html = wrap("""
+                <h1 style="margin:0 0 16px;font:600 20px/1.3 -apple-system,system-ui,sans-serif;color:#1b2230">
+                  Your account is temporarily locked
+                </h1>
+                <p style="margin:0 0 24px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
+                  Hi %s — too many sign-in attempts failed, so we locked your LightMove account until
+                  <strong>%s</strong>. Signing in before then will be refused even with the right password.
+                </p>
+                <p style="margin:24px 0 0;font:400 12px/1.6 -apple-system,system-ui,sans-serif;color:#98a1b3">
+                  Resetting your password lifts the lock immediately. If none of these attempts were
+                  yours, reset it anyway — somebody knows your address and is guessing.
+                </p>
+                """.formatted(name, until));
+
+        String text = """
+                Your account is temporarily locked
+
+                Hi %s — too many sign-in attempts failed, so we locked your LightMove account until %s.
+                Signing in before then will be refused even with the right password.
+
+                Resetting your password lifts the lock immediately. If none of these attempts were yours,
+                reset it anyway — somebody knows your address and is guessing.
+                """.formatted(firstName(recipientName), lockedUntil);
+
+        return new EmailMessage(recipient, "Your LightMove account is temporarily locked", html, text);
     }
 
     public EmailMessage buildInvitationEmail(String recipient, String inviterName, String workspaceName,

@@ -13,16 +13,23 @@ import { z } from "zod";
 const password = z
   .string()
   .min(8, "Use at least 8 characters")
-  .max(72, "Use at most 72 characters")
+  // BCrypt's ceiling is 72 *bytes*, so an accented or emoji password runs out sooner than its
+  // character count suggests. Measuring characters here let the server's encoder throw instead.
+  .refine((value) => new TextEncoder().encode(value).length <= 72, {
+    message: "Use at most 72 characters — fewer if they are accented or emoji",
+  })
   .regex(/\d/, "Include at least one number");
 
+// Trimmed before validating, and the server does the same on the way in: a pasted address routinely
+// carries a trailing space, and telling someone their own address is malformed over it is absurd.
 const email = z
   .string()
+  .trim()
   .min(1, "Enter your work email")
   .email("That doesn't look like a valid email");
 
 export const loginSchema = z.object({
-  email: z.string().min(1, "Enter your email").email("That doesn't look like a valid email"),
+  email: z.string().trim().min(1, "Enter your email").email("That doesn't look like a valid email"),
   password: z.string().min(1, "Enter your password"),
 });
 
@@ -54,7 +61,7 @@ export const acceptInviteSchema = z
   });
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().min(1, "Enter your email").email("That doesn't look like a valid email"),
+  email: z.string().trim().min(1, "Enter your email").email("That doesn't look like a valid email"),
 });
 
 /** Choosing the replacement password — same rules and words as signup, because it is the same field. */

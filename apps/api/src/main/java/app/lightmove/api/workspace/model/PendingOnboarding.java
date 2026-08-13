@@ -80,6 +80,13 @@ public class PendingOnboarding extends BaseEntity {
         this.invitations = invitations == null ? List.of() : List.copyOf(invitations);
     }
 
+    /**
+     * For sweeping up drafts nobody came back for — not a gate on redeeming one.
+     *
+     * <p>{@code OnboardingService.materialise} deliberately does not consult this: whoever reaches it
+     * has just proved the mailbox, and refusing to honour what they typed protects nothing while losing
+     * all of it. Nothing calls this today; the column and the check stay for the cleanup job that will.
+     */
     public boolean isExpired(Instant now) {
         return !now.isBefore(expiresAt);
     }
