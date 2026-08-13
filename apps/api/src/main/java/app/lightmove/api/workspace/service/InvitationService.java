@@ -114,7 +114,7 @@ public class InvitationService {
             // project, not to the workspace — that flow (and its portal) is a later phase. Refusing
             // here keeps the invitation CHECK's client⇔project rule trivially true until then.
             if (command.role() == WorkspaceRole.CLIENT) {
-                throw new ApiException(ErrorCode.VALIDATION_FAILED,
+                throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                         "Clients are invited to a project, not to the workspace");
             }
 

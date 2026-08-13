@@ -160,7 +160,7 @@ public class ClientService {
     private Client fromUniverse(UUID userId, UUID workspaceId, CreateClientRequest request) {
         CompanyKey key = new CompanyKey(request.company().source(), request.company().sourceId());
         CompanyRefRow row = companies.refsByKeys(List.of(key)).stream().findFirst()
-                .orElseThrow(() -> new ApiException(ErrorCode.VALIDATION_FAILED,
+                .orElseThrow(() -> ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                         "That company is no longer in the database"));
         // Name and domain are the universe's, not the request's; sector/HQ are the editable overrides.
         String hqCountry = request.hqCountry() != null ? request.hqCountry() : row.hqCountry();
@@ -170,7 +170,7 @@ public class ClientService {
 
     private Client fromCustom(UUID userId, UUID workspaceId, CreateClientRequest request) {
         if (request.customName() == null || request.customName().isBlank()) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Enter the company name");
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "Enter the company name");
         }
         return Client.custom(workspaceId, request.customName(), request.sector(), request.hqCountry(),
                 request.customDomain(), userId);

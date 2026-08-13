@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { ProjectLayout } from "../components/layout/ProjectLayout";
 import { SettingsLayout } from "../components/layout/SettingsLayout";
 import { WorkspaceLayout } from "../components/layout/WorkspaceLayout";
@@ -15,6 +15,7 @@ import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 import { SignupPage } from "../features/auth/pages/SignupPage";
 import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { WorkspaceStepPage } from "../features/auth/pages/WorkspaceStepPage";
+import { isPureClient } from "../features/auth/roles";
 import { ClientsPage } from "../features/clients/pages/ClientsPage";
 import { PositionPage } from "../features/position/pages/PositionPage";
 import { ProjectPlaceholderPage } from "../features/position/pages/ProjectPlaceholderPage";
@@ -65,10 +66,14 @@ export function AppRoutes() {
 
       {/* The app shell. Sidebar views are routes so every screen is deep-linkable. */}
       <Route element={<RequireWorkspace><WorkspaceLayout /></RequireWorkspace>}>
+        {/* The project list is everyone's, portal guests included: the server scopes theirs to the
+            mandates they are seated on. The registry and the roster are staff surfaces. */}
         <Route path="/" element={<ProjectsPage view="my" />} />
         <Route path="/all" element={<ProjectsPage view="all" />} />
-        <Route path="/clients" element={<ClientsPage />} />
-        <Route path="/team" element={<TeamPage />} />
+        <Route element={<RequireStaff><Outlet /></RequireStaff>}>
+          <Route path="/clients" element={<ClientsPage />} />
+          <Route path="/team" element={<TeamPage />} />
+        </Route>
       </Route>
 
       {/* The project workspace shell (Project.dc.html). Position is the mandate's landing tab; the
@@ -165,6 +170,24 @@ function RequireWorkspace({ children }: { children: ReactNode }) {
   if (loading) return <Booting />;
   if (!user) return <Navigate to="/login" replace />;
   if (!user.workspace) return <Navigate to={homeFor(user)} replace />;
+
+  return <>{children}</>;
+}
+
+/**
+ * Keeps portal guests out of the firm's internal screens. UX only — the server re-reads the roles on
+ * every call, and refused every request these pages make even while they rendered.
+ *
+ * <p>The nav already hides them, so this closes the one way left in: typing the URL. Note the
+ * predicate is "holds CLIENT and <b>no</b> staff role" — a member who holds CLIENT alongside MEMBER is
+ * staff and must keep both pages.
+ */
+function RequireStaff({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) return <Booting />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (isPureClient(user.workspace?.roles ?? [])) return <Navigate to="/" replace />;
 
   return <>{children}</>;
 }

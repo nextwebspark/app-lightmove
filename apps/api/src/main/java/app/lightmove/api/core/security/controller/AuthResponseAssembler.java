@@ -87,6 +87,14 @@ public class AuthResponseAssembler {
                 .orElse(null);
     }
 
+    /**
+     * The workspace as its caller may see it.
+     *
+     * <p>A pure client is an outside contact at the hiring company, not a colleague: they get the
+     * brand — name, slug, mark — and not {@code emailDomain}, which describes the firm's own people.
+     * The roles are already in hand here, so this asks {@link WorkspaceRole#isStaff} rather than
+     * re-reading the membership through {@code WorkspaceAccess}.
+     */
     private static WorkspaceSummary toSummary(Workspace workspace, WorkspaceMember membership) {
         List<WorkspaceRole> roles = membership.getRoles().stream()
                 .map(Role::getName)
@@ -99,7 +107,7 @@ public class AuthResponseAssembler {
                 workspace.getName(),
                 workspace.getSlug(),
                 workspace.getLogoMark(),
-                workspace.getEmailDomain(),
+                WorkspaceRole.isStaff(roles) ? workspace.getEmailDomain() : null,
                 roles);
     }
 }

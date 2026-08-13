@@ -61,7 +61,10 @@ are both refused, while a resolver that times out fails open — our outage must
 
 **Membership is invitation-only.** Signup always creates a workspace (the creator is its `ADMIN`); the
 only way into an existing one is an admin's invitation, and accepting lands `ACTIVE` immediately — an
-admin naming someone *is* the decision. There is no join request and no approval queue; a colleague
+admin naming someone *is* the decision. **One second door, deliberately:** any staff member may name a
+client representative (`CLIENT_RECORD_MANAGE` is granted to `MEMBER` as well as `ADMIN`), and that
+person becomes a `CLIENT`-role member without an admin involved. A consultant who owns a mandate owns
+its client contacts, and the reach they are admitting to is narrow — see the two tiers below. There is no join request and no approval queue; a colleague
 whose firm is already here asks their admin for an invite. A new invitee sets a password on the accept
 screen and is in at once: `POST /onboarding/accept-invitation-signup` (public — token + name + password)
 creates their account *already verified* and issues a session carrying the workspace, with **no separate
@@ -118,6 +121,15 @@ seat holds no more than one staff role.
 15 minutes. Nothing sets that status today — there is no suspension surface, only the enum. Whoever
 builds one must call `tokens.revokeAllSessions(userId, …)` there to close the refresh path, and accept
 the ≤15-minute window on the access token or add a per-request status check to the guard beans.
+
+**Client access is two tiers, and they are not the same decision.** The **registry** — client records
+and who exists as a contact on them — is workspace `CLIENT_RECORD_MANAGE`, held by `ADMIN` *and*
+`MEMBER`; minting a representative there names a person and shows them nothing. Giving that person a
+**mandate** — mapping one the registry already holds, or creating and attaching in a single step, or
+detaching — is project `CLIENT_ACCESS_MANAGE`, held by `LEAD` alone (plus the standing workspace-admin
+bypass). Deliberately not part of `PROJECT_EDIT`: admitting an outsider to a search and moving its
+target date are different decisions, and folding them together would hand the first away the moment the
+second was widened to `RESEARCHER`.
 
 A project's **content** reads (its strategy, position brief, and future tables) are seat-gated on the
 project action `WORK_VIEW` (held by every seated role including CLIENT; workspace-admin bypasses),
@@ -213,6 +225,13 @@ reintroduce them.
   typo'd domain it exists to catch was the case it passed. Fail open on timeouts, not on answers.
 - **Deleting before deciding.** `materialise` deleted the held wizard, *then* checked whether it was
   usable, so the path that refused it was also the path that destroyed it. Decide first, delete after.
+- **A refused read is not an empty list.** `useQuery` with `data: rows = []` renders the *empty state*
+  on a 403, so `/clients` told a portal guest the firm had "0 clients" and offered a New client button
+  that could never work. Branch on `isError` before `rows.length === 0` on every list that can be
+  refused — the count is the tell, because it states as fact a number the caller was not allowed to read.
+- **A route the nav hides is still reachable by URL.** The sidebar filtered pure clients out of
+  `/clients` and `/team` and nothing else did, so typing the path served the firm's internal screens.
+  Guard the *route*; the nav is presentation.
 
 ## Stack notes
 
@@ -386,7 +405,10 @@ more than one instance).
   nothing but `this.x = x` assignments is dead weight, however many dependencies it takes — use
   `@RequiredArgsConstructor`. Config is `lombok.config` at the module root.
 - Errors: RFC 9457 `ProblemDetail`, produced centrally in `GlobalExceptionHandler`. The frontend switches
-  on `code`, never on `detail`.
+  on `code`, never on `detail`. `ApiException` has **two message channels**: the constructors take an
+  *internal* detail that reaches the log and never the response (so a rule may quote the request), while
+  `userFacing` / `withField` opt a **fixed** sentence into the body — the latter as `fieldErrors`, the
+  same shape Bean Validation produces. Never hand `userFacing` anything interpolated from input.
 - Comments explain *why*, not *what*. Every class carries a class-level doc; the inline comments flagged in
   "Traps" are load-bearing — they document bugs that shipped, and must not be stripped. If a line needs a
   comment to say what it *does*, rename something.

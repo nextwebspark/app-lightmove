@@ -126,7 +126,10 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
             <LogoTile mark={workspace.logoMark ?? workspace.name[0]} size={30} />
             <div>
               <div className="font-mono text-[13px] font-semibold">{workspace.name}</div>
-              <div className="font-mono text-[11px] text-text3">{workspace.emailDomain}</div>
+              {/* Absent for a pure client — the server sends the brand, not the firm's email domain. */}
+              {workspace.emailDomain && (
+                <div className="font-mono text-[11px] text-text3">{workspace.emailDomain}</div>
+              )}
             </div>
           </div>
 

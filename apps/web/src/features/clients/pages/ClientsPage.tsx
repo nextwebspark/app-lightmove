@@ -21,7 +21,7 @@ export function ClientsPage() {
   const [newClientOpen, setNewClientOpen] = useState(false);
   const [newMandateOpen, setNewMandateOpen] = useState(false);
 
-  const { data: clients = [], isPending } = useQuery({
+  const { data: clients = [], isPending, isError } = useQuery({
     queryKey: clientsApi.CLIENTS_KEY,
     queryFn: clientsApi.clients,
   });
@@ -46,6 +46,22 @@ export function ClientsPage() {
       <>
         <PageHeader title="Clients" subtitle="records shared across projects" action={newClientButton} />
         <TableSkeleton columns={["Client", "Type", "Client contact", "Sector", "Mandates", "Viewers"]} />
+      </>
+    );
+  }
+
+  // A refused read falls back to the [] default too, and "add your first client" over a 403 is a lie
+  // twice: it states the firm has no clients, and it offers a button that cannot work. Say what
+  // happened instead, and offer nothing.
+  if (isError) {
+    return (
+      <>
+        <PageHeader title="Clients" subtitle="records shared across projects" />
+        <EmptyState
+          icon={<Icon d={ICONS.lock} size={24} />}
+          title="Couldn't load the client registry"
+          body="You may no longer have access to it, or the request failed. Reload the page, and ask an admin if it keeps happening."
+        />
       </>
     );
   }
