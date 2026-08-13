@@ -18,6 +18,7 @@ describe("nextActionsFor", () => {
     countries: [{ label: "AE", count: 42 }],
     cities: [{ label: "Dubai", count: 30 }],
     mandateBand: { min: 900000, max: 1300000, currency: "USD" },
+    caveats: { offLimitsNotApplied: 0, sectorsNotInSource: [], revenueBandExcludesUnknown: false },
   };
 
   const titles = (report: Report) => nextActionsFor(report, "p1").map((action) => action.title);
