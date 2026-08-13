@@ -2,18 +2,24 @@
 <!--
   Log format, and only the format — levels stay in application.yml where they are configurable.
 
-  Two profiles, because the reader is different. Locally the reader is a human staring at a terminal, so
+  Two shapes, because the reader is different. Locally the reader is a human staring at a terminal, so
   Spring's own colourised pattern wins. Deployed, the reader is Cloud Logging, which parses stdout: hand
   it JSON and every line becomes queryable by severity and by correlationId — hand it plain text and it
   gets one opaque `textPayload` per line, every entry filed as INFO, and no way to ask "show me this
   request".
+
+  `e2e` belongs with `local`, and the reason is not cosmetic. The matrix reads verification, reset and
+  invitation links out of this log — LogEmailSender prints a box whose `To:` line precedes the link, and
+  e2e/api/lib.sh separates the two by *line*. Under the JSON encoder the whole box collapses into one
+  escaped `message` string, so no token is ever found and every path that starts with an emailed link
+  fails at once. That is how it was discovered: 335 failures, one cause.
 
   The field names are Cloud Logging's, not ours (`severity`, `time`, `message`). It looks for exactly
   these; anything else lands in jsonPayload as decoration.
 -->
 <configuration>
 
-    <springProfile name="local,test">
+    <springProfile name="local,test,e2e">
         <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
         <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
         <root level="INFO">
@@ -22,7 +28,7 @@
     </springProfile>
 
     <!-- No profile is the deployed case: the container runs `java -jar` with none set. -->
-    <springProfile name="!local &amp; !test">
+    <springProfile name="!local &amp; !test &amp; !e2e">
         <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
             <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
                 <providers>

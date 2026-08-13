@@ -1,0 +1,52 @@
+# The profile the end-to-end matrix boots against (`e2e/run-all.sh`, and the nightly GitHub Actions
+# workflow that runs it). Checked in, and it holds no secrets — that is the whole point.
+#
+# The matrix used to boot `local`, which cannot work anywhere but this laptop: application-local.yml
+# is gitignored, so on a CI runner the run silently inherited application.yml's production defaults —
+# a Secure/Strict refresh cookie the browser drops over plain http, and signup capped at 5/hour.
+#
+# The datasource is deliberately absent: e2e/stack/up.sh supplies SPRING_DATASOURCE_* pointing at the
+# disposable postgres:16-alpine container, which is also what bypasses the Cloud SQL connector and its
+# ADC login.
+#
+# Two settings are deliberately NOT here, and must stay that way. `email.validation.block-public-domains`
+# and `email.validation.mx-check-enabled` are read through ${EMAIL_...} placeholders in application.yml,
+# and a placeholder is dead the moment a profile file writes the property literally. 02-signup-validation
+# boots a variant with EMAIL_BLOCK_PUBLIC_DOMAINS=true to exercise the rejecting path, and the MX check
+# has to stay live because the whole N4 section is about which domains it lets through.
+lightmove:
+  auth:
+    # The matrix creates dozens of accounts in a row and would otherwise be locked out by its own
+    # fourth case. Note 07-rate-limits.sh reboots with tightened budgets to test the limiter for real —
+    # env vars named for the property itself (LIGHTMOVE_AUTH_RATE_LIMIT_...) outrank these.
+    rate-limit:
+      signup-attempts-per-hour: 100
+      login-attempts-per-minute: 100
+      verification-resends-per-hour: 100
+      # Not raised in application-local.yml, which is why 04-tokens-verification.sh needed an
+      # env override to pass locally. It does not here.
+      password-reset-requests-per-hour: 100
+
+    cookie:
+      # The stack is plain http on localhost, and a Secure cookie is dropped by the browser over http —
+      # so without this the SPA phase cannot hold a session at all. Lax rather than Strict for the same
+      # reason the local profile does it: Playwright's cross-tab cases navigate top-level.
+      secure: false
+      same-site: Lax
+
+  email:
+    # up.sh forces LIGHTMOVE_EMAIL_PROVIDER=log on top of this and refuses to continue unless the
+    # startup banner confirms it. Stated here too so the profile is correct on its own: a run that
+    # mails real people is the one failure mode this suite must never have.
+    provider: log
+
+logging:
+  level:
+    # 08-email-outage.sh asserts against the API log, and several cases grep it for the mail body.
+    app.lightmove.api: DEBUG
+
+management:
+  server:
+    # Actuator keeps its own port here, so the loopback binding is both allowed and wanted — see the
+    # long note at the end of application.yml for why this key cannot live outside a profile.
+    address: 127.0.0.1

@@ -1,0 +1,81 @@
+name: E2E
+
+# The end-to-end matrix: a real Postgres, a real API, a real browser. It proves the things the Java
+# slice suite and vitest structurally cannot — that CSRF is enforced, that the rate limiter limits at
+# all (it is switched off in the Java test profile), that a verification link clicked in a browser
+# materialises a workspace, that the route guards guard.
+#
+# Deliberately NOT part of CI, and deliberately not a merge gate. deploy.yml triggers on
+# `workflows: [CI]` by name, so this workflow is invisible to it and a red run here blocks nothing.
+# That is the right trade for now: the run takes ~15 minutes, drives a browser, and the suite still
+# has open failures that are product bugs rather than harness drift. Promote it to a gate by moving
+# the job into ci.yml once it has been green for a while.
+on:
+  schedule:
+    # 02:00 UTC. A `schedule` trigger only ever runs on the default branch, so nightly means main.
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  matrix:
+    name: Auth + RBAC matrix
+    runs-on: ubuntu-latest
+    # Three API boots at ~40s each plus 13 shell scripts and two browser phases. Generous, because a
+    # run killed at the cap tells you nothing at all.
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # jq is preinstalled on the runner image; psql is not, and api/lib.sh talks to the database
+      # directly for the states no endpoint can set (SUSPENDED, a null password hash, a consumed token).
+      - name: Install psql
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - run: npm ci
+
+      # playwright is a devDependency of apps/web, hoisted to the repo root; only the browser binary
+      # itself has to be fetched.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # PROFILE=e2e, not local: application-local.yml is gitignored and does not exist here. Without
+      # it the run would inherit application.yml's production defaults — a Secure/Strict refresh cookie
+      # the browser drops over plain http, and signup capped at five an hour.
+      #
+      # Docker itself needs no setup: the runner has a daemon, which is the same reason the
+      # Testcontainers job in ci.yml lives on GitHub rather than in a Cloud Build step.
+      - name: Run the matrix
+        working-directory: e2e
+        env:
+          PROFILE: e2e
+        run: ./run-all.sh
+
+      # A red run nobody can read is noise. cases.tsv is the tally the findings reports are built from,
+      # api.log carries the mail bodies and stack traces, and the screenshots are the only record of
+      # what the browser actually saw.
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          retention-days: 14
+          path: |
+            e2e/results/current/*.log
+            e2e/results/current/cases.tsv
+            e2e/spa/screenshots/

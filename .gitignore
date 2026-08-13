@@ -43,4 +43,4 @@ coverage/
 .DS_Store
 *.log
 ops/migrations/*
-e2e/*
+
