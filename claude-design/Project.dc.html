@@ -708,14 +708,691 @@
           </div>
         </sc-if>
         <sc-if value="{{ isReports }}" hint-placeholder-val="{{ false }}">
-          <div data-screen-label="Reports" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:110px 20px;text-align:center;animation:fadeUp .4s ease both">
-            <div style="width:52px;height:52px;border-radius:14px;background:var(--green-dim);display:grid;place-items:center;margin-bottom:18px">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M9 12h6m-6 4h6M9 8h1M5 21h14a2 2 0 0 0 2-2V7l-5-5H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2Z"></path></svg>
+          <div data-screen-label="Reports" style="animation:fadeUp .4s ease both;display:flex;flex-wrap:wrap;gap:20px 38px;align-items:flex-start">
+
+            <!-- on this page -->
+            <nav style="position:sticky;top:0;padding-top:2px;flex:0 0 200px;width:200px">
+              <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:0 10px 8px">On this page</div>
+              <sc-for list="{{ rpNav }}" as="s" hint-placeholder-count="8">
+                <button onClick="{{ rpJump }}" data-key="{{ s.key }}" style="display:flex;align-items:baseline;gap:9px;width:100%;padding:7px 10px;border:none;border-radius:7px;text-align:left;cursor:pointer;font:500 12.5px var(--sans);color:{{ s.color }};background:{{ s.bg }}" style-hover="background:var(--panel2);color:var(--text)">
+                  <b style="font:600 10px var(--mono);letter-spacing:.04em;color:{{ s.numColor }};flex:none">{{ s.n }}</b>
+                  <span>{{ s.label }}</span>
+                </button>
+              </sc-for>
+              <div style="height:1px;background:var(--line-soft);margin:12px 10px"></div>
+              <div style="padding:0 10px;display:flex;flex-direction:column;gap:7px">
+                <button onClick="{{ rpExport }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:8px;font:600 12.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex:none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
+                  Export PDF
+                </button>
+                <button onClick="{{ rpShare }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:8px;font:500 12.5px var(--sans);background:none;border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"></path></svg>
+                  Share with client
+                </button>
+              </div>
+            </nav>
+
+            <!-- report body -->
+            <div style="flex:1 1 300px;min-width:0;max-width:900px">
+              <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Talent mapping report · GCC</div>
+              <h1 style="font:700 28px/1.15 var(--sans);letter-spacing:-.02em;margin:9px 0 0">Chief Financial Officer — GCC food &amp; beverage universe</h1>
+              <div style="font:400 12px var(--mono);color:var(--text3);margin-top:8px">42-company universe · 128 executives mapped · synced 2h ago · Aurora Capital, confidential</div>
+              <div style="height:1px;background:var(--line);margin:22px 0"></div>
+
+              <h2 style="font:600 20px/1.42 var(--sans);margin:0;max-width:780px">The map is <span style="color:var(--sky)">74% complete</span>. Talent is concentrated in three hubs, and you are competitively placed for <span style="color:var(--sky)">62%</span> of mapped executives.</h2>
+              <p style="font:400 13.5px/1.65 var(--sans);color:var(--text2);max-width:780px;margin:12px 0 0">31 of 42 target companies mapped, 11 still without an executive. 41 executives are interested; 12 are off-limits. Coverage is thinnest at N-2, below-market compensation is the main risk in Egypt, and female representation thins sharply toward the board.</p>
+
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:1px;background:var(--line-soft);border:1px solid var(--line-soft);border-radius:10px;overflow:hidden;margin:22px 0 4px">
+                <sc-for list="{{ rpRibbon }}" as="s" hint-placeholder-count="6">
+                  <div style="background:var(--panel);padding:14px 14px 12px">
+                    <div style="font:700 21px var(--mono);letter-spacing:-.01em;color:{{ s.color }}">{{ s.v }}</div>
+                    <div style="font:600 9px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-top:6px">{{ s.l }}</div>
+                  </div>
+                </sc-for>
+              </div>
+
+              <!-- 01 progress -->
+              <section data-rpsec="progress" style="padding:38px 0 0">
+                <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
+                  <span style="font:700 10px var(--mono);letter-spacing:.06em;color:var(--sky)">01</span>
+                  <span style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Mapping progress</span>
+                </div>
+                <h3 style="font:600 17px/1.45 var(--sans);margin:0;max-width:760px">Mapping has been active for <span style="color:var(--sky)">18 days</span>, adding around nine executives on every active day.</h3>
+                <p style="font:400 13px/1.6 var(--sans);color:var(--text2);max-width:760px;margin:8px 0 0">Four researchers are contributing. At the current pace, full company coverage is roughly five days out — 11 companies still need a first executive.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(136px,1fr));gap:12px;margin-top:20px">
+                  <sc-for list="{{ rpProgStats }}" as="s" hint-placeholder-count="4">
+                    <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:14px 15px">
+                      <div style="font:700 21px var(--mono);letter-spacing:-.01em">{{ s.v }} <span style="font:500 11px var(--mono);color:var(--text3)">{{ s.sub }}</span></div>
+                      <div style="font:600 9px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-top:7px">{{ s.l }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+
+                <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px 18px 12px;margin-top:14px">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between">
+                    <span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Executives mapped over time · cumulative</span>
+                    <span style="font:500 10.5px var(--mono);color:var(--text3)">target 150</span>
+                  </div>
+                  <div style="position:relative;margin-top:10px">
+                    <span style="position:absolute;top:0;left:2px;font:600 11px var(--mono);color:var(--sky)">128 mapped</span>
+                    <svg viewBox="0 0 680 150" preserveAspectRatio="none" style="width:100%;height:156px;display:block">
+                      <line x1="8" y1="{{ rpTargetY }}" x2="672" y2="{{ rpTargetY }}" stroke="var(--line)" stroke-width="1" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></line>
+                      <line x1="8" y1="{{ rpZeroY }}" x2="672" y2="{{ rpZeroY }}" stroke="var(--line-soft)" stroke-width="1" vector-effect="non-scaling-stroke"></line>
+                      <path d="{{ rpAreaPath }}" fill="var(--sky-dim)"></path>
+                      <polyline points="{{ rpLinePts }}" fill="none" stroke="var(--sky)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+                      <circle cx="{{ rpLastX }}" cy="{{ rpLastY }}" r="3.5" fill="var(--sky)" vector-effect="non-scaling-stroke"></circle>
+                    </svg>
+                    <div style="display:flex;justify-content:space-between;font:400 10px var(--mono);color:var(--text3);margin-top:6px">
+                      <span>Day 1 · 22 Jul</span><span>Day 9</span><span>Day 18 · today</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="display:flex;flex-wrap:wrap;gap:22px 30px;align-items:center;margin-top:26px">
+                  <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex:0 0 154px">
+                    <svg width="150" height="150" viewBox="0 0 132 132">
+                      <circle cx="66" cy="66" r="54" fill="none" stroke="var(--line-soft)" stroke-width="11"></circle>
+                      <circle cx="66" cy="66" r="54" fill="none" stroke="var(--sky)" stroke-width="11" stroke-linecap="round" stroke-dasharray="{{ rpRingDash }}" transform="rotate(-90 66 66)"></circle>
+                      <text x="66" y="64" text-anchor="middle" style="font:700 27px var(--mono);fill:var(--text)">74%</text>
+                      <text x="66" y="84" text-anchor="middle" style="font:600 8.5px var(--mono);letter-spacing:.14em;fill:var(--text3)">MAPPED</text>
+                    </svg>
+                    <div style="font:400 10.5px var(--mono);color:var(--text3);text-align:center">31 / 42 companies<br>128 executives</div>
+                  </div>
+                  <div style="flex:1 1 320px;min-width:0">
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Researcher performance</div>
+                    <div style="display:flex;justify-content:space-between;font:500 9px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding-bottom:6px">
+                      <span>Researcher</span><span>Executives mapped · share</span>
+                    </div>
+                    <sc-for list="{{ rpTeam }}" as="r" hint-placeholder-count="4">
+                      <button onClick="{{ rpOpenResearcher }}" data-id="{{ r.id }}" style="display:flex;align-items:center;gap:11px;width:100%;padding:9px 6px;background:none;border:none;border-bottom:1px solid var(--line-soft);text-align:left;cursor:pointer" style-hover="background:var(--panel2)">
+                        <span style="width:26px;height:26px;border-radius:50%;background:var(--sky-dim);color:var(--sky);display:grid;place-items:center;font:600 9.5px var(--mono);flex:none">{{ r.initials }}</span>
+                        <span style="flex:1;min-width:0">
+                          <span style="display:block;font:600 12.5px var(--sans);color:var(--text)">{{ r.name }}</span>
+                          <span style="display:block;font:400 10.5px var(--mono);color:var(--text3);margin-top:1px">{{ r.meta }}</span>
+                        </span>
+                        <span style="width:70px;height:7px;border-radius:4px;background:var(--line-soft);flex:none;overflow:hidden">
+                          <span style="display:block;height:7px;border-radius:4px;width:{{ r.pct }};background:var(--sky)"></span>
+                        </span>
+                        <span style="width:48px;flex:none;text-align:right">
+                          <b style="font:600 13px var(--mono);color:var(--text)">{{ r.execs }}</b>
+                          <span style="display:block;font:400 10px var(--mono);color:var(--text3)">{{ r.pct }}</span>
+                        </span>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none"><path d="m9 18 6-6-6-6"></path></svg>
+                      </button>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <div style="margin-top:26px">
+                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Coverage by country · companies mapped</div>
+                  <sc-for list="{{ rpCountryBars }}" as="b" hint-placeholder-count="6">
+                    <div style="display:flex;align-items:center;gap:12px;padding:5px 0">
+                      <span style="width:120px;flex:none;font:400 12.5px var(--sans);color:var(--text2)">{{ b.label }}</span>
+                      <span style="flex:1;height:8px;border-radius:4px;background:var(--line-soft);overflow:hidden">
+                        <span style="display:block;height:8px;border-radius:4px;width:{{ b.pct }};background:{{ b.color }}"></span>
+                      </span>
+                      <span style="width:66px;flex:none;text-align:right;font:500 11.5px var(--mono);color:var(--text2)">{{ b.val }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </section>
+
+              <div style="height:1px;background:var(--line);margin:34px 0 0"></div>
+
+              <!-- 02 market -->
+              <section data-rpsec="market" style="padding:34px 0 0">
+                <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
+                  <span style="font:700 10px var(--mono);letter-spacing:.06em;color:var(--sky)">02</span>
+                  <span style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Shape of the market</span>
+                </div>
+                <h3 style="font:600 17px/1.45 var(--sans);margin:0;max-width:760px"><span style="color:var(--sky)">FMCG</span> dominates the universe; seniority is healthy at C-Suite and N-1, thin at board.</h3>
+                <p style="font:400 13px/1.6 var(--sans);color:var(--text2);max-width:760px;margin:8px 0 0">The matrix shows where executives sit — and where the gaps are. Dashed cells have no mapped executive yet. Select any cell to open the slice.</p>
+
+                <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px 18px;margin-top:18px">
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+                    <span style="width:92px;flex:none"></span>
+                    <sc-for list="{{ rpLevels }}" as="l" hint-placeholder-count="4">
+                      <span style="flex:1;text-align:center;font:600 9px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">{{ l }}</span>
+                    </sc-for>
+                  </div>
+                  <sc-for list="{{ rpHeat }}" as="r" hint-placeholder-count="6">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+                      <span style="width:92px;flex:none;font:500 12px var(--sans);color:var(--text2)">{{ r.sector }}</span>
+                      <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="4">
+                        <button onClick="{{ rpOpenCell }}" data-key="{{ c.key }}" style="flex:1;height:42px;border-radius:7px;border:{{ c.border }};background:{{ c.bg }};color:{{ c.color }};font:700 14px var(--mono);cursor:pointer;display:grid;place-items:center" style-hover="outline:1.5px solid var(--sky)">{{ c.label }}</button>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:30px;margin-top:24px">
+                  <div>
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Companies by sector</div>
+                    <sc-for list="{{ rpSectorBars }}" as="b" hint-placeholder-count="6">
+                      <div style="display:flex;align-items:center;gap:10px;padding:5px 0">
+                        <span style="width:132px;flex:none;font:400 12px var(--sans);color:var(--text2)">{{ b.label }}</span>
+                        <span style="flex:1;height:8px;border-radius:4px;background:var(--line-soft);overflow:hidden">
+                          <span style="display:block;height:8px;border-radius:4px;width:{{ b.pct }};background:{{ b.color }}"></span>
+                        </span>
+                        <span style="width:26px;flex:none;text-align:right;font:500 11.5px var(--mono);color:var(--text2)">{{ b.val }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div>
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Relevance mix</div>
+                    <div style="display:flex;height:26px;border-radius:6px;overflow:hidden;background:var(--line-soft)">
+                      <sc-for list="{{ rpRelevance }}" as="s" hint-placeholder-count="3">
+                        <span style="width:{{ s.pct }};background:{{ s.color }}"></span>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:12px">
+                      <sc-for list="{{ rpRelevance }}" as="s" hint-placeholder-count="3">
+                        <span style="display:flex;align-items:center;gap:7px;font:400 12px var(--sans);color:var(--text2)">
+                          <span style="width:8px;height:8px;border-radius:2px;background:{{ s.color }};flex:none"></span>
+                          {{ s.label }}
+                          <b style="font:600 11.5px var(--mono);color:var(--text)">{{ s.valText }}</b>
+                        </span>
+                      </sc-for>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <div style="height:1px;background:var(--line);margin:34px 0 0"></div>
+
+              <!-- 03 geography -->
+              <section data-rpsec="geography" style="padding:34px 0 0">
+                <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
+                  <span style="font:700 10px var(--mono);letter-spacing:.06em;color:var(--sky)">03</span>
+                  <span style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Where talent sits</span>
+                </div>
+                <h3 style="font:600 17px/1.45 var(--sans);margin:0;max-width:760px"><span style="color:var(--sky)">71%</span> of mapped talent sits in just three cities — Riyadh, Dubai and Jeddah.</h3>
+                <p style="font:400 13px/1.6 var(--sans);color:var(--text2);max-width:760px;margin:8px 0 0">Concentration is a double-edged sword: efficient to work, but thin coverage outside the core hubs is a blind spot worth closing.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:24px;margin-top:20px">
+                  <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:14px">
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Concentration by hub</div>
+                    <div style="position:relative;height:250px;border-radius:8px;background:linear-gradient(var(--line-soft) 1px,transparent 1px) 0 0/100% 42px,linear-gradient(90deg,var(--line-soft) 1px,transparent 1px) 0 0/42px 100%,var(--panel)">
+                      <sc-for list="{{ rpBubbles }}" as="b" hint-placeholder-count="8">
+                        <button onClick="{{ rpOpenCity }}" data-key="{{ b.key }}" title="{{ b.label }}" style="position:absolute;left:{{ b.left }};top:{{ b.top }};width:{{ b.size }};height:{{ b.size }};margin-left:{{ b.offset }};margin-top:{{ b.offset }};border-radius:50%;border:1px solid var(--sky);background:var(--sky-dim);color:var(--sky);font:600 {{ b.font }} var(--mono);cursor:pointer;display:grid;place-items:center" style-hover="background:var(--sky);color:#fff">{{ b.n }}<span style="position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:3px;font:500 9px var(--mono);color:var(--text3);white-space:nowrap">{{ b.label }}</span></button>
+                      </sc-for>
+                    </div>
+                    <div style="font:400 10px var(--mono);color:var(--text3);margin-top:8px">Bubble size = executives mapped · select a hub for market detail</div>
+                  </div>
+                  <div>
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Executives by hub</div>
+                    <sc-for list="{{ rpHubBars }}" as="b" hint-placeholder-count="8">
+                      <div style="display:flex;align-items:center;gap:10px;padding:5px 0">
+                        <span style="width:98px;flex:none;font:400 12px var(--sans);color:var(--text2)">{{ b.label }}</span>
+                        <span style="flex:1;height:8px;border-radius:4px;background:var(--line-soft);overflow:hidden">
+                          <span style="display:block;height:8px;border-radius:4px;width:{{ b.pct }};background:{{ b.color }}"></span>
+                        </span>
+                        <span style="width:26px;flex:none;text-align:right;font:500 11.5px var(--mono);color:var(--text2)">{{ b.val }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </section>
+
+              <div style="height:1px;background:var(--line);margin:34px 0 0"></div>
+
+              <!-- 04 people -->
+              <section data-rpsec="people" style="padding:34px 0 0">
+                <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
+                  <span style="font:700 10px var(--mono);letter-spacing:.06em;color:var(--sky)">04</span>
+                  <span style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Diversity &amp; DEI</span>
+                </div>
+                <h3 style="font:600 17px/1.45 var(--sans);margin:0;max-width:760px">Female representation holds at junior levels but <span style="color:var(--sky)">thins sharply toward the board</span>.</h3>
+                <p style="font:400 13px/1.6 var(--sans);color:var(--text2);max-width:760px;margin:8px 0 0">Many clients screen for diversity at shortlist. These are the dimensions the map captures today — gender through the seniority pipeline, GCC localization, and nationality spread.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:20px">
+                  <sc-for list="{{ rpDeiStats }}" as="s" hint-placeholder-count="3">
+                    <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:14px 15px">
+                      <div style="font:700 21px var(--mono);letter-spacing:-.01em">{{ s.v }} <span style="font:500 11px var(--mono);color:var(--text3)">{{ s.sub }}</span></div>
+                      <div style="font:600 9px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-top:7px">{{ s.l }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:30px;margin-top:24px">
+                  <div>
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Gender through the pipeline</div>
+                    <sc-for list="{{ rpGender }}" as="g" hint-placeholder-count="4">
+                      <div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+                        <span style="width:60px;flex:none;font:400 12px var(--sans);color:var(--text2)">{{ g.label }}</span>
+                        <span style="flex:1;display:flex;height:18px;border-radius:5px;overflow:hidden">
+                          <span style="width:{{ g.fPct }};background:var(--sky)"></span>
+                          <span style="width:{{ g.mPct }};background:var(--line-soft)"></span>
+                        </span>
+                        <span style="width:76px;flex:none;text-align:right;font:500 11px var(--mono);color:var(--text2)">{{ g.fVal }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div>
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Localization · GCC nationals vs expatriate</div>
+                    <div style="display:flex;height:26px;border-radius:6px;overflow:hidden;background:var(--line-soft)">
+                      <sc-for list="{{ rpLocal }}" as="s" hint-placeholder-count="2">
+                        <span style="width:{{ s.pct }};background:{{ s.color }}"></span>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:10px">
+                      <sc-for list="{{ rpLocal }}" as="s" hint-placeholder-count="2">
+                        <span style="display:flex;align-items:center;gap:7px;font:400 12px var(--sans);color:var(--text2)">
+                          <span style="width:8px;height:8px;border-radius:2px;background:{{ s.color }};flex:none"></span>
+                          {{ s.label }}
+                          <b style="font:600 11.5px var(--mono);color:var(--text)">{{ s.valText }}</b>
+                        </span>
+                      </sc-for>
+                    </div>
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">National leaders by country</div>
+                    <sc-for list="{{ rpLocalBars }}" as="b" hint-placeholder-count="5">
+                      <div style="display:flex;align-items:center;gap:10px;padding:4px 0">
+                        <span style="width:96px;flex:none;font:400 12px var(--sans);color:var(--text2)">{{ b.label }}</span>
+                        <span style="flex:1;height:8px;border-radius:4px;background:var(--line-soft);overflow:hidden">
+                          <span style="display:block;height:8px;border-radius:4px;width:{{ b.pct }};background:{{ b.color }}"></span>
+                        </span>
+                        <span style="width:34px;flex:none;text-align:right;font:500 11.5px var(--mono);color:var(--text2)">{{ b.val }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <div style="margin-top:24px">
+                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Nationality mix · executives</div>
+                  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:0 30px">
+                    <sc-for list="{{ rpNationality }}" as="b" hint-placeholder-count="8">
+                      <div style="display:flex;align-items:center;gap:10px;padding:4px 0">
+                        <span style="width:78px;flex:none;font:400 12px var(--sans);color:var(--text2)">{{ b.label }}</span>
+                        <span style="flex:1;height:8px;border-radius:4px;background:var(--line-soft);overflow:hidden">
+                          <span style="display:block;height:8px;border-radius:4px;width:{{ b.pct }};background:{{ b.color }}"></span>
+                        </span>
+                        <span style="width:26px;flex:none;text-align:right;font:500 11.5px var(--mono);color:var(--text2)">{{ b.val }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </section>
+
+              <div style="height:1px;background:var(--line);margin:34px 0 0"></div>
+
+              <!-- 05 interest -->
+              <section data-rpsec="interest" style="padding:34px 0 0">
+                <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
+                  <span style="font:700 10px var(--mono);letter-spacing:.06em;color:var(--sky)">05</span>
+                  <span style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Interest &amp; availability</span>
+                </div>
+                <h3 style="font:600 17px/1.45 var(--sans);margin:0;max-width:760px"><span style="color:var(--sky)">32%</span> of the pool is interested — and most mapped executives are settled in role.</h3>
+                <p style="font:400 13px/1.6 var(--sans);color:var(--text2);max-width:760px;margin:8px 0 0">Interest, availability and status together show how ready the universe is to engage, and where the funnel narrows toward a shortlist.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:30px;margin-top:20px">
+                  <div>
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Interest mix · 128 executives</div>
+                    <div style="display:flex;height:26px;border-radius:6px;overflow:hidden;background:var(--line-soft)">
+                      <sc-for list="{{ rpInterest }}" as="s" hint-placeholder-count="4">
+                        <span style="width:{{ s.pct }};background:{{ s.color }}"></span>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:6px;margin-top:12px">
+                      <sc-for list="{{ rpInterest }}" as="s" hint-placeholder-count="4">
+                        <span style="display:flex;align-items:center;gap:8px;font:400 12px var(--sans);color:var(--text2)">
+                          <span style="width:8px;height:8px;border-radius:2px;background:{{ s.color }};flex:none"></span>
+                          <span style="flex:1">{{ s.label }}</span>
+                          <b style="font:600 11.5px var(--mono);color:var(--text)">{{ s.valText }}</b>
+                        </span>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <div>
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Availability &amp; status</div>
+                    <div style="display:flex;height:26px;border-radius:6px;overflow:hidden;background:var(--line-soft)">
+                      <sc-for list="{{ rpAvail }}" as="s" hint-placeholder-count="4">
+                        <span style="width:{{ s.pct }};background:{{ s.color }}"></span>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:6px;margin-top:12px">
+                      <sc-for list="{{ rpAvail }}" as="s" hint-placeholder-count="4">
+                        <span style="display:flex;align-items:center;gap:8px;font:400 12px var(--sans);color:var(--text2)">
+                          <span style="width:8px;height:8px;border-radius:2px;background:{{ s.color }};flex:none"></span>
+                          <span style="flex:1">{{ s.label }}</span>
+                          <b style="font:600 11.5px var(--mono);color:var(--text)">{{ s.valText }}</b>
+                        </span>
+                      </sc-for>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px 18px;margin-top:20px">
+                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Mapping funnel · pass-through</div>
+                  <sc-for list="{{ rpFunnel }}" as="f" hint-placeholder-count="5">
+                    <div style="display:flex;align-items:center;gap:12px;padding:4px 0">
+                      <span style="width:150px;flex:none;font:400 12.5px var(--sans);color:var(--text2)">{{ f.label }}</span>
+                      <span style="flex:1;display:block">
+                        <span style="display:block;height:28px;border-radius:6px;width:{{ f.pct }};background:{{ f.color }}"></span>
+                      </span>
+                      <span style="width:112px;flex:none;text-align:right">
+                        <b style="font:600 13px var(--mono);color:var(--text)">{{ f.n }}</b>
+                        <span style="font:400 10.5px var(--mono);color:var(--text3);margin-left:6px">{{ f.through }}</span>
+                      </span>
+                    </div>
+                  </sc-for>
+                </div>
+              </section>
+
+              <div style="height:1px;background:var(--line);margin:34px 0 0"></div>
+
+              <!-- 06 comp -->
+              <section data-rpsec="comp" style="padding:34px 0 0">
+                <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
+                  <span style="font:700 10px var(--mono);letter-spacing:.06em;color:var(--sky)">06</span>
+                  <span style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Remuneration</span>
+                </div>
+                <h3 style="font:600 17px/1.45 var(--sans);margin:0;max-width:760px">You are competitively placed for most of the pool — but <span style="color:var(--sky)">24%</span> sit above your band.</h3>
+                <p style="font:400 13px/1.6 var(--sans);color:var(--text2);max-width:760px;margin:8px 0 0">The above-band executives cluster at C-Suite in the UAE. Worth confirming the range with the client before approach.</p>
+
+                <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px 18px;margin-top:20px">
+                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Position against the mandate band · $900K–1.3M total cash</div>
+                  <div style="display:flex;height:26px;border-radius:6px;overflow:hidden;background:var(--line-soft)">
+                    <sc-for list="{{ rpCompMix }}" as="s" hint-placeholder-count="3">
+                      <span style="width:{{ s.pct }};background:{{ s.color }}"></span>
+                    </sc-for>
+                  </div>
+                  <div style="display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:12px">
+                    <sc-for list="{{ rpCompMix }}" as="s" hint-placeholder-count="3">
+                      <span style="display:flex;align-items:center;gap:7px;font:400 12px var(--sans);color:var(--text2)">
+                        <span style="width:8px;height:8px;border-radius:2px;background:{{ s.color }};flex:none"></span>
+                        {{ s.label }}
+                        <b style="font:600 11.5px var(--mono);color:var(--text)">{{ s.valText }}</b>
+                      </span>
+                    </sc-for>
+                  </div>
+
+                  <div style="height:1px;background:var(--line-soft);margin:18px 0"></div>
+                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Median total cash by level · scale $0–2.2M</div>
+                  <sc-for list="{{ rpCompLevels }}" as="l" hint-placeholder-count="4">
+                    <div style="display:flex;align-items:center;gap:12px;padding:6px 0">
+                      <span style="width:60px;flex:none;font:400 12.5px var(--sans);color:var(--text2)">{{ l.label }}</span>
+                      <span style="position:relative;flex:1;height:10px;border-radius:5px;background:var(--line-soft)">
+                        <span style="position:absolute;left:41%;width:18%;top:0;bottom:0;background:var(--sky-dim);border-left:1px solid var(--sky);border-right:1px solid var(--sky)"></span>
+                        <span style="position:absolute;left:{{ l.left }};top:-3px;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:{{ l.color }};border:2px solid var(--panel2)"></span>
+                      </span>
+                      <span style="width:64px;flex:none;text-align:right;font:600 12px var(--mono);color:var(--text)">{{ l.val }}</span>
+                      <span style="width:84px;flex:none;text-align:right;font:500 10.5px var(--mono);color:{{ l.color }}">{{ l.tag }}</span>
+                    </div>
+                  </sc-for>
+                  <div style="font:400 10px var(--mono);color:var(--text3);margin-top:6px">Shaded band = mandate range · dot = mapped median</div>
+                </div>
+
+                <div style="margin-top:24px">
+                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Compensation index by market · UAE = 100</div>
+                  <sc-for list="{{ rpCompCountry }}" as="b" hint-placeholder-count="6">
+                    <div style="display:flex;align-items:center;gap:10px;padding:4px 0">
+                      <span style="width:110px;flex:none;font:400 12px var(--sans);color:var(--text2)">{{ b.label }}</span>
+                      <span style="flex:1;height:8px;border-radius:4px;background:var(--line-soft);overflow:hidden">
+                        <span style="display:block;height:8px;border-radius:4px;width:{{ b.pct }};background:{{ b.color }}"></span>
+                      </span>
+                      <span style="width:36px;flex:none;text-align:right;font:500 11.5px var(--mono);color:var(--text2)">{{ b.val }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </section>
+
+              <div style="height:1px;background:var(--line);margin:34px 0 0"></div>
+
+              <!-- 07 quality -->
+              <section data-rpsec="quality" style="padding:34px 0 0">
+                <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
+                  <span style="font:700 10px var(--mono);letter-spacing:.06em;color:var(--sky)">07</span>
+                  <span style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Data quality</span>
+                </div>
+                <h3 style="font:600 17px/1.45 var(--sans);margin:0;max-width:760px">How much you can trust the map: <span style="color:var(--sky)">71%</span> verified, but compensation captured on only 39%.</h3>
+                <p style="font:400 13px/1.6 var(--sans);color:var(--text2);max-width:760px;margin:8px 0 0">Confidence is highest on the Direct-relevance core and lowest on AI-inferred adjacencies — enrich those before relying on them.</p>
+
+                <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px 18px;margin-top:20px">
+                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Completeness of the record</div>
+                  <sc-for list="{{ rpQuality }}" as="q" hint-placeholder-count="4">
+                    <div style="display:flex;align-items:center;gap:12px;padding:5px 0">
+                      <span style="width:170px;flex:none;font:400 12.5px var(--sans);color:var(--text2)">{{ q.label }}</span>
+                      <span style="flex:1;height:8px;border-radius:4px;background:var(--line-soft);overflow:hidden">
+                        <span style="display:block;height:8px;border-radius:4px;width:{{ q.pct }};background:{{ q.color }}"></span>
+                      </span>
+                      <span style="width:40px;flex:none;text-align:right;font:600 11.5px var(--mono);color:var(--text)">{{ q.val }}</span>
+                    </div>
+                  </sc-for>
+                  <div style="height:1px;background:var(--line-soft);margin:16px 0"></div>
+                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Average confidence by relevance class</div>
+                  <sc-for list="{{ rpConfidence }}" as="q" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:center;gap:12px;padding:5px 0">
+                      <span style="width:170px;flex:none;font:400 12.5px var(--sans);color:var(--text2)">{{ q.label }}</span>
+                      <span style="flex:1;height:8px;border-radius:4px;background:var(--line-soft);overflow:hidden">
+                        <span style="display:block;height:8px;border-radius:4px;width:{{ q.pct }};background:{{ q.color }}"></span>
+                      </span>
+                      <span style="width:40px;flex:none;text-align:right;font:600 11.5px var(--mono);color:var(--text)">{{ q.val }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </section>
+
+              <div style="height:1px;background:var(--line);margin:34px 0 0"></div>
+
+              <!-- actions -->
+              <section data-rpsec="actions" style="padding:34px 0 0">
+                <div style="display:flex;align-items:center;gap:9px;margin-bottom:14px">
+                  <span style="font:700 10px var(--mono);letter-spacing:.06em;color:var(--sky)">·</span>
+                  <span style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Recommended next actions</span>
+                </div>
+                <sc-for list="{{ rpActions }}" as="a" hint-placeholder-count="4">
+                  <div style="display:flex;gap:14px;padding:14px 0;border-top:1px solid var(--line-soft)">
+                    <span style="font:600 11px var(--mono);color:var(--text3);flex:none;padding-top:2px">{{ a.n }}</span>
+                    <div>
+                      <div style="font:600 13.5px var(--sans);color:var(--text)">{{ a.t }}</div>
+                      <div style="font:400 12.5px var(--sans);color:var(--text2);margin-top:3px">{{ a.s }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+                <div style="font:400 10.5px var(--mono);color:var(--text3);margin-top:22px">Generated 13 Aug 2026 · figures reflect the map at last sync · prepared for Aurora Capital, confidential</div>
+              </section>
             </div>
-            <div style="font:600 17px var(--sans);margin-bottom:6px">Reports</div>
-            <div style="font:400 13px var(--sans);color:var(--text2);max-width:400px;margin-bottom:18px">Search Command Centre — 9-box market map and ranked shortlist, exportable for the client committee.</div>
-            <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:6px;font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);border:1px solid var(--line)">Planned · next release</span>
           </div>
+
+          <!-- report drill panel -->
+          <sc-if value="{{ rpDrillOpen }}" hint-placeholder-val="{{ false }}">
+            <div onClick="{{ rpCloseDrill }}" style="position:fixed;inset:0;background:rgba(15,20,30,.4);z-index:90"></div>
+            <aside style="position:fixed;top:10px;right:10px;bottom:10px;width:460px;max-width:92vw;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);z-index:95;display:flex;flex-direction:column;animation:fadeUp .22s ease both">
+              <div style="padding:18px 20px 14px;border-bottom:1px solid var(--line-soft);position:relative;display:flex;align-items:center;gap:12px">
+                <sc-if value="{{ rpIsRes }}" hint-placeholder-val="{{ false }}">
+                  <span style="width:38px;height:38px;border-radius:50%;background:var(--sky-dim);color:var(--sky);display:grid;place-items:center;font:600 13px var(--mono);flex:none">{{ rpD.initials }}</span>
+                </sc-if>
+                <div style="flex:1;min-width:0;padding-right:26px">
+                  <div style="font:600 9.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">{{ rpD.eyebrow }}</div>
+                  <div style="font:600 16px var(--sans);margin-top:4px">{{ rpD.title }}</div>
+                  <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:3px">{{ rpD.sub }}</div>
+                </div>
+                <button onClick="{{ rpCloseDrill }}" aria-label="Close" style="position:absolute;top:14px;right:14px;color:var(--text3);padding:6px;border-radius:6px;background:none;border:none;cursor:pointer" style-hover="color:var(--text);background:var(--panel2)">✕</button>
+              </div>
+              <div style="padding:18px 20px 26px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:20px">
+
+                <sc-if value="{{ rpHasKpis4 }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+                    <sc-for list="{{ rpD.kpis }}" as="k" hint-placeholder-count="4">
+                      <div style="border:1px solid var(--line);border-radius:8px;padding:10px">
+                        <div style="font:700 18px var(--mono)">{{ k.v }}</div>
+                        <div style="font:600 8.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:4px">{{ k.l }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ rpIsGap }}" hint-placeholder-val="{{ false }}">
+                  <div style="background:var(--sky-dim);border-radius:9px;padding:14px 16px">
+                    <div style="font:600 13.5px var(--sans)">Gap — no executives mapped here yet.</div>
+                    <div style="font:400 12.5px/1.55 var(--sans);color:var(--text2);margin-top:6px">{{ rpD.covNote }}</div>
+                  </div>
+                  <div>
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Target companies likely to have this role</div>
+                    <sc-for list="{{ rpD.gapCos }}" as="c" hint-placeholder-count="3">
+                      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-soft)">
+                        <span style="width:6px;height:6px;border-radius:50%;background:var(--sky);flex:none"></span>
+                        <span style="font:600 12.5px var(--sans)">{{ c }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ rpIsCell }}" hint-placeholder-val="{{ false }}">
+                  <div>
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Coverage of this pocket</div>
+                    <div style="display:flex;align-items:center;gap:12px">
+                      <span style="flex:1;height:10px;border-radius:5px;background:var(--line-soft);overflow:hidden">
+                        <span style="display:block;height:10px;border-radius:5px;width:{{ rpD.covPct }};background:var(--sky)"></span>
+                      </span>
+                      <span style="font:600 12px var(--mono);color:var(--text);flex:none">{{ rpD.covLabel }}</span>
+                    </div>
+                    <div style="font:400 10.5px var(--mono);color:var(--text3);margin-top:7px">{{ rpD.covNote }}</div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ rpIsCity }}" hint-placeholder-val="{{ false }}">
+                  <div>
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Market position</div>
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:9px">
+                      <span style="width:104px;flex:none;font:400 12px var(--sans);color:var(--text2)">Compensation</span>
+                      <span style="flex:1;height:8px;border-radius:4px;background:var(--line-soft);overflow:hidden">
+                        <span style="display:block;height:8px;border-radius:4px;width:{{ rpD.compPct }};background:var(--sky)"></span>
+                      </span>
+                      <span style="width:104px;flex:none;text-align:right;font:500 10.5px var(--mono);color:var(--text2)">{{ rpD.compLabel }}</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px">
+                      <span style="width:104px;flex:none;font:400 12px var(--sans);color:var(--text2)">Local nationals</span>
+                      <span style="flex:1;height:8px;border-radius:4px;background:var(--line-soft);overflow:hidden">
+                        <span style="display:block;height:8px;border-radius:4px;width:{{ rpD.natPct }};background:var(--text3)"></span>
+                      </span>
+                      <span style="width:104px;flex:none;text-align:right;font:500 11px var(--mono);color:var(--text2)">{{ rpD.natPct }}</span>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ rpIsRes }}" hint-placeholder-val="{{ false }}">
+                  <div>
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Conversion · of executives added</div>
+                    <sc-for list="{{ rpD.conv }}" as="c" hint-placeholder-count="4">
+                      <div style="display:flex;align-items:center;gap:10px;padding:5px 0">
+                        <span style="width:120px;flex:none;font:400 12px var(--sans);color:var(--text2)">{{ c.label }}</span>
+                        <span style="flex:1;height:8px;border-radius:4px;background:var(--line-soft);overflow:hidden">
+                          <span style="display:block;height:8px;border-radius:4px;width:{{ c.pct }};background:{{ c.color }}"></span>
+                        </span>
+                        <span style="width:54px;flex:none;text-align:right;font:500 11px var(--mono);color:var(--text2)"><b style="color:var(--text)">{{ c.n }}</b> {{ c.pctText }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div>
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Data quality · vs team average</div>
+                    <sc-for list="{{ rpD.quality }}" as="q" hint-placeholder-count="4">
+                      <div style="display:flex;align-items:center;gap:10px;padding:5px 0">
+                        <span style="width:120px;flex:none;font:400 12px var(--sans);color:var(--text2)">{{ q.label }}</span>
+                        <span style="position:relative;flex:1;height:8px;border-radius:4px;background:var(--line-soft)">
+                          <span style="position:absolute;left:{{ q.avg }};top:-2px;bottom:-2px;width:2px;background:var(--text3)"></span>
+                          <span style="display:block;height:8px;border-radius:4px;width:{{ q.pct }};background:{{ q.color }}"></span>
+                        </span>
+                        <span style="width:38px;flex:none;text-align:right;font:600 11px var(--mono);color:var(--text)">{{ q.val }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div>
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Daily activity</div>
+                    <svg viewBox="0 0 400 34" preserveAspectRatio="none" style="width:100%;height:34px;display:block">
+                      <polyline points="{{ rpD.sparkPts }}" fill="none" stroke="var(--sky)" stroke-width="1.5" vector-effect="non-scaling-stroke"></polyline>
+                    </svg>
+                    <div style="font:400 10.5px var(--mono);color:var(--text3);margin-top:6px">{{ rpD.note }}</div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ rpIsCity }}" hint-placeholder-val="{{ false }}">
+                  <div>
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Talent depth by level</div>
+                    <div style="display:flex;height:22px;border-radius:6px;overflow:hidden;background:var(--line-soft)">
+                      <sc-for list="{{ rpD.stack }}" as="s" hint-placeholder-count="3">
+                        <span style="width:{{ s.pct }};background:{{ s.color }}"></span>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px">
+                      <sc-for list="{{ rpD.stack }}" as="s" hint-placeholder-count="3">
+                        <span style="display:flex;align-items:center;gap:6px;font:400 11.5px var(--sans);color:var(--text2)">
+                          <span style="width:8px;height:8px;border-radius:2px;background:{{ s.color }};flex:none"></span>
+                          {{ s.label }} <b style="font:600 11px var(--mono);color:var(--text)">{{ s.n }}</b>
+                        </span>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <div>
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Top employers mapped here</div>
+                    <sc-for list="{{ rpD.employers }}" as="c" hint-placeholder-count="2">
+                      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-soft)">
+                        <span style="width:6px;height:6px;border-radius:50%;background:var(--sky);flex:none"></span>
+                        <span style="font:600 12.5px var(--sans)">{{ c }}</span>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ rpNoEmployers }}" hint-placeholder-val="{{ false }}">
+                      <div style="font:400 11.5px var(--mono);color:var(--text3)">Coverage thin — no major employer mapped here yet.</div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ rpIsCell }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                    <sc-for list="{{ rpD.kpis }}" as="k" hint-placeholder-count="3">
+                      <div style="border:1px solid var(--line);border-radius:8px;padding:10px">
+                        <div style="font:700 17px var(--mono)">{{ k.v }}</div>
+                        <div style="font:600 8.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:4px">{{ k.l }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ rpIsCell }}" hint-placeholder-val="{{ false }}">
+                  <div>
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Interest in this slice</div>
+                    <div style="display:flex;height:22px;border-radius:6px;overflow:hidden;background:var(--line-soft)">
+                      <sc-for list="{{ rpD.stack }}" as="s" hint-placeholder-count="3">
+                        <span style="width:{{ s.pct }};background:{{ s.color }}"></span>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px">
+                      <sc-for list="{{ rpD.stack }}" as="s" hint-placeholder-count="3">
+                        <span style="display:flex;align-items:center;gap:6px;font:400 11.5px var(--sans);color:var(--text2)">
+                          <span style="width:8px;height:8px;border-radius:2px;background:{{ s.color }};flex:none"></span>
+                          {{ s.label }} <b style="font:600 11px var(--mono);color:var(--text)">{{ s.n }}</b>
+                        </span>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <div>
+                  <sc-if value="{{ rpHasExecs }}" hint-placeholder-val="{{ false }}">
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Executives</div>
+                    <sc-for list="{{ rpD.execs }}" as="e" hint-placeholder-count="4">
+                      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-soft)">
+                        <span style="width:24px;height:24px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);color:var(--text2);display:grid;place-items:center;font:600 9px var(--mono);flex:none">{{ e.initials }}</span>
+                        <span style="flex:1;min-width:0">
+                          <span style="display:block;font:600 12.5px var(--sans);color:var(--text)">{{ e.name }}</span>
+                          <span style="display:block;font:400 10.5px var(--mono);color:var(--text3)">{{ e.meta }}</span>
+                        </span>
+                        <span style="font:600 9.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:999px;flex:none;color:{{ e.statusColor }};background:{{ e.statusBg }}">{{ e.statusLabel }}</span>
+                      </div>
+                    </sc-for>
+                  </sc-if>
+                </div>
+
+                <sc-if value="{{ rpHasNote }}" hint-placeholder-val="{{ false }}">
+                  <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:9px;padding:12px 14px">
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Context</div>
+                    <div style="font:400 12.5px/1.55 var(--sans);color:var(--text2)">{{ rpD.note }}</div>
+                  </div>
+                </sc-if>
+              </div>
+            </aside>
+          </sc-if>
         </sc-if>
 
         <!-- ================= TEAM & ACCESS ================= -->
@@ -968,12 +1645,12 @@
                     <span style="font:600 10px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--text3);padding:6px 10px">Added</span>
                   </sc-if>
                   <sc-if value="{{ p.notAdded }}" hint-placeholder-val="{{ true }}">
-                    <button onClick="{{ inviteExistingPerson }}" data-id="{{ p.id }}" style="padding:6px 13px;border-radius:7px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Add</button>
+                    <button onClick="{{ inviteExistingPerson }}" data-id="{{ p.id }}" style="padding:6px 13px;border-radius:7px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Invite</button>
                   </sc-if>
                 </div>
               </sc-for>
             </div>
-            <div style="font:400 11px var(--mono);color:var(--text3);margin-top:12px">Someone who has already accepted gets this mandate straight away. Anyone still holding an unaccepted invite joins it the moment they accept.</div>
+            <div style="font:400 11px var(--mono);color:var(--text3);margin-top:12px">Selecting a person sends their invite automatically — no email needed.</div>
           </sc-if>
           <sc-if value="{{ noClientPeople }}" hint-placeholder-val="{{ false }}">
             <div style="padding:26px 16px;text-align:center;color:var(--text3);font:400 12.5px var(--mono)">No people on record for this client yet. Use <b style="color:var(--text2)">Invite by email</b> to add the first contact.</div>
@@ -1380,6 +2057,7 @@ class Component extends DCLogic {
         },
       ],
       candSearch: '', candModalOpen: false, candDrawerId: null, coDrawerId: null,
+      rpDrill: null, rpActive: 'progress',
       team: [
         { id: 'yh', name: 'Yara Haddad', initials: 'YH', bg: 'var(--sky-dim)', fg: 'var(--sky)', roles: ['lead', 'admin'] },
         { id: 'yi', name: 'Yousef Iman', initials: 'YI', bg: 'var(--amber-dim)', fg: 'var(--amber)', roles: ['researcher'] },
@@ -1399,10 +2077,31 @@ class Component extends DCLogic {
     try {
       if (localStorage.getItem('lm-theme') === 'dark') { document.body.classList.add('dark'); this.setState({ dark: true }); }
     } catch (e) {}
-    this._esc = (e) => { if (e.key === 'Escape') this.setState({ candDrawerId: null, candModalOpen: false, coDrawerId: null, teamAddOpen: false, clientPickerOpen: false, contactAddOpen: false, wsMenuOpen: false }); };
+    this._esc = (e) => { if (e.key === 'Escape') this.setState({ rpDrill: null, candDrawerId: null, candModalOpen: false, coDrawerId: null, teamAddOpen: false, clientPickerOpen: false, contactAddOpen: false, wsMenuOpen: false }); };
     document.addEventListener('keydown', this._esc);
   }
-  componentWillUnmount() { document.removeEventListener('keydown', this._esc); }
+  componentDidUpdate() {
+    const on = this.state.page === 'reports';
+    if (on && !this._rpScroll) {
+      const sc = document.querySelector('main');
+      if (!sc) return;
+      this._rpSc = sc;
+      this._rpScroll = () => {
+        const top = sc.getBoundingClientRect().top + 150;
+        let cur = 'progress';
+        document.querySelectorAll('[data-rpsec]').forEach(n => { if (n.getBoundingClientRect().top <= top) cur = n.getAttribute('data-rpsec'); });
+        if (cur !== this.state.rpActive) this.setState({ rpActive: cur });
+      };
+      sc.addEventListener('scroll', this._rpScroll, { passive: true });
+    } else if (!on && this._rpScroll) {
+      this._rpSc.removeEventListener('scroll', this._rpScroll);
+      this._rpScroll = null;
+    }
+  }
+  componentWillUnmount() {
+    document.removeEventListener('keydown', this._esc);
+    if (this._rpScroll) this._rpSc.removeEventListener('scroll', this._rpScroll);
+  }
 
   canManage() {
     const me = this.state.team.find(m => m.id === this.ME);
@@ -1465,6 +2164,297 @@ class Component extends DCLogic {
     if (diff !== 0) { const ti = others.length ? others[0] : idx; list[ti].weight = Math.max(0, list[ti].weight + diff); }
   }
 
+  // ---------- report data (static) ----------
+  rpData() {
+    if (this.RP) return this.RP;
+    const LEVELS = ['Board', 'C-Suite', 'N-1', 'N-2'];
+    const HEAT = [
+      ['FMCG', [4, 12, 17, 11]], ['F&B mfg', [2, 8, 10, 7]], ['Retail', [1, 6, 8, 5]],
+      ['Agri', [1, 5, 7, 4]], ['Food svc', [0, 4, 5, 3]], ['Other', [1, 3, 0, 4]],
+    ];
+    const SECTOR_COS = {
+      'FMCG': ['Savola Group', 'Agthia Group', 'Americana Group'],
+      'F&B mfg': ['Al Rawabi Dairy', 'Juhayna Food Industries'],
+      'Retail': ['Spinneys Group', 'Savola Retail'],
+      'Agri': ['Almarai', 'NADEC'],
+      'Food svc': ['Americana Group', 'Herfy'],
+      'Other': ['KDD (Kuwaiti Danish Dairy)', 'Al Ain Farms'],
+    };
+    const CITIES = [
+      ['Riyadh', 'Saudi Arabia', 38, 40, 48], ['Dubai', 'UAE', 30, 85, 32], ['Jeddah', 'Saudi Arabia', 23, 17, 68],
+      ['Abu Dhabi', 'UAE', 12, 72, 56], ['Cairo', 'Egypt', 9, 8, 24], ['Kuwait City', 'Kuwait', 8, 33, 14],
+      ['Doha', 'Qatar', 5, 58, 74], ['Manama', 'Bahrain', 3, 56, 34],
+    ];
+    const COUNTRY = {
+      'Saudi Arabia': { comp: 85, nat: 44, note: 'Saudization (Nitaqat) tightens the supply of senior local-national leaders — expect a premium for Saudi nationals.' },
+      'UAE': { comp: 100, nat: 31, note: 'Deep expatriate leadership pool; Emiratisation targets apply to UAE nationals at board level.' },
+      'Egypt': { comp: 55, nat: 71, note: 'No nationalization quota and lower comp benchmarks — strong value, but confirm relocation appetite early.' },
+      'Kuwait': { comp: 88, nat: 35, note: 'Kuwaitisation quotas are rising for senior roles; local-national hires carry a premium.' },
+      'Qatar': { comp: 98, nat: 22, note: 'Qatarization prioritises nationals in leadership; the expat market is competitive and fast-moving.' },
+      'Bahrain': { comp: 75, nat: 40, note: 'Bahrainisation applies and the national talent pool at this level is small — widen the net regionally.' },
+    };
+    const CITY_EMPLOYERS = {
+      Riyadh: ['Almarai', 'NADEC'], Jeddah: ['Savola Group', 'Al Ain Farms'], Dubai: ['Al Rawabi Dairy', 'Spinneys Group'],
+      'Abu Dhabi': ['Agthia Group'], Cairo: ['Juhayna Food Industries'], 'Kuwait City': ['Americana Group', 'KDD (Kuwaiti Danish Dairy)'],
+      Doha: [], Manama: [],
+    };
+    const TEAM = [
+      { id: 'yh', name: 'Yara Haddad', title: 'Lead researcher', initials: 'YH', cos: 12, execs: 51, last: '2h ago', activeDays: 14,
+        verified: 84, contact: 57, comp: 48, conf: 88, engaged: 31, interested: 19, shortlist: 7,
+        spark: [2, 3, 1, 4, 3, 2, 5, 4, 3, 4, 5, 3, 2, 4, 3, 2, 3, 2],
+        list: [['Amira Haddad', 'Almarai', 'C-Suite', 'Interested'], ['Rami Khoury', 'Almarai', 'C-Suite', 'Passive'], ['Lina Nasr', 'Almarai', 'N-1', 'Verified'], ['Khalid Mansour', 'Agthia Group', 'C-Suite', 'Interested'], ['Sara Fadel', 'Agthia Group', 'N-1', 'Verified'], ['Hassan Noor', 'Savola Group', 'C-Suite', 'Passive']] },
+      { id: 'yi', name: 'Yousef Iman', title: 'Senior researcher', initials: 'YI', cos: 9, execs: 38, last: '5h ago', activeDays: 13,
+        verified: 76, contact: 49, comp: 41, conf: 82, engaged: 22, interested: 12, shortlist: 4,
+        spark: [1, 2, 3, 2, 2, 3, 1, 3, 2, 4, 2, 3, 2, 1, 3, 2, 1, 1],
+        list: [['Dana Aziz', 'Savola Group', 'N-1', 'Passive'], ['Tariq Bahar', 'Savola Group', 'C-Suite', 'Verified'], ['Sami Halabi', 'NADEC', 'C-Suite', 'Interested'], ['Reem Adel', 'NADEC', 'N-1', 'Off-limits'], ['Nadia Fawzy', 'Spinneys Group', 'C-Suite', 'Passive']] },
+      { id: 'ok', name: 'Omar Khalil', title: 'Researcher', initials: 'OK', cos: 6, execs: 24, last: '1d ago', activeDays: 10,
+        verified: 68, contact: 44, comp: 33, conf: 77, engaged: 13, interested: 7, shortlist: 2,
+        spark: [0, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 1, 2, 1, 1, 1, 2],
+        list: [['Ahmed Sami', 'Juhayna Food Industries', 'N-1', 'Interested'], ['Bilal Aziz', 'Al Rawabi Dairy', 'C-Suite', 'Verified'], ['Hana Saleh', 'Juhayna Food Industries', 'N-2', 'Unknown']] },
+      { id: 'sa', name: 'Sara Al-Mansour', title: 'Researcher', initials: 'SA', cos: 4, execs: 15, last: '3h ago', activeDays: 9,
+        verified: 60, contact: 38, comp: 29, conf: 72, engaged: 8, interested: 3, shortlist: 1,
+        spark: [0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1],
+        list: [['Mounir Saad', 'Americana Group', 'C-Suite', 'Passive'], ['Yara Kassem', 'KDD (Kuwaiti Danish Dairy)', 'N-1', 'Interested'], ['Tarek Wahba', 'Americana Group', 'N-2', 'Unknown']] },
+    ];
+    const CELL_NAMES = ['Amira Haddad', 'Rami Khoury', 'Lina Nasr', 'Khalid Mansour', 'Sara Fadel', 'Hassan Noor', 'Yousef Nabil', 'Dana Aziz', 'Tariq Bahar', 'Sami Halabi', 'Reem Adel', 'Nadia Fawzy', 'Ahmed Sami', 'Bilal Aziz', 'Mounir Saad', 'Yara Kassem', 'Tarek Wahba', 'Omar Saleh'];
+    const CELL_STATUS = ['Interested', 'Passive', 'Verified', 'Passive', 'Interested', 'Off-limits'];
+    this.RP = { LEVELS, HEAT, SECTOR_COS, CITIES, COUNTRY, CITY_EMPLOYERS, TEAM, CELL_NAMES, CELL_STATUS, TOTAL: 128, TARGET: 150 };
+    return this.RP;
+  }
+  rpStatus(s) {
+    const m = {
+      Interested: ['var(--green)', 'var(--green-dim)'], Verified: ['var(--sky)', 'var(--sky-dim)'],
+      'Off-limits': ['var(--red)', 'var(--red-dim)'], Passive: ['var(--text2)', 'var(--panel2)'],
+      Unknown: ['var(--text3)', 'var(--panel2)'],
+    };
+    const c = m[s] || m.Unknown;
+    return { statusLabel: s, statusColor: c[0], statusBg: c[1] };
+  }
+  rpStack(segs, unit) {
+    const total = segs.reduce((s, x) => s + x[1], 0);
+    return segs.map(x => ({
+      label: x[0], n: x[1], color: x[2],
+      pct: Math.round(x[1] / total * 100) + '%',
+      valText: unit === '%' ? x[1] + '%' : x[1] + ' · ' + Math.round(x[1] / total * 100) + '%',
+    }));
+  }
+  rpBars(rows, max, unit) {
+    const m = max || Math.max.apply(null, rows.map(r => r[1]));
+    return rows.map(r => ({
+      label: r[0], val: unit === '%' ? r[1] + '%' : String(r[1]) + (r[2] ? ' / ' + r[2] : ''),
+      pct: Math.round(r[1] / m * 100) + '%', color: r[3] || 'var(--sky)',
+    }));
+  }
+
+  // ---------- report values ----------
+  reportVals(st) {
+    const D = this.rpData(), TOTAL = D.TOTAL;
+    const PROGRESS = [0, 6, 14, 14, 22, 30, 38, 45, 45, 52, 63, 72, 80, 80, 92, 104, 116, 128];
+    const W = 680, H = 150, pl = 8, pr = 8, pt = 14, pb = 6;
+    const X = i => (pl + (i / (PROGRESS.length - 1)) * (W - pl - pr)).toFixed(1);
+    const Y = v => (pt + (1 - v / D.TARGET) * (H - pt - pb)).toFixed(1);
+    const linePts = PROGRESS.map((v, i) => X(i) + ',' + Y(v)).join(' ');
+    const areaPath = 'M' + X(0) + ',' + Y(0) + ' ' + PROGRESS.map((v, i) => 'L' + X(i) + ',' + Y(v)).join(' ') + ' L' + X(PROGRESS.length - 1) + ',' + Y(0) + ' Z';
+
+    // heatmap
+    const heatMax = 17;
+    const rpHeat = D.HEAT.map(([sector, cells]) => ({
+      sector,
+      cells: cells.map((n, li) => {
+        const level = D.LEVELS[li];
+        const k = n === 0 ? 0 : Math.round(12 + (n / heatMax) * 46);
+        return {
+          key: sector + '|' + level, label: n === 0 ? '—' : String(n),
+          bg: n === 0 ? 'transparent' : 'color-mix(in oklab, var(--sky) ' + k + '%, var(--panel))',
+          color: n === 0 ? 'var(--text3)' : (k > 50 ? '#ffffff' : 'var(--text)'),
+          border: n === 0 ? '1px dashed var(--line)' : '1px solid transparent',
+        };
+      }),
+    }));
+
+    const cityMax = 38;
+    const rpBubbles = D.CITIES.map(c => {
+      const size = Math.round(26 + (c[2] / cityMax) * 46);
+      return {
+        key: c[0], label: c[0], n: c[2], size: size + 'px', left: c[3] + '%', top: c[4] + '%',
+        offset: '-' + (size / 2) + 'px', font: (c[2] >= 20 ? 13 : 11) + 'px',
+      };
+    });
+
+    // ---------- drill panels ----------
+    const d = st.rpDrill;
+    let rpD = { title: '', sub: '', eyebrow: '', kpis: [], conv: [], quality: [], execs: [], stack: [], employers: [], sparkPts: '', note: '', covPct: '0%', covLabel: '', covNote: '', gapCos: [], compPct: '0%', compLabel: '', natPct: '0%', initials: '', meta: '' };
+    let rpIsRes = false, rpIsCell = false, rpIsCity = false, rpIsGap = false;
+    if (d && d.kind === 'researcher') {
+      const r = D.TEAM.find(t => t.id === d.id);
+      if (r) {
+        rpIsRes = true;
+        rpD.initials = r.initials; rpD.title = r.name; rpD.eyebrow = 'Researcher';
+        rpD.sub = r.title + ' · active ' + r.last;
+        rpD.kpis = [[r.execs, 'Execs'], [r.cos, 'Companies'], [Math.round(r.execs / TOTAL * 100) + '%', 'Share'], [(r.execs / r.activeDays).toFixed(1), 'Per day']].map(k => ({ v: String(k[0]), l: k[1] }));
+        rpD.conv = [['Verified', Math.round(r.execs * r.verified / 100), 'var(--text3)'], ['Engaged in research', r.engaged, 'var(--text3)'], ['Interested', r.interested, 'var(--green)'], ['Shortlisted', r.shortlist, 'var(--sky)']]
+          .map(c => ({ label: c[0], n: c[1], pct: Math.round(c[1] / r.execs * 100) + '%', pctText: Math.round(c[1] / r.execs * 100) + '%', color: c[2] }));
+        rpD.quality = [['Verified', r.verified, 71], ['Contact captured', r.contact, 44], ['Comp captured', r.comp, 39], ['Avg confidence', r.conf, 74]]
+          .map(q => ({ label: q[0], pct: q[1] + '%', val: q[1] + '%', avg: q[2] + '%', color: q[1] >= q[2] ? 'var(--green)' : 'var(--amber)' }));
+        const sw = 400, sh = 34, smax = Math.max.apply(null, r.spark);
+        rpD.sparkPts = r.spark.map((v, i) => (i / (r.spark.length - 1) * sw).toFixed(1) + ',' + (sh - (v / smax) * (sh - 4)).toFixed(1)).join(' ');
+        rpD.note = 'Active ' + r.activeDays + ' of 18 days · ' + r.execs + ' executives across ' + r.cos + ' companies.';
+        rpD.execs = r.list.map(e => Object.assign({ initials: this.initials(e[0]), name: e[0], meta: e[1] + ' · ' + e[2] }, this.rpStatus(e[3])));
+      }
+    } else if (d && d.kind === 'cell') {
+      rpIsCell = true;
+      const [sector, level] = d.key.split('|');
+      const row = D.HEAT.find(h => h[0] === sector);
+      const n = row ? row[1][D.LEVELS.indexOf(level)] : 0;
+      const cos = D.SECTOR_COS[sector] || [];
+      const seed = sector.length * 3 + level.length;
+      const base = { Board: 3, 'C-Suite': 6, 'N-1': 7, 'N-2': 5 }[level] || 5;
+      const est = n ? Math.round(n * 1.35) + 1 : base;
+      rpD.eyebrow = 'Market slice';
+      rpD.title = sector + ' · ' + level;
+      rpD.sub = n + (n === 1 ? ' executive' : ' executives') + ' mapped · ' + cos.length + ' companies in scope';
+      rpIsGap = n === 0;
+      if (n === 0) {
+        rpD.covNote = 'Comparable sectors suggest roughly ' + est + ' ' + level + ' leaders exist in ' + sector + '. This is an open pocket to prioritise.';
+        rpD.gapCos = cos.slice(0, 3);
+      } else {
+        const interested = Math.round(n * 0.32);
+        const cov = Math.min(Math.round(n / est * 100), 100);
+        rpD.covPct = cov + '%';
+        rpD.covLabel = n + ' / ~' + est;
+        rpD.covNote = cov + '% mapped · ~' + Math.max(est - n, 0) + ' likely still in market';
+        rpD.kpis = [[(45 + seed % 30) + '%', 'Comp-fit'], [(18 + seed % 22) + '%', 'Female'], [(28 + seed % 18) + '%', 'GCC nat.']].map(k => ({ v: k[0], l: k[1] }));
+        rpD.stack = this.rpStack([['Interested', interested, 'var(--green)'], ['Passive', Math.max(n - interested - (n > 4 ? 1 : 0), 0), 'var(--text3)'], ['Off-limits', n > 4 ? 1 : 0, 'var(--red)']]);
+        rpD.execs = Array.from({ length: Math.min(n, 6) }, (_, i) => {
+          const nm = D.CELL_NAMES[(seed + i * 5) % D.CELL_NAMES.length];
+          return Object.assign({ initials: this.initials(nm), name: nm, meta: (cos[i % Math.max(cos.length, 1)] || sector) + ' · ' + level }, this.rpStatus(D.CELL_STATUS[(i + level.length) % D.CELL_STATUS.length]));
+        });
+        rpD.note = (level === 'N-2' || level === 'Board')
+          ? level + ' is one of the thinnest layers across the universe — this is among your deeper ' + level + ' pockets.'
+          : sector + ' ' + level + ' is a core, well-covered pocket. Comp-competitive for ' + (45 + seed % 30) + '% of those mapped.';
+      }
+    } else if (d && d.kind === 'city') {
+      rpIsCity = true;
+      const c = D.CITIES.find(x => x[0] === d.key);
+      if (c) {
+        const country = D.COUNTRY[c[1]] || { comp: 72, nat: 35, note: '' };
+        const n = c[2], seed = c[0].length * 3 + c[1].length;
+        rpD.eyebrow = 'Market';
+        rpD.title = c[0];
+        rpD.sub = c[1] + ' · ' + n + ' executives · ' + Math.round(n / TOTAL * 100) + '% of mapped talent';
+        rpD.kpis = [[n, 'Execs'], [Math.round(n / TOTAL * 100) + '%', 'Share'], [(22 + seed % 13) + '%', 'Female'], [(20 + seed % 26) + '%', 'Open to move']].map(k => ({ v: String(k[0]), l: k[1] }));
+        rpD.compPct = country.comp + '%';
+        rpD.compLabel = country.comp >= 95 ? 'Highest in region' : country.comp >= 82 ? 'High' : country.comp >= 70 ? 'Moderate' : 'Lower';
+        rpD.natPct = country.nat + '%';
+        const cS = Math.round(n * 0.4), nS = Math.round(n * 0.38);
+        rpD.stack = this.rpStack([['C-Suite', cS, 'var(--sky)'], ['N-1', nS, 'var(--text3)'], ['N-2', Math.max(n - cS - nS, 0), 'var(--line)']]);
+        rpD.employers = D.CITY_EMPLOYERS[c[0]] || [];
+        rpD.note = country.note;
+      }
+    }
+
+    const navItems = [
+      ['progress', '01', 'Mapping progress'], ['market', '02', 'Shape of the market'], ['geography', '03', 'Where talent sits'],
+      ['people', '04', 'Diversity & DEI'], ['interest', '05', 'Interest & availability'], ['comp', '06', 'Remuneration'],
+      ['quality', '07', 'Data quality'], ['actions', '·', 'Next actions'],
+    ];
+
+    return {
+      rpNav: navItems.map(([key, n, label]) => ({
+        key, n, label,
+        color: st.rpActive === key ? 'var(--text)' : 'var(--text2)',
+        bg: st.rpActive === key ? 'var(--panel2)' : 'transparent',
+        numColor: st.rpActive === key ? 'var(--sky)' : 'var(--text3)',
+      })),
+      rpJump: (e) => {
+        const key = e.currentTarget.dataset.key;
+        const sc = e.currentTarget.closest('main');
+        const node = sc ? sc.querySelector('[data-rpsec="' + key + '"]') : null;
+        if (sc && node) {
+          const from = sc.scrollTop;
+          const to = from + (node.getBoundingClientRect().top - sc.getBoundingClientRect().top) - 18;
+          sc.scrollTop = to;
+          if (from !== to && sc.scrollTop !== to) sc.scrollTo(0, to);
+        }
+        this.setState({ rpActive: key });
+      },
+      rpRibbon: [
+        { v: '31/42', l: 'Companies mapped', color: 'var(--sky)' },
+        { v: '128', l: 'Executives', color: 'var(--text)' },
+        { v: '41', l: 'Interested', color: 'var(--green)' },
+        { v: '62%', l: 'Comp-fit', color: 'var(--text)' },
+        { v: '12', l: 'Off-limits', color: 'var(--red)' },
+        { v: '31%', l: 'Female', color: 'var(--text)' },
+      ],
+      rpProgStats: [
+        { v: '18', sub: 'days', l: 'Mapping active' }, { v: '14', sub: 'of 18', l: 'Active days' },
+        { v: '9.1', sub: 'execs / day', l: 'Current pace' }, { v: '~5', sub: 'days', l: 'To full coverage' },
+      ],
+      rpLinePts: linePts, rpAreaPath: areaPath,
+      rpLastX: X(PROGRESS.length - 1), rpLastY: Y(PROGRESS[PROGRESS.length - 1]),
+      rpTargetY: Y(D.TARGET), rpZeroY: Y(0),
+      rpRingDash: (Math.PI * 2 * 54 * 0.74).toFixed(1) + ' ' + (Math.PI * 2 * 54).toFixed(1),
+      rpTeam: D.TEAM.map(r => ({
+        id: r.id, name: r.name, initials: r.initials, meta: r.cos + ' companies · ' + r.last,
+        execs: r.execs, pct: Math.round(r.execs / TOTAL * 100) + '%',
+      })),
+      rpOpenResearcher: (e) => this.setState({ rpDrill: { kind: 'researcher', id: e.currentTarget.dataset.id } }),
+      rpOpenCell: (e) => this.setState({ rpDrill: { kind: 'cell', key: e.currentTarget.dataset.key } }),
+      rpOpenCity: (e) => this.setState({ rpDrill: { kind: 'city', key: e.currentTarget.dataset.key } }),
+      rpCloseDrill: () => this.setState({ rpDrill: null }),
+      rpCountryBars: this.rpBars([['Saudi Arabia', 12, 14], ['UAE', 9, 11], ['Kuwait', 4, 6], ['Egypt', 3, 5], ['Qatar', 2, 3], ['Bahrain', 1, 3]], 14),
+      rpLevels: D.LEVELS, rpHeat,
+      rpSectorBars: this.rpBars([['FMCG conglomerates', 14], ['F&B manufacturing', 9], ['Retail & distribution', 7], ['Agribusiness', 6], ['Food service', 4], ['Other', 2]], 14),
+      rpRelevance: this.rpStack([['Direct', 18, 'var(--green)'], ['Adjacent', 16, 'var(--sky)'], ['AI inferred', 8, 'var(--amber)']]),
+      rpBubbles,
+      rpHubBars: this.rpBars(D.CITIES.map(c => [c[0], c[2]]), 38),
+      rpDeiStats: [
+        { v: '31%', sub: '/ 35% target', l: 'Female share' }, { v: '38%', sub: 'of leadership', l: 'GCC nationals' },
+        { v: '11', sub: 'represented', l: 'Nationalities' },
+      ],
+      rpGender: [['Board', 12], ['C-Suite', 22], ['N-1', 34], ['N-2', 41]].map(g => ({
+        label: g[0], fPct: g[1] + '%', mPct: (100 - g[1]) + '%', fVal: g[1] + '% female',
+      })),
+      rpLocal: this.rpStack([['GCC nationals', 38, 'var(--sky)'], ['Expatriate', 62, 'var(--text3)']], '%'),
+      rpLocalBars: this.rpBars([['Saudi Arabia', 44], ['Bahrain', 40], ['Kuwait', 35], ['UAE', 31], ['Qatar', 22]], 100, '%'),
+      rpNationality: this.rpBars([['Indian', 24], ['Saudi', 21], ['Egyptian', 17], ['Emirati', 14], ['Lebanese', 12], ['British', 9], ['Jordanian', 8], ['Other', 23]], 24),
+      rpInterest: this.rpStack([['Interested', 41, 'var(--green)'], ['Passive', 63, 'var(--text3)'], ['Not interested', 12, 'var(--line)'], ['Off-limits', 12, 'var(--red)']]),
+      rpAvail: this.rpStack([['In role, settled', 58, 'var(--text3)'], ['Open to move', 22, 'var(--sky)'], ['Recently moved', 11, 'var(--amber)'], ['Unknown', 9, 'var(--line)']], '%'),
+      rpFunnel: [['Executives mapped', 128], ['Profile verified', 91], ['Engaged in research', 57], ['Interested', 41], ['Shortlist candidates', 14]].map((f, i, arr) => ({
+        label: f[0], n: f[1], pct: Math.round(f[1] / 128 * 100) + '%',
+        through: i === 0 ? 'base' : Math.round(f[1] / arr[i - 1][1] * 100) + '% through',
+        color: i === arr.length - 1 ? 'var(--sky)' : 'color-mix(in oklab, var(--sky) ' + (60 - i * 9) + '%, var(--panel))',
+      })),
+      rpCompMix: this.rpStack([['Below band', 14, 'var(--green)'], ['Within band', 62, 'var(--sky)'], ['Above band', 24, 'var(--amber)']], '%'),
+      rpCompLevels: [['Board', 1.9, 'Above band'], ['C-Suite', 1.2, 'Within band'], ['N-1', 0.78, 'Within band'], ['N-2', 0.52, 'Below band']].map(l => ({
+        label: l[0], val: '$' + l[1].toFixed(2) + 'M', tag: l[2],
+        left: Math.round(l[1] / 2.2 * 100) + '%',
+        color: l[2] === 'Above band' ? 'var(--amber)' : l[2] === 'Below band' ? 'var(--green)' : 'var(--sky)',
+      })),
+      rpCompCountry: this.rpBars(Object.keys(D.COUNTRY).map(k => [k, D.COUNTRY[k].comp]), 100, '%'),
+      rpQuality: [['Profiles verified', 71], ['Contact captured', 44], ['Compensation captured', 39], ['Average confidence', 74]].map(q => ({
+        label: q[0], pct: q[1] + '%', val: q[1] + '%', color: q[1] >= 60 ? 'var(--green)' : 'var(--amber)',
+      })),
+      rpConfidence: [['Direct', 88, 'var(--green)'], ['Adjacent', 76, 'var(--sky)'], ['AI inferred', 54, 'var(--amber)']].map(c => ({
+        label: c[0], pct: c[1] + '%', val: c[1] + '%', color: c[2],
+      })),
+      rpActions: [
+        ['Map the 11 uncovered companies', 'Prioritise Direct-relevance targets in food service first.'],
+        ['Confirm the comp range with the client', 'For the 24% of executives sitting above the current band.'],
+        ['Deepen N-2 coverage at the three FMCG leaders', 'Build the succession layer where the universe is thinnest.'],
+        ['Enrich AI-inferred adjacencies', 'Lift confidence before these feed shortlisting decisions.'],
+      ].map((a, i) => ({ n: String(i + 1).padStart(2, '0'), t: a[0], s: a[1] })),
+      rpExport: () => this.showToast('Report exported to PDF'),
+      rpShare: () => this.showToast('Share link copied — client view, read only'),
+      rpDrillOpen: !!d, rpIsRes, rpIsCell, rpIsCity, rpIsGap, rpD,
+      rpNoEmployers: rpIsCity && rpD.employers.length === 0,
+      rpHasEmployers: rpIsCity && rpD.employers.length > 0,
+      rpHasExecs: rpD.execs.length > 0,
+      rpHasNote: !!rpD.note && !rpIsRes,
+      rpHasKpis4: (rpIsRes || rpIsCity) && rpD.kpis.length === 4,
+    };
+  }
+
   renderVals() {
     const st = this.state, pos = st.pos;
     const page = st.page;
@@ -1488,9 +2478,9 @@ class Component extends DCLogic {
       { group: 'People', items: [
         navItem('candidates', 'Candidates', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z'),
         navItem('outreach', 'Outreach', 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z'),
-        navItem('reports', 'Reports', 'M9 12h6m-6 4h6M9 8h1M5 21h14a2 2 0 0 0 2-2V7l-5-5H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2Z'),
       ] },
       { group: 'Project', items: [
+        navItem('reports', 'Reports', 'M9 12h6m-6 4h6M9 8h1M5 21h14a2 2 0 0 0 2-2V7l-5-5H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2Z'),
         navItem('team', 'Team & access', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'),
       ] },
     ];
@@ -1815,6 +2805,7 @@ class Component extends DCLogic {
       isPosition: page === 'position', isStrategy: page === 'strategy', isSourcing: page === 'sourcing',
       isCandidates: page === 'candidates', isOutreach: page === 'outreach', isReports: page === 'reports',
       isTeam: page === 'team',
+      ...this.reportVals(st),
 
       // client & contacts
       hasClient: !!st.client,
