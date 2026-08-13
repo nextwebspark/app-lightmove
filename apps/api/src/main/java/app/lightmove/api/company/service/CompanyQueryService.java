@@ -15,6 +15,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -180,6 +181,75 @@ public class CompanyQueryService {
         StatementParams count = bind(jdbc.sql("SELECT count(*) FROM app_lm_companies WHERE " + where.sql()),
                 where.params());
         return count.spec().query(Long.class).single();
+    }
+
+    /**
+     * One grouped aggregate over a scope: a label and how many scoped companies carry it. The label is
+     * whatever the grouping expression produced — a sector, a country, a city, a match tier.
+     */
+    public record ScopeBreakdown(String label, long count) {}
+
+    /** Weakest-to-strongest is meaningless for a legend; this is the order the Strategy screen reads in. */
+    private static final List<String> MATCH_TIER_ORDER = List.of("DIRECT", "ADJACENT", "INFERRED");
+
+    /** The scope's most populous sectors, largest first. */
+    public List<ScopeBreakdown> countBySector(ScopeFilter scope, int limit) {
+        return breakdown(scope, "primary_industry", Map.of(), "primary_industry IS NOT NULL", limit);
+    }
+
+    /** The scope's most populous headquarters countries, largest first. */
+    public List<ScopeBreakdown> countByCountry(ScopeFilter scope, int limit) {
+        return breakdown(scope, "hq_country", Map.of(), "hq_country IS NOT NULL AND hq_country <> ''",
+                limit);
+    }
+
+    /** The scope's most populous headquarters cities, largest first. */
+    public List<ScopeBreakdown> countByCity(ScopeFilter scope, int limit) {
+        return breakdown(scope, "hq_city", Map.of(), "hq_city IS NOT NULL AND hq_city <> ''", limit);
+    }
+
+    /**
+     * How the scope splits across the match tiers. Re-sorted into the fixed direct → adjacent → inferred
+     * order rather than by count: this reads as a strength ladder, and a legend whose order changes with
+     * the data is a legend nobody can compare across two projects.
+     */
+    public List<ScopeBreakdown> countByMatchTier(ScopeFilter scope) {
+        Map<String, Object> tierParams = new LinkedHashMap<>();
+        String expression = matchTierExpression(scope.directSectors(), scope.adjacentSectors(), tierParams);
+        return breakdown(scope, expression, tierParams, null, null).stream()
+                .sorted(Comparator.comparingInt(row -> MATCH_TIER_ORDER.indexOf(row.label())))
+                .toList();
+    }
+
+    /**
+     * The shared shape behind every grouped aggregate: the scope's own WHERE clause, grouped by one
+     * expression. {@code expressionParams} carries whatever that expression bound (only the match-tier
+     * CASE does); {@code presenceCondition} drops rows the grouping column is missing on, since a bar
+     * labelled with an empty string is noise rather than a finding. An empty scope aggregates to nothing
+     * without touching the database, mirroring {@link #estimate}.
+     */
+    private List<ScopeBreakdown> breakdown(ScopeFilter scope, String expression,
+                                           Map<String, Object> expressionParams, String presenceCondition,
+                                           Integer limit) {
+        WhereClause where = buildWhere(scope);
+        if (where == null) {
+            return List.of();
+        }
+        Map<String, Object> params = new LinkedHashMap<>(where.params());
+        params.putAll(expressionParams);
+        String sql = """
+                SELECT %s AS label, count(*) AS count
+                FROM app_lm_companies
+                WHERE %s
+                GROUP BY 1
+                ORDER BY count(*) DESC, 1
+                """.formatted(expression,
+                presenceCondition == null ? where.sql() : where.sql() + " AND " + presenceCondition);
+        if (limit != null) {
+            sql = sql + "LIMIT :groupLimit";
+            params.put("groupLimit", limit);
+        }
+        return bind(jdbc.sql(sql), params).spec().query(ScopeBreakdown.class).list();
     }
 
     /**

@@ -6,6 +6,7 @@ import { Spinner, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAutosave } from "../../../lib/useAutosave";
 import type { Project } from "../../projects/api/types";
+import * as reportApi from "../../reports/api/reportApi";
 import * as sourcingApi from "../../sourcing/api/sourcingApi";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
@@ -25,10 +26,10 @@ import { OWNERSHIP_STRUCTURES } from "../lib/ownershipStructures";
 const ADJACENT_CAP = 20;
 const INFERRED_CAP = 15;
 
-/** One scope autosave: the PUT to run, whether it changes the Sourcing scope, and any rollback. */
+/** One scope autosave: the PUT to run, whether it changes the saved scope, and any rollback. */
 interface ScopeWrite {
   run: () => Promise<Strategy>;
-  affectsSourcing?: boolean;
+  affectsScopedReads?: boolean;
   onError?: () => void;
 }
 
@@ -71,17 +72,18 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
   // one shared universe), rather than being separate routes.
   const [activeKey, setActiveKey] = useState("sector");
 
-  // Sourcing reads the saved scope through a selection-blind query key, so a scope write must mark
-  // that list stale for it to refetch on the next visit. Fired only from the writes Sourcing's
-  // ScopeFilter actually reads — sectors, size, geography, and the company lists, but never ownership:
-  // ownership now maps onto app_lm_companies.org_type, but wiring that join into Sourcing is a
-  // separate session, so for now the selection is tracked without narrowing the list.
+  // Sourcing and the report both resolve the saved scope server-side, through selection-blind query
+  // keys, so a scope write must mark both stale for them to refetch on the next visit. Fired only
+  // from the writes their shared ScopeFilter actually reads — sectors, size, geography, and the
+  // company lists, but never ownership: ownership now maps onto app_lm_companies.org_type, but wiring
+  // that join into Sourcing is a separate session, so for now the selection is tracked without
+  // narrowing the list.
   // Cancel first: a read still in flight against the pre-edit scope would resolve after the
   // invalidation and clear the stale flag, stranding the pre-edit companies in the cache as fresh.
-  const refreshSourcing = async () => {
-    const sourcingKey = sourcingApi.SOURCING_KEY_PREFIX(project.id);
-    await queryClient.cancelQueries({ queryKey: sourcingKey });
-    void queryClient.invalidateQueries({ queryKey: sourcingKey });
+  const refreshScopedReads = async () => {
+    const scopedKeys = [sourcingApi.SOURCING_KEY_PREFIX(project.id), reportApi.REPORT_KEY(project.id)];
+    await Promise.all(scopedKeys.map((queryKey) => queryClient.cancelQueries({ queryKey })));
+    scopedKeys.forEach((queryKey) => void queryClient.invalidateQueries({ queryKey }));
   };
 
   // A single tracked mutation stands behind every scope autosave. Its shared key lets Sourcing detect an
@@ -93,7 +95,7 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
     mutationFn: async (write: ScopeWrite) => {
       try {
         queryClient.setQueryData(key, await write.run());
-        if (write.affectsSourcing) await refreshSourcing();
+        if (write.affectsScopedReads) await refreshScopedReads();
       } catch (error) {
         write.onError?.();
         toast(messageFor(error));
@@ -108,7 +110,7 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
       strategyWrite.mutateAsync({ run: () => call(payload), ...options });
 
   const autosave = useAutosave(
-    persist((payload) => strategyApi.putSectors(project.id, payload), { affectsSourcing: true }),
+    persist((payload) => strategyApi.putSectors(project.id, payload), { affectsScopedReads: true }),
   );
 
   const change = (next: Strategy) => {
@@ -119,7 +121,7 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
   // Company Size saves its own snapshot on its own endpoint, independent of the sector autosave.
   const sizeAutosave = useAutosave(
     persist((payload) => strategyApi.putCompanySize(project.id, payload.employee, payload.revenue), {
-      affectsSourcing: true,
+      affectsScopedReads: true,
     }),
   );
 
@@ -134,12 +136,12 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
   };
 
   // Ownership and Location each save their own snapshot on their own endpoint, like Company Size.
-  // Ownership is not part of the Sourcing scope, so it alone does not invalidate that list.
+  // Ownership is not part of the resolved scope, so it alone invalidates neither scoped read.
   const ownershipAutosave = useAutosave(
     persist((payload) => strategyApi.putOwnership(project.id, payload.structures)),
   );
   const geographyAutosave = useAutosave(
-    persist((payload) => strategyApi.putGeography(project.id, payload.markets), { affectsSourcing: true }),
+    persist((payload) => strategyApi.putGeography(project.id, payload.markets), { affectsScopedReads: true }),
   );
 
   const toggleCatalogValue = (
@@ -168,7 +170,7 @@ function StrategyEditor({ project, strategy }: { project: Project; strategy: Str
     putList: (projectId: string, companies: strategyApi.CompanyKey[]) => Promise<Strategy>,
   ) =>
     persist((payload) => putList(project.id, keysOf(payload[field])), {
-      affectsSourcing: true,
+      affectsScopedReads: true,
       onError: () => {
         const server = queryClient.getQueryData<Strategy>(key);
         setDraft((current) => ({ ...current, [field]: server?.[field] ?? [] }));

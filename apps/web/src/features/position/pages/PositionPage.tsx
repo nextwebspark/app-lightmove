@@ -7,6 +7,7 @@ import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
 import * as projectsApi from "../../projects/api/projectsApi";
 import type { Project } from "../../projects/api/types";
+import * as reportApi from "../../reports/api/reportApi";
 import * as positionApi from "../api/positionApi";
 import type { Competency, Criterion, Position, PositionDetails } from "../api/types";
 import { CompetencyPanel } from "../components/CompetencyPanel";
@@ -76,11 +77,12 @@ function PositionEditor({ project, position }: { project: Project; position: Pos
     };
 
   const detailsSave = useAutosave(
-    // The scalar save writes the project's target date too, so refresh the list's Target column.
-    persist(
-      (d: PositionDetails) => positionApi.putPosition(project.id, d),
-      () => void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY }),
-    ),
+    // The scalar save writes the project's target date too, so refresh the list's Target column — and
+    // the salary band, which the report restates as the mandate's band.
+    persist((d: PositionDetails) => positionApi.putPosition(project.id, d), () => {
+      void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
+      void queryClient.invalidateQueries({ queryKey: reportApi.REPORT_KEY(project.id) });
+    }),
   );
   const criteriaSave = useAutosave(persist((c: Criterion[]) => positionApi.putCriteria(project.id, c)));
   const competenciesSave = useAutosave(

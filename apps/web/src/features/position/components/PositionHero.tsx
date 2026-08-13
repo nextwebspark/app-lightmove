@@ -1,4 +1,4 @@
-import { formatDate } from "../../../lib/format";
+import { abbreviateAmount, formatDate } from "../../../lib/format";
 import type { Project } from "../../projects/api/types";
 import type { PositionDetails } from "../api/types";
 import { employmentTypeLabel } from "../lib/labels";
@@ -89,9 +89,5 @@ export function PositionHero({
 
 function compRange(details: PositionDetails): string | null {
   if (details.salaryMin === null || details.salaryMax === null) return null;
-  return `${details.currency} ${abbreviate(details.salaryMin)}–${abbreviate(details.salaryMax)}`;
-}
-
-function abbreviate(value: number): string {
-  return value >= 1000 ? `${Math.round(value / 1000)}K` : String(value);
+  return `${details.currency} ${abbreviateAmount(details.salaryMin)}–${abbreviateAmount(details.salaryMax)}`;
 }
