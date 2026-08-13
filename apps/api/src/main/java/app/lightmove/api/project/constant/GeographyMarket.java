@@ -17,22 +17,34 @@ package app.lightmove.api.project.constant;
  */
 public enum GeographyMarket {
 
-    UAE("AE"),
-    SAUDI_ARABIA("SA"),
-    KUWAIT("KW"),
-    QATAR("QA"),
-    BAHRAIN("BH"),
-    OMAN("OM");
+    UAE("AE", "United Arab Emirates"),
+    SAUDI_ARABIA("SA", "Saudi Arabia"),
+    KUWAIT("KW", "Kuwait"),
+    QATAR("QA", "Qatar"),
+    BAHRAIN("BH", "Bahrain"),
+    OMAN("OM", "Oman");
 
     private final String isoCountryCode;
+    private final String apolloCountryName;
 
-    GeographyMarket(String isoCountryCode) {
+    GeographyMarket(String isoCountryCode, String apolloCountryName) {
         this.isoCountryCode = isoCountryCode;
+        this.apolloCountryName = apolloCountryName;
     }
 
     /** The ISO-3166 alpha-2 code — the wire value, and {@code app_lm_companies.hq_country} verbatim. */
     public String value() {
         return isoCountryCode;
+    }
+
+    /**
+     * The same market as {@code app_lm_apollo_companies.company_country} spells it. A second source's
+     * join key, not a display name: Apollo writes countries out in full where the warehouse holds ISO
+     * codes, so a report reading Apollo has to translate. UI copy stays in the frontend catalog, for
+     * the reason above — this is the value the database compares, and it changes only if Apollo does.
+     */
+    public String apolloCountryName() {
+        return apolloCountryName;
     }
 
     /** Resolve a wire value (ISO country code) to its market, or {@code null} if unknown. */

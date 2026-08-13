@@ -12,6 +12,7 @@ import type { Breakdown, CompensationBand, Report } from "../api/types";
 import { BarList } from "../components/BarList";
 import { ReportNav, type ReportNavItem } from "../components/ReportNav";
 import { ReportSection } from "../components/ReportSection";
+import { ScopeCaveatsNotice } from "../components/ScopeCaveatsNotice";
 import { SectionUnavailable } from "../components/SectionUnavailable";
 import { StackedBar } from "../components/StackedBar";
 import { StatRibbon } from "../components/StatRibbon";
@@ -134,6 +135,7 @@ function ReportBody({ project, report }: { project: Project; report: Report }) {
               },
             ]}
           />
+          <ScopeCaveatsNotice caveats={report.caveats} />
         </div>
 
         <div className="flex flex-col gap-[34px] pt-[38px]">

@@ -15,9 +15,15 @@ import java.util.List;
 
 /**
  * Translates a mandate's saved {@link Strategy} into the company-universe scope it defines. Every
- * screen that reads the universe through a project — Sourcing's list, the report's aggregates — has to
+ * screen that reads a universe through a project — Sourcing's list, the report's aggregates — has to
  * resolve the same criteria, and two copies of this translation would let those screens quietly
- * disagree about which companies are in the search.
+ * disagree about what the consultant asked for.
+ *
+ * <p>Agreeing on the criteria is not agreeing on the answer: Sourcing measures this scope against the
+ * brightdata warehouse copy and the report against Apollo, two sources whose sector, geography and
+ * size vocabularies differ, so their counts legitimately differ too. What this class guarantees is
+ * that both are answering the same question. Each source's service owns the translation into its own
+ * columns.
  *
  * <p>Nothing here reads a request parameter: a mandate's chosen scope is stored, team-only content, and
  * the only thing a caller ever supplies is the name filter passed through to {@code nameQuery}.

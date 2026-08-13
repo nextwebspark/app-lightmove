@@ -1,18 +1,20 @@
 package app.lightmove.api.project.service;
 
-import app.lightmove.api.company.service.CompanyQueryService;
-import app.lightmove.api.company.service.CompanyQueryService.ScopeBreakdown;
+import app.lightmove.api.company.service.ApolloCompanyQueryService;
+import app.lightmove.api.company.service.ApolloCompanyQueryService.ScopeBreakdown;
 import app.lightmove.api.company.service.CompanyQueryService.ScopeFilter;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.project.dto.ReportDtos.BreakdownDto;
 import app.lightmove.api.project.dto.ReportDtos.CompensationBandDto;
 import app.lightmove.api.project.dto.ReportDtos.ReportResponse;
+import app.lightmove.api.project.dto.ReportDtos.ScopeCaveatsDto;
 import app.lightmove.api.project.model.Position;
 import app.lightmove.api.project.model.Strategy;
 import app.lightmove.api.project.repository.PositionRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.project.repository.StrategyRepository;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,8 +27,13 @@ import org.springframework.transaction.annotation.Transactional;
  * aggregated live rather than stored. A report nobody generated is still a true report — the figures
  * are a view of the scope as it stands, so a snapshot table would only let the screen go stale.
  *
- * <p>The scope resolves through {@link StrategyScope}, the same translation Sourcing uses, so the
- * report's totals and the Sourcing list can never disagree about which companies are in the search.
+ * <p>The scope resolves through {@link StrategyScope} — the same translation Sourcing uses — but it is
+ * measured against a <i>different source</i>: {@link ApolloCompanyQueryService} reads
+ * {@code app_lm_apollo_companies}, where Sourcing reads the brightdata warehouse copy. <b>The two will
+ * therefore disagree on counts, by design.</b> Apollo cannot answer the whole scope either: the
+ * off-limits list has no key there, its industry vocabulary covers a fraction of the labels the
+ * Strategy screen offers, and its revenue figure is sparse — so each shortfall is reported as a caveat
+ * beside the figures rather than silently lowering them.
  *
  * <p>Deliberately narrow: everything the mockup's report derives from mapped executives has no data
  * behind it yet, and the screen says so rather than being handed a zero to render as a finding.
@@ -43,7 +50,7 @@ public class ReportService {
     private final ProjectRepository projects;
     private final StrategyRepository strategies;
     private final PositionRepository positions;
-    private final CompanyQueryService companies;
+    private final ApolloCompanyQueryService companies;
 
     @Transactional(readOnly = true)
     public ReportResponse get(UUID workspaceId, UUID projectId) {
@@ -54,17 +61,24 @@ public class ReportService {
                 .orElseGet(() -> Strategy.forProject(projectId));
         ScopeFilter scope = StrategyScope.of(strategy, null);
 
+        List<String> selectedSectors = new ArrayList<>(scope.directSectors());
+        selectedSectors.addAll(scope.adjacentSectors());
+
         return new ReportResponse(
                 companies.estimate(scope),
                 strategy.getTargetCompanies().size(),
                 strategy.getOffLimitsCompanies().size(),
-                scope.directSectors().size() + scope.adjacentSectors().size(),
+                selectedSectors.size(),
                 scope.markets().size(),
                 toDtos(companies.countByMatchTier(scope)),
                 toDtos(companies.countBySector(scope, SECTOR_LIMIT)),
                 toDtos(companies.countByCountry(scope, COUNTRY_LIMIT)),
                 toDtos(companies.countByCity(scope, CITY_LIMIT)),
-                mandateBandOf(positions.findByProjectId(projectId)));
+                mandateBandOf(positions.findByProjectId(projectId)),
+                new ScopeCaveatsDto(
+                        strategy.getOffLimitsCompanies().size(),
+                        companies.sectorsAbsentFromSource(selectedSectors),
+                        !scope.revenueBands().isEmpty()));
     }
 
     private void requireProject(UUID projectId, UUID workspaceId) {

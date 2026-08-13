@@ -62,6 +62,7 @@ describe("ReportsPage", () => {
     countries: [{ label: "AE", count: 30 }],
     cities: [{ label: "Dubai", count: 22 }],
     mandateBand: null,
+    caveats: { offLimitsNotApplied: 0, sectorsNotInSource: [], revenueBandExcludesUnknown: false },
   };
 
   const userWith = (roles: WorkspaceRole[]) => ({
@@ -145,6 +146,33 @@ describe("ReportsPage", () => {
 
     expect(await screen.findByText("State the compensation band")).toBeInTheDocument();
     expect(screen.getByText("The position brief states no compensation band.")).toBeInTheDocument();
+  });
+
+  it("says what the figures do not cover, and stays silent when they cover everything", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue({
+      ...report,
+      caveats: {
+        offLimitsNotApplied: 2,
+        sectorsNotInSource: ["Nanotechnology"],
+        revenueBandExcludesUnknown: true,
+      },
+    });
+
+    const { unmount } = renderPage();
+
+    expect(await screen.findByText("What these figures do not cover")).toBeInTheDocument();
+    // Named, not merely counted: a sector missing from the source is not an empty market.
+    expect(screen.getByText(/Nanotechnology/)).toBeInTheDocument();
+    expect(screen.getByText(/2 off-limits companies are still counted/)).toBeInTheDocument();
+    expect(screen.getByText(/no revenue figure are excluded/)).toBeInTheDocument();
+
+    unmount();
+    vi.mocked(reportApi.getReport).mockResolvedValue(report);
+    renderPage();
+
+    // A permanent disclaimer stops being read, so a clean scope shows none.
+    expect(await screen.findByText("Companies in scope")).toBeInTheDocument();
+    expect(screen.queryByText("What these figures do not cover")).not.toBeInTheDocument();
   });
 
   it("keeps the firm's own worklist away from a pure client, nav entry included", async () => {
