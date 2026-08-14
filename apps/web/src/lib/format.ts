@@ -15,6 +15,11 @@ export function formatDate(isoDate: string | null | undefined): string {
   });
 }
 
+/** 450000 → "450K", the compact money shape the hero and the report band both show. */
+export function abbreviateAmount(value: number): string {
+  return value >= 1000 ? `${Math.round(value / 1000)}K` : String(value);
+}
+
 /** "Sara Al-Mansour" → "SA". */
 export function initials(fullName: string): string {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);

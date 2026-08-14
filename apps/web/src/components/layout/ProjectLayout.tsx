@@ -65,12 +65,14 @@ export function ProjectLayout() {
       items: [
         { to: `${base}/candidates`, label: "Candidates", icon: ICONS.candidates },
         { to: `${base}/outreach`, label: "Outreach", icon: ICONS.outreach },
-        { to: `${base}/reports`, label: "Reports", icon: ICONS.reports },
       ],
     },
     {
       label: "Project",
-      items: [{ to: `${base}/team`, label: "Team & access", icon: ICONS.team }],
+      items: [
+        { to: `${base}/reports`, label: "Reports", icon: ICONS.reports },
+        { to: `${base}/team`, label: "Team & access", icon: ICONS.team },
+      ],
     },
   ];
 
