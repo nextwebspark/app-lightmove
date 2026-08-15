@@ -59,7 +59,15 @@ and the only way this runs anywhere but a laptop, since `application-local.yml` 
 `local` on a runner silently inherits `application.yml`'s production defaults — a Secure/Strict refresh
 cookie no browser keeps over plain http, and signup capped at five an hour.
 
-## Three things that will bite you
+## Four things that will bite you
+
+**JWT signing keys.** `JwtConfig` lets the API generate its own keypair only on `local`, `dev` and
+`test` — `e2e` is deliberately not one of them, because a profile that mints its own signing key is one
+that could be started in production. So on a runner, where `apps/api/.keys/` does not exist, the API
+refuses to boot at all. `up.sh` mints a disposable pair into `results/current/keys/` and points
+`JWT_PRIVATE_KEY_LOCATION` / `JWT_PUBLIC_KEY_LOCATION` at it, once per run and reused across the three
+legs — a fresh pair per leg would invalidate the previous leg's access tokens. This is why the first
+nightly run reported 466 failures: the API never started, and every case answered `000`.
 
 **Email.** `application-local.yml` pins `provider: resend` with a live API key, so an unguarded local
 signup mails a real person. `up.sh` forces `LIGHTMOVE_EMAIL_PROVIDER=log` and aborts if the startup
