@@ -87,13 +87,37 @@ for _ in $(seq 1 60); do
 done
 docker exec "$PG_CONTAINER" pg_isready -U lm_app -d lightmove >/dev/null
 
-# --- 2. api -----------------------------------------------------------------
+# --- 2. jwt signing keys ----------------------------------------------------
+# JwtConfig only lets the API conjure its own keypair on the `local`, `dev` and `test` profiles, and
+# `e2e` is deliberately not one of them — a profile that mints its own signing key is a profile that
+# could be started in production. So on `e2e` the keys have to come from outside, exactly as they do
+# in production, and the harness is the thing outside. Without this the API refuses to start with
+# "No JWT signing keys at file:.keys/jwt-private.pem", every case answers 000, and one boot failure
+# reads as several hundred assertion failures.
+#
+# They live under RUN_DIR (gitignored) rather than apps/api/.keys, so a run leaves the working tree
+# alone, and they are minted once and reused: a fresh keypair per leg would invalidate every access
+# token the previous leg issued.
+KEY_DIR="$RUN_DIR/keys"
+PRIVATE_KEY="$KEY_DIR/jwt-private.pem"
+PUBLIC_KEY="$KEY_DIR/jwt-public.pem"
+if [ ! -s "$PRIVATE_KEY" ] || [ ! -s "$PUBLIC_KEY" ]; then
+  say "minting a disposable JWT keypair at $KEY_DIR"
+  mkdir -p "$KEY_DIR"
+  # PKCS#8 private, X.509 public — the two encodings RsaKeyProvider parses.
+  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$PRIVATE_KEY" 2>/dev/null
+  openssl rsa -pubout -in "$PRIVATE_KEY" -out "$PUBLIC_KEY" 2>/dev/null
+  chmod 600 "$PRIVATE_KEY"
+fi
+
+# --- 3. api -----------------------------------------------------------------
 if curl -sf -o /dev/null "http://localhost:8080/api/v1/auth/providers"; then
   say "API already up on :8080 — leaving it alone"
 else
   say "starting API on profile '$PROFILE', mail provider '$MAIL_PROVIDER' (logs: $RUN_DIR/api.log)"
-  # EXTRA_ENV comes first so the assignments after it win: the datasource and the provider are the two
-  # things a boot variant must never be able to redirect, and `env` takes the last assignment.
+  # EXTRA_ENV comes first so the assignments after it win: the datasource, the provider and the signing
+  # keys are the things a boot variant must never be able to redirect, and `env` takes the last
+  # assignment.
   ( cd "$REPO_DIR/apps/api" && \
     env $EXTRA_ENV \
       SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:$PG_PORT/lightmove" \
@@ -101,6 +125,8 @@ else
       SPRING_DATASOURCE_PASSWORD=lm \
       DB_PASSWORD=lm \
       LIGHTMOVE_EMAIL_PROVIDER="$MAIL_PROVIDER" \
+      JWT_PRIVATE_KEY_LOCATION="file:$PRIVATE_KEY" \
+      JWT_PUBLIC_KEY_LOCATION="file:$PUBLIC_KEY" \
       ./mvnw -q spring-boot:run -Dspring-boot.run.profiles="$PROFILE" \
       > "$RUN_DIR/api.log" 2>&1 & echo $! > "$RUN_DIR/api.pid" )
 
@@ -116,7 +142,7 @@ else
     say "API never came up — tail of the log:"; tail -60 "$RUN_DIR/api.log"; exit 1; }
 fi
 
-# --- 3. gates ---------------------------------------------------------------
+# --- 4. gates ---------------------------------------------------------------
 say "provider line: $(grep -m1 'Email provider is' "$RUN_DIR/api.log" || echo '(not found)')"
 if [ "$EXPECT_PROVIDER" = "log" ]; then
   grep -q "Email provider is 'log'" "$RUN_DIR/api.log" || {
@@ -141,7 +167,7 @@ fi
 say "migrations: $(grep -m1 'Successfully applied' "$RUN_DIR/api.log" || echo '(already migrated)')"
 say "providers:  $(curl -s http://localhost:8080/api/v1/auth/providers)"
 
-# --- 4. web -----------------------------------------------------------------
+# --- 5. web -----------------------------------------------------------------
 if curl -sf -o /dev/null "http://localhost:5173/"; then
   say "SPA already up on :5173"
 elif [ "${SKIP_WEB:-}" = "1" ]; then
