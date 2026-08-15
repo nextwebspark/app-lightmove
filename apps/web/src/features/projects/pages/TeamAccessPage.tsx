@@ -261,7 +261,13 @@ function TeamRow({
   return (
     <div className="grid grid-cols-[1.5fr_2.4fr_auto] items-center gap-[14px] border-b border-line-soft px-4 py-[13px]">
       <div className="flex min-w-0 items-center gap-2.5">
-        <Avatar id={member.memberId} name={member.fullName} size="lg" className="size-8" />
+        <Avatar
+          id={member.memberId}
+          name={member.fullName}
+          src={member.avatarUrl}
+          size="lg"
+          className="size-8"
+        />
         <div className="min-w-0">
           <div className="truncate text-[13.5px] font-medium">{member.fullName}</div>
           {isSelf && <div className="mt-0.5 font-mono text-[11px] text-text3">You</div>}

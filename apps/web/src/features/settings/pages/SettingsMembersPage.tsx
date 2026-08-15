@@ -109,7 +109,7 @@ function MemberRow({ member }: { member: Member }) {
 
   return (
     <div className="flex items-center gap-3 border-t border-line-soft py-3 first:border-t-0">
-      <Avatar id={member.memberId} name={member.fullName} size="lg" />
+      <Avatar id={member.memberId} name={member.fullName} src={member.avatarUrl} size="lg" />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-medium">
           {member.fullName}

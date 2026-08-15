@@ -6,16 +6,10 @@ import { Button, Card, Field, FormError, Input, Logo } from "../../../components
 import { ApiRequestError } from "../../../lib/apiClient";
 import { ThemeToggle } from "../../theme/ThemeToggle";
 import { useAuth } from "../AuthProvider";
-import * as authApi from "../api/authApi";
+import { OAuthButtons } from "../components/OAuthButtons";
 import { loginSchema, type LoginValues } from "../schemas";
 
-/**
- * Sign in. A port of claude-design/Login.dc.html.
- *
- * The "Continue with SSO" button in the mockup sat behind a `showSso` prop. Here it is behind the
- * server's answer to "is Google actually configured?" — a button that leads nowhere is worse than no
- * button.
- */
+/** Sign in. A port of claude-design/Login.dc.html. */
 export function LoginPage() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
@@ -27,7 +21,6 @@ export function LoginPage() {
   const prefill = (location.state as { email?: string } | null)?.email ?? "";
 
   const [formError, setFormError] = useState<string | null>(null);
-  const [googleEnabled, setGoogleEnabled] = useState(false);
 
   const {
     register,
@@ -39,14 +32,7 @@ export function LoginPage() {
     defaultValues: { email: prefill, password: "" },
   });
 
-  useEffect(() => {
-    void authApi
-      .providers()
-      .then((available) => setGoogleEnabled(available.google))
-      .catch(() => setGoogleEnabled(false));
-  }, []);
-
-  /** The Google flow redirects back here with ?error=CODE when it refuses someone. */
+  /** An OAuth flow redirects back here with ?error=CODE when it refuses someone. */
   useEffect(() => {
     const code = searchParams.get("error");
     if (code) {
@@ -131,39 +117,7 @@ export function LoginPage() {
           </Button>
         </form>
 
-        {googleEnabled && (
-          <>
-            <div className="my-[18px] flex items-center gap-2.5 font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-text3">
-              <span className="h-px flex-1 bg-line-soft" />
-              <span>or</span>
-              <span className="h-px flex-1 bg-line-soft" />
-            </div>
-
-            {/*
-              A full page navigation, not fetch(). This is an OAuth redirect: the browser has to
-              actually leave for Google's consent screen and come back. An XHR would be blocked by
-              CORS and could not show the user Google's own UI even if it were not.
-            */}
-            <Button
-              type="button"
-              variant="secondary"
-              className="w-full"
-              onClick={() => {
-                window.location.href = "/oauth2/authorization/google";
-              }}
-            >
-              {/* Google's own four-colour mark. The mockup drew a padlock here, which is the icon for
-                  "SSO" in the abstract — on a button that names Google, it just looks wrong. */}
-              <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
-                <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8Z" />
-                <path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3a7.2 7.2 0 0 1-10.7-3.8h-4v3.1A12 12 0 0 0 12 24Z" />
-                <path fill="#FBBC05" d="M5.3 14.3a7.1 7.1 0 0 1 0-4.6V6.6h-4a12 12 0 0 0 0 10.8l4-3.1Z" />
-                <path fill="#EA4335" d="M12 4.8c1.8 0 3.4.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1A7.2 7.2 0 0 1 12 4.8Z" />
-              </svg>
-              Continue with Google
-            </Button>
-          </>
-        )}
+        <OAuthButtons />
       </Card>
 
       <p className="animate-fade-up text-[12.5px] text-text2 [animation-delay:120ms]">
@@ -177,18 +131,19 @@ export function LoginPage() {
 }
 
 /**
- * The Google flow cannot render a form error — it is a redirect — so it hands the code back in the
- * query string and we say it here.
+ * An OAuth flow cannot render a form error — it is a redirect — so it hands the code back in the
+ * query string and we say it here. The sentences name no provider: which one refused is the
+ * server's business, and naming one would be wrong the moment a second is configured.
  */
 function messageForOAuthError(code: string): string {
   switch (code) {
     case "EMAIL_NOT_WORK_ADDRESS":
-      return "Please sign in with your work Google account. LightMove is for search firms.";
+      return "Please sign in with your work account. LightMove is for search firms.";
     case "EMAIL_NOT_VERIFIED":
-      return "Google reports that address as unverified. Verify it with Google, then try again.";
+      return "Your provider reports that address as unverified. Verify it with them, then try again.";
     case "ACCOUNT_SUSPENDED":
       return "This account has been suspended.";
     default:
-      return "Google sign-in did not complete. Try again, or use your password.";
+      return "Sign-in did not complete. Try again, or use your password.";
   }
 }

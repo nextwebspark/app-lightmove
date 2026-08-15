@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { initials } from "../../lib/format";
 import { cn } from "../../lib/cn";
 
@@ -22,14 +23,41 @@ const SIZES = {
 export function Avatar({
   id,
   name,
+  src,
   size = "md",
   className,
 }: {
   id: string;
   name: string;
+  /** A picture from the user's identity provider, if they signed in with one. */
+  src?: string | null;
   size?: keyof typeof SIZES;
   className?: string;
 }) {
+  // What we hold is the provider's CDN URL, not a copy of the image, and LinkedIn's expire within
+  // weeks. So a broken picture is expected rather than exceptional: fall back to the initials the
+  // rest of the product uses instead of leaving a torn-image icon on the roster.
+  //
+  // The failure is remembered per URL, not as a boolean: a re-stamped picture arriving on the next
+  // sign-in must get its chance, and Topbar's avatar outlives every one of them.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+
+  if (src && failedSrc !== src) {
+    return (
+      <img
+        src={src}
+        // Named, not decorative: in the projects table and the topbar this image is the only thing
+        // identifying the person, and the initials it replaces were readable.
+        alt={name}
+        title={name}
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        onError={() => setFailedSrc(src)}
+        className={cn("shrink-0 rounded-full object-cover", SIZES[size], className)}
+      />
+    );
+  }
+
   let hash = 0;
   for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
 

@@ -28,6 +28,7 @@ export interface TeamMember {
   memberId: string;
   userId: string;
   fullName: string;
+  avatarUrl: string | null;
   workspaceRoles: WorkspaceRole[];
   projectRoles: ProjectRole[];
 }

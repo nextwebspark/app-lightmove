@@ -99,7 +99,12 @@ export interface InvitationPreview {
 
 /** Which sign-in methods this deployment actually offers. */
 export interface AuthProviders {
-  google: boolean;
+  /**
+   * The OAuth registration ids this deployment has configured — "google", "linkedin", … Ids rather
+   * than flags, because that is what keeps adding a provider a server-side config change: the id is
+   * both the button and its authorisation path.
+   */
+  providers: string[];
 }
 
 /**

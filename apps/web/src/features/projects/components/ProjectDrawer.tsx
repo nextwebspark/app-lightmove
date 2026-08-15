@@ -137,7 +137,7 @@ export function ProjectDrawer({
               return (
                 <div key={member.memberId} className="rounded-[7px] px-2 py-[7px] hover:bg-panel2">
                   <div className="flex items-center gap-2.5">
-                    <Avatar id={member.memberId} name={member.fullName} />
+                    <Avatar id={member.memberId} name={member.fullName} src={member.avatarUrl} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[13px]">{member.fullName}</div>
                       <div className="font-mono text-[11px] text-text3">

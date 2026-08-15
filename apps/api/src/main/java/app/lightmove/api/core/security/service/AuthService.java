@@ -3,7 +3,6 @@ import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.SignupCommand;
 
-import app.lightmove.api.core.security.constant.AuthProvider;
 import app.lightmove.api.core.security.token.RevokeReason;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.model.UserIdentity;
@@ -118,7 +117,7 @@ public class AuthService {
                 now,
                 PRIVACY_POLICY_VERSION));
 
-        identities.save(UserIdentity.link(user.getId(), AuthProvider.LOCAL, email, email));
+        identities.save(UserIdentity.link(user.getId(), UserIdentity.LOCAL_PROVIDER, email, email));
 
         if (config.autoVerifyEmail()) {
             // Dev shortcut. The user is managed and we are in a transaction, so this flushes with it, and
@@ -172,7 +171,7 @@ public class AuthService {
         Instant now = Instant.now();
         User user = users.save(User.registerLocal(
                 email, passwords.hash(rawPassword), fullName.trim(), now, PRIVACY_POLICY_VERSION));
-        identities.save(UserIdentity.link(user.getId(), AuthProvider.LOCAL, email, email));
+        identities.save(UserIdentity.link(user.getId(), UserIdentity.LOCAL_PROVIDER, email, email));
 
         // Verified before the session is issued, so the token handed back already carries emailVerified
         // — the invitee is in with no second step.

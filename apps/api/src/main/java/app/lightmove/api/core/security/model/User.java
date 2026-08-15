@@ -34,7 +34,7 @@ public class User extends BaseEntity {
     @Column(nullable = false, unique = true)
     private String email;
 
-    /** Null for a Google-only user: there is no local password to check, and that is not an error. */
+    /** Null for a federated-only user: there is no local password to check, and that is not an error. */
     @Column(name = "password_hash")
     private String passwordHash;
 
@@ -47,9 +47,16 @@ public class User extends BaseEntity {
     @Column(length = 120)
     private String title;
 
-    @Setter
     @Column(name = "avatar_url")
     private String avatarUrl;
+
+    /**
+     * Who supplied {@link #avatarUrl} — an uppercased OAuth registration id, or {@code USER} once
+     * someone can upload their own. Deliberately has no setter: it is only ever written together with
+     * the picture it describes, by {@link #adoptAvatarFrom}.
+     */
+    @Column(name = "avatar_source", length = 32)
+    private String avatarSource;
 
     @Setter
     @Column(nullable = false, length = 64)
@@ -81,6 +88,36 @@ public class User extends BaseEntity {
     @Column(name = "privacy_policy_version", length = 32)
     private String privacyPolicyVersion;
 
+    /**
+     * Offers a picture from {@code source}, and takes it only if that source is entitled to.
+     *
+     * <p>Whoever supplied the current picture may replace it — the URL is the provider's CDN link
+     * rather than a copy of the image, and LinkedIn's expire within weeks, so refreshing on each
+     * sign-in is what keeps it working. Anyone else may only fill an empty one. Without that rule the
+     * last provider used always won, and signing in with an account that has no photo replaced a real
+     * one with a generated monogram.
+     *
+     * <p>A null {@code avatarSource} against an existing picture means it predates the column: the
+     * next sign-in claims it, once, and it is stable thereafter.
+     *
+     * @return whether the picture was taken
+     */
+    public boolean adoptAvatarFrom(String source, String url) {
+        if (url == null || source == null) {
+            return false;
+        }
+        boolean entitled = avatarUrl == null || avatarUrl.isBlank()
+                || avatarSource == null
+                || avatarSource.equals(source);
+        if (!entitled) {
+            return false;
+        }
+
+        this.avatarUrl = url;
+        this.avatarSource = source;
+        return true;
+    }
+
     /** Signup with a password. The caller hashes; the domain never sees a plaintext credential. */
     public static User registerLocal(String email, String passwordHash, String fullName,
                                      Instant termsAcceptedAt, String privacyPolicyVersion) {
@@ -95,16 +132,18 @@ public class User extends BaseEntity {
     }
 
     /**
-     * First sign-in through Google. Google has already proven the address, so the account starts
-     * verified and active — sending our own confirmation email would be asking the user to prove
-     * something we have just been told by a more authoritative source.
+     * First sign-in through an identity provider. It has already proven the address, so the account
+     * starts verified and active — sending our own confirmation email would be asking the user to
+     * prove something we have just been told by a more authoritative source.
      */
     public static User registerFederated(String email, String fullName, String avatarUrl,
-                                         Instant verifiedAt, String privacyPolicyVersion) {
+                                         String avatarSource, Instant verifiedAt,
+                                         String privacyPolicyVersion) {
         User user = new User();
         user.email = email;
         user.fullName = fullName;
         user.avatarUrl = avatarUrl;
+        user.avatarSource = avatarUrl == null ? null : avatarSource;
         user.status = UserStatus.ACTIVE;
         user.emailVerifiedAt = verifiedAt;
         user.termsAcceptedAt = verifiedAt;
@@ -159,9 +198,9 @@ public class User extends BaseEntity {
     }
 
     /**
-     * Attaches a local password to an account that has only ever used Google, so the same person can
-     * later sign in either way rather than being locked out of their own workspace if Google access
-     * is lost.
+     * Attaches a local password to an account that has only ever signed in through a provider, so the
+     * same person can later sign in either way rather than being locked out of their own workspace if
+     * that provider account is lost.
      */
     public void attachLocalPassword(String passwordHash) {
         if (hasPassword()) {

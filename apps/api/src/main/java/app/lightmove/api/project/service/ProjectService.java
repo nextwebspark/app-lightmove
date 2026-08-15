@@ -439,10 +439,10 @@ public class ProjectService {
 
         Map<UUID, WorkspaceMember> memberById = access.activeMembers(workspaceId).stream()
                 .collect(Collectors.toMap(WorkspaceMember::getId, Function.identity()));
-        Map<UUID, String> nameByUserId = users
+        Map<UUID, User> userById = users
                 .findAllById(memberById.values().stream().map(WorkspaceMember::getUserId).toList())
                 .stream()
-                .collect(Collectors.toMap(User::getId, User::getFullName));
+                .collect(Collectors.toMap(User::getId, Function.identity()));
         Map<UUID, String> clientNames = clients.findByWorkspaceIdOrderByNameAsc(workspaceId).stream()
                 .collect(Collectors.toMap(Client::getId, Client::getName));
 
@@ -455,7 +455,7 @@ public class ProjectService {
                         Collectors.mapping(PendingRepresentativeAttachment::getRepresentativeId,
                                 Collectors.toSet())));
 
-        return new Assembly(seatsByProject, memberById, nameByUserId, clientNames,
+        return new Assembly(seatsByProject, memberById, userById, clientNames,
                 repsByClientId, pendingRepIdsByProjectId, LocalDate.now());
     }
 
@@ -467,9 +467,11 @@ public class ProjectService {
                     if (member == null) {
                         return Stream.<TeamMemberResponse>empty();
                     }
+                    User user = assembly.userById().get(member.getUserId());
                     return Stream.of(new TeamMemberResponse(
                             member.getId(), member.getUserId(),
-                            assembly.nameByUserId().getOrDefault(member.getUserId(), ""),
+                            user == null ? "" : user.getFullName(),
+                            user == null ? null : user.getAvatarUrl(),
                             names(member.getRoles(), WorkspaceRole::valueOf),
                             names(seat.getRoles(), ProjectRole::valueOf)));
                 })
@@ -525,7 +527,7 @@ public class ProjectService {
 
     private record Assembly(Map<UUID, List<ProjectMember>> seatsByProject,
                             Map<UUID, WorkspaceMember> memberById,
-                            Map<UUID, String> nameByUserId,
+                            Map<UUID, User> userById,
                             Map<UUID, String> clientNames,
                             Map<UUID, List<ClientRepresentative>> repsByClientId,
                             Map<UUID, Set<UUID>> pendingRepIdsByProjectId,

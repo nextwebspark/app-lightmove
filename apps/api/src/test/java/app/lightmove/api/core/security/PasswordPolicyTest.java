@@ -70,7 +70,8 @@ class PasswordPolicyTest {
                 new LightMoveProperties.Auth.RateLimit(true, 10, 5, 3, 3),
                 Duration.ofMinutes(15), Duration.ofDays(30), Duration.ofHours(24),
                 Duration.ofMinutes(30), Duration.ofDays(7),
-                true, false, 4);
+                // Null oauth: nothing here signs in through a provider, and Auth defaults it.
+                true, false, 4, null);
         return new LightMoveProperties(auth, null, null, null);
     }
 }

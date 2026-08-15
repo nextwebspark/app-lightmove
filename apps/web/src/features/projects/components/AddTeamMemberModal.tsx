@@ -61,7 +61,7 @@ export function AddTeamMemberModal({ project, onClose }: { project: Project; onC
                 key={person.memberId}
                 className="flex items-center gap-2.5 rounded-[9px] border border-line px-[11px] py-[9px]"
               >
-                <Avatar id={person.memberId} name={person.fullName} size="lg" />
+                <Avatar id={person.memberId} name={person.fullName} src={person.avatarUrl} size="lg" />
                 <div className="min-w-0 flex-1">
                   <div className="text-[13px] font-medium">{person.fullName}</div>
                   <div className="truncate font-mono text-[11px] text-text3">

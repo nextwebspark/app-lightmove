@@ -94,6 +94,7 @@ public final class WorkspaceDtos {
             String fullName,
             String email,
             String title,
+            String avatarUrl,
             List<WorkspaceRole> roles,
             Instant joinedAt
     ) {}

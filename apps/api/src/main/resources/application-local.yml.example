@@ -12,14 +12,50 @@ spring:
     oauth2:
       client:
         registration:
+          # A registration id is the whole provider definition: it names the button the SPA renders
+          # (/oauth2/authorization/<id>), the callback Spring listens on
+          # (/login/oauth2/code/<id>), and the provider recorded against the identity. Adding a
+          # provider is a block here and nothing else.
           google:
             # console.cloud.google.com → APIs & Services → Credentials → OAuth client ID (Web)
             # Authorised redirect URI: http://localhost:8080/login/oauth2/code/google
             client-id: CHANGEME.apps.googleusercontent.com
             client-secret: CHANGEME
 
+          linkedin:
+            # linkedin.com/developers → your app → Auth. The product "Sign In with LinkedIn using
+            # OpenID Connect" must be added and verified, or these scopes are refused.
+            # Authorised redirect URL: http://localhost:8080/login/oauth2/code/linkedin
+            client-id: CHANGEME
+            client-secret: CHANGEME
+            # LinkedIn's token endpoint rejects HTTP Basic, which is Spring's default. Without this
+            # the callback fails with an opaque invalid_client and no further explanation.
+            client-authentication-method: client_secret_post
+            authorization-grant-type: authorization_code
+            # Required, unlike Google's: Boot fills the redirect URI in from its own defaults only for
+            # the handful of providers it ships presets for, and refuses to start without it for the
+            # rest. The placeholders are Spring's and expand to the URL above.
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid, profile, email
+            client-name: LinkedIn
+
 lightmove:
   auth:
+    oauth:
+      # Providers that do not implement parts of OIDC, named by registration id. Both of these are
+      # required for LinkedIn, and both fail in ways that name the wrong thing if you leave them out:
+      # the code_verifier comes back as invalid_client — "client authentication failed", about
+      # credentials that are fine — and the missing nonce as invalid_nonce, after the token exchange
+      # has already succeeded. Google needs neither, which is why these are per-registration.
+      pkce-unsupported-registrations:
+        - linkedin
+      nonce-unsupported-registrations:
+        - linkedin
+      # Trust a provider that sends no email_verified claim at all. Opt-in per provider: the address
+      # decides which firm someone joins and links them into an account that may already exist.
+      email-verified-optional-registrations:
+        - linkedin
+
     # Production allows 5 signups/hour/IP — right for production, useless for a developer creating
     # half a dozen test accounts in a row. Raised for local only; the limiter itself is unit-tested
     # rather than verified by hammering a running app.

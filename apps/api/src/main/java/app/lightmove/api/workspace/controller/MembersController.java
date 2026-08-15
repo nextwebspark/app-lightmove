@@ -91,7 +91,7 @@ public class MembersController {
                     "Membership " + member.getId() + " references a missing user");
         }
         return new MemberResponse(member.getId(), user.getId(), user.getFullName(), user.getEmail(),
-                user.getTitle(), roleNames(member), member.getJoinedAt());
+                user.getTitle(), user.getAvatarUrl(), roleNames(member), member.getJoinedAt());
     }
 
     private static List<WorkspaceRole> roleNames(WorkspaceMember member) {

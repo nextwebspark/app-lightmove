@@ -56,6 +56,7 @@ describe("SettingsMembersPage — the roster", () => {
     fullName: "Sara Al-Mansour",
     email: "sara@nextwebspark.com",
     title: null,
+    avatarUrl: null,
     roles: ["MEMBER" as const],
     joinedAt: "2026-07-13T10:00:00Z",
   };
