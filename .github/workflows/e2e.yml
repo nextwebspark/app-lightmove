@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   matrix:
-    name: Auth + RBAC matrix
+    name: e2e
     runs-on: ubuntu-latest
     # Three API boots at ~40s each plus 13 shell scripts and two browser phases. Generous, because a
     # run killed at the cap tells you nothing at all.
