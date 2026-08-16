@@ -2,7 +2,7 @@ package app.lightmove.api.core.security.dto;
 
 import app.lightmove.api.core.email.service.EmailAddressNormaliser;
 import app.lightmove.api.core.security.service.PasswordPolicy;
-import app.lightmove.api.workspace.dto.WorkspaceDtos.WorkspaceSummary;
+import app.lightmove.api.workspace.dto.WorkspaceSummary;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
