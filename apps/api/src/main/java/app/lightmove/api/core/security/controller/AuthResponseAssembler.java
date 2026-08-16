@@ -1,8 +1,8 @@
 package app.lightmove.api.core.security.controller;
 
-import app.lightmove.api.core.security.dto.AuthDtos.AuthResponse;
-import app.lightmove.api.core.security.dto.AuthDtos.PendingInvitationSummary;
-import app.lightmove.api.core.security.dto.AuthDtos.UserResponse;
+import app.lightmove.api.core.security.dto.AuthResponse;
+import app.lightmove.api.core.security.dto.PendingInvitationSummary;
+import app.lightmove.api.core.security.dto.UserResponse;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;

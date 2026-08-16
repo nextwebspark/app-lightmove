@@ -1,8 +1,8 @@
 package app.lightmove.api.workspace.controller;
 
 import app.lightmove.api.core.security.controller.AuthResponseAssembler;
-import app.lightmove.api.core.security.dto.AuthDtos.AuthResponse;
-import app.lightmove.api.core.security.dto.AuthDtos.UserResponse;
+import app.lightmove.api.core.security.dto.AuthResponse;
+import app.lightmove.api.core.security.dto.UserResponse;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.User;
