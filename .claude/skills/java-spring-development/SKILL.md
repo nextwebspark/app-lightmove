@@ -178,7 +178,7 @@ core/
                 CurrentUser, ClientIpResolver
     config/     SecurityConfig
     controller/ AuthController, AuthResponseAssembler
-    dto/        AuthDtos
+    dto/        one record per file (SignupRequest, LoginRequest, AuthResponse, UserResponse, …)
     jwt/        JwtConfig, JwtPrincipalConverter, RsaKeyProvider          (flat concern pkg)
     token/      RefreshToken, RefreshTokenRepository, TokenService, TokenPair,
                 RevokeReason, RefreshCookieFactory, Tokens                (flat concern pkg)
@@ -200,7 +200,7 @@ workspace/                 # feature template — project / strategy / candidate
   constant/   MemberStatus, WorkspaceStatus, InvitationStatus
   model/      Workspace, WorkspaceMember, PendingOnboarding, Invitation,
               CreateWorkspaceCommand, InviteCommand
-  repository/ service/ controller/ dto/(WorkspaceDtos)
+  repository/ service/ controller/ dto/(one record per file: WorkspaceSummary, InviteRequest, …)
 ```
 
 **What goes in each subpackage** (a module includes only the ones it needs):
@@ -224,8 +224,8 @@ part of `workspace` (membership), not their own feature.
 
 **Dependency rule:** features depend on `core`, never on each other's internals. `core` does not depend
 on a feature — the deliberate exceptions are `AuthResponseAssembler` (`core/security/controller`), which
-reads workspace repositories to build the `/me` response (`AuthDtos.UserResponse` embedding
-`WorkspaceDtos.WorkspaceSummary` is the same seam), and the `rbac/` access services, which read the
+reads workspace repositories to build the `/me` response (the auth `UserResponse` embedding
+the workspace `WorkspaceSummary` is the same seam), and the `rbac/` access services, which read the
 workspace/project repositories because authorisation is answered from membership rows. One
 feature→feature seam is sanctioned: `project`'s `StrategyService` calls `company`'s
 `CompanyQueryService.refsByKeys` to resolve strategy-list company snapshots at write time — the
