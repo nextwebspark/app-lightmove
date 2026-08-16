@@ -1,7 +1,7 @@
 package app.lightmove.api.core.security.jwt;
 import app.lightmove.api.core.security.token.Tokens;
 
-import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.config.JwtSettings;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -49,7 +49,7 @@ public class RsaKeyProvider {
      * @param mayGenerate whether a missing keypair is allowed to be conjured. True only in dev and
      *                    test. See {@link #requireKeysOrGenerate}.
      */
-    public RsaKeyProvider(LightMoveProperties.Auth.Jwt config, ResourceLoader resourceLoader,
+    public RsaKeyProvider(JwtSettings config, ResourceLoader resourceLoader,
                           boolean mayGenerate) {
         Resource privateResource = resourceLoader.getResource(config.privateKeyLocation());
         Resource publicResource = resourceLoader.getResource(config.publicKeyLocation());
@@ -79,7 +79,7 @@ public class RsaKeyProvider {
      *
      * <p>So: in prod, a missing key is a startup failure. Loud, immediate, and pointing at the cause.
      */
-    private static void requireKeysOrGenerate(LightMoveProperties.Auth.Jwt config, boolean mayGenerate) {
+    private static void requireKeysOrGenerate(JwtSettings config, boolean mayGenerate) {
         if (!mayGenerate) {
             throw new IllegalStateException(
                     "No JWT signing keys at %s / %s. Refusing to generate a throwaway keypair outside "
@@ -100,7 +100,7 @@ public class RsaKeyProvider {
         return privateKey;
     }
 
-    private KeyPair generateAndPersist(LightMoveProperties.Auth.Jwt config) {
+    private KeyPair generateAndPersist(JwtSettings config) {
         try {
             KeyPairGenerator generator = KeyPairGenerator.getInstance(ALGORITHM);
             generator.initialize(KEY_SIZE);

@@ -11,6 +11,7 @@ import app.lightmove.api.core.security.repository.UserIdentityRepository;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.config.AuthSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -55,7 +56,7 @@ public class AuthService {
     private final AuditService audit;
     private final EmailSender emailSender;
     private final EmailTemplates templates;
-    private final LightMoveProperties.Auth config;
+    private final AuthSettings config;
 
     public AuthService(UserRepository users, UserIdentityRepository identities,
                        WorkspaceMemberRepository members,

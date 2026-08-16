@@ -3,7 +3,10 @@ package app.lightmove.api.core.security;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
+import app.lightmove.api.core.config.AuthSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.config.LockoutSettings;
+import app.lightmove.api.core.config.RateLimitSettings;
 import app.lightmove.api.core.security.service.PasswordPolicy;
 import java.time.Duration;
 import java.util.List;
@@ -64,13 +67,13 @@ class PasswordPolicyTest {
 
     /** Strength 4: every assertion here is about length, and cost 12 would spend a second per hash. */
     private static LightMoveProperties properties() {
-        LightMoveProperties.Auth auth = new LightMoveProperties.Auth(
+        AuthSettings auth = new AuthSettings(
                 null, null,
-                new LightMoveProperties.Auth.Lockout(5, Duration.ofMinutes(15)),
-                new LightMoveProperties.Auth.RateLimit(true, 10, 5, 3, 3),
+                new LockoutSettings(5, Duration.ofMinutes(15)),
+                new RateLimitSettings(true, 10, 5, 3, 3),
                 Duration.ofMinutes(15), Duration.ofDays(30), Duration.ofHours(24),
                 Duration.ofMinutes(30), Duration.ofDays(7),
-                // Null oauth: nothing here signs in through a provider, and Auth defaults it.
+                // Null oauth: nothing here signs in through a provider, and AuthSettings defaults it.
                 true, false, 4, null);
         return new LightMoveProperties(auth, null, null, null);
     }

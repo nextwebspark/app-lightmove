@@ -3,6 +3,8 @@ package app.lightmove.api.email;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import app.lightmove.api.core.config.EmailSettings;
+import app.lightmove.api.core.config.EmailValidationSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
 import app.lightmove.api.core.error.model.ApiException;
@@ -121,21 +123,21 @@ class EmailAddressValidatorTest {
 
     // ── fixtures ──────────────────────────────────────────────────────────────
 
-    private static EmailAddressValidator validatorWith(LightMoveProperties.Email.Validation validation) {
+    private static EmailAddressValidator validatorWith(EmailValidationSettings validation) {
         return new EmailAddressValidator(new LightMoveProperties(
                 null,
-                new LightMoveProperties.Email("log", "LightMove", "noreply@lightmove.app", null, validation),
+                new EmailSettings("log", "LightMove", "noreply@lightmove.app", null, validation),
                 null,
                 null));
     }
 
-    private static LightMoveProperties.Email.Validation defaults() {
+    private static EmailValidationSettings defaults() {
         return validation(true, List.of(), List.of());
     }
 
-    private static LightMoveProperties.Email.Validation validation(
+    private static EmailValidationSettings validation(
             boolean blockPublic, List<String> publicDomains, List<String> extraPublic) {
-        return new LightMoveProperties.Email.Validation(
+        return new EmailValidationSettings(
                 false,             // mxCheckEnabled — off: a real DNS lookup would make these flaky
                 blockPublic,
                 publicDomains,

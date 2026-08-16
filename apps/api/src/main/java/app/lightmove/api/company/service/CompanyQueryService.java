@@ -9,6 +9,7 @@ import app.lightmove.api.company.dto.CompanyDtos.SuggestionsResponse;
 import app.lightmove.api.company.dto.CompanyDtos.TagCount;
 import app.lightmove.api.company.model.CompanyKey;
 import app.lightmove.api.company.model.CompanyRefRow;
+import app.lightmove.api.core.config.CompanySuggestionSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import java.sql.Array;
 import java.sql.ResultSet;
@@ -47,7 +48,7 @@ public class CompanyQueryService {
 
     private final JdbcClient jdbc;
     private final SectorAdjacency adjacency;
-    private final LightMoveProperties.Company.Suggestions suggestionsConfig;
+    private final CompanySuggestionSettings suggestionsConfig;
 
     public CompanyQueryService(JdbcClient jdbc, SectorAdjacency adjacency,
                                LightMoveProperties properties) {

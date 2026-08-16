@@ -3,6 +3,7 @@ package app.lightmove.api.core.ratelimit.service;
 import app.lightmove.api.core.audit.constant.SecurityEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.config.RateLimitSettings;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.security.service.ClientIpResolver;
@@ -32,7 +33,7 @@ public class RateLimitGuard {
     private final RateLimiter limiter;
     private final AuditService audit;
     private final ClientIpResolver clientIpResolver;
-    private final LightMoveProperties.Auth.RateLimit config;
+    private final RateLimitSettings config;
 
     public RateLimitGuard(RateLimiter limiter, AuditService audit, ClientIpResolver clientIpResolver,
                           LightMoveProperties properties) {

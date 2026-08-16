@@ -3,6 +3,7 @@ import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.LogEmailSender;
 import app.lightmove.api.core.email.service.ResendEmailSender;
 
+import app.lightmove.api.core.config.EmailSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import java.net.http.HttpClient;
 import java.time.Duration;
@@ -23,7 +24,7 @@ public class EmailSenderConfig {
 
     @Bean
     EmailSender emailSender(LightMoveProperties properties) {
-        LightMoveProperties.Email config = properties.email();
+        EmailSettings config = properties.email();
 
         if (!"resend".equalsIgnoreCase(config.provider())) {
             log.info("Email provider is '{}' — messages will be printed, not sent.", config.provider());

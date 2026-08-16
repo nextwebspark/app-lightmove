@@ -9,6 +9,8 @@ import app.lightmove.api.company.dto.CompanyDtos.SectorsResponse;
 import app.lightmove.api.company.dto.CompanyDtos.SuggestionsResponse;
 import app.lightmove.api.company.service.CompanyQueryService;
 import app.lightmove.api.company.service.CompanyQueryService.ScopeFilter;
+import app.lightmove.api.core.config.CompanyEstimateSettings;
+import app.lightmove.api.core.config.CompanySearchSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
@@ -39,8 +41,8 @@ public class CompanyReferenceController {
     private static final Set<String> MARKET_CODES = Set.of("AE", "SA", "KW", "QA", "BH", "OM");
 
     private final CompanyQueryService companies;
-    private final LightMoveProperties.Company.Search searchConfig;
-    private final LightMoveProperties.Company.Estimate estimateConfig;
+    private final CompanySearchSettings searchConfig;
+    private final CompanyEstimateSettings estimateConfig;
 
     public CompanyReferenceController(CompanyQueryService companies, LightMoveProperties properties) {
         this.companies = companies;
