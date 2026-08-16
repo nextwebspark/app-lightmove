@@ -1,8 +1,8 @@
 package app.lightmove.api.project.service;
 
 import app.lightmove.api.company.service.ApolloCompanyQueryService;
-import app.lightmove.api.company.service.ApolloCompanyQueryService.ScopeBreakdown;
-import app.lightmove.api.company.service.CompanyQueryService.ScopeFilter;
+import app.lightmove.api.company.model.ScopeBreakdown;
+import app.lightmove.api.company.model.ScopeFilter;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.project.dto.BreakdownDto;

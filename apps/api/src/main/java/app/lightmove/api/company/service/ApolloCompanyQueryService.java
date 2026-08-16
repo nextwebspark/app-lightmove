@@ -2,7 +2,8 @@ package app.lightmove.api.company.service;
 
 import app.lightmove.api.company.constant.EmployeeBand;
 import app.lightmove.api.company.constant.RevenueBand;
-import app.lightmove.api.company.service.CompanyQueryService.ScopeFilter;
+import app.lightmove.api.company.model.ScopeBreakdown;
+import app.lightmove.api.company.model.ScopeFilter;
 import app.lightmove.api.project.constant.GeographyMarket;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -43,12 +44,6 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class ApolloCompanyQueryService {
-
-    /**
-     * One grouped aggregate over a scope: a label and how many scoped companies carry it. The label is
-     * whatever the grouping expression produced — an industry, a country, a city, a match tier.
-     */
-    public record ScopeBreakdown(String label, long count) {}
 
     /** Weakest-to-strongest is meaningless for a legend; this is the order the Strategy screen reads in. */
     private static final List<String> MATCH_TIER_ORDER = List.of("DIRECT", "ADJACENT", "INFERRED");
@@ -139,8 +134,6 @@ public class ApolloCompanyQueryService {
         }
         return bind(jdbc.sql(sql), params).query(ScopeBreakdown.class).list();
     }
-
-    private record WhereClause(String sql, Map<String, Object> params) {}
 
     /**
      * {@code scopeMatch AND size AND geography}, mirroring {@link CompanyQueryService}'s own builder:

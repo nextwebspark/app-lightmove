@@ -8,7 +8,7 @@ import app.lightmove.api.company.dto.SearchResponse;
 import app.lightmove.api.company.dto.SectorsResponse;
 import app.lightmove.api.company.dto.SuggestionsResponse;
 import app.lightmove.api.company.service.CompanyQueryService;
-import app.lightmove.api.company.service.CompanyQueryService.ScopeFilter;
+import app.lightmove.api.company.model.ScopeFilter;
 import app.lightmove.api.core.config.CompanyEstimateSettings;
 import app.lightmove.api.core.config.CompanySearchSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
