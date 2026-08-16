@@ -1,4 +1,4 @@
-/** The position-brief API contract, hand-mirrored from PositionDtos. */
+/** The position-brief API contract, hand-mirrored from the position records in the project dto package. */
 
 export type MandateReason = "NEW_ROLE" | "BACKFILL" | "SUCCESSION" | "RESTRUCTURING";
 

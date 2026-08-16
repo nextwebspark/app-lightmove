@@ -2,12 +2,12 @@ package app.lightmove.api.project.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.service.CurrentUser;
-import app.lightmove.api.project.dto.ClientDtos.InviteRepresentativeRequest;
-import app.lightmove.api.project.dto.ProjectDtos.AttachRepresentativeRequest;
-import app.lightmove.api.project.dto.ProjectDtos.CreateProjectRequest;
-import app.lightmove.api.project.dto.ProjectDtos.ProjectResponse;
-import app.lightmove.api.project.dto.ProjectDtos.PutTeamMemberRequest;
-import app.lightmove.api.project.dto.ProjectDtos.UpdateProjectRequest;
+import app.lightmove.api.project.dto.InviteRepresentativeRequest;
+import app.lightmove.api.project.dto.AttachRepresentativeRequest;
+import app.lightmove.api.project.dto.CreateProjectRequest;
+import app.lightmove.api.project.dto.ProjectResponse;
+import app.lightmove.api.project.dto.PutTeamMemberRequest;
+import app.lightmove.api.project.dto.UpdateProjectRequest;
 import app.lightmove.api.project.service.ClientRepresentativeService;
 import app.lightmove.api.project.service.ProjectService;
 import jakarta.servlet.http.HttpServletRequest;

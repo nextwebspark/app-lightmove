@@ -5,10 +5,10 @@ import app.lightmove.api.company.service.ApolloCompanyQueryService.ScopeBreakdow
 import app.lightmove.api.company.service.CompanyQueryService.ScopeFilter;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.project.dto.ReportDtos.BreakdownDto;
-import app.lightmove.api.project.dto.ReportDtos.CompensationBandDto;
-import app.lightmove.api.project.dto.ReportDtos.ReportResponse;
-import app.lightmove.api.project.dto.ReportDtos.ScopeCaveatsDto;
+import app.lightmove.api.project.dto.BreakdownDto;
+import app.lightmove.api.project.dto.CompensationBandDto;
+import app.lightmove.api.project.dto.ReportResponse;
+import app.lightmove.api.project.dto.ScopeCaveatsDto;
 import app.lightmove.api.project.model.Position;
 import app.lightmove.api.project.model.Strategy;
 import app.lightmove.api.project.repository.PositionRepository;
