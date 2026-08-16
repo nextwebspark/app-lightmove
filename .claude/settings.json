@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(cat .env*)",
+      "Read(~/.ssh/*)",
+      "Bash(gcloud sql instances delete*)",
+      "Bash(gcloud sql databases delete*)",
+      "Bash(gcloud sql backups delete*)",
+      "Bash(gcloud run services delete*)",
+      "Bash(gcloud secrets delete*)",
+      "Bash(gcloud secrets versions destroy*)",
+      "Bash(gcloud projects delete*)",
+      "Bash(gcloud iam service-accounts delete*)",
+      "Bash(gcloud storage rm*)",
+      "Bash(gcloud storage buckets delete*)",
+      "Bash(gsutil rm*)",
+      "Bash(gsutil rb*)"
+    ],
+    "ask": [
+      "Bash(git commit*)",
+      "Bash(git push*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/gcp-mutation-ask.sh\"",
+            "timeout": 10,
+            "statusMessage": "Checking GCP command"
+          }
+        ]
+      }
+    ]
+  }
+}
