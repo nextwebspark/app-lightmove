@@ -77,6 +77,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final LightMoveProperties properties;
     private final TransactionTemplate transactions;
     private final ApplicationEventPublisher events;
+    private final LoginErrorRedirector loginErrors;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
@@ -91,7 +92,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                     authentication.getPrincipal() == null
                             ? "null"
                             : authentication.getPrincipal().getClass().getSimpleName());
-            redirectWithError(response, ErrorCode.INVALID_CREDENTIALS);
+            loginErrors.send(response, ErrorCode.INVALID_CREDENTIALS);
             return;
         }
 
@@ -119,7 +120,15 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         } catch (ApiException ex) {
             log.info("{} sign-in refused: {} ({})", provider, ex.getCode(), ex.getMessage());
-            redirectWithError(response, ex.getCode());
+            loginErrors.send(response, ex.getCode());
+        } catch (Exception ex) {
+            // This handler is invoked by the security filter chain, so GlobalExceptionHandler never
+            // sees what escapes it — an uncaught exception here is a raw container error page. Two
+            // concurrent first sign-ins of the same new user can race into register() and the loser
+            // dies on the unique email constraint; whatever else lands here, the browser must still
+            // come back to the SPA with a code.
+            log.error("{} sign-in failed unexpectedly", provider, ex);
+            loginErrors.send(response, ErrorCode.OAUTH_FAILED);
         }
     }
 
@@ -250,19 +259,6 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     }
 
     /**
-     * Whether this provider has actually vouched for the address.
-     *
-     * <p>{@code email_verified} is optional in OIDC. Spring coerces anything present to a Boolean
-     * (its {@code ClaimTypeConverter} runs {@code Boolean.valueOf} over both the id_token and the
-     * userinfo response), so the only ambiguous answer is <b>absent</b> — LinkedIn sends nothing at
-     * all, which is why demanding {@code Boolean.TRUE} refused every LinkedIn login.
-     *
-     * <p>Absence is trusted only for the registrations configured as
-     * {@code email-verified-optional-registrations}, never by default. The address decides which firm
-     * someone joins and links them into an account that may already exist, so "the provider did not
-     * say" must not read as "the provider said yes" for a provider nobody has vetted.
-     */
-    /**
      * Whether a provider's {@code picture} claim is safe to store and hand to every colleague.
      *
      * <p>It is rendered in an {@code <img>} on the roster and on each project's team, so it is a URL
@@ -282,6 +278,19 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         return usable ? picture : null;
     }
 
+    /**
+     * Whether this provider has actually vouched for the address.
+     *
+     * <p>{@code email_verified} is optional in OIDC. Spring coerces anything present to a Boolean
+     * (its {@code ClaimTypeConverter} runs {@code Boolean.valueOf} over both the id_token and the
+     * userinfo response), so the only ambiguous answer is <b>absent</b> — LinkedIn sends nothing at
+     * all, which is why demanding {@code Boolean.TRUE} refused every LinkedIn login.
+     *
+     * <p>Absence is trusted only for the registrations configured as
+     * {@code email-verified-optional-registrations}, never by default. The address decides which firm
+     * someone joins and links them into an account that may already exist, so "the provider did not
+     * say" must not read as "the provider said yes" for a provider nobody has vetted.
+     */
     private boolean emailProvenBy(String provider, OidcUser oidcUser) {
         Object claim = oidcUser.getClaims().get("email_verified");
         if (claim == null) {
@@ -289,16 +298,6 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                     .anyMatch(registration -> registration.equalsIgnoreCase(provider));
         }
         return Boolean.TRUE.equals(claim);
-    }
-
-    /** Sends the browser back to the SPA with a code it can turn into a sentence. */
-    private void redirectWithError(HttpServletResponse response, ErrorCode code) throws IOException {
-        String target = UriComponentsBuilder
-                .fromUriString(properties.web().baseUrl() + "/login")
-                .queryParam("error", code.name())
-                .build()
-                .toUriString();
-        response.sendRedirect(target);
     }
 
     private static String displayName(OidcUser oidcUser, String email) {

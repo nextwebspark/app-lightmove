@@ -68,8 +68,13 @@ export function OAuthButtons() {
   );
 }
 
+/** A registration id is lowercase and may be hyphenated ("azure-ad"); a button label is neither. */
 function titleCase(id: string): string {
-  return id.charAt(0).toUpperCase() + id.slice(1);
+  return id
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 /** Google's own four-colour mark. */

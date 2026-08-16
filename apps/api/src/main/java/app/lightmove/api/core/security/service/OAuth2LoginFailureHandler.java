@@ -1,6 +1,5 @@
 package app.lightmove.api.core.security.service;
 
-import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -12,7 +11,6 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.stereotype.Component;
-import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * What happens when the provider — or our exchange with it — says no.
@@ -31,7 +29,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 @Slf4j
 public class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
 
-    private final LightMoveProperties properties;
+    private final LoginErrorRedirector loginErrors;
 
     @Override
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response,
@@ -44,12 +42,6 @@ public class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
             log.warn("OAuth sign-in failed: {}", exception.getMessage());
         }
 
-        String target = UriComponentsBuilder
-                .fromUriString(properties.web().baseUrl() + "/login")
-                .queryParam("error", ErrorCode.OAUTH_FAILED.name())
-                .build()
-                .toUriString();
-
-        response.sendRedirect(target);
+        loginErrors.send(response, ErrorCode.OAUTH_FAILED);
     }
 }

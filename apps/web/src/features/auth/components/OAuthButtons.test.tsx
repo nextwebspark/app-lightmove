@@ -7,12 +7,17 @@ import * as authApi from "../api/authApi";
 vi.mock("../api/authApi");
 
 /** A fresh client per test, so one test's cached provider list cannot answer the next one's. */
-const render = () =>
-  renderBare(
-    <QueryClientProvider client={new QueryClient()}>
-      <OAuthButtons />
-    </QueryClientProvider>,
-  );
+const render = () => {
+  const client = new QueryClient();
+  return {
+    client,
+    ...renderBare(
+      <QueryClientProvider client={client}>
+        <OAuthButtons />
+      </QueryClientProvider>,
+    ),
+  };
+};
 
 /**
  * The point of these buttons is that the server decides which exist.
@@ -43,12 +48,24 @@ describe("OAuthButtons", () => {
     expect(await screen.findByRole("button", { name: /Continue with Okta/ })).toBeInTheDocument();
   });
 
+  it("labels a hyphenated registration id word by word", async () => {
+    vi.mocked(authApi.providers).mockResolvedValue({ providers: ["azure-ad"] });
+
+    render();
+
+    expect(await screen.findByRole("button", { name: /Continue with Azure Ad/ })).toBeInTheDocument();
+  });
+
   it("renders nothing at all when no provider is configured", async () => {
     vi.mocked(authApi.providers).mockResolvedValue({ providers: [] });
 
-    const { container } = render();
+    const { client, container } = render();
 
-    await vi.waitFor(() => expect(authApi.providers).toHaveBeenCalled());
+    // The first render is empty regardless — the query has not settled and the list defaults to
+    // none — so asserting before resolution would pass even if the resolved-empty path broke.
+    await vi.waitFor(() =>
+      expect(client.getQueryState(["auth", "providers"])?.status).toBe("success"),
+    );
     expect(container).toBeEmptyDOMElement();
   });
 

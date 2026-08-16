@@ -254,6 +254,24 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an unexpected failure during sign-in still lands on the SPA's login screen with a code")
+    void sendsAnUnexpectedFailureBackToTheSpa() throws Exception {
+        String email = emailForThisTest();
+
+        // A name longer than full_name's 160 characters stands in for anything establishSession does
+        // not guard — concretely the double-callback race, where two concurrent first sign-ins both
+        // miss the lookups and the loser dies on the unique email constraint. The handler runs in the
+        // security filter chain, outside GlobalExceptionHandler, so anything that escapes it is a raw
+        // container error page rather than a login screen with a sentence on it.
+        MockHttpServletResponse response = signIn("linkedin", "linkedin-subject-unexpected", email,
+                Map.of("name", "x".repeat(200)));
+
+        assertThat(response.getRedirectedUrl())
+                .isEqualTo(properties.web().baseUrl() + "/login?error=OAUTH_FAILED");
+        assertThat(users.findByEmail(email)).isEmpty();
+    }
+
+    @Test
     @DisplayName("a deployment with no provider configured offers none, so the SPA shows no button")
     void offersNoProvidersWhenNoneAreConfigured() throws Exception {
         mvc.perform(get("/api/v1/auth/providers"))
