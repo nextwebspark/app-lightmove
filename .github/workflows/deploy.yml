@@ -133,19 +133,59 @@ jobs:
           IMAGE: ${{ steps.build.outputs.image }}
           BASE_URL: ${{ steps.url.outputs.url }}
         run: |
-          # Google sign-in is wired only when it is actually configured. Spring validates every declared
-          # registration at startup and REJECTS an empty client-id, so passing these through blank would
-          # mean the service refuses to boot rather than simply not offering the button.
+          # Each identity provider is wired only when it is actually configured. Spring validates every
+          # declared registration at startup and REJECTS an empty client-id, so passing these through
+          # blank would mean the service refuses to boot rather than simply not offering the button.
+          # Adding a third provider is another block of this shape and no application code.
           OAUTH_ENV=""
           OAUTH_SECRETS=""
-          if [ -n "${{ vars.GOOGLE_OAUTH_CLIENT_ID }}" ]; then
-            OAUTH_ENV="|SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID=${{ vars.GOOGLE_OAUTH_CLIENT_ID }}"
-            OAUTH_ENV="${OAUTH_ENV}|SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_SCOPE=openid,email,profile"
+          # Both halves of Google's credential live in Secret Manager, so the client id is mounted
+          # rather than passed as a repository variable: one place to look, one place to rotate. The
+          # variable that remains is only a switch and holds no credential.
+          #
+          # It defaults to OFF, and must: the branch mounts lightmove-google-oauth-client-id, and
+          # gcloud rejects --set-secrets naming a secret that does not exist. Defaulting to on would
+          # mean an environment that has never configured Google fails the whole deploy — no revision
+          # at all — where the old shape simply left the button out. Set it once per environment that
+          # has the secrets, which is also the reviewable record that someone did.
+          #
+          # Prerequisites, both in the deploy project:
+          #   gcloud secrets create lightmove-google-oauth-client-id     --data-file=-
+          #   gcloud secrets create lightmove-google-oauth-client-secret --data-file=-
+          #   …each granted roles/secretmanager.secretAccessor to the runtime service account.
+          if [ "${{ vars.GOOGLE_OAUTH_ENABLED }}" = "true" ]; then
+            OAUTH_ENV="|SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_SCOPE=openid,email,profile"
             # Set explicitly rather than letting Spring derive it from X-Forwarded-Host. One less thing
             # that can be quietly wrong behind a proxy, and Google rejects a redirect_uri mismatch with
             # an error that names neither.
             OAUTH_ENV="${OAUTH_ENV}|SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_REDIRECT_URI=${BASE_URL}/login/oauth2/code/google"
-            OAUTH_SECRETS=",SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET=lightmove-google-oauth-client-secret:latest"
+            OAUTH_SECRETS=",SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID=lightmove-google-oauth-client-id:latest"
+            OAUTH_SECRETS="${OAUTH_SECRETS},SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET=lightmove-google-oauth-client-secret:latest"
+          fi
+
+          # LinkedIn needs three settings Google's preset supplies for it. The redirect-uri is not
+          # optional here — Boot fills one in only for the providers it ships presets for, and refuses
+          # to start without it for the rest — and client_secret_post is not either: LinkedIn's token
+          # endpoint rejects HTTP Basic, which is Spring's default, with an opaque invalid_client. The
+          # endpoints themselves live in application.yml, since they carry no credentials.
+          if [ -n "${{ vars.LINKEDIN_OAUTH_CLIENT_ID }}" ]; then
+            OAUTH_ENV="${OAUTH_ENV}|SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_LINKEDIN_CLIENT_ID=${{ vars.LINKEDIN_OAUTH_CLIENT_ID }}"
+            OAUTH_ENV="${OAUTH_ENV}|SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_LINKEDIN_SCOPE=openid,profile,email"
+            OAUTH_ENV="${OAUTH_ENV}|SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_LINKEDIN_AUTHORIZATION_GRANT_TYPE=authorization_code"
+            OAUTH_ENV="${OAUTH_ENV}|SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_LINKEDIN_CLIENT_AUTHENTICATION_METHOD=client_secret_post"
+            OAUTH_ENV="${OAUTH_ENV}|SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_LINKEDIN_REDIRECT_URI=${BASE_URL}/login/oauth2/code/linkedin"
+            OAUTH_SECRETS="${OAUTH_SECRETS},SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_LINKEDIN_CLIENT_SECRET=lightmove-linkedin-oauth-client-secret:latest"
+
+            # LinkedIn implements neither PKCE nor the id_token nonce, and says so in ways that name
+            # the wrong thing: the code_verifier comes back as invalid_client ("client authentication
+            # failed") about credentials that are fine, and the missing nonce as invalid_nonce after
+            # the exchange has already succeeded. Omit these two and production reproduces both.
+            OAUTH_ENV="${OAUTH_ENV}|LIGHTMOVE_AUTH_OAUTH_PKCE_UNSUPPORTED_REGISTRATIONS=linkedin"
+            OAUTH_ENV="${OAUTH_ENV}|LIGHTMOVE_AUTH_OAUTH_NONCE_UNSUPPORTED_REGISTRATIONS=linkedin"
+            # LinkedIn sends no email_verified claim at all, and silence is refused unless a
+            # registration is named here. Omit this and every LinkedIn sign-in ends in
+            # EMAIL_NOT_VERIFIED.
+            OAUTH_ENV="${OAUTH_ENV}|LIGHTMOVE_AUTH_OAUTH_EMAIL_VERIFIED_OPTIONAL_REGISTRATIONS=linkedin"
           fi
 
           # Same for Resend: EMAIL_PROVIDER=resend without a key fails fast at startup, by design. The

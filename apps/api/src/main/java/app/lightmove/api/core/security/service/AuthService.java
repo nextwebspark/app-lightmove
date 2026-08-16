@@ -3,7 +3,6 @@ import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.SignupCommand;
 
-import app.lightmove.api.core.security.constant.AuthProvider;
 import app.lightmove.api.core.security.token.RevokeReason;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.model.UserIdentity;
@@ -12,6 +11,7 @@ import app.lightmove.api.core.security.repository.UserIdentityRepository;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.config.AuthSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -56,7 +56,7 @@ public class AuthService {
     private final AuditService audit;
     private final EmailSender emailSender;
     private final EmailTemplates templates;
-    private final LightMoveProperties.Auth config;
+    private final AuthSettings config;
 
     public AuthService(UserRepository users, UserIdentityRepository identities,
                        WorkspaceMemberRepository members,
@@ -118,7 +118,7 @@ public class AuthService {
                 now,
                 PRIVACY_POLICY_VERSION));
 
-        identities.save(UserIdentity.link(user.getId(), AuthProvider.LOCAL, email, email));
+        identities.save(UserIdentity.link(user.getId(), UserIdentity.LOCAL_PROVIDER, email, email));
 
         if (config.autoVerifyEmail()) {
             // Dev shortcut. The user is managed and we are in a transaction, so this flushes with it, and
@@ -172,7 +172,7 @@ public class AuthService {
         Instant now = Instant.now();
         User user = users.save(User.registerLocal(
                 email, passwords.hash(rawPassword), fullName.trim(), now, PRIVACY_POLICY_VERSION));
-        identities.save(UserIdentity.link(user.getId(), AuthProvider.LOCAL, email, email));
+        identities.save(UserIdentity.link(user.getId(), UserIdentity.LOCAL_PROVIDER, email, email));
 
         // Verified before the session is issued, so the token handed back already carries emailVerified
         // — the invitee is in with no second step.

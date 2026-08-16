@@ -15,7 +15,7 @@ a member may hold `CLIENT` **alongside** a staff role and is then treated as sta
 project `CLIENT` seat, which grants `WORK_VIEW` (read a mandate's content, never edit).
 
 **Built so far: auth, workspace management, minimal projects, and the RBAC layer.** Signup (3 steps),
-login, Google OAuth, invitations, the roster, the projects/clients screens, a project's Team & access
+login, OAuth sign-in (Google and LinkedIn), invitations, the roster, the projects/clients screens, a project's Team & access
 tab (staff seats with their role, plus the client contacts on the mandate), and the client registry
 with representative invites and their scoped read-only project access.
 The Project screen's own tables (candidates, pipeline) don't exist yet. Don't build ahead of the
@@ -139,6 +139,65 @@ The project *list* rides any active membership (`@workspaceAuth.member`; the ser
 client to the mandates they're seated on), and shared reference data (`CompanyReferenceController`)
 rides `PROJECT_BROWSE`: existence isn't secret, content is.
 
+### An identity provider is configuration, not code
+
+Adding Google, LinkedIn, or anything else that speaks OIDC is a `spring.security.oauth2.client`
+registration block and **nothing else** — no enum constant, no migration, no SPA change. The
+registration id *is* the provider: it names the button, the authorisation path
+(`/oauth2/authorization/{id}`), Spring's callback (`/login/oauth2/code/{id}`), and the value stored
+on the identity row (uppercased). `UserIdentity.provider` is therefore a plain `String` and V24
+dropped the CHECK that used to enumerate them; `LOCAL` is the one non-provider value, meaning our own
+password hash. `/auth/providers` returns the configured ids and the SPA renders a button per id, with
+a generic mark for one it has no icon for. **Never branch on the provider in
+`OAuth2LoginSuccessHandler`** — it reads standard OIDC claims only (`sub`, `email`, `email_verified`,
+`name`, `picture`), which is the whole reason a provider nobody wrote code for can sign someone in.
+
+**Where a provider departs from the spec, that too is configuration** — `lightmove.auth.oauth`
+holds `pkce-unsupported-registrations` and `nonce-unsupported-registrations`, applied by
+`PkceAwareAuthorizationRequestResolver`, and LinkedIn is in both. Per-registration on purpose: Google
+keeps PKCE and the nonce, and a test pins that so one provider's shortcomings can never quietly
+weaken another's. Dropping the nonce costs the id_token→browser binding; what remains is the code
+exchange itself (single-use, server-to-server over TLS with our secret) plus `state` for CSRF.
+
+Five things this cost an afternoon each to learn:
+
+- A provider Boot ships no `CommonOAuth2Provider` preset for (LinkedIn) needs its endpoints — in the
+  shared `provider:` block in `application.yml`, pinned rather than discovered from an `issuer-uri`,
+  because discovery makes a provider outage into an application that will not boot — **and an
+  explicit `redirect-uri`**, without which startup fails outright. LinkedIn additionally needs
+  `client-authentication-method: client_secret_post`; its token endpoint rejects HTTP Basic.
+- **`invalid_client` from LinkedIn is usually not about the client.** It is what it answers when
+  Spring replays a `code_verifier` at a provider that never implemented PKCE. The credentials are
+  fine; re-copying the secret finds nothing. To tell them apart, POST `grant_type=client_credentials`
+  with the id and secret: a *valid* pair answers `access_denied` ("not allowed to create application
+  tokens"), an invalid one answers `invalid_client`.
+- **`invalid_nonce` arrives only after a successful token exchange** — it is id_token validation, not
+  authentication. LinkedIn does not echo the nonce and does not list it in `claims_supported`.
+- **`email_verified` is optional, and absence is not consent.** Spring coerces anything *present* to
+  a Boolean, so the only ambiguous answer is the claim being missing entirely — which is what LinkedIn
+  does, and why demanding `Boolean.TRUE` refused every LinkedIn login. Silence is trusted only for
+  registrations listed in `email-verified-optional-registrations`, never by default: this handler
+  links a provider identity into an *existing* account on a matching address, so "the provider did
+  not say" must never read as "the provider said yes" for an IdP nobody vetted.
+- **A provider's `picture` is a URL the whole workspace fetches**, and on many IdPs it is a
+  user-editable field. It is stored only when it is `https` and under 2 KB — otherwise a member could
+  point it at a host they control and harvest a request from every colleague who opens the roster.
+
+**A failed OAuth login needs `OAuth2LoginFailureHandler`.** Spring's default redirects to
+`/login?error` on the *API's* host, which in development is the API and answers 404 JSON — so the
+real error never reaches anyone. Ours logs the provider's wording (configuration detail, useless to
+the person signing in) and sends the browser to the SPA with `OAUTH_FAILED`.
+
+The profile picture is the provider's CDN URL, copied to `app_lm_user.avatar_url`, and **owned by
+whoever supplied it** (`avatar_source`, V25). That source may re-stamp it on every sign-in — LinkedIn's
+URLs expire within weeks — and anyone else may only fill an empty one. Without the ownership rule the
+last provider used always won, so signing in with an account that has no photo replaced a real picture
+with a generated monogram; providers send a monogram, not nothing. A null source is a row older than
+the column and is claimed once. The name follows the same shape and is only backfilled when blank — it
+is editable here, and a provider must not overwrite what someone typed. `Avatar` falls back to initials
+when the image fails to load, which is the designed end state for a user who stops signing in, not a
+bug.
+
 ### Tokens are never stored raw
 
 Refresh, verification and invitation tokens are 256-bit random values; only their SHA-256 hash is
@@ -229,6 +288,21 @@ reintroduce them.
   on a 403, so `/clients` told a portal guest the firm had "0 clients" and offered a New client button
   that could never work. Branch on `isError` before `rows.length === 0` on every list that can be
   refused — the count is the tell, because it states as fact a number the caller was not allowed to read.
+- **`OAuth2AuthorizationRequest.from()` carries the rendered URI across.** Rebuilding a request to
+  drop `code_challenge` produced a clean parameter map and a redirect URL that still carried it,
+  because `authorizationRequestUri` is a field copied verbatim. Build the request field by field so
+  `build()` renders the URI from the parameters you actually kept.
+- **`String.valueOf(x)` where `x` comes from a generic `<T> T` getter binds to the `char[]` overload.**
+  `OAuth2AuthorizationRequest.getAttribute` is generic, so inference picks `valueOf(char[])` and the
+  call dies at runtime with a `ClassCastException` — a 500 on every authorisation request. Assign to
+  a `String` first. (A non-generic getter returning `Object`, like `HttpServletRequest.getAttribute`
+  or `Map.get`, is safe: that binds `valueOf(Object)`.)
+- **`Set.copyOf(…).contains(null)` throws.** An immutable set answers a null lookup with a
+  `NullPointerException` rather than `false`, so a nullable key needs its own guard.
+- **`@ConditionalOnBean` on user configuration silently never matches.** A resolver bean conditioned
+  on `ClientRegistrationRepository` was never created — the repository is auto-configured *after*
+  user config — so Spring used its default and the override looked inert. Build such things where the
+  bean is already in hand.
 - **A route the nav hides is still reachable by URL.** The sidebar filtered pure clients out of
   `/clients` and `/team` and nothing else did, so typing the path served the firm's internal screens.
   Guard the *route*; the nav is presentation.
@@ -309,12 +383,13 @@ the ones it needs. The actual tree:
 ```
 core/
   security/                # the whole auth domain
-    constant/   AuthProvider, TokenPurpose, UserStatus
+    constant/   TokenPurpose, UserStatus
     model/      User, UserIdentity, VerificationToken, AuthPrincipal,
                 EmailVerifiedEvent, SignupCommand, AuthenticatedSession
     repository/ UserRepository, UserIdentityRepository, VerificationTokenRepository
     service/    AuthService, VerificationService, PasswordPolicy,
-                OAuth2LoginSuccessHandler, CurrentUser, ClientIpResolver
+                OAuth2LoginSuccessHandler, OAuth2LoginFailureHandler,
+                ProviderQuirkAwareRequestResolver, CurrentUser, ClientIpResolver
     config/     SecurityConfig
     controller/ AuthController, AuthResponseAssembler
     dto/        AuthDtos

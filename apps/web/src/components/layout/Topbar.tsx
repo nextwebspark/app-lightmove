@@ -15,7 +15,7 @@ export function Topbar({ breadcrumb }: { breadcrumb?: ReactNode }) {
     <header className="relative z-[60] flex h-[46px] flex-none items-center gap-3 px-3.5">
       {breadcrumb ?? <WorkspaceMenu />}
       <div className="ml-auto flex items-center gap-2.5">
-        {user && <Avatar id={user.id} name={user.fullName} />}
+        {user && <Avatar id={user.id} name={user.fullName} src={user.avatarUrl} />}
       </div>
     </header>
   );

@@ -52,22 +52,37 @@ spring:
       # which is what a production deployment wants.
       iam_user: ${DB_IAM_USER:}
 
-  # Google sign-in is NOT configured here on purpose. Spring validates every declared registration at
-  # startup and rejects an empty client-id, so a placeholder block would mean the application refuses
-  # to boot until someone has been to the GCP console. Declaring it only where the credentials actually
-  # exist keeps a fresh clone runnable, and the "Continue with Google" button simply stays hidden.
+  # No sign-in *registration* is configured here on purpose. Spring validates every declared
+  # registration at startup and rejects an empty client-id, so a placeholder block would mean the
+  # application refuses to boot until someone has been to the provider's console. Declaring one only
+  # where the credentials actually exist keeps a fresh clone runnable, and the button for a provider
+  # this deployment has not configured simply never renders — /auth/providers lists what is wired.
   #
-  # To enable it, add this to application-local.yml (or set the env vars in production):
+  # A provider *block* carries no credentials and is inert until a registration names it, so the
+  # endpoints of providers Spring has no CommonOAuth2Provider preset for live here permanently.
+  security:
+    oauth2:
+      client:
+        provider:
+          # LinkedIn has no CommonOAuth2Provider preset. Endpoints are pinned rather than discovered
+          # from an issuer-uri, because issuer-uri makes startup fetch LinkedIn's discovery document
+          # — which turns a LinkedIn outage into an application that will not boot.
+          linkedin:
+            authorization-uri: https://www.linkedin.com/oauth/v2/authorization
+            token-uri: https://www.linkedin.com/oauth/v2/accessToken
+            jwk-set-uri: https://www.linkedin.com/oauth/openid/jwks
+            user-info-uri: https://api.linkedin.com/v2/userinfo
+            user-name-attribute: sub
+
+  # To enable a provider, add its registration to application-local.yml — that file's .example is the
+  # one canonical copy of what a registration needs, and is kept there rather than duplicated here.
   #
-  #   spring:
-  #     security:
-  #       oauth2:
-  #         client:
-  #           registration:
-  #             google:
-  #               client-id: xxx.apps.googleusercontent.com
-  #               client-secret: xxx
-  #               scope: openid, email, profile
+  # Deployed, the same settings arrive as environment variables: uppercase the property path and
+  # replace every dot and dash with an underscore, so
+  # `spring.security.oauth2.client.registration.linkedin.client-authentication-method` becomes
+  # SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_LINKEDIN_CLIENT_AUTHENTICATION_METHOD. The deploy
+  # workflow (.github/workflows/deploy.yml) is the authority on which are actually set, including the
+  # lightmove.auth.oauth.* lists a provider like LinkedIn cannot work without.
 
   threads:
     virtual:

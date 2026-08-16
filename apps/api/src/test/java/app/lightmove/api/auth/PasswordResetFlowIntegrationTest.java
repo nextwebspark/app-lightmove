@@ -229,7 +229,7 @@ class PasswordResetFlowIntegrationTest extends FlowTestSupport {
     @DisplayName("a Google-only account gains a local password through the reset flow")
     void googleOnlyAccountAttachesPassword() throws Exception {
         String sara = "sara@" + domain;
-        users.save(User.registerFederated(sara, "Sara G", null, Instant.now(), "2026-07-01"));
+        users.save(User.registerFederated(sara, "Sara G", null, "GOOGLE", Instant.now(), "2026-07-01"));
 
         forgot(sara);
         resetOk(email.latestTokenFor(sara), NEW_PASSWORD);

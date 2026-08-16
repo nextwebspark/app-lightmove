@@ -132,7 +132,7 @@ function AnonymousOnly({ children }: { children: ReactNode }) {
  * into a workspace, so routing a held user to accept-invite would dead-end on ALREADY_IN_WORKSPACE
  * the moment they verify.
  */
-function homeFor(user: {
+export function homeFor(user: {
   workspace: { roles: string[] } | null;
   onboardingHeld: boolean;
   pendingInvitation: unknown;

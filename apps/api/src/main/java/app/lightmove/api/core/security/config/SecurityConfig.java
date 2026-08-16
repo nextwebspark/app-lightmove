@@ -1,5 +1,7 @@
 package app.lightmove.api.core.security.config;
 import app.lightmove.api.core.security.jwt.JwtPrincipalConverter;
+import app.lightmove.api.core.security.service.OAuth2LoginFailureHandler;
+import app.lightmove.api.core.security.service.ProviderQuirkAwareRequestResolver;
 import app.lightmove.api.core.security.service.OAuth2LoginSuccessHandler;
 
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -216,6 +218,7 @@ public class SecurityConfig {
                                  @Qualifier("corsConfigurationSource") CorsConfigurationSource cors,
                                  JwtPrincipalConverter principalConverter,
                                  OAuth2LoginSuccessHandler oauthSuccessHandler,
+                                 OAuth2LoginFailureHandler oauthFailureHandler,
                                  ObjectProvider<ClientRegistrationRepository> clientRegistrations,
                                  ProblemAccessDeniedHandler accessDenied,
                                  LightMoveProperties properties) throws Exception {
@@ -244,7 +247,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/actuator/**").denyAll()
 
-                        // Google sign-in. Spring owns these paths.
+                        // OAuth sign-in. Spring owns these paths, one pair per configured registration id.
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
 
                         // Anonymous: the person clicking an invitation link out of their inbox has no
@@ -300,16 +303,30 @@ public class SecurityConfig {
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(principalConverter)));
 
-        // Google's redirect flow — wired only when credentials are actually configured. Spring needs a
-        // ClientRegistrationRepository to build this, and there is none until someone has created an
-        // OAuth client in the GCP console. Enabling it unconditionally would mean a fresh clone cannot
-        // start; this way password sign-in works out of the box and the Google button simply is not
-        // offered. The frontend asks GET /api/v1/auth/providers which of the two is live.
+        // The OAuth redirect flow — wired only when at least one provider is actually configured.
+        // Spring needs a ClientRegistrationRepository to build this, and there is none until someone
+        // has created an OAuth client at a provider. Enabling it unconditionally would mean a fresh
+        // clone cannot start; this way password sign-in works out of the box and no provider button is
+        // offered. The frontend asks GET /api/v1/auth/providers which ones are live.
         //
-        // On success the handler mints *our* tokens: Google proves who you are, it does not get to be
-        // our session.
-        if (clientRegistrations.getIfAvailable() != null) {
-            http.oauth2Login(login -> login.successHandler(oauthSuccessHandler));
+        // On success the handler mints *our* tokens: the provider proves who you are, it does not get
+        // to be our session. The failure handler is not optional either — Spring's default redirects
+        // to /login?error on *this* host, which in development is the API and answers 404 JSON.
+        ClientRegistrationRepository registrations = clientRegistrations.getIfAvailable();
+        if (registrations != null) {
+            // The resolver is built here rather than declared as its own bean: the repository is
+            // auto-configured *after* user configuration, so a @ConditionalOnBean on it silently never
+            // matches and the default resolver is used — PKCE and all.
+            var authorizationRequests = new ProviderQuirkAwareRequestResolver(
+                    registrations,
+                    properties.auth().oauth().pkceUnsupportedRegistrations(),
+                    properties.auth().oauth().nonceUnsupportedRegistrations());
+
+            http.oauth2Login(login -> login
+                    .authorizationEndpoint(endpoint ->
+                            endpoint.authorizationRequestResolver(authorizationRequests))
+                    .successHandler(oauthSuccessHandler)
+                    .failureHandler(oauthFailureHandler));
         }
 
         return http.build();

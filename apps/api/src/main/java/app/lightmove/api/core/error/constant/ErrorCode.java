@@ -25,6 +25,15 @@ public enum ErrorCode {
     ACCOUNT_SUSPENDED(HttpStatus.FORBIDDEN, "This account has been suspended"),
     EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN, "Please verify your email address to continue"),
 
+    /**
+     * The OAuth exchange itself failed — the provider refused, or its answer did not verify. It never
+     * reaches an API response body: the flow is a browser redirect, so this travels as {@code ?error=}
+     * on the way back to the login screen. The provider's own message (a {@code redirect_uri} that
+     * does not match, an {@code invalid_client}) is logged instead, being configuration detail rather
+     * than anything the person signing in can act on.
+     */
+    OAUTH_FAILED(HttpStatus.UNAUTHORIZED, "Sign-in did not complete. Please try again"),
+
     EMAIL_ALREADY_REGISTERED(HttpStatus.CONFLICT, "An account with this email already exists"),
     EMAIL_UNDELIVERABLE(HttpStatus.BAD_REQUEST, "This email address does not appear to exist"),
     EMAIL_DISPOSABLE(HttpStatus.BAD_REQUEST, "Please use your work email address"),

@@ -1,7 +1,7 @@
 package app.lightmove.api.core.email.service;
 import app.lightmove.api.core.email.model.EmailMessage;
 
-import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.config.EmailSettings;
 import java.time.Duration;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +22,7 @@ public class ResendEmailSender implements EmailSender {
     private final RestClient client;
     private final String from;
 
-    public ResendEmailSender(LightMoveProperties.Email config, RestClient.Builder builder) {
+    public ResendEmailSender(EmailSettings config, RestClient.Builder builder) {
         this.from = "%s <%s>".formatted(config.fromName(), config.fromAddress());
         this.client = builder
                 .baseUrl(config.resend().baseUrl())

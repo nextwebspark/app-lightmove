@@ -8,7 +8,6 @@ import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.security.constant.AuthProvider;
 import app.lightmove.api.core.security.constant.TokenPurpose;
 import app.lightmove.api.core.security.constant.UserStatus;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
@@ -136,11 +135,11 @@ public class PasswordResetService {
 
         boolean attached = !user.hasPassword();
         if (attached) {
-            // Google-only account gaining a local password. The LOCAL identity row keeps the signup
+            // A federated-only account gaining a local password. The LOCAL identity row keeps the signup
             // invariant "local password ⇔ LOCAL identity" intact.
             user.attachLocalPassword(passwords.hash(newPassword));
-            if (identities.findByProviderAndProviderUserId(AuthProvider.LOCAL, user.getEmail()).isEmpty()) {
-                identities.save(UserIdentity.link(user.getId(), AuthProvider.LOCAL, user.getEmail(), user.getEmail()));
+            if (identities.findByProviderAndProviderUserId(UserIdentity.LOCAL_PROVIDER, user.getEmail()).isEmpty()) {
+                identities.save(UserIdentity.link(user.getId(), UserIdentity.LOCAL_PROVIDER, user.getEmail(), user.getEmail()));
             }
         } else {
             user.changePassword(passwords.hash(newPassword));

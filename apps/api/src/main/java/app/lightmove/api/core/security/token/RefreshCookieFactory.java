@@ -1,5 +1,6 @@
 package app.lightmove.api.core.security.token;
 
+import app.lightmove.api.core.config.CookieSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import java.time.Duration;
 import org.springframework.http.ResponseCookie;
@@ -26,7 +27,7 @@ import org.springframework.util.StringUtils;
 @Component
 public class RefreshCookieFactory {
 
-    private final LightMoveProperties.Auth.Cookie config;
+    private final CookieSettings config;
     private final Duration ttl;
 
     public RefreshCookieFactory(LightMoveProperties properties) {

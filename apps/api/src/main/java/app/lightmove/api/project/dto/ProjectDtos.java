@@ -54,6 +54,7 @@ public final class ProjectDtos {
             UUID memberId,
             UUID userId,
             String fullName,
+            String avatarUrl,
             List<WorkspaceRole> workspaceRoles,
             List<ProjectRole> projectRoles
     ) {}

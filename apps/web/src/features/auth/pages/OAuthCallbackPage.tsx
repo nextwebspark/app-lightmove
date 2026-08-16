@@ -1,12 +1,13 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { homeFor } from "../../../app/routes";
 import { Logo } from "../../../components/ui";
 import { setAccessToken } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 
 /**
- * Where Google sends the browser back to.
+ * Where an identity provider sends the browser back to.
  *
  * The server has already minted our own tokens by this point: the refresh token arrived as an httpOnly
  * cookie, and the access token is in the URL **fragment**.
@@ -45,8 +46,10 @@ export function OAuthCallbackPage() {
         const user = await authApi.me();
         adopt(token, user);
 
-        // A Google user who has never onboarded has no workspace, exactly like a password signup.
-        navigate(user.workspace ? "/" : "/signup/workspace", { replace: true });
+        // The router's own answer to "where does this user belong", not a second copy of it: a user
+        // who signed in with a provider may still be an invitee or hold an unfinished wizard, and
+        // homeFor already encodes that ordering — which is load-bearing.
+        navigate(homeFor(user), { replace: true });
       } catch {
         setAccessToken(null);
         navigate("/login?error=OAUTH_FAILED", { replace: true });

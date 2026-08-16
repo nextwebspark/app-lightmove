@@ -22,6 +22,7 @@ export interface Member {
   fullName: string;
   email: string;
   title: string | null;
+  avatarUrl: string | null;
   roles: WorkspaceRole[];
   joinedAt: string | null;
 }

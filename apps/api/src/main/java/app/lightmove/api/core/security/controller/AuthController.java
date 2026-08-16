@@ -23,11 +23,14 @@ import app.lightmove.api.workspace.model.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import java.util.List;
+import java.util.stream.StreamSupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -57,8 +60,8 @@ public class AuthController {
     private final RateLimitGuard rateLimit;
     private final AuthResponseAssembler assembler;
 
-    /** Absent unless a Google OAuth client is configured. See SecurityConfig. */
-    private final ObjectProvider<ClientRegistrationRepository> googleRegistration;
+    /** Absent unless at least one OAuth client is configured. See SecurityConfig. */
+    private final ObjectProvider<ClientRegistrationRepository> oauthRegistrations;
 
     /**
      * Signup step 1.
@@ -201,18 +204,31 @@ public class AuthController {
     }
 
     /**
-     * Which sign-in methods this deployment actually offers.
+     * Which sign-in methods this deployment actually offers, as the OAuth registration ids.
      *
-     * <p>Backs the {@code showSso} flag the Login mockup already has. Google is only wired when an
-     * OAuth client is configured, so the frontend asks rather than assumes — a "Continue with Google"
-     * button that leads to a 404 is worse than no button.
+     * <p>The frontend asks rather than assumes — a "Continue with LinkedIn" button that leads to a 404
+     * is worse than no button. It returns <i>ids</i> and not a fixed set of flags so that wiring up
+     * another provider stays a yml block: the id is the button and the authorisation path
+     * ({@code /oauth2/authorization/{id}}), and the SPA falls back to a generic label for one it has
+     * no icon for.
      */
     @GetMapping("/providers")
     public ResponseEntity<AuthProviders> providers() {
-        return ResponseEntity.ok(new AuthProviders(googleRegistration.getIfAvailable() != null));
+        ClientRegistrationRepository registrations = oauthRegistrations.getIfAvailable();
+
+        // Only the in-memory repository can be enumerated; a lazily-resolving one cannot be asked
+        // what it holds, and offering no buttons beats offering a broken one.
+        List<String> configured = registrations instanceof Iterable<?> iterable
+                ? StreamSupport.stream(iterable.spliterator(), false)
+                        .map(registration -> ((ClientRegistration) registration).getRegistrationId())
+                        .sorted()
+                        .toList()
+                : List.of();
+
+        return ResponseEntity.ok(new AuthProviders(configured));
     }
 
-    public record AuthProviders(boolean google) {
+    public record AuthProviders(List<String> providers) {
     }
 
     /** The one place the refresh token is written to a cookie, and why it never reaches a response body. */

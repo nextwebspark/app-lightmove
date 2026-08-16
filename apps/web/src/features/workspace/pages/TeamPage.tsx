@@ -66,7 +66,7 @@ export function TeamPage() {
         const count = activeCount(member.memberId);
         return (
           <div key={member.memberId} className="flex items-center gap-2.5 rounded-[7px] p-2 hover:bg-panel2">
-            <Avatar id={member.memberId} name={member.fullName} />
+            <Avatar id={member.memberId} name={member.fullName} src={member.avatarUrl} />
             <div>
               <div className="text-[13px]">{member.fullName}</div>
               <div className="font-mono text-[11px] text-text3">{member.roles.map(titleCase).join(" · ")}</div>

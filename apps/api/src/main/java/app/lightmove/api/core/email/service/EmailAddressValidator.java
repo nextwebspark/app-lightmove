@@ -1,5 +1,6 @@
 package app.lightmove.api.core.email.service;
 
+import app.lightmove.api.core.config.EmailValidationSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -45,7 +46,7 @@ public class EmailAddressValidator {
     private static final String DNS_TIMEOUT_MS = "3000";
     private static final String DNS_RETRIES = "1";
 
-    private final LightMoveProperties.Email.Validation config;
+    private final EmailValidationSettings config;
     private final DisposableDomains disposableDomains;
     private final PublicEmailDomains configuredPublicDomains;
 

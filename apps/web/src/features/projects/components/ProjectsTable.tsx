@@ -68,6 +68,7 @@ export function ProjectsTable({
                     key={seat.memberId}
                     id={seat.memberId}
                     name={seat.fullName}
+                    src={seat.avatarUrl}
                     size="sm"
                     className={`border-2 border-panel ${index > 0 ? "-ml-[7px]" : ""}`}
                   />

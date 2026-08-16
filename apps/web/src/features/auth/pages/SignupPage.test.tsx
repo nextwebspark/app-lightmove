@@ -39,6 +39,8 @@ describe("SignupPage", () => {
     navigate.mockReset();
     // AuthProvider tries to restore a session on mount. There isn't one.
     vi.mocked(authApi.me).mockRejectedValue(new Error("no session"));
+    // These tests are about the password form, so the page offers no identity providers.
+    vi.mocked(authApi.providers).mockResolvedValue({ providers: [] });
   });
 
   it("rejects a password with no number, in the mockup's own words", async () => {
