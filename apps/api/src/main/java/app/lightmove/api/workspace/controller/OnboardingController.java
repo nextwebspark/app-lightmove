@@ -8,7 +8,6 @@ import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.service.AuthenticationService;
-import app.lightmove.api.core.security.service.CurrentUser;
 import app.lightmove.api.core.security.token.RefreshCookieFactory;
 import app.lightmove.api.workspace.dto.AcceptInvitationRequest;
 import app.lightmove.api.workspace.dto.AcceptInvitationSignupRequest;
@@ -29,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -63,10 +63,9 @@ public class OnboardingController {
      * minted before the workspace existed and says the user has none.
      */
     @PostMapping("/workspace")
-    public ResponseEntity<UserResponse> createWorkspace(@Valid @RequestBody CreateWorkspaceRequest request,
+    public ResponseEntity<UserResponse> createWorkspace(@AuthenticationPrincipal AuthPrincipal principal,
+                                                        @Valid @RequestBody CreateWorkspaceRequest request,
                                                         HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
-
         Optional<Workspace> created = onboarding.createWorkspace(
                 principal.userId(),
                 new CreateWorkspaceCommand(request.name(), request.companySize(),
@@ -88,10 +87,9 @@ public class OnboardingController {
      * parameter would let anyone edit anyone's organisation by guessing an id.
      */
     @PatchMapping("/workspace")
-    public ResponseEntity<UserResponse> updateWorkspace(@Valid @RequestBody CreateWorkspaceRequest request,
+    public ResponseEntity<UserResponse> updateWorkspace(@AuthenticationPrincipal AuthPrincipal principal,
+                                                        @Valid @RequestBody CreateWorkspaceRequest request,
                                                         HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
-
         CreateWorkspaceCommand command = new CreateWorkspaceCommand(
                 request.name(), request.companySize(), request.primaryRegion(),
                 request.teamFocus());
@@ -115,10 +113,9 @@ public class OnboardingController {
      *         members, which is not an error.
      */
     @PostMapping("/invitations")
-    public ResponseEntity<InviteResult> invite(@Valid @RequestBody List<InviteRequest> requests,
+    public ResponseEntity<InviteResult> invite(@AuthenticationPrincipal AuthPrincipal principal,
+                                               @Valid @RequestBody List<InviteRequest> requests,
                                                HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
-
         // Held, not sent, while the user is unverified — they have no workspace to invite anyone into,
         // and "email these five people on my say-so" is precisely the action an unproven account must
         // not be able to take. They go out when the workspace is created at verification.
@@ -159,9 +156,9 @@ public class OnboardingController {
      * approval.
      */
     @PostMapping("/invitations/accept")
-    public ResponseEntity<UserResponse> acceptInvitation(@Valid @RequestBody AcceptInvitationRequest request,
+    public ResponseEntity<UserResponse> acceptInvitation(@AuthenticationPrincipal AuthPrincipal principal,
+                                                         @Valid @RequestBody AcceptInvitationRequest request,
                                                          HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         invitations.accept(request.token(), principal.userId(), httpRequest);
         return ResponseEntity.ok(currentUser(principal));
     }
@@ -175,8 +172,8 @@ public class OnboardingController {
      * verified address is the very thing the token existed to prove.
      */
     @PostMapping("/accept-invitation")
-    public ResponseEntity<UserResponse> acceptPendingInvitation(HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
+    public ResponseEntity<UserResponse> acceptPendingInvitation(@AuthenticationPrincipal AuthPrincipal principal,
+                                                                 HttpServletRequest httpRequest) {
         invitations.acceptForUser(principal.userId(), httpRequest);
         return ResponseEntity.ok(currentUser(principal));
     }

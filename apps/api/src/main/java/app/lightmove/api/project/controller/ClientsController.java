@@ -1,7 +1,6 @@
 package app.lightmove.api.project.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
-import app.lightmove.api.core.security.service.CurrentUser;
 import app.lightmove.api.project.dto.ClientDetailResponse;
 import app.lightmove.api.project.dto.ClientListResponse;
 import app.lightmove.api.project.dto.CreateClientRequest;
@@ -18,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -44,16 +44,15 @@ public class ClientsController {
 
     @GetMapping
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
-    public ResponseEntity<List<ClientListResponse>> list() {
-        AuthPrincipal principal = CurrentUser.require();
+    public ResponseEntity<List<ClientListResponse>> list(@AuthenticationPrincipal AuthPrincipal principal) {
         return ResponseEntity.ok(clients.list(principal.requireWorkspaceId()));
     }
 
     @PostMapping
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
-    public ResponseEntity<ClientListResponse> create(@Valid @RequestBody CreateClientRequest request,
+    public ResponseEntity<ClientListResponse> create(@AuthenticationPrincipal AuthPrincipal principal,
+                                                     @Valid @RequestBody CreateClientRequest request,
                                                      HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         ClientListResponse created = clients.create(
                 principal.userId(), principal.requireWorkspaceId(), request, httpRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
@@ -61,27 +60,27 @@ public class ClientsController {
 
     @GetMapping("/{clientId}")
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
-    public ResponseEntity<ClientDetailResponse> get(@PathVariable UUID clientId) {
-        AuthPrincipal principal = CurrentUser.require();
+    public ResponseEntity<ClientDetailResponse> get(@AuthenticationPrincipal AuthPrincipal principal,
+                                                     @PathVariable UUID clientId) {
         return ResponseEntity.ok(clients.get(principal.requireWorkspaceId(), clientId));
     }
 
     @PatchMapping("/{clientId}")
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
-    public ResponseEntity<ClientDetailResponse> update(@PathVariable UUID clientId,
+    public ResponseEntity<ClientDetailResponse> update(@AuthenticationPrincipal AuthPrincipal principal,
+                                                       @PathVariable UUID clientId,
                                                        @Valid @RequestBody UpdateClientRequest request,
                                                        HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(clients.update(
                 principal.userId(), principal.requireWorkspaceId(), clientId, request, httpRequest));
     }
 
     @PostMapping("/{clientId}/representatives")
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
-    public ResponseEntity<RepresentativeResponse> invite(@PathVariable UUID clientId,
+    public ResponseEntity<RepresentativeResponse> invite(@AuthenticationPrincipal AuthPrincipal principal,
+                                                         @PathVariable UUID clientId,
                                                          @Valid @RequestBody InviteRepresentativeRequest request,
                                                          HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         RepresentativeResponse invited = representatives.invite(
                 principal.userId(), principal.requireWorkspaceId(), clientId,
                 request.fullName(), request.position(), request.email(), httpRequest);

@@ -1,13 +1,13 @@
 package app.lightmove.api.project.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
-import app.lightmove.api.core.security.service.CurrentUser;
 import app.lightmove.api.project.dto.ReportResponse;
 import app.lightmove.api.project.service.ReportService;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,8 +28,8 @@ public class ReportController {
 
     @GetMapping
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
-    public ResponseEntity<ReportResponse> get(@PathVariable UUID projectId) {
-        AuthPrincipal principal = CurrentUser.require();
+    public ResponseEntity<ReportResponse> get(@AuthenticationPrincipal AuthPrincipal principal,
+                                               @PathVariable UUID projectId) {
         return ResponseEntity.ok(reports.get(principal.requireWorkspaceId(), projectId));
     }
 }

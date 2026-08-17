@@ -1,7 +1,6 @@
 package app.lightmove.api.project.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
-import app.lightmove.api.core.security.service.CurrentUser;
 import app.lightmove.api.project.dto.InviteRepresentativeRequest;
 import app.lightmove.api.project.dto.AttachRepresentativeRequest;
 import app.lightmove.api.project.dto.CreateProjectRequest;
@@ -18,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -46,16 +46,15 @@ public class ProjectsController {
 
     @GetMapping
     @PreAuthorize("@workspaceAuthorizer.member(principal)")
-    public ResponseEntity<List<ProjectResponse>> list() {
-        AuthPrincipal principal = CurrentUser.require();
+    public ResponseEntity<List<ProjectResponse>> list(@AuthenticationPrincipal AuthPrincipal principal) {
         return ResponseEntity.ok(projects.list(principal.userId(), principal.requireWorkspaceId()));
     }
 
     @PostMapping
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_CREATE')")
-    public ResponseEntity<ProjectResponse> create(@Valid @RequestBody CreateProjectRequest request,
+    public ResponseEntity<ProjectResponse> create(@AuthenticationPrincipal AuthPrincipal principal,
+                                                  @Valid @RequestBody CreateProjectRequest request,
                                                   HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         ProjectResponse created = projects.create(
                 principal.userId(), principal.requireWorkspaceId(), request, httpRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
@@ -63,10 +62,10 @@ public class ProjectsController {
 
     @PatchMapping("/{projectId}")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<ProjectResponse> update(@PathVariable UUID projectId,
+    public ResponseEntity<ProjectResponse> update(@AuthenticationPrincipal AuthPrincipal principal,
+                                                  @PathVariable UUID projectId,
                                                   @Valid @RequestBody UpdateProjectRequest request,
                                                   HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(projects.update(
                 principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
     }
@@ -74,11 +73,11 @@ public class ProjectsController {
     /** Seats the member with this staff role, or moves an existing seat to it. Idempotent. */
     @PutMapping("/{projectId}/members/{memberId}")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'TEAM_MANAGE')")
-    public ResponseEntity<ProjectResponse> putMember(@PathVariable UUID projectId,
+    public ResponseEntity<ProjectResponse> putMember(@AuthenticationPrincipal AuthPrincipal principal,
+                                                     @PathVariable UUID projectId,
                                                      @PathVariable UUID memberId,
                                                      @Valid @RequestBody PutTeamMemberRequest request,
                                                      HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(projects.putMember(
                 principal.userId(), principal.requireWorkspaceId(), projectId, memberId,
                 request.role(), httpRequest));
@@ -86,10 +85,10 @@ public class ProjectsController {
 
     @DeleteMapping("/{projectId}/members/{memberId}")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'TEAM_MANAGE')")
-    public ResponseEntity<ProjectResponse> removeMember(@PathVariable UUID projectId,
+    public ResponseEntity<ProjectResponse> removeMember(@AuthenticationPrincipal AuthPrincipal principal,
+                                                        @PathVariable UUID projectId,
                                                         @PathVariable UUID memberId,
                                                         HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(projects.removeMember(
                 principal.userId(), principal.requireWorkspaceId(), projectId, memberId, httpRequest));
     }
@@ -98,10 +97,10 @@ public class ProjectsController {
     @PostMapping("/{projectId}/representatives")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'CLIENT_ACCESS_MANAGE')")
     public ResponseEntity<ProjectResponse> attachRepresentative(
+            @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable UUID projectId,
             @Valid @RequestBody AttachRepresentativeRequest request,
             HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(projects.attachRepresentative(
                 principal.userId(), principal.requireWorkspaceId(), projectId,
                 request.representativeId(), httpRequest));
@@ -118,10 +117,10 @@ public class ProjectsController {
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'CLIENT_ACCESS_MANAGE') "
             + "and @workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
     public ResponseEntity<ProjectResponse> inviteRepresentative(
+            @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable UUID projectId,
             @Valid @RequestBody InviteRepresentativeRequest request,
             HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(representatives.inviteToMandate(
                 principal.userId(), principal.requireWorkspaceId(), projectId,
                 request.fullName(), request.position(), request.email(), httpRequest));
@@ -129,10 +128,10 @@ public class ProjectsController {
 
     @DeleteMapping("/{projectId}/representatives/{representativeId}")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'CLIENT_ACCESS_MANAGE')")
-    public ResponseEntity<ProjectResponse> detachRepresentative(@PathVariable UUID projectId,
+    public ResponseEntity<ProjectResponse> detachRepresentative(@AuthenticationPrincipal AuthPrincipal principal,
+                                                                @PathVariable UUID projectId,
                                                                 @PathVariable UUID representativeId,
                                                                 HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(projects.detachRepresentative(
                 principal.userId(), principal.requireWorkspaceId(), projectId,
                 representativeId, httpRequest));

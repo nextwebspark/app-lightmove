@@ -164,9 +164,10 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
 
                 // The same converter as the main chain, and it must be. Not every route here is
-                // anonymous — /auth/me is bearer-authenticated and reads the AuthPrincipal. With
-                // Spring's default converter the principal is a raw Jwt, CurrentUser finds no
-                // AuthPrincipal, and /auth/me answers 401 to a caller holding a perfectly valid token.
+                // anonymous — /auth/me is bearer-authenticated and its @AuthenticationPrincipal
+                // AuthPrincipal parameter depends on it. With Spring's default converter the principal
+                // is a raw Jwt, the parameter resolves to null instead of a type mismatch error, and
+                // /auth/me NPEs on a caller holding a perfectly valid token.
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(principalConverter)))
                 .build();

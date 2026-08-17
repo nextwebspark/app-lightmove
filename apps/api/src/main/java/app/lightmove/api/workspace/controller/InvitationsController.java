@@ -4,7 +4,6 @@ import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
-import app.lightmove.api.core.security.service.CurrentUser;
 import app.lightmove.api.workspace.dto.InvitationResponse;
 import app.lightmove.api.workspace.dto.InviteRequest;
 import app.lightmove.api.workspace.model.Invitation;
@@ -19,6 +18,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,8 +42,7 @@ public class InvitationsController {
 
     @GetMapping
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'MEMBER_INVITE')")
-    public ResponseEntity<List<InvitationResponse>> pending() {
-        AuthPrincipal principal = CurrentUser.require();
+    public ResponseEntity<List<InvitationResponse>> pending(@AuthenticationPrincipal AuthPrincipal principal) {
         List<Invitation> pending = invitations.pending(principal.userId(), principal.requireWorkspaceId());
 
         Map<UUID, String> inviterNames = users
@@ -60,9 +59,9 @@ public class InvitationsController {
 
     @PostMapping
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'MEMBER_INVITE')")
-    public ResponseEntity<Map<String, Integer>> invite(@RequestBody List<@Valid InviteRequest> requests,
+    public ResponseEntity<Map<String, Integer>> invite(@AuthenticationPrincipal AuthPrincipal principal,
+                                                       @RequestBody List<@Valid InviteRequest> requests,
                                                        HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         List<Invitation> sent = invitations.invite(principal,
                 requests.stream().map(r -> new InviteCommand(r.email(), r.role())).toList(),
                 httpRequest);
@@ -71,16 +70,16 @@ public class InvitationsController {
 
     @PostMapping("/{invitationId}/resend")
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'MEMBER_INVITE')")
-    public ResponseEntity<Void> resend(@PathVariable UUID invitationId, HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
+    public ResponseEntity<Void> resend(@AuthenticationPrincipal AuthPrincipal principal,
+                                       @PathVariable UUID invitationId, HttpServletRequest httpRequest) {
         invitations.resend(principal.userId(), principal.requireWorkspaceId(), invitationId, httpRequest);
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{invitationId}")
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'MEMBER_INVITE')")
-    public ResponseEntity<Void> revoke(@PathVariable UUID invitationId, HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
+    public ResponseEntity<Void> revoke(@AuthenticationPrincipal AuthPrincipal principal,
+                                       @PathVariable UUID invitationId, HttpServletRequest httpRequest) {
         invitations.revoke(principal.userId(), principal.requireWorkspaceId(), invitationId, httpRequest);
         return ResponseEntity.noContent().build();
     }

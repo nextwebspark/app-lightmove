@@ -1,13 +1,13 @@
 package app.lightmove.api.project.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
-import app.lightmove.api.core.security.service.CurrentUser;
 import app.lightmove.api.project.dto.SourcingResponse;
 import app.lightmove.api.project.service.SourcingService;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,13 +29,13 @@ public class SourcingController {
 
     @GetMapping
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
-    public ResponseEntity<SourcingResponse> get(@PathVariable UUID projectId,
+    public ResponseEntity<SourcingResponse> get(@AuthenticationPrincipal AuthPrincipal principal,
+                                                 @PathVariable UUID projectId,
                                                  @RequestParam(name = "q", required = false) String query,
                                                  @RequestParam(required = false) String sort,
                                                  @RequestParam(required = false) String direction,
                                                  @RequestParam(defaultValue = "0") int page,
                                                  @RequestParam(defaultValue = "25") int size) {
-        AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(sourcing.get(principal.requireWorkspaceId(), projectId, query, sort,
                 direction, page, size));
     }
