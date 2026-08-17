@@ -211,7 +211,8 @@ class PasswordResetFlowIntegrationTest extends FlowTestSupport {
             loginRaw(alok, "wrongpassword1");
         }
         // The refusal is deliberately indistinguishable from any other failed login — see
-        // AuthService.login. The lock is real all the same, which is what the reset below undoes.
+        // AuthenticationService.login. The lock is real all the same, which is what the reset below
+        // undoes.
         assertThat(codeOf(loginRaw(alok, PASSWORD))).isEqualTo("INVALID_CREDENTIALS");
 
         forgot(alok);

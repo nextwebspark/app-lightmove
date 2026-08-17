@@ -104,9 +104,9 @@ SecurityFilterChain (apiChain, @Order(3))           core/security/config/Securit
   │   /api/v1/**  → .access(verified)  (authenticated AND SCOPE_VERIFIED)
   ▼
 Controller method with @PreAuthorize                @EnableMethodSecurity on SecurityConfig
-  │   e.g.  @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+  │   e.g.  @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
   ▼
-Guard bean: WorkspaceAuth.can(...) / ProjectAuth.can(...)   core/security/rbac
+Guard bean: WorkspaceAuthorizer.can(...) / ProjectAuthorizer.can(...)   core/security/rbac
   │   ALWAYS returns true to SpEL; ENFORCES by THROWING ApiException on denial
   ▼
 WorkspaceAccess / ProjectAccess.requireAction(...)  core/security/rbac
@@ -119,18 +119,18 @@ Controller body runs only if no exception was thrown
 
 ### The two guard beans (`@PreAuthorize` targets)
 
-`WorkspaceAuth` (bean `workspaceAuth`) and `ProjectAuth` (bean `projectAuth`). Their contract is the
-single most important design decision to understand:
+`WorkspaceAuthorizer` (bean `workspaceAuthorizer`) and `ProjectAuthorizer` (bean
+`projectAuthorizer`). Their contract is the single most important design decision to understand:
 
 ```java
-// WorkspaceAuth
+// WorkspaceAuthorizer
 public boolean can(AuthPrincipal principal, String action) {
     access.requireAction(principal.userId(), principal.requireWorkspaceId(),
             WorkspaceAction.valueOf(action));
     return true;                       // ← only reachable if requireAction did NOT throw
 }
 
-// ProjectAuth
+// ProjectAuthorizer
 public boolean can(AuthPrincipal principal, UUID projectId, String action) {
     access.requireAction(principal.userId(), principal.requireWorkspaceId(), projectId,
             ProjectAction.valueOf(action));
@@ -206,7 +206,7 @@ foreign-tenant project. The admin bypass exists so a departed mandate owner can'
 28 annotations, 8 controllers, method security enabled by `@EnableMethodSecurity` on `SecurityConfig`.
 Every method reads the workspace from the **principal**, never the path.
 
-### Workspace tier (`@workspaceAuth`)
+### Workspace tier (`@workspaceAuthorizer`)
 
 | Controller | Endpoint | Gate |
 |---|---|---|
@@ -220,7 +220,7 @@ Every method reads the workspace from the **principal**, never the path.
 | `ProjectsController` | `GET /projects` | `can(principal, 'PROJECT_BROWSE')` |
 | `ProjectsController` | `POST /projects` | `can(principal, 'PROJECT_CREATE')` |
 
-### Project tier (`@projectAuth`, takes `#projectId`)
+### Project tier (`@projectAuthorizer`, takes `#projectId`)
 
 | Controller | Endpoint | Gate |
 |---|---|---|
@@ -374,7 +374,7 @@ also make the eventual CLIENT portal gating explicit rather than implicit in `re
 | Catalog entities | `core/security/rbac/{Role,Action}.java` + `{RoleRepository,ActionRepository}.java` |
 | Permission math | `WorkspaceMemberRepository.findActionNames`, `ProjectMemberRepository.findActionNames` |
 | Access services | `core/security/rbac/{WorkspaceAccess,ProjectAccess,RbacService}.java` |
-| Guard beans (`@PreAuthorize`) | `core/security/rbac/{WorkspaceAuth,ProjectAuth}.java` |
+| Guard beans (`@PreAuthorize`) | `core/security/rbac/{WorkspaceAuthorizer,ProjectAuthorizer}.java` |
 | Principal + JWT | `core/security/model/AuthPrincipal.java`, `core/security/jwt/JwtPrincipalConverter.java` |
 | Filter chains + method security | `core/security/config/SecurityConfig.java` (`@EnableMethodSecurity`) |
 | Imperative-check services | `workspace/service/{InvitationService,OnboardingService,MemberService,PendingOnboardingMaterialiser}.java` |

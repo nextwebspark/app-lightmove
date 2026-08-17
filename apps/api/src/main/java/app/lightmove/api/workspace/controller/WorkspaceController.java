@@ -32,7 +32,7 @@ public class WorkspaceController {
     private final WorkspaceSettingsService settings;
 
     @GetMapping
-    @PreAuthorize("@workspaceAuth.staff(principal)")
+    @PreAuthorize("@workspaceAuthorizer.staff(principal)")
     public ResponseEntity<WorkspaceResponse> get() {
         AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(toResponse(
@@ -40,7 +40,7 @@ public class WorkspaceController {
     }
 
     @PatchMapping
-    @PreAuthorize("@workspaceAuth.can(principal, 'WORKSPACE_MANAGE')")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'WORKSPACE_MANAGE')")
     public ResponseEntity<WorkspaceResponse> update(@Valid @RequestBody UpdateWorkspaceSettingsRequest request,
                                                     HttpServletRequest httpRequest) {
         AuthPrincipal principal = CurrentUser.require();
@@ -50,7 +50,7 @@ public class WorkspaceController {
     }
 
     @DeleteMapping
-    @PreAuthorize("@workspaceAuth.can(principal, 'WORKSPACE_MANAGE')")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'WORKSPACE_MANAGE')")
     public ResponseEntity<Void> delete(@Valid @RequestBody DeleteWorkspaceRequest request,
                                        HttpServletRequest httpRequest) {
         AuthPrincipal principal = CurrentUser.require();

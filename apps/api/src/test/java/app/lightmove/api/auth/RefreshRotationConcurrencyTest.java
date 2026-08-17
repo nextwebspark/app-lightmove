@@ -3,7 +3,7 @@ package app.lightmove.api.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.core.security.service.AuthService;
+import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.SignupCommand;
 import app.lightmove.api.core.security.token.RevokeReason;
@@ -40,14 +40,14 @@ class RefreshRotationConcurrencyTest {
 
     private static final AtomicInteger RUN = new AtomicInteger();
 
-    @Autowired AuthService auth;
+    @Autowired AuthenticationService authentication;
     @Autowired RefreshTokenRepository refreshTokens;
 
     @Test
     @DisplayName("two simultaneous refreshes of one token: one wins, the other is caught as reuse")
     void concurrentRefreshTripsReuseDetection() throws Exception {
         String domain = "race%d.example".formatted(RUN.incrementAndGet());
-        AuthenticatedSession session = auth.signup(
+        AuthenticatedSession session = authentication.signup(
                 new SignupCommand("Alok Kumar", "alok@" + domain, "secret123", true), null);
 
         String stolen = session.tokens().refreshToken();
@@ -58,7 +58,7 @@ class RefreshRotationConcurrencyTest {
         try {
             Callable<Outcome> redeem = () -> {
                 try {
-                    auth.refresh(stolen, null);
+                    authentication.refresh(stolen, null);
                     return Outcome.ACCEPTED;
                 } catch (ApiException e) {
                     return e.getCode() == ErrorCode.REFRESH_TOKEN_REUSED

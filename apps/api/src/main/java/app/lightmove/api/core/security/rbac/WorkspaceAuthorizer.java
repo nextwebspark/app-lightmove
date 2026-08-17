@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * The workspace-tier guard bean behind {@code @PreAuthorize} — e.g.
- * {@code @PreAuthorize("@workspaceAuth.can(principal, 'MEMBER_INVITE')")}.
+ * {@code @PreAuthorize("@workspaceAuthorizer.can(principal, 'MEMBER_INVITE')")}.
  *
  * <p>Every method re-reads the database through {@link WorkspaceAccess}; the JWT's roles claim is
  * coarse material only, up to 15 minutes stale. Methods return {@code true} (the SpEL contract) but
@@ -20,9 +20,9 @@ import org.springframework.stereotype.Component;
  * principal — keep imperative checks, because method security would evaluate the wrong (or no)
  * authentication there.
  */
-@Component("workspaceAuth")
+@Component("workspaceAuthorizer")
 @RequiredArgsConstructor
-public class WorkspaceAuth {
+public class WorkspaceAuthorizer {
 
     private final WorkspaceAccess access;
 

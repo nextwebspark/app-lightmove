@@ -21,7 +21,7 @@ export function AddTeamMemberModal({ project, onClose }: { project: Project; onC
   const [roleFor, setRoleFor] = useState<Record<string, StaffRole>>({});
 
   // The roster is staff-only server-side, which is exactly who may be seated; a lead reading it is
-  // authorised by @workspaceAuth.staff, not by anything project-scoped.
+  // authorised by @workspaceAuthorizer.staff, not by anything project-scoped.
   const { data: directory = [] } = useQuery({
     queryKey: workspaceApi.MEMBERS_KEY,
     queryFn: workspaceApi.members,

@@ -17,7 +17,7 @@ import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
-import app.lightmove.api.core.security.service.AuthService;
+import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.workspace.constant.InvitationStatus;
@@ -78,7 +78,7 @@ public class InvitationService {
     private final EmailTemplates templates;
     private final AuditService audit;
     private final LightMoveProperties properties;
-    private final AuthService authService;
+    private final AuthenticationService authentication;
     private final TokenService tokens;
     private final RateLimitGuard rateLimit;
     private final ApplicationEventPublisher events;
@@ -368,7 +368,7 @@ public class InvitationService {
         // mailed to. createVerifiedLocalUser rejects an address that already has an account, so the
         // frontend can send that person to log in and accept from a real session rather than silently
         // attaching a second identity.
-        User user = authService.createVerifiedLocalUser(
+        User user = authentication.createVerifiedLocalUser(
                 invitation.getEmail(), fullName, password, request);
         WorkspaceMember member = redeem(invitation, user, now, request);
 

@@ -215,7 +215,7 @@ public class TokenService {
     /**
      * Lookups passed in rather than injected, to keep this service free of a dependency on the user
      * and workspace repositories — it deals in tokens. It also breaks what would otherwise be a
-     * circular wiring between TokenService and AuthService.
+     * circular wiring between TokenService and AuthenticationService.
      */
     @FunctionalInterface
     public interface UserLookup {

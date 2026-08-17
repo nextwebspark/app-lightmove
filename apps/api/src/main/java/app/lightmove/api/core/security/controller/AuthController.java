@@ -7,7 +7,7 @@ import app.lightmove.api.core.security.dto.ResendVerificationRequest;
 import app.lightmove.api.core.security.dto.ResetPasswordRequest;
 import app.lightmove.api.core.security.dto.SignupRequest;
 import app.lightmove.api.core.security.dto.UserResponse;
-import app.lightmove.api.core.security.service.AuthService;
+import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.service.PasswordResetService;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.SignupCommand;
@@ -53,7 +53,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AuthController {
 
-    private final AuthService auth;
+    private final AuthenticationService authentication;
     private final VerificationService verification;
     private final PasswordResetService passwordReset;
     private final RefreshCookieFactory refreshCookie;
@@ -73,7 +73,7 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<AuthResponse> signup(@Valid @RequestBody SignupRequest request,
                                                HttpServletRequest httpRequest) {
-        AuthenticatedSession session = auth.signup(
+        AuthenticatedSession session = authentication.signup(
                 new SignupCommand(request.fullName(), request.email(), request.password(), request.termsAccepted()),
                 httpRequest);
 
@@ -83,7 +83,8 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request,
                                               HttpServletRequest httpRequest) {
-        return respond(HttpStatus.OK, auth.login(request.email(), request.password(), httpRequest));
+        return respond(HttpStatus.OK,
+                authentication.login(request.email(), request.password(), httpRequest));
     }
 
     /**
@@ -104,7 +105,7 @@ public class AuthController {
         }
 
         try {
-            return respond(HttpStatus.OK, auth.refresh(refreshToken, httpRequest));
+            return respond(HttpStatus.OK, authentication.refresh(refreshToken, httpRequest));
         } catch (ApiException e) {
             // Expire the cookie on the way out: a rejected token is dead, and leaving it in place makes
             // the browser re-present it every page load — an endless stream of TOKEN_REUSE_DETECTED. The
@@ -120,7 +121,7 @@ public class AuthController {
             @CookieValue(name = "${lightmove.auth.cookie.name}", required = false) String refreshToken,
             HttpServletRequest httpRequest) {
 
-        auth.logout(refreshToken, httpRequest);
+        authentication.logout(refreshToken, httpRequest);
 
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.expire().toString())
@@ -139,7 +140,7 @@ public class AuthController {
     public ResponseEntity<UserResponse> verify(@RequestParam("token") String token,
                                                HttpServletRequest httpRequest) {
         User user = verification.verify(token, httpRequest);
-        WorkspaceMember membership = auth.activeMembership(user.getId()).orElse(null);
+        WorkspaceMember membership = authentication.activeMembership(user.getId()).orElse(null);
         return ResponseEntity.ok(assembler.user(user, membership));
     }
 
@@ -185,8 +186,8 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<UserResponse> me() {
         AuthPrincipal principal = CurrentUser.require();
-        User user = auth.requireUser(principal.userId());
-        WorkspaceMember membership = auth.activeMembership(user.getId()).orElse(null);
+        User user = authentication.requireUser(principal.userId());
+        WorkspaceMember membership = authentication.activeMembership(user.getId()).orElse(null);
         return ResponseEntity.ok(assembler.user(user, membership));
     }
 
