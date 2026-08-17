@@ -65,7 +65,7 @@ cat <<EOF
 Next: start the API. Flyway applies the schema and, because DB_IAM_USER is set, grants
 ${IAM_USERS[0]} read access to it.
 
-    DB_IAM_USER=${IAM_USERS[0]} npm run dev:api
+    DB_IAM_USER=${IAM_USERS[0]} npm run dev:api:cloud
 
 Then query it as yourself, with no password:
 

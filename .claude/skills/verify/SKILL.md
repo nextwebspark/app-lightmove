@@ -7,13 +7,16 @@ description: Build, run and drive LightMove locally to verify a change end-to-en
 
 ## Launch
 
-- API: `cd apps/api && LIGHTMOVE_EMAIL_PROVIDER=log ./mvnw spring-boot:run -Dspring-boot.run.profiles=local`
-  — the env override matters: `application-local.yml` points at the REAL Resend key, so without it a
-  signup sends real email. With `log`, verification links print to the API console.
-- Web: `npm run dev:web` (Vite on :5173, proxies `/api` to :8080).
-- Boot takes ~30s (Cloud SQL connector + Flyway at boot — a new `V*` migration applies to the shared
-  dev database immediately). `/actuator/health` is NOT exposed; probe any API route for a non-refused
-  connection instead.
+- `npm run dev` — Docker Postgres on :55433, API on :8080, Vite on :5173 (proxies `/api` to :8080).
+  The database is local and private, so a `V*` migration in the tree applies only to you. Boot takes
+  ~20s. `/actuator/health` is NOT exposed; probe any API route for a non-refused connection instead.
+- `npm run dev:db:reset` first when you want a virgin schema (re-runs V1 onwards).
+- Halves separately: `npm run dev:db && npm run dev:api`, and `npm run dev:web`.
+- **`npm run dev:cloud` is the shared Cloud SQL database.** Only use it when the shared data is the
+  point, and then `LIGHTMOVE_EMAIL_PROVIDER=log` is on you — `application-local.yml` pins the REAL
+  Resend key, so a signup sends real email. `ops/dev/api.sh` sets it for you; `dev:cloud` does not.
+- Email always prints to the API console under `npm run dev`; that is where the verification and
+  invitation links come from.
 
 ## Driving the API with curl
 

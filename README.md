@@ -8,8 +8,37 @@ A **Workspace** is the tenant. It holds **Members** (`ADMIN` / `CONSULTANT` / `R
 
 ## Run it locally
 
-You need Java 21, Node ≥ 20, gcloud, and `roles/cloudsql.client` on the `hak-talent-mapping` project —
-ask an admin for the role. The database already exists; you don't create it and you don't run a proxy.
+You need Java 21, Node ≥ 20 and Docker. No gcloud, no GCP role, no `application-local.yml`.
+
+```bash
+npm install
+npm run dev
+```
+
+`npm run dev` starts a `postgres:16-alpine` container, applies every migration into it, and boots the
+API and the SPA against it. The database is **yours** — nothing you do locally reaches anyone else.
+
+| | |
+|---|---|
+| Web | http://localhost:5173 |
+| API | http://localhost:8080 |
+| Actuator | http://localhost:9090 — separate port, loopback only |
+| Database | `localhost:55433`, user `lm_app`, password `lm`, database `lightmove` |
+
+```bash
+npm run dev:db:psql      # a psql shell in the container
+npm run dev:db:reset     # drop the data; the next boot re-runs every migration from V1
+npm run dev:db:down      # stop the container, keep the data
+```
+
+Port **55433** avoids 5432 (usually taken by another project) and 55432 (the e2e stack's own throwaway
+container, which `e2e/stack/down.sh` deletes). The two never collide, so an e2e run cannot wipe your
+dev data.
+
+### Running against the shared Cloud SQL database
+
+Only when you actually need the shared data — a new migration should be proven on the local container
+first, because Flyway runs at boot and applies it to everyone the moment the API starts.
 
 ```bash
 gcloud auth login
@@ -18,24 +47,33 @@ gcloud config set project hak-talent-mapping
 
 cp apps/api/src/main/resources/application-local.yml{.example,}   # fill in the lm_app password
 
-npm install
-npm run dev
+npm run dev:cloud
 ```
 
-| | |
-|---|---|
-| Web | http://localhost:5173 |
-| API | http://localhost:8080 |
-| Actuator | http://localhost:9090 — separate port, loopback only |
+This one needs `roles/cloudsql.client` on the `hak-talent-mapping` project — ask an admin. The database
+already exists; you don't create it and you don't run a proxy. Note that `application-local.yml` may pin
+`provider: resend` with a live key, which `npm run dev` overrides and `npm run dev:cloud` does not — see
+**Precedence** below.
+
+**OAuth sign-in** needs `application-local.yml` either way: it is where the Google and LinkedIn client
+credentials live, and it is still read on the `local` profile that both commands use. Without the file
+you get password auth only, and `GET /api/v1/auth/providers` reports the buttons as unavailable.
+
+**`app_lm_companies` is empty locally.** The company universe is copied from the `brightdata` warehouse
+by `ops/cloudsql/sync-companies.sh`, which only targets Cloud SQL.
 
 Sign up with a **work email** — gmail and friends are refused, because the email domain is what tells us
 which firm someone works at. **No email provider is needed:** `LogEmailSender` is the default and prints
 the verification and invitation links straight to the API console.
 
-**How it connects.** The API reaches Cloud SQL through the Cloud SQL **Java connector** — no host in the
-JDBC URL, no IP allowlist, no proxy process. Your Google identity authorises the *connection*
+**How it connects.** `application.yml` declares one datasource: a Cloud SQL **Java connector** URL —
+no host, no IP allowlist, no proxy process. Your Google identity authorises the *connection*
 (`roles/cloudsql.client`); the database login itself is `lm_app` and its password. `cloud-sql-proxy`
 appears in exactly one place in this repo — `psql.sh` — and running the app never needs it.
+
+`ops/dev/api.sh` steps around all of that by exporting `SPRING_DATASOURCE_URL` with a host in it: an
+environment variable outranks every profile file, and a host-bearing JDBC URL never reaches the socket
+factory. That is the whole trick, and it is the same one `e2e/stack/up.sh` uses.
 
 **The `lm_app` password** is printed once, when the database is created, and cannot be recovered. Ask
 whoever set the environment up, or reset it:
@@ -141,7 +179,8 @@ detection firing. Fixed — but if you see it, sign in again; the old family is 
 
 ## Reading the database (optional)
 
-Not needed to run the app. For querying tables by hand:
+This is the **Cloud SQL** database. For the local Docker one, `npm run dev:db:psql` needs no setup at
+all. Not needed to run the app either way — for querying the shared tables by hand:
 
 ```bash
 ./ops/cloudsql/psql.sh                                     # interactive shell
@@ -173,7 +212,7 @@ Once per Cloud SQL instance — not something a developer joining the project ru
 
 ```bash
 DB_IAM_USER=you@example.com ./ops/cloudsql/create-database.sh   # database, app user, IAM principals
-DB_IAM_USER=you@example.com npm run dev:api                     # Flyway applies the schema; V2 grants you SELECT
+DB_IAM_USER=you@example.com npm run dev:api:cloud               # Flyway applies the schema; V2 grants you SELECT
 ```
 
 `create-database.sh` is idempotent — on an existing database it says so and changes nothing.
@@ -241,6 +280,7 @@ set the variable and assert it with a test.
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `Dockerfile` | Multi-stage: builds the SPA, copies it into the jar's `static/`, one image |
 | `claude-design/` | HTML mockups — **the source of truth for all UI** |
+| `ops/dev/` | `db.sh` (the local Docker Postgres) and `api.sh` (the API pointed at it) — what `npm run dev` runs |
 | `ops/cloudsql/` | Database bootstrap, hardening, the `lm_migrate` role, and `psql.sh` |
 | `ops/gcp/` | `bootstrap.sh` — everything on GCP the first deploy needs, idempotent |
 | `.github/workflows/` | `ci.yml` gates; `deploy.yml` builds, migrates, deploys, smoke-tests |
