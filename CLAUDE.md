@@ -30,15 +30,23 @@ don't exist yet.
 ## Commands
 
 ```bash
-npm run dev                  # api (:8080) + web (:5173)
+npm run dev                  # docker postgres (:55433) + api (:8080) + web (:5173)
+npm run dev:db:reset         # drop the local database; next boot re-runs every migration from V1
+npm run dev:db:psql          # psql shell in the local container
+npm run dev:cloud            # api + web against the SHARED Cloud SQL dev database
 npm test                     # both suites
 cd apps/api && ./mvnw test   # backend — needs Docker (Testcontainers)
 cd apps/web && npx vitest    # frontend
 cd apps/web && npm run build # the real frontend typecheck
 ```
 
-First run: `cp apps/api/src/main/resources/application-local.yml{.example,}` and fill in the DB password.
-The Cloud SQL connector authenticates as you — `gcloud auth application-default login`.
+`npm run dev` needs Docker and nothing else — no gcloud, no `application-local.yml`. Its database is
+yours alone, so a migration in your tree applies only to you.
+
+`npm run dev:cloud` hits the shared dev database and applies your migrations to everyone at boot. It
+needs `cp apps/api/src/main/resources/application-local.yml{.example,}` with the DB password filled in,
+and the Cloud SQL connector authenticates as you — `gcloud auth application-default login`. That file
+is also where the OAuth client credentials live, so OAuth sign-in needs it on either path.
 
 ## Load the right skill before you start
 

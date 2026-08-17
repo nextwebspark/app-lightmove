@@ -60,7 +60,14 @@ the table changes when it does — which is the point of keying it that way now.
 
 ## Connecting
 
-First run: `cp apps/api/src/main/resources/application-local.yml{.example,}` and fill in the DB
-password. The Cloud SQL connector authenticates as you — `gcloud auth application-default login`.
-Note: Flyway at boot hits the **shared dev database** — a new migration applies to everyone the
-moment the API starts. Don't start the API casually with an unfinished migration in the tree.
+`npm run dev` runs against a **local Docker Postgres** (`ops/dev/db.sh`, :55433) — Flyway at boot
+applies your migrations there and nowhere else. Prove a new migration here first:
+`npm run dev:db:reset && npm run dev` re-runs the whole chain from V1 on a virgin database, which is
+the only way to catch a migration that only works against a schema that already exists.
+`npm run dev:db:psql` is a shell in it.
+
+`npm run dev:cloud` is the **shared dev database** on Cloud SQL. First run:
+`cp apps/api/src/main/resources/application-local.yml{.example,}` and fill in the DB password; the
+Cloud SQL connector authenticates as you — `gcloud auth application-default login`. Flyway still runs
+at boot there, so a migration in your tree applies to everyone the moment the API starts. Don't start
+`dev:cloud` casually with an unfinished migration in the tree.
