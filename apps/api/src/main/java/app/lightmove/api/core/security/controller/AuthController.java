@@ -1,12 +1,12 @@
 package app.lightmove.api.core.security.controller;
 
-import app.lightmove.api.core.security.dto.AuthDtos.AuthResponse;
-import app.lightmove.api.core.security.dto.AuthDtos.ForgotPasswordRequest;
-import app.lightmove.api.core.security.dto.AuthDtos.LoginRequest;
-import app.lightmove.api.core.security.dto.AuthDtos.ResendVerificationRequest;
-import app.lightmove.api.core.security.dto.AuthDtos.ResetPasswordRequest;
-import app.lightmove.api.core.security.dto.AuthDtos.SignupRequest;
-import app.lightmove.api.core.security.dto.AuthDtos.UserResponse;
+import app.lightmove.api.core.security.dto.AuthResponse;
+import app.lightmove.api.core.security.dto.ForgotPasswordRequest;
+import app.lightmove.api.core.security.dto.LoginRequest;
+import app.lightmove.api.core.security.dto.ResendVerificationRequest;
+import app.lightmove.api.core.security.dto.ResetPasswordRequest;
+import app.lightmove.api.core.security.dto.SignupRequest;
+import app.lightmove.api.core.security.dto.UserResponse;
 import app.lightmove.api.core.security.service.AuthService;
 import app.lightmove.api.core.security.service.PasswordResetService;
 import app.lightmove.api.core.security.model.AuthenticatedSession;

@@ -3,12 +3,14 @@ package app.lightmove.api.company.service;
 import app.lightmove.api.company.constant.CompanySearchOrder;
 import app.lightmove.api.company.constant.CompanySortField;
 import app.lightmove.api.company.constant.SortDirection;
-import app.lightmove.api.company.dto.CompanyDtos.CompanySearchResult;
-import app.lightmove.api.company.dto.CompanyDtos.SectorCount;
-import app.lightmove.api.company.dto.CompanyDtos.SuggestionsResponse;
-import app.lightmove.api.company.dto.CompanyDtos.TagCount;
+import app.lightmove.api.company.dto.CompanySearchResult;
+import app.lightmove.api.company.dto.SectorCount;
+import app.lightmove.api.company.dto.SuggestionsResponse;
+import app.lightmove.api.company.dto.TagCount;
 import app.lightmove.api.company.model.CompanyKey;
 import app.lightmove.api.company.model.CompanyRefRow;
+import app.lightmove.api.company.model.CompanyRow;
+import app.lightmove.api.company.model.ScopeFilter;
 import app.lightmove.api.core.config.CompanySuggestionSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import java.sql.Array;
@@ -56,43 +58,6 @@ public class CompanyQueryService {
         this.adjacency = adjacency;
         this.suggestionsConfig = properties.company().suggestions();
     }
-
-    /**
-     * One scoped read's full set of criteria, bundled because {@link #estimate}/{@link #search} had
-     * outgrown a positional-parameter list. {@code directSectors}/{@code adjacentSectors} stay separate
-     * (rather than one combined list) purely so a matched row can report which bucket it came through.
-     * {@code employeeBands}/{@code revenueBands} are the wire-format range strings verbatim (e.g.
-     * {@code "1-10"}, {@code "<5M"}) — matched directly against the {@code employee_range}/
-     * {@code revenue_range} columns, never against the raw numeric {@code employee_count}/
-     * {@code revenue_usd} figures (those can be zero or missing on a row whose range is still known).
-     * {@code markets} are ISO-3166 alpha-2 codes, matched against {@code hq_country} or the {@code markets}
-     * array. {@code targetKeys} and {@code offLimitsKeys} companies are both excluded outright, regardless
-     * of any other match — targets are surfaced in the universe rather than the Sourcing list, off-limits
-     * are barred by mandate. {@code nameQuery} narrows the result to a case-insensitive substring of
-     * {@code name}; it lives here rather than beside the sort because it changes <i>which</i> companies
-     * match, so {@link #estimate} has to apply it too — a count taken without it would advertise thousands
-     * of matches over a dozen listed rows.
-     */
-    public record ScopeFilter(List<String> directSectors, List<String> adjacentSectors, List<String> tags,
-                              List<String> employeeBands, List<String> revenueBands, List<String> markets,
-                              List<CompanyKey> targetKeys, List<CompanyKey> offLimitsKeys, String nameQuery) {
-
-        public ScopeFilter {
-            nameQuery = nameQuery == null || nameQuery.isBlank() ? null : nameQuery.trim();
-        }
-    }
-
-    /**
-     * One row of the company universe, as read back for a filtered list. Wider than any single screen
-     * shows: the Sourcing table lets a user choose their columns, and a row is a few hundred bytes, so
-     * every offerable field travels rather than the query taking a field list and the response shape
-     * depending on client UI state.
-     */
-    public record CompanyRow(long id, String name, String domain, String website, String linkedinUrl,
-                              String logo, String slogan, String description, String primaryIndustry,
-                              List<String> industryTags, List<String> specialties, String hqCountry,
-                              String hqCity, String employeeRange, String revenueRange, Integer founded,
-                              String ownership, String ipoStatus, String orgType, String matchTier) {}
 
     /**
      * Hand-written rather than {@code query(CompanyRow.class)}: two components are {@code text[]}
@@ -278,10 +243,6 @@ public class CompanyQueryService {
         expr.append(" ELSE 'INFERRED' END");
         return expr.toString();
     }
-
-    private record WhereClause(String sql, Map<String, Object> params) {}
-
-    private record StatementParams(JdbcClient.StatementSpec spec) {}
 
     /**
      * The shared filter behind every scoped read: {@code scopeMatch AND NOT isTarget AND NOT isOffLimits}.

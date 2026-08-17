@@ -1,8 +1,8 @@
 package app.lightmove.api.workspace.controller;
 
 import app.lightmove.api.core.security.controller.AuthResponseAssembler;
-import app.lightmove.api.core.security.dto.AuthDtos.AuthResponse;
-import app.lightmove.api.core.security.dto.AuthDtos.UserResponse;
+import app.lightmove.api.core.security.dto.AuthResponse;
+import app.lightmove.api.core.security.dto.UserResponse;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.User;
@@ -10,10 +10,10 @@ import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.service.AuthService;
 import app.lightmove.api.core.security.service.CurrentUser;
 import app.lightmove.api.core.security.token.RefreshCookieFactory;
-import app.lightmove.api.workspace.dto.WorkspaceDtos.AcceptInvitationRequest;
-import app.lightmove.api.workspace.dto.WorkspaceDtos.AcceptInvitationSignupRequest;
-import app.lightmove.api.workspace.dto.WorkspaceDtos.CreateWorkspaceRequest;
-import app.lightmove.api.workspace.dto.WorkspaceDtos.InviteRequest;
+import app.lightmove.api.workspace.dto.AcceptInvitationRequest;
+import app.lightmove.api.workspace.dto.AcceptInvitationSignupRequest;
+import app.lightmove.api.workspace.dto.CreateWorkspaceRequest;
+import app.lightmove.api.workspace.dto.InviteRequest;
 import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 import app.lightmove.api.workspace.model.InviteCommand;
 import app.lightmove.api.workspace.model.PendingOnboarding;

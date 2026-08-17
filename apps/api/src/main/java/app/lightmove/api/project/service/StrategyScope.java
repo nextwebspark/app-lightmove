@@ -4,7 +4,7 @@ import app.lightmove.api.company.constant.CompanySizeAxis;
 import app.lightmove.api.company.constant.EmployeeBand;
 import app.lightmove.api.company.constant.RevenueBand;
 import app.lightmove.api.company.model.CompanyKey;
-import app.lightmove.api.company.service.CompanyQueryService.ScopeFilter;
+import app.lightmove.api.company.model.ScopeFilter;
 import app.lightmove.api.project.constant.GeographyMarket;
 import app.lightmove.api.project.constant.StrategySectorKind;
 import app.lightmove.api.project.model.Strategy;

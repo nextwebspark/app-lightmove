@@ -2,9 +2,9 @@ package app.lightmove.api.workspace.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.service.CurrentUser;
-import app.lightmove.api.workspace.dto.WorkspaceDtos.DeleteWorkspaceRequest;
-import app.lightmove.api.workspace.dto.WorkspaceDtos.UpdateWorkspaceSettingsRequest;
-import app.lightmove.api.workspace.dto.WorkspaceDtos.WorkspaceResponse;
+import app.lightmove.api.workspace.dto.DeleteWorkspaceRequest;
+import app.lightmove.api.workspace.dto.UpdateWorkspaceSettingsRequest;
+import app.lightmove.api.workspace.dto.WorkspaceResponse;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.service.WorkspaceSettingsService;
 import app.lightmove.api.workspace.service.WorkspaceSettingsService.WorkspaceDetail;

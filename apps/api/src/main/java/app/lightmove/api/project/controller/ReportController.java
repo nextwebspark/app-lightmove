@@ -2,7 +2,7 @@ package app.lightmove.api.project.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.service.CurrentUser;
-import app.lightmove.api.project.dto.ReportDtos.ReportResponse;
+import app.lightmove.api.project.dto.ReportResponse;
 import app.lightmove.api.project.service.ReportService;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;

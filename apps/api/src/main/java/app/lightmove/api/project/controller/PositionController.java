@@ -2,10 +2,10 @@ package app.lightmove.api.project.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.service.CurrentUser;
-import app.lightmove.api.project.dto.PositionDtos.PositionResponse;
-import app.lightmove.api.project.dto.PositionDtos.PutCompetenciesRequest;
-import app.lightmove.api.project.dto.PositionDtos.PutCriteriaRequest;
-import app.lightmove.api.project.dto.PositionDtos.UpdatePositionRequest;
+import app.lightmove.api.project.dto.PositionResponse;
+import app.lightmove.api.project.dto.PutCompetenciesRequest;
+import app.lightmove.api.project.dto.PutCriteriaRequest;
+import app.lightmove.api.project.dto.UpdatePositionRequest;
 import app.lightmove.api.project.service.PositionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
