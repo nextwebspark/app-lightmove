@@ -1,7 +1,6 @@
 package app.lightmove.api.project.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
-import app.lightmove.api.core.security.service.CurrentUser;
 import app.lightmove.api.project.dto.PositionResponse;
 import app.lightmove.api.project.dto.PutCompetenciesRequest;
 import app.lightmove.api.project.dto.PutCriteriaRequest;
@@ -13,6 +12,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -37,55 +37,55 @@ public class PositionController {
 
     @GetMapping
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
-    public ResponseEntity<PositionResponse> get(@PathVariable UUID projectId) {
-        AuthPrincipal principal = CurrentUser.require();
+    public ResponseEntity<PositionResponse> get(@AuthenticationPrincipal AuthPrincipal principal,
+                                                @PathVariable UUID projectId) {
         return ResponseEntity.ok(position.get(principal.requireWorkspaceId(), projectId));
     }
 
     @PutMapping
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionResponse> update(@PathVariable UUID projectId,
+    public ResponseEntity<PositionResponse> update(@AuthenticationPrincipal AuthPrincipal principal,
+                                                   @PathVariable UUID projectId,
                                                    @Valid @RequestBody UpdatePositionRequest request,
                                                    HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(position.update(
                 principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
     }
 
     @PutMapping("/criteria")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionResponse> putCriteria(@PathVariable UUID projectId,
+    public ResponseEntity<PositionResponse> putCriteria(@AuthenticationPrincipal AuthPrincipal principal,
+                                                        @PathVariable UUID projectId,
                                                         @Valid @RequestBody PutCriteriaRequest request,
                                                         HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(position.putCriteria(
                 principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
     }
 
     @PutMapping("/competencies")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionResponse> putCompetencies(@PathVariable UUID projectId,
+    public ResponseEntity<PositionResponse> putCompetencies(@AuthenticationPrincipal AuthPrincipal principal,
+                                                            @PathVariable UUID projectId,
                                                             @Valid @RequestBody PutCompetenciesRequest request,
                                                             HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(position.putCompetencies(
                 principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
     }
 
     @PostMapping("/lock")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionResponse> lock(@PathVariable UUID projectId,
+    public ResponseEntity<PositionResponse> lock(@AuthenticationPrincipal AuthPrincipal principal,
+                                                 @PathVariable UUID projectId,
                                                  HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(position.lock(
                 principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
     }
 
     @PostMapping("/unlock")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'POSITION_UNLOCK')")
-    public ResponseEntity<PositionResponse> unlock(@PathVariable UUID projectId,
+    public ResponseEntity<PositionResponse> unlock(@AuthenticationPrincipal AuthPrincipal principal,
+                                                   @PathVariable UUID projectId,
                                                    HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(position.unlock(
                 principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
     }

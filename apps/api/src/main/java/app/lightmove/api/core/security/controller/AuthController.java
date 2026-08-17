@@ -21,7 +21,6 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.model.AuthPrincipal;
-import app.lightmove.api.core.security.service.CurrentUser;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -33,6 +32,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.csrf.CsrfToken;
@@ -188,8 +188,7 @@ public class AuthController {
 
     /** The current user. The SPA calls this on boot to rehydrate. */
     @GetMapping("/me")
-    public ResponseEntity<UserResponse> me() {
-        AuthPrincipal principal = CurrentUser.require();
+    public ResponseEntity<UserResponse> me(@AuthenticationPrincipal AuthPrincipal principal) {
         User user = authentication.requireUser(principal.userId());
         return ResponseEntity.ok(assembler.user(user, membershipOf(user)));
     }
@@ -207,9 +206,9 @@ public class AuthController {
      * tenant data, and someone still waiting on their inbox may already type their name into signup.
      */
     @PatchMapping("/me")
-    public ResponseEntity<UserResponse> updateProfile(@Valid @RequestBody UpdateProfileRequest request,
+    public ResponseEntity<UserResponse> updateProfile(@AuthenticationPrincipal AuthPrincipal principal,
+                                                      @Valid @RequestBody UpdateProfileRequest request,
                                                       HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         User user = userProfile.update(
                 principal.userId(),
                 principal.workspaceId(),

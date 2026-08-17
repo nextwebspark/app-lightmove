@@ -82,8 +82,9 @@ public class JwtPrincipalConverter implements Converter<Jwt, AbstractAuthenticat
     }
 
     /**
-     * Carries the {@link AuthPrincipal} as the principal, so {@code CurrentUser.require()} returns the
-     * domain type rather than a raw {@link Jwt} that every call site would have to re-parse.
+     * Carries the {@link AuthPrincipal} as the principal, so a controller's
+     * {@code @AuthenticationPrincipal AuthPrincipal} parameter resolves to the domain type rather than a
+     * raw {@link Jwt} that every call site would have to re-parse.
      */
     static final class JwtPrincipalAuthentication extends AbstractAuthenticationToken {
 

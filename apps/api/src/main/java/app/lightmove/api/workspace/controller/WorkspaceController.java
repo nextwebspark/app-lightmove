@@ -1,7 +1,6 @@
 package app.lightmove.api.workspace.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
-import app.lightmove.api.core.security.service.CurrentUser;
 import app.lightmove.api.workspace.dto.DeleteWorkspaceRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceSettingsRequest;
 import app.lightmove.api.workspace.dto.WorkspaceResponse;
@@ -13,6 +12,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -33,17 +33,16 @@ public class WorkspaceController {
 
     @GetMapping
     @PreAuthorize("@workspaceAuthorizer.staff(principal)")
-    public ResponseEntity<WorkspaceResponse> get() {
-        AuthPrincipal principal = CurrentUser.require();
+    public ResponseEntity<WorkspaceResponse> get(@AuthenticationPrincipal AuthPrincipal principal) {
         return ResponseEntity.ok(toResponse(
                 settings.get(principal.requireWorkspaceId())));
     }
 
     @PatchMapping
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'WORKSPACE_MANAGE')")
-    public ResponseEntity<WorkspaceResponse> update(@Valid @RequestBody UpdateWorkspaceSettingsRequest request,
+    public ResponseEntity<WorkspaceResponse> update(@AuthenticationPrincipal AuthPrincipal principal,
+                                                    @Valid @RequestBody UpdateWorkspaceSettingsRequest request,
                                                     HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(toResponse(settings.update(
                 principal.userId(), principal.requireWorkspaceId(),
                 request.name(), request.defaultRegion(), request.defaultCurrency(), httpRequest)));
@@ -51,9 +50,9 @@ public class WorkspaceController {
 
     @DeleteMapping
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'WORKSPACE_MANAGE')")
-    public ResponseEntity<Void> delete(@Valid @RequestBody DeleteWorkspaceRequest request,
+    public ResponseEntity<Void> delete(@AuthenticationPrincipal AuthPrincipal principal,
+                                       @Valid @RequestBody DeleteWorkspaceRequest request,
                                        HttpServletRequest httpRequest) {
-        AuthPrincipal principal = CurrentUser.require();
         settings.delete(principal.userId(), principal.requireWorkspaceId(),
                 request.confirmName(), httpRequest);
         return ResponseEntity.noContent().build();
