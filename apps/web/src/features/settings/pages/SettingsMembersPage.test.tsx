@@ -38,6 +38,8 @@ describe("SettingsMembersPage — the roster", () => {
     title: null,
     avatarUrl: null,
     emailVerified: true,
+    timezone: "Asia/Dubai",
+    locale: "en",
     onboardingHeld: false,
     pendingInvitation: null,
     workspace: {
@@ -46,6 +48,7 @@ describe("SettingsMembersPage — the roster", () => {
       slug: "nextwebspark-search",
       logoMark: "N",
       emailDomain: "nextwebspark.com",
+      joinedAt: null,
       roles: ["ADMIN" as const],
     },
   };

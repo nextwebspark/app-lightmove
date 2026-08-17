@@ -6,10 +6,13 @@ import app.lightmove.api.core.security.dto.LoginRequest;
 import app.lightmove.api.core.security.dto.ResendVerificationRequest;
 import app.lightmove.api.core.security.dto.ResetPasswordRequest;
 import app.lightmove.api.core.security.dto.SignupRequest;
+import app.lightmove.api.core.security.dto.UpdateProfileRequest;
 import app.lightmove.api.core.security.dto.UserResponse;
 import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.service.PasswordResetService;
+import app.lightmove.api.core.security.service.UserProfileService;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
+import app.lightmove.api.core.security.model.ProfileUpdateCommand;
 import app.lightmove.api.core.security.model.SignupCommand;
 import app.lightmove.api.core.security.service.VerificationService;
 import app.lightmove.api.core.security.model.User;
@@ -35,6 +38,7 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -56,6 +60,7 @@ public class AuthController {
     private final AuthenticationService authentication;
     private final VerificationService verification;
     private final PasswordResetService passwordReset;
+    private final UserProfileService userProfile;
     private final RefreshCookieFactory refreshCookie;
     private final RateLimitGuard rateLimit;
     private final AuthResponseAssembler assembler;
@@ -140,8 +145,7 @@ public class AuthController {
     public ResponseEntity<UserResponse> verify(@RequestParam("token") String token,
                                                HttpServletRequest httpRequest) {
         User user = verification.verify(token, httpRequest);
-        WorkspaceMember membership = authentication.activeMembership(user.getId()).orElse(null);
-        return ResponseEntity.ok(assembler.user(user, membership));
+        return ResponseEntity.ok(assembler.user(user, membershipOf(user)));
     }
 
     /**
@@ -187,8 +191,33 @@ public class AuthController {
     public ResponseEntity<UserResponse> me() {
         AuthPrincipal principal = CurrentUser.require();
         User user = authentication.requireUser(principal.userId());
-        WorkspaceMember membership = authentication.activeMembership(user.getId()).orElse(null);
-        return ResponseEntity.ok(assembler.user(user, membership));
+        return ResponseEntity.ok(assembler.user(user, membershipOf(user)));
+    }
+
+    /**
+     * Settings → Profile.
+     *
+     * <p>Same URL as the {@code GET}, because it is the same resource: the caller themselves. Which
+     * user is edited comes from the principal and never from the request, so there is nothing here to
+     * authorise — and no {@code @PreAuthorize}, exactly as on {@code GET /me}.
+     *
+     * <p>Two consequences of living on the auth chain, both intended. It is <b>CSRF-protected</b> like
+     * every other state change under {@code /auth} — the SPA sends the double-submit header. And it is
+     * authenticated but <b>not verified-email gated</b>: this row is the caller's own account, not
+     * tenant data, and someone still waiting on their inbox may already type their name into signup.
+     */
+    @PatchMapping("/me")
+    public ResponseEntity<UserResponse> updateProfile(@Valid @RequestBody UpdateProfileRequest request,
+                                                      HttpServletRequest httpRequest) {
+        AuthPrincipal principal = CurrentUser.require();
+        User user = userProfile.update(
+                principal.userId(),
+                principal.workspaceId(),
+                new ProfileUpdateCommand(
+                        request.fullName(), request.title(), request.timezone(), request.locale()),
+                httpRequest);
+
+        return ResponseEntity.ok(assembler.user(user, membershipOf(user)));
     }
 
     /**
@@ -230,6 +259,10 @@ public class AuthController {
     }
 
     public record AuthProviders(List<String> providers) {
+    }
+
+    private WorkspaceMember membershipOf(User user) {
+        return authentication.activeMembership(user.getId()).orElse(null);
     }
 
     /** The one place the refresh token is written to a cookie, and why it never reaches a response body. */

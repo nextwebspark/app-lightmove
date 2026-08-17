@@ -50,6 +50,8 @@ public class AuthResponseAssembler {
                 user.getTitle(),
                 user.getAvatarUrl(),
                 user.isEmailVerified(),
+                user.getTimezone(),
+                user.getLocale(),
                 workspace,
                 // Only meaningful for an unverified user: verifying materialises the wizard, so a
                 // verified one never has anything held.
@@ -108,6 +110,7 @@ public class AuthResponseAssembler {
                 workspace.getSlug(),
                 workspace.getLogoMark(),
                 WorkspaceRole.isStaff(roles) ? workspace.getEmailDomain() : null,
-                roles);
+                roles,
+                membership.getJoinedAt());
     }
 }

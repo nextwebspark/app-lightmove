@@ -36,6 +36,7 @@ const workspace = {
   slug: "nextwebspark-search",
   logoMark: "N",
   emailDomain: "nextwebspark.com",
+  joinedAt: null,
 };
 
 const userOf = (roles: ("ADMIN" | "MEMBER")[]) => ({
@@ -45,6 +46,8 @@ const userOf = (roles: ("ADMIN" | "MEMBER")[]) => ({
   title: null,
   avatarUrl: null,
   emailVerified: true,
+  timezone: "Asia/Dubai",
+  locale: "en",
   onboardingHeld: false,
   pendingInvitation: null,
   workspace: { ...workspace, roles },

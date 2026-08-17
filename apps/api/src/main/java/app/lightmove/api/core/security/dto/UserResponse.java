@@ -12,6 +12,12 @@ public record UserResponse(
         String avatarUrl,
         boolean emailVerified,
 
+        /** IANA zone id — the app formats dates in it. Defaults to Asia/Dubai until the user says otherwise. */
+        String timezone,
+
+        /** The language tag the user picked in Settings → Profile. Stored ahead of the app being translated. */
+        String locale,
+
         /** Null until signup step 2 — the frontend routes into the app or back into the wizard on it. */
         WorkspaceSummary workspace,
 

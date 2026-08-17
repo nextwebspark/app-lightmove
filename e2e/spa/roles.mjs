@@ -106,7 +106,10 @@ try {
   const member = await signIn(cast.MEMBER_EMAIL, "member");
   const memberNav = await navOf(member.page);
   note("S1.3", `MEMBER nav: ${memberNav.join(" | ")}`);
-  check("S1.4", "a plain member is NOT offered Settings", false, memberNav.some((i) => /settings/i.test(i)));
+  // Settings stopped being admin-only when the Account group arrived: Profile is the caller's own
+  // account, so the rail offers it to every staff member and lands them on that section. The workspace
+  // sections behind it are still admin-gated — S2.1 and S2.2 are what hold that line.
+  check("S1.4", "a plain member is offered Settings — their own account", true, memberNav.some((i) => /settings/i.test(i)));
   check("S1.5", "but is offered Clients", true, memberNav.some((i) => /clients/i.test(i)));
   check("S1.6", "and Team", true, memberNav.some((i) => /team/i.test(i)));
 
@@ -130,6 +133,12 @@ try {
   check("S2.2", "and to /settings/general", "/", await landsOn(member.page, "/settings/general"));
   await member.page.screenshot({ path: join(SHOTS, "roles-member-settings-deeplink.png"), fullPage: true });
 
+  // The other half of the same rule: the workspace sections bounce them, their own account does not.
+  check("S2.2b", "but a member reaches their own profile", "/settings/profile", await landsOn(member.page, "/settings/profile"));
+  const memberProfile = await member.page.locator("body").innerText();
+  check("S2.2c", "which carries their own identity", true, /Mel Member/.test(memberProfile));
+  check("S2.2d", "and offers them no workspace sections", false, /general/i.test((await navOf(member.page)).join(" ")));
+
   // OPEN BUG (see workspace-role-findings.md, B1). Only /settings/* is guarded, by RequireAdmin.
   // /clients and /team sit under RequireWorkspace alone, so a portal guest who types the URL is
   // served the staff page. The API refuses the data, but the surface renders.
@@ -143,6 +152,13 @@ try {
   check("S2.4", "a pure client deep-linking to /team is bounced", "/", await landsOn(client.page, "/team"));
   await client.page.screenshot({ path: join(SHOTS, "roles-client-team-deeplink.png"), fullPage: true });
   check("S2.5", "and to /settings/general is bounced", "/", await landsOn(client.page, "/settings/general"));
+
+  // A portal guest has a name and a timezone like anyone else, so Account is theirs too. Their rail
+  // carries no Settings (S1.10) by design — the topbar's "Your profile" is their way in, and the route
+  // must therefore admit them rather than bounce them like the workspace sections above.
+  check("S2.5b", "but a pure client reaches their own profile", "/settings/profile", await landsOn(client.page, "/settings/profile"));
+  check("S2.5c", "which carries their own identity", true,
+    /Cass Client/.test(await client.page.locator("body").innerText()));
 
   // The mandate they are not attached to. The list never shows it, but the URL is guessable.
   const unattached = await landsOn(client.page, `/projects/${cast.OTHER_PROJECT_ID}`);
@@ -229,6 +245,14 @@ try {
 
   check("S5.4", "the admin reaches general settings", "/settings/general", await landsOn(admin.page, "/settings/general"));
   await admin.page.screenshot({ path: join(SHOTS, "roles-admin-general.png"), fullPage: true });
+
+  // Bare /settings redirects to the landing section, which is Profile for everyone — the only section
+  // a non-admin may read, so the redirect cannot depend on the caller's role.
+  check("S5.5", "bare /settings lands on Profile", "/settings/profile", await landsOn(admin.page, "/settings"));
+  const adminProfile = await admin.page.locator("body").innerText();
+  check("S5.6", "and the admin's own profile states the standing it will not let them edit", true,
+    /set by workspace owner/.test(adminProfile));
+  await admin.page.screenshot({ path: join(SHOTS, "roles-admin-profile.png"), fullPage: true });
 } catch (error) {
   fail("SPA", "the browser run completed", String(error).slice(0, 400));
 } finally {

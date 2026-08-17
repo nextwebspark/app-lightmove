@@ -17,6 +17,8 @@ export interface WorkspaceSummary {
   emailDomain: string | null;
   /** The caller's workspace roles — a set. Admin checks read `roles.includes("ADMIN")`. */
   roles: WorkspaceRole[];
+  /** When this membership became active. Settings → Profile reads it as "joined Mar 2026". */
+  joinedAt: string | null;
 }
 
 export interface User {
@@ -26,6 +28,11 @@ export interface User {
   title: string | null;
   avatarUrl: string | null;
   emailVerified: boolean;
+
+  /** IANA zone id, e.g. "Asia/Dubai" — the user's own choice in Settings → Profile. */
+  timezone: string;
+  /** Their language tag ("en" | "ar" | "fr"), stored ahead of the app being translated. */
+  locale: string;
 
   /**
    * Null until the user has created a workspace or accepted an invitation. The router reads this to
@@ -75,6 +82,17 @@ export interface SignupRequest {
 export interface LoginRequest {
   email: string;
   password: string;
+}
+
+/**
+ * Settings → Profile. No email and no role: the address is the identity, and authority is granted by
+ * an admin — neither is the holder's to change here.
+ */
+export interface UpdateProfileRequest {
+  fullName: string;
+  title: string | null;
+  timezone: string;
+  locale: string;
 }
 
 export interface CreateWorkspaceRequest {

@@ -19,7 +19,6 @@ export function WorkspaceLayout() {
   const { user } = useAuth();
   const verified = user?.emailVerified ?? false;
   const roles = user?.workspace?.roles ?? [];
-  const isAdmin = roles.includes("ADMIN");
   const clientOnly = isPureClient(roles);
 
   const { data: projects } = useQuery({
@@ -66,9 +65,10 @@ export function WorkspaceLayout() {
           items: [
             { to: "/clients", label: "Clients", icon: ICONS.clients, count: clients?.length },
             { to: "/team", label: "Team", icon: ICONS.team, count: members?.length },
-            ...(isAdmin
-              ? [{ to: "/settings/general", label: "Settings", icon: ICONS.settings }]
-              : []),
+            // Every staff member's, not just an admin's: the rail lands on the section everyone can
+            // read (Profile), and the shell hides the workspace sections from a non-admin. An admin
+            // reaching for workspace settings has the topbar dropdown's direct link.
+            { to: "/settings/profile", label: "Settings", icon: ICONS.settings },
           ],
         },
       ];

@@ -23,6 +23,10 @@ public enum AuthEventType implements AuditEventType {
     /** The one that should page someone. A stolen refresh token is being replayed. */
     TOKEN_REUSE_DETECTED,
 
+    // Profile
+    /** The user edited their own display fields. Their name is what a colleague identifies them by. */
+    PROFILE_UPDATED,
+
     // Credentials
     PASSWORD_CHANGED,
     PASSWORD_RESET_REQUESTED,

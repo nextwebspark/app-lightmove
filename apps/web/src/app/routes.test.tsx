@@ -22,6 +22,7 @@ vi.mock("../features/clients/api/clientsApi", async (importOriginal) => ({
 vi.mock("../features/workspace/api/workspaceApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../features/workspace/api/workspaceApi")>()),
   members: vi.fn(),
+  workspace: vi.fn(),
 }));
 vi.mock("../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../lib/apiClient")>()),
@@ -38,6 +39,8 @@ const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[]) => ({
   title: null,
   avatarUrl: null,
   emailVerified: true,
+  timezone: "Asia/Dubai",
+  locale: "en",
   onboardingHeld: false,
   pendingInvitation: null,
   workspace: {
@@ -46,6 +49,7 @@ const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[]) => ({
     slug: "meridian",
     logoMark: "M",
     emailDomain: "firm.example",
+    joinedAt: null,
     roles,
   },
 });
@@ -112,5 +116,62 @@ describe("routes — the staff guard", () => {
     renderAt("/team");
 
     expect(await screen.findByText(/0 members/)).toBeInTheDocument();
+  });
+});
+
+/**
+ * Settings is two gates behind one shell. Account is the caller's own account, so a member — and a
+ * portal guest, who has a name and a timezone like anyone else — must reach it; the workspace sections
+ * stay admin-only. Gating the whole area on ADMIN, as it once was, left a non-admin no settings at all.
+ */
+describe("routes — the settings gates", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(projectsApi.projects).mockResolvedValue([]);
+    vi.mocked(clientsApi.clients).mockResolvedValue([]);
+    vi.mocked(workspaceApi.members).mockResolvedValue([]);
+  });
+
+  it("lands /settings on Profile, the section everyone can read", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["MEMBER"]));
+
+    renderAt("/settings");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("pathname").textContent).toBe("/settings/profile"),
+    );
+    expect(await screen.findByText("How you appear across the workspace")).toBeInTheDocument();
+  });
+
+  it.each(["/settings/general", "/settings/members"])(
+    "bounces a non-admin who types %s",
+    async (path) => {
+      vi.mocked(authApi.me).mockResolvedValue(userWith(["MEMBER"]));
+
+      renderAt(path);
+
+      await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/"));
+    },
+  );
+
+  it("keeps the workspace sections for an admin", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"]));
+    vi.mocked(workspaceApi.workspace).mockResolvedValue({
+      id: "w1",
+      name: "Meridian",
+      slug: "meridian",
+      logoMark: "M",
+      emailDomain: "firm.example",
+      defaultRegion: "GCC",
+      defaultCurrency: "USD",
+      plan: "FREE",
+      memberCount: 1,
+      createdAt: "2026-03-14T09:00:00Z",
+    });
+
+    renderAt("/settings/general");
+
+    expect(await screen.findByText("Workspace identity and defaults")).toBeInTheDocument();
   });
 });

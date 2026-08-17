@@ -49,6 +49,8 @@ describe("ProjectsPage — pure client", () => {
     title: null,
     avatarUrl: null,
     emailVerified: true,
+    timezone: "Asia/Dubai",
+    locale: "en",
     onboardingHeld: false,
     pendingInvitation: null,
     workspace: {
@@ -57,6 +59,7 @@ describe("ProjectsPage — pure client", () => {
       slug: "access-firm",
       logoMark: "A",
       emailDomain: "access-firm.com",
+      joinedAt: null,
       roles: ["CLIENT" as const],
     },
   };

@@ -81,6 +81,8 @@ describe("SignupPage", () => {
         title: null,
         avatarUrl: null,
         emailVerified: false,
+        timezone: "Asia/Dubai",
+        locale: "en",
         onboardingHeld: false,
         pendingInvitation: null,
         workspace: null,

@@ -18,6 +18,8 @@ const SIZES = {
   sm: "size-6 text-[10px]",
   md: "size-[26px] text-[10px]",
   lg: "size-[30px] text-[10px]",
+  /** The identity tile on Settings → Profile, where the person is the subject of the screen. */
+  xl: "size-[52px] text-[17px]",
 } as const;
 
 export function Avatar({

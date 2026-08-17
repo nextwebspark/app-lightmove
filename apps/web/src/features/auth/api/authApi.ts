@@ -7,6 +7,7 @@ import type {
   InviteRequest,
   LoginRequest,
   SignupRequest,
+  UpdateProfileRequest,
   User,
 } from "./types";
 
@@ -44,6 +45,16 @@ export async function logout(): Promise<void> {
 
 export function me(): Promise<User> {
   return request<User>("/auth/me");
+}
+
+/**
+ * Settings → Profile. Which user is written comes from the session, so there is no id to pass.
+ *
+ * `withCsrf` because this is a state change on the auth chain, where CSRF stays on — the same
+ * double-submit refresh and logout use.
+ */
+export function updateProfile(payload: UpdateProfileRequest): Promise<User> {
+  return request<User>("/auth/me", { method: "PATCH", body: payload, withCsrf: true });
 }
 
 export function providers(): Promise<AuthProviders> {

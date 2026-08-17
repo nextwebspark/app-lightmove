@@ -72,6 +72,8 @@ describe("ReportsPage", () => {
     title: null,
     avatarUrl: null,
     emailVerified: true,
+    timezone: "Asia/Dubai",
+    locale: "en",
     onboardingHeld: false,
     pendingInvitation: null,
     workspace: {
@@ -80,6 +82,7 @@ describe("ReportsPage", () => {
       slug: "firm",
       logoMark: "F",
       emailDomain: "firm.example",
+      joinedAt: null,
       roles,
     },
   });
