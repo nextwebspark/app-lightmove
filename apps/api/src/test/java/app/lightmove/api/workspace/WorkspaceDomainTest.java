@@ -1,8 +1,10 @@
 package app.lightmove.api.workspace;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.RoleScope;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
@@ -35,9 +37,14 @@ class WorkspaceDomainTest {
         membership.remove();
 
         assertThat(membership.getStatus()).isEqualTo(MemberStatus.REMOVED);
-        assertThatIllegalStateException()
-                .isThrownBy(() -> membership.changeRoles(Set.of(admin)));
-        assertThatIllegalStateException().isThrownBy(membership::remove);
+        assertThatThrownBy(() -> membership.changeRoles(Set.of(admin)))
+                .isInstanceOf(ApiException.class)
+                .extracting(ex -> ((ApiException) ex).getCode())
+                .isEqualTo(ErrorCode.CONFLICT);
+        assertThatThrownBy(membership::remove)
+                .isInstanceOf(ApiException.class)
+                .extracting(ex -> ((ApiException) ex).getCode())
+                .isEqualTo(ErrorCode.CONFLICT);
     }
 
     @Test
@@ -59,7 +66,10 @@ class WorkspaceDomainTest {
 
         workspace.delete();
 
-        assertThatIllegalStateException().isThrownBy(workspace::delete);
+        assertThatThrownBy(workspace::delete)
+                .isInstanceOf(ApiException.class)
+                .extracting(ex -> ((ApiException) ex).getCode())
+                .isEqualTo(ErrorCode.CONFLICT);
     }
 
     @Test
@@ -73,7 +83,10 @@ class WorkspaceDomainTest {
 
         assertThat(invitation.getStatus()).isEqualTo(InvitationStatus.REVOKED);
         assertThat(invitation.isRedeemable(now)).isFalse();
-        assertThatIllegalStateException().isThrownBy(invitation::revoke);
+        assertThatThrownBy(invitation::revoke)
+                .isInstanceOf(ApiException.class)
+                .extracting(ex -> ((ApiException) ex).getCode())
+                .isEqualTo(ErrorCode.CONFLICT);
     }
 
     @Test
@@ -84,6 +97,9 @@ class WorkspaceDomainTest {
                 member, "hash", someone, now.plusSeconds(3600));
         invitation.accept(someone, now);
 
-        assertThatIllegalStateException().isThrownBy(invitation::revoke);
+        assertThatThrownBy(invitation::revoke)
+                .isInstanceOf(ApiException.class)
+                .extracting(ex -> ((ApiException) ex).getCode())
+                .isEqualTo(ErrorCode.CONFLICT);
     }
 }
