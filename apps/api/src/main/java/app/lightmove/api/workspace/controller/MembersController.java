@@ -49,7 +49,7 @@ public class MembersController {
 
     /** The active roster, visible to any staff member. */
     @GetMapping
-    @PreAuthorize("@workspaceAuth.staff(principal)")
+    @PreAuthorize("@workspaceAuthorizer.staff(principal)")
     public ResponseEntity<List<MemberResponse>> list() {
         AuthPrincipal principal = CurrentUser.require();
         List<WorkspaceMember> roster = access.activeStaff(principal.requireWorkspaceId());
@@ -65,7 +65,7 @@ public class MembersController {
     }
 
     @PatchMapping("/{memberId}")
-    @PreAuthorize("@workspaceAuth.can(principal, 'MEMBER_MANAGE')")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'MEMBER_MANAGE')")
     public ResponseEntity<MemberResponse> changeRoles(@PathVariable UUID memberId,
                                                       @Valid @RequestBody ChangeRolesRequest request,
                                                       HttpServletRequest httpRequest) {
@@ -78,7 +78,7 @@ public class MembersController {
     }
 
     @DeleteMapping("/{memberId}")
-    @PreAuthorize("@workspaceAuth.can(principal, 'MEMBER_MANAGE')")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'MEMBER_MANAGE')")
     public ResponseEntity<Void> remove(@PathVariable UUID memberId, HttpServletRequest httpRequest) {
         AuthPrincipal principal = CurrentUser.require();
         memberService.remove(principal.userId(), principal.requireWorkspaceId(), memberId, httpRequest);

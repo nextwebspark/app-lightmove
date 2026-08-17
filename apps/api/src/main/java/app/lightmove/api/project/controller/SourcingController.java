@@ -28,7 +28,7 @@ public class SourcingController {
     private final SourcingService sourcing;
 
     @GetMapping
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'WORK_VIEW')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
     public ResponseEntity<SourcingResponse> get(@PathVariable UUID projectId,
                                                  @RequestParam(name = "q", required = false) String query,
                                                  @RequestParam(required = false) String sort,

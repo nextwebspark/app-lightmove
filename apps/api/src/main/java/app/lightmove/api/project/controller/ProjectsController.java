@@ -45,14 +45,14 @@ public class ProjectsController {
     private final ClientRepresentativeService representatives;
 
     @GetMapping
-    @PreAuthorize("@workspaceAuth.member(principal)")
+    @PreAuthorize("@workspaceAuthorizer.member(principal)")
     public ResponseEntity<List<ProjectResponse>> list() {
         AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(projects.list(principal.userId(), principal.requireWorkspaceId()));
     }
 
     @PostMapping
-    @PreAuthorize("@workspaceAuth.can(principal, 'PROJECT_CREATE')")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_CREATE')")
     public ResponseEntity<ProjectResponse> create(@Valid @RequestBody CreateProjectRequest request,
                                                   HttpServletRequest httpRequest) {
         AuthPrincipal principal = CurrentUser.require();
@@ -62,7 +62,7 @@ public class ProjectsController {
     }
 
     @PatchMapping("/{projectId}")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
     public ResponseEntity<ProjectResponse> update(@PathVariable UUID projectId,
                                                   @Valid @RequestBody UpdateProjectRequest request,
                                                   HttpServletRequest httpRequest) {
@@ -73,7 +73,7 @@ public class ProjectsController {
 
     /** Seats the member with this staff role, or moves an existing seat to it. Idempotent. */
     @PutMapping("/{projectId}/members/{memberId}")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'TEAM_MANAGE')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'TEAM_MANAGE')")
     public ResponseEntity<ProjectResponse> putMember(@PathVariable UUID projectId,
                                                      @PathVariable UUID memberId,
                                                      @Valid @RequestBody PutTeamMemberRequest request,
@@ -85,7 +85,7 @@ public class ProjectsController {
     }
 
     @DeleteMapping("/{projectId}/members/{memberId}")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'TEAM_MANAGE')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'TEAM_MANAGE')")
     public ResponseEntity<ProjectResponse> removeMember(@PathVariable UUID projectId,
                                                         @PathVariable UUID memberId,
                                                         HttpServletRequest httpRequest) {
@@ -96,7 +96,7 @@ public class ProjectsController {
 
     /** Map a representative the registry already holds onto this mandate — the lead's decision. */
     @PostMapping("/{projectId}/representatives")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'CLIENT_ACCESS_MANAGE')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'CLIENT_ACCESS_MANAGE')")
     public ResponseEntity<ProjectResponse> attachRepresentative(
             @PathVariable UUID projectId,
             @Valid @RequestBody AttachRepresentativeRequest request,
@@ -115,8 +115,8 @@ public class ProjectsController {
      * mandate's lead can still do the first, through the registry — just not both at once, here.
      */
     @PostMapping("/{projectId}/representatives/invitations")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'CLIENT_ACCESS_MANAGE') "
-            + "and @workspaceAuth.can(principal, 'CLIENT_RECORD_MANAGE')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'CLIENT_ACCESS_MANAGE') "
+            + "and @workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
     public ResponseEntity<ProjectResponse> inviteRepresentative(
             @PathVariable UUID projectId,
             @Valid @RequestBody InviteRepresentativeRequest request,
@@ -128,7 +128,7 @@ public class ProjectsController {
     }
 
     @DeleteMapping("/{projectId}/representatives/{representativeId}")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'CLIENT_ACCESS_MANAGE')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'CLIENT_ACCESS_MANAGE')")
     public ResponseEntity<ProjectResponse> detachRepresentative(@PathVariable UUID projectId,
                                                                 @PathVariable UUID representativeId,
                                                                 HttpServletRequest httpRequest) {

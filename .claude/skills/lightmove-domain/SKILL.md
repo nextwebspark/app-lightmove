@@ -72,10 +72,11 @@ RBAC is data (`core/security/rbac`): `app_lm_role` / `app_lm_action` / `app_lm_r
 catalogs, memberships and project seats hold role **sets** via assignment tables, and permissions are
 the union of the roles' actions. Adding a role or action = an INSERT migration + an enum constant;
 `RbacCatalogTest` fails the build if the two drift. Controllers declare the gate with `@PreAuthorize`
-over actions (`@workspaceAuth.can(principal, 'MEMBER_INVITE')`, `@projectAuth.can(principal,
-#projectId, 'TEAM_MANAGE')`); the guard beans **re-read the database** on every check and enforce by
-throwing `ApiException`, so denials keep their codes and the 404 masking. The JWT's `roles` claim is
-coarse material only — up to 15 minutes stale, never trusted for a role-sensitive decision.
+over actions (`@workspaceAuthorizer.can(principal, 'MEMBER_INVITE')`,
+`@projectAuthorizer.can(principal, #projectId, 'TEAM_MANAGE')`); the guard beans **re-read the
+database** on every check and enforce by throwing `ApiException`, so denials keep their codes and
+the 404 masking. The JWT's `roles` claim is coarse material only — up to 15 minutes stale, never trusted
+for a role-sensitive decision.
 Annotations live on **controllers only**: services reachable outside a request's SecurityContext
 (everything `PendingOnboardingMaterialiser` calls with its synthetic principal) keep imperative checks.
 Invariants that need loaded state stay imperative too — a workspace keeps ≥1 holder of the workspace
@@ -101,9 +102,9 @@ A project's **content** reads (its strategy, position brief, and future tables) 
 project action `WORK_VIEW` (held by every seated role including CLIENT; workspace-admin bypasses),
 **not** workspace `PROJECT_BROWSE` — a mandate's scope and brief are team-only. `WORK_EXECUTE` is the
 write half, held by the staff roles and never CLIENT, so read and write access can be granted apart.
-The project *list* rides any active membership (`@workspaceAuth.member`; the service scopes a pure
-client to the mandates they're seated on), and shared reference data (`CompanyReferenceController`)
-rides `PROJECT_BROWSE`: existence isn't secret, content is.
+The project *list* rides any active membership (`@workspaceAuthorizer.member`; the service scopes a
+pure client to the mandates they're seated on), and shared reference data
+(`CompanyReferenceController`) rides `PROJECT_BROWSE`: existence isn't secret, content is.
 
 ## An identity provider is configuration, not code
 

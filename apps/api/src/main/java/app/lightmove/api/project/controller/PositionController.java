@@ -36,14 +36,14 @@ public class PositionController {
     private final PositionService position;
 
     @GetMapping
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'WORK_VIEW')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
     public ResponseEntity<PositionResponse> get(@PathVariable UUID projectId) {
         AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(position.get(principal.requireWorkspaceId(), projectId));
     }
 
     @PutMapping
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
     public ResponseEntity<PositionResponse> update(@PathVariable UUID projectId,
                                                    @Valid @RequestBody UpdatePositionRequest request,
                                                    HttpServletRequest httpRequest) {
@@ -53,7 +53,7 @@ public class PositionController {
     }
 
     @PutMapping("/criteria")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
     public ResponseEntity<PositionResponse> putCriteria(@PathVariable UUID projectId,
                                                         @Valid @RequestBody PutCriteriaRequest request,
                                                         HttpServletRequest httpRequest) {
@@ -63,7 +63,7 @@ public class PositionController {
     }
 
     @PutMapping("/competencies")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
     public ResponseEntity<PositionResponse> putCompetencies(@PathVariable UUID projectId,
                                                             @Valid @RequestBody PutCompetenciesRequest request,
                                                             HttpServletRequest httpRequest) {
@@ -73,7 +73,7 @@ public class PositionController {
     }
 
     @PostMapping("/lock")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
     public ResponseEntity<PositionResponse> lock(@PathVariable UUID projectId,
                                                  HttpServletRequest httpRequest) {
         AuthPrincipal principal = CurrentUser.require();
@@ -82,7 +82,7 @@ public class PositionController {
     }
 
     @PostMapping("/unlock")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'POSITION_UNLOCK')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'POSITION_UNLOCK')")
     public ResponseEntity<PositionResponse> unlock(@PathVariable UUID projectId,
                                                    HttpServletRequest httpRequest) {
         AuthPrincipal principal = CurrentUser.require();

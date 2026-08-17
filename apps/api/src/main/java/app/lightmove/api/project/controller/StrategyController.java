@@ -37,14 +37,14 @@ public class StrategyController {
     private final StrategyService strategy;
 
     @GetMapping
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'WORK_VIEW')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
     public ResponseEntity<StrategyResponse> get(@PathVariable UUID projectId) {
         AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(strategy.get(principal.requireWorkspaceId(), projectId));
     }
 
     @PutMapping("/sectors")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
     public ResponseEntity<StrategyResponse> putSectors(@PathVariable UUID projectId,
                                                        @Valid @RequestBody PutSectorsRequest request,
                                                        HttpServletRequest httpRequest) {
@@ -54,7 +54,7 @@ public class StrategyController {
     }
 
     @PutMapping("/company-size")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
     public ResponseEntity<StrategyResponse> putCompanySize(@PathVariable UUID projectId,
                                                            @Valid @RequestBody PutCompanySizeRequest request,
                                                            HttpServletRequest httpRequest) {
@@ -64,7 +64,7 @@ public class StrategyController {
     }
 
     @PutMapping("/geography")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
     public ResponseEntity<StrategyResponse> putGeography(@PathVariable UUID projectId,
                                                          @Valid @RequestBody PutGeographyRequest request,
                                                          HttpServletRequest httpRequest) {
@@ -74,7 +74,7 @@ public class StrategyController {
     }
 
     @PutMapping("/ownership")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
     public ResponseEntity<StrategyResponse> putOwnership(@PathVariable UUID projectId,
                                                          @Valid @RequestBody PutOwnershipRequest request,
                                                          HttpServletRequest httpRequest) {
@@ -84,7 +84,7 @@ public class StrategyController {
     }
 
     @PutMapping("/targets")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
     public ResponseEntity<StrategyResponse> putTargets(@PathVariable UUID projectId,
                                                        @Valid @RequestBody PutTargetsRequest request,
                                                        HttpServletRequest httpRequest) {
@@ -94,7 +94,7 @@ public class StrategyController {
     }
 
     @PutMapping("/off-limits")
-    @PreAuthorize("@projectAuth.can(principal, #projectId, 'PROJECT_EDIT')")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
     public ResponseEntity<StrategyResponse> putOffLimits(@PathVariable UUID projectId,
                                                          @Valid @RequestBody PutOffLimitsRequest request,
                                                          HttpServletRequest httpRequest) {

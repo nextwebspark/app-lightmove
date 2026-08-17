@@ -7,7 +7,7 @@ import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
-import app.lightmove.api.core.security.service.AuthService;
+import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.service.CurrentUser;
 import app.lightmove.api.core.security.token.RefreshCookieFactory;
 import app.lightmove.api.workspace.dto.AcceptInvitationRequest;
@@ -51,7 +51,7 @@ public class OnboardingController {
 
     private final OnboardingService onboarding;
     private final InvitationService invitations;
-    private final AuthService auth;
+    private final AuthenticationService authentication;
     private final AuthResponseAssembler assembler;
     private final RefreshCookieFactory refreshCookie;
 
@@ -198,8 +198,8 @@ public class OnboardingController {
     }
 
     private UserResponse currentUser(AuthPrincipal principal) {
-        User user = auth.requireUser(principal.userId());
-        WorkspaceMember membership = auth.activeMembership(user.getId()).orElse(null);
+        User user = authentication.requireUser(principal.userId());
+        WorkspaceMember membership = authentication.activeMembership(user.getId()).orElse(null);
         return assembler.user(user, membership);
     }
 

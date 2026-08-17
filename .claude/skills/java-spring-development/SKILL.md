@@ -172,7 +172,7 @@ core/
     model/      User, UserIdentity, VerificationToken, AuthPrincipal,
                 EmailVerifiedEvent, SignupCommand, AuthenticatedSession
     repository/ UserRepository, UserIdentityRepository, VerificationTokenRepository
-    service/    AuthService, VerificationService, PasswordPolicy,
+    service/    AuthenticationService, VerificationService, PasswordPolicy,
                 OAuth2LoginSuccessHandler, OAuth2LoginFailureHandler,
                 LoginErrorRedirector, ProviderQuirkAwareRequestResolver,
                 CurrentUser, ClientIpResolver
@@ -185,7 +185,7 @@ core/
     rbac/       Role, Action, RoleRepository, ActionRepository, RoleScope,
                 WorkspaceRole, ProjectRole, WorkspaceAction, ProjectAction,
                 RbacService, WorkspaceAccess, ProjectAccess,
-                WorkspaceAuth, ProjectAuth                                (flat concern pkg)
+                WorkspaceAuthorizer, ProjectAuthorizer                    (flat concern pkg)
   email/       model/(EmailMessage)  service/(EmailSender, EmailAddressValidator, …)  config/
   audit/       constant/(AuditEventType, AuditOutcome)  model/(AuditEvent)  repository/  service/
   error/       constant/(ErrorCode)  model/(ApiException)  service/(Problems)

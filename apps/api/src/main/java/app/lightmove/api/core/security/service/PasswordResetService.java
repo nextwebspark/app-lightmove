@@ -51,7 +51,7 @@ public class PasswordResetService {
     private final VerificationTokenRepository verificationTokens;
     private final PasswordPolicy passwords;
     private final TokenService tokens;
-    private final AuthService auth;
+    private final AuthenticationService authentication;
     private final EmailSender emailSender;
     private final EmailTemplates templates;
     private final AuditService audit;
@@ -173,7 +173,7 @@ public class PasswordResetService {
 
         // Membership resolved after the event, so a workspace that just materialised lands in the
         // new token's claims.
-        WorkspaceMember membership = auth.activeMembership(user.getId()).orElse(null);
+        WorkspaceMember membership = authentication.activeMembership(user.getId()).orElse(null);
         return tokens.issue(user, membership, request);
     }
 

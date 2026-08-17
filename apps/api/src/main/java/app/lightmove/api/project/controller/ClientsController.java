@@ -43,14 +43,14 @@ public class ClientsController {
     private final ClientRepresentativeService representatives;
 
     @GetMapping
-    @PreAuthorize("@workspaceAuth.can(principal, 'CLIENT_RECORD_MANAGE')")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
     public ResponseEntity<List<ClientListResponse>> list() {
         AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(clients.list(principal.requireWorkspaceId()));
     }
 
     @PostMapping
-    @PreAuthorize("@workspaceAuth.can(principal, 'CLIENT_RECORD_MANAGE')")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
     public ResponseEntity<ClientListResponse> create(@Valid @RequestBody CreateClientRequest request,
                                                      HttpServletRequest httpRequest) {
         AuthPrincipal principal = CurrentUser.require();
@@ -60,14 +60,14 @@ public class ClientsController {
     }
 
     @GetMapping("/{clientId}")
-    @PreAuthorize("@workspaceAuth.can(principal, 'CLIENT_RECORD_MANAGE')")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
     public ResponseEntity<ClientDetailResponse> get(@PathVariable UUID clientId) {
         AuthPrincipal principal = CurrentUser.require();
         return ResponseEntity.ok(clients.get(principal.requireWorkspaceId(), clientId));
     }
 
     @PatchMapping("/{clientId}")
-    @PreAuthorize("@workspaceAuth.can(principal, 'CLIENT_RECORD_MANAGE')")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
     public ResponseEntity<ClientDetailResponse> update(@PathVariable UUID clientId,
                                                        @Valid @RequestBody UpdateClientRequest request,
                                                        HttpServletRequest httpRequest) {
@@ -77,7 +77,7 @@ public class ClientsController {
     }
 
     @PostMapping("/{clientId}/representatives")
-    @PreAuthorize("@workspaceAuth.can(principal, 'CLIENT_RECORD_MANAGE')")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
     public ResponseEntity<RepresentativeResponse> invite(@PathVariable UUID clientId,
                                                          @Valid @RequestBody InviteRepresentativeRequest request,
                                                          HttpServletRequest httpRequest) {

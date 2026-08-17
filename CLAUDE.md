@@ -61,7 +61,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 - A user holds **at most one active workspace** (partial unique index on `user_id`).
 - Verification gates the *proof of mailbox*, not the channel — an invite token or a password reset proves it too.
 - **Tenant isolation:** every workspace-scoped query filters by `AuthPrincipal.requireWorkspaceId()`, never a request parameter.
-- **Authorise by action, never by role** (`@PreAuthorize` + `@workspaceAuth`/`@projectAuth`); guard beans re-read the DB every check; the JWT `roles` claim is never trusted for a decision.
+- **Authorise by action, never by role** (`@PreAuthorize` + `@workspaceAuthorizer`/`@projectAuthorizer`); guard beans re-read the DB every check; the JWT `roles` claim is never trusted for a decision.
 - Client access is **two tiers, two decisions**: registry (`CLIENT_RECORD_MANAGE`, ADMIN+MEMBER) vs mandate (`CLIENT_ACCESS_MANAGE`, LEAD only). Project content is seat-gated `WORK_VIEW`/`WORK_EXECUTE`, not `PROJECT_BROWSE`.
 - **An identity provider is a yml block** — never branch on a provider name anywhere.
 - **Tokens are never stored raw** (SHA-256); the refresh cookie rotates on every use; the access token lives in JS memory only.

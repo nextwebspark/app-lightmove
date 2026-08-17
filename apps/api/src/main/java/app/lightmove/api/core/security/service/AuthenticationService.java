@@ -40,7 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @Slf4j
-public class AuthService {
+public class AuthenticationService {
 
     /** Recorded against the user, so we can prove later what they agreed to. */
     private static final String PRIVACY_POLICY_VERSION = "2026-07-01";
@@ -58,12 +58,12 @@ public class AuthService {
     private final EmailTemplates templates;
     private final AuthSettings config;
 
-    public AuthService(UserRepository users, UserIdentityRepository identities,
-                       WorkspaceMemberRepository members,
-                       PasswordPolicy passwords, TokenService tokens, VerificationService verification,
-                       EmailAddressValidator emailValidator, RateLimitGuard rateLimit,
-                       AuditService audit, EmailSender emailSender, EmailTemplates templates,
-                       LightMoveProperties properties) {
+    public AuthenticationService(UserRepository users, UserIdentityRepository identities,
+                                 WorkspaceMemberRepository members, PasswordPolicy passwords,
+                                 TokenService tokens, VerificationService verification,
+                                 EmailAddressValidator emailValidator, RateLimitGuard rateLimit,
+                                 AuditService audit, EmailSender emailSender,
+                                 EmailTemplates templates, LightMoveProperties properties) {
         this.users = users;
         this.identities = identities;
         this.members = members;

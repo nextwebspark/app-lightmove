@@ -51,20 +51,20 @@ public class CompanyReferenceController {
     }
 
     @GetMapping("/sectors")
-    @PreAuthorize("@workspaceAuth.can(principal, 'PROJECT_BROWSE')")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
     public ResponseEntity<SectorsResponse> sectors() {
         return ResponseEntity.ok(new SectorsResponse(companies.sectors()));
     }
 
     @GetMapping("/sectors/suggestions")
-    @PreAuthorize("@workspaceAuth.can(principal, 'PROJECT_BROWSE')")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
     public ResponseEntity<SuggestionsResponse> suggestions(
             @RequestParam(name = "sector", required = false) List<String> sectors) {
         return ResponseEntity.ok(companies.suggestionsFor(orEmpty(sectors)));
     }
 
     @GetMapping("/estimate")
-    @PreAuthorize("@workspaceAuth.can(principal, 'PROJECT_BROWSE')")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
     public ResponseEntity<EstimateResponse> estimate(
             @RequestParam(name = "sector", required = false) List<String> sectors,
             @RequestParam(name = "tag", required = false) List<String> tags,
@@ -89,7 +89,7 @@ public class CompanyReferenceController {
      * matches names instead, ignoring sector and order — typed text means the user knows the company.
      */
     @GetMapping("/search")
-    @PreAuthorize("@workspaceAuth.can(principal, 'PROJECT_BROWSE')")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
     public ResponseEntity<SearchResponse> search(
             @RequestParam(name = "q", required = false) String query,
             @RequestParam(name = "sector", required = false) List<String> sectors,
