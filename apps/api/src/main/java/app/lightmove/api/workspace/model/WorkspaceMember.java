@@ -1,5 +1,7 @@
 package app.lightmove.api.workspace.model;
 
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.workspace.constant.MemberStatus;
@@ -87,7 +89,7 @@ public class WorkspaceMember extends BaseEntity {
     /** Replace-set semantics: the caller states the full set the member should hold afterwards. */
     public void changeRoles(Set<Role> newRoles) {
         if (!isActive()) {
-            throw new IllegalStateException("Only an active membership can change roles, was " + status);
+            throw new ApiException(ErrorCode.CONFLICT, "Only an active membership can change roles, was " + status);
         }
         this.roles.clear();
         this.roles.addAll(newRoles);
@@ -96,7 +98,7 @@ public class WorkspaceMember extends BaseEntity {
     /** Frees the one-active-membership index, so the person can join or create another workspace. */
     public void remove() {
         if (!isActive()) {
-            throw new IllegalStateException("Only an active membership can be removed, was " + status);
+            throw new ApiException(ErrorCode.CONFLICT, "Only an active membership can be removed, was " + status);
         }
         this.status = MemberStatus.REMOVED;
     }

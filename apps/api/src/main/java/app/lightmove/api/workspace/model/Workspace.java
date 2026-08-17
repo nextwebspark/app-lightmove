@@ -1,6 +1,8 @@
 package app.lightmove.api.workspace.model;
 import app.lightmove.api.workspace.constant.WorkspaceStatus;
 
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -121,7 +123,7 @@ public class Workspace extends BaseEntity {
     /** Soft delete — the row stays for the audit trail; the ACTIVE-filtered indexes stop seeing it. */
     public void delete() {
         if (status == WorkspaceStatus.DELETED) {
-            throw new IllegalStateException("Workspace is already deleted");
+            throw new ApiException(ErrorCode.CONFLICT, "Workspace is already deleted");
         }
         this.status = WorkspaceStatus.DELETED;
     }
