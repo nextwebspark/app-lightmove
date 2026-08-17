@@ -1,6 +1,7 @@
 package app.lightmove.api.workspace.dto;
 
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,5 +21,8 @@ public record WorkspaceSummary(
         String emailDomain,
 
         /** The caller's workspace roles — a set, sorted for stable rendering. */
-        List<WorkspaceRole> roles
+        List<WorkspaceRole> roles,
+
+        /** When this membership became active. Settings → Profile reads it as "joined Mar 2026". */
+        Instant joinedAt
 ) {}
