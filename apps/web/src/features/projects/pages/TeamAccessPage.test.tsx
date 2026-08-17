@@ -52,6 +52,8 @@ describe("TeamAccessPage", () => {
     title: null,
     avatarUrl: null,
     emailVerified: true,
+    timezone: "Asia/Dubai",
+    locale: "en",
     onboardingHeld: false,
     pendingInvitation: null,
     workspace: {
@@ -60,6 +62,7 @@ describe("TeamAccessPage", () => {
       slug: "firm",
       logoMark: "F",
       emailDomain: "firm.example",
+      joinedAt: null,
       roles: ["ADMIN" as const],
     },
   };

@@ -24,6 +24,7 @@ import { TeamAccessPage } from "../features/projects/pages/TeamAccessPage";
 import { ReportsPage } from "../features/reports/pages/ReportsPage";
 import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
 import { SettingsMembersPage } from "../features/settings/pages/SettingsMembersPage";
+import { SettingsProfilePage } from "../features/settings/pages/SettingsProfilePage";
 import { SourcingPage } from "../features/sourcing/pages/SourcingPage";
 import { StrategyPage } from "../features/strategy/pages/StrategyPage";
 import { TeamPage } from "../features/workspace/pages/TeamPage";
@@ -89,11 +90,17 @@ export function AppRoutes() {
         <Route path="/projects/:projectId/team" element={<TeamAccessPage />} />
       </Route>
 
-      {/* Admin-gated in the client for UX only; every settings endpoint re-checks in the service. */}
-      <Route element={<RequireAdmin><SettingsLayout /></RequireAdmin>}>
-        <Route path="/settings" element={<Navigate to="/settings/general" replace />} />
-        <Route path="/settings/general" element={<SettingsGeneralPage />} />
-        <Route path="/settings/members" element={<SettingsMembersPage />} />
+      {/* The settings shell is shared; the gate is not. Account is the caller's own account, so every
+          member reaches it — a portal guest has a name and a timezone like anyone else. The workspace
+          sections stay admin-gated, in the client for UX only; every settings endpoint re-checks in
+          the service. */}
+      <Route element={<RequireWorkspace><SettingsLayout /></RequireWorkspace>}>
+        <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
+        <Route path="/settings/profile" element={<SettingsProfilePage />} />
+        <Route element={<RequireAdmin><Outlet /></RequireAdmin>}>
+          <Route path="/settings/general" element={<SettingsGeneralPage />} />
+          <Route path="/settings/members" element={<SettingsMembersPage />} />
+        </Route>
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

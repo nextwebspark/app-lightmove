@@ -133,6 +133,14 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
             </div>
           </div>
 
+          {/* Outside the admin block on purpose: this is the one settings item that is everybody's,
+              and for a pure client — whose rail carries no Settings link — it is the only way in. */}
+          <button type="button" className={itemClass} onClick={() => { setOpen(false); navigate("/settings/profile"); }}>
+            <Icon d={ICONS.profile} size={15} className="flex-none" />
+            Your profile
+          </button>
+          <div className="mx-1 my-1.5 h-px bg-line-soft" />
+
           {isAdmin && (
             <>
               <button type="button" className={itemClass} onClick={() => { setOpen(false); navigate("/settings/general"); }}>

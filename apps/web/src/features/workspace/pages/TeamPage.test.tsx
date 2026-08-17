@@ -51,6 +51,8 @@ describe("TeamPage — a refused read", () => {
       title: null,
       avatarUrl: null,
       emailVerified: true,
+      timezone: "Asia/Dubai",
+      locale: "en",
       onboardingHeld: false,
       pendingInvitation: null,
       workspace: {
@@ -59,6 +61,7 @@ describe("TeamPage — a refused read", () => {
         slug: "meridian",
         logoMark: "M",
         emailDomain: "firm.example",
+        joinedAt: null,
         roles: ["ADMIN" as const],
       },
     });
