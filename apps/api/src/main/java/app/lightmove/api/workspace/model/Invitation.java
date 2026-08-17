@@ -1,5 +1,7 @@
 package app.lightmove.api.workspace.model;
 
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.workspace.constant.InvitationStatus;
@@ -105,7 +107,7 @@ public class Invitation extends BaseEntity {
 
     public void accept(UUID userId, Instant now) {
         if (!isRedeemable(now)) {
-            throw new IllegalStateException("Invitation is not redeemable");
+            throw new ApiException(ErrorCode.CONFLICT, "Invitation is not redeemable");
         }
         this.status = InvitationStatus.ACCEPTED;
         this.acceptedAt = now;
@@ -114,7 +116,7 @@ public class Invitation extends BaseEntity {
 
     public void revoke() {
         if (status != InvitationStatus.PENDING) {
-            throw new IllegalStateException("Only a pending invitation can be revoked, was " + status);
+            throw new ApiException(ErrorCode.CONFLICT, "Only a pending invitation can be revoked, was " + status);
         }
         this.status = InvitationStatus.REVOKED;
     }

@@ -1,5 +1,7 @@
 package app.lightmove.api.workspace.controller;
 
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.Role;
@@ -86,7 +88,7 @@ public class MembersController {
 
     private MemberResponse toMemberResponse(WorkspaceMember member, User user) {
         if (user == null) {
-            throw new IllegalStateException(
+            throw new ApiException(ErrorCode.INTERNAL_ERROR,
                     "Membership " + member.getId() + " references a missing user");
         }
         return new MemberResponse(member.getId(), user.getId(), user.getFullName(), user.getEmail(),
