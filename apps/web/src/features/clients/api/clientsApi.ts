@@ -38,3 +38,20 @@ export function inviteRepresentative(
     body: payload,
   });
 }
+
+/** Cancels an outstanding invite or withdraws a live one — one decision server-side, one call here. */
+export function revokeRepresentative(clientId: string, representativeId: string): Promise<void> {
+  return request<void>(`/clients/${clientId}/representatives/${representativeId}`, {
+    method: "DELETE",
+  });
+}
+
+/** Rotates the token, so the link in the earlier email stops working. */
+export function resendRepresentativeInvite(
+  clientId: string,
+  representativeId: string,
+): Promise<void> {
+  return request<void>(`/clients/${clientId}/representatives/${representativeId}/resend`, {
+    method: "POST",
+  });
+}

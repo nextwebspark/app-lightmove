@@ -48,6 +48,10 @@ export const ICONS = {
   linkedin: "M16 8.5a5.5 5.5 0 0 1 5.5 5.5V21h-3.6v-7a1.9 1.9 0 0 0-3.8 0v7h-3.6v-12h3.6v1.4M3 9.5h3.6V21H3zM4.8 4a1.6 1.6 0 1 0 .01 0",
   briefcase: "M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2ZM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2",
   chevronDown: "m6 9 6 6 6-6",
+  close: "M18 6 6 18M6 6l12 12",
+  mail: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm-2 3 10 6 10-6",
+  /** Circular arrow with its arrowhead — sending the same thing again. */
+  resend: "M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5",
   position: "M12 2 3 7l9 5 9-5-9-5ZM3 12l9 5 9-5M3 17l9 5 9-5",
   strategy: "M12 20V10M18 20V4M6 20v-4",
   sourcing: "M21 21l-4.3-4.3m1.8-5.2a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z",
