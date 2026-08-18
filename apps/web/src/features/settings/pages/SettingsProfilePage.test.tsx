@@ -30,6 +30,7 @@ describe("SettingsProfilePage — your own profile", () => {
     title: "Managing Partner",
     avatarUrl: null,
     emailVerified: true,
+    hasPassword: true,
     timezone: "Asia/Dubai",
     locale: "en",
     pendingInvitation: null,

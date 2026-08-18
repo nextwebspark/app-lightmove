@@ -20,6 +20,10 @@ export type ApiErrorCode =
   | "TOKEN_EXPIRED"
   | "REFRESH_TOKEN_INVALID"
   | "REFRESH_TOKEN_REUSED"
+  | "CURRENT_PASSWORD_INVALID"
+  | "PASSWORD_NOT_SET"
+  | "SESSION_NOT_FOUND"
+  | "CURRENT_SESSION_NOT_REVOCABLE"
   | "WORKSPACE_ALREADY_EXISTS"
   | "WORKSPACE_NOT_FOUND"
   | "NOT_A_MEMBER"
@@ -55,6 +59,10 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   EMAIL_NOT_VERIFIED: "Verify your email address to continue.",
   ACCOUNT_SUSPENDED: "This account has been suspended.",
   EMAIL_NOT_WORK_ADDRESS: "Use your work email — the domain identifies your organization.",
+  CURRENT_PASSWORD_INVALID: "That is not your current password.",
+  PASSWORD_NOT_SET: "This account signs in with a provider — set a password from the reset link.",
+  SESSION_NOT_FOUND: "That session has already ended.",
+  CURRENT_SESSION_NOT_REVOCABLE: "Use sign out to end the session you are using.",
 };
 
 /**

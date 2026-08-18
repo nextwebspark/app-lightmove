@@ -26,6 +26,7 @@ import { ReportsPage } from "../features/reports/pages/ReportsPage";
 import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
 import { SettingsMembersPage } from "../features/settings/pages/SettingsMembersPage";
 import { SettingsProfilePage } from "../features/settings/pages/SettingsProfilePage";
+import { SettingsSecurityPage } from "../features/settings/pages/SettingsSecurityPage";
 import { SourcingPage } from "../features/sourcing/pages/SourcingPage";
 import { StrategyPage } from "../features/strategy/pages/StrategyPage";
 import { TeamPage } from "../features/workspace/pages/TeamPage";
@@ -99,6 +100,7 @@ export function AppRoutes() {
       <Route element={<RequireWorkspace><SettingsLayout /></RequireWorkspace>}>
         <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
         <Route path="/settings/profile" element={<SettingsProfilePage />} />
+        <Route path="/settings/security" element={<SettingsSecurityPage />} />
         <Route element={<RequireAdmin><Outlet /></RequireAdmin>}>
           <Route path="/settings/general" element={<SettingsGeneralPage />} />
           <Route path="/settings/members" element={<SettingsMembersPage />} />

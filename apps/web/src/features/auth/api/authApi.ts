@@ -1,7 +1,9 @@
 import { request, setAccessToken } from "../../../lib/apiClient";
 import type {
+  ActiveSession,
   AuthProviders,
   AuthResponse,
+  ChangePasswordRequest,
   CreateWorkspaceRequest,
   InvitationPreview,
   InviteRequest,
@@ -108,6 +110,37 @@ export async function resetPassword(token: string, password: string): Promise<Au
   });
   setAccessToken(session.accessToken);
   return session;
+}
+
+// ── Settings → Security ─────────────────────────────────────────────────────
+
+/**
+ * The change revokes every session, the caller's included, and the server issues a replacement — so
+ * this installs the returned token exactly like login, or the next request would 401.
+ */
+export async function changePassword(payload: ChangePasswordRequest): Promise<AuthResponse> {
+  const session = await request<AuthResponse>("/auth/password/change", {
+    method: "POST",
+    body: payload,
+    withCsrf: true,
+  });
+  setAccessToken(session.accessToken);
+  return session;
+}
+
+export function listSessions(): Promise<ActiveSession[]> {
+  return request<ActiveSession[]>("/auth/sessions");
+}
+
+export function revokeSession(sessionId: string): Promise<void> {
+  return request<void>(`/auth/sessions/${sessionId}`, { method: "DELETE", withCsrf: true });
+}
+
+export function revokeOtherSessions(): Promise<{ revoked: number }> {
+  return request<{ revoked: number }>("/auth/sessions/revoke-others", {
+    method: "POST",
+    withCsrf: true,
+  });
 }
 
 // ── Onboarding ──────────────────────────────────────────────────────────────

@@ -9,8 +9,13 @@ import { z } from "zod";
  * a rule that only the server catches does not suddenly sound like a different product.
  */
 
-/** The mockup's own words: "Use at least 8 characters, with one number." */
-const password = z
+/**
+ * The mockup's own words: "Use at least 8 characters, with one number."
+ *
+ * Exported so Settings → Security reuses it rather than restating it — a second copy is a second
+ * chance for the client's rule and `PasswordPolicy`'s to drift apart.
+ */
+export const passwordRule = z
   .string()
   .min(8, "Use at least 8 characters")
   // BCrypt's ceiling is 72 *bytes*, so an accented or emoji password runs out sooner than its
@@ -37,7 +42,7 @@ export const signupSchema = z
   .object({
     fullName: z.string().min(1, "Enter your full name").max(160, "That name is too long"),
     email,
-    password,
+    password: passwordRule,
     confirmPassword: z.string().min(1, "Re-enter your password"),
   })
   .refine((values) => values.password === values.confirmPassword, {
@@ -52,7 +57,7 @@ export const signupSchema = z
 export const acceptInviteSchema = z
   .object({
     fullName: z.string().min(1, "Enter your full name").max(160, "That name is too long"),
-    password,
+    password: passwordRule,
     confirmPassword: z.string().min(1, "Re-enter your password"),
   })
   .refine((values) => values.password === values.confirmPassword, {
@@ -67,7 +72,7 @@ export const forgotPasswordSchema = z.object({
 /** Choosing the replacement password — same rules and words as signup, because it is the same field. */
 export const resetPasswordSchema = z
   .object({
-    password,
+    password: passwordRule,
     confirmPassword: z.string().min(1, "Re-enter your password"),
   })
   .refine((values) => values.password === values.confirmPassword, {

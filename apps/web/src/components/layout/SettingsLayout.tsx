@@ -9,11 +9,12 @@ import { SettingsBreadcrumb, Topbar } from "./Topbar";
  *
  * One table drives both the sidebar and the breadcrumb, so a section cannot appear in the rail under
  * one name and in the header under another — which is what the two-way ternary this replaced allowed.
- * The mockup's Security, Notifications, Billing and Integrations are absent until their screens are
- * built: an item that leads nowhere is worse than no item.
+ * The mockup's Notifications, Billing and Integrations are absent until their screens are built: an
+ * item that leads nowhere is worse than no item.
  */
 const SETTINGS_SECTIONS = [
   { to: "/settings/profile", label: "Profile", icon: ICONS.profile, group: "Account" },
+  { to: "/settings/security", label: "Security", icon: ICONS.lock, group: "Account" },
   { to: "/settings/general", label: "General", icon: ICONS.settings, group: "Workspace" },
   { to: "/settings/members", label: "Members", icon: ICONS.members, group: "Workspace" },
 ] as const;

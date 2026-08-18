@@ -39,6 +39,7 @@ const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[]) => ({
   title: null,
   avatarUrl: null,
   emailVerified: true,
+  hasPassword: true,
   timezone: "Asia/Dubai",
   locale: "en",
   pendingInvitation: null,
@@ -60,6 +61,7 @@ const unverifiedUser = () => ({
   title: null,
   avatarUrl: null,
   emailVerified: false,
+  hasPassword: true,
   timezone: "Asia/Dubai",
   locale: "en",
   pendingInvitation: null,
@@ -189,6 +191,17 @@ describe("routes — the settings gates", () => {
       expect(screen.getByTestId("pathname").textContent).toBe("/settings/profile"),
     );
     expect(await screen.findByText("How you appear across the workspace")).toBeInTheDocument();
+  });
+
+  it("keeps Security in Account, where a non-admin reaches it", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["MEMBER"]));
+    vi.mocked(authApi.listSessions).mockResolvedValue([]);
+
+    renderAt("/settings/security");
+
+    expect(
+      await screen.findByText("Password, two-factor authentication and sessions"),
+    ).toBeInTheDocument();
   });
 
   it.each(["/settings/general", "/settings/members"])(

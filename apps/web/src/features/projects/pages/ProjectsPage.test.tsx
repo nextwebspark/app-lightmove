@@ -49,6 +49,7 @@ describe("ProjectsPage — pure client", () => {
     title: null,
     avatarUrl: null,
     emailVerified: true,
+    hasPassword: true,
     timezone: "Asia/Dubai",
     locale: "en",
     pendingInvitation: null,

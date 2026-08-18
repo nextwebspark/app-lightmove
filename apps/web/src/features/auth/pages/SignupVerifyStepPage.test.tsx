@@ -30,6 +30,7 @@ const userAt = (emailVerified: boolean): User => ({
   title: null,
   avatarUrl: null,
   emailVerified,
+  hasPassword: true,
   timezone: "Asia/Dubai",
   locale: "en",
   pendingInvitation: null,

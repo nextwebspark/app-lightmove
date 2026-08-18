@@ -227,3 +227,45 @@ export function Notice({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+/**
+ * The mockups' 32×18 pill switch, for a setting that takes effect the moment it is flipped.
+ *
+ * A real `<button role="switch">` rather than a styled checkbox, so it announces its state to a screen
+ * reader and answers Space and Enter without any handling of our own.
+ */
+export function Toggle({
+  checked,
+  onChange,
+  label,
+  disabled = false,
+}: {
+  checked: boolean;
+  onChange?: (checked: boolean) => void;
+  /** Named for assistive tech, since the control itself carries no text. */
+  label: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange?.(!checked)}
+      className={cn(
+        "relative h-[18px] w-8 shrink-0 rounded-full border-none p-0 transition-colors",
+        checked ? "bg-amber-btn" : "bg-line",
+        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+      )}
+    >
+      <span
+        className={cn(
+          "absolute left-0.5 top-0.5 size-3.5 rounded-full transition-transform",
+          checked ? "translate-x-3.5 bg-on-amber" : "bg-text3",
+        )}
+      />
+    </button>
+  );
+}

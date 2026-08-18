@@ -39,3 +39,24 @@ export function initials(fullName: string): string {
   const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
   return (first + last).toUpperCase();
 }
+
+/**
+ * An instant → "active now" / "2 hours ago" / "3 days ago", the mockup's session-row wording.
+ *
+ * Coarse on purpose: this labels a refresh, which trails real activity by up to one access-token
+ * lifetime, so minute-level precision would be a number we cannot honestly claim.
+ */
+export function formatRelativeTime(isoInstant: string): string {
+  const elapsedMs = Date.now() - new Date(isoInstant).getTime();
+  if (Number.isNaN(elapsedMs)) return "—";
+
+  const minutes = Math.floor(elapsedMs / 60_000);
+  if (minutes < 5) return "active now";
+  if (minutes < 60) return `${minutes} minutes ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours === 1 ? "1 hour ago" : `${hours} hours ago`;
+
+  const days = Math.floor(hours / 24);
+  return days === 1 ? "1 day ago" : `${days} days ago`;
+}
