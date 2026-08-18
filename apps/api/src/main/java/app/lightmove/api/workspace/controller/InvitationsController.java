@@ -29,8 +29,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Outstanding invitations, managed from Settings → Members. Gated on the MEMBER_INVITE action here;
- * the service keeps its own imperative checks too, because it is also called from
- * {@code PendingOnboardingMaterialiser} outside any request's SecurityContext.
+ * the service keeps its own imperative checks too, because it is also reached from the anonymous
+ * {@code /onboarding/accept-invitation-signup} endpoint, outside any request's SecurityContext.
  */
 @RestController
 @RequestMapping("/api/v1/invitations")

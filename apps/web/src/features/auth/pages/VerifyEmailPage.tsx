@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Card, Logo } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
-import * as authApi from "../api/authApi";
+import { homeFor } from "../homeFor";
 
 type State = "verifying" | "success" | "failed";
 
@@ -12,14 +12,19 @@ type State = "verifying" | "success" | "failed";
  *
  * The link points at the SPA rather than straight at the API on purpose: the user ends up inside the
  * app, looking at a LightMove screen, rather than at a page of raw JSON.
+ *
+ * Redeeming returns a session, so this browser is signed in even though it is usually not the one that
+ * filled in signup. Continue therefore always leads somewhere — the organisation step, for the creator
+ * this gate exists for.
  */
 export function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, reload } = useAuth();
+  const { user, verifyEmail, reload } = useAuth();
 
   const [state, setState] = useState<State>("verifying");
   const [message, setMessage] = useState("");
+  const [continuing, setContinuing] = useState(false);
 
   /**
    * React 18+ runs effects twice in development StrictMode. The verification token is single-use, so a
@@ -28,25 +33,6 @@ export function VerifyEmailPage() {
    * the second invocation would win the race.
    */
   const attempted = useRef(false);
-
-  /**
-   * Where verifying leaves them, which is wherever they were going before the email interrupted.
-   *
-   * <p>Verification is the <b>creator's</b> gate now — a fresh invitee never arrives here, because
-   * accepting an invitation creates their account already verified. The one exception is someone who
-   * already had an unverified account and was then invited: the server-derived
-   * {@code user.pendingInvitation} routes them to the join screen rather than the create wizard, so
-   * their invitation is not left one click away, unmentioned.
-   */
-  const nextStop = (): string => {
-    if (user?.workspace) {
-      return "/";
-    }
-    if (user?.pendingInvitation) {
-      return "/auth/accept-invite";
-    }
-    return user ? "/signup/workspace" : "/login";
-  };
 
   useEffect(() => {
     if (attempted.current) {
@@ -63,11 +49,7 @@ export function VerifyEmailPage() {
 
     void (async () => {
       try {
-        await authApi.verifyEmail(token);
-
-        // The access token in memory still claims unverified — it was minted before the click. Reload
-        // the user so the rest of the app stops showing the "please verify" banner.
-        await reload();
+        await verifyEmail(token);
         setState("success");
       } catch (error) {
         setState("failed");
@@ -78,7 +60,29 @@ export function VerifyEmailPage() {
         );
       }
     })();
-  }, [searchParams, reload]);
+  }, [searchParams, verifyEmail]);
+
+  // A second click on the same link burns nothing and is the commonest way to reach the failure branch.
+  // Someone already verified in this browser has done what the link was for, so say so.
+  const verifiedAlready = state === "failed" && !!user?.emailVerified;
+  const settled = state === "success" || verifiedAlready;
+
+  /**
+   * Re-read before routing, because this page can sit open for a long time and the wizard is normally
+   * finished somewhere else.
+   *
+   * <p>The tab that was waiting on this link polls, so it advances the moment the link is clicked and
+   * the user carries on there — organisation, invitations, into the app. All of that happens while this
+   * card is still showing a `user` snapshot taken at redemption time, when there was no workspace.
+   * Routing on that snapshot sent someone who already has a workspace back to the create form, which
+   * then answers ALREADY_IN_WORKSPACE.
+   */
+  const handleContinue = async () => {
+    setContinuing(true);
+    // homeFor treats null as "no session" and sends them to sign in, which is the honest answer if the
+    // re-read failed.
+    navigate(homeFor(await reload()), { replace: true });
+  };
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
@@ -92,7 +96,7 @@ export function VerifyEmailPage() {
           </>
         )}
 
-        {state === "success" && (
+        {settled && (
           <>
             <div className="mx-auto mb-4 grid size-11 place-items-center rounded-full bg-green-dim">
               <svg className="size-5 text-green" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
@@ -103,13 +107,13 @@ export function VerifyEmailPage() {
             <h1 className="text-[19px] font-semibold">Email verified</h1>
             <p className="mb-6 mt-2 font-mono text-xs text-text3">Your account is confirmed.</p>
 
-            <Button className="w-full" onClick={() => navigate(nextStop(), { replace: true })}>
-              Continue
+            <Button className="w-full" onClick={handleContinue} disabled={continuing}>
+              {continuing ? "One moment…" : "Continue"}
             </Button>
           </>
         )}
 
-        {state === "failed" && (
+        {state === "failed" && !verifiedAlready && (
           <>
             <div className="mx-auto mb-4 grid size-11 place-items-center rounded-full bg-red-dim">
               <svg className="size-5 text-red" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">

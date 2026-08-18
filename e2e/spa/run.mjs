@@ -69,37 +69,33 @@ async function signupThroughUi(page, address, name = "Spa Tester") {
   await page.getByPlaceholder("you@firm.com").fill(address);
   await page.getByPlaceholder("8+ characters").fill(PASSWORD);
   await page.getByPlaceholder("Re-enter your password").fill(PASSWORD);
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
 }
 
 const browser = await chromium.launch();
 
 try {
   // ---------------------------------------------------------------- S1
-  section("S1  the three-step signup wizard");
+  section("S1  the four-step signup wizard, stopped at the gate");
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const page = await ctx.newPage();
   const ADMIN = email("admin");
 
-  await signupThroughUi(page, ADMIN, "Ada Admin");
-  await page.waitForURL(/\/signup\/workspace/, { timeout: 15000 }).catch(() => {});
-  check("S1.1", "step 1 lands on the organization step", `${WEB}/signup/workspace`, page.url());
-  await shot(page, "s1-workspace-step");
-
   const WS = `Spa Search ${Date.now()}`;
-  await page.getByPlaceholder("e.g. LightMove Search Partners").fill(WS);
-  await page.getByRole("button", { name: "Continue" }).click();
-  await page.waitForURL(/\/signup\/invite/, { timeout: 15000 }).catch(() => {});
-  check("S1.2", "step 2 lands on the invite step", `${WEB}/signup/invite`, page.url());
 
-  await page.getByPlaceholder("colleague@firm.com").first().fill(email("colleague"));
-  await page.getByRole("button", { name: /Send invites|Continue|Finish/i }).first().click();
-  await page.waitForURL(/\/signup\/verify/, { timeout: 15000 }).catch(() => {});
-  check("S1.3", "an unverified creator is parked on the check-inbox screen", `${WEB}/signup/verify`, page.url());
-  await shot(page, "s1-check-inbox");
+  await signupThroughUi(page, ADMIN, "Ada Admin");
+  await page.waitForURL(/\/signup\/verify-email/, { timeout: 15000 }).catch(() => {});
+  check("S1.1", "step 1 lands on the verify step", `${WEB}/signup/verify-email`, page.url());
+  await shot(page, "s1-verify-step");
 
-  const body = await page.locator("body").innerText();
-  check("S1.4", "the screen names the address the link went to", true, body.includes(ADMIN));
+  const inboxBody = await page.locator("body").innerText();
+  check("S1.2", "the screen names the address the link went to", true, inboxBody.includes(ADMIN));
+
+  // The hard gate. Typing the URL must not get past a step the API also refuses.
+  await page.goto(`${WEB}/signup/workspace`);
+  await page.waitForTimeout(2500);
+  check("S1.3", "typing the organization URL bounces back to verify", `${WEB}/signup/verify-email`, page.url());
+  await shot(page, "s1-gate-bounce");
 
   // ---------------------------------------------------------------- S2
   section("S2  the emailed link, clicked in the browser");
@@ -108,10 +104,17 @@ try {
     fail("S2.1", "the verification link was printed", "no link found in the API log for this address");
   } else {
     note("S2.0", `link: ${verifyUrl.slice(0, 72)}...`);
-    await page.goto(verifyUrl);
-    await page.waitForTimeout(4000);
-    const verifyBody = await page.locator("body").innerText();
-    await shot(page, "s2-verified");
+
+    // A FRESH context: the mail client opens the link in whatever browser it likes, which is normally
+    // not the one that filled in signup. This is the case the session-minting redeem exists for — in
+    // the old flow this context would have been anonymous and landed on /login.
+    const mailCtx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    const mailPage = await mailCtx.newPage();
+
+    await mailPage.goto(verifyUrl);
+    await mailPage.waitForTimeout(4000);
+    const verifyBody = await mailPage.locator("body").innerText();
+    await shot(mailPage, "s2-verified");
 
     // The page settles on a success card with a Continue button rather than redirecting by itself.
     check("S2.1", "the link reports the email as verified", true, /email verified/i.test(verifyBody));
@@ -122,10 +125,47 @@ try {
     // happened — so a clean success card IS the proof the guard holds.
     check("S2.3", "no 'link is not valid' from a double-invoked effect", false, /not valid/i.test(verifyBody));
 
-    await page.getByRole("button", { name: "Continue" }).click();
-    await page.waitForTimeout(2500);
-    check("S2.4", "Continue lands on the workspace home", `${WEB}/`, page.url());
-    await shot(page, "s2-verified-home");
+    await mailPage.getByRole("button", { name: "Continue", exact: true }).click();
+    await mailPage.waitForTimeout(2500);
+    check("S2.4", "Continue lands on the organization step, with no sign-in",
+      `${WEB}/signup/workspace`, mailPage.url());
+    await shot(mailPage, "s2-continue-to-org");
+
+    // Back in the original tab: it polls, so it should have moved itself on without being touched.
+    await page.bringToFront();
+    await page.waitForTimeout(7000);
+    check("S2.5", "the original tab advanced itself off the verify step", false,
+      page.url().includes("/signup/verify-email"));
+    await shot(page, "s2-original-tab-advanced");
+
+    // Finish the wizard in the original tab, so everything downstream has a workspace as before.
+    if (page.url().includes("/signup/workspace")) {
+      await page.getByPlaceholder("e.g. LightMove Search Partners").fill(WS);
+      await page.getByRole("button", { name: "Continue", exact: true }).click();
+      await page.waitForURL(/\/signup\/invite/, { timeout: 15000 }).catch(() => {});
+      check("S2.6", "the organization step lands on the invite step", `${WEB}/signup/invite`, page.url());
+
+      await page.getByPlaceholder("colleague@firm.com").first().fill(email("colleague"));
+      await page.getByRole("button", { name: /Send invites|Continue|Finish/i }).first().click();
+      await page.waitForURL(/\/$/, { timeout: 15000 }).catch(() => {});
+      check("S2.7", "finishing the wizard lands in the app", `${WEB}/`, page.url());
+      await shot(page, "s2-wizard-done");
+
+      // Going BACK to the emailed link after finishing the wizard elsewhere. The card holds a `user`
+      // snapshot from redemption time, when there was no workspace — routing on it sent the user to a
+      // create form that then answers ALREADY_IN_WORKSPACE. Continue must re-read and land in the app.
+      await mailPage.goto(verifyUrl);
+      await mailPage.waitForTimeout(4000);
+      await mailPage.getByRole("button", { name: /Continue/i }).click();
+      await mailPage.waitForTimeout(3000);
+      check("S2.8", "revisiting the link once the workspace exists lands in the app, not the org form",
+        `${WEB}/`, mailPage.url());
+      await shot(mailPage, "s2-revisit-link-after-setup");
+    } else {
+      fail("S2.6", "the original tab reached the organization step", `it is at ${page.url()}`);
+    }
+
+    await mailCtx.close();
   }
 
   // ---------------------------------------------------------------- S3
@@ -177,7 +217,7 @@ try {
   await anonPage.goto(`${WEB}/login`);
   await anonPage.getByPlaceholder("you@firm.com").fill(ADMIN);
   await anonPage.getByPlaceholder("••••••••").fill("WrongPassword9");
-  await anonPage.getByRole("button", { name: "Continue" }).click();
+  await anonPage.getByRole("button", { name: "Continue", exact: true }).click();
   await anonPage.waitForTimeout(2500);
   const loginBody = await anonPage.locator("body").innerText();
   check("S5.1", "a wrong password shows the vague server message", true,
@@ -203,7 +243,7 @@ try {
   await mismatchPage.getByPlaceholder("you@firm.com").fill(email("mismatch"));
   await mismatchPage.getByPlaceholder("8+ characters").fill(PASSWORD);
   await mismatchPage.getByPlaceholder("Re-enter your password").fill("SomethingElse1");
-  await mismatchPage.getByRole("button", { name: "Continue" }).click();
+  await mismatchPage.getByRole("button", { name: "Continue", exact: true }).click();
   await mismatchPage.waitForTimeout(1500);
   check("S5.5", "a password mismatch is caught before the request leaves the browser",
     `${WEB}/signup`, mismatchPage.url());
@@ -214,7 +254,7 @@ try {
   await weakPage.getByPlaceholder("you@firm.com").fill(email("weak"));
   await weakPage.getByPlaceholder("8+ characters").fill("short");
   await weakPage.getByPlaceholder("Re-enter your password").fill("short");
-  await weakPage.getByRole("button", { name: "Continue" }).click();
+  await weakPage.getByRole("button", { name: "Continue", exact: true }).click();
   await weakPage.waitForTimeout(1500);
   check("S5.6", "a weak password is caught client-side too", `${WEB}/signup`, weakPage.url());
   await shot(weakPage, "s5-weak-password");
@@ -226,7 +266,7 @@ try {
   await adminApi.goto(`${WEB}/login`);
   await adminApi.getByPlaceholder("you@firm.com").fill(ADMIN);
   await adminApi.getByPlaceholder("••••••••").fill(PASSWORD);
-  await adminApi.getByRole("button", { name: "Continue" }).click();
+  await adminApi.getByRole("button", { name: "Continue", exact: true }).click();
   await adminApi.waitForTimeout(2500);
 
   // The SPA keeps its access token in a module-level variable, unreachable from an injected script,
@@ -301,7 +341,7 @@ try {
   await tabA.goto(`${WEB}/login`);
   await tabA.getByPlaceholder("you@firm.com").fill(ADMIN);
   await tabA.getByPlaceholder("••••••••").fill(PASSWORD);
-  await tabA.getByRole("button", { name: "Continue" }).click();
+  await tabA.getByRole("button", { name: "Continue", exact: true }).click();
   await tabA.waitForTimeout(2500);
 
   const tabB = await raceCtx.newPage();

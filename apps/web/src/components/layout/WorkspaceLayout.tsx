@@ -8,7 +8,6 @@ import * as workspaceApi from "../../features/workspace/api/workspaceApi";
 import { ICONS } from "./Icon";
 import { Sidebar, type SidebarGroup } from "./Sidebar";
 import { Topbar } from "./Topbar";
-import { UnverifiedBanner } from "./UnverifiedBanner";
 
 /**
  * The app shell: topbar, the workspace sidebar with live counts, and the main panel the routed page
@@ -17,24 +16,22 @@ import { UnverifiedBanner } from "./UnverifiedBanner";
  */
 export function WorkspaceLayout() {
   const { user } = useAuth();
-  const verified = user?.emailVerified ?? false;
   const roles = user?.workspace?.roles ?? [];
   const clientOnly = isPureClient(roles);
 
   const { data: projects } = useQuery({
     queryKey: projectsApi.PROJECTS_KEY,
     queryFn: projectsApi.projects,
-    enabled: verified,
   });
   const { data: clients } = useQuery({
     queryKey: clientsApi.CLIENTS_KEY,
     queryFn: clientsApi.clients,
-    enabled: verified && !clientOnly,
+    enabled: !clientOnly,
   });
   const { data: members } = useQuery({
     queryKey: workspaceApi.MEMBERS_KEY,
     queryFn: workspaceApi.members,
-    enabled: verified && !clientOnly,
+    enabled: !clientOnly,
   });
 
   const myMemberId = members?.find((m) => m.userId === user?.id)?.memberId;
@@ -75,7 +72,6 @@ export function WorkspaceLayout() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      {user && !verified && <UnverifiedBanner email={user.email} />}
       <Topbar />
 
       <div className="flex min-h-0 flex-1 gap-3.5 px-3.5 pb-3.5">

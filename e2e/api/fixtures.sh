@@ -20,7 +20,7 @@ section "Fixtures — building the cast"
 signup_verified() { # signup_verified EMAIL FULLNAME -> access token, verified, no workspace
   post_json /auth/signup "$(jq -nc --arg e "$1" --arg p "$PASSWORD" --arg n "$2" \
     '{fullName:$n, email:$e, password:$p, termsAccepted:true}')" >/dev/null
-  http POST "/auth/verify?token=$(token_for "$1" verify)" >/dev/null
+  post_json /auth/verify "$(jq -nc --arg t "$(token_for "$1" verify)" '{token:$t}')" >/dev/null
   login_as "$1"
 }
 

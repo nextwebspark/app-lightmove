@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -156,11 +158,94 @@ class AuthFlowIntegrationTest {
         // Read the token straight out of the email we "sent" — the real link, not a fixture.
         String token = email.latestTokenFor(alokEmail);
 
-        MvcResult result = mvc.perform(post("/api/v1/auth/verify").param("token", token))
+        MvcResult result = mvc.perform(post("/api/v1/auth/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(java.util.Map.of("token", token))))
                 .andExpect(status().isOk())
                 .andReturn();
 
-        assertThat(body(result).get("emailVerified").asBoolean()).isTrue();
+        assertThat(body(result).at("/user/emailVerified").asBoolean()).isTrue();
+    }
+
+    /**
+     * The reason redeeming mints a session at all.
+     *
+     * <p>The mail client opens the link in whatever browser it likes, which is usually not the one that
+     * filled in signup — so this request carries no bearer token and no cookie. If verifying only
+     * flipped a column, that browser would have proved the mailbox and still be anonymous, and the
+     * wizard would dead-end on a login form.
+     */
+    @Test
+    @DisplayName("the emailed link signs in the browser that opened it, which has no session")
+    void verifyingSignsInAnAnonymousBrowser() throws Exception {
+        signup("Alok Kumar", alokEmail, PASSWORD);
+
+        MvcResult result = mvc.perform(post("/api/v1/auth/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(java.util.Map.of("token", email.latestTokenFor(alokEmail)))))
+                .andExpect(status().isOk())
+                .andExpect(header().exists(HttpHeaders.SET_COOKIE))
+                .andReturn();
+
+        String minted = body(result).get("accessToken").asText();
+        assertThat(minted).isNotBlank();
+
+        // And it is a working session, not just a string: it can finish the wizard it was minted for.
+        createWorkspace(minted, "NextWebSpark Search");
+    }
+
+    /**
+     * Login CSRF, closed by the request body.
+     *
+     * <p>Redeeming mints a session and sets the refresh cookie, and this route is CSRF-exempt because it
+     * has to work on a first visit with nothing to echo. A handler taking only a query parameter is a
+     * CORS-<i>simple</i> request: any site could form-POST it, plant its own refresh cookie in a
+     * visitor's browser, and have the SPA adopt it on next boot. Demanding JSON forces the preflight
+     * that already protects login and password reset.
+     */
+    @Test
+    @DisplayName("a cross-site form POST cannot redeem a link, because the route demands JSON")
+    void verifyRefusesAFormEncodedPost() throws Exception {
+        signup("Alok Kumar", alokEmail, PASSWORD);
+        String token = email.latestTokenFor(alokEmail);
+
+        mvc.perform(post("/api/v1/auth/verify")
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("token", token))
+                .andExpect(status().isUnsupportedMediaType());
+
+        // Refused before anything was consumed, so the real link still works.
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM app_lm_verification_token t JOIN app_lm_user u ON u.id = t.user_id
+                WHERE u.email = ? AND t.purpose = 'EMAIL_VERIFICATION' AND t.consumed_at IS NULL
+                """, Integer.class, alokEmail)).isEqualTo(1);
+    }
+
+    /**
+     * The link mints a session, so it owes the same status check login and password reset make. Nothing
+     * sets SUSPENDED today; the row is suspended directly here so the guard is held up before a
+     * suspension surface exists to lean on it.
+     */
+    @Test
+    @DisplayName("a suspended account cannot redeem its verification link into a session")
+    void suspendedAccountCannotVerifyIntoASession() throws Exception {
+        signup("Alok Kumar", alokEmail, PASSWORD);
+        String token = email.latestTokenFor(alokEmail);
+
+        jdbc.update("UPDATE app_lm_user SET status = 'SUSPENDED' WHERE email = ?", alokEmail);
+
+        MvcResult refused = mvc.perform(post("/api/v1/auth/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(java.util.Map.of("token", token))))
+                .andExpect(status().isForbidden())
+                .andReturn();
+        assertThat(codeOf(refused)).isEqualTo("ACCOUNT_SUSPENDED");
+
+        // Refused before consume, so lifting the suspension leaves the user a link that still works.
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM app_lm_verification_token t JOIN app_lm_user u ON u.id = t.user_id
+                WHERE u.email = ? AND t.purpose = 'EMAIL_VERIFICATION' AND t.consumed_at IS NULL
+                """, Integer.class, alokEmail)).isEqualTo(1);
     }
 
     @Test
@@ -169,9 +254,13 @@ class AuthFlowIntegrationTest {
         signup("Alok Kumar", alokEmail, PASSWORD);
         String token = email.latestTokenFor(alokEmail);
 
-        mvc.perform(post("/api/v1/auth/verify").param("token", token)).andExpect(status().isOk());
+        mvc.perform(post("/api/v1/auth/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(java.util.Map.of("token", token)))).andExpect(status().isOk());
 
-        MvcResult replay = mvc.perform(post("/api/v1/auth/verify").param("token", token)).andReturn();
+        MvcResult replay = mvc.perform(post("/api/v1/auth/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(java.util.Map.of("token", token)))).andReturn();
         assertThat(codeOf(replay)).isEqualTo("TOKEN_INVALID");
     }
 
@@ -213,119 +302,44 @@ class AuthFlowIntegrationTest {
      * claim and must buy nothing. Anyone can sign up as {@code victim@realfirm.com}; nobody may become
      * ADMIN of a workspace bound to {@code realfirm.com} by doing so.
      *
-     * <p>Note what is asserted, and what is not. The request is <b>accepted</b> — refusing it stranded a
-     * user in the middle of their own signup, which is what this used to do. What must not happen is
-     * that anything comes into <i>existence</i>: no workspace, only a held wizard the response reports
-     * as {@code onboardingHeld}.
+     * <p>A plain refusal is safe here only because verification is the step before this one. When it
+     * came last, this 403 landed in the middle of a wizard the user was being asked to finish, and the
+     * answers had to be held instead.
      */
     @Test
-    @DisplayName("an unverified user's workspace does not exist until they verify")
+    @DisplayName("an unverified user cannot create a workspace on their firm's domain")
     void unverifiedUserCannotClaimADomain() throws Exception {
         // Signed up, never clicked the link. The token is valid; the address is not proven.
         String unverified = bearer(signup("Impostor", "impostor@" + domain, PASSWORD));
 
-        // Accepted, not refused: they may finish their own wizard.
-        mvc.perform(post("/api/v1/onboarding/workspace")
+        MvcResult refused = mvc.perform(post("/api/v1/onboarding/workspace")
                         .header("Authorization", unverified)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"Squatted Firm","companySize":"11-50 people","primaryRegion":"GCC",
                                  "teamFocus":"Executive search"}
                                 """))
-                .andExpect(status().isAccepted())
-                // No workspace on the response, because there is no workspace — only a held wizard.
-                .andExpect(jsonPath("$.workspace").doesNotExist())
-                .andExpect(jsonPath("$.onboardingHeld").value(true));
+                .andExpect(status().isForbidden())
+                .andReturn();
+
+        assertThat(codeOf(refused)).isEqualTo("EMAIL_NOT_VERIFIED");
     }
 
-    /** And it comes into existence the moment they prove the mailbox — not before, and not never. */
+    /** The same gate on the invite step, which mails strangers on the user's unproven word. */
     @Test
-    @DisplayName("verifying materialises the workspace the wizard was holding")
-    void verifyingMaterialisesTheHeldWorkspace() throws Exception {
-        String unverified = bearer(signup("Alok Kumar", alokEmail, PASSWORD));
+    @DisplayName("an unverified user cannot send invitations")
+    void unverifiedUserCannotInvite() throws Exception {
+        String unverified = bearer(signup("Impostor", "impostor2@" + domain, PASSWORD));
 
-        mvc.perform(post("/api/v1/onboarding/workspace")
+        mvc.perform(post("/api/v1/onboarding/invitations")
                         .header("Authorization", unverified)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"NextWebSpark Search","companySize":"11-50 people",
-                                 "primaryRegion":"GCC","teamFocus":"Executive search"}
-                                """))
-                .andExpect(status().isAccepted());
+                                [{"email":"colleague@%s","role":"MEMBER"}]
+                                """.formatted(domain)))
+                .andExpect(status().isForbidden());
 
-        MvcResult verified = mvc.perform(post("/api/v1/auth/verify")
-                        .param("token", email.latestTokenFor(alokEmail)))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        // The click that verified the email is the click that created the organisation.
-        JsonNode user = body(verified);
-        assertThat(user.get("emailVerified").asBoolean()).isTrue();
-        assertThat(user.at("/workspace/name").asText()).isEqualTo("NextWebSpark Search");
-        assertThat(user.at("/workspace/roles/0").asText()).isEqualTo("ADMIN");
-        assertThat(user.at("/workspace/emailDomain").asText()).isEqualTo(domain);
-    }
-
-    /**
-     * A verification link clicked late still builds what the wizard was holding.
-     *
-     * <p>The hold and the verification token both last 24 hours, but a resend restarts only the token —
-     * so verifying from the second email routinely arrived after the hold's own clock had run out.
-     * {@code materialise} deleted the row before testing that clock, then refused to use it, so the
-     * workspace name, size, region and every invitee the user had typed were destroyed by the path that
-     * declined them, and the SPA sent them back to an empty form saying nothing.
-     */
-    @Test
-    @DisplayName("a wizard held past its own expiry is still honoured when the mailbox is proved")
-    void anExpiredHoldIsStillMaterialised() throws Exception {
-        String unverified = bearer(signup("Alok Kumar", alokEmail, PASSWORD));
-
-        mvc.perform(post("/api/v1/onboarding/workspace")
-                        .header("Authorization", unverified)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name":"NextWebSpark Search","companySize":"11-50 people",
-                                 "primaryRegion":"GCC","teamFocus":"Executive search"}
-                                """))
-                .andExpect(status().isAccepted());
-
-        // Age the hold past its deadline, the way a slow signup and a resent link would.
-        jdbc.update("""
-                UPDATE app_lm_pending_onboarding SET expires_at = now() - interval '1 hour'
-                WHERE user_id = (SELECT id FROM app_lm_user WHERE email = ?)
-                """, alokEmail);
-
-        MvcResult verified = mvc.perform(post("/api/v1/auth/verify")
-                        .param("token", email.latestTokenFor(alokEmail)))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        assertThat(body(verified).at("/workspace/name").asText())
-                .as("what they typed must not be thrown away in silence")
-                .isEqualTo("NextWebSpark Search");
-    }
-
-    /**
-     * Verifying straight from the inbox, before filling in the wizard, must strand nobody: no
-     * workspace, nothing held, no invitation — the create form is where they belong, and it works.
-     */
-    @Test
-    @DisplayName("verifying without a held wizard leaves the user free to create a workspace")
-    void verifyingWithoutAWizardLeavesTheUserFree() throws Exception {
-        signup("Alok Kumar", alokEmail, PASSWORD);
-        MvcResult verified = mvc.perform(post("/api/v1/auth/verify")
-                        .param("token", email.latestTokenFor(alokEmail)))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        JsonNode user = body(verified);
-        assertThat(user.get("emailVerified").asBoolean()).isTrue();
-        assertThat(user.at("/workspace/id").asString("")).isEmpty();
-        assertThat(user.get("onboardingHeld").asBoolean()).isFalse();
-        assertThat(user.at("/pendingInvitation/workspaceName").asString("")).isEmpty();
-
-        // And the proof that it is not merely cosmetic: they can still create the workspace.
-        createWorkspace(login(alokEmail), "NextWebSpark Search");
+        assertThat(email.subjectsFor("colleague@" + domain)).isEmpty();
     }
 
     /**
@@ -809,7 +823,9 @@ class AuthFlowIntegrationTest {
     /** Signs up, clicks the emailed link, and returns a bearer token that says "verified". */
     private String verifiedUser(String name, String emailAddress) throws Exception {
         signup(name, emailAddress, PASSWORD);
-        mvc.perform(post("/api/v1/auth/verify").param("token", email.latestTokenFor(emailAddress)))
+        mvc.perform(post("/api/v1/auth/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(java.util.Map.of("token", email.latestTokenFor(emailAddress)))))
                 .andExpect(status().isOk());
 
         // The token from signup still claims unverified — it was minted before the click. Logging in

@@ -19,7 +19,7 @@ login() { post_json /auth/login "$(jq -nc --arg e "$1" --arg p "$2" '{email:$e, 
 VICTIM=$(new_email rl)
 post_json /auth/signup "$(jq -nc --arg e "$VICTIM" --arg p "$PASSWORD" \
   '{fullName:"Rae Limit", email:$e, password:$p, termsAccepted:true}')" >/dev/null
-http POST "/auth/verify?token=$(token_for "$VICTIM" verify)" >/dev/null
+post_json /auth/verify "$(jq -nc --arg t "$(token_for "$VICTIM" verify)" '{token:$t}')" >/dev/null
 
 section "N34  login is rate limited, and the limit precedes the credential check"
 
@@ -62,8 +62,8 @@ section "N37  the endpoints that are deliberately NOT limited"
 
 # Redeeming an emailed token is not limited: the token is already 256 bits of proof, and throttling
 # it would let anybody lock a stranger out of their own verification link.
-for _ in 1 2 3 4 5 6; do http POST "/auth/verify?token=bogus-$RANDOM" >/dev/null; done
-http POST "/auth/verify?token=bogus-final"
+for _ in 1 2 3 4 5 6; do post_json /auth/verify "$(jq -nc --arg t "bogus-$RANDOM" '{token:$t}')" >/dev/null; done
+post_json /auth/verify "$(jq -nc --arg t "bogus-final" '{token:$t}')"
 check_code N37.1 "repeated verification redemptions are not throttled" 400 TOKEN_INVALID
 
 XSRF=$(csrf_value rl)

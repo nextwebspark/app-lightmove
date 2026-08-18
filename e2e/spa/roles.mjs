@@ -55,7 +55,7 @@ async function signIn(email, label) {
   await page.goto(`${WEB}/login`);
   await page.getByPlaceholder("you@firm.com").fill(email);
   await page.getByPlaceholder("••••••••").fill(PASSWORD);
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.waitForTimeout(3000);
   await page.screenshot({ path: join(SHOTS, `roles-${label}-home.png`), fullPage: true });
   return { context, page };

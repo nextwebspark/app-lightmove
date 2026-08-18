@@ -104,7 +104,7 @@ DOOMED_NAME="Doomed Partners $(date +%s)$RANDOM"
 
 post_json /auth/signup "$(jq -nc --arg e "$DOOMED_ADMIN" --arg p "$PASSWORD" \
   '{fullName:"Dee Doomed", email:$e, password:$p, termsAccepted:true}')" >/dev/null
-http POST "/auth/verify?token=$(token_for "$DOOMED_ADMIN" verify)" >/dev/null
+post_json /auth/verify "$(jq -nc --arg t "$(token_for "$DOOMED_ADMIN" verify)" '{token:$t}')" >/dev/null
 post_json /auth/login "$(jq -nc --arg e "$DOOMED_ADMIN" --arg p "$PASSWORD" '{email:$e, password:$p}')" >/dev/null
 DOOMED_ADMIN_TOKEN=$(json '.accessToken')
 post_json /onboarding/workspace "$(jq -nc --arg n "$DOOMED_NAME" \

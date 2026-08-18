@@ -144,7 +144,7 @@ PORTAL_TOKEN_VALUE=$(token_for "$STAFF_ONLY_EMAIL" accept-invite)
 BYSTANDER_EMAIL=$(new_email bystander)
 post_json /auth/signup "$(jq -nc --arg e "$BYSTANDER_EMAIL" --arg p "$PASSWORD" \
   '{fullName:"By Stander", email:$e, password:$p, termsAccepted:true}')" >/dev/null
-http POST "/auth/verify?token=$(token_for "$BYSTANDER_EMAIL" verify)" >/dev/null
+post_json /auth/verify "$(jq -nc --arg t "$(token_for "$BYSTANDER_EMAIL" verify)" '{token:$t}')" >/dev/null
 post_json /auth/login "$(jq -nc --arg e "$BYSTANDER_EMAIL" --arg p "$PASSWORD" '{email:$e, password:$p}')" >/dev/null
 BYSTANDER_TOKEN=$(json '.accessToken')
 
@@ -157,7 +157,7 @@ check_code C6.1 "somebody else's portal token, redeemed as a staff invitation" 4
 # stands between a read-only portal contact and a staff seat.
 post_json /auth/signup "$(jq -nc --arg e "$STAFF_ONLY_EMAIL" --arg p "$PASSWORD" \
   '{fullName:"Pat Portal", email:$e, password:$p, termsAccepted:true}')" >/dev/null
-http POST "/auth/verify?token=$(token_for "$STAFF_ONLY_EMAIL" verify)" >/dev/null
+post_json /auth/verify "$(jq -nc --arg t "$(token_for "$STAFF_ONLY_EMAIL" verify)" '{token:$t}')" >/dev/null
 post_json /auth/login "$(jq -nc --arg e "$STAFF_ONLY_EMAIL" --arg p "$PASSWORD" '{email:$e, password:$p}')" >/dev/null
 PORTAL_SELF_TOKEN=$(json '.accessToken')
 

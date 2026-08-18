@@ -1,27 +1,31 @@
 package app.lightmove.api.core.security.service;
 
 import app.lightmove.api.core.security.constant.TokenPurpose;
+import app.lightmove.api.core.security.constant.UserStatus;
+import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.model.VerificationToken;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.repository.VerificationTokenRepository;
-import app.lightmove.api.core.security.model.EmailVerifiedEvent;
 import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
 import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
+import app.lightmove.api.workspace.constant.MemberStatus;
+import app.lightmove.api.workspace.model.WorkspaceMember;
+import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,11 +44,12 @@ public class VerificationService {
 
     private final UserRepository users;
     private final VerificationTokenRepository verificationTokens;
+    private final WorkspaceMemberRepository members;
+    private final TokenService tokens;
     private final EmailSender emailSender;
     private final EmailTemplates templates;
     private final AuditService audit;
     private final LightMoveProperties properties;
-    private final ApplicationEventPublisher events;
 
     /**
      * Issues a fresh verification link and emails it.
@@ -79,12 +84,17 @@ public class VerificationService {
     }
 
     /**
-     * Redeems a verification link.
+     * Redeems a verification link and signs the user straight in.
      *
-     * @return the user who was verified.
+     * <p>Issuing a session here is the same judgement {@code PasswordResetService.reset} and invited
+     * signup already made: a token mailed only to this address proves what a login would prove. It
+     * matters because the mail client opens the link in whatever browser it likes — usually not the one
+     * that filled in signup, which has the only session that existed.
+     *
+     * @return a session for the user who was verified.
      */
     @Transactional
-    public User verify(String plaintextToken, HttpServletRequest request) {
+    public AuthenticatedSession verify(String plaintextToken, HttpServletRequest request) {
         Instant now = Instant.now();
 
         VerificationToken token = verificationTokens.findByTokenHash(Tokens.hash(plaintextToken))
@@ -106,22 +116,27 @@ public class VerificationService {
         User user = users.findById(token.getUserId())
                 .orElseThrow(() -> new ApiException(ErrorCode.TOKEN_INVALID, "Token references a missing user"));
 
+        // Before consume, and mirroring PasswordResetService.reset: this method issues a session, so it
+        // owes the same status check every other session-minting path makes. Nothing sets SUSPENDED
+        // today, which is exactly why it is easy to leave out — and why whoever builds the suspension
+        // surface would inherit a link that signs a suspended account straight back in.
+        if (user.getStatus() == UserStatus.SUSPENDED || user.getStatus() == UserStatus.DELETED) {
+            audit.event(AuthEventType.EMAIL_VERIFIED).failed().actor(user.getId()).from(request)
+                    .reason("status_" + user.getStatus()).record();
+            throw ApiException.of(ErrorCode.ACCOUNT_SUSPENDED);
+        }
+
         token.consume(now);
         user.markEmailVerified(now);
 
         log.info("Email verified for user {}", user.getId());
         audit.event(AuthEventType.EMAIL_VERIFIED).actor(user.getId()).from(request).record();
 
-        // The signup wizard, if they filled it in before verifying, becomes real here — the workspace is
-        // created, or the join request reaches an admin's queue. Published rather than called: what
-        // happens next belongs to the workspace feature, and auth has no business knowing it exists.
-        //
-        // Synchronous, so it commits with this transaction. A user who clicks their link and lands in a
-        // verified account with no organisation, because a background listener failed quietly, has
-        // nowhere to go and no way to retry.
-        events.publishEvent(new EmailVerifiedEvent(user.getId(), request));
+        // Usually null: verification gates the creator, whose organisation is the step after this one.
+        WorkspaceMember membership = members.findByUserIdAndStatus(user.getId(), MemberStatus.ACTIVE)
+                .orElse(null);
 
-        return user;
+        return tokens.issue(user, membership, request);
     }
 
     /**

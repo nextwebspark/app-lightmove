@@ -166,7 +166,9 @@ class PasswordResetFlowIntegrationTest extends FlowTestSupport {
         String resetToken = email.latestTokenFor(alok);
 
         // And the reset token must not act as verification.
-        MvcResult verify = mvc.perform(post("/api/v1/auth/verify").param("token", resetToken)).andReturn();
+        MvcResult verify = mvc.perform(post("/api/v1/auth/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(java.util.Map.of("token", resetToken)))).andReturn();
         assertThat(codeOf(verify)).isEqualTo("TOKEN_INVALID");
     }
 

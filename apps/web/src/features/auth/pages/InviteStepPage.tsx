@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button, Card, FormError, Input, Logo, Notice, Select } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
+import { homeFor } from "../homeFor";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import * as authApi from "../api/authApi";
 import type { WorkspaceRole } from "../api/types";
@@ -78,9 +79,9 @@ export function InviteStepPage() {
       .filter((row) => row.email.trim() !== "")
       .map((row) => ({ email: row.email.trim(), role: row.role }));
 
-    // Where the wizard ends. An unverified user has no workspace to land in — theirs is held until
-    // they confirm their address — so "/" would only bounce them back into step 2.
-    const done = user?.workspace ? "/" : "/signup/verify";
+    // Reaching this step means verified with a workspace, so "/" is where the wizard ends. homeFor
+    // covers the one case left: a tab left open while the workspace was abandoned elsewhere.
+    const done = user?.workspace ? "/" : homeFor(user);
 
     if (filled.length === 0) {
       navigate(done, { replace: true });
@@ -90,8 +91,6 @@ export function InviteStepPage() {
     setSubmitting(true);
     setError(null);
     try {
-      // Held, not sent, while unverified: they go out with the workspace, when it is created. An
-      // account nobody has confirmed must not be able to make LightMove email five strangers.
       await authApi.invite(filled);
       await reload();
       navigate(done, { replace: true });
@@ -105,18 +104,18 @@ export function InviteStepPage() {
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
       <Logo />
 
-      {/* Step 2 only. Step 1 created the account — there is nothing there to go back and change. */}
+      {/* Organization only. The account and the verification are done and cannot be redone. */}
       <Stepper
         steps={SIGNUP_STEPS}
-        current={3}
-        backableSteps={[2]}
+        current={4}
+        backableSteps={[3]}
         onGoBack={() => navigate("/signup/workspace")}
       />
 
       <Card className="w-[480px] max-w-[94vw] [animation-delay:80ms]">
         <h1 className="text-[19px] font-semibold leading-tight">Invite your team</h1>
         <p className="mb-6 mt-1 font-mono text-xs text-text3">
-          Step 3 of 3 · optional — invite people later from Team
+          Step 4 of 4 · optional — invite people later from Team
         </p>
 
         <FormError message={error} />

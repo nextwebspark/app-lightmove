@@ -41,16 +41,6 @@ export interface User {
   workspace: WorkspaceSummary | null;
 
   /**
-   * They finished the wizard but have not verified their email, so what they asked for is held: no
-   * workspace exists on their firm's domain. Verifying is what makes it real.
-   *
-   * The router needs this to tell "has not started onboarding" from "has finished it and is waiting on
-   * their inbox" — both of which have `workspace: null`. Without it, a user who closes the tab comes
-   * back to an empty form they have already filled in.
-   */
-  onboardingHeld: boolean;
-
-  /**
    * The redeemable invitation addressed to this user, when they are not yet placed. Server-derived so
    * an invitee is routed to "join {workspace}" from any tab — the emailed token lives in one tab's
    * sessionStorage, but this survives everywhere the session does. Null once placed.

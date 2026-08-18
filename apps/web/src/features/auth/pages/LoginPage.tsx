@@ -6,6 +6,7 @@ import { Button, Card, Field, FormError, Input, Logo } from "../../../components
 import { ApiRequestError } from "../../../lib/apiClient";
 import { ThemeToggle } from "../../theme/ThemeToggle";
 import { useAuth } from "../AuthProvider";
+import { homeFor } from "../homeFor";
 import { OAuthButtons } from "../components/OAuthButtons";
 import { loginSchema, type LoginValues } from "../schemas";
 
@@ -44,18 +45,7 @@ export function LoginPage() {
     setFormError(null);
     try {
       const user = await signIn(values.email, values.password);
-      // Route on what is true of them: into the app, back to the inbox their held wizard waits on,
-      // to the invitation waiting for them, or into the wizard they never finished.
-      navigate(
-        user.workspace
-          ? "/"
-          : user.onboardingHeld
-            ? "/signup/verify"
-            : user.pendingInvitation
-              ? "/auth/accept-invite"
-              : "/signup/workspace",
-        { replace: true },
-      );
+      navigate(homeFor(user), { replace: true });
     } catch (error) {
       setFormError(
         error instanceof ApiRequestError

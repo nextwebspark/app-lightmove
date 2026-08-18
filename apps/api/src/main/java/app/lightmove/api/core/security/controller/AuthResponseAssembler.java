@@ -12,7 +12,6 @@ import app.lightmove.api.workspace.dto.WorkspaceSummary;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.repository.InvitationRepository;
-import app.lightmove.api.workspace.repository.PendingOnboardingRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import java.time.Instant;
 import java.util.Comparator;
@@ -31,7 +30,6 @@ import org.springframework.stereotype.Component;
 public class AuthResponseAssembler {
 
     private final WorkspaceRepository workspaces;
-    private final PendingOnboardingRepository pendingOnboardings;
     private final InvitationRepository invitations;
 
     public AuthResponse assemble(TokenPair tokens, User user, WorkspaceMember membership) {
@@ -53,9 +51,6 @@ public class AuthResponseAssembler {
                 user.getTimezone(),
                 user.getLocale(),
                 workspace,
-                // Only meaningful for an unverified user: verifying materialises the wizard, so a
-                // verified one never has anything held.
-                !user.isEmailVerified() && pendingOnboardings.findByUserId(user.getId()).isPresent(),
                 workspace == null ? pendingInvitation(user) : null);
     }
 

@@ -245,7 +245,7 @@ function ServerDerivedArrival() {
     return (
       <Shell workspaceName={invitation.workspaceName} subtitle="one step left" error={null}>
         <Notice>
-          Confirm {user!.email} first — check your inbox for the verification link. We'll bring you back
+          Confirm {user!.email} first — open the link in your inbox, and we&rsquo;ll bring you back
           here.
         </Notice>
       </Shell>

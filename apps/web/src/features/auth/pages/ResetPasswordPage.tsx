@@ -5,6 +5,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Card, Field, FormError, Input, Logo } from "../../../components/ui";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../AuthProvider";
+import { homeFor } from "../homeFor";
 import { resetPasswordSchema, type ResetPasswordValues } from "../schemas";
 
 /**
@@ -39,16 +40,7 @@ export function ResetPasswordPage() {
     try {
       const user = await resetPassword(token, values.password);
       // Signed in — route exactly as login does, on what is true of them right now.
-      navigate(
-        user.workspace
-          ? "/"
-          : user.onboardingHeld
-            ? "/signup/verify"
-            : user.pendingInvitation
-              ? "/auth/accept-invite"
-              : "/signup/workspace",
-        { replace: true },
-      );
+      navigate(homeFor(user), { replace: true });
     } catch (error) {
       const code = codeOf(error);
       if (code === "TOKEN_INVALID" || code === "TOKEN_EXPIRED") {

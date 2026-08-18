@@ -76,7 +76,6 @@ describe("AcceptInvitePage", () => {
         emailVerified: true,
         timezone: "Asia/Dubai",
         locale: "en",
-        onboardingHeld: false,
         pendingInvitation: null,
         workspace: {
           id: "w1",
@@ -156,7 +155,6 @@ describe("AcceptInvitePage", () => {
       emailVerified: true,
       timezone: "Asia/Dubai",
       locale: "en",
-      onboardingHeld: false,
       pendingInvitation: null,
       workspace: null,
     });
@@ -198,7 +196,6 @@ describe("AcceptInvitePage", () => {
       emailVerified: true,
       timezone: "Asia/Dubai",
       locale: "en",
-      onboardingHeld: false,
       pendingInvitation: { workspaceName: "NextWebSpark Search", role: "MEMBER" as const },
       workspace: null,
     };

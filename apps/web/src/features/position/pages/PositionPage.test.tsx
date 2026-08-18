@@ -48,7 +48,6 @@ const userOf = (roles: ("ADMIN" | "MEMBER")[]) => ({
   emailVerified: true,
   timezone: "Asia/Dubai",
   locale: "en",
-  onboardingHeld: false,
   pendingInvitation: null,
   workspace: { ...workspace, roles },
 });

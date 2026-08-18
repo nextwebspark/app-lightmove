@@ -61,12 +61,22 @@ export function providers(): Promise<AuthProviders> {
   return request<AuthProviders>("/auth/providers", { anonymous: true });
 }
 
-/** Redeems the emailed verification link. */
-export function verifyEmail(token: string): Promise<User> {
-  return request<User>(`/auth/verify?token=${encodeURIComponent(token)}`, {
+/**
+ * Redeems the emailed verification link. The server signs the user in on success — the token proved the
+ * mailbox — so this installs the access token, exactly like login. Anonymous because the browser that
+ * opens the link is usually not the one that signed up.
+ */
+export async function verifyEmail(token: string): Promise<AuthResponse> {
+  // Body, not a query param, and that is load-bearing: it forces application/json, and so the CORS
+  // preflight that stops a cross-site form POST planting a refresh cookie on this CSRF-exempt route.
+  // See VerifyEmailRequest. It also keeps a live credential out of the URL.
+  const session = await request<AuthResponse>("/auth/verify", {
     method: "POST",
+    body: { token },
     anonymous: true,
   });
+  setAccessToken(session.accessToken);
+  return session;
 }
 
 export function resendVerification(email: string): Promise<void> {
@@ -102,7 +112,7 @@ export async function resetPassword(token: string, password: string): Promise<Au
 
 // ── Onboarding ──────────────────────────────────────────────────────────────
 
-/** Editing the workspace you already run — which is what Back means once step 2 has committed. */
+/** Editing the workspace you already run — which is what Back means once the step has committed. */
 export function updateWorkspace(payload: CreateWorkspaceRequest): Promise<User> {
   return request<User>("/onboarding/workspace", {
     method: "PATCH",

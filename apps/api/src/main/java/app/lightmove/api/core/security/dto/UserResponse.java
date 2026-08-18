@@ -18,15 +18,8 @@ public record UserResponse(
         /** The language tag the user picked in Settings → Profile. Stored ahead of the app being translated. */
         String locale,
 
-        /** Null until signup step 2 — the frontend routes into the app or back into the wizard on it. */
+        /** Null until the organisation step — the frontend routes into the app or back into the wizard on it. */
         WorkspaceSummary workspace,
-
-        /**
-         * True when the user filled in the wizard but has not verified, so what they asked for is held
-         * (see {@code PendingOnboarding}). The SPA routes on actual state, not a step counter, so a
-         * closed tab does not lose the wizard.
-         */
-        boolean onboardingHeld,
 
         /**
          * The redeemable invitation addressed to this user, when they are not yet placed. Server-derived

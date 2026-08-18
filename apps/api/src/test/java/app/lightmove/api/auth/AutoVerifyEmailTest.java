@@ -89,16 +89,15 @@ class AutoVerifyEmailTest {
     }
 
     /**
-     * And the workspace is real, not held.
+     * And the organisation step is open, with no link clicked.
      *
-     * <p>The case a flag that only relaxed {@code SecurityConfig} would have missed:
-     * {@code OnboardingService} reads {@code user.isEmailVerified()} directly, so an unverified user's
-     * create returns 202 with the workspace <i>held</i> and nothing written. 201 here says both gates are
-     * satisfied, because the user genuinely is verified.
+     * <p>The flag stamps the user verified rather than relaxing a gate, so the verified-email check on
+     * {@code /onboarding/**} is satisfied for the ordinary reason. That is what makes this a shortcut
+     * and not a hole.
      */
     @Test
-    @DisplayName("the workspace is created outright, not held")
-    void workspaceIsCreatedNotHeld() throws Exception {
+    @DisplayName("the workspace is created outright, with no verification email")
+    void workspaceIsCreatedWithoutVerifying() throws Exception {
         String token = bearer(signup("Alok Kumar", alokEmail));
 
         mvc.perform(post("/api/v1/onboarding/workspace")

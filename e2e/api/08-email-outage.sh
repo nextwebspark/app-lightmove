@@ -4,8 +4,9 @@
 # Every other script runs with provider=log, which cannot fail, so the entire failure branch was
 # unexercised. Here the sender is pointed at a dead port: EmailSender's contract says implementations
 # must swallow delivery failures, so signup is expected to succeed while the mail never arrives. The
-# question this answers is what happens to the user *after* that — through steps 2 and 3, and whether
-# any route out of the hole exists.
+# question this answers is what happens to the user *after* that. Verification is step 2 now, so the
+# answer got sharper and worse: they are stopped at the gate rather than carried through a wizard that
+# is honoured later. This script pins that, and the one route out.
 #
 # REQUIRES the API booted against a black hole rather than Resend:
 #   LIGHTMOVE_EMAIL_PROVIDER=resend \
@@ -58,20 +59,23 @@ fi
 note N41.8 "audit outcome: $(sql "SELECT outcome FROM app_lm_audit_event a JOIN app_lm_user u ON u.id = a.actor_user_id
                                   WHERE u.email = '$VICTIM' AND a.event_type = 'EMAIL_VERIFICATION_SENT' LIMIT 1")"
 
-section "N42  the wizard carries on as if nothing happened"
+section "N42  the wizard stops dead at the gate"
 
+# The trade the blocking verify step makes, stated plainly. When verification came last, this user
+# could fill in the whole wizard and have it honoured whenever the mail finally arrived. Now they
+# cannot start it, and what they would have typed is not captured anywhere.
 post_json /onboarding/workspace "$(jq -nc --arg n "$WS" \
   '{name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
   -H "$(auth_header "$TOKEN")"
-check_status N42.1 "step 2 is accepted and held" 202
+check_code N42.1 "the organisation step is refused" 403 EMAIL_NOT_VERIFIED
 
 post_json /onboarding/invitations "$(jq -nc --arg a "$(new_email colleague)" '[{email:$a, role:"MEMBER"}]')" \
   -H "$(auth_header "$TOKEN")"
-check_status N42.2 "step 3 is accepted and held" 202
+check_status N42.2 "the invite step too" 403
 
 get /auth/me -H "$(auth_header "$TOKEN")"
 check N42.3 "the user has no workspace" "null" "$(json '.workspace')"
-check N42.4 "and is flagged as held, so the SPA parks them on 'check your inbox'" "true" "$(json '.onboardingHeld')"
+check N42.4 "and is plainly unverified, which is what the SPA parks them on" "false" "$(json '.emailVerified')"
 note N42.5 "nothing in the response says the email failed — the SPA cannot distinguish this from a mail in flight"
 
 section "N43  every route out of the hole"
@@ -96,25 +100,23 @@ check N43.7 "the workspace they typed still does not exist" "0" \
   "$(sql "SELECT count(*) FROM app_lm_workspace WHERE name = '$WS'")"
 # Scoped to this victim rather than counting the whole table. A bare count only means anything against
 # a virgin database, and run-all.sh keeps the container between legs — so the ~30 invitations legs 1
-# and 2 legitimately created read as a failure here. The claim is about THIS user's held draft: their
+# and 2 legitimately created read as a failure here. The claim is about THIS user's invitees: their
 # colleague is invited by them, or not at all.
 check N43.8 "their colleague was never invited" "0" \
   "$(sql "SELECT count(*) FROM app_lm_invitation i
             JOIN app_lm_user u ON u.id = i.invited_by
            WHERE u.email = '$VICTIM'")"
 
-# Recovery is better than it looks, because of the B6 fix. A resend mints a fresh 24h token whenever
-# the provider comes back, and materialise() no longer refuses a hold that lapsed in the meantime — so
-# the draft survives an outage of any length, as long as the user thinks to press "Resend the link".
-check N43.9 "the held draft is still intact and waiting" "1" \
-  "$(sql "SELECT count(*) FROM app_lm_pending_onboarding p JOIN app_lm_user u ON u.id = p.user_id
+# The one route out, and it is narrow: a resend mints a fresh 24h token whenever the provider comes
+# back, and the account is otherwise untouched — so the user resumes at step 2 exactly where they
+# stopped. What they had *typed* is gone, because with the gate in front of the wizard there is
+# nothing to type yet.
+check N43.9 "the account is intact and still awaiting its link" "1" \
+  "$(sql "SELECT count(*) FROM app_lm_verification_token t JOIN app_lm_user u ON u.id = t.user_id
+          WHERE u.email = '$VICTIM' AND t.purpose = 'EMAIL_VERIFICATION' AND t.consumed_at IS NULL")"
+check N43.10 "and nothing was created on their firm's domain in the meantime" "0" \
+  "$(sql "SELECT count(*) FROM app_lm_workspace_member m JOIN app_lm_user u ON u.id = m.user_id
           WHERE u.email = '$VICTIM'")"
-check N43.10 "with the workspace name they typed" "$WS" \
-  "$(sql "SELECT p.name FROM app_lm_pending_onboarding p JOIN app_lm_user u ON u.id = p.user_id
-          WHERE u.email = '$VICTIM'")"
-check N43.11 "and their invitation still queued on it" "1" \
-  "$(sql "SELECT jsonb_array_length(p.invitations) FROM app_lm_pending_onboarding p
-            JOIN app_lm_user u ON u.id = p.user_id WHERE u.email = '$VICTIM'")"
-note N43.12 "so recovery is one resend once the provider is healthy — but nothing prompts the user, and nothing alerts an operator"
+note N43.11 "so recovery is one resend once the provider is healthy — but nothing prompts the user, and nothing alerts an operator"
 
 summary

@@ -29,6 +29,8 @@ interface AuthContextValue {
   signUp: (fullName: string, email: string, password: string) => Promise<User>;
   /** Creates the invited account and adopts the session it returns — the invitee is in immediately. */
   acceptInviteSignup: (token: string, fullName: string, password: string) => Promise<User>;
+  /** Redeems a verification link and adopts the session it returns — proving the mailbox is the sign-in. */
+  verifyEmail: (token: string) => Promise<User>;
   /** Redeems a reset link and adopts the session it returns — no second sign-in with the new password. */
   resetPassword: (token: string, password: string) => Promise<User>;
   signOut: () => Promise<void>;
@@ -138,6 +140,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [startFreshSession],
   );
 
+  const verifyEmail = useCallback(
+    async (token: string) => {
+      const session = await authApi.verifyEmail(token);
+      startFreshSession();
+      setUser(session.user);
+      return session.user;
+    },
+    [startFreshSession],
+  );
+
   const resetPassword = useCallback(
     async (token: string, password: string) => {
       const session = await authApi.resetPassword(token, password);
@@ -204,8 +216,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ user, loading, signIn, signUp, acceptInviteSignup, resetPassword, signOut, reload, adopt }),
-    [user, loading, signIn, signUp, acceptInviteSignup, resetPassword, signOut, reload, adopt],
+    () => ({ user, loading, signIn, signUp, acceptInviteSignup, verifyEmail, resetPassword, signOut, reload, adopt }),
+    [user, loading, signIn, signUp, acceptInviteSignup, verifyEmail, resetPassword, signOut, reload, adopt],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

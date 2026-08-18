@@ -5,14 +5,15 @@ import { SettingsLayout } from "../components/layout/SettingsLayout";
 import { WorkspaceLayout } from "../components/layout/WorkspaceLayout";
 import { Logo } from "../components/ui";
 import { useAuth } from "../features/auth/AuthProvider";
+import { homeFor } from "../features/auth/homeFor";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
-import { CheckInboxPage } from "../features/auth/pages/CheckInboxPage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
 import { InviteStepPage } from "../features/auth/pages/InviteStepPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
 import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 import { SignupPage } from "../features/auth/pages/SignupPage";
+import { SignupVerifyStepPage } from "../features/auth/pages/SignupVerifyStepPage";
 import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { WorkspaceStepPage } from "../features/auth/pages/WorkspaceStepPage";
 import { isPureClient } from "../features/auth/roles";
@@ -58,13 +59,14 @@ export function AppRoutes() {
           not got, which is where the invitation used to die. */}
       <Route path="/auth/accept-invite" element={<AcceptInvitePage />} />
 
-      {/* Signed in, but not yet in a workspace. */}
-      <Route path="/signup/workspace" element={<RequireAuth><WorkspaceStepPage /></RequireAuth>} />
-      {/* RequireAuth, not RequireWorkspace: an unverified user has no workspace yet — theirs is held
-          until they confirm their address — and is still entitled to finish their own signup. Guarding
-          this with RequireWorkspace bounced them straight back to step 2, in a loop. */}
-      <Route path="/signup/invite" element={<RequireAuth><InviteStepPage /></RequireAuth>} />
-      <Route path="/signup/verify" element={<RequireAuth><CheckInboxPage /></RequireAuth>} />
+      {/* Signed up, waiting on the emailed link. The gate: everything below needs a verified address,
+          and the API refuses /onboarding/** without one, so a bypass here would only earn a 403. */}
+      <Route path="/signup/verify-email" element={<RequireAuth><SignupVerifyStepPage /></RequireAuth>} />
+
+      {/* Verified, but not yet in a workspace. Not RequireWorkspace: the workspace is what these two
+          steps create, so guarding on it would bounce the user out of their own signup. */}
+      <Route path="/signup/workspace" element={<RequireVerified><WorkspaceStepPage /></RequireVerified>} />
+      <Route path="/signup/invite" element={<RequireVerified><InviteStepPage /></RequireVerified>} />
 
       {/* The app shell. Sidebar views are routes so every screen is deep-linkable. */}
       <Route element={<RequireWorkspace><WorkspaceLayout /></RequireWorkspace>}>
@@ -127,29 +129,7 @@ function AnonymousOnly({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-/**
- * Where a signed-in user actually belongs, given what is true of them right now.
- *
- * Three states share `workspace: null` and they are not the same place. Someone who *finished* the
- * wizard while unverified needs their inbox, not an empty form they have already filled in. Someone
- * holding an invitation belongs on "join {workspace}", never on create-your-own. Everyone else has
- * not started, and needs the wizard.
- *
- * Order matters: `onboardingHeld` outranks `pendingInvitation`. Verifying materialises a held wizard
- * into a workspace, so routing a held user to accept-invite would dead-end on ALREADY_IN_WORKSPACE
- * the moment they verify.
- */
-export function homeFor(user: {
-  workspace: { roles: string[] } | null;
-  onboardingHeld: boolean;
-  pendingInvitation: unknown;
-}) {
-  // Everyone in a workspace lands on the projects list; the server scopes a pure client's to their seats.
-  if (user.workspace) return "/";
-  if (user.onboardingHeld) return "/signup/verify";
-  if (user.pendingInvitation) return "/auth/accept-invite";
-  return "/signup/workspace";
-}
+export { homeFor };
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -162,6 +142,17 @@ function RequireAuth({ children }: { children: ReactNode }) {
     // the home page.
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
+
+  return <>{children}</>;
+}
+
+/** Signup past the gate. An unverified user is sent back to the step they skipped. */
+function RequireVerified({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) return <Booting />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!user.emailVerified) return <Navigate to="/signup/verify-email" replace />;
 
   return <>{children}</>;
 }

@@ -10,7 +10,7 @@ login() { post_json /auth/login "$(jq -nc --arg e "$1" --arg p "$2" '{email:$e, 
 VICTIM=$(new_email login)
 post_json /auth/signup "$(jq -nc --arg e "$VICTIM" --arg p "$PASSWORD" \
   '{fullName:"Vic Tim", email:$e, password:$p, termsAccepted:true}')" >/dev/null
-http POST "/auth/verify?token=$(token_for "$VICTIM" verify)" >/dev/null
+post_json /auth/verify "$(jq -nc --arg t "$(token_for "$VICTIM" verify)" '{token:$t}')" >/dev/null
 
 section "N9  login does not leak which accounts exist"
 

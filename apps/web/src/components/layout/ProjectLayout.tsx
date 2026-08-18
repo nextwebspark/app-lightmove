@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
-import { useAuth } from "../../features/auth/AuthProvider";
 import * as projectsApi from "../../features/projects/api/projectsApi";
 import type { Project } from "../../features/projects/api/types";
 import { Spinner, StagePill } from "../ui";
@@ -26,13 +25,10 @@ export function ProjectLayout() {
   const { projectId } = useParams();
   const { pathname } = useLocation();
   const fillsViewport = VIEWPORT_FILLING_TABS.some((tab) => pathname.endsWith(tab));
-  const { user } = useAuth();
-  const verified = user?.emailVerified ?? false;
 
   const { data: projects, isPending } = useQuery({
     queryKey: projectsApi.PROJECTS_KEY,
     queryFn: projectsApi.projects,
-    enabled: verified,
   });
   const project = projects?.find((p) => p.id === projectId);
 

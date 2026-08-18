@@ -59,8 +59,9 @@ import org.springframework.transaction.annotation.Transactional;
  * address — the consumer-domain rule applies here as it does at signup.
  *
  * <p>Keeps its own imperative admin checks rather than {@code @PreAuthorize}: it is called both from
- * controllers and from {@code PendingOnboardingMaterialiser} with a synthetic principal, outside any
- * request's SecurityContext, where method security would evaluate the wrong authentication.
+ * authenticated controllers and from the anonymous {@code /onboarding/accept-invitation-signup}
+ * endpoint, outside any request's SecurityContext, where method security would evaluate no
+ * authentication at all.
  */
 @Service
 @RequiredArgsConstructor

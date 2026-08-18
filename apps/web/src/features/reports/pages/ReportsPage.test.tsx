@@ -74,7 +74,6 @@ describe("ReportsPage", () => {
     emailVerified: true,
     timezone: "Asia/Dubai",
     locale: "en",
-    onboardingHeld: false,
     pendingInvitation: null,
     workspace: {
       id: "w1",

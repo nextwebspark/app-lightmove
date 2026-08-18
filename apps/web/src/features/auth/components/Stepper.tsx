@@ -1,9 +1,9 @@
 /**
- * The three-step progress indicator from Signup.dc.html.
+ * The progress indicator from Signup.dc.html, plus the Verify step the mockup does not model.
  *
  * A completed step is a green tick and is clickable — the mockup lets you go back, and only back.
- * Forward navigation happens by completing the step you are on, because step 2 cannot run until step 1
- * has created the account it needs.
+ * Forward navigation happens by completing the step you are on; nothing after Verify is reachable
+ * until the emailed link is clicked, which the router and the API both enforce.
  */
 
 export interface Step {
@@ -13,8 +13,9 @@ export interface Step {
 
 export const SIGNUP_STEPS: Step[] = [
   { n: 1, label: "Account" },
-  { n: 2, label: "Organization" },
-  { n: 3, label: "Invite team" },
+  { n: 2, label: "Verify" },
+  { n: 3, label: "Organization" },
+  { n: 4, label: "Invite team" },
 ];
 
 export function Stepper({
