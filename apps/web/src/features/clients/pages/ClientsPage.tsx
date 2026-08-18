@@ -141,7 +141,7 @@ export function ClientsPage() {
           open
           onClose={() => setNewMandateOpen(false)}
           clients={clients}
-          initialClientId={openClientId ?? undefined}
+          lockedClientId={openClientId ?? undefined}
         />
       )}
     </>
