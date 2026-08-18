@@ -4,7 +4,8 @@
 #
 # REQUIRES the API to have been restarted with tightened limits:
 #   EXTRA_ENV="AUTH_LOGIN_ATTEMPTS_PER_MINUTE=3 AUTH_SIGNUP_ATTEMPTS_PER_HOUR=5 \
-#              AUTH_VERIFICATION_RESENDS_PER_HOUR=2 AUTH_PASSWORD_RESET_REQUESTS_PER_HOUR=2"
+#              AUTH_VERIFICATION_RESENDS_PER_HOUR=2 AUTH_PASSWORD_RESET_REQUESTS_PER_HOUR=2 \
+#              AUTH_INVITATION_SENDS_PER_HOUR=3"
 # The buckets are in-memory, so a restart is also how they are reset.
 set -uo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -13,6 +14,7 @@ LOGIN_LIMIT=3
 RESEND_LIMIT=2
 RESET_LIMIT=2
 SIGNUP_LIMIT=5
+INVITE_LIMIT=3
 
 login() { post_json /auth/login "$(jq -nc --arg e "$1" --arg p "$2" '{email:$e, password:$p}')" "${@:3}"; }
 
@@ -112,5 +114,29 @@ check N40.3 "and the address it was refused for is still free" "0" \
   "$(sql "SELECT count(*) FROM app_lm_user WHERE email = '$THROTTLED_EMAIL'")"
 
 note N40.3 "the limiter is in-memory (Caffeine) and per instance — every limit above multiplies by the number of Cloud Run instances"
+
+section "N41  invitation send is rate limited per workspace/inviter"
+
+INVITE_ADMIN=$(new_email invadmin)
+post_json /auth/signup "$(jq -nc --arg e "$INVITE_ADMIN" --arg p "$PASSWORD" \
+  '{fullName:"Ivy Admin", email:$e, password:$p, termsAccepted:true}')" >/dev/null
+post_json /auth/verify "$(jq -nc --arg t "$(token_for "$INVITE_ADMIN" verify)" '{token:$t}')" >/dev/null
+post_json /auth/login "$(jq -nc --arg e "$INVITE_ADMIN" --arg p "$PASSWORD" '{email:$e, password:$p}')" >/dev/null
+INVITE_ADMIN_TOKEN=$(json '.accessToken')
+post_json /onboarding/workspace "$(jq -nc \
+  '{name:"Invite Rate Firm", companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+  -H "$(auth_header "$INVITE_ADMIN_TOKEN")" >/dev/null
+# A token minted before the workspace existed carries no wsId.
+post_json /auth/login "$(jq -nc --arg e "$INVITE_ADMIN" --arg p "$PASSWORD" '{email:$e, password:$p}')" >/dev/null
+INVITE_ADMIN_TOKEN=$(json '.accessToken')
+
+for _ in $(seq 1 $INVITE_LIMIT); do
+  post_json /invitations "$(jq -nc --arg e "$(new_email invitee)" '[{email:$e, role:"MEMBER"}]')" \
+    -H "$(auth_header "$INVITE_ADMIN_TOKEN")" >/dev/null
+done
+post_json /invitations "$(jq -nc --arg e "$(new_email invitee)" '[{email:$e, role:"MEMBER"}]')" \
+  -H "$(auth_header "$INVITE_ADMIN_TOKEN")"
+check_code N41.1 "invite-send past the hourly budget" 429 RATE_LIMITED
+note N41.2 "keyed by workspace+inviter, not by invitee email — a batch of strangers still counts as one send"
 
 summary

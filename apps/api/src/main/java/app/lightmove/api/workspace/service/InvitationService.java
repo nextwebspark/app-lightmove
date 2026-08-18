@@ -3,6 +3,7 @@ package app.lightmove.api.workspace.service;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
 import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
@@ -46,6 +47,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Invitations — the <b>only</b> way into an existing workspace.
@@ -84,6 +87,9 @@ public class InvitationService {
     private final RateLimitGuard rateLimit;
     private final ApplicationEventPublisher events;
 
+    /** A single request may not name more people than this — see the "Fix" in issue #18. */
+    private static final int MAX_INVITE_BATCH = 50;
+
     /** Invites colleagues. Skippable — the wizard's "Skip for now" simply sends an empty list. */
     @Transactional
     public List<Invitation> invite(AuthPrincipal principal, List<InviteCommand> commands,
@@ -94,6 +100,12 @@ public class InvitationService {
 
         UUID workspaceId = principal.requireWorkspaceId();
         access.requireAdmin(principal.userId(), workspaceId);
+
+        if (commands.size() > MAX_INVITE_BATCH) {
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
+                    "Invite up to %d people at a time".formatted(MAX_INVITE_BATCH));
+        }
+        rateLimit.checkInvite(workspaceId, principal.userId(), request);
 
         Workspace workspace = workspaces.findById(workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
@@ -158,7 +170,7 @@ public class InvitationService {
                 properties.web().baseUrl(),
                 URLEncoder.encode(plaintext, StandardCharsets.UTF_8));
 
-        emailSender.send(templates.buildInvitationEmail(
+        sendAfterCommit(templates.buildInvitationEmail(
                 email, inviter.getFullName(), workspace.getName(), granted.getName(), link));
 
         audit.event(WorkspaceEventType.MEMBER_INVITED)
@@ -168,6 +180,25 @@ public class InvitationService {
                 .record();
 
         return invitation;
+    }
+
+    /**
+     * Sends only once the enclosing transaction actually commits — never inside it.
+     *
+     * <p>{@code emailSender.send} is a network call to Resend; running it inside {@code @Transactional}
+     * held one of only 10 pooled DB connections for the round trip, and an already-sent email couldn't
+     * be unsent if a later row in the same batch failed and rolled the transaction back. Deferring to
+     * {@code afterCommit} fixes both: the connection is released before the network call happens, and if
+     * the transaction rolls back, {@code afterCommit} never fires — nothing goes out until the DB state
+     * it describes is final. Requires an active transaction, which every caller of this method has.
+     */
+    private void sendAfterCommit(EmailMessage message) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                emailSender.send(message);
+            }
+        });
     }
 
     /**

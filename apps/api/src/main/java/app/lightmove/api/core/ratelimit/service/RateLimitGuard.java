@@ -10,6 +10,7 @@ import app.lightmove.api.core.security.service.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
 import java.util.Locale;
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 /**
@@ -62,6 +63,17 @@ public class RateLimitGuard {
      */
     public void checkPasswordResetRequest(String email, HttpServletRequest request) {
         checkRateLimit("password-reset", email, request, config.passwordResetRequestsPerHour(), Duration.ofHours(1));
+    }
+
+    /**
+     * Guards the invitation <i>send</i> path — an admin (or a stolen admin token) sending unlimited
+     * invitation batches is an email-bomb / sender-reputation risk. Keyed by workspace+inviter rather
+     * than an email address: there's no single mailbox being protected here, it's the account doing the
+     * sending.
+     */
+    public void checkInvite(UUID workspaceId, UUID inviterId, HttpServletRequest request) {
+        checkRateLimit("invite", "%s:%s".formatted(workspaceId, inviterId), request,
+                config.invitationSendsPerHour(), Duration.ofHours(1));
     }
 
     private void checkRateLimit(String action, String email, HttpServletRequest request, int limit, Duration window) {

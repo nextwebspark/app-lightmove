@@ -128,6 +128,31 @@ class InvitationAdminIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    @DisplayName("a batch over the invite cap is refused before anyone is invited")
+    void batchOverTheCapIsRefused() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Batch Cap Firm");
+        String admin = login(alok);
+
+        tools.jackson.databind.node.ArrayNode batch = json.createArrayNode();
+        for (int i = 0; i < 51; i++) {
+            batch.addObject().put("email", "invitee" + i + "@" + domain).put("role", "MEMBER");
+        }
+
+        MvcResult refused = mvc.perform(post("/api/v1/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(batch)))
+                .andExpect(status().isBadRequest())
+                .andReturn();
+        assertThat(codeOf(refused)).isEqualTo("VALIDATION_FAILED");
+
+        mvc.perform(get("/api/v1/invitations").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
     private void invite(String adminToken, String inviteeEmail, String role) throws Exception {
         mvc.perform(post("/api/v1/invitations")
                         .header("Authorization", "Bearer " + adminToken)

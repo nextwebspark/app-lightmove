@@ -26,6 +26,7 @@ lightmove:
       # Not raised in application-local.yml, which is why 04-tokens-verification.sh needed an
       # env override to pass locally. It does not here.
       password-reset-requests-per-hour: 100
+      invitation-sends-per-hour: 100
 
     cookie:
       # The stack is plain http on localhost, and a Secure cookie is dropped by the browser over http —
