@@ -64,6 +64,15 @@ public class RateLimitGuard {
         checkRateLimit("password-reset", email, request, config.passwordResetRequestsPerHour(), Duration.ofHours(1));
     }
 
+    /**
+     * Guards the current-password check in Settings → Security. This is the only brake on guessing it:
+     * a wrong attempt here deliberately does not feed the login lockout counter, because the caller
+     * already holds a live session and locking the account would only lock its owner out.
+     */
+    public void checkPasswordChange(String email, HttpServletRequest request) {
+        checkRateLimit("password-change", email, request, config.passwordChangeAttemptsPerHour(), Duration.ofHours(1));
+    }
+
     private void checkRateLimit(String action, String email, HttpServletRequest request, int limit, Duration window) {
         if (!config.enabled()) {
             return;
