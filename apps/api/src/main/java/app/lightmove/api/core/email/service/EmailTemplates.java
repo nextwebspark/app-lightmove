@@ -122,6 +122,44 @@ public class EmailTemplates {
         return new EmailMessage(recipient, "Your LightMove account is temporarily locked", html, text);
     }
 
+    /**
+     * Confirms a password change to the mailbox, which is the one channel an attacker who changed it
+     * does not control. The reset link is the recovery route if the change was not theirs.
+     */
+    public EmailMessage buildPasswordChangedEmail(String recipient, String recipientName, String resetLink) {
+        String name = HtmlUtils.htmlEscape(firstName(recipientName));
+        String link = HtmlUtils.htmlEscape(resetLink);
+
+        String html = wrap("""
+                <h1 style="margin:0 0 16px;font:600 20px/1.3 -apple-system,system-ui,sans-serif;color:#1b2230">
+                  Your password was changed
+                </h1>
+                <p style="margin:0 0 24px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
+                  Hi %s — your LightMove password was just changed, and every other signed-in device was
+                  signed out.
+                </p>
+                %s
+                <p style="margin:24px 0 0;font:400 12px/1.6 -apple-system,system-ui,sans-serif;color:#98a1b3">
+                  If this was you, nothing more to do. If it was not, reset your password now and tell
+                  your workspace admin.
+                </p>
+                """.formatted(name, button("Reset your password", link)));
+
+        String text = """
+                Your password was changed
+
+                Hi %s — your LightMove password was just changed, and every other signed-in device was
+                signed out.
+
+                If this was you, nothing more to do. If it was not, reset your password now and tell your
+                workspace admin:
+
+                %s
+                """.formatted(firstName(recipientName), resetLink);
+
+        return new EmailMessage(recipient, "Your LightMove password was changed", html, text);
+    }
+
     public EmailMessage buildInvitationEmail(String recipient, String inviterName, String workspaceName,
                                    String role, String acceptLink) {
         String inviter = HtmlUtils.htmlEscape(inviterName);
