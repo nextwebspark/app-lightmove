@@ -46,12 +46,18 @@ public abstract class FlowTestSupport {
                 .andReturn());
     }
 
-    /** Signs up, clicks the emailed link, and returns a bearer token that says "verified". */
+    /**
+     * Signs up, clicks the emailed link, and returns the bearer token that redeeming it minted — no
+     * second login, because verifying is one.
+     */
     protected String verifiedUser(String name, String emailAddress) throws Exception {
         signup(name, emailAddress);
-        mvc.perform(post("/api/v1/auth/verify").param("token", email.latestTokenFor(emailAddress)))
-                .andExpect(status().isOk());
-        return login(emailAddress);
+        MvcResult verified = mvc.perform(post("/api/v1/auth/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(java.util.Map.of("token", email.latestTokenFor(emailAddress)))))
+                .andExpect(status().isOk())
+                .andReturn();
+        return body(verified).get("accessToken").asText();
     }
 
     protected String login(String emailAddress) throws Exception {

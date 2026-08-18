@@ -10,7 +10,7 @@ b64url() { base64 | tr '+/' '-_' | tr -d '=\n'; }
 USER=$(new_email sess)
 post_json /auth/signup "$(jq -nc --arg e "$USER" --arg p "$PASSWORD" \
   '{fullName:"Sess Ion", email:$e, password:$p, termsAccepted:true}')" -c "$(jar sess)" >/dev/null
-http POST "/auth/verify?token=$(token_for "$USER" verify)" >/dev/null
+post_json /auth/verify "$(jq -nc --arg t "$(token_for "$USER" verify)" '{token:$t}')" >/dev/null
 post_json /auth/login "$(jq -nc --arg e "$USER" --arg p "$PASSWORD" '{email:$e, password:$p}')" -c "$(jar sess)"
 ACCESS=$(json '.accessToken')
 

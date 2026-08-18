@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # Phase 1 — the paths that are supposed to work, driven exactly as the SPA drives them.
 #
-# The spine is the 3-step signup of an unverified creator: account, then a workspace that is *held*
-# rather than created, then invitations that are also held, then the verification click that
-# materialises both at once. Everything after that (login, refresh, logout, the two invitee routes)
-# hangs off the workspace that click created.
+# The spine is the 4-step signup of a creator: account, the verification click that proves the mailbox
+# and signs them in, then the workspace, then the invitations. Everything after that (login, refresh,
+# logout, the two invitee routes) hangs off the workspace step 3 created.
 set -uo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -19,7 +18,7 @@ post_json /auth/signup "$(jq -nc --arg e "$ADMIN_EMAIL" --arg p "$PASSWORD" \
   '{fullName:"Ada Admin", email:$e, password:$p, termsAccepted:true}')" -c "$(jar admin)"
 check_status P1.1 "POST /auth/signup" 201
 ADMIN_TOKEN=$(json '.accessToken')
-check P1.2 "workspace is null before step 2"        "null"  "$(json '.user.workspace')"
+check P1.2 "workspace is null before the org step"   "null"  "$(json '.user.workspace')"
 check P1.3 "emailVerified is false"                 "false" "$(json '.user.emailVerified')"
 check P1.4 "expiresIn is the 15-minute access TTL"  "900"   "$(json '.expiresIn')"
 check P1.5 "email is stored lower-cased"            "$(printf '%s' "$ADMIN_EMAIL" | tr 'A-Z' 'a-z')" "$(json '.user.email')"
@@ -36,55 +35,78 @@ check P1.11 "access token carries no roles claim either"             "null" "$(p
 check P1.12 "emailVerified claim is false"                           "false" "$(printf '%s' "$CLAIMS" | jq -r '.emailVerified')"
 note  P1.13 "a verification email was printed: $(latest_link verify | head -c 60)..."
 
-section "P2  step 2 — an unverified creator's workspace is held, not created"
+section "P2  step 2 — the organisation and invite steps are shut until the mailbox is proved"
 
 post_json /onboarding/workspace \
   "$(jq -nc --arg n "$WORKSPACE_NAME" \
      '{name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
   -H "$(auth_header "$ADMIN_TOKEN")"
-check_status P2.1 "POST /onboarding/workspace while unverified" 202
-check P2.2 "held onboarding row exists" "1" \
-  "$(sql "SELECT count(*) FROM app_lm_pending_onboarding p JOIN app_lm_user u ON u.id = p.user_id WHERE u.email = '$ADMIN_EMAIL'")"
-check P2.3 "no workspace row yet" "0" \
-  "$(sql "SELECT count(*) FROM app_lm_workspace WHERE name = '$WORKSPACE_NAME'")"
-check P2.4 "no membership row yet" "0" \
-  "$(sql "SELECT count(*) FROM app_lm_workspace_member m JOIN app_lm_user u ON u.id = m.user_id WHERE u.email = '$ADMIN_EMAIL'")"
-
-section "P3  step 3 — invitations are held on the same row"
+check_status P2.1 "POST /onboarding/workspace while unverified" 403
+check P2.2 "and says why, so the SPA can send them back a step" "EMAIL_NOT_VERIFIED" "$(json '.code')"
 
 post_json /onboarding/invitations \
-  "$(jq -nc --arg a "$COLLEAGUE_EMAIL" --arg b "$EXISTING_EMAIL" \
-     '[{email:$a, role:"MEMBER"}, {email:$b, role:"ADMIN"}]')" \
+  "$(jq -nc --arg a "$COLLEAGUE_EMAIL" '[{email:$a, role:"MEMBER"}]')" \
   -H "$(auth_header "$ADMIN_TOKEN")"
-check_status P3.1 "POST /onboarding/invitations while held" 202
-check P3.2 "invitations stored as jsonb on the held row" "2" \
-  "$(sql "SELECT jsonb_array_length(p.invitations) FROM app_lm_pending_onboarding p JOIN app_lm_user u ON u.id = p.user_id WHERE u.email = '$ADMIN_EMAIL'")"
-check P3.3 "no invitation rows sent yet" "0" \
-  "$(sql "SELECT count(*) FROM app_lm_invitation WHERE email IN ('$COLLEAGUE_EMAIL','$EXISTING_EMAIL')")"
+check_status P2.3 "POST /onboarding/invitations while unverified" 403
 
-section "P4  the verification click materialises the workspace and posts the invitations"
+check P2.4 "nothing came into existence on the firm's domain" "0" \
+  "$(sql "SELECT count(*) FROM app_lm_workspace WHERE name = '$WORKSPACE_NAME'")"
+check P2.5 "no invitation was mailed on an unproven word" "0" \
+  "$(sql "SELECT count(*) FROM app_lm_invitation WHERE email = '$COLLEAGUE_EMAIL'")"
+
+section "P3  the verification click proves the mailbox and signs them in"
 
 VERIFY_TOKEN=$(token_for "$ADMIN_EMAIL" verify)
-http POST "/auth/verify?token=$VERIFY_TOKEN"
-check_status P4.1 "POST /auth/verify" 200
-check P4.2 "emailVerified flips to true" "true" "$(json '.emailVerified')"
-check P4.3 "user status is ACTIVE" "ACTIVE" "$(sql "SELECT status FROM app_lm_user WHERE email = '$ADMIN_EMAIL'")"
-check P4.4 "workspace now exists" "1" "$(sql "SELECT count(*) FROM app_lm_workspace WHERE name = '$WORKSPACE_NAME'")"
-check P4.5 "workspace email_domain came from the creator's address" "${ADMIN_EMAIL#*@}" \
+post_json /auth/verify "$(jq -nc --arg t "$VERIFY_TOKEN" '{token:$t}')"
+check_status P3.1 "POST /auth/verify" 200
+check P3.2 "emailVerified flips to true" "true" "$(json '.user.emailVerified')"
+check P3.3 "user status is ACTIVE" "ACTIVE" "$(sql "SELECT status FROM app_lm_user WHERE email = '$ADMIN_EMAIL'")"
+
+# The whole point of returning a session: the link is opened by the mail client, in a browser that has
+# never held one. Without this the user proves the address and is then asked to log in.
+ADMIN_TOKEN=$(json '.accessToken')
+check P3.4 "redeeming mints an access token" "false" "$([ -z "$ADMIN_TOKEN" ] && echo true || echo false)"
+check_contains P3.5 "and sets the refresh cookie, exactly as login" "lm_refresh" "$(header 'set-cookie')"
+check P3.6 "still no workspace — that is the next step" "null" "$(json '.user.workspace')"
+check P3.7 "the minted token already carries the verified claim" "true" \
+  "$(jwt_claims "$ADMIN_TOKEN" | jq -r '.emailVerified')"
+check P3.8 "verification token is consumed" "1" \
+  "$(sql "SELECT count(*) FROM app_lm_verification_token t JOIN app_lm_user u ON u.id = t.user_id
+          WHERE u.email = '$ADMIN_EMAIL' AND t.purpose = 'EMAIL_VERIFICATION' AND t.consumed_at IS NOT NULL")"
+
+section "P4  steps 3 and 4 — the workspace and the invitations, created outright"
+
+post_json /onboarding/workspace \
+  "$(jq -nc --arg n "$WORKSPACE_NAME" \
+     '{name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+  -H "$(auth_header "$ADMIN_TOKEN")"
+check_status P4.1 "POST /onboarding/workspace on the session verifying minted" 201
+check P4.2 "workspace now exists" "1" "$(sql "SELECT count(*) FROM app_lm_workspace WHERE name = '$WORKSPACE_NAME'")"
+check P4.3 "workspace email_domain came from the creator's address" "${ADMIN_EMAIL#*@}" \
   "$(sql "SELECT email_domain FROM app_lm_workspace WHERE name = '$WORKSPACE_NAME'")"
-check P4.6 "creator holds the workspace ADMIN role" "ADMIN" \
+check P4.4 "creator holds the workspace ADMIN role" "ADMIN" \
   "$(sql "SELECT r.name FROM app_lm_workspace_member m
             JOIN app_lm_user u ON u.id = m.user_id
             JOIN app_lm_workspace_member_role mr ON mr.member_id = m.id
             JOIN app_lm_role r ON r.id = mr.role_id
           WHERE u.email = '$ADMIN_EMAIL'")"
-check P4.7 "held row is consumed" "0" \
-  "$(sql "SELECT count(*) FROM app_lm_pending_onboarding p JOIN app_lm_user u ON u.id = p.user_id WHERE u.email = '$ADMIN_EMAIL'")"
-check P4.8 "both held invitations went out" "2" \
+
+# Re-login first, and that is the flow rather than a test detail: the token verifying minted predates
+# the workspace, so it carries no wsId and every tenant route answers 404 NOT_A_MEMBER. The SPA does
+# the same thing with reload() before it leaves the organisation step.
+post_json /auth/login "$(jq -nc --arg e "$ADMIN_EMAIL" --arg p "$PASSWORD" '{email:$e, password:$p}')" \
+  -c "$(jar admin)"
+ADMIN_TOKEN=$(json '.accessToken')
+check P4.5 "the re-issued token carries the new tenant claim" "false" \
+  "$(jwt_claims "$ADMIN_TOKEN" | jq -r '(.wsId // "null") == "null"')"
+
+post_json /onboarding/invitations \
+  "$(jq -nc --arg a "$COLLEAGUE_EMAIL" --arg b "$EXISTING_EMAIL" \
+     '[{email:$a, role:"MEMBER"}, {email:$b, role:"ADMIN"}]')" \
+  -H "$(auth_header "$ADMIN_TOKEN")"
+check_status P4.6 "POST /onboarding/invitations" 200
+check P4.7 "both invitations went out" "2" \
   "$(sql "SELECT count(*) FROM app_lm_invitation WHERE email IN ('$COLLEAGUE_EMAIL','$EXISTING_EMAIL')")"
-check P4.9 "verification token is consumed" "1" \
-  "$(sql "SELECT count(*) FROM app_lm_verification_token t JOIN app_lm_user u ON u.id = t.user_id
-          WHERE u.email = '$ADMIN_EMAIL' AND t.purpose = 'EMAIL_VERIFICATION' AND t.consumed_at IS NOT NULL")"
 
 section "P5  login now returns a tenant-bearing session"
 
@@ -174,7 +196,7 @@ check P9.2 "/signup surfaces the pending invitation" "$WORKSPACE_NAME" "$(json '
 http POST /onboarding/accept-invitation -H "$(auth_header "$EXISTING_TOKEN")"
 check_code P9.3 "token-less accept is refused while unverified" 403 EMAIL_NOT_VERIFIED
 
-http POST "/auth/verify?token=$(token_for "$EXISTING_EMAIL" verify)"
+post_json /auth/verify "$(jq -nc --arg t "$(token_for "$EXISTING_EMAIL" verify)" '{token:$t}')"
 check_status P9.4 "verify the second account" 200
 post_json /auth/login "$(jq -nc --arg e "$EXISTING_EMAIL" --arg p "$PASSWORD" '{email:$e, password:$p}')" -c "$(jar existing)"
 EXISTING_TOKEN=$(json '.accessToken')

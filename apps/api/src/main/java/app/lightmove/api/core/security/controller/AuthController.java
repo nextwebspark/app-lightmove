@@ -8,6 +8,7 @@ import app.lightmove.api.core.security.dto.ResetPasswordRequest;
 import app.lightmove.api.core.security.dto.SignupRequest;
 import app.lightmove.api.core.security.dto.UpdateProfileRequest;
 import app.lightmove.api.core.security.dto.UserResponse;
+import app.lightmove.api.core.security.dto.VerifyEmailRequest;
 import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.service.PasswordResetService;
 import app.lightmove.api.core.security.service.UserProfileService;
@@ -42,7 +43,6 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -134,18 +134,13 @@ public class AuthController {
     }
 
     /**
-     * Redeems a verification link.
-     *
-     * <p>Returns the updated user so the SPA can drop the "unverified" banner without a second
-     * round-trip. It does not mint a new session: the access token the client holds still claims
-     * {@code emailVerified: false}, and picks up the truth on its next refresh — within 15 minutes, or
-     * immediately if the client asks for one.
+     * Redeems a verification link and signs the user straight in — the token proved the mailbox, which
+     * is everything a login would have proved. {@code respond} sets the refresh cookie, exactly as login.
      */
     @PostMapping("/verify")
-    public ResponseEntity<UserResponse> verify(@RequestParam("token") String token,
+    public ResponseEntity<AuthResponse> verify(@Valid @RequestBody VerifyEmailRequest request,
                                                HttpServletRequest httpRequest) {
-        User user = verification.verify(token, httpRequest);
-        return ResponseEntity.ok(assembler.user(user, membershipOf(user)));
+        return respond(HttpStatus.OK, verification.verify(request.token(), httpRequest));
     }
 
     /**

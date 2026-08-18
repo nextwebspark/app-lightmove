@@ -11,7 +11,6 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.constant.TokenPurpose;
 import app.lightmove.api.core.security.constant.UserStatus;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
-import app.lightmove.api.core.security.model.EmailVerifiedEvent;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.model.UserIdentity;
 import app.lightmove.api.core.security.model.VerificationToken;
@@ -28,7 +27,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,7 +53,6 @@ public class PasswordResetService {
     private final EmailSender emailSender;
     private final EmailTemplates templates;
     private final AuditService audit;
-    private final ApplicationEventPublisher events;
     private final LightMoveProperties properties;
 
     /**
@@ -149,15 +146,11 @@ public class PasswordResetService {
         // and since we issue a session below, it genuinely is a login.
         user.recordSuccessfulLogin(now);
 
+        // The reset link is the same mailbox proof the verification email exists to collect, and it is
+        // what lets the session issued below pass the require-verified-email gate.
         boolean verifiedByReset = !user.isEmailVerified();
         if (verifiedByReset) {
-            // The reset link is the same mailbox proof the verification email exists to collect.
-            // Publishing the event is load-bearing: it synchronously materialises a held onboarding
-            // (see EmailVerifiedEvent) — skip it and a held user stays dead-ended on the verify
-            // screen with a verified address. It is also what lets the session issued below pass
-            // the require-verified-email gate.
             user.markEmailVerified(now);
-            events.publishEvent(new EmailVerifiedEvent(user.getId(), request));
         }
 
         // Whoever knew the old password is out — before issuing, so the fresh session survives.
@@ -171,8 +164,6 @@ public class PasswordResetService {
                 .detail("emailVerifiedByReset", String.valueOf(verifiedByReset))
                 .record();
 
-        // Membership resolved after the event, so a workspace that just materialised lands in the
-        // new token's claims.
         WorkspaceMember membership = authentication.activeMembership(user.getId()).orElse(null);
         return tokens.issue(user, membership, request);
     }

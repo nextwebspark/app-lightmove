@@ -29,11 +29,10 @@ class ClientErrorTest {
     @Autowired MockMvc mvc;
 
     /**
-     * A truncated verification link — the one in every signup email — arrives with no token at all.
-     * That is a 400, not a 500.
+     * The verification endpoint called with no body at all. That is a 400, not a 500.
      */
     @Test
-    @DisplayName("a missing required parameter is a 400, not a 500")
+    @DisplayName("a missing required request body is a 400, not a 500")
     void missingParameterIsBadRequest() throws Exception {
         mvc.perform(post("/api/v1/auth/verify"))
                 .andExpect(status().isBadRequest())

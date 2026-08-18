@@ -41,7 +41,6 @@ const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[]) => ({
   emailVerified: true,
   timezone: "Asia/Dubai",
   locale: "en",
-  onboardingHeld: false,
   pendingInvitation: null,
   workspace: {
     id: "w1",
@@ -52,6 +51,19 @@ const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[]) => ({
     joinedAt: null,
     roles,
   },
+});
+
+const unverifiedUser = () => ({
+  id: "u1",
+  email: "someone@firm.example",
+  fullName: "Someone",
+  title: null,
+  avatarUrl: null,
+  emailVerified: false,
+  timezone: "Asia/Dubai",
+  locale: "en",
+  pendingInvitation: null,
+  workspace: null,
 });
 
 function Pathname() {
@@ -71,6 +83,41 @@ const renderAt = (path: string) =>
       </QueryClientProvider>
     </MemoryRouter>,
   );
+
+/**
+ * The hard gate. Verification is step 2 of signup, and the steps after it must not be reachable by
+ * typing their URL — the API refuses /onboarding/** to an unverified session, so a user who got past
+ * the router would only meet a 403 with nowhere to go.
+ */
+describe("routes — the verification gate", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+  });
+
+  it.each(["/signup/workspace", "/signup/invite"])(
+    "sends an unverified user who types %s back to the verify step",
+    async (path) => {
+      vi.mocked(authApi.me).mockResolvedValue(unverifiedUser());
+
+      renderAt(path);
+
+      await waitFor(() =>
+        expect(screen.getByTestId("pathname").textContent).toBe("/signup/verify-email"),
+      );
+    },
+  );
+
+  it("lets a verified user with no workspace reach the organisation step", async () => {
+    vi.mocked(authApi.me).mockResolvedValue({ ...unverifiedUser(), emailVerified: true });
+
+    renderAt("/signup/workspace");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("pathname").textContent).toBe("/signup/workspace"),
+    );
+  });
+});
 
 /**
  * The staff surfaces are guarded by the router, not only by the nav that hides them. A portal guest

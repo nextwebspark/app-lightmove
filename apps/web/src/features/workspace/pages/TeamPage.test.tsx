@@ -53,7 +53,6 @@ describe("TeamPage — a refused read", () => {
       emailVerified: true,
       timezone: "Asia/Dubai",
       locale: "en",
-      onboardingHeld: false,
       pendingInvitation: null,
       workspace: {
         id: "w1",

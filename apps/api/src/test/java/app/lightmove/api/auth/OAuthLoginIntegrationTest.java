@@ -216,12 +216,17 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
         assertThat(users.findByEmail(email)).isEmpty();
     }
 
+    /**
+     * The provider is a second door through the verification gate, and it has to open it properly: an
+     * account stuck at the verify step must be past it afterwards, with no link ever clicked.
+     */
     @Test
-    @DisplayName("signing in with a provider redeems a wizard held for an unverified signup")
-    void redeemsAHeldOnboarding() throws Exception {
+    @DisplayName("signing in with a provider verifies an account that was stuck at the verify step")
+    void providerSignInClearsTheVerificationGate() throws Exception {
         String email = "alok@" + domain;
         String unverified = signup("Alok Kumar", email).get("accessToken").asText();
 
+        // Stuck: the organisation step is closed to them.
         mvc.perform(post("/api/v1/onboarding/workspace")
                         .header("Authorization", "Bearer " + unverified)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -229,13 +234,23 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
                                 {"name":"Held Firm","companySize":"11-50 people",
                                  "primaryRegion":"GCC","teamFocus":"Executive search"}
                                 """))
-                .andExpect(status().isAccepted());
+                .andExpect(status().isForbidden());
 
         signIn("linkedin", "linkedin-subject-held", email, Map.of());
 
-        // The provider proved the mailbox, so the firm the user asked for exists — no verification
-        // email was ever clicked.
         User user = users.findByEmail(email).orElseThrow();
+        assertThat(user.isEmailVerified()).isTrue();
+
+        // And the gate is genuinely open now, on a session minted after the provider sign-in.
+        mvc.perform(post("/api/v1/onboarding/workspace")
+                        .header("Authorization", "Bearer " + login(email))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Held Firm","companySize":"11-50 people",
+                                 "primaryRegion":"GCC","teamFocus":"Executive search"}
+                                """))
+                .andExpect(status().isCreated());
+
         assertThat(members.findByUserIdAndStatus(user.getId(), MemberStatus.ACTIVE)).isPresent();
     }
 

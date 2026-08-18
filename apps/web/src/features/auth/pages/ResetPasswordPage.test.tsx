@@ -46,7 +46,6 @@ describe("ResetPasswordPage", () => {
       emailVerified: true,
       timezone: "Asia/Dubai",
       locale: "en",
-      onboardingHeld: false,
       pendingInvitation: null,
       workspace: null,
       ...overrides,

@@ -15,15 +15,12 @@ import app.lightmove.api.workspace.dto.CreateWorkspaceRequest;
 import app.lightmove.api.workspace.dto.InviteRequest;
 import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 import app.lightmove.api.workspace.model.InviteCommand;
-import app.lightmove.api.workspace.model.PendingOnboarding;
-import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.service.InvitationService;
 import app.lightmove.api.workspace.service.OnboardingService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -38,7 +35,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Signup steps 2 and 3, and invitation redemption.
+ * The organisation and invite steps of signup, and invitation redemption.
  *
  * <p>The only authenticated area a user with no workspace can reach — see {@code SecurityConfig}.
  * Everything else in the API needs a tenant claim, which nobody has until they create a workspace or
@@ -56,7 +53,7 @@ public class OnboardingController {
     private final RefreshCookieFactory refreshCookie;
 
     /**
-     * Signup step 2 — create your workspace. You are its ADMIN.
+     * Signup step 3 — create your workspace. You are its ADMIN.
      *
      * <p>Returns the updated user, now with a workspace. The client must then call {@code /auth/refresh}
      * to pick up an access token that actually carries the new tenant claim — the one it holds was
@@ -66,21 +63,17 @@ public class OnboardingController {
     public ResponseEntity<UserResponse> createWorkspace(@AuthenticationPrincipal AuthPrincipal principal,
                                                         @Valid @RequestBody CreateWorkspaceRequest request,
                                                         HttpServletRequest httpRequest) {
-        Optional<Workspace> created = onboarding.createWorkspace(
+        onboarding.createWorkspace(
                 principal.userId(),
                 new CreateWorkspaceCommand(request.name(), request.companySize(),
                         request.primaryRegion(), request.teamFocus()),
                 httpRequest);
 
-        // 202 while unverified: answers are held and the workspace is created at verification (see
-        // PendingOnboarding). The body carries the truth too — workspace null, emailVerified false —
-        // because the SPA's request helper returns the parsed body, not the status, and routes on it.
-        HttpStatus status = created.isPresent() ? HttpStatus.CREATED : HttpStatus.ACCEPTED;
-        return ResponseEntity.status(status).body(currentUser(principal));
+        return ResponseEntity.status(HttpStatus.CREATED).body(currentUser(principal));
     }
 
     /**
-     * Corrects a workspace you already run — which is what "Back" means once step 2 has committed.
+     * Corrects a workspace you already run — which is what "Back" means once the step has committed.
      *
      * <p>The workspace id comes from the principal, never from the request: {@code requireWorkspaceId()}
      * is the only supported way to learn which tenant a caller belongs to, and accepting it as a
@@ -94,20 +87,13 @@ public class OnboardingController {
                 request.name(), request.companySize(), request.primaryRegion(),
                 request.teamFocus());
 
-        // No workspace yet means the wizard is still held awaiting verification, so "Back" edits a draft
-        // and createWorkspace already upserts it.
-        if (!principal.hasWorkspace()) {
-            onboarding.createWorkspace(principal.userId(), command, httpRequest);
-            return ResponseEntity.accepted().body(currentUser(principal));
-        }
-
         onboarding.updateWorkspace(principal.userId(), principal.requireWorkspaceId(), command, httpRequest);
 
         return ResponseEntity.ok(currentUser(principal));
     }
 
     /**
-     * Signup step 3 — invite colleagues. Optional; "Skip for now" simply never calls this.
+     * Signup step 4 — invite colleagues. Optional; "Skip for now" simply never calls this.
      *
      * @return how many invitations went out. Fewer than asked for means some recipients were already
      *         members, which is not an error.
@@ -116,21 +102,9 @@ public class OnboardingController {
     public ResponseEntity<InviteResult> invite(@AuthenticationPrincipal AuthPrincipal principal,
                                                @Valid @RequestBody List<InviteRequest> requests,
                                                HttpServletRequest httpRequest) {
-        // Held, not sent, while the user is unverified — they have no workspace to invite anyone into,
-        // and "email these five people on my say-so" is precisely the action an unproven account must
-        // not be able to take. They go out when the workspace is created at verification.
-        List<PendingOnboarding.PendingInvite> held = requests.stream()
+        List<InviteCommand> commands = requests.stream()
                 // The mockup's dropdown defaults to Member; an omitted role must not become null.
-                .map(r -> new PendingOnboarding.PendingInvite(
-                        r.email(), r.role() == null ? WorkspaceRole.MEMBER : r.role()))
-                .toList();
-
-        if (onboarding.holdInvitations(principal.userId(), held)) {
-            return ResponseEntity.accepted().body(new InviteResult(held.size()));
-        }
-
-        List<InviteCommand> commands = held.stream()
-                .map(i -> new InviteCommand(i.email(), i.role()))
+                .map(r -> new InviteCommand(r.email(), r.role() == null ? WorkspaceRole.MEMBER : r.role()))
                 .toList();
 
         int sent = invitations.invite(principal, commands, httpRequest).size();

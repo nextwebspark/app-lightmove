@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Phase 2e — the seams around onboarding: the one-workspace-per-user constraint, the held-onboarding
-# row and its expiry, and the invitation redemption paths.
+# Phase 2e — the seams around onboarding: the one-workspace-per-user constraint, the verified-email
+# gate in front of the organisation and invite steps, and the invitation redemption paths.
 set -uo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 signup_verified() { # signup_verified EMAIL [FULLNAME] -> echoes an access token for a verified user
   post_json /auth/signup "$(jq -nc --arg e "$1" --arg p "$PASSWORD" --arg n "${2:-Test User}" \
     '{fullName:$n, email:$e, password:$p, termsAccepted:true}')" >/dev/null
-  http POST "/auth/verify?token=$(token_for "$1" verify)" >/dev/null
-  post_json /auth/login "$(jq -nc --arg e "$1" --arg p "$PASSWORD" '{email:$e, password:$p}')" >/dev/null
+  # No login afterwards: redeeming the link is one, and returns the session the wizard carries on with.
+  post_json /auth/verify "$(jq -nc --arg t "$(token_for "$1" verify)" '{token:$t}')" >/dev/null
   json '.accessToken'
 }
 
@@ -53,100 +53,67 @@ OWNER_TOKEN=$(relogin "$OWNER")
 get /invitations -H "$(auth_header "$OWNER_TOKEN")"
 check_status N27.7 "the same route after re-issuing the token" 200
 
-section "N28  editing a workspace, held and live"
+section "N28  the organisation step is shut until the mailbox is proved"
 
-HELD=$(new_email held)
-post_json /auth/signup "$(jq -nc --arg e "$HELD" --arg p "$PASSWORD" \
-  '{fullName:"Hank Held", email:$e, password:$p, termsAccepted:true}')" >/dev/null
-HELD_TOKEN=$(json '.accessToken')
-make_workspace "$HELD_TOKEN" "Held Co $RANDOM"
-check_status N28.1 "an unverified user's workspace is held" 202
+UNVERIFIED=$(new_email unver)
+post_json /auth/signup "$(jq -nc --arg e "$UNVERIFIED" --arg p "$PASSWORD" \
+  '{fullName:"Uma Nverified", email:$e, password:$p, termsAccepted:true}')" >/dev/null
+UNVERIFIED_TOKEN=$(json '.accessToken')
+
+make_workspace "$UNVERIFIED_TOKEN" "Squatted Co $RANDOM"
+check_code N28.1 "an unverified user creating a workspace" 403 EMAIL_NOT_VERIFIED
 
 http PATCH /onboarding/workspace -H 'Content-Type: application/json' \
-  -H "$(auth_header "$HELD_TOKEN")" -d '{"name":"Held Co Renamed","companySize":"11-50 people"}'
-check_status N28.2 "PATCH edits the held draft" 202
-check N28.3 "the draft name changed on the held row" "Held Co Renamed" \
-  "$(sql "SELECT p.name FROM app_lm_pending_onboarding p JOIN app_lm_user u ON u.id = p.user_id WHERE u.email = '$HELD'")"
+  -H "$(auth_header "$UNVERIFIED_TOKEN")" -d '{"name":"Squatted Renamed","companySize":"11-50 people"}'
+check_status N28.2 "PATCH is shut to them too" 403
+
+check N28.3 "nothing exists on the domain they claimed" "0" \
+  "$(sql "SELECT count(*) FROM app_lm_workspace_member m JOIN app_lm_user u ON u.id = m.user_id
+          WHERE u.email = '$UNVERIFIED'")"
 
 http PATCH /onboarding/workspace -H 'Content-Type: application/json' \
   -H "$(auth_header "$OWNER_TOKEN")" -d "$(jq -nc --arg n "$WS1 Renamed" '{name:$n}')"
 check_status N28.4 "PATCH edits a live workspace" 200
 
-section "N29  invitations without a held workspace are dropped"
+section "N29  the invite step is shut too — an unproven word must not mail strangers"
 
-STRAY=$(new_email stray)
-post_json /auth/signup "$(jq -nc --arg e "$STRAY" --arg p "$PASSWORD" \
-  '{fullName:"Stan Stray", email:$e, password:$p, termsAccepted:true}')" >/dev/null
-STRAY_TOKEN=$(json '.accessToken')
 STRAY_INVITEE="lm-e2e-dropped-$(date +%s)$RANDOM@$MAIL_DOMAIN"
-
 post_json /onboarding/invitations "$(jq -nc --arg a "$STRAY_INVITEE" '[{email:$a, role:"MEMBER"}]')" \
-  -H "$(auth_header "$STRAY_TOKEN")"
-note N29.1 "invitations with no held workspace -> $LAST_STATUS $(ecode)"
+  -H "$(auth_header "$UNVERIFIED_TOKEN")"
+check_code N29.1 "an unverified user sending invitations" 403 EMAIL_NOT_VERIFIED
 check N29.2 "nothing was stored and nothing was sent" "0" \
   "$(sql "SELECT count(*) FROM app_lm_invitation WHERE email = '$STRAY_INVITEE'")"
-check N29.3 "the API says so only in its own log, not to the caller" "true" \
-  "$(test "$(grep -c "with no held organisation — dropped" "$API_LOG" || echo 0)" -ge 1 && echo true || echo false)"
 
-section "N30  a held onboarding that expires"
+# Verified, but with no workspace to invite anyone into. The gate is past; the tenant claim is missing.
+NOWS=$(new_email nows)
+NOWS_TOKEN=$(signup_verified "$NOWS" "Nora Nows")
+NOWS_INVITEE="lm-e2e-nows-$(date +%s)$RANDOM@$MAIL_DOMAIN"
+post_json /onboarding/invitations "$(jq -nc --arg a "$NOWS_INVITEE" '[{email:$a, role:"MEMBER"}]')" \
+  -H "$(auth_header "$NOWS_TOKEN")"
+note N29.3 "verified, no workspace, inviting -> $LAST_STATUS $(ecode)"
+check N29.4 "and still mails nobody" "0" \
+  "$(sql "SELECT count(*) FROM app_lm_invitation WHERE email = '$NOWS_INVITEE'")"
 
-LAPSED=$(new_email lapsed)
-post_json /auth/signup "$(jq -nc --arg e "$LAPSED" --arg p "$PASSWORD" \
-  '{fullName:"Lap Sed", email:$e, password:$p, termsAccepted:true}')" >/dev/null
-LAPSED_TOKEN=$(json '.accessToken')
-LAPSED_WS="Lapsed Co $RANDOM"
-make_workspace "$LAPSED_TOKEN" "$LAPSED_WS"
-sql_run "UPDATE app_lm_pending_onboarding SET expires_at = now() - interval '1 hour'
-         WHERE user_id = (SELECT id FROM app_lm_user WHERE email = '$LAPSED')"
-
-# The hold's expiry sweeps up drafts nobody returned for. It must not veto a user who has just proved
-# the mailbox: the old code deleted the row before checking, so the draft was destroyed by the very
-# path that declined to use it, and the SPA sent them back to a blank form with nothing said.
-http POST "/auth/verify?token=$(token_for "$LAPSED" verify)"
-check_status N30.1 "verification still succeeds" 200
-check N30.2 "the workspace is created even though the hold had lapsed" "1" \
-  "$(sql "SELECT count(*) FROM app_lm_workspace WHERE name = '$LAPSED_WS'")"
-check N30.3 "the held row is consumed" "0" \
-  "$(sql "SELECT count(*) FROM app_lm_pending_onboarding p JOIN app_lm_user u ON u.id = p.user_id WHERE u.email = '$LAPSED'")"
-
-post_json /auth/login "$(jq -nc --arg e "$LAPSED" --arg p "$PASSWORD" '{email:$e, password:$p}')"
-check N30.4 "the user lands in the workspace they typed" "$LAPSED_WS" "$(json '.user.workspace.name')"
-check N30.5 "as its ADMIN" "ADMIN" "$(json '.user.workspace.roles[0]')"
-
-# The competing case must still win: a user who joined a workspace in the meantime keeps that one, and
-# the stale draft is discarded rather than creating a second membership.
-JOINED=$(new_email joined)
-post_json /auth/signup "$(jq -nc --arg e "$JOINED" --arg p "$PASSWORD" \
-  '{fullName:"Jo Ined", email:$e, password:$p, termsAccepted:true}')" >/dev/null
-JOINED_TOKEN=$(json '.accessToken')
-make_workspace "$JOINED_TOKEN" "Ghost Co $RANDOM" >/dev/null
-post_json /invitations "$(jq -nc --arg a "$JOINED" '[{email:$a, role:"MEMBER"}]')" \
-  -H "$(auth_header "$OWNER_TOKEN")" >/dev/null
-post_json /onboarding/accept-invitation-signup \
-  "$(jq -nc --arg t "$(token_for "$JOINED" accept-invite)" --arg p "$PASSWORD" \
-     '{token:$t, fullName:"Jo Ined", password:$p}')" >/dev/null
-http POST "/auth/verify?token=$(token_for "$JOINED" verify)" >/dev/null
-check N30.6 "a held draft is discarded for someone already in a workspace" "1" \
-  "$(sql "SELECT count(*) FROM app_lm_workspace_member m JOIN app_lm_user u ON u.id = m.user_id
-          WHERE u.email = '$JOINED' AND m.status = 'ACTIVE'")"
-
-section "N31  a password reset also materialises a held workspace"
+section "N30  a password reset is the other route past the verification gate"
 
 RESETTER=$(new_email resetter)
 post_json /auth/signup "$(jq -nc --arg e "$RESETTER" --arg p "$PASSWORD" \
   '{fullName:"Rae Setter", email:$e, password:$p, termsAccepted:true}')" >/dev/null
-RESETTER_TOKEN=$(json '.accessToken')
-RESETTER_WS="Reset Co $RANDOM"
-make_workspace "$RESETTER_TOKEN" "$RESETTER_WS"
 
 http POST /auth/password/forgot -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$RESETTER" '{email:$e}')"
 post_json /auth/password/reset "$(jq -nc --arg t "$(token_for "$RESETTER" reset-password)" --arg p "ResetPass123" '{token:$t, password:$p}')"
-check_status N31.1 "reset succeeds for an unverified user" 200
-check N31.2 "the reset verified the address" "true" \
+check_status N30.1 "reset succeeds for an unverified user" 200
+RESETTER_TOKEN=$(json '.accessToken')
+check N30.2 "the reset verified the address" "true" \
   "$(sql "SELECT (email_verified_at IS NOT NULL)::text FROM app_lm_user WHERE email = '$RESETTER'")"
-check N31.3 "and materialised the held workspace" "1" \
+
+# The proof it is not merely a column: the session the reset returned clears the gate.
+RESETTER_WS="Reset Co $RANDOM"
+make_workspace "$RESETTER_TOKEN" "$RESETTER_WS"
+check_status N30.3 "and the organisation step opens on that session" 201
+check N30.4 "the workspace is real" "1" \
   "$(sql "SELECT count(*) FROM app_lm_workspace WHERE name = '$RESETTER_WS'")"
-note N31.4 "a password-reset link is therefore a second route past email verification"
+note N30.5 "a password-reset link is therefore a second route past email verification"
 
 section "N32  invitation redemption edges"
 

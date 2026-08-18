@@ -12,22 +12,32 @@ post_json /auth/signup "$(jq -nc --arg e "$USER_A" --arg p "$PASSWORD" \
   '{fullName:"Tok A", email:$e, password:$p, termsAccepted:true}')" >/dev/null
 TOKEN_A=$(token_for "$USER_A" verify)
 
-http POST "/auth/verify?token=$TOKEN_A"
+post_json /auth/verify "$(jq -nc --arg t "$TOKEN_A" '{token:$t}')"
 check_status N15.1 "first redemption" 200
-http POST "/auth/verify?token=$TOKEN_A"
+# Redeeming signs in the browser that opened the link, which is usually not the one that signed up.
+check N15.1b "and mints a session for it" "true" \
+  "$([ -n "$(json '.accessToken')" ] && echo true || echo false)"
+post_json /auth/verify "$(jq -nc --arg t "$TOKEN_A" '{token:$t}')"
 check_code N15.2 "replaying the same token" 400 TOKEN_INVALID
 
-http POST "/auth/verify?token=not-a-real-token"
+post_json /auth/verify "$(jq -nc --arg t "not-a-real-token" '{token:$t}')"
 check_code N15.3 "a garbage token" 400 TOKEN_INVALID
 
-http POST "/auth/verify?token="
-check_status N15.4 "an empty token parameter" 400
+post_json /auth/verify "$(jq -nc --arg t "" '{token:$t}')"
+check_status N15.4 "an empty token" 400
 
 http POST "/auth/verify"
-check_status N15.5 "no token parameter at all" 400
+check_status N15.5 "no body at all" 400
 
-http POST "/auth/verify?token=%27%20OR%201%3D1%20--"
+post_json /auth/verify "$(jq -nc --arg t "' OR 1=1 --" '{token:$t}')"
 check_code N15.6 "SQL-injection shaped token" 400 TOKEN_INVALID
+
+# Login CSRF. This route is CSRF-exempt (it has to work on a first visit, with nothing to echo) and
+# now sets the refresh cookie — so a cross-site form POST would plant an attacker's session in a
+# visitor's browser, and the SPA adopts it on next boot. Demanding JSON forces the CORS preflight that
+# stops the form POST ever reaching the handler.
+http POST /auth/verify -H 'Content-Type: application/x-www-form-urlencoded' -d "token=$TOKEN_A"
+check_status N15.6b "a cross-site-shaped form POST is refused outright" 415
 
 # The stored value must be a hash, never the token itself.
 check N15.7 "tokens are stored as a 64-character SHA-256 hex digest" "64" \
@@ -48,7 +58,7 @@ check N16.1 "the token TTL is 24 hours" "24" \
 
 sql_run "UPDATE app_lm_verification_token SET expires_at = now() - interval '1 hour'
          WHERE user_id = (SELECT id FROM app_lm_user WHERE email = '$USER_B')"
-http POST "/auth/verify?token=$TOKEN_B"
+post_json /auth/verify "$(jq -nc --arg t "$TOKEN_B" '{token:$t}')"
 check_code N16.2 "an expired token has its own code" 400 TOKEN_EXPIRED
 check N16.3 "an expired token does not verify the account" "false" \
   "$(sql "SELECT (email_verified_at IS NOT NULL)::text FROM app_lm_user WHERE email = '$USER_B'" | sed 's/true/true/;s/false/false/')"
@@ -64,9 +74,9 @@ check N17.2 "the resend produced a different token" "false" \
 http POST /auth/verify/resend -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$USER_B" '{email:$e}')"
 TOKEN_B3=$(token_for "$USER_B" verify)
 
-http POST "/auth/verify?token=$TOKEN_B2"
+post_json /auth/verify "$(jq -nc --arg t "$TOKEN_B2" '{token:$t}')"
 check_code N17.3 "the superseded link no longer works" 400 TOKEN_INVALID
-http POST "/auth/verify?token=$TOKEN_B3"
+post_json /auth/verify "$(jq -nc --arg t "$TOKEN_B3" '{token:$t}')"
 check_status N17.4 "only the newest link works" 200
 
 MAILS_BEFORE=$(email_count "Confirm your LightMove email")
@@ -90,7 +100,7 @@ http POST /auth/password/forgot -H 'Content-Type: application/json' -d "$(jq -nc
 check_status N18.1 "password reset requested" 202
 RESET_C=$(token_for "$USER_C" reset-password)
 
-http POST "/auth/verify?token=$RESET_C"
+post_json /auth/verify "$(jq -nc --arg t "$RESET_C" '{token:$t}')"
 check_code N18.2 "a reset token offered to /auth/verify" 400 TOKEN_INVALID
 
 post_json /auth/password/reset "$(jq -nc --arg t "$VERIFY_C" --arg p "NewPassw0rd1" '{token:$t, password:$p}')"
@@ -104,7 +114,7 @@ section "N19  password reset"
 
 post_json /auth/password/reset "$(jq -nc --arg t "$RESET_C" '{token:$t, password:"weak"}')"
 check_code N19.1 "a weak password is refused" 400 VALIDATION_FAILED
-http POST "/auth/verify?token=$VERIFY_C" >/dev/null
+post_json /auth/verify "$(jq -nc --arg t "$VERIFY_C" '{token:$t}')" >/dev/null
 
 post_json /auth/password/reset "$(jq -nc --arg t "$RESET_C" --arg p "NewPassw0rd1" '{token:$t, password:$p}')"
 check_status N19.2 "the link still worked after the weak-password attempt" 200

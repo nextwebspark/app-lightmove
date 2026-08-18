@@ -69,7 +69,7 @@ describe("SignupPage", () => {
     expect(authApi.signup).not.toHaveBeenCalled();
   });
 
-  it("submits a valid form and moves on to step 2", async () => {
+  it("submits a valid form and moves on to the verify step", async () => {
     const user = userEvent.setup();
     vi.mocked(authApi.signup).mockResolvedValue({
       accessToken: "t",
@@ -83,7 +83,6 @@ describe("SignupPage", () => {
         emailVerified: false,
         timezone: "Asia/Dubai",
         locale: "en",
-        onboardingHeld: false,
         pendingInvitation: null,
         workspace: null,
       },
@@ -98,7 +97,7 @@ describe("SignupPage", () => {
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
     await waitFor(() => expect(authApi.signup).toHaveBeenCalledOnce());
-    expect(navigate).toHaveBeenCalledWith("/signup/workspace", { replace: true });
+    expect(navigate).toHaveBeenCalledWith("/signup/verify-email", { replace: true });
   });
 
   /**

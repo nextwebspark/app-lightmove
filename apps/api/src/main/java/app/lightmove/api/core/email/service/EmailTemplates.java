@@ -26,7 +26,8 @@ public class EmailTemplates {
                   Confirm your email
                 </h1>
                 <p style="margin:0 0 24px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
-                  Hi %s — confirm this address to secure your LightMove account.
+                  Hi %s — confirm this address to carry on setting up your LightMove account. You will
+                  be signed in and taken straight to the next step.
                 </p>
                 %s
                 <p style="margin:24px 0 0;font:400 12px/1.6 -apple-system,system-ui,sans-serif;color:#98a1b3">
@@ -38,7 +39,8 @@ public class EmailTemplates {
         String text = """
                 Confirm your email
 
-                Hi %s — confirm this address to secure your LightMove account:
+                Hi %s — confirm this address to carry on setting up your LightMove account. You will be
+                signed in and taken straight to the next step:
 
                 %s
 

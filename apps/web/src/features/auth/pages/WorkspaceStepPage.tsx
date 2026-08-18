@@ -17,7 +17,7 @@ import {
 } from "../schemas";
 
 /**
- * Signup step 2 — creating your workspace.
+ * Signup step 3 — creating your workspace.
  *
  * Signing up *is* creating a workspace; membership of an existing one is invitation-only, so there is
  * no domain lookup and no join fork here. A colleague whose firm is already on LightMove asks their
@@ -27,7 +27,7 @@ export function WorkspaceStepPage() {
   const { user, reload } = useAuth();
   const navigate = useNavigate();
 
-  // Already made one, and came back — via the Back button on step 3, or by reopening the tab. This step
+  // Already made one, and came back — via the Back button on the invite step, or by reopening the tab. This step
   // *commits*, unlike the mockup's wizard, so returning to it cannot mean "create": it means "correct
   // what you created". Without this the only thing the form could produce is a 409.
   const existing = user?.workspace ?? null;
@@ -35,7 +35,7 @@ export function WorkspaceStepPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
       <Logo />
-      <Stepper steps={SIGNUP_STEPS} current={2} />
+      <Stepper steps={SIGNUP_STEPS} current={3} />
 
       <Card className="w-[480px] max-w-[94vw] [animation-delay:80ms]">
         <CreateWorkspace
@@ -91,7 +91,7 @@ function CreateWorkspace({
     <>
       <h1 className="text-[19px] font-semibold leading-tight">About your organization</h1>
       <p className="mb-6 mt-1 font-mono text-xs text-text3">
-        Step 2 of 3 · {editing ? "update your workspace" : "this becomes your workspace"}
+        Step 3 of 4 · {editing ? "update your workspace" : "this becomes your workspace"}
       </p>
 
       <FormError message={formError} />

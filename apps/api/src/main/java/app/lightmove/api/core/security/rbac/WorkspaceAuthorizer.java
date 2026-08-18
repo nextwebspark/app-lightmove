@@ -16,9 +16,9 @@ import org.springframework.stereotype.Component;
  * {@code GlobalExceptionHandler.handleApiException} like any imperative check's.
  *
  * <p>Annotations live on <b>controllers only</b>. Services reachable outside a request's
- * SecurityContext — everything {@code PendingOnboardingMaterialiser} calls with its synthetic
- * principal — keep imperative checks, because method security would evaluate the wrong (or no)
- * authentication there.
+ * SecurityContext — {@code InvitationService}, called from the anonymous
+ * {@code /onboarding/accept-invitation-signup} endpoint — keep imperative checks, because method
+ * security would evaluate the wrong (or no) authentication there.
  */
 @Component("workspaceAuthorizer")
 @RequiredArgsConstructor

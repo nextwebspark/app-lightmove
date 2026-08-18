@@ -277,22 +277,12 @@ public class SecurityConfig {
                         .requestMatchers(API + "/onboarding/invitations/accept").access(verified)
                         .requestMatchers(API + "/onboarding/accept-invitation").access(verified)
 
-                        // Onboarding is the user's own signup, and they are allowed to finish it.
-                        //
-                        // This used to require a verified address, and that was a dead end: a user who
-                        // had not yet clicked their link got a 403 in the middle of a wizard they were
-                        // being asked to complete. The rule it was protecting is real — an unverified
-                        // address is an unproven claim, and nothing may exist on a firm's domain on the
-                        // strength of one — but a filter is the wrong place to enforce it. A filter can
-                        // only refuse the request; it cannot say "hold this until you verify".
-                        //
-                        // So the rule moved to where it can be honoured: OnboardingService *holds* the
-                        // wizard rather than executing it (see PendingOnboarding), and verification is
-                        // what turns it into a workspace. Unverified users may reach these endpoints and
-                        // still cannot cause a workspace or an invitation email to
-                        // exist. The gate did not weaken; it moved from the routing layer to the domain,
-                        // which is the only layer that can distinguish "no" from "not yet".
-                        .requestMatchers(API + "/onboarding/**").authenticated()
+                        // The rest of onboarding — naming the organisation, inviting colleagues — is
+                        // verified-only: nothing may exist on a firm's domain on the strength of an
+                        // address nobody has opened. Refusing here is safe only because the wizard asks
+                        // for the emailed link at step 2, before any of this is reachable; when
+                        // verification came last, a 403 here was a dead end mid-wizard.
+                        .requestMatchers(API + "/onboarding/**").access(verified)
 
                         // Everything that touches tenant data. Still verified-only, and this is the line
                         // that matters: an unverified user may describe their organisation, but may not

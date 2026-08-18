@@ -4,7 +4,6 @@ import app.lightmove.api.core.security.repository.UserIdentityRepository;
 import app.lightmove.api.core.security.repository.UserRepository;
 
 import app.lightmove.api.core.security.model.AuthenticatedSession;
-import app.lightmove.api.core.security.model.EmailVerifiedEvent;
 import app.lightmove.api.core.security.token.TokenPair;
 import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.core.security.model.User;
@@ -27,7 +26,6 @@ import java.time.Instant;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
@@ -76,7 +74,6 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final AuditService audit;
     private final LightMoveProperties properties;
     private final TransactionTemplate transactions;
-    private final ApplicationEventPublisher events;
     private final LoginErrorRedirector loginErrors;
 
     @Override
@@ -202,14 +199,8 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                     identities.save(UserIdentity.link(existing.getId(), provider, subject, email));
 
                     // Signing in with the provider proves the same mailbox a verification email exists
-                    // to collect, so it redeems a held onboarding exactly as a password reset does.
-                    // Publishing is load-bearing: skip it and a user who verifies this way is left on
-                    // the "check your inbox" screen with an address that is already verified.
-                    boolean verifiedByThisSignIn = !existing.isEmailVerified();
+                    // to collect.
                     existing.markEmailVerified(Instant.now());
-                    if (verifiedByThisSignIn) {
-                        events.publishEvent(new EmailVerifiedEvent(existing.getId(), request));
-                    }
 
                     log.info("Linked {} account to existing user {}", provider, existing.getId());
                     audit.event(AuthEventType.OAUTH_ACCOUNT_LINKED).actor(existing.getId()).from(request)
