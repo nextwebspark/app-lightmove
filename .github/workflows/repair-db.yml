@@ -1,0 +1,108 @@
+name: Repair schema history
+
+# A one-off, hand-pulled lever for the case Flyway cannot resolve on its own: a migration whose
+# recorded checksum no longer matches the file, where the applied content is gone and so no edit to
+# the file can make them agree again.
+#
+# Deliberately NOT part of deploy.yml. `repair` rewrites the schema history to accept whatever the
+# repository currently says, which is exactly the check that catches an edited migration — running it
+# on every deploy would silently bless the next such edit instead of failing on it. It is a button
+# someone presses, having read why, and it says so in the Actions log afterwards.
+#
+# Why it exists: V26 was applied to the shared database by a developer booting `npm run dev:cloud`
+# while holding an uncommitted copy of the file (CLAUDE.md: that command "applies your migrations to
+# everyone at boot"). The history records checksum 597398679, which matches no version of V26 that has
+# ever existed in the repository. Every deploy since has failed validation before running anything.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "inspect = report only, change nothing. repair = rewrite the schema history."
+        required: true
+        default: inspect
+        type: choice
+        options: [inspect, repair]
+
+concurrency:
+  group: deploy-production   # the same lane as deploy.yml: never migrate and repair at once
+  cancel-in-progress: false
+
+env:
+  DATABASE: lightmove
+  CLOUD_SQL_INSTANCE: hak-talent-mapping:us-central1:bright-gcc
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Fetch migration credentials
+        id: secrets
+        uses: google-github-actions/get-secretmanager-secrets@v2
+        with:
+          secrets: |-
+            flyway_password:${{ vars.GCP_PROJECT }}/lightmove-flyway-password
+
+      - name: ${{ inputs.action == 'repair' && 'Repair the schema history' || 'Inspect the schema history' }}
+        env:
+          FLYWAY_PASSWORD: ${{ steps.secrets.outputs.flyway_password }}
+          PGPASSWORD: ${{ steps.secrets.outputs.flyway_password }}
+          DB_USER: ${{ vars.DB_MIGRATE_USER || 'lm_app' }}
+        run: |
+          set -euo pipefail
+          curl -sSL -o cloud-sql-proxy \
+            https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
+          chmod +x cloud-sql-proxy
+          ./cloud-sql-proxy --port 5432 "${CLOUD_SQL_INSTANCE}" &
+          for _ in $(seq 1 30); do nc -z 127.0.0.1 5432 && break; sleep 1; done
+
+          flyway() {
+            docker run --rm --network host \
+              -v "$PWD/apps/api/src/main/resources/db/migration:/flyway/sql:ro" \
+              redgate/flyway:11 \
+              -url="jdbc:postgresql://127.0.0.1:5432/${DATABASE}" \
+              -user="${DB_USER}" -password="${FLYWAY_PASSWORD}" \
+              -placeholders.iam_user= -connectRetries=5 "$@"
+          }
+          psql_q() { psql -h 127.0.0.1 -U "${DB_USER}" -d "${DATABASE}" -Atc "$1"; }
+
+          echo "::group::Schema history"
+          flyway info || true
+          echo "::endgroup::"
+
+          # V27 drops this table the moment migration resumes. Anyone mid-signup with a held wizard
+          # loses what they typed, so the count is reported before the lever is pulled, not after.
+          echo "### Pre-repair state" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$(psql_q "SELECT count(*) FROM information_schema.tables WHERE table_name='app_lm_pending_onboarding'")" = "1" ]; then
+            HELD=$(psql_q "SELECT count(*) FROM app_lm_pending_onboarding")
+            echo "- \`app_lm_pending_onboarding\` still exists and holds **${HELD}** row(s)." >> "$GITHUB_STEP_SUMMARY"
+            echo "- V27 will DROP that table on the next deploy." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- \`app_lm_pending_onboarding\` is already gone; V27 has nothing to destroy." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          psql_q "SELECT '- V26 recorded checksum: **'||checksum||'**' FROM flyway_schema_history WHERE version='26'" \
+            >> "$GITHUB_STEP_SUMMARY" || true
+
+          if [ "${{ inputs.action }}" != "repair" ]; then
+            echo "- Ran in **inspect** mode. Nothing was changed." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          flyway repair
+          psql_q "SELECT '- V26 checksum after repair: **'||checksum||'**' FROM flyway_schema_history WHERE version='26'" \
+            >> "$GITHUB_STEP_SUMMARY"
+          echo "- Repaired. Re-run **Deploy** to apply V27 and V28." >> "$GITHUB_STEP_SUMMARY"
