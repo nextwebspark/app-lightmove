@@ -13,27 +13,42 @@ const NEW_CLIENT = "__new__";
  * choose — whoever creates the mandate is seated as its admin (and lead) by the server, and delegates
  * from the project drawer afterwards. A 409 on the inline client quietly resolves to the existing
  * record — the user meant that client.
+ *
+ * Opened from a client's drawer, the entrance has already decided the client: the field is shown
+ * locked and `lockedClientId` — not state — is what gets submitted, so the mandate cannot land on a
+ * different client than the drawer behind the modal. Picking or creating a client belongs to the
+ * other entrance (Projects → New project), which passes no `lockedClientId`.
  */
 export function NewProjectModal({
   open,
   onClose,
   clients,
-  initialClientId,
+  lockedClientId,
 }: {
   open: boolean;
   onClose: () => void;
   clients: Client[];
-  /** Pre-selects a client — set when opening from that client's drawer ("New mandate"). */
-  initialClientId?: string;
+  /** Locks the client to this one — set when opening from that client's drawer ("New mandate"). */
+  lockedClientId?: string;
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
 
-  const [clientId, setClientId] = useState(initialClientId ?? clients[0]?.id ?? NEW_CLIENT);
+  // null until the user picks: seeding from `clients` at mount mirrors server state, and the list is
+  // still empty on the render where Projects opens this modal before its clients query has settled.
+  const [pickedClientId, setPickedClientId] = useState<string | null>(null);
   const [newClientName, setNewClientName] = useState("");
   const [positionTitle, setPositionTitle] = useState("");
   const [targetDate, setTargetDate] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // Derived from the prop on every render, never seeded into state: a mount-time seed goes stale the
+  // moment this modal is rendered always-mounted with `open` toggled, and would then aim the mandate
+  // at whichever client's drawer was opened before. One `locked` value decides both what is rendered
+  // and what is submitted — two tests of the same prop are how the shown client and the sent one drift
+  // apart, which is the bug this lock exists to close.
+  const locked = lockedClientId ? clients.find((client) => client.id === lockedClientId) : undefined;
+  const clientId = lockedClientId || pickedClientId || clients[0]?.id || NEW_CLIENT;
 
   const creatingClient = clientId === NEW_CLIENT;
 
@@ -88,15 +103,29 @@ export function NewProjectModal({
     <Modal open={open} onClose={onClose} title="New project">
       <FormError message={error} />
 
-      <Field label="Client">
-        <Select value={clientId} onChange={(event) => setClientId(event.target.value)}>
-          {clients.map((client) => (
-            <option key={client.id} value={client.id}>
-              {client.name}
-            </option>
-          ))}
-          <option value={NEW_CLIENT}>＋ New client…</option>
-        </Select>
+      {/* The hint carries the name because a disabled <select> is skipped in a screen reader's forms
+          mode — Field renders the hint inside the wrapping <label>, so it reaches the accessible name
+          even when the control itself never gets focus. */}
+      <Field
+        label="Client"
+        hint={locked ? `This mandate belongs to ${locked.name}.` : undefined}
+      >
+        {lockedClientId ? (
+          // Disabled rather than replaced by plain text: the user still sees which client the mandate
+          // is for, and the label keeps a control to name.
+          <Select value={lockedClientId} disabled className="cursor-not-allowed opacity-60">
+            <option value={lockedClientId}>{locked?.name ?? "Selected client"}</option>
+          </Select>
+        ) : (
+          <Select value={clientId} onChange={(event) => setPickedClientId(event.target.value)}>
+            {clients.map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.name}
+              </option>
+            ))}
+            <option value={NEW_CLIENT}>＋ New client…</option>
+          </Select>
+        )}
       </Field>
 
       {creatingClient && (
