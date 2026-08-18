@@ -230,15 +230,106 @@
             </div>
           </div>
           <sc-for list="{{ teamRows }}" as="m" hint-placeholder-count="5">
-            <div style="display:flex;align-items:center;gap:10px;padding:8px 8px;border-radius:7px" style-hover="background:var(--panel2)">
-              <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:{{ m.bg }};color:{{ m.fg }}">{{ m.initials }}</span>
-              <div>
-                <div style="font-size:13px">{{ m.name }}</div>
-                <div style="font:400 11px var(--mono);color:var(--text3)">{{ m.role }}</div>
+            <div style="position:relative;display:flex;align-items:center;gap:10px;padding:8px;border-radius:7px" style-hover="background:var(--panel2)">
+              <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:{{ m.bg }};color:{{ m.fg }};flex:none">{{ m.initials }}</span>
+              <div style="min-width:0">
+                <div style="display:flex;align-items:center;gap:7px">
+                  <span style="font-size:13px">{{ m.name }}</span>
+                  <sc-if value="{{ m.suspended }}" hint-placeholder-val="{{ false }}">
+                    <span style="font:600 9.5px var(--mono);letter-spacing:.07em;padding:2px 6px;border-radius:5px;color:var(--text3);background:var(--panel2);border:1px solid var(--line)">SUSPENDED</span>
+                  </sc-if>
+                </div>
+                <div style="font:400 11px var(--mono);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.role }} · {{ m.email }}</div>
               </div>
-              <div style="margin-left:auto;font:400 11px var(--mono);color:var(--text3)">{{ m.activeLabel }}</div>
+              <div style="margin-left:auto;font:400 11px var(--mono);color:var(--text3);flex:none">{{ m.activeLabel }}</div>
+              <button onClick="{{ toggleTeamMenu }}" data-id="{{ m.id }}" aria-label="Member actions" style="flex:none;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;border:1px solid transparent;background:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text);border-color:var(--line)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="12" cy="19" r="1.6"></circle></svg>
+              </button>
+              <sc-if value="{{ m.menuOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;top:36px;right:6px;width:224px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:5px;z-index:60">
+                  <sc-if value="{{ m.menuNormal }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ copyMemberEmail }}" data-email="{{ m.email }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--text)" style-hover="background:var(--panel2)">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m2 7 10 6 10-6"></path></svg>
+                      Copy email
+                    </button>
+                    <sc-if value="{{ m.canRestore }}" hint-placeholder-val="{{ false }}">
+                      <button onClick="{{ restoreMember }}" data-id="{{ m.id }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--text)" style-hover="background:var(--panel2)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
+                        Restore access
+                      </button>
+                    </sc-if>
+                    <div style="height:1px;background:var(--line-soft);margin:4px 6px"></div>
+                    <sc-if value="{{ m.canSuspend }}" hint-placeholder-val="{{ false }}">
+                      <button onClick="{{ askSuspendMember }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0"></path></svg>
+                        Suspend access
+                      </button>
+                    </sc-if>
+                    <button onClick="{{ askRemoveMember }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--red)" style-hover="background:var(--red-dim)">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"></path></svg>
+                      Remove from workspace
+                    </button>
+                  </sc-if>
+                  <sc-if value="{{ m.confirming }}" hint-placeholder-val="{{ false }}">
+                    <div style="padding:8px 8px 4px">
+                      <div style="font:500 12.5px var(--sans);color:var(--text);line-height:1.45">{{ m.confirmMsg }}</div>
+                      <div style="display:flex;justify-content:flex-end;gap:7px;margin-top:10px">
+                        <button onClick="{{ closeTeamMenu }}" style="padding:5px 10px;border-radius:7px;font:500 12px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Keep</button>
+                        <button onClick="{{ confirmTeamAction }}" data-id="{{ m.id }}" style="padding:5px 10px;border-radius:7px;font:600 12px var(--sans);border:1px solid var(--red);color:#fff;background:var(--red);cursor:pointer" style-hover="filter:brightness(1.06)">{{ m.confirmBtn }}</button>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
             </div>
           </sc-for>
+
+          <sc-if value="{{ hasPending }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;align-items:center;gap:8px;margin:24px 0 6px;padding:0 8px">
+              <span style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Pending invites</span>
+              <span style="font:400 10.5px var(--mono);color:var(--text3)">· {{ pendingCount }}</span>
+            </div>
+            <sc-for list="{{ pendingRows }}" as="m" hint-placeholder-count="2">
+              <div style="position:relative;display:flex;align-items:center;gap:10px;padding:8px;border-radius:7px" style-hover="background:var(--panel2)">
+                <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);color:var(--text3);border:1px dashed var(--line);flex:none">{{ m.initials }}</span>
+                <div style="min-width:0">
+                  <div style="display:flex;align-items:center;gap:7px">
+                    <span style="font-size:13px;color:var(--text2)">{{ m.name }}</span>
+                    <span style="font:600 9.5px var(--mono);letter-spacing:.07em;padding:2px 6px;border-radius:5px;color:var(--amber);background:var(--amber-dim)">INVITED</span>
+                  </div>
+                  <div style="font:400 11px var(--mono);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.role }} · {{ m.email }}</div>
+                </div>
+                <div style="margin-left:auto;font:400 11px var(--mono);color:var(--text3);flex:none">{{ m.sent }}</div>
+                <button onClick="{{ toggleTeamMenu }}" data-id="{{ m.id }}" aria-label="Invite actions" style="flex:none;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;border:1px solid transparent;background:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text);border-color:var(--line)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="12" cy="19" r="1.6"></circle></svg>
+                </button>
+                <sc-if value="{{ m.menuOpen }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute;top:36px;right:6px;width:224px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:5px;z-index:60">
+                    <sc-if value="{{ m.menuNormal }}" hint-placeholder-val="{{ true }}">
+                      <button onClick="{{ resendMemberInvite }}" data-email="{{ m.email }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--text)" style-hover="background:var(--panel2)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
+                        Resend invite
+                      </button>
+                      <div style="height:1px;background:var(--line-soft);margin:4px 6px"></div>
+                      <button onClick="{{ askCancelMemberInvite }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--red)" style-hover="background:var(--red-dim)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+                        Cancel invite
+                      </button>
+                    </sc-if>
+                    <sc-if value="{{ m.confirming }}" hint-placeholder-val="{{ false }}">
+                      <div style="padding:8px 8px 4px">
+                        <div style="font:500 12.5px var(--sans);color:var(--text);line-height:1.45">{{ m.confirmMsg }}</div>
+                        <div style="display:flex;justify-content:flex-end;gap:7px;margin-top:10px">
+                          <button onClick="{{ closeTeamMenu }}" style="padding:5px 10px;border-radius:7px;font:500 12px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Keep</button>
+                          <button onClick="{{ confirmTeamAction }}" data-id="{{ m.id }}" style="padding:5px 10px;border-radius:7px;font:600 12px var(--sans);border:1px solid var(--red);color:#fff;background:var(--red);cursor:pointer" style-hover="filter:brightness(1.06)">{{ m.confirmBtn }}</button>
+                        </div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </sc-if>
         </sc-if>
 
       </div>
@@ -388,12 +479,21 @@ class Component extends DCLogic {
     super(props);
     const fresh = (typeof location !== 'undefined' && location.search.includes('fresh=1')) || !!props.startEmpty;
     this.MEMBERS = [
-      { id: 'yh', name: 'Yara Haddad', initials: 'YH', role: 'Admin', bg: 'var(--sky-dim)', fg: 'var(--sky)' },
-      { id: 'yi', name: 'Yousef Iman', initials: 'YI', role: 'Consultant', bg: 'var(--amber-dim)', fg: 'var(--amber)' },
-      { id: 'sa', name: 'Sara Al-Mansour', initials: 'SA', role: 'Consultant', bg: 'var(--green-dim)', fg: 'var(--green)' },
-      { id: 'ok', name: 'Omar Khalil', initials: 'OK', role: 'Researcher', bg: 'var(--red-dim)', fg: 'var(--red)' },
-      { id: 'da', name: 'Dana Aboud', initials: 'DA', role: 'Researcher', bg: 'var(--panel2)', fg: 'var(--text2)' },
+      { id: 'yh', name: 'Yara Haddad', initials: 'YH', role: 'Admin', email: 'yara@lightmove.app', bg: 'var(--sky-dim)', fg: 'var(--sky)' },
+      { id: 'yi', name: 'Yousef Iman', initials: 'YI', role: 'Consultant', email: 'yousef@lightmove.app', bg: 'var(--amber-dim)', fg: 'var(--amber)' },
+      { id: 'sa', name: 'Sara Al-Mansour', initials: 'SA', role: 'Consultant', email: 'sara@lightmove.app', bg: 'var(--green-dim)', fg: 'var(--green)' },
+      { id: 'ok', name: 'Omar Khalil', initials: 'OK', role: 'Researcher', email: 'omar@lightmove.app', bg: 'var(--red-dim)', fg: 'var(--red)' },
+      { id: 'da', name: 'Dana Aboud', initials: 'DA', role: 'Researcher', email: 'dana@lightmove.app', bg: 'var(--panel2)', fg: 'var(--text2)' },
     ];
+    this.INVITES = [
+      { id: 'ra', name: 'Rana Aziz', initials: 'RA', role: 'Researcher', email: 'rana@lightmove.app', sent: 'Sent 2 days ago', bg: 'var(--panel2)', fg: 'var(--text2)' },
+      { id: 'mf', name: 'Marwan Fares', initials: 'MF', role: 'Consultant', email: 'marwan@lightmove.app', sent: 'Sent 6 hours ago', bg: 'var(--panel2)', fg: 'var(--text2)' },
+    ];
+    this.TEAM_CONFIRM = {
+      cancel: ['Cancel the invite for {name}? The link stops working immediately.', 'Cancel invite'],
+      revoke: ['Suspend {name}? They keep their project assignments but lose access.', 'Suspend'],
+      remove: ['Remove {name} from this workspace?', 'Remove'],
+    };
     this.ROLE_BADGE = {
       lead: { label: 'Lead', color: 'var(--amber)', bg: 'var(--amber-dim)', border: 'var(--amber)' },
       admin: { label: 'Admin', color: 'var(--sky)', bg: 'var(--sky-dim)', border: 'transparent' },
@@ -440,6 +540,7 @@ class Component extends DCLogic {
       fresh, projects: seed,
       view: (typeof location !== 'undefined' && new URLSearchParams(location.search).get('view')) || props.defaultView || 'my', q: '', chip: 'active', sortKey: 'date', sortDir: 1,
       drawerId: null, modalOpen: false, wsMenuOpen: false, dark: false, toast: '',
+      memberStatus: {}, removedMembers: [], teamMenu: null, teamConfirm: '',
       collapsed: (() => { try { return localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) { return false; } })(),
     };
     this.draft = {};
@@ -451,12 +552,30 @@ class Component extends DCLogic {
       const t = localStorage.getItem('lm-theme');
       if (t === 'dark') { document.body.classList.add('dark'); this.setState({ dark: true }); }
     } catch (e) {}
-    this._esc = (e) => { if (e.key === 'Escape') this.setState({ drawerId: null, modalOpen: false, wsMenuOpen: false }); };
+    this._esc = (e) => {
+      if (e.key !== 'Escape') return;
+      if (this.state.teamMenu) { this.setState({ teamMenu: null, teamConfirm: '' }); return; }
+      this.setState({ drawerId: null, modalOpen: false, wsMenuOpen: false });
+    };
     document.addEventListener('keydown', this._esc);
   }
   componentWillUnmount() { document.removeEventListener('keydown', this._esc); }
 
   member(id) { return this.MEMBERS.find(m => m.id === id); }
+  teamMenuVals(m, status) {
+    const st = this.state;
+    const c = this.TEAM_CONFIRM[st.teamConfirm];
+    return {
+      menuOpen: st.teamMenu === m.id,
+      menuNormal: st.teamMenu === m.id && !st.teamConfirm,
+      confirming: st.teamMenu === m.id && !!st.teamConfirm,
+      confirmMsg: c ? c[0].replace('{name}', m.name) : '',
+      confirmBtn: c ? c[1] : '',
+      canSuspend: status === 'active',
+      canRestore: status === 'suspended',
+      isInvite: status === 'invited',
+    };
+  }
   stageIdx(k) { return this.STAGES.findIndex(s => s.key === k); }
   fmtDate(d) { return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
   showToast(msg) {
@@ -696,10 +815,20 @@ class Component extends DCLogic {
       hasClients: this.clients().length > 0,
       noClients: this.clients().length === 0,
       teamSub: this.members().length + (this.members().length === 1 ? ' member' : ' members') + ' · roles apply per project',
-      teamRows: this.members().map(m => {
+      teamRows: this.members().filter(m => !st.removedMembers.includes(m.id)).map(m => {
         const n = this.state.projects.filter(p => p.team.includes(m.id) && !['delivered', 'closed'].includes(p.stage)).length;
-        return { ...m, activeLabel: n + (n === 1 ? ' active project' : ' active projects') };
+        const status = st.memberStatus[m.id] || 'active';
+        return {
+          ...m,
+          activeLabel: n + (n === 1 ? ' active project' : ' active projects'),
+          suspended: status === 'suspended',
+          isActive: status === 'active',
+          ...this.teamMenuVals(m, status === 'suspended' ? 'suspended' : 'active'),
+        };
       }),
+      pendingRows: this.INVITES.filter(i => !st.removedMembers.includes(i.id)).map(i => ({ ...i, ...this.teamMenuVals(i, 'invited') })),
+      hasPending: this.INVITES.some(i => !st.removedMembers.includes(i.id)),
+      pendingCount: this.INVITES.filter(i => !st.removedMembers.includes(i.id)).length + ' pending',
       drawerOpen: !!dp, drawer,
       modalOpen: st.modalOpen,
       clientOptions: (this.clients().length ? this.clients() : this.CLIENTS).map(c => c.name),
@@ -762,6 +891,41 @@ class Component extends DCLogic {
       toastClients: () => this.showToast('Entity registry form — separate build'),
       toastRecord: () => this.showToast('Opens read-only entity record'),
       toastInvite: () => this.showToast('Invite flow — see Signup step 3'),
+      toggleTeamMenu: (e) => {
+        const id = e.currentTarget.dataset.id;
+        this.setState(s => ({ teamMenu: s.teamMenu === id ? null : id, teamConfirm: '' }));
+      },
+      closeTeamMenu: () => this.setState({ teamMenu: null, teamConfirm: '' }),
+      copyMemberEmail: (e) => {
+        const email = e.currentTarget.dataset.email;
+        try { navigator.clipboard.writeText(email); } catch (err) {}
+        this.setState({ teamMenu: null, teamConfirm: '' });
+        this.showToast('Email copied');
+      },
+      resendMemberInvite: (e) => {
+        const email = e.currentTarget.dataset.email;
+        this.setState({ teamMenu: null, teamConfirm: '' });
+        this.showToast('Invite re-sent to ' + email);
+      },
+      restoreMember: (e) => {
+        const id = e.currentTarget.dataset.id;
+        this.setState(s => ({ memberStatus: { ...s.memberStatus, [id]: 'active' }, teamMenu: null, teamConfirm: '' }));
+        this.showToast('Access restored');
+      },
+      askSuspendMember: () => this.setState({ teamConfirm: 'revoke' }),
+      askCancelMemberInvite: () => this.setState({ teamConfirm: 'cancel' }),
+      askRemoveMember: () => this.setState({ teamConfirm: 'remove' }),
+      confirmTeamAction: (e) => {
+        const id = e.currentTarget.dataset.id;
+        const kind = this.state.teamConfirm;
+        if (kind === 'revoke') {
+          this.setState(s => ({ memberStatus: { ...s.memberStatus, [id]: 'suspended' }, teamMenu: null, teamConfirm: '' }));
+          this.showToast('Access suspended');
+        } else {
+          this.setState(s => ({ removedMembers: [...s.removedMembers, id], teamMenu: null, teamConfirm: '' }));
+          this.showToast(kind === 'cancel' ? 'Invite cancelled' : 'Member removed from workspace');
+        }
+      },
     };
   }
 }
