@@ -1,6 +1,7 @@
 package app.lightmove.api.core.security.controller;
 
 import app.lightmove.api.core.security.dto.AuthResponse;
+import app.lightmove.api.core.security.dto.ChangePasswordRequest;
 import app.lightmove.api.core.security.dto.ForgotPasswordRequest;
 import app.lightmove.api.core.security.dto.LoginRequest;
 import app.lightmove.api.core.security.dto.ResendVerificationRequest;
@@ -10,6 +11,7 @@ import app.lightmove.api.core.security.dto.UpdateProfileRequest;
 import app.lightmove.api.core.security.dto.UserResponse;
 import app.lightmove.api.core.security.dto.VerifyEmailRequest;
 import app.lightmove.api.core.security.service.AuthenticationService;
+import app.lightmove.api.core.security.service.PasswordChangeService;
 import app.lightmove.api.core.security.service.PasswordResetService;
 import app.lightmove.api.core.security.service.UserProfileService;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
@@ -60,6 +62,7 @@ public class AuthController {
     private final AuthenticationService authentication;
     private final VerificationService verification;
     private final PasswordResetService passwordReset;
+    private final PasswordChangeService passwordChange;
     private final UserProfileService userProfile;
     private final RefreshCookieFactory refreshCookie;
     private final RateLimitGuard rateLimit;
@@ -179,6 +182,25 @@ public class AuthController {
     public ResponseEntity<AuthResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request,
                                                       HttpServletRequest httpRequest) {
         return respond(HttpStatus.OK, passwordReset.reset(request.token(), request.password(), httpRequest));
+    }
+
+    /**
+     * Settings → Security: change a password you already know.
+     *
+     * <p>Answers a full session, exactly as {@code /password/reset} does, because the change revokes
+     * every session including the caller's — {@code respond} sets the replacement cookie, so the tab
+     * that made the change stays signed in and the others do not.
+     */
+    @PostMapping("/password/change")
+    public ResponseEntity<AuthResponse> changePassword(@AuthenticationPrincipal AuthPrincipal principal,
+                                                       @Valid @RequestBody ChangePasswordRequest request,
+                                                       HttpServletRequest httpRequest) {
+        // The only brake on guessing the current password: a wrong attempt here does not feed the login
+        // lockout counter, since the caller already holds a session and locking would only lock them out.
+        rateLimit.checkPasswordChange(principal.email(), httpRequest);
+
+        return respond(HttpStatus.OK, passwordChange.change(
+                principal.userId(), request.currentPassword(), request.newPassword(), httpRequest));
     }
 
     /** The current user. The SPA calls this on boot to rehydrate. */

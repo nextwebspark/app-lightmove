@@ -52,6 +52,20 @@ public enum ErrorCode {
     /** Reuse of a rotated token. The family is already dead by the time this reaches the client. */
     REFRESH_TOKEN_REUSED(HttpStatus.UNAUTHORIZED, "Your session was ended for security reasons. Please sign in again"),
 
+    /**
+     * Named plainly where {@link #INVALID_CREDENTIALS} is deliberately vague: this endpoint is already
+     * authenticated as the account's owner, so there is no enumeration oracle left to protect.
+     */
+    CURRENT_PASSWORD_INVALID(HttpStatus.BAD_REQUEST, "That is not your current password"),
+
+    /** Provider-only account. Attaching a local password is the reset flow's job — it proves the mailbox first. */
+    PASSWORD_NOT_SET(HttpStatus.CONFLICT, "This account signs in with a provider and has no password to change"),
+
+    /** Also served for a session belonging to somebody else — a 403 would confirm the id names a real one. */
+    SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "That session is no longer active"),
+
+    CURRENT_SESSION_NOT_REVOCABLE(HttpStatus.CONFLICT, "Use sign out to end the session you are using"),
+
     WORKSPACE_ALREADY_EXISTS(HttpStatus.CONFLICT, "You have already created a workspace"),
     WORKSPACE_NOT_FOUND(HttpStatus.NOT_FOUND, "Workspace not found"),
 

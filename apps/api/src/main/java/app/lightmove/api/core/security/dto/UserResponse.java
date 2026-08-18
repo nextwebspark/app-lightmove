@@ -12,6 +12,13 @@ public record UserResponse(
         String avatarUrl,
         boolean emailVerified,
 
+        /**
+         * Whether this account has a local password at all. False for a provider-only sign-in, which is
+         * what lets Settings → Security offer the reset flow instead of a current-password box that can
+         * never be filled. Disclosed only to the account's owner.
+         */
+        boolean hasPassword,
+
         /** IANA zone id — the app formats dates in it. Defaults to Asia/Dubai until the user says otherwise. */
         String timezone,
 

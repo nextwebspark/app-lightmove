@@ -70,7 +70,7 @@ class PasswordPolicyTest {
         AuthSettings auth = new AuthSettings(
                 null, null,
                 new LockoutSettings(5, Duration.ofMinutes(15)),
-                new RateLimitSettings(true, 10, 5, 3, 3),
+                new RateLimitSettings(true, 10, 5, 3, 3, 10),
                 Duration.ofMinutes(15), Duration.ofDays(30), Duration.ofHours(24),
                 Duration.ofMinutes(30), Duration.ofDays(7),
                 // Null oauth: nothing here signs in through a provider, and AuthSettings defaults it.

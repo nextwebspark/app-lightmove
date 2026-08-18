@@ -18,6 +18,9 @@ public enum AuthEventType implements AuditEventType {
     ACCOUNT_LOCKED,
     LOGOUT,
 
+    SESSION_REVOKED,
+    OTHER_SESSIONS_REVOKED,
+
     // Tokens
     TOKEN_REFRESHED,
     /** The one that should page someone. A stolen refresh token is being replayed. */

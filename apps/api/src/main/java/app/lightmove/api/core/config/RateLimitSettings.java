@@ -8,5 +8,6 @@ public record RateLimitSettings(
         @DefaultValue("10") int loginAttemptsPerMinute,
         @DefaultValue("5") int signupAttemptsPerHour,
         @DefaultValue("3") int verificationResendsPerHour,
-        @DefaultValue("3") int passwordResetRequestsPerHour
+        @DefaultValue("3") int passwordResetRequestsPerHour,
+        @DefaultValue("10") int passwordChangeAttemptsPerHour
 ) {}

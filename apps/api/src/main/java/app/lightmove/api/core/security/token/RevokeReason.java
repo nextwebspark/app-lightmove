@@ -15,7 +15,13 @@ public enum RevokeReason {
     REUSE_DETECTED,
 
     PASSWORD_CHANGED,
-    ADMIN_REVOKED;
+    ADMIN_REVOKED,
+
+    /**
+     * The owner ended this session from another device. Distinct from {@link #ADMIN_REVOKED} so the
+     * trail says whether the account holder acted or LightMove staff did.
+     */
+    USER_REVOKED;
 
     /**
      * Whether presenting a token revoked for this reason is evidence of theft rather than an ordinary

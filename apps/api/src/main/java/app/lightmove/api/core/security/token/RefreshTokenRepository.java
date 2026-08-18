@@ -67,4 +67,40 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
     int revokeAllForUser(@Param("userId") UUID userId,
                          @Param("reason") RevokeReason reason,
                          @Param("now") Instant now);
+
+    /**
+     * Ends one session from Settings → Active sessions.
+     *
+     * <p>Ownership is in the WHERE clause rather than in a prior read: another user's family updates
+     * nothing, so a 0 return is both "no such session" and "not yours", which is the answer we want to
+     * give for either.
+     */
+    @Modifying
+    @Query("""
+            UPDATE RefreshToken t
+               SET t.revokedAt = :now,
+                   t.revokedReason = :reason
+             WHERE t.familyId = :familyId
+               AND t.userId = :userId
+               AND t.revokedAt IS NULL
+            """)
+    int revokeFamilyForUser(@Param("familyId") UUID familyId,
+                            @Param("userId") UUID userId,
+                            @Param("reason") RevokeReason reason,
+                            @Param("now") Instant now);
+
+    /** "Sign out all others": everything but the family the caller is refreshing on. */
+    @Modifying
+    @Query("""
+            UPDATE RefreshToken t
+               SET t.revokedAt = :now,
+                   t.revokedReason = :reason
+             WHERE t.userId = :userId
+               AND t.familyId <> :keptFamilyId
+               AND t.revokedAt IS NULL
+            """)
+    int revokeAllForUserExceptFamily(@Param("userId") UUID userId,
+                                     @Param("keptFamilyId") UUID keptFamilyId,
+                                     @Param("reason") RevokeReason reason,
+                                     @Param("now") Instant now);
 }

@@ -29,6 +29,12 @@ export interface User {
   avatarUrl: string | null;
   emailVerified: boolean;
 
+  /**
+   * False for a provider-only sign-in. Settings → Security offers the reset flow instead of a
+   * current-password box that could never be filled.
+   */
+  hasPassword: boolean;
+
   /** IANA zone id, e.g. "Asia/Dubai" — the user's own choice in Settings → Profile. */
   timezone: string;
   /** Their language tag ("en" | "ar" | "fr"), stored ahead of the app being translated. */
@@ -83,6 +89,27 @@ export interface UpdateProfileRequest {
   title: string | null;
   timezone: string;
   locale: string;
+}
+
+/** Settings → Security. The confirm field never leaves the client — two matching copies prove nothing. */
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export type DeviceKind = "DESKTOP" | "MOBILE" | "TABLET" | "UNKNOWN";
+
+/** One signed-in device in Settings → Active sessions. */
+export interface ActiveSession {
+  /** The refresh-token family id — stable across the rotations happening under a live session. */
+  id: string;
+  /** "macOS — Safari", or "Unknown device" for a User-Agent we do not recognise. */
+  device: string;
+  deviceKind: DeviceKind;
+  /** Shown in place of a city: an address the owner does not recognise is the signal that matters. */
+  ipAddress: string | null;
+  lastActiveAt: string;
+  current: boolean;
 }
 
 export interface CreateWorkspaceRequest {
