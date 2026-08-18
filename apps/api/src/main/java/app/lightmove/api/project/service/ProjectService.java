@@ -295,22 +295,73 @@ public class ProjectService {
         if (representative.getUserId() != null) {
             WorkspaceMember membership =
                     access.requireActiveMember(representative.getUserId(), project.getWorkspaceId());
-            ProjectMember seat = seats.findByProjectIdAndMemberId(projectId, membership.getId()).orElse(null);
-            if (seat != null && seat.getRoles().stream().anyMatch(role -> role.is(ProjectRole.CLIENT))) {
-                Set<Role> remaining = seat.getRoles().stream()
-                        .filter(role -> !role.is(ProjectRole.CLIENT))
-                        .collect(Collectors.toSet());
-                if (remaining.isEmpty()) {
-                    seats.delete(seat);
-                } else {
-                    seat.changeRoles(remaining);
-                }
+            if (unseatRepresentative(projectId, membership)) {
                 auditTeamChange(actorId, workspaceId, projectId, membership.getId(),
                         "detach-client", httpRequest);
             }
         }
 
         return toResponse(project, assemblyFor(workspaceId, List.of(project)));
+    }
+
+    /**
+     * Withdraws a representative from <b>every</b> mandate of their own client at once — the seat half of
+     * a registry-tier revoke ({@code ClientRepresentativeService.revoke}), where detaching is per-mandate.
+     * Parked attach intents go too: without that, an invitation accepted after the revoke would still
+     * land a CLIENT seat.
+     *
+     * <p>Tolerates a membership that has already ended: the representative may have been removed from the
+     * workspace by other means, in which case there is no seat left to drop and nothing to fail over.
+     */
+    @Transactional
+    public void revokeRepresentativeAccess(UUID actorId, ClientRepresentative representative,
+                                           HttpServletRequest httpRequest) {
+        UUID workspaceId = representative.getWorkspaceId();
+        List<PendingRepresentativeAttachment> parked =
+                pendingAttachments.findByRepresentativeId(representative.getId());
+        pendingAttachments.deleteAll(parked);
+        parked.forEach(attachment -> auditRepresentativeChange(actorId, workspaceId,
+                attachment.getProjectId(), representative.getId(), "revoke-client-pending", httpRequest));
+
+        if (representative.getUserId() == null) {
+            return;
+        }
+        WorkspaceMember membership = access.activeMember(representative.getUserId(), workspaceId)
+                .orElse(null);
+        if (membership == null) {
+            return;
+        }
+
+        // Their client's mandates only. A seat on any other client's mandate cannot have come from this
+        // representative row, and revoking one client's contact must not touch another's.
+        for (Project project : projects.findByWorkspaceIdAndClientIdOrderByCreatedAtDesc(
+                workspaceId, representative.getClientId())) {
+            if (unseatRepresentative(project.getId(), membership)) {
+                auditTeamChange(actorId, workspaceId, project.getId(), membership.getId(),
+                        "revoke-client", httpRequest);
+            }
+        }
+    }
+
+    /**
+     * Drops the CLIENT role from the membership's seat, deleting the seat only when nothing remains.
+     * The mirror of {@link #seatRepresentative} — a dual-role member who also staffs the mandate keeps
+     * their staff role. Returns whether anything changed; the caller words its own audit event.
+     */
+    private boolean unseatRepresentative(UUID projectId, WorkspaceMember membership) {
+        ProjectMember seat = seats.findByProjectIdAndMemberId(projectId, membership.getId()).orElse(null);
+        if (seat == null || seat.getRoles().stream().noneMatch(role -> role.is(ProjectRole.CLIENT))) {
+            return false;
+        }
+        Set<Role> remaining = seat.getRoles().stream()
+                .filter(role -> !role.is(ProjectRole.CLIENT))
+                .collect(Collectors.toSet());
+        if (remaining.isEmpty()) {
+            seats.delete(seat);
+        } else {
+            seat.changeRoles(remaining);
+        }
+        return true;
     }
 
     /**
@@ -483,9 +534,10 @@ public class ProjectService {
         // The client-side contacts on this mandate. Seated wins over a stale pending row, and the
         // reported status is the attachment's ("Active" vs invitation still out), not the registry's.
         //
-        // Which means a REVOKED representative whose CLIENT seat was never dropped would still read
-        // "Active" here. Nothing revokes today, so nothing is wrong yet — but whoever adds that flow
-        // must drop the CLIENT seat and any pending row with it, not merely flip the registry status.
+        // Which means a REVOKED representative would still read "Active" here if their CLIENT seat had
+        // outlived the revoke. It cannot: revokeRepresentativeAccess drops the seat and the parked row
+        // on every mandate of their client, so the two views agree. Anything else that ends a
+        // representative's access owes the same sweep — flipping the registry status alone is not it.
         Set<UUID> clientSeatUserIds = assembly.seatsByProject()
                 .getOrDefault(project.getId(), List.of()).stream()
                 .filter(seat -> seat.getRoles().stream().anyMatch(role -> role.is(ProjectRole.CLIENT)))

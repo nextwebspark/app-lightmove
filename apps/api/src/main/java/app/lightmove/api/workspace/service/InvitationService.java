@@ -226,6 +226,38 @@ public class InvitationService {
     }
 
     /**
+     * Withdraws a client representative's outstanding portal invitation, so the emailed link stops
+     * working. The counterpart of {@link #inviteClientRepresentative}, on the same seam and with the same
+     * gating story: the calling controller has already checked {@code CLIENT_RECORD_MANAGE}, so there is
+     * no admin check here — a representative is any staff member's to name, and to un-name.
+     *
+     * <p>Silent when the invitation is no longer pending, and scoped by client id as strictly as the
+     * staff revoke excludes one. The representative row is the truth about that person's access; an
+     * invitation already accepted or revoked has nothing left to withdraw, and throwing over it would
+     * abandon the row that does matter.
+     */
+    @Transactional
+    public void revokeClientRepresentativeInvitation(UUID workspaceId, UUID clientId, UUID invitationId,
+                                                     UUID actorId, HttpServletRequest request) {
+        Invitation invitation = invitations.findById(invitationId)
+                .filter(candidate -> candidate.getWorkspaceId().equals(workspaceId))
+                .filter(candidate -> clientId.equals(candidate.getClientId()))
+                .filter(candidate -> candidate.getStatus() == InvitationStatus.PENDING)
+                .orElse(null);
+        if (invitation == null) {
+            return;
+        }
+
+        invitation.revoke();
+
+        audit.event(WorkspaceEventType.INVITATION_REVOKED)
+                .actor(actorId).workspace(workspaceId).target("invitation", invitationId).from(request)
+                .detail("email", invitation.getEmail()).detail("type", "client")
+                .detail("clientId", clientId.toString())
+                .record();
+    }
+
+    /**
      * Onboards a client representative, choosing the path by whether the address is already one of our
      * members. An existing active member skips the invitation entirely — they gain the CLIENT role on
      * their current membership and an informational email, no signup, because a user is unique to a
