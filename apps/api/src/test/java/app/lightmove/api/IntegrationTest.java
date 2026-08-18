@@ -23,12 +23,15 @@ import java.lang.annotation.Target;
  * {@link TestcontainersConfig}), so the whole suite pays for one Postgres, not one per class. Nothing
  * here touches Cloud SQL, and no test needs a database reset: the container is created fresh, migrated
  * by Flyway, and thrown away.
+ *
+ * <p>Audit writes run inline here rather than on their own thread — see {@link SynchronousAuditWrites}
+ * for why a test that reads {@code app_lm_audit_event} otherwise races the writer.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import(TestcontainersConfig.class)
+@Import({TestcontainersConfig.class, SynchronousAuditWrites.class})
 public @interface IntegrationTest {
 }

@@ -783,7 +783,13 @@ class AuthFlowIntegrationTest {
         assertThat(reuseDetectionsRecordedFor(alokEmail)).isEqualTo(1);
     }
 
-    /** Scoped to one address: the audit trail is append-only, so earlier tests' rows are still there. */
+    /**
+     * Scoped to one address: the audit trail is append-only, so earlier tests' rows are still there.
+     *
+     * <p>The count is exact rather than eventual only because {@code SynchronousAuditWrites} runs the
+     * {@code @Async} writer inline under test. Against the production executor this reads whatever has
+     * committed so far, which is not the same question.
+     */
     private int reuseDetectionsRecordedFor(String email) {
         Integer count = jdbc.queryForObject("""
                 SELECT count(*) FROM app_lm_audit_event event
