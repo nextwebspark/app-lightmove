@@ -197,7 +197,7 @@ export function SourcingPage() {
         >
           <Link
             to={`/projects/${project.id}/strategy`}
-            className="rounded-[8px] border border-amber-btn bg-amber-btn px-[13px] py-[7px] font-sans text-[13px] font-semibold text-[#141414] hover:brightness-105"
+            className="rounded-[8px] border border-amber-btn bg-amber-btn px-[13px] py-[7px] font-sans text-[13px] font-semibold text-on-amber hover:brightness-105"
           >
             Go to Strategy
           </Link>
