@@ -1,7 +1,7 @@
 @import "./tokens.css";
 
-/* Inter and JetBrains Mono, as specified by every mockup's <helmet>. */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+/* Geist (with Inter as fallback), as specified by every mockup's <helmet>. */
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&display=swap");
 
 html,
 body,
