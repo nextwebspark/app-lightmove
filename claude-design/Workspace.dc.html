@@ -22,13 +22,13 @@
     @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   </style>
 </helmet>
-<div data-screen-label="Workspace" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
+<div data-screen-label="Workspace" style="height:100vh;display:flex;overflow:hidden">
 
-  <header style="height:46px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px;position:relative;z-index:60">
-    <div style="position:relative">
-      <button onClick="{{ toggleWsMenu }}" style="display:flex;align-items:center;gap:8px;padding:5px 10px 5px 6px;border-radius:8px;background:none;border:none;cursor:pointer;color:var(--text)" style-hover="background:var(--panel2)">
-        <span style="width:22px;height:22px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
-        <span style="font:600 13px var(--mono);letter-spacing:.02em">LightMove</span>
+    <nav style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s ease">
+      <div style="position:relative;margin:0 2px 12px">
+      <button onClick="{{ toggleWsMenu }}" style="display:flex;align-items:center;gap:8px;padding:4px 6px 4px 4px;border-radius:7px;background:none;border:none;cursor:pointer;color:var(--text)" style-hover="background:var(--panel2)">
+        <span style="width:24px;height:24px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 12px var(--sans);flex:none">L</span>
+        <span style="display:{{ labelDisp }};font:700 14px var(--sans);letter-spacing:.01em;white-space:nowrap">LightMove</span>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
       </button>
       <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
@@ -55,15 +55,7 @@
           </a>
         </div>
       </sc-if>
-    </div>
-    <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
-      <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky)">YH</span>
-    </div>
-  </header>
-
-  <div style="flex:1;display:flex;gap:14px;padding:0 14px 14px;min-height:0">
-
-    <nav style="width:{{ sideWidth }};flex:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 8px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s ease">
+      </div>
       <div style="display:{{ groupDisp }};font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:0 10px 6px">Projects</div>
       <sc-for list="{{ projNav }}" as="it" hint-placeholder-count="2">
         <button onClick="{{ setView }}" data-view="{{ it.key }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }};border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
@@ -92,8 +84,16 @@
       </div>
     </nav>
 
-    <main style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow-y:auto;min-width:0">
-      <div style="max-width:1440px;padding:26px 32px 60px">
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0;padding:10px 10px 10px 0">
+    <main style="flex:1;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:15px;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+      <div style="flex:none;display:flex;align-items:center;gap:18px;padding:16px 32px 14px;border-bottom:1px solid var(--line)">
+        <div style="font:700 20px var(--sans);color:var(--text);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pageTitle }}</div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+          <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky)">YH</span>
+        </div>
+      </div>
+      <div style="flex:1;overflow-y:auto;min-height:0">
+      <div style="max-width:1440px;padding:22px 32px 60px">
 
         <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
           <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:90px 20px 70px;text-align:center;animation:fadeUp .5s ease both">
@@ -333,8 +333,9 @@
         </sc-if>
 
       </div>
+      </div>
     </main>
-  </div>
+    </div>
 
   <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;background:rgba(15,20,30,.4);z-index:90"></div>
@@ -550,7 +551,7 @@ class Component extends DCLogic {
   componentDidMount() {
     try {
       const t = localStorage.getItem('lm-theme');
-      if (t === 'dark') { document.body.classList.add('dark'); this.setState({ dark: true }); }
+      if (t !== 'light') { document.body.classList.add('dark'); this.setState({ dark: true }); }
     } catch (e) {}
     this._esc = (e) => {
       if (e.key !== 'Escape') return;
