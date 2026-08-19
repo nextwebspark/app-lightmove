@@ -9,10 +9,10 @@
 <x-dc>
 <helmet>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root{--bg:#f4f5f8;--panel:#ffffff;--panel2:#f7f8fa;--line:#e3e6ee;--line-soft:#edeff5;--text:#141b29;--text2:#47505f;--text3:#6e7890;--amber:#b47708;--amber-btn:#f0b429;--amber-dim:rgba(201,138,10,.10);--sky:#1a73c7;--sky-dim:rgba(26,115,199,.10);--red:#cc3a33;--red-dim:rgba(204,58,51,.08);--green:#1f8f60;--green-dim:rgba(31,143,96,.10);--shadow:0 8px 28px rgba(20,30,50,.10);--mono:'JetBrains Mono',ui-monospace,monospace;--sans:'Inter',system-ui,sans-serif}
-    body.dark{--bg:#0b0d11;--panel:#12151b;--panel2:#171b22;--line:#232833;--line-soft:#1c212b;--text:#f1f3f6;--text2:#b8c0cc;--text3:#8d96a6;--amber:#f0b429;--amber-dim:rgba(240,180,41,.12);--sky:#5cb3ff;--sky-dim:rgba(92,179,255,.12);--red:#e5534b;--red-dim:rgba(229,83,75,.12);--green:#3fb27f;--green-dim:rgba(63,178,127,.12);--shadow:0 8px 28px rgba(0,0,0,.45)}
+    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--shadow:0 8px 28px rgba(15,23,42,.10);--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif}
+    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--shadow:0 8px 28px rgba(0,0,0,.5)}
     *{box-sizing:border-box}
     html,body{height:100%;margin:0}
     body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
@@ -28,14 +28,14 @@
   <header style="height:46px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px;position:relative;z-index:60">
     <div style="position:relative">
       <button onClick="{{ toggleWsMenu }}" style="display:flex;align-items:center;gap:8px;padding:5px 10px 5px 6px;border-radius:8px;background:none;border:none;cursor:pointer;color:var(--text)" style-hover="background:var(--panel2)">
-        <span style="width:22px;height:22px;border-radius:6px;background:#f0b429;color:#141414;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
+        <span style="width:22px;height:22px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
         <span style="font:600 13px var(--mono);letter-spacing:.02em">LightMove</span>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
       </button>
       <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
         <div style="position:absolute;top:40px;left:0;width:268px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:6px;z-index:80">
           <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--line-soft);margin-bottom:6px">
-            <span style="width:30px;height:30px;border-radius:8px;background:#f0b429;color:#141414;display:grid;place-items:center;font:700 13px var(--mono)">L</span>
+            <span style="width:30px;height:30px;border-radius:8px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 13px var(--mono)">L</span>
             <div>
               <div style="font:600 13px var(--mono)">LightMove</div>
               <div style="font:400 11px var(--mono);color:var(--text3)">5 members · Pro plan</div>
@@ -102,7 +102,7 @@
             <div style="color:var(--text3);font:400 12px var(--mono);margin-top:4px">{{ pageSub }}</div>
           </div>
           <div style="margin-left:auto">
-            <button onClick="{{ openModal }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">
+            <button onClick="{{ openModal }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
               New client
             </button>
@@ -235,7 +235,7 @@
             <sc-if value="{{ detailsDirty }}" hint-placeholder-val="{{ false }}">
               <div style="display:flex;justify-content:flex-end;gap:8px">
                 <button onClick="{{ revertDetails }}" style="padding:6px 12px;border-radius:8px;font:500 12.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Discard</button>
-                <button onClick="{{ saveDetails }}" style="padding:6px 12px;border-radius:8px;font:600 12.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Save changes</button>
+                <button onClick="{{ saveDetails }}" style="padding:6px 12px;border-radius:8px;font:600 12.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">Save changes</button>
               </div>
             </sc-if>
           </div>
@@ -249,13 +249,64 @@
           </div>
           <sc-if value="{{ drawer.hasReps }}" hint-placeholder-val="{{ true }}">
             <sc-for list="{{ drawer.reps }}" as="p" hint-placeholder-count="2">
-              <div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:7px" style-hover="background:var(--panel2)">
+              <div style="position:relative;display:flex;align-items:center;gap:10px;padding:8px;border-radius:7px" style-hover="background:var(--panel2)">
                 <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky);flex:none">{{ p.initials }}</span>
                 <div style="min-width:0">
                   <div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</div>
                   <div style="font:400 11px var(--mono);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.position }} · {{ p.email }}</div>
                 </div>
                 <span style="margin-left:auto;flex:none;font:600 10px var(--mono);letter-spacing:.06em;padding:2px 7px;border-radius:5px;color:{{ p.stColor }};background:{{ p.stBg }}">{{ p.stLabel }}</span>
+                <button onClick="{{ toggleRepMenu }}" data-email="{{ p.email }}" aria-label="Representative actions" style="flex:none;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;border:1px solid transparent;background:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text);border-color:var(--line)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="12" cy="19" r="1.6"></circle></svg>
+                </button>
+                <sc-if value="{{ p.menuOpen }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute;top:36px;right:6px;width:206px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:5px;z-index:60">
+                    <sc-if value="{{ p.menuNormal }}" hint-placeholder-val="{{ true }}">
+                      <sc-if value="{{ p.isInvited }}" hint-placeholder-val="{{ false }}">
+                        <button onClick="{{ resendInvite }}" data-email="{{ p.email }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--text)" style-hover="background:var(--panel2)">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
+                          Resend invite
+                        </button>
+                        <div style="height:1px;background:var(--line-soft);margin:4px 6px"></div>
+                        <button onClick="{{ askCancelInvite }}" data-email="{{ p.email }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--red)" style-hover="background:var(--red-dim)">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+                          Cancel invite
+                        </button>
+                      </sc-if>
+                      <sc-if value="{{ p.isActive }}" hint-placeholder-val="{{ false }}">
+                        <button onClick="{{ copyRepEmail }}" data-email="{{ p.email }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--text)" style-hover="background:var(--panel2)">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m2 7 10 6 10-6"></path></svg>
+                          Copy email
+                        </button>
+                        <div style="height:1px;background:var(--line-soft);margin:4px 6px"></div>
+                        <button onClick="{{ askRevokeAccess }}" data-email="{{ p.email }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--red)" style-hover="background:var(--red-dim)">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0"></path></svg>
+                          Revoke access
+                        </button>
+                      </sc-if>
+                      <sc-if value="{{ p.isRevoked }}" hint-placeholder-val="{{ false }}">
+                        <button onClick="{{ resendInvite }}" data-email="{{ p.email }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--text)" style-hover="background:var(--panel2)">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
+                          Restore access
+                        </button>
+                        <div style="height:1px;background:var(--line-soft);margin:4px 6px"></div>
+                        <button onClick="{{ askRemoveRep }}" data-email="{{ p.email }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--red)" style-hover="background:var(--red-dim)">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"></path></svg>
+                          Remove representative
+                        </button>
+                      </sc-if>
+                    </sc-if>
+                    <sc-if value="{{ p.confirming }}" hint-placeholder-val="{{ false }}">
+                      <div style="padding:8px 8px 4px">
+                        <div style="font:500 12.5px var(--sans);color:var(--text);line-height:1.45">{{ p.confirmMsg }}</div>
+                        <div style="display:flex;justify-content:flex-end;gap:7px;margin-top:10px">
+                          <button onClick="{{ closeRepMenu }}" style="padding:5px 10px;border-radius:7px;font:500 12px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Keep</button>
+                          <button onClick="{{ confirmRepAction }}" data-email="{{ p.email }}" style="padding:5px 10px;border-radius:7px;font:600 12px var(--sans);border:1px solid var(--red);color:#fff;background:var(--red);cursor:pointer" style-hover="filter:brightness(1.06)">{{ p.confirmBtn }}</button>
+                        </div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
               </div>
             </sc-for>
           </sc-if>
@@ -277,7 +328,7 @@
               </sc-if>
               <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
                 <button onClick="{{ cancelDrawerInvite }}" style="padding:6px 12px;border-radius:8px;font:500 12.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
-                <button onClick="{{ sendDrawerInvite }}" style="padding:6px 12px;border-radius:8px;font:600 12.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Send invite</button>
+                <button onClick="{{ sendDrawerInvite }}" style="padding:6px 12px;border-radius:8px;font:600 12.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">Send invite</button>
               </div>
             </div>
           </sc-if>
@@ -304,7 +355,7 @@
         </div>
         <div style="padding:14px 20px;border-top:1px solid var(--line-soft);display:flex;gap:8px;flex:none">
           <button onClick="{{ toastArchive }}" style="flex:none;display:inline-flex;align-items:center;justify-content:center;padding:8px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Archive</button>
-          <a href="Workspace.dc.html" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;text-decoration:none" style-hover="filter:brightness(1.05);text-decoration:none">
+          <a href="Workspace.dc.html" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;text-decoration:none" style-hover="filter:brightness(1.05);text-decoration:none">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
             New mandate
           </a>
@@ -371,7 +422,7 @@
         </div>
         <div style="padding:14px 20px;border-top:1px solid var(--line-soft);display:flex;gap:8px;flex:none">
           <button onClick="{{ backToClient }}" style="flex:none;display:inline-flex;align-items:center;justify-content:center;padding:8px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Back</button>
-          <a href="Project.dc.html" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;text-decoration:none" style-hover="filter:brightness(1.05);text-decoration:none">
+          <a href="Project.dc.html" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;text-decoration:none" style-hover="filter:brightness(1.05);text-decoration:none">
             Open project
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
           </a>
@@ -480,7 +531,7 @@
           </sc-if>
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
             <button onClick="{{ closeModal }}" style="padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
-            <button onClick="{{ createClient }}" style="padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">{{ createLabel }}</button>
+            <button onClick="{{ createClient }}" style="padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">{{ createLabel }}</button>
           </div>
         </sc-if>
 
@@ -494,7 +545,7 @@
 
 </div>
 
-<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#15213a"></rect><text x="50" y="50" fill="#f59c0b" font-family="Montserrat,sans-serif" font-size="26" font-weight="700" text-anchor="middle" dominant-baseline="central">CL</text></svg></template>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><text x="50" y="50" fill="#e2b65c" font-family="Montserrat,sans-serif" font-size="26" font-weight="700" text-anchor="middle" dominant-baseline="central">CL</text></svg></template>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
@@ -558,6 +609,7 @@ class Component extends DCLogic {
         { id: 'agt', dbId: 'agt', source: 'db', override: {}, reps: [{ name: 'Hind Al-Suwaidi', position: 'Group HR Director', email: 'h.alsuwaidi@agthia.com', status: 'active' }, { name: 'Faisal Rahman', position: 'Talent Acquisition Lead', email: 'f.rahman@agthia.com', status: 'invited' }] },
       ],
       q: '', chip: 'all',
+      repMenu: null, repConfirm: '',
       drawerId: null, drawerProjId: null, drawerInviteOpen: false, modalOpen: false, wsMenuOpen: false, dark: false, toast: '',
       dName: '', dSector: '', dHq: '', dDomain: '', dOff: '',
       step: 'company', dbq: '', newCompanyOpen: false,
@@ -572,6 +624,7 @@ class Component extends DCLogic {
     try { if (localStorage.getItem('lm-theme') === 'dark') { document.body.classList.add('dark'); this.setState({ dark: true }); } } catch (e) {}
     this._esc = (e) => {
       if (e.key !== 'Escape') return;
+      if (this.state.repMenu) { this.setState({ repMenu: null, repConfirm: '' }); return; }
       if (this.state.drawerProjId) { this.setState({ drawerProjId: null }); return; }
       this.setState({ drawerId: null, modalOpen: false, wsMenuOpen: false });
     };
@@ -581,6 +634,17 @@ class Component extends DCLogic {
 
   db(id) { return this.DB.find(c => c.id === id); }
   company(cl) { return Object.assign({}, cl.dbId ? this.db(cl.dbId) : cl.custom, cl.override || {}); }
+  CONFIRM = {
+    cancel: ['Cancel the invite for {name}? The link stops working immediately.', 'Cancel invite'],
+    revoke: ['Revoke portal access for {name}? They stay on the client record.', 'Revoke'],
+    remove: ['Remove {name} from this client record?', 'Remove'],
+  };
+  setRepStatus(email, status) {
+    this.setState(s => ({ clients: s.clients.map(c => c.id === s.drawerId ? { ...c, reps: c.reps.map(r => r.email === email ? { ...r, status } : r) } : c) }));
+  }
+  removeRep(email) {
+    this.setState(s => ({ clients: s.clients.map(c => c.id === s.drawerId ? { ...c, reps: c.reps.filter(r => r.email !== email) } : c) }));
+  }
   initials(name) { return name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase(); }
   showToast(msg) {
     this.setState({ toast: msg });
@@ -669,9 +733,15 @@ class Component extends DCLogic {
         inviteOpen: st.drawerInviteOpen,
         reps: dc.reps.map(r => ({
           name: r.name, position: r.position, email: r.email, initials: this.initials(r.name),
-          stLabel: r.status === 'active' ? 'ACTIVE' : 'INVITED',
-          stColor: r.status === 'active' ? 'var(--green)' : 'var(--amber)',
-          stBg: r.status === 'active' ? 'var(--green-dim)' : 'var(--amber-dim)',
+          stLabel: r.status === 'active' ? 'ACTIVE' : r.status === 'revoked' ? 'NO ACCESS' : 'INVITED',
+          stColor: r.status === 'active' ? 'var(--green)' : r.status === 'revoked' ? 'var(--text3)' : 'var(--amber)',
+          stBg: r.status === 'active' ? 'var(--green-dim)' : r.status === 'revoked' ? 'var(--panel2)' : 'var(--amber-dim)',
+          menuOpen: st.repMenu === r.email,
+          menuNormal: st.repMenu === r.email && !st.repConfirm,
+          confirming: st.repMenu === r.email && !!st.repConfirm,
+          confirmMsg: this.CONFIRM[st.repConfirm] ? this.CONFIRM[st.repConfirm][0].replace('{name}', r.name) : '',
+          confirmBtn: this.CONFIRM[st.repConfirm] ? this.CONFIRM[st.repConfirm][1] : '',
+          isInvited: r.status === 'invited', isActive: r.status === 'active', isRevoked: r.status === 'revoked',
         })),
         hasMandates: mand.length > 0, noMandates: mand.length === 0,
         mandateRows: mand.map(m => {
@@ -805,7 +875,34 @@ class Component extends DCLogic {
         this.setState({ clients });
         this.showToast('Client details saved');
       },
-      openInviteFromDrawer: () => this.setState({ drawerInviteOpen: true, repName: '', repPos: '', repEmail: '', repError: '' }),
+      toggleRepMenu: (e) => {
+        const email = e.currentTarget.dataset.email;
+        this.setState(s => ({ repMenu: s.repMenu === email ? null : email, repConfirm: '' }));
+      },
+      closeRepMenu: () => this.setState({ repMenu: null, repConfirm: '' }),
+      resendInvite: (e) => {
+        const email = e.currentTarget.dataset.email;
+        this.setRepStatus(email, 'invited');
+        this.setState({ repMenu: null, repConfirm: '' });
+        this.showToast('Invite re-sent to ' + email);
+      },
+      copyRepEmail: (e) => {
+        const email = e.currentTarget.dataset.email;
+        try { navigator.clipboard.writeText(email); } catch (err) {}
+        this.setState({ repMenu: null, repConfirm: '' });
+        this.showToast('Email copied');
+      },
+      askCancelInvite: () => this.setState({ repConfirm: 'cancel' }),
+      askRevokeAccess: () => this.setState({ repConfirm: 'revoke' }),
+      askRemoveRep: () => this.setState({ repConfirm: 'remove' }),
+      confirmRepAction: (e) => {
+        const email = e.currentTarget.dataset.email;
+        const kind = this.state.repConfirm;
+        if (kind === 'revoke') { this.setRepStatus(email, 'revoked'); this.showToast('Portal access revoked'); }
+        else { this.removeRep(email); this.showToast(kind === 'cancel' ? 'Invite cancelled' : 'Representative removed'); }
+        this.setState({ repMenu: null, repConfirm: '' });
+      },
+      openInviteFromDrawer: () => this.setState({ repMenu: null, repConfirm: '', drawerInviteOpen: true, repName: '', repPos: '', repEmail: '', repError: '' }),
       cancelDrawerInvite: () => this.setState({ drawerInviteOpen: false, repError: '' }),
       sendDrawerInvite: () => {
         const msg = this.repDraftValid();

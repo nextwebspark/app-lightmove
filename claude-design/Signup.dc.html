@@ -9,10 +9,10 @@
 <x-dc>
 <helmet>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root{--bg:#f4f5f8;--panel:#ffffff;--panel2:#f7f8fa;--line:#e3e6ee;--line-soft:#edeff5;--text:#141b29;--text2:#47505f;--text3:#6e7890;--amber:#b47708;--amber-btn:#f0b429;--amber-dim:rgba(201,138,10,.10);--sky:#1a73c7;--sky-dim:rgba(26,115,199,.10);--red:#cc3a33;--red-dim:rgba(204,58,51,.08);--green:#1f8f60;--green-dim:rgba(31,143,96,.10);--shadow:0 8px 28px rgba(20,30,50,.10);--mono:'JetBrains Mono',ui-monospace,monospace;--sans:'Inter',system-ui,sans-serif}
-    body.dark{--bg:#0b0d11;--panel:#12151b;--panel2:#171b22;--line:#232833;--line-soft:#1c212b;--text:#f1f3f6;--text2:#b8c0cc;--text3:#8d96a6;--amber:#f0b429;--amber-dim:rgba(240,180,41,.12);--sky:#5cb3ff;--sky-dim:rgba(92,179,255,.12);--red:#e5534b;--red-dim:rgba(229,83,75,.12);--green:#3fb27f;--green-dim:rgba(63,178,127,.12);--shadow:0 8px 28px rgba(0,0,0,.45)}
+    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--shadow:0 8px 28px rgba(15,23,42,.10);--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif}
+    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--shadow:0 8px 28px rgba(0,0,0,.5)}
     *{box-sizing:border-box}
     html,body{height:100%;margin:0}
     body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
@@ -24,7 +24,7 @@
 </helmet>
 <div data-screen-label="Signup" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:24px">
   <div style="display:flex;align-items:center;gap:10px;animation:fadeUp .5s ease both">
-    <span style="width:30px;height:30px;border-radius:8px;background:#f0b429;color:#141414;display:grid;place-items:center;font:700 14px var(--mono)">L</span>
+    <span style="width:30px;height:30px;border-radius:8px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 14px var(--mono)">L</span>
     <span style="font:600 16px var(--mono);letter-spacing:.02em">LightMove</span>
   </div>
 
@@ -54,7 +54,7 @@
       <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Password</label>
       <input type="password" placeholder="8+ characters" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none;margin-bottom:6px" style-focus="border-color:var(--sky)">
       <div style="font:400 11px var(--mono);color:var(--text3);margin-bottom:20px">Use at least 8 characters, with one number.</div>
-      <button onClick="{{ next }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;font:600 13.5px var(--sans);padding:10px 14px;border-radius:8px;cursor:pointer" style-hover="filter:brightness(1.05)">Continue</button>
+      <button onClick="{{ next }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;font:600 13.5px var(--sans);padding:10px 14px;border-radius:8px;cursor:pointer" style-hover="filter:brightness(1.05)">Continue</button>
     </sc-if>
 
     <sc-if value="{{ isStep2 }}" hint-placeholder-val="{{ false }}">
@@ -89,7 +89,7 @@
       </div>
       <div style="display:flex;gap:10px">
         <button onClick="{{ back }}" style="flex:none;display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);color:var(--text2);font:500 13px var(--sans);padding:10px 16px;border-radius:8px;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Back</button>
-        <button onClick="{{ next }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;font:600 13.5px var(--sans);padding:10px 14px;border-radius:8px;cursor:pointer" style-hover="filter:brightness(1.05)">Continue</button>
+        <button onClick="{{ next }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;font:600 13.5px var(--sans);padding:10px 14px;border-radius:8px;cursor:pointer" style-hover="filter:brightness(1.05)">Continue</button>
       </div>
     </sc-if>
 
@@ -115,7 +115,7 @@
       </div>
       <div style="display:flex;gap:10px;align-items:center">
         <button onClick="{{ back }}" style="flex:none;display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);color:var(--text2);font:500 13px var(--sans);padding:10px 16px;border-radius:8px;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Back</button>
-        <button onClick="{{ finish }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;font:600 13.5px var(--sans);padding:10px 14px;border-radius:8px;cursor:pointer" style-hover="filter:brightness(1.05)">Send invites &amp; finish</button>
+        <button onClick="{{ finish }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;font:600 13.5px var(--sans);padding:10px 14px;border-radius:8px;cursor:pointer" style-hover="filter:brightness(1.05)">Send invites &amp; finish</button>
       </div>
       <button onClick="{{ finish }}" style="width:100%;background:none;border:none;padding:0;cursor:pointer;font:500 12.5px var(--sans);color:var(--text3);margin-top:16px;text-align:center" style-hover="color:var(--text2);text-decoration:underline">Skip for now</button>
     </sc-if>
@@ -124,7 +124,7 @@
   <div style="font:400 12.5px var(--sans);color:var(--text2);animation:fadeUp .5s .12s ease both">Already have an account? <a href="Login.dc.html">Sign in</a></div>
 </div>
 
-<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#15213a"></rect><text x="50" y="50" fill="#f59c0b" font-family="Montserrat,sans-serif" font-size="26" font-weight="700" text-anchor="middle" dominant-baseline="central">SU</text></svg></template>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><text x="50" y="50" fill="#e2b65c" font-family="Montserrat,sans-serif" font-size="26" font-weight="700" text-anchor="middle" dominant-baseline="central">SU</text></svg></template>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:760}}">
 class Component extends DCLogic {
@@ -145,7 +145,7 @@ class Component extends DCLogic {
         showConnector: i > 0,
         connectorColor: s.n <= step ? 'var(--amber-btn)' : 'var(--line)',
         circleBg: done ? 'var(--green-dim)' : active ? 'var(--amber-btn)' : 'var(--panel2)',
-        circleColor: done ? 'var(--green)' : active ? '#141414' : 'var(--text3)',
+        circleColor: done ? 'var(--green)' : active ? '#1a1712' : 'var(--text3)',
         circleBorder: done ? 'transparent' : active ? 'var(--amber-btn)' : 'var(--line)',
         labelColor: active ? 'var(--text)' : done ? 'var(--text2)' : 'var(--text3)',
         go: () => { if (s.n < step) this.setState({ step: s.n }); },
