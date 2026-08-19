@@ -14,37 +14,39 @@
 
 @theme {
   /* ── Light (mockup :root) ───────────────────────────────────────────────── */
-  --color-bg: #f4f5f8;
+  --color-bg: #f8f9fb;
   --color-panel: #ffffff;
-  --color-panel2: #f7f8fa;
-  --color-line: #e3e6ee;
-  --color-line-soft: #edeff5;
+  --color-panel2: #f3f4f6;
+  --color-line: #e2e4e9;
+  --color-line-soft: #edeef2;
 
-  --color-text: #141b29;
-  --color-text2: #47505f;
-  --color-text3: #6e7890;
+  --color-text: #111113;
+  --color-text2: #475569;
+  --color-text3: #64748b;
 
   /* Amber is the brand: the logo tile and every primary action. */
-  --color-amber: #b47708;
-  --color-amber-btn: #f0b429;
-  --color-amber-dim: rgba(201, 138, 10, 0.1);
+  --color-amber: #a67c2e;
+  --color-amber-btn: #e2b65c;
+  --color-amber-dim: rgba(226, 182, 92, 0.14);
 
   /* Sky is for links and informational states. */
-  --color-sky: #1a73c7;
-  --color-sky-dim: rgba(26, 115, 199, 0.1);
+  --color-sky: #2563eb;
+  --color-sky-dim: rgba(37, 99, 235, 0.1);
 
-  --color-red: #cc3a33;
-  --color-red-dim: rgba(204, 58, 51, 0.08);
-  --color-green: #1f8f60;
-  --color-green-dim: rgba(31, 143, 96, 0.1);
+  --color-red: #dc2626;
+  --color-red-dim: rgba(220, 38, 38, 0.08);
+  --color-green: #059669;
+  --color-green-dim: rgba(5, 150, 105, 0.1);
 
   /* The one colour that never inverts: text on an amber button, in either theme. */
-  --color-on-amber: #141414;
+  --color-on-amber: #1a1712;
 
-  --font-sans: "Inter", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  /* The mockups dropped the monospace face: --mono now resolves to Geist too. The token stays so
+     existing font-mono call sites keep matching the mockups without a rename. */
+  --font-sans: "Geist", "Inter", system-ui, sans-serif;
+  --font-mono: "Geist", "Inter", system-ui, sans-serif;
 
-  --shadow-panel: 0 8px 28px rgba(20, 30, 50, 0.1);
+  --shadow-panel: 0 8px 28px rgba(15, 23, 42, 0.1);
   --radius-panel: 14px;
 }
 
@@ -53,24 +55,24 @@
  * site. A component written once against `bg-panel` is then correct in both themes, and cannot drift.
  */
 .dark {
-  --color-bg: #0b0d11;
-  --color-panel: #12151b;
-  --color-panel2: #171b22;
-  --color-line: #232833;
-  --color-line-soft: #1c212b;
+  --color-bg: #0c0d0e;
+  --color-panel: #16171a;
+  --color-panel2: #131316;
+  --color-line: #2a2a2e;
+  --color-line-soft: #212326;
 
-  --color-text: #f1f3f6;
-  --color-text2: #b8c0cc;
-  --color-text3: #8d96a6;
+  --color-text: #f8fafc;
+  --color-text2: #cbd5e1;
+  --color-text3: #94a3b8;
 
-  --color-amber: #f0b429;
-  --color-amber-dim: rgba(240, 180, 41, 0.12);
-  --color-sky: #5cb3ff;
-  --color-sky-dim: rgba(92, 179, 255, 0.12);
-  --color-red: #e5534b;
-  --color-red-dim: rgba(229, 83, 75, 0.12);
-  --color-green: #3fb27f;
-  --color-green-dim: rgba(63, 178, 127, 0.12);
+  --color-amber: #e2b65c;
+  --color-amber-dim: rgba(226, 182, 92, 0.16);
+  --color-sky: #60a5fa;
+  --color-sky-dim: rgba(96, 165, 250, 0.16);
+  --color-red: #f87171;
+  --color-red-dim: rgba(248, 113, 113, 0.14);
+  --color-green: #34d399;
+  --color-green-dim: rgba(52, 211, 153, 0.16);
 
-  --shadow-panel: 0 8px 28px rgba(0, 0, 0, 0.45);
+  --shadow-panel: 0 8px 28px rgba(0, 0, 0, 0.5);
 }
