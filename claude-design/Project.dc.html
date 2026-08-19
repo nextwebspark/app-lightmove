@@ -9,10 +9,10 @@
 <x-dc>
 <helmet>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root{--bg:#f4f5f8;--panel:#ffffff;--panel2:#f7f8fa;--line:#e3e6ee;--line-soft:#edeff5;--text:#141b29;--text2:#47505f;--text3:#6e7890;--amber:#b47708;--amber-btn:#f0b429;--amber-dim:rgba(201,138,10,.10);--sky:#1a73c7;--sky-dim:rgba(26,115,199,.10);--red:#cc3a33;--red-dim:rgba(204,58,51,.08);--green:#1f8f60;--green-dim:rgba(31,143,96,.10);--shadow:0 8px 28px rgba(20,30,50,.10);--mono:'JetBrains Mono',ui-monospace,monospace;--sans:'Inter',system-ui,sans-serif}
-    body.dark{--bg:#0b0d11;--panel:#12151b;--panel2:#171b22;--line:#232833;--line-soft:#1c212b;--text:#f1f3f6;--text2:#b8c0cc;--text3:#8d96a6;--amber:#f0b429;--amber-dim:rgba(240,180,41,.12);--sky:#5cb3ff;--sky-dim:rgba(92,179,255,.12);--red:#e5534b;--red-dim:rgba(229,83,75,.12);--green:#3fb27f;--green-dim:rgba(63,178,127,.12);--shadow:0 8px 28px rgba(0,0,0,.45)}
+    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--shadow:0 8px 28px rgba(15,23,42,.10);--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif}
+    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--shadow:0 8px 28px rgba(0,0,0,.5)}
     *{box-sizing:border-box}
     html,body{height:100%;margin:0}
     body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
@@ -31,13 +31,13 @@
   <header style="height:46px;flex:none;display:flex;align-items:center;gap:8px;padding:0 14px;position:relative;z-index:60">
     <div style="position:relative">
       <button onClick="{{ toggleWsMenu }}" title="LightMove workspace" style="display:flex;align-items:center;gap:4px;padding:4px 5px 4px 4px;border-radius:7px;background:none;border:none;cursor:pointer;color:var(--text)" style-hover="background:var(--panel2)">
-        <span style="width:22px;height:22px;border-radius:6px;background:#f0b429;color:#141414;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
+        <span style="width:22px;height:22px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
       </button>
       <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
         <div style="position:absolute;top:40px;left:0;width:268px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:6px;z-index:80">
           <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--line-soft);margin-bottom:6px">
-            <span style="width:30px;height:30px;border-radius:8px;background:#f0b429;color:#141414;display:grid;place-items:center;font:700 13px var(--mono)">L</span>
+            <span style="width:30px;height:30px;border-radius:8px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 13px var(--mono)">L</span>
             <div>
               <div style="font:600 13px var(--mono)">LightMove</div>
               <div style="font:400 11px var(--mono);color:var(--text3)">5 members · Pro plan</div>
@@ -121,338 +121,492 @@
         <!-- ================= POSITION ================= -->
         <sc-if value="{{ isPosition }}" hint-placeholder-val="{{ true }}">
           <div data-screen-label="Position" style="animation:fadeUp .4s ease both">
-            <div style="position:relative;display:flex;gap:18px;padding:22px 24px 22px 28px;border-radius:10px;background:var(--panel2);border:1px solid var(--line-soft);margin-bottom:18px;overflow:hidden">
-              <span style="position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--sky)"></span>
+
+            <div style="display:flex;align-items:flex-start;gap:18px;margin-bottom:22px">
               <div style="flex:1;min-width:0">
-                <div style="font:700 21px var(--sans);color:var(--text);margin-bottom:4px">Chief Financial Officer</div>
-                <div style="font:400 12.5px var(--mono);color:var(--text3)"><b style="color:var(--text2);font-weight:600">Meridian Energy Group</b> · Reports to {{ posReportsTo }} · {{ posLocation }}</div>
-                <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:14px">
-                  <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font:500 12px var(--mono);color:var(--text2);white-space:nowrap">Seniority {{ posSeniority }}</span>
-                  <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font:500 12px var(--mono);color:var(--text2);white-space:nowrap">{{ compRange }}</span>
-                  <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font:500 12px var(--mono);color:var(--text2);white-space:nowrap">Target start {{ posStartTarget }}</span>
-                  <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font:500 12px var(--mono);color:var(--text2);white-space:nowrap">{{ posEmploymentType }}</span>
+                <div style="font:700 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin-bottom:7px">Define position profile</div>
+                <div style="font:700 22px var(--sans);color:var(--text);letter-spacing:-.01em">{{ posTitle }}</div>
+                <div style="font:400 12.5px var(--mono);color:var(--text3);margin-top:5px">Meridian Energy Group · {{ posDepartment }} · {{ posLocation }}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex:none">
+                <button onClick="{{ toggleConf }}" title="Click to toggle confidentiality" style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:6px;font:600 10.5px var(--mono);letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;cursor:pointer;color:{{ confColor }};background:{{ confBg }};border:1px solid {{ confBorder }}">{{ confLabel }}</button>
+                <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:6px;font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;color:{{ lockBadgeColor }};background:{{ lockBadgeBg }};border:1px solid {{ lockBadgeBorder }}">{{ lockBadgeLabel }}</span>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-wrap:wrap;gap:22px;align-items:flex-start">
+              <div style="min-width:0;flex:2 1 460px;order:1">
+
+                <div style="margin-bottom:22px">
+                  <div style="font:700 19px var(--sans);color:var(--text);letter-spacing:-.01em">{{ stepTitle }}</div>
+                  <div style="font:400 13px var(--sans);color:var(--text3);margin-top:5px;max-width:62ch;text-wrap:pretty">{{ stepSub }}</div>
                 </div>
-              </div>
-              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;flex:none">
-                <button onClick="{{ toggleConf }}" title="Click to toggle confidentiality" style="display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:6px;font:600 10.5px var(--mono);letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;cursor:pointer;color:{{ confColor }};background:{{ confBg }};border:1px solid {{ confBorder }}">{{ confLabel }}</button>
-                <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:6px;font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;color:{{ lockBadgeColor }};background:{{ lockBadgeBg }};border:1px solid {{ lockBadgeBorder }}">{{ lockBadgeLabel }}</span>
-              </div>
-            </div>
 
-            <div style="display:flex;align-items:center;gap:14px;margin:6px 0 16px">
-              <span style="font:700 16px var(--sans);color:var(--text);white-space:nowrap">The Brief</span>
-              <span style="flex:1;height:1px;background:var(--line-soft)"></span>
-            </div>
+                <!-- step 1 -->
+                <sc-if value="{{ isStep1 }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;flex-direction:column;gap:20px">
+                    <input type="file" ref="{{ pdInputRef }}" accept=".pdf,.doc,.docx" onChange="{{ onPdChosen }}" style="display:none">
+                    <sc-if value="{{ pdEmpty }}" hint-placeholder-val="{{ false }}">
+                      <div onClick="{{ pdBrowse }}" style="border:1.5px dashed var(--sky);border-radius:12px;padding:38px 24px;text-align:center;cursor:pointer;background:var(--sky-dim)" style-hover="filter:brightness(1.03)">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--sky)"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg>
+                        <div style="font:600 15px var(--sans);color:var(--sky);margin-top:10px">Drop a position description to auto-fill fields</div>
+                        <div style="font:400 12.5px var(--sans);color:var(--text3);margin-top:5px">Title, department, responsibilities, seniority, location and package are extracted automatically — PDF or Word</div>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ pdPresent }}" hint-placeholder-val="{{ true }}">
+                      <div>
+                        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:12px;background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:13px 15px">
+                          <div style="width:34px;height:34px;border-radius:7px;background:var(--sky-dim);color:var(--sky);display:flex;align-items:center;justify-content:center;flex:none">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path></svg>
+                          </div>
+                          <div style="flex:1 1 140px;min-width:120px">
+                            <div style="font:600 13px var(--sans);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pdName }}</div>
+                            <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:1px">{{ pdMeta }} · fields pre-filled</div>
+                          </div>
+                          <div style="display:flex;gap:6px;flex:none;margin-left:auto">
+                            <button onClick="{{ pdBrowse }}" style="padding:5px 10px;border-radius:7px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Replace</button>
+                            <button onClick="{{ pdRemove }}" style="padding:5px 10px;border-radius:7px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--red);background:none;cursor:pointer" style-hover="border-color:var(--red)">Remove</button>
+                          </div>
+                        </div>
+                        <sc-if value="{{ pdParsing }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex;align-items:center;gap:7px;font:400 11.5px var(--mono);color:var(--text3);margin-top:10px">
+                            <span style="width:11px;height:11px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--sky);animation:pdspin .7s linear infinite;flex:none"></span>
+                            Parsing document and extracting details…
+                          </div>
+                        </sc-if>
+                      </div>
+                    </sc-if>
 
-            <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start;margin-bottom:22px">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px 18px">
+                      <div>
+                        <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Role title</label>
+                        <div style="position:relative">
+                          <input value="{{ posTitle }}" onInput="{{ onPosField }}" data-field="title" placeholder="e.g. Chief Financial Officer" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:500 13.5px var(--sans);color:var(--text);outline:none;padding-right:34px" style-focus="border-color:var(--sky)">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;right:11px;top:11px;color:{{ titleCheckColor }}"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12.2 2.3 2.3 4.7-4.7"></path></svg>
+                        </div>
+                      </div>
+                      <div>
+                        <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Department</label>
+                        <div style="position:relative">
+                          <input value="{{ posDepartment }}" onInput="{{ onPosField }}" data-field="department" placeholder="e.g. Group Finance" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:500 13.5px var(--sans);color:var(--text);outline:none;padding-right:34px" style-focus="border-color:var(--sky)">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;right:11px;top:11px;color:{{ deptCheckColor }}"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12.2 2.3 2.3 4.7-4.7"></path></svg>
+                        </div>
+                      </div>
+                    </div>
 
-              <div style="background:var(--panel2);border:1px solid var(--line-soft);border-left:3px solid var(--sky);border-radius:10px;padding:18px 20px 20px">
-                <div style="font:600 14.5px var(--sans);color:var(--text)">Position Description</div>
-                <div style="font:400 11.5px var(--mono);color:var(--text3);margin:3px 0 14px">Source document — parsed automatically</div>
-                <input type="file" ref="{{ pdInputRef }}" accept=".pdf,.doc,.docx" onChange="{{ onPdChosen }}" style="display:none">
-                <sc-if value="{{ pdEmpty }}" hint-placeholder-val="{{ false }}">
-                  <div onClick="{{ pdBrowse }}" style="border:1.5px dashed var(--line);border-radius:10px;padding:22px;text-align:center;color:var(--text3);font:400 12.5px var(--mono);cursor:pointer" style-hover="border-color:var(--sky);color:var(--sky);background:var(--sky-dim)">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="display:inline-block;margin-bottom:6px"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg>
-                    <div>Drop a PD here, or click to browse</div>
-                    <div style="font-size:11px;margin-top:2px">PDF or Word — parsed automatically</div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px 18px">
+                      <div>
+                        <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Location</label>
+                        <input value="{{ posLocation }}" onInput="{{ onPosField }}" data-field="location" placeholder="e.g. Abu Dhabi, UAE" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:500 13.5px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                      </div>
+                      <div>
+                        <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Employment type</label>
+                        <select value="{{ posEmploymentType }}" onChange="{{ onPosField }}" data-field="employmentType" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:500 13.5px var(--sans);color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--sky)">
+                          <option>Full-time, permanent</option><option>Full-time, fixed-term</option><option>Part-time</option><option>Interim / contract</option><option>Advisory</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Seniority</label>
+                        <select value="{{ posSeniority }}" onChange="{{ onPosField }}" data-field="seniority" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:500 13.5px var(--sans);color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--sky)">
+                          <option>C-suite</option><option>N-1</option><option>N-2</option><option>N-3</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Key responsibilities</label>
+                      <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px 18px">
+                        <div style="display:flex;flex-wrap:wrap;gap:8px">
+                          <sc-for list="{{ respChips }}" as="r" hint-placeholder-count="4">
+                            <span style="display:inline-flex;align-items:center;gap:7px;padding:6px 8px 6px 12px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font:500 12.5px var(--sans);color:var(--text2)">
+                              {{ r.label }}
+                              <button onClick="{{ rmResp }}" data-idx="{{ r.idx }}" title="Remove" style="background:none;border:none;padding:0 2px;color:var(--text3);cursor:pointer;font-size:12px;line-height:1" style-hover="color:var(--red)">✕</button>
+                            </span>
+                          </sc-for>
+                        </div>
+                        <div style="display:flex;gap:8px;margin-top:14px">
+                          <input value="{{ respDraft }}" onInput="{{ onRespDraft }}" onKeyDown="{{ respEnter }}" placeholder="Add a responsibility…" style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                          <button onClick="{{ addResp }}" style="padding:7px 14px;border-radius:8px;font:500 12.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer;flex:none" style-hover="color:var(--text);border-color:var(--text3)">Add</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Ideal profile — drafted from the brief</label>
+                      <textarea value="{{ posNarrative }}" onInput="{{ onNarrative }}" style="width:100%;min-height:104px;background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:14px 16px;font:400 13.5px var(--sans);color:var(--text2);line-height:1.65;outline:none;resize:vertical" style-focus="border-color:var(--sky)"></textarea>
+                    </div>
                   </div>
                 </sc-if>
-                <sc-if value="{{ pdPresent }}" hint-placeholder-val="{{ true }}">
-                  <div style="display:flex;align-items:center;flex-wrap:wrap;gap:12px;background:var(--panel);border:1px solid var(--line-soft);border-radius:8px;padding:12px 14px">
-                    <div style="width:34px;height:34px;border-radius:7px;background:var(--sky-dim);color:var(--sky);display:flex;align-items:center;justify-content:center;flex:none">
-                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path></svg>
+
+                <!-- step 2 -->
+                <sc-if value="{{ isStep2 }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:20px">
+                    <div>
+                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Reason for hire</label>
+                      <select value="{{ posMandateReason }}" onChange="{{ onMandateReason }}" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:500 13.5px var(--sans);color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--sky)">
+                        <option>New role</option><option>Backfill</option><option>Restructure</option><option>Succession plan</option><option>Growth / expansion</option>
+                      </select>
                     </div>
-                    <div style="flex:1 1 140px;min-width:120px">
-                      <div style="font:600 13px var(--sans);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pdName }}</div>
-                      <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:1px">{{ pdMeta }}</div>
+                    <div>
+                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Business driver</label>
+                      <textarea value="{{ posBusinessDriver }}" onInput="{{ onPosField }}" data-field="businessDriver" rows="2" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:11px 13px;font:400 13.5px var(--sans);color:var(--text);line-height:1.55;outline:none;resize:vertical" style-focus="border-color:var(--sky)"></textarea>
                     </div>
-                    <div style="display:flex;gap:6px;flex:none;margin-left:auto">
-                      <button onClick="{{ pdBrowse }}" style="padding:5px 10px;border-radius:7px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Replace</button>
-                      <button onClick="{{ pdRemove }}" style="padding:5px 10px;border-radius:7px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--red);background:none;cursor:pointer" style-hover="border-color:var(--red)">Remove</button>
+                    <div>
+                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Strategic priority alignment</label>
+                      <div style="display:flex;flex-wrap:wrap;gap:8px">
+                        <sc-for list="{{ prioChips }}" as="p" hint-placeholder-count="5">
+                          <button onClick="{{ togglePrio }}" data-idx="{{ p.idx }}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 13px;border-radius:8px;cursor:pointer;font:600 12.5px var(--sans);color:{{ p.color }};background:{{ p.bg }};border:1px solid {{ p.border }}">{{ p.label }}</button>
+                        </sc-for>
+                      </div>
+                    </div>
+                    <div>
+                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Hiring urgency</label>
+                      <div style="display:flex;gap:4px;padding:4px;border-radius:9px;background:var(--panel2);border:1px solid var(--line-soft)">
+                        <sc-for list="{{ urgencyOpts }}" as="u" hint-placeholder-count="3">
+                          <button onClick="{{ setUrgency }}" data-val="{{ u.label }}" style="flex:1;padding:9px 10px;border-radius:7px;border:1px solid {{ u.border }};cursor:pointer;font:600 12.5px var(--sans);color:{{ u.color }};background:{{ u.bg }}">{{ u.label }}</button>
+                        </sc-for>
+                      </div>
+                    </div>
+                    <div>
+                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Confidentiality level</label>
+                      <div style="display:flex;gap:10px">
+                        <sc-for list="{{ confOpts }}" as="c" hint-placeholder-count="2">
+                          <button onClick="{{ setConf }}" data-val="{{ c.val }}" style="flex:1;display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:9px;cursor:pointer;text-align:left;background:{{ c.bg }};border:1px solid {{ c.border }}">
+                            <span style="width:15px;height:15px;border-radius:50%;flex:none;border:1.5px solid {{ c.dotBorder }};background:{{ c.dotBg }};box-shadow:{{ c.dotShadow }}"></span>
+                            <span style="min-width:0">
+                              <span style="display:block;font:600 13px var(--sans);color:{{ c.color }}">{{ c.label }}</span>
+                              <span style="display:block;font:400 11.5px var(--mono);color:var(--text3);margin-top:2px">{{ c.sub }}</span>
+                            </span>
+                          </button>
+                        </sc-for>
+                      </div>
+                    </div>
+                    <div>
+                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Additional context — internal only</label>
+                      <textarea value="{{ posInternalContext }}" onInput="{{ onInternalContext }}" rows="6" placeholder="Culture, stakeholder dynamics, onboarding timelines, anything sensitive the hiring manager shared…" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;font:400 13px var(--sans);color:var(--text2);line-height:1.6;outline:none;resize:vertical" style-focus="border-color:var(--sky)"></textarea>
                     </div>
                   </div>
-                  <sc-if value="{{ pdParsing }}" hint-placeholder-val="{{ false }}">
-                    <div style="display:flex;align-items:center;gap:7px;font:400 11.5px var(--mono);color:var(--text3);margin-top:10px">
-                      <span style="width:11px;height:11px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--sky);animation:pdspin .7s linear infinite;flex:none"></span>
-                      Parsing document and extracting details…
-                    </div>
-                  </sc-if>
                 </sc-if>
-              </div>
 
-              <div style="background:var(--panel2);border:1px solid var(--line-soft);border-left:3px solid var(--sky);border-radius:10px;padding:18px 20px 20px">
-                <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
-                  <span style="font:600 14.5px var(--sans);color:var(--text)">Mandate Context</span>
-                  <span style="font:700 10px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--text3)">Internal only — not shown to candidates</span>
-                </div>
-                <div style="font:400 11.5px var(--mono);color:var(--text3);margin:5px 0 16px">Why this mandate exists and anything sensitive the hiring manager shared.</div>
-                <div style="display:flex;flex-direction:column;gap:14px">
-                  <div>
-                    <label style="display:block;font:600 10.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Reason for mandate</label>
-                    <select value="{{ posMandateReason }}" onChange="{{ onMandateReason }}" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:8px 11px;font:500 13.5px var(--sans);color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--sky)">
-                      <option>New role</option><option>Backfill</option><option>Restructure</option><option>Succession plan</option><option>Growth / expansion</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style="display:block;font:600 10.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Internal context</label>
-                    <textarea value="{{ posInternalContext }}" onInput="{{ onInternalContext }}" rows="6" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:10px 12px;font:400 13px var(--sans);color:var(--text2);line-height:1.6;outline:none;resize:vertical" style-focus="border-color:var(--sky)"></textarea>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-            <div style="margin-bottom:22px">
-              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
-                <span style="font:600 15px var(--sans);color:var(--text)">Ideal Profile</span>
-                <span style="font:400 11.5px var(--mono);color:var(--text3)">drafted from the brief — edit freely</span>
-              </div>
-              <textarea value="{{ posNarrative }}" onInput="{{ onNarrative }}" style="width:100%;min-height:88px;background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:14px 16px;font:400 13.5px var(--sans);color:var(--text2);line-height:1.65;outline:none;resize:vertical" style-focus="border-color:var(--sky)"></textarea>
-            </div>
-
-            <div style="display:flex;align-items:center;gap:14px;margin:26px 0 16px">
-              <span style="font:700 16px var(--sans);color:var(--text);white-space:nowrap">The Package</span>
-              <span style="flex:1;height:1px;background:var(--line-soft)"></span>
-            </div>
-
-            <div style="margin-bottom:22px">
-              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
-                <span style="font:600 15px var(--sans);color:var(--text)">Reporting Structure</span>
-              </div>
-              <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:22px 18px 18px">
-                <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:20px">
-                  <div style="background:var(--panel);border:1px solid var(--line-soft);border-radius:9px;padding:10px 14px;min-width:180px;max-width:220px">
-                    <div style="font:700 9.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Reports to</div>
-                    <input value="{{ posReportsTo }}" onInput="{{ onReportsTo }}" placeholder="Title — e.g. CEO" style="width:100%;background:none;border:none;outline:none;font:600 13px var(--sans);color:var(--text);padding:0;margin-bottom:4px">
-                    <div style="display:flex;align-items:center;gap:6px">
-                      <span style="width:6px;height:6px;border-radius:50%;background:var(--text3);flex:none"></span>
-                      <input value="{{ posReportsToName }}" onInput="{{ onReportsToName }}" placeholder="Name" style="width:100%;background:none;border:none;outline:none;font:400 11.5px var(--mono);color:var(--text2);padding:0">
+                <!-- step 3 -->
+                <sc-if value="{{ isStep3 }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:20px">
+                    <div>
+                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Reports to</label>
+                      <div style="display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 14px">
+                        <span style="width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--sky-dim);color:var(--sky);font:600 11px var(--mono)">{{ reportsToInitials }}</span>
+                        <input value="{{ posReportsToName }}" onInput="{{ onReportsToName }}" placeholder="Name" style="flex:1;min-width:0;background:none;border:none;outline:none;font:600 13.5px var(--sans);color:var(--text)">
+                        <input value="{{ posReportsTo }}" onInput="{{ onReportsTo }}" placeholder="Title — e.g. Group CEO" style="flex:1;min-width:0;background:var(--panel);border:1px solid var(--line-soft);border-radius:6px;padding:5px 9px;outline:none;font:500 12px var(--mono);color:var(--text2)" style-focus="border-color:var(--sky)">
+                      </div>
                     </div>
-                  </div>
-                  <span style="width:1px;height:26px;background:var(--line)"></span>
-                  <div style="background:var(--sky-dim);border:1px solid var(--sky);border-radius:9px;padding:10px 14px;min-width:180px;max-width:220px">
-                    <div style="font:700 9.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--sky);margin-bottom:5px">This role</div>
-                    <div style="font:600 13px var(--sans);color:var(--sky)">Chief Financial Officer</div>
-                  </div>
-                  <span style="width:1px;height:26px;background:var(--line)"></span>
-                  <div style="position:relative;width:100%;display:flex;justify-content:center;flex-wrap:wrap;gap:16px">
-                    <span style="position:absolute;top:0;left:14%;right:14%;height:1px;background:var(--line)"></span>
-                    <sc-for list="{{ orgChildren }}" as="c" hint-placeholder-count="4">
-                      <div style="display:flex;flex-direction:column;align-items:center">
-                        <span style="width:1px;height:18px;background:var(--line)"></span>
-                        <div style="position:relative;background:var(--panel);border:1px solid var(--line-soft);border-radius:9px;padding:10px 24px 10px 14px;min-width:170px;max-width:220px">
-                          <button onClick="{{ rmDirectReport }}" data-idx="{{ c.idx }}" title="Remove" style="position:absolute;top:5px;right:6px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;line-height:1;padding:2px" style-hover="color:var(--red)">✕</button>
-                          <input value="{{ c.title }}" onInput="{{ onChildTitle }}" data-idx="{{ c.idx }}" placeholder="Title" style="width:100%;background:none;border:none;outline:none;font:600 12.5px var(--sans);color:var(--text);padding:0;margin-bottom:4px">
-                          <div style="display:flex;align-items:center;gap:6px">
-                            <span style="width:6px;height:6px;border-radius:50%;background:var(--text3);flex:none"></span>
-                            <input value="{{ c.name }}" onInput="{{ onChildName }}" data-idx="{{ c.idx }}" placeholder="Name" style="width:100%;background:none;border:none;outline:none;font:400 11.5px var(--mono);color:var(--text2);padding:0">
+
+                    <div>
+                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Visual org chart</label>
+                      <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:26px 18px 22px">
+                        <div style="display:flex;flex-direction:column;align-items:center">
+                          <div style="background:var(--panel);border:1px solid var(--line-soft);border-radius:9px;padding:10px 14px;min-width:190px;max-width:230px">
+                            <div style="font:700 9.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Reports to</div>
+                            <div style="font:600 13px var(--sans);color:var(--text)">{{ posReportsToName }}</div>
+                            <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:2px">{{ posReportsTo }}</div>
+                          </div>
+                          <span style="width:1px;height:26px;background:var(--line)"></span>
+                          <div style="background:var(--sky-dim);border:1px solid var(--sky);border-radius:9px;padding:10px 14px;min-width:190px;max-width:230px">
+                            <div style="font:700 9.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--sky);margin-bottom:5px">This position</div>
+                            <div style="font:600 13px var(--sans);color:var(--sky)">{{ posTitle }}</div>
+                          </div>
+                          <span style="width:1px;height:26px;background:var(--line)"></span>
+                          <div style="position:relative;width:100%;display:flex;justify-content:center;flex-wrap:wrap;gap:16px">
+                            <span style="position:absolute;top:0;left:14%;right:14%;height:1px;background:var(--line)"></span>
+                            <sc-for list="{{ orgChildren }}" as="c" hint-placeholder-count="4">
+                              <div style="display:flex;flex-direction:column;align-items:center">
+                                <span style="width:1px;height:18px;background:var(--line)"></span>
+                                <div style="position:relative;background:var(--panel);border:1px solid var(--line-soft);border-radius:9px;padding:10px 24px 10px 14px;min-width:170px;max-width:220px">
+                                  <button onClick="{{ rmDirectReport }}" data-idx="{{ c.idx }}" title="Remove" style="position:absolute;top:5px;right:6px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;line-height:1;padding:2px" style-hover="color:var(--red)">✕</button>
+                                  <input value="{{ c.title }}" onInput="{{ onChildTitle }}" data-idx="{{ c.idx }}" placeholder="Title" style="width:100%;background:none;border:none;outline:none;font:600 12.5px var(--sans);color:var(--text);padding:0;margin-bottom:4px">
+                                  <div style="display:flex;align-items:center;gap:6px">
+                                    <span style="width:6px;height:6px;border-radius:50%;background:var(--text3);flex:none"></span>
+                                    <input value="{{ c.name }}" onInput="{{ onChildName }}" data-idx="{{ c.idx }}" placeholder="Direct report" style="width:100%;background:none;border:none;outline:none;font:400 11.5px var(--mono);color:var(--text2);padding:0">
+                                  </div>
+                                </div>
+                              </div>
+                            </sc-for>
+                            <div style="display:flex;flex-direction:column;align-items:center">
+                              <span style="width:1px;height:18px;background:var(--line)"></span>
+                              <button onClick="{{ addDirectReport }}" style="background:transparent;border:1px dashed var(--line);border-radius:9px;padding:10px 14px;min-width:150px;color:var(--sky);cursor:pointer;font:500 12px var(--sans);align-self:stretch" style-hover="border-color:var(--sky);background:var(--sky-dim)">+ Add direct report</button>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </sc-for>
-                    <div style="display:flex;flex-direction:column;align-items:center">
-                      <span style="width:1px;height:18px;background:var(--line)"></span>
-                      <button onClick="{{ addDirectReport }}" style="background:transparent;border:1px dashed var(--line);border-radius:9px;padding:10px 14px;min-width:150px;color:var(--text3);cursor:pointer;font:400 12px var(--sans);align-self:stretch" style-hover="border-color:var(--sky);color:var(--sky);background:var(--sky-dim)">+ Add direct report</button>
                     </div>
-                  </div>
-                </div>
 
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 20px">
-                  <div>
-                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Seniority</label>
-                    <select value="{{ posSeniority }}" onChange="{{ onPosField }}" data-field="seniority" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:500 13.5px var(--sans);color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--sky)">
-                      <option>C-suite</option><option>N-1</option><option>N-2</option><option>N-3</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Team size</label>
-                    <input value="{{ posTeamSize }}" onInput="{{ onPosField }}" data-field="teamSize" placeholder="e.g. 12" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:500 13.5px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                  </div>
-                  <div>
-                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Location</label>
-                    <input value="{{ posLocation }}" onInput="{{ onPosField }}" data-field="location" placeholder="e.g. Dubai, UAE" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:500 13.5px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                  </div>
-                </div>
-
-                <div style="height:1px;background:var(--line-soft);margin:18px 0"></div>
-
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px">
-                  <div>
-                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Employment type</label>
-                    <select value="{{ posEmploymentType }}" onChange="{{ onPosField }}" data-field="employmentType" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:500 13.5px var(--sans);color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--sky)">
-                      <option>Full-time, permanent</option><option>Full-time, fixed-term</option><option>Part-time</option><option>Interim / contract</option><option>Advisory</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Target start</label>
-                    <input value="{{ posStartTarget }}" onInput="{{ onPosField }}" data-field="startTarget" placeholder="e.g. 15 Sep 2026" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:500 13.5px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div style="margin-bottom:22px">
-              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
-                <span style="font:600 15px var(--sans);color:var(--text)">Compensation</span>
-                <span style="font:400 11.5px var(--mono);color:var(--text3)">shared with candidates during outreach</span>
-              </div>
-              <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:stretch">
-
-                <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px">
-                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-                    <span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Base salary</span>
-                    <select value="{{ posCurrency }}" onChange="{{ onPosField }}" data-field="currency" style="background:var(--panel);border:1px solid var(--line-soft);border-radius:6px;padding:4px 8px;font:700 11.5px var(--mono);color:var(--text2);cursor:pointer;outline:none" style-hover="color:var(--text);border-color:var(--line)">
-                      <option>AED</option><option>USD</option><option>SAR</option><option>QAR</option><option>KWD</option><option>GBP</option><option>EUR</option>
-                    </select>
-                  </div>
-                  <div style="margin-bottom:14px">
-                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Min – Max (monthly)</label>
-                    <div style="display:flex;align-items:center;gap:10px">
-                      <div style="display:flex;align-items:stretch;border:1px solid var(--line);border-radius:7px;background:var(--panel);overflow:hidden;flex:1;min-width:0">
-                        <span style="display:flex;align-items:center;padding:0 8px;font:700 11px var(--mono);color:var(--text3);border-right:1px solid var(--line-soft);background:var(--panel2);white-space:nowrap">{{ posCurrency }}</span>
-                        <input value="{{ posSalaryMin }}" onInput="{{ onPosField }}" data-field="salaryMin" placeholder="90,000" style="border:none;background:transparent;width:100%;min-width:0;padding:8px 9px;font:400 13px var(--mono);color:var(--text);outline:none">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px">
+                      <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px 18px">
+                        <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Direct reports</div>
+                        <div style="font:700 30px var(--mono);color:var(--text);margin-top:8px">{{ directCount }}</div>
                       </div>
-                      <span style="color:var(--text3);font-size:13px;flex:none">–</span>
-                      <div style="display:flex;align-items:stretch;border:1px solid var(--line);border-radius:7px;background:var(--panel);overflow:hidden;flex:1;min-width:0">
-                        <span style="display:flex;align-items:center;padding:0 8px;font:700 11px var(--mono);color:var(--text3);border-right:1px solid var(--line-soft);background:var(--panel2);white-space:nowrap">{{ posCurrency }}</span>
-                        <input value="{{ posSalaryMax }}" onInput="{{ onPosField }}" data-field="salaryMax" placeholder="120,000" style="border:none;background:transparent;width:100%;min-width:0;padding:8px 9px;font:400 13px var(--mono);color:var(--text);outline:none">
+                      <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px 18px">
+                        <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Total team size</div>
+                        <input value="{{ posTeamSize }}" onInput="{{ onPosField }}" data-field="teamSize" placeholder="e.g. 38 across finance" style="width:100%;background:none;border:none;outline:none;font:600 15px var(--sans);color:var(--text);padding:8px 0 0">
                       </div>
                     </div>
-                  </div>
-                  <div style="margin-bottom:14px">
-                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Notice period</label>
-                    <div style="display:flex;gap:6px;align-items:center">
-                      <input value="{{ posNoticeNum }}" onInput="{{ onPosField }}" data-field="noticeNum" placeholder="3" style="width:56px;flex:none;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                      <select value="{{ posNoticeUnit }}" onChange="{{ onPosField }}" data-field="noticeUnit" style="flex:none;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 13px var(--mono);color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--sky)">
-                        <option>Months</option><option>Weeks</option><option>Days</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div style="margin-bottom:14px">
-                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Bonus target</label>
-                    <div style="display:flex;gap:6px;align-items:center">
-                      <input value="{{ posBonusNum }}" onInput="{{ onPosField }}" data-field="bonusNum" placeholder="30" style="width:56px;flex:none;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                      <select value="{{ posBonusType }}" onChange="{{ onPosField }}" data-field="bonusType" style="flex:none;max-width:190px;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 13px var(--mono);color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--sky)">
-                        <option>% of base salary</option><option>% of total fixed</option><option>Months of base salary</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:5px">LTIP / equity</label>
-                    <input value="{{ posLtip }}" onInput="{{ onPosField }}" data-field="ltip" placeholder="e.g. Eligible after 1 year" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                  </div>
-                </div>
 
-                <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px">
-                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Benefits &amp; allowances</div>
-                  <sc-for list="{{ benefits }}" as="b" hint-placeholder-count="4">
-                    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-soft)">
-                      <span style="flex:1;min-width:0;font:500 13px var(--sans);color:var(--text)">{{ b.name }}</span>
-                      <span style="font:{{ b.amountFont }};color:var(--text3);white-space:nowrap">{{ b.amountLabel }}</span>
-                      <button onClick="{{ rmBenefit }}" data-idx="{{ $index }}" style="background:none;border:none;padding:2px 4px;color:var(--text3);cursor:pointer;font-size:12px;line-height:1;flex:none" style-hover="color:var(--red)">✕</button>
-                    </div>
-                  </sc-for>
-                  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
-                    <input value="{{ benefitName }}" onInput="{{ onBenefitName }}" onKeyDown="{{ benefitEnter }}" placeholder="e.g. Housing allowance" style="flex:1 1 100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                    <input value="{{ benefitAmt }}" onInput="{{ onBenefitAmt }}" onKeyDown="{{ benefitEnter }}" placeholder="Amount (optional)" style="flex:1.1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                    <select value="{{ benefitFreq }}" onChange="{{ onBenefitFreq }}" style="flex:.8;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--sky)">
-                      <option>Monthly</option><option>Yearly</option>
-                    </select>
-                    <button onClick="{{ addBenefit }}" style="display:inline-flex;align-items:center;padding:7px 14px;border-radius:7px;font:500 12.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer;flex:none" style-hover="color:var(--text);border-color:var(--text3)">Add</button>
-                  </div>
-                </div>
-
-              </div>
-
-              <div style="margin-top:16px;background:var(--amber-dim);border:1px solid var(--amber-btn);border-radius:10px;padding:14px 18px">
-                <div style="font:700 10px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--amber);margin-bottom:4px">Total yearly compensation</div>
-                <div style="font:700 22px var(--mono);color:var(--amber);letter-spacing:-.01em">{{ compHero }}</div>
-                <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:4px">{{ compHeroSub }}</div>
-              </div>
-            </div>
-
-            <div style="display:flex;align-items:center;gap:14px;margin:26px 0 16px">
-              <span style="font:700 16px var(--sans);color:var(--text);white-space:nowrap">Candidate Requirements</span>
-              <span style="flex:1;height:1px;background:var(--line-soft)"></span>
-            </div>
-
-            <div style="margin-bottom:22px">
-              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
-                <span style="font:600 15px var(--sans);color:var(--text)">Candidate Criteria</span>
-                <span style="font:400 11.5px var(--mono);color:var(--text3)">Required narrows the field · Preferred breaks ties</span>
-              </div>
-              <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px">
-                <sc-for list="{{ criteria }}" as="c" hint-placeholder-count="3">
-                  <div style="display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line-soft)">
-                    <input value="{{ c.text }}" onInput="{{ onCritText }}" data-id="{{ c.id }}" style="flex:1;background:none;border:none;border-bottom:1px solid transparent;padding:4px 0;font:500 13px var(--sans);color:var(--text);outline:none;min-width:0" style-hover="border-bottom-color:var(--line)" style-focus="border-bottom-color:var(--sky)">
-                    <sc-if value="{{ c.fromBrief }}" hint-placeholder-val="{{ false }}">
-                      <span style="font:500 9.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);padding:2px 7px;border:1px solid var(--line);border-radius:5px;flex:none">From brief</span>
-                    </sc-if>
-                    <span style="display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;flex:none">
-                      <button onClick="{{ onCritMode }}" data-id="{{ c.id }}" data-mode="required" style="padding:5px 11px;font:600 11px var(--mono);border:none;cursor:pointer;color:{{ c.reqColor }};background:{{ c.reqBg }}">Required</button>
-                      <button onClick="{{ onCritMode }}" data-id="{{ c.id }}" data-mode="preferred" style="padding:5px 11px;font:600 11px var(--mono);border:none;cursor:pointer;color:{{ c.prefColor }};background:{{ c.prefBg }}">Preferred</button>
-                    </span>
-                    <button onClick="{{ onCritRm }}" data-id="{{ c.id }}" style="background:none;border:none;color:var(--text3);flex:none;padding:4px;cursor:pointer" style-hover="color:var(--red)">✕</button>
-                  </div>
-                </sc-for>
-                <div style="display:flex;gap:8px;margin-top:12px">
-                  <input value="{{ critDraft }}" onInput="{{ onCritDraft }}" placeholder="Add a criterion…" style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                  <button onClick="{{ addCrit }}" style="display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Add</button>
-                </div>
-              </div>
-            </div>
-
-            <div style="margin-bottom:22px">
-              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
-                <span style="font:600 15px var(--sans);color:var(--text)">Competency Weighting</span>
-                <span style="font:400 11.5px var(--mono);color:var(--text3)">drag to rebalance · type a number to set exactly · add or remove to fit this role</span>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-                <sc-for list="{{ compPanels }}" as="p" hint-placeholder-count="2">
-                  <div style="border-radius:10px;padding:16px 18px;border:1px solid {{ p.borderColor }};background:{{ p.bgGrad }}">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-                      <span style="display:flex;align-items:center;gap:7px;font:600 13px var(--sans)">
-                        <span style="width:8px;height:8px;border-radius:50%;background:{{ p.dotColor }}"></span>
-                        {{ p.title }}
-                      </span>
-                      <span style="font:700 14px var(--mono);padding:2px 10px;border-radius:6px;color:{{ p.totalColor }};background:{{ p.totalBg }}">{{ p.total }}%</span>
-                    </div>
-                    <sc-for list="{{ p.rows }}" as="r" hint-placeholder-count="4">
-                      <div style="margin-bottom:14px">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                          <input value="{{ r.name }}" onInput="{{ onCompName }}" data-panel="{{ p.key }}" data-idx="{{ $index }}" style="flex:1;background:none;border:none;outline:none;font:500 13px var(--sans);color:var(--text);min-width:0">
-                          <input type="number" min="0" max="100" value="{{ r.weight }}" onInput="{{ onCompNum }}" data-panel="{{ p.key }}" data-idx="{{ $index }}" style="width:52px;text-align:right;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px 6px;font:600 12px var(--mono);color:var(--text);outline:none">
-                          <span style="font:500 12px var(--mono);color:var(--text3)">%</span>
-                          <sc-if value="{{ r.canRm }}" hint-placeholder-val="{{ false }}">
-                            <button onClick="{{ rmComp }}" data-panel="{{ p.key }}" data-idx="{{ $index }}" style="background:none;border:none;padding:2px;color:var(--text3);cursor:pointer;font-size:11px;line-height:1;flex:none" style-hover="color:var(--red)">✕</button>
-                          </sc-if>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px 18px">
+                      <div>
+                        <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Target start</label>
+                        <input value="{{ posStartTarget }}" onInput="{{ onPosField }}" data-field="startTarget" placeholder="e.g. 15 Sep 2026" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:500 13.5px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                      </div>
+                      <div>
+                        <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Notice period to plan for</label>
+                        <div style="display:flex;gap:8px">
+                          <input value="{{ posNoticeNum }}" onInput="{{ onPosField }}" data-field="noticeNum" placeholder="3" style="width:70px;flex:none;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                          <select value="{{ posNoticeUnit }}" onChange="{{ onPosField }}" data-field="noticeUnit" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:500 13.5px var(--sans);color:var(--text);outline:none;cursor:pointer;flex:1" style-focus="border-color:var(--sky)">
+                            <option>Months</option><option>Weeks</option><option>Days</option>
+                          </select>
                         </div>
-                        <input type="range" min="0" max="100" value="{{ r.weight }}" onInput="{{ onCompSlide }}" data-panel="{{ p.key }}" data-idx="{{ $index }}" class="{{ p.sliderClass }}" style="width:100%">
+                      </div>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <!-- step 4 -->
+                <sc-if value="{{ isStep4 }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:20px">
+                    <div>
+                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Base salary</label>
+                      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 12px">
+                        <select value="{{ posCurrency }}" onChange="{{ onPosField }}" data-field="currency" style="flex:none;background:var(--panel);border:1px solid var(--line-soft);border-radius:6px;padding:6px 8px;font:700 11.5px var(--mono);color:var(--text2);cursor:pointer;outline:none">
+                          <option>AED</option><option>USD</option><option>SAR</option><option>QAR</option><option>KWD</option><option>GBP</option><option>EUR</option>
+                        </select>
+                        <input value="{{ posSalaryMin }}" onInput="{{ onPosField }}" data-field="salaryMin" placeholder="90,000" style="width:104px;flex:1 1 84px;min-width:0;background:var(--panel);border:1px solid var(--line-soft);border-radius:6px;padding:7px 10px;font:500 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                        <span style="color:var(--text3);font-size:13px">–</span>
+                        <input value="{{ posSalaryMax }}" onInput="{{ onPosField }}" data-field="salaryMax" placeholder="120,000" style="width:104px;flex:1 1 84px;min-width:0;background:var(--panel);border:1px solid var(--line-soft);border-radius:6px;padding:7px 10px;font:500 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                        <span style="display:flex;gap:3px;margin-left:auto;flex:none">
+                          <sc-for list="{{ baseModes }}" as="m" hint-placeholder-count="2">
+                            <button onClick="{{ setBaseMode }}" data-val="{{ m.label }}" style="padding:6px 12px;border-radius:6px;cursor:pointer;font:600 12px var(--sans);color:{{ m.color }};background:{{ m.bg }};border:1px solid {{ m.border }}">{{ m.label }}</button>
+                          </sc-for>
+                        </span>
+                      </div>
+                      <div style="margin-top:12px">
+                        <div style="position:relative;height:6px;border-radius:999px;background:var(--line-soft)">
+                          <span style="position:absolute;left:18%;right:22%;top:0;bottom:0;border-radius:999px;background:var(--sky)"></span>
+                          <span style="position:absolute;left:50%;top:-5px;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:var(--sky);border:2px solid var(--panel)"></span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;gap:8px;margin-top:8px;font:500 11px var(--mono);color:var(--text3);white-space:nowrap">
+                          <span>Min {{ bandMin }}</span>
+                          <span style="color:var(--sky)">Mid {{ bandMid }}</span>
+                          <span>Max {{ bandMax }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Annual bonus target</label>
+                      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 12px">
+                        <input value="{{ posBonusNum }}" onInput="{{ onPosField }}" data-field="bonusNum" placeholder="40" style="width:64px;flex:none;background:var(--panel);border:1px solid var(--line-soft);border-radius:6px;padding:7px 10px;font:600 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                        <select value="{{ posBonusType }}" onChange="{{ onPosField }}" data-field="bonusType" style="flex:none;max-width:200px;background:var(--panel);border:1px solid var(--line-soft);border-radius:6px;padding:7px 10px;font:400 12.5px var(--mono);color:var(--text2);outline:none;cursor:pointer">
+                          <option>% of base salary</option><option>% of total fixed</option><option>Months of base salary</option>
+                        </select>
+                        <span style="margin-left:auto;font:600 13px var(--mono);color:var(--text)">{{ bonusAmountLabel }}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Long-term incentive</label>
+                      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 12px">
+                        <select value="{{ posEquityType }}" onChange="{{ onPosField }}" data-field="equityType" style="flex:none;background:var(--sky-dim);border:1px solid var(--sky);border-radius:6px;padding:6px 9px;font:700 11.5px var(--mono);color:var(--sky);cursor:pointer;outline:none">
+                          <option>LTIP cash</option><option>RSUs</option><option>Options</option><option>Phantom equity</option>
+                        </select>
+                        <input value="{{ posEquityAmt }}" onInput="{{ onPosField }}" data-field="equityAmt" placeholder="600,000" style="width:130px;flex:none;background:var(--panel);border:1px solid var(--line-soft);border-radius:6px;padding:7px 10px;font:500 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                        <input value="{{ posEquitySchedule }}" onInput="{{ onPosField }}" data-field="equitySchedule" placeholder="Vesting schedule" style="flex:1;min-width:160px;background:none;border:none;outline:none;text-align:right;font:400 12.5px var(--mono);color:var(--text3)">
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Benefits &amp; allowances</label>
+                      <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;overflow:hidden">
+                        <div style="display:grid;grid-template-columns:minmax(0,1fr) 130px 150px 30px;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line-soft);font:600 10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">
+                          <span>Benefit</span><span>Amount</span><span>Frequency</span><span></span>
+                        </div>
+                        <sc-for list="{{ benefitRows }}" as="b" hint-placeholder-count="4">
+                          <div style="display:grid;grid-template-columns:minmax(0,1fr) 130px 150px 30px;gap:10px;align-items:center;padding:8px 14px;border-bottom:1px solid var(--line-soft)">
+                            <input value="{{ b.name }}" onInput="{{ onBenefitRowName }}" data-idx="{{ b.idx }}" style="background:none;border:none;outline:none;font:500 13px var(--sans);color:var(--text);min-width:0">
+                            <input value="{{ b.amount }}" onInput="{{ onBenefitRowAmt }}" data-idx="{{ b.idx }}" placeholder="—" style="background:none;border:none;outline:none;font:500 12.5px var(--mono);color:var(--text2);min-width:0">
+                            <span style="display:flex;gap:4px">
+                              <button onClick="{{ setBenefitRowFreq }}" data-idx="{{ b.idx }}" data-freq="Monthly" style="padding:4px 9px;border-radius:6px;cursor:pointer;font:600 11px var(--mono);color:{{ b.monColor }};background:{{ b.monBg }};border:1px solid {{ b.monBorder }}">Monthly</button>
+                              <button onClick="{{ setBenefitRowFreq }}" data-idx="{{ b.idx }}" data-freq="Yearly" style="padding:4px 9px;border-radius:6px;cursor:pointer;font:600 11px var(--mono);color:{{ b.yrColor }};background:{{ b.yrBg }};border:1px solid {{ b.yrBorder }}">Yearly</button>
+                            </span>
+                            <button onClick="{{ rmBenefit }}" data-idx="{{ b.idx }}" style="background:none;border:none;padding:2px;color:var(--text3);cursor:pointer;font-size:12px;line-height:1" style-hover="color:var(--red)">✕</button>
+                          </div>
+                        </sc-for>
+                        <div style="display:flex;gap:8px;padding:12px 14px">
+                          <input value="{{ benefitName }}" onInput="{{ onBenefitName }}" onKeyDown="{{ benefitEnter }}" placeholder="e.g. Housing allowance" style="flex:1.4;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                          <input value="{{ benefitAmt }}" onInput="{{ onBenefitAmt }}" onKeyDown="{{ benefitEnter }}" placeholder="Amount (optional)" style="flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                          <select value="{{ benefitFreq }}" onChange="{{ onBenefitFreq }}" style="flex:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none;cursor:pointer">
+                            <option>Monthly</option><option>Yearly</option>
+                          </select>
+                          <button onClick="{{ addBenefit }}" style="flex:none;padding:8px 14px;border-radius:8px;font:500 12.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Add</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style="background:var(--amber-dim);border:1px solid var(--amber-btn);border-radius:10px;padding:16px 18px">
+                      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                        <span style="font:700 10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--amber)">Total target annual package</span>
+                        <span style="margin-left:auto;padding:3px 10px;border-radius:999px;font:600 11px var(--mono);color:var(--green);background:var(--green-dim);border:1px solid var(--green)">{{ marketPill }}</span>
+                      </div>
+                      <div style="font:700 24px var(--mono);color:var(--amber);letter-spacing:-.01em;margin-top:8px">{{ compTotalRange }}</div>
+                      <div style="display:flex;height:10px;border-radius:999px;overflow:hidden;background:var(--line-soft);margin-top:14px">
+                        <sc-for list="{{ compMix }}" as="s" hint-placeholder-count="3">
+                          <span style="width:{{ s.width }};background:{{ s.color }}"></span>
+                        </sc-for>
+                      </div>
+                      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:10px">
+                        <sc-for list="{{ compMix }}" as="s" hint-placeholder-count="3">
+                          <span style="display:inline-flex;align-items:center;gap:7px;font:500 11.5px var(--mono);color:var(--text3)">
+                            <span style="width:8px;height:8px;border-radius:50%;background:{{ s.color }}"></span>
+                            {{ s.label }} · {{ s.v }}
+                          </span>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <!-- step 5 -->
+                <sc-if value="{{ isStep5 }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:20px">
+                    <sc-for list="{{ compPanels }}" as="p" hint-placeholder-count="2">
+                      <div style="border-radius:10px;border:1px solid {{ p.borderColor }};background:var(--panel2);overflow:hidden">
+                        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line-soft)">
+                          <span style="width:8px;height:8px;border-radius:50%;background:{{ p.dotColor }};flex:none"></span>
+                          <span style="font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text2)">{{ p.title }}</span>
+                          <span style="margin-left:auto;font:700 12px var(--mono);padding:3px 10px;border-radius:6px;color:{{ p.totalColor }};background:{{ p.totalBg }}">Total {{ p.total }}%</span>
+                        </div>
+                        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) 74px 28px;gap:10px;padding:9px 16px;border-bottom:1px solid var(--line-soft);font:600 10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">
+                          <span>Competency</span><span>Description</span><span style="text-align:right">Weight</span><span></span>
+                        </div>
+                        <sc-for list="{{ p.rows }}" as="r" hint-placeholder-count="4">
+                          <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) 74px 28px;gap:10px;align-items:center;padding:9px 16px;border-bottom:1px solid var(--line-soft)">
+                            <input value="{{ r.name }}" onInput="{{ onCompName }}" data-panel="{{ p.key }}" data-idx="{{ r.idx }}" style="background:none;border:none;outline:none;font:600 13px var(--sans);color:var(--text);min-width:0">
+                            <input value="{{ r.desc }}" onInput="{{ onCompDesc }}" data-panel="{{ p.key }}" data-idx="{{ r.idx }}" placeholder="What this measures…" style="background:none;border:none;outline:none;font:400 12.5px var(--sans);color:var(--text3);min-width:0">
+                            <span style="display:flex;align-items:center;gap:4px;justify-content:flex-end">
+                              <input type="number" min="0" max="100" value="{{ r.weight }}" onInput="{{ onCompNum }}" data-panel="{{ p.key }}" data-idx="{{ r.idx }}" style="width:48px;text-align:right;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:600 12px var(--mono);color:var(--text);outline:none">
+                              <span style="font:500 11.5px var(--mono);color:var(--text3)">%</span>
+                            </span>
+                            <sc-if value="{{ r.canRm }}" hint-placeholder-val="{{ false }}">
+                              <button onClick="{{ rmComp }}" data-panel="{{ p.key }}" data-idx="{{ r.idx }}" style="background:none;border:none;padding:2px;color:var(--text3);cursor:pointer;font-size:11px;line-height:1" style-hover="color:var(--red)">✕</button>
+                            </sc-if>
+                          </div>
+                        </sc-for>
+                        <div style="padding:10px 16px">
+                          <button onClick="{{ addComp }}" data-panel="{{ p.key }}" style="width:100%;padding:8px;border:1px dashed var(--line);border-radius:8px;background:none;font:500 12px var(--mono);color:var(--sky);cursor:pointer" style-hover="border-color:var(--sky);background:var(--sky-dim)">+ Add competency</button>
+                        </div>
                       </div>
                     </sc-for>
-                    <button onClick="{{ addComp }}" data-panel="{{ p.key }}" style="width:100%;padding:7px;border:1px dashed var(--line);border-radius:8px;background:none;font:500 12px var(--mono);color:var(--text3);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">+ Add competency</button>
-                  </div>
-                </sc-for>
-              </div>
-            </div>
 
-            <sc-if value="{{ posLocked }}" hint-placeholder-val="{{ false }}">
-              <div style="display:flex;align-items:center;gap:14px;margin-top:20px;padding:14px 18px;border-radius:10px;background:var(--green-dim);border:1px solid var(--green)">
-                <div style="flex:1">
-                  <div style="font:600 13px var(--sans);color:var(--green)">Position locked</div>
-                  <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:2px">Criteria and weighting are the reference for candidate benchmarking downstream.</div>
+                    <div>
+                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Screening criteria — required narrows the field, preferred breaks ties</label>
+                      <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px 18px">
+                        <sc-for list="{{ criteria }}" as="c" hint-placeholder-count="3">
+                          <div style="display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line-soft)">
+                            <input value="{{ c.text }}" onInput="{{ onCritText }}" data-id="{{ c.id }}" style="flex:1;background:none;border:none;border-bottom:1px solid transparent;padding:4px 0;font:500 13px var(--sans);color:var(--text);outline:none;min-width:0" style-hover="border-bottom-color:var(--line)" style-focus="border-bottom-color:var(--sky)">
+                            <sc-if value="{{ c.fromBrief }}" hint-placeholder-val="{{ false }}">
+                              <span style="font:500 9.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);padding:2px 7px;border:1px solid var(--line);border-radius:5px;flex:none">From brief</span>
+                            </sc-if>
+                            <span style="display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;flex:none">
+                              <button onClick="{{ onCritMode }}" data-id="{{ c.id }}" data-mode="required" style="padding:5px 11px;font:600 11px var(--mono);border:none;cursor:pointer;color:{{ c.reqColor }};background:{{ c.reqBg }}">Required</button>
+                              <button onClick="{{ onCritMode }}" data-id="{{ c.id }}" data-mode="preferred" style="padding:5px 11px;font:600 11px var(--mono);border:none;cursor:pointer;color:{{ c.prefColor }};background:{{ c.prefBg }}">Preferred</button>
+                            </span>
+                            <button onClick="{{ onCritRm }}" data-id="{{ c.id }}" style="background:none;border:none;color:var(--text3);flex:none;padding:4px;cursor:pointer" style-hover="color:var(--red)">✕</button>
+                          </div>
+                        </sc-for>
+                        <div style="display:flex;gap:8px;margin-top:12px">
+                          <input value="{{ critDraft }}" onInput="{{ onCritDraft }}" placeholder="Add a criterion…" style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                          <button onClick="{{ addCrit }}" style="padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer;flex:none" style-hover="color:var(--text);border-color:var(--text3)">Add</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <!-- step 6 -->
+                <sc-if value="{{ isStep6 }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:12px">
+                    <sc-for list="{{ reviewCards }}" as="v" hint-placeholder-count="5">
+                      <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px 18px">
+                        <div style="display:flex;align-items:center;gap:10px">
+                          <span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">{{ v.num }}. {{ v.name }}</span>
+                          <button onClick="{{ goStep }}" data-step="{{ v.num }}" style="margin-left:auto;background:none;border:none;padding:0;font:600 12px var(--sans);color:var(--amber);cursor:pointer" style-hover="text-decoration:underline">Edit</button>
+                        </div>
+                        <div style="font:600 15px var(--sans);color:var(--text);margin-top:8px">{{ v.title }}</div>
+                        <div style="font:400 12.5px var(--mono);color:var(--text3);margin-top:4px">{{ v.sub }}</div>
+                      </div>
+                    </sc-for>
+
+                    <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px 18px;margin-top:8px">
+                      <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:12px">Readiness checklist</div>
+                      <sc-for list="{{ readyChecks }}" as="k" hint-placeholder-count="3">
+                        <div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+                          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ k.color }}"><circle cx="12" cy="12" r="9"></circle><path d="{{ k.path }}"></path></svg>
+                          <span style="font:400 13px var(--sans);color:var(--text2)">{{ k.label }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+
+                    <sc-if value="{{ posLocked }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:10px;background:var(--green-dim);border:1px solid var(--green);margin-top:8px">
+                        <div style="flex:1">
+                          <div style="font:600 13px var(--sans);color:var(--green)">Position profile published</div>
+                          <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:2px">Criteria and weighting are now the reference for candidate benchmarking downstream.</div>
+                        </div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+
+                <div style="display:flex;align-items:center;gap:10px;margin-top:26px;padding-top:18px;border-top:1px solid var(--line-soft)">
+                  <sc-if value="{{ stepHasBack }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ posBack }}" style="padding:9px 16px;border-radius:8px;font:600 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Back</button>
+                  </sc-if>
+                  <span style="flex:1"></span>
+                  <sc-if value="{{ stepHasNext }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ posNext }}" style="display:inline-flex;align-items:center;gap:8px;padding:9px 17px;border-radius:8px;font:600 13px var(--sans);background:var(--sky);border:1px solid var(--sky);color:#fff;cursor:pointer" style-hover="filter:brightness(1.06)">
+                      {{ nextLabel }}
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+                    </button>
+                  </sc-if>
+                  <sc-if value="{{ isStep6 }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ posPublish }}" style="display:inline-flex;align-items:center;padding:9px 17px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">{{ publishLabel }}</button>
+                  </sc-if>
                 </div>
               </div>
-            </sc-if>
-            <sc-if value="{{ posUnlocked }}" hint-placeholder-val="{{ true }}">
-              <div style="display:flex;align-items:center;gap:14px;margin-top:20px;padding:14px 18px;border-radius:10px;background:var(--panel2);border:1px solid var(--line-soft)">
-                <div style="flex:1">
-                  <div style="font:600 13px var(--sans)">Lock position</div>
-                  <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:2px">Both competency panels must total exactly 100% to lock.</div>
+
+              <aside style="position:sticky;top:0;flex:1 1 280px;max-width:340px;min-width:0;order:2;background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span style="font:700 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text2)">Profile summary</span>
+                  <span style="margin-left:auto;padding:3px 9px;border-radius:999px;font:600 11px var(--mono);color:{{ doneColor }};background:{{ doneBg }};border:1px solid {{ doneColor }}">{{ donePct }} done</span>
                 </div>
-                <button onClick="{{ lockPosition }}" style="display:inline-flex;align-items:center;padding:8px 15px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Lock position</button>
-              </div>
-            </sc-if>
+                <div style="display:flex;gap:4px;margin:14px 0 16px">
+                  <sc-for list="{{ railSegs }}" as="g" hint-placeholder-count="6">
+                    <span style="flex:1;height:3px;border-radius:999px;background:{{ g.color }}"></span>
+                  </sc-for>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <sc-for list="{{ railSteps }}" as="s" hint-placeholder-count="6">
+                    <button onClick="{{ goStep }}" data-step="{{ s.num }}" style="display:block;width:100%;text-align:left;padding:11px 13px;border-radius:9px;cursor:pointer;background:{{ s.bg }};border:1px {{ s.borderStyle }} {{ s.border }}">
+                      <span style="display:flex;align-items:center;gap:8px">
+                        <span style="font:700 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:{{ s.numColor }}">{{ s.num }}. {{ s.name }}</span>
+                        <span style="margin-left:auto;font:600 10.5px var(--mono);color:{{ s.stateColor }};white-space:nowrap">{{ s.stateLabel }}</span>
+                      </span>
+                      <span style="display:block;font:600 13px var(--sans);color:{{ s.titleColor }};margin-top:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.title }}</span>
+                      <span style="display:block;font:400 11.5px var(--mono);color:var(--text3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.sub }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+                <button onClick="{{ posPublish }}" style="width:100%;margin-top:16px;padding:11px;border-radius:9px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">{{ publishLabel }}</button>
+                <button onClick="{{ posSaveDraft }}" style="width:100%;margin-top:8px;padding:10px;border-radius:9px;font:600 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Save draft</button>
+              </aside>
+            </div>
           </div>
         </sc-if>
 
@@ -473,7 +627,7 @@
                 <div style="font:600 13px var(--sans)">companies match the current criteria</div>
                 <div style="font:400 11px var(--mono);color:var(--text3);margin-top:1px">updates live as you edit · Sourcing reads these criteria directly</div>
               </div>
-              <button onClick="{{ goToSourcing }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer;flex:none" style-hover="filter:brightness(1.05)">
+              <button onClick="{{ goToSourcing }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer;flex:none" style-hover="filter:brightness(1.05)">
                 Go to sourcing
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
               </button>
@@ -642,7 +796,7 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
                 <input value="{{ candSearch }}" onInput="{{ onCandSearch }}" placeholder="Search candidates…" style="background:none;border:none;outline:none;width:100%;font:400 13px var(--mono);color:var(--text)">
               </div>
-              <button onClick="{{ openCandModal }}" style="margin-left:auto;display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">
+              <button onClick="{{ openCandModal }}" style="margin-left:auto;display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
                 Add candidate
               </button>
@@ -721,7 +875,7 @@
               </sc-for>
               <div style="height:1px;background:var(--line-soft);margin:12px 10px"></div>
               <div style="padding:0 10px;display:flex;flex-direction:column;gap:7px">
-                <button onClick="{{ rpExport }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:8px;font:600 12.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">
+                <button onClick="{{ rpExport }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:8px;font:600 12.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex:none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
                   Export PDF
                 </button>
@@ -1405,7 +1559,7 @@
               </div>
               <sc-if value="{{ teamCanManage }}" hint-placeholder-val="{{ true }}">
                 <div style="margin-left:auto">
-                  <button onClick="{{ openTeamAdd }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">
+                  <button onClick="{{ openTeamAdd }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
                     Add team member
                   </button>
@@ -1490,7 +1644,7 @@
                     <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:2px">{{ clientSector }} · {{ clientContactCount }}</div>
                   </div>
                   <sc-if value="{{ teamCanManage }}" hint-placeholder-val="{{ true }}">
-                    <button onClick="{{ openContactAdd }}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;font:600 12.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">
+                    <button onClick="{{ openContactAdd }}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;font:600 12.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
                       Add contact
                     </button>
@@ -1520,7 +1674,7 @@
                 <div style="width:44px;height:44px;border-radius:11px;background:var(--sky-dim);display:grid;place-items:center;margin:0 auto 12px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sky)" stroke-width="2"><path d="M3 21h18M6 21V7l6-4 6 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"></path></svg></div>
                 <div style="font:600 14px var(--sans)">No client linked yet</div>
                 <div style="font:400 12px var(--mono);color:var(--text3);margin:5px 0 16px">Link the client organisation this mandate is for.</div>
-                <button onClick="{{ openClientPicker }}" style="display:inline-flex;align-items:center;gap:7px;padding:8px 15px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Add client</button>
+                <button onClick="{{ openClientPicker }}" style="display:inline-flex;align-items:center;gap:7px;padding:8px 15px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">Add client</button>
               </div>
             </sc-if>
           </div>
@@ -1550,14 +1704,26 @@
                   <option value="admin">Admin</option>
                   <option value="lead">Lead</option>
                 </select>
-                <button onClick="{{ addMember }}" data-id="{{ p.id }}" style="padding:6px 13px;border-radius:7px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Add</button>
+                <button onClick="{{ addMember }}" data-id="{{ p.id }}" style="padding:6px 13px;border-radius:7px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">Add</button>
               </div>
             </sc-for>
           </div>
         </sc-if>
         <sc-if value="{{ noAddable }}" hint-placeholder-val="{{ false }}">
-          <div style="padding:30px;text-align:center;color:var(--text3);font:400 13px var(--mono)">Everyone in the directory is already on this project.</div>
+          <div style="padding:16px 14px;border:1px dashed var(--line);border-radius:9px;color:var(--text3);font:400 12px var(--mono);text-align:center">Everyone in the firm directory is already on this project. Invite someone new below.</div>
         </sc-if>
+        <div style="height:1px;background:var(--line);margin:16px 0 14px"></div>
+        <div style="font:600 12px var(--sans);margin-bottom:8px">Invite by email</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input onInput="{{ setInviteEmail }}" type="email" placeholder="name@lightmove.com" style="flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:8px 10px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+          <select onChange="{{ setInviteRole }}" style="background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 8px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+            <option value="researcher">Researcher</option>
+            <option value="admin">Admin</option>
+            <option value="lead">Lead</option>
+          </select>
+          <button onClick="{{ sendInvite }}" style="padding:8px 13px;border-radius:7px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">Invite</button>
+        </div>
+        <div style="font:400 11px var(--mono);color:var(--text3);margin-top:7px">They get workspace access to this project only. Firm-wide seats are managed in Settings &rsaquo; Members.</div>
         <div style="display:flex;justify-content:flex-end;margin-top:18px">
           <button onClick="{{ closeTeamAdd }}" style="padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Done</button>
         </div>
@@ -1606,7 +1772,7 @@
           </div>
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">
             <button onClick="{{ closeClientPicker }}" style="padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
-            <button onClick="{{ createClient }}" disabled="{{ newClientInvalid }}" style="padding:7px 15px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer;opacity:{{ newClientBtnOpacity }}">Add client</button>
+            <button onClick="{{ createClient }}" disabled="{{ newClientInvalid }}" style="padding:7px 15px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer;opacity:{{ newClientBtnOpacity }}">Add client</button>
           </div>
         </sc-if>
 
@@ -1645,7 +1811,7 @@
                     <span style="font:600 10px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--text3);padding:6px 10px">Added</span>
                   </sc-if>
                   <sc-if value="{{ p.notAdded }}" hint-placeholder-val="{{ true }}">
-                    <button onClick="{{ inviteExistingPerson }}" data-id="{{ p.id }}" style="padding:6px 13px;border-radius:7px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Invite</button>
+                    <button onClick="{{ inviteExistingPerson }}" data-id="{{ p.id }}" style="padding:6px 13px;border-radius:7px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">Invite</button>
                   </sc-if>
                 </div>
               </sc-for>
@@ -1675,7 +1841,7 @@
           </div>
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">
             <button onClick="{{ closeContactAdd }}" style="padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
-            <button onClick="{{ sendNewInvite }}" disabled="{{ draftInvalid }}" style="padding:7px 15px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer;opacity:{{ inviteBtnOpacity }}">Send invite</button>
+            <button onClick="{{ sendNewInvite }}" disabled="{{ draftInvalid }}" style="padding:7px 15px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer;opacity:{{ inviteBtnOpacity }}">Send invite</button>
           </div>
         </sc-if>
 
@@ -1888,7 +2054,7 @@
         </div>
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
           <button onClick="{{ closeCandModal }}" style="display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
-          <button onClick="{{ confirmCand }}" style="display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#141414;cursor:pointer" style-hover="filter:brightness(1.05)">Confirm &amp; add</button>
+          <button onClick="{{ confirmCand }}" style="display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">Confirm &amp; add</button>
         </div>
       </div>
     </div>
@@ -1900,7 +2066,7 @@
 
 </div>
 
-<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#15213a"></rect><text x="50" y="50" fill="#f59c0b" font-family="Montserrat,sans-serif" font-size="26" font-weight="700" text-anchor="middle" dominant-baseline="central">PR</text></svg></template>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><text x="50" y="50" fill="#e2b65c" font-family="Montserrat,sans-serif" font-size="26" font-weight="700" text-anchor="middle" dominant-baseline="central">PR</text></svg></template>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;startPage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;position&quot;,&quot;options&quot;:[&quot;position&quot;,&quot;strategy&quot;,&quot;sourcing&quot;,&quot;candidates&quot;,&quot;outreach&quot;,&quot;reports&quot;,&quot;team&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
@@ -2017,20 +2183,35 @@ class Component extends DCLogic {
           { id: 's3', text: 'Arabic language skills', mode: 'preferred', fromBrief: false },
         ],
         technical: [
-          { name: 'Financial Reporting & Controls', weight: 30 },
-          { name: 'M&A / Restructuring Experience', weight: 30 },
-          { name: 'Treasury & Capital Markets', weight: 20 },
-          { name: 'Board & Investor Relations', weight: 20 },
+          { name: 'Financial Reporting & Controls', desc: 'IFRS reporting, audit readiness, control environment', weight: 30 },
+          { name: 'M&A / Restructuring Experience', desc: 'Deal execution, carve-outs, post-merger integration', weight: 30 },
+          { name: 'Treasury & Capital Markets', desc: 'Debt structuring, liquidity and lender relationships', weight: 20 },
+          { name: 'Board & Investor Relations', desc: 'Board reporting and shareholder communication', weight: 20 },
         ],
         behavioural: [
-          { name: 'Strategic Leadership', weight: 30 },
-          { name: 'Stakeholder Influence', weight: 25 },
-          { name: 'Change Management', weight: 25 },
-          { name: 'Resilience under Ambiguity', weight: 20 },
+          { name: 'Strategic Leadership', desc: 'Sets direction and drives transformation at group level', weight: 30 },
+          { name: 'Stakeholder Influence', desc: 'Credible with shareholder, board and executive committee', weight: 25 },
+          { name: 'Change Management', desc: 'Builds function capability while running the day job', weight: 25 },
+          { name: 'Resilience under Ambiguity', desc: 'Operates through market shifts and incomplete data', weight: 20 },
         ],
+        title: 'Chief Financial Officer',
+        department: 'Group Finance',
+        responsibilities: ['Group P&L stewardship', 'Capital structure & treasury', 'Board & shareholder reporting', 'Finance transformation'],
+        businessDriver: 'Build a group finance function that can carry the next phase of capital investment and stand up to board and lender scrutiny.',
+        priorities: [
+          { name: 'Capital discipline', on: true },
+          { name: 'Portfolio growth', on: false },
+          { name: 'Operational excellence', on: true },
+          { name: 'Governance & controls', on: true },
+          { name: 'Talent development', on: false },
+        ],
+        urgency: 'Priority (60 days)',
+        baseMode: 'Monthly',
+        equityType: 'LTIP cash', equityAmt: '600,000', equitySchedule: '3-year vesting, 33% annually',
         confidential: false, locked: false,
       },
       critDraft: '', benefitName: '', benefitAmt: '', benefitFreq: 'Monthly',
+      posStep: 1, respDraft: '',
       stratSection: 'sector',
       srcView: 'card', triage: null,
       companies,
@@ -2455,6 +2636,162 @@ class Component extends DCLogic {
     };
   }
 
+  positionVals(totT, totB) {
+    const st = this.state, pos = st.pos;
+    const step = st.posStep || 1;
+    const numOf = (v) => { const n = parseFloat(String(v || '').replace(/[^0-9.]/g, '')); return isNaN(n) ? 0 : n; };
+    const cur = pos.currency;
+    const money = (n) => cur + ' ' + Math.round(n).toLocaleString();
+    const kfmt = (n) => cur + ' ' + Math.round(n / 1000).toLocaleString() + 'K';
+    const mult = pos.baseMode === 'Monthly' ? 12 : 1;
+    const bMin = numOf(pos.salaryMin) * mult, bMax = numOf(pos.salaryMax) * mult;
+    const bonusPct = numOf(pos.bonusNum);
+    const bonusMin = bMin * bonusPct / 100, bonusMax = bMax * bonusPct / 100;
+    const equity = numOf(pos.equityAmt);
+    const allowY = pos.benefits.reduce((s, b) => { const a = numOf(b.amount); return s + (b.freq === 'Yearly' ? a : a * 12); }, 0);
+    const totMin = bMin + bonusMin + equity + allowY, totMax = bMax + bonusMax + equity + allowY;
+    const share = (n) => totMax > 0 ? Math.max(1, Math.round(n / totMax * 100)) + '%' : '0%';
+    const weightsOk = totT === 100 && totB === 100;
+
+    const meta = [
+      { num: '1', name: 'Position details', t: 'Position details', s: 'Specify the primary role parameters. Upload a position description and every extracted field is pre-filled.',
+        title: pos.title || 'Untitled role', sub: (pos.department || '—') + ' · ' + (pos.location || '—'),
+        done: !!(pos.title && pos.department && pos.location) },
+      { num: '2', name: 'Mandate context', t: 'Mandate context', s: 'Why this mandate exists and the business drivers behind it. Internal only — never shown to candidates.',
+        title: pos.mandateReason, sub: pos.urgency + ' · ' + (pos.confidential ? 'Confidential' : 'Standard'),
+        done: !!(pos.mandateReason && pos.businessDriver) },
+      { num: '3', name: 'Reporting', t: 'Reporting structure', s: 'Define who this role reports to and the team it will lead.',
+        title: pos.reportsToName ? 'Reports to ' + pos.reportsToName : 'Reports to ' + (pos.reportsTo || '—'),
+        sub: pos.directReports.length + ' direct reports · ' + pos.seniority,
+        done: !!(pos.reportsTo && pos.directReports.length) },
+      { num: '4', name: 'Compensation', t: 'Compensation package', s: 'Define base, bonus, long-term incentive and allowances for this role.',
+        title: totMin ? kfmt(totMin) + ' – ' + kfmt(totMax) : 'Awaiting package input',
+        sub: 'Total target annual package', done: !!(numOf(pos.salaryMin) && numOf(pos.salaryMax)) },
+      { num: '5', name: 'Assessment criteria', t: 'Assessment criteria', s: 'Define the competencies and attributes candidates are scored against, and their relative weights.',
+        title: 'Technical ' + totT + '% · Behavioural ' + totB + '%',
+        sub: pos.criteria.length + ' screening criteria', done: weightsOk },
+      { num: '6', name: 'Review & publish', t: 'Review & publish', s: 'Review every section before publishing the position profile.',
+        title: pos.locked ? 'Profile published' : 'Final validation', sub: pos.locked ? 'Locked as the benchmark reference' : 'Publish to lock the benchmark', done: pos.locked },
+    ];
+    const m = meta[step - 1];
+    const doneCount = meta.filter(x => x.done).length;
+    const donePctNum = Math.round(doneCount / 6 * 100);
+
+    const pill = (on, activeColor, activeBg) => ({ color: on ? activeColor : 'var(--text3)', bg: on ? activeBg : 'var(--panel)', border: on ? activeColor : 'var(--line)' });
+
+    return {
+      isStep1: step === 1, isStep2: step === 2, isStep3: step === 3, isStep4: step === 4, isStep5: step === 5, isStep6: step === 6,
+      stepTitle: m.t, stepSub: m.s,
+      stepHasBack: step > 1, stepHasNext: step < 6,
+      nextLabel: step < 6 ? 'Next: ' + meta[step].name : '',
+      posBack: () => this.setState({ posStep: Math.max(1, step - 1) }),
+      posNext: () => this.setState({ posStep: Math.min(6, step + 1) }),
+      goStep: (e) => this.setState({ posStep: +e.currentTarget.dataset.step }),
+      donePct: donePctNum + '%',
+      doneColor: donePctNum === 100 ? 'var(--green)' : 'var(--sky)',
+      doneBg: donePctNum === 100 ? 'var(--green-dim)' : 'var(--sky-dim)',
+      railSegs: meta.map((x, i) => ({ color: x.done ? 'var(--green)' : (i + 1 === step ? 'var(--sky)' : 'var(--line)') })),
+      railSteps: meta.map((x, i) => {
+        const active = i + 1 === step;
+        return {
+          num: x.num, name: x.name, title: x.title, sub: x.sub,
+          bg: active ? 'var(--sky-dim)' : 'var(--panel)',
+          border: active ? 'var(--sky)' : 'var(--line-soft)',
+          borderStyle: x.done || active ? 'solid' : 'dashed',
+          numColor: active ? 'var(--sky)' : 'var(--text3)',
+          titleColor: active ? 'var(--text)' : (x.done ? 'var(--text)' : 'var(--text2)'),
+          stateLabel: active ? 'Editing' : (x.done ? '✓' : ''),
+          stateColor: active ? 'var(--sky)' : 'var(--green)',
+        };
+      }),
+      posTitle: pos.title, posDepartment: pos.department,
+      titleCheckColor: pos.title ? 'var(--green)' : 'var(--line)',
+      deptCheckColor: pos.department ? 'var(--green)' : 'var(--line)',
+      respChips: pos.responsibilities.map((r, i) => ({ idx: i, label: r })),
+      respDraft: st.respDraft,
+      onRespDraft: (e) => this.setState({ respDraft: e.target.value }),
+      addResp: () => {
+        const v = (st.respDraft || '').trim();
+        if (!v) { this.showToast('Enter a responsibility first'); return; }
+        pos.responsibilities.push(v);
+        this.setState({ respDraft: '' });
+      },
+      respEnter: (e) => { if (e.key === 'Enter') { const v = (st.respDraft || '').trim(); if (v) { pos.responsibilities.push(v); this.setState({ respDraft: '' }); } } },
+      rmResp: (e) => { pos.responsibilities.splice(+e.currentTarget.dataset.idx, 1); this.forceUpdate(); },
+      posBusinessDriver: pos.businessDriver,
+      prioChips: pos.priorities.map((p, i) => {
+        const s = pill(p.on, 'var(--sky)', 'var(--sky-dim)');
+        return { idx: i, label: p.name, color: s.color, bg: s.bg, border: s.border };
+      }),
+      togglePrio: (e) => { const i = +e.currentTarget.dataset.idx; pos.priorities[i].on = !pos.priorities[i].on; this.forceUpdate(); },
+      urgencyOpts: ['Standard (90 days)', 'Priority (60 days)', 'Urgent (30 days)'].map(l => {
+        const on = pos.urgency === l;
+        return { label: l, color: on ? 'var(--text)' : 'var(--text3)', bg: on ? 'var(--panel)' : 'transparent', border: on ? 'var(--line)' : 'transparent' };
+      }),
+      setUrgency: (e) => { pos.urgency = e.currentTarget.dataset.val; this.forceUpdate(); },
+      confOpts: [
+        { val: 'standard', label: 'Standard', sub: 'Visible to the whole workspace' },
+        { val: 'confidential', label: 'Confidential', sub: 'Restricted until shortlist stage' },
+      ].map(o => {
+        const on = (o.val === 'confidential') === !!pos.confidential;
+        return {
+          val: o.val, label: o.label, sub: o.sub,
+          bg: on ? 'var(--sky-dim)' : 'var(--panel2)',
+          border: on ? 'var(--sky)' : 'var(--line-soft)',
+          color: on ? 'var(--sky)' : 'var(--text2)',
+          dotBorder: on ? 'var(--sky)' : 'var(--line)',
+          dotBg: on ? 'var(--sky)' : 'transparent',
+          dotShadow: on ? 'inset 0 0 0 2.5px var(--panel)' : 'none',
+        };
+      }),
+      setConf: (e) => { pos.confidential = e.currentTarget.dataset.val === 'confidential'; this.forceUpdate(); },
+      reportsToInitials: (pos.reportsToName || pos.reportsTo || '?').split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase(),
+      directCount: String(pos.directReports.length),
+      baseModes: ['Annual', 'Monthly'].map(l => {
+        const on = pos.baseMode === l;
+        return { label: l, color: on ? 'var(--sky)' : 'var(--text3)', bg: on ? 'var(--sky-dim)' : 'transparent', border: on ? 'var(--sky)' : 'transparent' };
+      }),
+      setBaseMode: (e) => { pos.baseMode = e.currentTarget.dataset.val; this.forceUpdate(); },
+      bandMin: bMin ? kfmt(bMin) : '—',
+      bandMid: bMin ? kfmt((bMin + bMax) / 2) : '—',
+      bandMax: bMax ? kfmt(bMax) : '—',
+      bonusAmountLabel: bonusMax ? money(bonusMin) + ' – ' + money(bonusMax) : '—',
+      posEquityType: pos.equityType, posEquityAmt: pos.equityAmt, posEquitySchedule: pos.equitySchedule,
+      benefitRows: pos.benefits.map((b, i) => {
+        const mon = pill(b.freq !== 'Yearly', 'var(--sky)', 'var(--sky-dim)');
+        const yr = pill(b.freq === 'Yearly', 'var(--sky)', 'var(--sky-dim)');
+        return { idx: i, name: b.name, amount: b.amount,
+          monColor: mon.color, monBg: mon.bg, monBorder: mon.border,
+          yrColor: yr.color, yrBg: yr.bg, yrBorder: yr.border };
+      }),
+      onBenefitRowName: (e) => { pos.benefits[+e.currentTarget.dataset.idx].name = e.target.value; this.forceUpdate(); },
+      onBenefitRowAmt: (e) => { pos.benefits[+e.currentTarget.dataset.idx].amount = e.target.value; this.forceUpdate(); },
+      setBenefitRowFreq: (e) => { pos.benefits[+e.currentTarget.dataset.idx].freq = e.currentTarget.dataset.freq; this.forceUpdate(); },
+      compTotalRange: totMax ? money(totMin) + ' – ' + money(totMax) : '—',
+      marketPill: totMax ? 'P65 vs market' : 'No benchmark yet',
+      compMix: [
+        { label: 'Base', v: money(bMax), width: share(bMax), color: 'var(--sky)' },
+        { label: 'Bonus', v: money(bonusMax), width: share(bonusMax), color: 'color-mix(in srgb, var(--sky) 50%, var(--panel))' },
+        { label: 'LTIP & allowances', v: money(equity + allowY), width: share(equity + allowY), color: 'var(--amber-btn)' },
+      ],
+      onCompDesc: (e) => { pos[e.currentTarget.dataset.panel][+e.currentTarget.dataset.idx].desc = e.target.value; this.forceUpdate(); },
+      reviewCards: meta.slice(0, 5).map(x => ({ num: x.num, name: x.name, title: x.title, sub: x.sub })),
+      readyChecks: [
+        { label: 'Role parameters, mandate context and reporting lines specified', ok: meta[0].done && meta[1].done && meta[2].done },
+        { label: 'Compensation package captured with allowances quantified', ok: meta[3].done },
+        { label: 'Technical and behavioural weighting totals exactly 100%', ok: weightsOk },
+      ].map(k => ({ label: k.label, color: k.ok ? 'var(--green)' : 'var(--text3)', path: k.ok ? 'm8.5 12.2 2.3 2.3 4.7-4.7' : 'M12 8v5m0 3h.01' })),
+      publishLabel: pos.locked ? 'Published' : 'Publish position profile',
+      posPublish: () => {
+        if (!weightsOk) { this.showToast('Both competency panels must total exactly 100%'); this.setState({ posStep: 5 }); return; }
+        pos.locked = true;
+        this.setState({ posStep: 6 });
+        this.showToast('Position profile published');
+      },
+      posSaveDraft: () => this.showToast('Draft saved'),
+    };
+  }
+
   renderVals() {
     const st = this.state, pos = st.pos;
     const page = st.page;
@@ -2506,7 +2843,7 @@ class Component extends DCLogic {
       { key: 'behavioural', title: 'Behavioural Competencies', rows: pos.behavioural, total: String(totB), dotColor: 'var(--amber-btn)',
         totalColor: totB === 100 ? 'var(--green)' : 'var(--red)', totalBg: totB === 100 ? 'var(--green-dim)' : 'var(--red-dim)',
         borderColor: 'color-mix(in srgb, var(--amber-btn) 35%, var(--line-soft))', bgGrad: 'linear-gradient(180deg, var(--amber-dim), transparent 40%)', sliderClass: 'beh' },
-    ].map(p => ({ ...p, rows: p.rows.map(r => ({ name: r.name, weight: String(r.weight), canRm: p.rows.length > 1 })) }));
+    ].map(p => ({ ...p, rows: p.rows.map((r, i) => ({ idx: i, name: r.name, desc: r.desc || '', weight: String(r.weight), canRm: p.rows.length > 1 })) }));
 
     const criteria = pos.criteria.map(c => ({
       id: c.id, text: c.text, fromBrief: c.fromBrief,
@@ -2900,6 +3237,16 @@ class Component extends DCLogic {
       addable, hasAddable: addable.length > 0, noAddable: addable.length === 0,
       openTeamAdd: () => { if (!this.canManage()) { this.showToast('Only leads and admins can add members'); return; } this.setState({ teamAddOpen: true }); },
       closeTeamAdd: () => this.setState({ teamAddOpen: false }),
+      setInviteEmail: (e) => { this.inviteDraft = { ...(this.inviteDraft || {}), email: e.target.value.trim() }; },
+      setInviteRole: (e) => { this.inviteDraft = { ...(this.inviteDraft || {}), role: e.target.value }; },
+      sendInvite: () => {
+        const d = this.inviteDraft || {};
+        if (!d.email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.email)) { this.showToast('Enter a valid email address'); return; }
+        const label = this.ROLE_META[d.role || 'researcher'].label;
+        this.showToast('Invitation sent to ' + d.email + ' as ' + label);
+        this.inviteDraft = {};
+        this.setState({ teamAddOpen: false });
+      },
       setAddRole: (e) => { this.addRoleDraft[e.currentTarget.dataset.id] = e.target.value; this.forceUpdate(); },
       addMember: (e) => {
         const id = e.currentTarget.dataset.id;
@@ -2991,6 +3338,7 @@ class Component extends DCLogic {
         amountFont: b.amount ? '500 12px var(--mono)' : 'italic 400 12px var(--sans)',
       })),
       criteria, critDraft: st.critDraft, compPanels,
+      ...this.positionVals(totT, totB),
 
       // strategy
       stratNav, stratPanelTitle, stratPanelSub,
