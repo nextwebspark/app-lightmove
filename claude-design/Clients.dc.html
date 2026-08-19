@@ -23,13 +23,13 @@
     @keyframes slideIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
   </style>
 </helmet>
-<div data-screen-label="Clients" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
+<div data-screen-label="Clients" style="height:100vh;display:flex;overflow:hidden">
 
-  <header style="height:46px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px;position:relative;z-index:60">
-    <div style="position:relative">
-      <button onClick="{{ toggleWsMenu }}" style="display:flex;align-items:center;gap:8px;padding:5px 10px 5px 6px;border-radius:8px;background:none;border:none;cursor:pointer;color:var(--text)" style-hover="background:var(--panel2)">
-        <span style="width:22px;height:22px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
-        <span style="font:600 13px var(--mono);letter-spacing:.02em">LightMove</span>
+    <nav style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s ease">
+      <div style="position:relative;margin:0 2px 12px">
+      <button onClick="{{ toggleWsMenu }}" style="display:flex;align-items:center;gap:8px;padding:4px 6px 4px 4px;border-radius:7px;background:none;border:none;cursor:pointer;color:var(--text)" style-hover="background:var(--panel2)">
+        <span style="width:24px;height:24px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 12px var(--sans);flex:none">L</span>
+        <span style="display:{{ labelDisp }};font:700 14px var(--sans);letter-spacing:.01em;white-space:nowrap">LightMove</span>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
       </button>
       <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
@@ -56,15 +56,7 @@
           </a>
         </div>
       </sc-if>
-    </div>
-    <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
-      <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky)">YH</span>
-    </div>
-  </header>
-
-  <div style="flex:1;display:flex;gap:14px;padding:0 14px 14px;min-height:0">
-
-    <nav style="width:{{ sideWidth }};flex:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 8px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s ease">
+      </div>
       <div style="display:{{ groupDisp }};font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:0 10px 6px">Projects</div>
       <sc-for list="{{ projNav }}" as="it" hint-placeholder-count="2">
         <a href="{{ it.href }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }};text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
@@ -93,21 +85,23 @@
       </div>
     </nav>
 
-    <main style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow-y:auto;min-width:0">
-      <div style="max-width:1440px;padding:26px 32px 60px">
-
-        <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:18px">
-          <div>
-            <div style="font:600 19px/1.2 var(--sans)">Clients</div>
-            <div style="color:var(--text3);font:400 12px var(--mono);margin-top:4px">{{ pageSub }}</div>
-          </div>
-          <div style="margin-left:auto">
-            <button onClick="{{ openModal }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
-              New client
-            </button>
-          </div>
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0;padding:10px 10px 10px 0">
+    <main style="flex:1;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:15px;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+      <div style="flex:none;display:flex;align-items:center;gap:18px;padding:14px 32px;border-bottom:1px solid var(--line)">
+        <div style="min-width:0">
+          <div style="font:700 20px var(--sans);letter-spacing:-.01em">Clients</div>
+          <div style="color:var(--text3);font:400 12px var(--mono);margin-top:3px">{{ pageSub }}</div>
         </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+          <button onClick="{{ openModal }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
+            New client
+          </button>
+          <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky)">YH</span>
+        </div>
+      </div>
+      <div style="flex:1;overflow-y:auto;min-height:0">
+      <div style="max-width:1440px;padding:22px 32px 60px">
 
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 11px;width:300px">
@@ -173,8 +167,9 @@
         </sc-if>
 
       </div>
+      </div>
     </main>
-  </div>
+    </div>
 
   <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;background:rgba(15,20,30,.4);z-index:90"></div>
@@ -621,7 +616,7 @@ class Component extends DCLogic {
   }
 
   componentDidMount() {
-    try { if (localStorage.getItem('lm-theme') === 'dark') { document.body.classList.add('dark'); this.setState({ dark: true }); } } catch (e) {}
+    try { if (localStorage.getItem('lm-theme') !== 'light') { document.body.classList.add('dark'); this.setState({ dark: true }); } } catch (e) {}
     this._esc = (e) => {
       if (e.key !== 'Escape') return;
       if (this.state.repMenu) { this.setState({ repMenu: null, repConfirm: '' }); return; }
