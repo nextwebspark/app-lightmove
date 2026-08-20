@@ -22,12 +22,13 @@
     @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   </style>
 </helmet>
-<div data-screen-label="Settings" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
+<div data-screen-label="Settings" style="height:100vh;display:flex;overflow:hidden">
 
-  <header style="height:46px;flex:none;display:flex;align-items:center;gap:8px;padding:0 14px;position:relative;z-index:60">
-    <div style="position:relative">
-      <button onClick="{{ toggleWsMenu }}" title="LightMove workspace" style="display:flex;align-items:center;gap:4px;padding:4px 5px 4px 4px;border-radius:7px;background:none;border:none;cursor:pointer;color:var(--text)" style-hover="background:var(--panel2)">
-        <span style="width:22px;height:22px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
+    <nav style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s ease">
+      <div style="position:relative;margin:0 2px 12px">
+      <button onClick="{{ toggleWsMenu }}" title="LightMove workspace" style="display:flex;align-items:center;gap:8px;padding:4px 6px 4px 4px;border-radius:7px;background:none;border:none;cursor:pointer;color:var(--text)" style-hover="background:var(--panel2)">
+        <span style="width:24px;height:24px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 12px var(--sans);flex:none">L</span>
+        <span style="display:{{ labelDisp }};font:700 14px var(--sans);letter-spacing:.01em;white-space:nowrap">LightMove</span>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
       </button>
       <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
@@ -54,20 +55,7 @@
           </a>
         </div>
       </sc-if>
-    </div>
-    <a href="Workspace.dc.html" style="font:500 13px var(--mono);color:var(--text3);text-decoration:none;padding:4px 7px;border-radius:6px;white-space:nowrap" style-hover="color:var(--text);background:var(--panel2);text-decoration:none">Workspace</a>
-    <span style="color:var(--text3);opacity:.4;font-size:12px">/</span>
-    <span style="color:var(--text);font:600 14px var(--sans);white-space:nowrap">Settings</span>
-    <span style="color:var(--text3);opacity:.4;font-size:12px">/</span>
-    <span style="color:var(--text2);font:500 13px var(--mono);white-space:nowrap">{{ sectionLabel }}</span>
-    <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
-      <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky)">YH</span>
-    </div>
-  </header>
-
-  <div style="flex:1;display:flex;gap:14px;padding:0 14px 14px;min-height:0">
-
-    <nav style="width:{{ sideWidth }};flex:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 8px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s ease">
+      </div>
       <a href="Workspace.dc.html" title="Back to workspace" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:500 13px var(--sans);color:var(--text2);text-decoration:none;margin-bottom:6px" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
         <span style="display:{{ labelDisp }};white-space:nowrap">Back to workspace</span>
@@ -94,8 +82,23 @@
       </div>
     </nav>
 
-    <main style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow-y:auto;min-width:0">
-      <div style="max-width:760px;padding:26px 32px 60px">
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0;padding:10px 10px 10px 0">
+    <main style="flex:1;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:15px;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+      <div style="flex:none;display:flex;align-items:center;gap:18px;padding:16px 32px 14px;border-bottom:1px solid var(--line)">
+        <div style="min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;font:500 12px var(--sans);color:var(--text3)">
+            <a href="Workspace.dc.html" style="color:var(--text3);text-decoration:none" style-hover="color:var(--text);text-decoration:none">Workspace</a>
+            <span style="opacity:.5">/</span>
+            <span style="white-space:nowrap">{{ sectionLabel }}</span>
+          </div>
+          <div style="font:700 20px var(--sans);letter-spacing:-.01em;margin-top:5px;white-space:nowrap">Settings</div>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+          <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky)">YH</span>
+        </div>
+      </div>
+      <div style="flex:1;overflow-y:auto;min-height:0">
+      <div style="max-width:760px;padding:22px 32px 60px">
 
         <!-- ============ PROFILE ============ -->
         <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ true }}">
@@ -387,8 +390,9 @@
         </sc-if>
 
       </div>
+      </div>
     </main>
-  </div>
+    </div>
 
   <sc-if value="{{ toastVisible }}" hint-placeholder-val="{{ false }}">
     <div style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);z-index:120;animation:fadeUp .2s ease both">{{ toastMsg }}</div>
@@ -425,7 +429,7 @@ class Component extends DCLogic {
 
   componentDidMount() {
     try {
-      if (localStorage.getItem('lm-theme') === 'dark') { document.body.classList.add('dark'); this.setState({ dark: true }); }
+      if (localStorage.getItem('lm-theme') !== 'light') { document.body.classList.add('dark'); this.setState({ dark: true }); }
     } catch (e) {}
   }
 

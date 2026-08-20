@@ -26,12 +26,13 @@
     @keyframes pdspin{to{transform:rotate(360deg)}}
   </style>
 </helmet>
-<div data-screen-label="Project" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
+<div data-screen-label="Project" style="height:100vh;display:flex;overflow:hidden">
 
-  <header style="height:46px;flex:none;display:flex;align-items:center;gap:8px;padding:0 14px;position:relative;z-index:60">
-    <div style="position:relative">
-      <button onClick="{{ toggleWsMenu }}" title="LightMove workspace" style="display:flex;align-items:center;gap:4px;padding:4px 5px 4px 4px;border-radius:7px;background:none;border:none;cursor:pointer;color:var(--text)" style-hover="background:var(--panel2)">
-        <span style="width:22px;height:22px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
+    <nav style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s ease">
+      <div style="position:relative;margin:0 2px 12px">
+      <button onClick="{{ toggleWsMenu }}" title="LightMove workspace" style="display:flex;align-items:center;gap:8px;padding:4px 6px 4px 4px;border-radius:7px;background:none;border:none;cursor:pointer;color:var(--text)" style-hover="background:var(--panel2)">
+        <span style="width:24px;height:24px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 12px var(--sans);flex:none">L</span>
+        <span style="display:{{ labelDisp }};font:700 14px var(--sans);letter-spacing:.01em;white-space:nowrap">LightMove</span>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
       </button>
       <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
@@ -58,25 +59,7 @@
           </a>
         </div>
       </sc-if>
-    </div>
-    <a href="Workspace.dc.html" style="font:500 13px var(--mono);color:var(--text3);text-decoration:none;padding:4px 7px;border-radius:6px;white-space:nowrap" style-hover="color:var(--text);background:var(--panel2);text-decoration:none">Projects</a>
-    <span style="color:var(--text3);opacity:.4;font-size:12px">/</span>
-    <span style="width:9px;height:9px;border-radius:3px;background:var(--sky);flex:none"></span>
-    <span style="color:var(--text2);font:500 13px var(--mono);white-space:nowrap">Meridian Energy Group</span>
-    <span style="color:var(--text3);opacity:.4;font-size:12px">/</span>
-    <span style="color:var(--text);font:600 14px var(--sans);white-space:nowrap">Chief Financial Officer</span>
-    <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
-      <span style="display:flex">
-        <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky);border:2px solid var(--bg)">YH</span>
-        <span title="Yousef Iman" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--amber-dim);color:var(--amber);border:2px solid var(--bg);margin-left:-8px">YI</span>
-        <span title="Omar Khalil" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--red-dim);color:var(--red);border:2px solid var(--bg);margin-left:-8px">OK</span>
-      </span>
-    </div>
-  </header>
-
-  <div style="flex:1;display:flex;gap:14px;padding:0 14px 14px;min-height:0">
-
-    <nav style="width:{{ sideWidth }};flex:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 8px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s ease">
+      </div>
       <a href="Workspace.dc.html" title="All projects" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:500 13px var(--sans);color:var(--text2);text-decoration:none;margin-bottom:6px" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
         <span style="display:{{ labelDisp }};white-space:nowrap">All projects</span>
@@ -115,23 +98,36 @@
       </div>
     </nav>
 
-    <main style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow-y:auto;min-width:0">
-      <div style="max-width:1440px;padding:26px 32px 60px">
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0;padding:10px 10px 10px 0">
+    <main style="flex:1;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:15px;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+      <div style="flex:none;display:flex;align-items:center;gap:18px;padding:16px 32px 14px;border-bottom:1px solid var(--line)">
+        <div style="min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;font:500 12px var(--sans);color:var(--text3)">
+            <a href="Workspace.dc.html" style="color:var(--text3);text-decoration:none" style-hover="color:var(--text);text-decoration:none">Projects</a>
+            <span style="opacity:.5">/</span>
+            <span style="width:8px;height:8px;border-radius:3px;background:var(--sky);flex:none"></span>
+            <span style="white-space:nowrap">Meridian Energy Group</span>
+          </div>
+          <div style="font:700 20px var(--sans);color:var(--text);letter-spacing:-.01em;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Chief Financial Officer</div>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+          <span style="display:flex">
+            <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky);border:2px solid var(--panel)">YH</span>
+            <span title="Yousef Iman" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--amber-dim);color:var(--amber);border:2px solid var(--panel);margin-left:-8px">YI</span>
+            <span title="Omar Khalil" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--red-dim);color:var(--red);border:2px solid var(--panel);margin-left:-8px">OK</span>
+          </span>
+        </div>
+      </div>
+      <div style="flex:1;overflow-y:auto;min-height:0">
+      <div style="max-width:1440px;padding:22px 32px 60px">
 
         <!-- ================= POSITION ================= -->
         <sc-if value="{{ isPosition }}" hint-placeholder-val="{{ true }}">
           <div data-screen-label="Position" style="animation:fadeUp .4s ease both">
 
-            <div style="display:flex;align-items:flex-start;gap:18px;margin-bottom:22px">
-              <div style="flex:1;min-width:0">
-                <div style="font:700 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin-bottom:7px">Define position profile</div>
-                <div style="font:700 22px var(--sans);color:var(--text);letter-spacing:-.01em">{{ posTitle }}</div>
-                <div style="font:400 12.5px var(--mono);color:var(--text3);margin-top:5px">Meridian Energy Group · {{ posDepartment }} · {{ posLocation }}</div>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px;flex:none">
+            <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:18px">
                 <button onClick="{{ toggleConf }}" title="Click to toggle confidentiality" style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:6px;font:600 10.5px var(--mono);letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;cursor:pointer;color:{{ confColor }};background:{{ confBg }};border:1px solid {{ confBorder }}">{{ confLabel }}</button>
                 <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:6px;font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;color:{{ lockBadgeColor }};background:{{ lockBadgeBg }};border:1px solid {{ lockBadgeBorder }}">{{ lockBadgeLabel }}</span>
-              </div>
             </div>
 
             <div style="display:flex;flex-wrap:wrap;gap:22px;align-items:flex-start">
@@ -147,10 +143,14 @@
                   <div style="display:flex;flex-direction:column;gap:20px">
                     <input type="file" ref="{{ pdInputRef }}" accept=".pdf,.doc,.docx" onChange="{{ onPdChosen }}" style="display:none">
                     <sc-if value="{{ pdEmpty }}" hint-placeholder-val="{{ false }}">
-                      <div onClick="{{ pdBrowse }}" style="border:1.5px dashed var(--sky);border-radius:12px;padding:38px 24px;text-align:center;cursor:pointer;background:var(--sky-dim)" style-hover="filter:brightness(1.03)">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--sky)"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg>
-                        <div style="font:600 15px var(--sans);color:var(--sky);margin-top:10px">Drop a position description to auto-fill fields</div>
-                        <div style="font:400 12.5px var(--sans);color:var(--text3);margin-top:5px">Title, department, responsibilities, seniority, location and package are extracted automatically — PDF or Word</div>
+                      <div onClick="{{ pdBrowse }}" style="border:1.5px dashed var(--sky);border-radius:12px;padding:24px;min-height:140px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;cursor:pointer;background:var(--panel2)" style-hover="filter:brightness(1.06)">
+                        <span style="width:40px;height:40px;border-radius:50%;background:var(--sky-dim);display:grid;place-items:center;flex:none">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sky)" stroke-width="2"><path d="M12 13v8m0-8-3 3m3-3 3 3M20 16.7A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9"></path></svg>
+                        </span>
+                        <div style="display:flex;flex-direction:column;gap:4px">
+                          <div style="font:600 15px var(--sans);color:var(--sky)">Drop a position description to auto-fill fields</div>
+                          <div style="font:400 12px var(--sans);color:var(--text3)">Title, department, responsibilities, seniority, location and package are extracted automatically (PDF, Word)</div>
+                        </div>
                       </div>
                     </sc-if>
                     <sc-if value="{{ pdPresent }}" hint-placeholder-val="{{ true }}">
@@ -179,14 +179,14 @@
 
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px 18px">
                       <div>
-                        <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Role title</label>
+                        <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Role title</label>
                         <div style="position:relative">
                           <input value="{{ posTitle }}" onInput="{{ onPosField }}" data-field="title" placeholder="e.g. Chief Financial Officer" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:500 13.5px var(--sans);color:var(--text);outline:none;padding-right:34px" style-focus="border-color:var(--sky)">
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;right:11px;top:11px;color:{{ titleCheckColor }}"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12.2 2.3 2.3 4.7-4.7"></path></svg>
                         </div>
                       </div>
                       <div>
-                        <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Department</label>
+                        <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Department</label>
                         <div style="position:relative">
                           <input value="{{ posDepartment }}" onInput="{{ onPosField }}" data-field="department" placeholder="e.g. Group Finance" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:500 13.5px var(--sans);color:var(--text);outline:none;padding-right:34px" style-focus="border-color:var(--sky)">
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;right:11px;top:11px;color:{{ deptCheckColor }}"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12.2 2.3 2.3 4.7-4.7"></path></svg>
@@ -196,17 +196,17 @@
 
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px 18px">
                       <div>
-                        <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Location</label>
+                        <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Location</label>
                         <input value="{{ posLocation }}" onInput="{{ onPosField }}" data-field="location" placeholder="e.g. Abu Dhabi, UAE" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:500 13.5px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                       </div>
                       <div>
-                        <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Employment type</label>
+                        <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Employment type</label>
                         <select value="{{ posEmploymentType }}" onChange="{{ onPosField }}" data-field="employmentType" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:500 13.5px var(--sans);color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--sky)">
                           <option>Full-time, permanent</option><option>Full-time, fixed-term</option><option>Part-time</option><option>Interim / contract</option><option>Advisory</option>
                         </select>
                       </div>
                       <div>
-                        <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Seniority</label>
+                        <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Seniority</label>
                         <select value="{{ posSeniority }}" onChange="{{ onPosField }}" data-field="seniority" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:500 13.5px var(--sans);color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--sky)">
                           <option>C-suite</option><option>N-1</option><option>N-2</option><option>N-3</option>
                         </select>
@@ -214,11 +214,11 @@
                     </div>
 
                     <div>
-                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Key responsibilities</label>
+                      <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Key responsibilities</label>
                       <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px 18px">
                         <div style="display:flex;flex-wrap:wrap;gap:8px">
                           <sc-for list="{{ respChips }}" as="r" hint-placeholder-count="4">
-                            <span style="display:inline-flex;align-items:center;gap:7px;padding:6px 8px 6px 12px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font:500 12.5px var(--sans);color:var(--text2)">
+                            <span style="display:inline-flex;align-items:center;gap:7px;padding:6px 8px 6px 10px;border-radius:4px;background:var(--panel);border:1px solid var(--line);font:600 12px var(--sans);color:var(--text2)">
                               {{ r.label }}
                               <button onClick="{{ rmResp }}" data-idx="{{ r.idx }}" title="Remove" style="background:none;border:none;padding:0 2px;color:var(--text3);cursor:pointer;font-size:12px;line-height:1" style-hover="color:var(--red)">✕</button>
                             </span>
@@ -226,13 +226,13 @@
                         </div>
                         <div style="display:flex;gap:8px;margin-top:14px">
                           <input value="{{ respDraft }}" onInput="{{ onRespDraft }}" onKeyDown="{{ respEnter }}" placeholder="Add a responsibility…" style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                          <button onClick="{{ addResp }}" style="padding:7px 14px;border-radius:8px;font:500 12.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer;flex:none" style-hover="color:var(--text);border-color:var(--text3)">Add</button>
+                          <button onClick="{{ addResp }}" style="padding:7px 14px;border-radius:4px;font:600 12px var(--sans);border:1px dashed var(--line);color:var(--sky);background:none;cursor:pointer;flex:none" style-hover="border-color:var(--sky)">+ Add custom</button>
                         </div>
                       </div>
                     </div>
 
                     <div>
-                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Ideal profile — drafted from the brief</label>
+                      <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Ideal profile — drafted from the brief</label>
                       <textarea value="{{ posNarrative }}" onInput="{{ onNarrative }}" style="width:100%;min-height:104px;background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:14px 16px;font:400 13.5px var(--sans);color:var(--text2);line-height:1.65;outline:none;resize:vertical" style-focus="border-color:var(--sky)"></textarea>
                     </div>
                   </div>
@@ -242,17 +242,17 @@
                 <sc-if value="{{ isStep2 }}" hint-placeholder-val="{{ false }}">
                   <div style="display:flex;flex-direction:column;gap:20px">
                     <div>
-                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Reason for hire</label>
+                      <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Reason for hire</label>
                       <select value="{{ posMandateReason }}" onChange="{{ onMandateReason }}" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:500 13.5px var(--sans);color:var(--text);outline:none;cursor:pointer" style-focus="border-color:var(--sky)">
                         <option>New role</option><option>Backfill</option><option>Restructure</option><option>Succession plan</option><option>Growth / expansion</option>
                       </select>
                     </div>
                     <div>
-                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Business driver</label>
+                      <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Business driver</label>
                       <textarea value="{{ posBusinessDriver }}" onInput="{{ onPosField }}" data-field="businessDriver" rows="2" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:11px 13px;font:400 13.5px var(--sans);color:var(--text);line-height:1.55;outline:none;resize:vertical" style-focus="border-color:var(--sky)"></textarea>
                     </div>
                     <div>
-                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Strategic priority alignment</label>
+                      <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Strategic priority alignment</label>
                       <div style="display:flex;flex-wrap:wrap;gap:8px">
                         <sc-for list="{{ prioChips }}" as="p" hint-placeholder-count="5">
                           <button onClick="{{ togglePrio }}" data-idx="{{ p.idx }}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 13px;border-radius:8px;cursor:pointer;font:600 12.5px var(--sans);color:{{ p.color }};background:{{ p.bg }};border:1px solid {{ p.border }}">{{ p.label }}</button>
@@ -260,7 +260,7 @@
                       </div>
                     </div>
                     <div>
-                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Hiring urgency</label>
+                      <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Hiring urgency</label>
                       <div style="display:flex;gap:4px;padding:4px;border-radius:9px;background:var(--panel2);border:1px solid var(--line-soft)">
                         <sc-for list="{{ urgencyOpts }}" as="u" hint-placeholder-count="3">
                           <button onClick="{{ setUrgency }}" data-val="{{ u.label }}" style="flex:1;padding:9px 10px;border-radius:7px;border:1px solid {{ u.border }};cursor:pointer;font:600 12.5px var(--sans);color:{{ u.color }};background:{{ u.bg }}">{{ u.label }}</button>
@@ -268,7 +268,7 @@
                       </div>
                     </div>
                     <div>
-                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Confidentiality level</label>
+                      <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Confidentiality level</label>
                       <div style="display:flex;gap:10px">
                         <sc-for list="{{ confOpts }}" as="c" hint-placeholder-count="2">
                           <button onClick="{{ setConf }}" data-val="{{ c.val }}" style="flex:1;display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:9px;cursor:pointer;text-align:left;background:{{ c.bg }};border:1px solid {{ c.border }}">
@@ -282,7 +282,7 @@
                       </div>
                     </div>
                     <div>
-                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Additional context — internal only</label>
+                      <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Additional context — internal only</label>
                       <textarea value="{{ posInternalContext }}" onInput="{{ onInternalContext }}" rows="6" placeholder="Culture, stakeholder dynamics, onboarding timelines, anything sensitive the hiring manager shared…" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;font:400 13px var(--sans);color:var(--text2);line-height:1.6;outline:none;resize:vertical" style-focus="border-color:var(--sky)"></textarea>
                     </div>
                   </div>
@@ -292,7 +292,7 @@
                 <sc-if value="{{ isStep3 }}" hint-placeholder-val="{{ false }}">
                   <div style="display:flex;flex-direction:column;gap:20px">
                     <div>
-                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Reports to</label>
+                      <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Reports to</label>
                       <div style="display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 14px">
                         <span style="width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--sky-dim);color:var(--sky);font:600 11px var(--mono)">{{ reportsToInitials }}</span>
                         <input value="{{ posReportsToName }}" onInput="{{ onReportsToName }}" placeholder="Name" style="flex:1;min-width:0;background:none;border:none;outline:none;font:600 13.5px var(--sans);color:var(--text)">
@@ -301,7 +301,7 @@
                     </div>
 
                     <div>
-                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Visual org chart</label>
+                      <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Visual org chart</label>
                       <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:26px 18px 22px">
                         <div style="display:flex;flex-direction:column;align-items:center">
                           <div style="background:var(--panel);border:1px solid var(--line-soft);border-radius:9px;padding:10px 14px;min-width:190px;max-width:230px">
@@ -352,11 +352,11 @@
 
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px 18px">
                       <div>
-                        <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Target start</label>
+                        <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Target start</label>
                         <input value="{{ posStartTarget }}" onInput="{{ onPosField }}" data-field="startTarget" placeholder="e.g. 15 Sep 2026" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:500 13.5px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                       </div>
                       <div>
-                        <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Notice period to plan for</label>
+                        <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Notice period to plan for</label>
                         <div style="display:flex;gap:8px">
                           <input value="{{ posNoticeNum }}" onInput="{{ onPosField }}" data-field="noticeNum" placeholder="3" style="width:70px;flex:none;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                           <select value="{{ posNoticeUnit }}" onChange="{{ onPosField }}" data-field="noticeUnit" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:500 13.5px var(--sans);color:var(--text);outline:none;cursor:pointer;flex:1" style-focus="border-color:var(--sky)">
@@ -372,7 +372,7 @@
                 <sc-if value="{{ isStep4 }}" hint-placeholder-val="{{ false }}">
                   <div style="display:flex;flex-direction:column;gap:20px">
                     <div>
-                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Base salary</label>
+                      <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Base salary</label>
                       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 12px">
                         <select value="{{ posCurrency }}" onChange="{{ onPosField }}" data-field="currency" style="flex:none;background:var(--panel);border:1px solid var(--line-soft);border-radius:6px;padding:6px 8px;font:700 11.5px var(--mono);color:var(--text2);cursor:pointer;outline:none">
                           <option>AED</option><option>USD</option><option>SAR</option><option>QAR</option><option>KWD</option><option>GBP</option><option>EUR</option>
@@ -400,7 +400,7 @@
                     </div>
 
                     <div>
-                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Annual bonus target</label>
+                      <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Annual bonus target</label>
                       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 12px">
                         <input value="{{ posBonusNum }}" onInput="{{ onPosField }}" data-field="bonusNum" placeholder="40" style="width:64px;flex:none;background:var(--panel);border:1px solid var(--line-soft);border-radius:6px;padding:7px 10px;font:600 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                         <select value="{{ posBonusType }}" onChange="{{ onPosField }}" data-field="bonusType" style="flex:none;max-width:200px;background:var(--panel);border:1px solid var(--line-soft);border-radius:6px;padding:7px 10px;font:400 12.5px var(--mono);color:var(--text2);outline:none;cursor:pointer">
@@ -411,7 +411,7 @@
                     </div>
 
                     <div>
-                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Long-term incentive</label>
+                      <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Long-term incentive</label>
                       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 12px">
                         <select value="{{ posEquityType }}" onChange="{{ onPosField }}" data-field="equityType" style="flex:none;background:var(--sky-dim);border:1px solid var(--sky);border-radius:6px;padding:6px 9px;font:700 11.5px var(--mono);color:var(--sky);cursor:pointer;outline:none">
                           <option>LTIP cash</option><option>RSUs</option><option>Options</option><option>Phantom equity</option>
@@ -422,7 +422,7 @@
                     </div>
 
                     <div>
-                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Benefits &amp; allowances</label>
+                      <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Benefits &amp; allowances</label>
                       <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;overflow:hidden">
                         <div style="display:grid;grid-template-columns:minmax(0,1fr) 130px 150px 30px;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line-soft);font:600 10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">
                           <span>Benefit</span><span>Amount</span><span>Frequency</span><span></span>
@@ -505,7 +505,7 @@
                     </sc-for>
 
                     <div>
-                      <label style="display:block;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Screening criteria — required narrows the field, preferred breaks ties</label>
+                      <label style="display:block;font:600 12px var(--sans);letter-spacing:.02em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">Screening criteria — required narrows the field, preferred breaks ties</label>
                       <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px 18px">
                         <sc-for list="{{ criteria }}" as="c" hint-placeholder-count="3">
                           <div style="display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line-soft)">
@@ -583,8 +583,8 @@
 
               <aside style="position:sticky;top:0;flex:1 1 280px;max-width:340px;min-width:0;order:2;background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:16px">
                 <div style="display:flex;align-items:center;gap:10px">
-                  <span style="font:700 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text2)">Profile summary</span>
-                  <span style="margin-left:auto;padding:3px 9px;border-radius:999px;font:600 11px var(--mono);color:{{ doneColor }};background:{{ doneBg }};border:1px solid {{ doneColor }}">{{ donePct }} done</span>
+                  <span style="font:700 13px var(--sans);letter-spacing:.07em;text-transform:uppercase;color:var(--text)">Profile summary</span>
+                  <span style="margin-left:auto;padding:3px 9px;border-radius:999px;font:600 11px var(--mono);color:{{ doneColor }};background:{{ doneBg }};border:1px solid {{ doneColor }}">{{ donePct }} Done</span>
                 </div>
                 <div style="display:flex;gap:4px;margin:14px 0 16px">
                   <sc-for list="{{ railSegs }}" as="g" hint-placeholder-count="6">
@@ -603,7 +603,7 @@
                     </button>
                   </sc-for>
                 </div>
-                <button onClick="{{ posPublish }}" style="width:100%;margin-top:16px;padding:11px;border-radius:9px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">{{ publishLabel }}</button>
+                <button onClick="{{ posPublish }}" style="width:100%;margin-top:16px;padding:11px;border-radius:9px;font:600 13.5px var(--sans);background:var(--sky);border:1px solid var(--sky);color:#0c0d0e;cursor:pointer" style-hover="filter:brightness(1.08)">{{ publishLabel }}</button>
                 <button onClick="{{ posSaveDraft }}" style="width:100%;margin-top:8px;padding:10px;border-radius:9px;font:600 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Save draft</button>
               </aside>
             </div>
@@ -612,83 +612,113 @@
 
         <!-- ================= STRATEGY ================= -->
         <sc-if value="{{ isStrategy }}" hint-placeholder-val="{{ false }}">
-          <div data-screen-label="Strategy" style="animation:fadeUp .4s ease both">
-            <div style="margin-bottom:20px">
-              <span style="display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:6px;font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--green);border:1px solid var(--green)">
-                <span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>
-                Live criteria
-              </span>
-              <div style="font:600 19px/1.2 var(--sans);margin-top:10px">Strategy</div>
-              <p style="color:var(--text2);font-size:13px;max-width:680px;margin:4px 0 0">Single source of truth for the sourcing scope. Always editable — changes affect what Sourcing shows going forward, never companies already added to the universe.</p>
-            </div>
-            <div style="display:flex;align-items:center;gap:14px;padding:12px 18px;border-radius:10px;background:var(--panel2);border:1px solid var(--line-soft);margin-bottom:18px">
-              <div style="font:700 26px var(--mono);color:var(--amber);min-width:52px">{{ liveMatchCount }}</div>
-              <div style="flex:1">
-                <div style="font:600 13px var(--sans)">companies match the current criteria</div>
-                <div style="font:400 11px var(--mono);color:var(--text3);margin-top:1px">updates live as you edit · Sourcing reads these criteria directly</div>
-              </div>
-              <button onClick="{{ goToSourcing }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer;flex:none" style-hover="filter:brightness(1.05)">
-                Go to sourcing
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+          <div data-screen-label="Strategy" style="animation:fadeUp .4s ease both;display:flex;flex-direction:column;margin:-22px -32px -60px;height:calc(100vh - 98px);min-height:520px">
+
+            <div style="flex:none;display:flex;align-items:center;gap:14px;padding:6px 20px;min-height:44px;background:var(--panel2);border-bottom:1px solid var(--line-soft)">
+              <button onClick="{{ sgSaveSearch }}" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font:400 13px var(--sans);color:var(--text3);padding:4px 0;white-space:nowrap" style-hover="color:var(--text)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" style="flex:none"><path d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1Z"></path></svg>
+                Save Search
               </button>
+              <button onClick="{{ sgToggleFilters }}" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font:400 13px var(--sans);color:var(--text3);padding:8px;border-radius:6px;white-space:nowrap" style-hover="color:var(--text);background:var(--panel)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z"></path></svg>
+                {{ sgFiltersLabel }}
+                <span style="font:700 10px var(--sans);color:var(--sky);background:var(--sky-dim);border-radius:4px;padding:2px 5px">{{ sgActiveCount }}</span>
+              </button>
+              <button onClick="{{ sgAiResearch }}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:6px;border:1px solid #4f46e5;background:linear-gradient(90deg,#6366f1,#3b82f6);color:#fff;font:600 13px var(--sans);cursor:pointer;white-space:nowrap;box-shadow:0 4px 12px -2px rgba(0,0,0,.15)" style-hover="filter:brightness(1.07)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg>
+                AI Research
+              </button>
+              <div style="display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:6px;padding:8px 12px;width:240px;flex:none">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                <input value="{{ sgQ }}" onInput="{{ sgSearch }}" placeholder="Search companies..." style="background:none;border:none;outline:none;width:100%;font:400 13px var(--sans);color:var(--text)">
+              </div>
+              <div style="margin-left:auto;display:flex;align-items:center;gap:13px">
+                <button style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;background:var(--panel2);border:1px solid var(--line-soft);font:400 13px var(--sans);color:var(--text3);cursor:pointer;white-space:nowrap" style-hover="color:var(--text);border-color:var(--line)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M15 12H3M17 18H3M21 6H3"></path></svg>
+                  Group
+                </button>
+                <button style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;background:var(--panel2);border:1px solid var(--line-soft);font:400 13px var(--sans);color:var(--text3);cursor:pointer;white-space:nowrap" style-hover="color:var(--text);border-color:var(--line)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"></path></svg>
+                  Columns
+                </button>
+                <button onClick="{{ sgAddAll }}" style="background:none;border:none;cursor:pointer;font:400 13px var(--sans);color:var(--text3);white-space:nowrap" style-hover="color:var(--text)">Add all to Universe  →</button>
+              </div>
             </div>
-            <div style="display:grid;grid-template-columns:250px 1fr;gap:16px;align-items:start">
-              <nav style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:8px;position:sticky;top:0">
-                <sc-for list="{{ stratNav }}" as="grp" hint-placeholder-count="2">
-                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);padding:12px 10px 6px">{{ grp.group }}</div>
-                  <sc-for list="{{ grp.items }}" as="it" hint-placeholder-count="3">
-                    <button onClick="{{ setStratSection }}" data-sec="{{ it.key }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border-radius:8px;font:500 13px var(--sans);color:{{ it.color }};background:{{ it.bg }};border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel)">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
-                      <span style="flex:1">{{ it.label }}</span>
-                      <span style="font:600 10.5px var(--mono);color:{{ it.badgeColor }};background:var(--panel);border:1px solid {{ it.badgeBorder }};border-radius:999px;padding:1px 7px;flex:none">{{ it.count }}</span>
+
+            <div style="flex:1;display:flex;min-height:0">
+              <sc-if value="{{ sgShowFilters }}" hint-placeholder-val="{{ true }}">
+                <div style="width:340px;flex:none;border-right:1px solid var(--line-soft);overflow-y:auto">
+                  <sc-for list="{{ sgFilterRows }}" as="f" hint-placeholder-count="6">
+                    <button onClick="{{ sgToggleOpen }}" data-key="{{ f.key }}" style="display:flex;align-items:center;gap:8px;width:100%;height:52px;padding:12px 16px;background:none;border:none;border-bottom:1px solid var(--line-soft);cursor:pointer;text-align:left" style-hover="background:var(--panel2)">
+                      <span style="font:500 13px var(--sans);color:var(--text);white-space:nowrap">{{ f.label }}</span>
+                      <span style="margin-left:auto;display:flex;align-items:center;gap:4px;overflow:hidden">
+                        <sc-for list="{{ f.tags }}" as="t" hint-placeholder-count="2">
+                          <span style="font:700 10px var(--sans);color:var(--sky);background:var(--sky-dim);border-radius:4px;padding:2px 5px;white-space:nowrap">{{ t }}</span>
+                        </sc-for>
+                      </span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none"><path d="{{ f.chev }}"></path></svg>
                     </button>
+                    <sc-if value="{{ f.open }}" hint-placeholder-val="{{ false }}">
+                      <div style="padding:16px;border-bottom:1px solid var(--line-soft);background:var(--panel2)">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                          <span style="font:700 12px var(--sans);letter-spacing:.04em;color:var(--text)">{{ f.label }}</span>
+                          <button onClick="{{ sgReset }}" data-key="{{ f.key }}" style="background:none;border:none;cursor:pointer;font:600 11px var(--sans);color:var(--text3)" style-hover="color:var(--text)">Reset</button>
+                        </div>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px">
+                          <sc-for list="{{ f.chips }}" as="c" hint-placeholder-count="5">
+                            <button onClick="{{ sgToggleChip }}" data-key="{{ f.key }}" data-val="{{ c.label }}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;border:1px solid {{ c.border }};background:{{ c.bg }};cursor:pointer" style-hover="border-color:var(--amber)">
+                              <span style="font:600 13px var(--sans);color:var(--text)">{{ c.label }}</span>
+                              <span style="font:600 13px var(--sans);color:var(--amber)">{{ c.count }}</span>
+                            </button>
+                          </sc-for>
+                        </div>
+                      </div>
+                    </sc-if>
                   </sc-for>
-                </sc-for>
-              </nav>
-              <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:18px 20px;min-height:360px">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px">
-                  <span style="font:600 13px var(--sans)">{{ stratPanelTitle }}</span>
-                  <sc-if value="{{ stratShowMode }}" hint-placeholder-val="{{ true }}">
-                    <span style="display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;flex:none">
-                      <button onClick="{{ stratSetMode }}" data-mode="required" style="padding:5px 11px;font:600 11px var(--mono);border:none;cursor:pointer;color:{{ stratReqColor }};background:{{ stratReqBg }}">Required</button>
-                      <button onClick="{{ stratSetMode }}" data-mode="preferred" style="padding:5px 11px;font:600 11px var(--mono);border:none;cursor:pointer;color:{{ stratPrefColor }};background:{{ stratPrefBg }}">Preferred</button>
-                    </span>
-                  </sc-if>
                 </div>
-                <div style="font:400 11.5px var(--mono);color:var(--text3);margin:4px 0 6px">{{ stratPanelSub }}</div>
-                <sc-if value="{{ stratIsChips }}" hint-placeholder-val="{{ true }}">
-                  <sc-for list="{{ stratGroups }}" as="grp" hint-placeholder-count="2">
-                    <div style="display:flex;align-items:baseline;gap:8px;margin:16px 0 8px">
-                      <span style="font:700 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:{{ grp.labelColor }}">{{ grp.label }}</span>
-                      <span style="font:400 11.5px var(--mono);color:var(--text3)">{{ grp.desc }}</span>
-                    </div>
-                    <div style="display:flex;flex-wrap:wrap;gap:8px">
-                      <sc-for list="{{ grp.chips }}" as="c" hint-placeholder-count="4">
-                        <button onClick="{{ stratToggleChip }}" data-cat="{{ c.cat }}" data-val="{{ c.label }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:999px;border:1px solid {{ c.border }};background:var(--panel);font:500 13px var(--sans);color:{{ c.color }};cursor:pointer" style-hover="border-color:var(--text3)">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="flex:none;color:{{ c.iconColor }}"><path d="{{ c.iconPath }}"></path></svg>
-                          {{ c.label }}
-                        </button>
-                      </sc-for>
-                    </div>
-                  </sc-for>
-                </sc-if>
-                <sc-if value="{{ stratIsList }}" hint-placeholder-val="{{ false }}">
-                  <div style="display:flex;gap:8px;margin:14px 0 10px">
-                    <input onKeyDown="{{ stratManualKey }}" placeholder="Company name…" style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                    <button onClick="{{ stratManualAdd }}" style="display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Add</button>
+              </sc-if>
+
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;padding:20px">
+                <div style="flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:8px;overflow:hidden">
+                  <div style="flex:none;display:grid;grid-template-columns:minmax(150px,1.6fr) 44px minmax(96px,1fr) minmax(120px,1.2fr) minmax(96px,1fr) 84px minmax(130px,1.4fr) 112px;gap:12px;align-items:center;padding:10px 16px;background:var(--panel2);border-bottom:1px solid var(--line)">
+                    <span style="font:600 11px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);white-space:nowrap">Company</span>
+                    <span style="font:600 11px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);white-space:nowrap">Fit</span>
+                    <span style="font:600 11px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);white-space:nowrap">Country</span>
+                    <span style="font:600 11px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);white-space:nowrap">Sector</span>
+                    <span style="font:600 11px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);white-space:nowrap">Revenue</span>
+                    <span style="font:600 11px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);white-space:nowrap">Employees</span>
+                    <span style="font:600 11px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);white-space:nowrap">Notes</span>
+                    <span style="font:600 11px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);white-space:nowrap;text-align:right">Actions</span>
                   </div>
-                  <div style="display:flex;flex-direction:column;gap:6px">
-                    <sc-for list="{{ stratListItems }}" as="it" hint-placeholder-count="2">
-                      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:var(--panel);border:1px solid var(--line-soft);font:500 13px var(--sans);color:{{ it.color }}">
-                        <span>{{ it.name }}</span>
-                        <button onClick="{{ stratManualRm }}" data-idx="{{ $index }}" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;padding:2px 4px" style-hover="color:var(--red)">✕</button>
+                  <div style="flex:1;overflow-y:auto">
+                    <sc-for list="{{ sgRows }}" as="r" hint-placeholder-count="8">
+                      <div style="display:grid;grid-template-columns:minmax(150px,1.6fr) 44px minmax(96px,1fr) minmax(120px,1.2fr) minmax(96px,1fr) 84px minmax(130px,1.4fr) 112px;gap:12px;align-items:center;height:40px;padding:0 16px;border-bottom:1px solid var(--line-soft)" style-hover="background:var(--panel2)">
+                        <span style="font:500 13px var(--sans);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span>
+                        <span style="font:600 13px var(--sans);color:var(--amber)">{{ r.fit }}</span>
+                        <span style="font:400 13px var(--sans);color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.country }}</span>
+                        <span style="font:400 13px var(--sans);color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sector }}</span>
+                        <span style="font:400 13px var(--sans);color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.revenue }}</span>
+                        <span style="font:400 13px var(--sans);color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.employees }}</span>
+                        <span style="font:400 13px var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.note }}</span>
+                        <span style="display:flex;justify-content:flex-end;gap:6px">
+                          <button title="Add to universe" onClick="{{ sgRowAdd }}" data-name="{{ r.name }}" style="width:24px;height:24px;display:grid;place-items:center;border-radius:5px;background:none;border:none;cursor:pointer;color:var(--text3)" style-hover="color:var(--text);background:var(--panel2)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg></button>
+                          <button title="Shortlist" style="width:24px;height:24px;display:grid;place-items:center;border-radius:5px;background:none;border:none;cursor:pointer;color:var(--text3)" style-hover="color:var(--amber);background:var(--panel2)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2Z"></path></svg></button>
+                          <button title="Add note" style="width:24px;height:24px;display:grid;place-items:center;border-radius:5px;background:none;border:none;cursor:pointer;color:var(--text3)" style-hover="color:var(--text);background:var(--panel2)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8ZM14 2v6h6"></path></svg></button>
+                          <button title="More" style="width:24px;height:24px;display:grid;place-items:center;border-radius:5px;background:none;border:none;cursor:pointer;color:var(--text3)" style-hover="color:var(--text);background:var(--panel2)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle></svg></button>
+                        </span>
                       </div>
                     </sc-for>
-                    <sc-if value="{{ stratListEmpty }}" hint-placeholder-val="{{ false }}">
-                      <div style="font:400 12px var(--mono);color:var(--text3);padding:6px 2px">None yet.</div>
-                    </sc-if>
                   </div>
-                </sc-if>
+                </div>
+                <div style="flex:none;display:flex;align-items:center;gap:16px">
+                  <button style="width:32px;height:32px;display:grid;place-items:center;border-radius:6px;border:1px solid var(--line-soft);background:none;cursor:pointer;color:var(--text3)" style-hover="color:var(--text);border-color:var(--line)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"></path></svg></button>
+                  <span style="display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;border:1px solid var(--line-soft);font:600 13px var(--sans);color:var(--text)">
+                    1
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg>
+                  </span>
+                  <button style="width:32px;height:32px;display:grid;place-items:center;border-radius:6px;border:1px solid var(--line-soft);background:none;cursor:pointer;color:var(--text3)" style-hover="color:var(--text);border-color:var(--line)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"></path></svg></button>
+                  <span style="font:400 13px var(--sans);color:var(--text3)">{{ sgPageLabel }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1681,8 +1711,9 @@
         </sc-if>
 
       </div>
+      </div>
     </main>
-  </div>
+    </div>
 
   <!-- Add team member modal -->
   <sc-if value="{{ teamAddOpen }}" hint-placeholder-val="{{ false }}">
@@ -2213,6 +2244,8 @@ class Component extends DCLogic {
       critDraft: '', benefitName: '', benefitAmt: '', benefitFreq: 'Monthly',
       posStep: 1, respDraft: '',
       stratSection: 'sector',
+      sgOpen: 'location', sgShowFilters: true, sgQ: '',
+      sgSel: { location: ['Saudi Arabia', 'UAE'], employees: [], revenue: [], industry: ['Power Generation', 'Renewables'], ownership: [], offlimits: ['Exclude off-limits'] },
       srcView: 'card', triage: null,
       companies,
       candidates: [
@@ -2256,7 +2289,7 @@ class Component extends DCLogic {
 
   componentDidMount() {
     try {
-      if (localStorage.getItem('lm-theme') === 'dark') { document.body.classList.add('dark'); this.setState({ dark: true }); }
+      if (localStorage.getItem('lm-theme') !== 'light') { document.body.classList.add('dark'); this.setState({ dark: true }); }
     } catch (e) {}
     this._esc = (e) => { if (e.key === 'Escape') this.setState({ rpDrill: null, candDrawerId: null, candModalOpen: false, coDrawerId: null, teamAddOpen: false, clientPickerOpen: false, contactAddOpen: false, wsMenuOpen: false }); };
     document.addEventListener('keydown', this._esc);
@@ -2792,6 +2825,85 @@ class Component extends DCLogic {
     };
   }
 
+  sgData() {
+    return [
+      { name: 'ACWA Power', fit: 88, country: 'Saudi Arabia', sector: 'Power Generation', revenue: '$5B-10B', employees: '1K-5K', ownership: 'Public', note: 'IPP leader, renewables pivot' },
+      { name: 'Masdar', fit: 86, country: 'UAE', sector: 'Renewables', revenue: '$1B-5B', employees: '1K-5K', ownership: 'State-owned', note: 'Clean energy platform' },
+      { name: 'TAQA', fit: 84, country: 'UAE', sector: 'Utilities', revenue: '$10B+', employees: '5K-10K', ownership: 'Public', note: 'Integrated utility, T&D scale' },
+      { name: 'Nebras Power', fit: 81, country: 'Qatar', sector: 'Power Generation', revenue: '$500M-1B', employees: '201-500', ownership: 'State-owned', note: 'International IPP portfolio' },
+      { name: 'Alfanar Energy', fit: 78, country: 'Saudi Arabia', sector: 'Renewables', revenue: '$1B-5B', employees: '5K-10K', ownership: 'Family-owned', note: 'EPC and manufacturing base' },
+      { name: 'Empower', fit: 76, country: 'UAE', sector: 'Utilities', revenue: '$500M-1B', employees: '501-1K', ownership: 'Public', note: 'District cooling leader' },
+      { name: 'Qatar Electricity & Water', fit: 74, country: 'Qatar', sector: 'Utilities', revenue: '$1B-5B', employees: '1K-5K', ownership: 'Public', note: 'Generation and desalination' },
+      { name: 'OQ Alternative Energy', fit: 72, country: 'Oman', sector: 'Renewables', revenue: '$500M-1B', employees: '201-500', ownership: 'State-owned', note: 'Green hydrogen pipeline' },
+      { name: 'Kahramaa', fit: 69, country: 'Qatar', sector: 'Utilities', revenue: '$1B-5B', employees: '1K-5K', ownership: 'State-owned', note: 'Transmission monopoly' },
+      { name: 'ENGIE Middle East', fit: 67, country: 'UAE', sector: 'Power Generation', revenue: '$1B-5B', employees: '1K-5K', ownership: 'Private', note: 'Regional arm, JV structures' },
+      { name: 'Yellow Door Energy', fit: 66, country: 'UAE', sector: 'Renewables', revenue: '$50M-200M', employees: '51-200', ownership: 'PE-backed', note: 'Distributed solar' },
+      { name: 'Bahrain EWA', fit: 62, country: 'Bahrain', sector: 'Utilities', revenue: '$500M-1B', employees: '1K-5K', ownership: 'State-owned', note: 'National utility' },
+      { name: 'Shamal Energy', fit: 58, country: 'Kuwait', sector: 'Oil & Gas Services', revenue: '$200M-500M', employees: '501-1K', ownership: 'Private', note: 'Services, adjacency only' },
+    ];
+  }
+
+  sgVals(st) {
+    const FILTERS = [
+      ['location', 'Location', ['Bahrain', 'Kuwait', 'Oman', 'Qatar', 'Saudi Arabia', 'UAE']],
+      ['employees', '# Employees', ['1-50', '51-200', '201-500', '501-1K', '1K-5K', '5K-10K', '10K+']],
+      ['revenue', 'Revenue', ['$50M-200M', '$200M-500M', '$500M-1B', '$1B-5B', '$5B-10B', '$10B+']],
+      ['industry', 'Industry', ['Power Generation', 'Renewables', 'Utilities', 'Oil & Gas Services', 'Energy Trading', 'Infrastructure']],
+      ['ownership', 'Ownership Type', ['Public', 'Private', 'Family-owned', 'PE-backed', 'State-owned']],
+      ['offlimits', 'Off-limits', ['Exclude off-limits', 'Show all']],
+    ];
+    const data = this.sgData();
+    const sel = st.sgSel;
+    const FIELD = { location: 'country', employees: 'employees', revenue: 'revenue', industry: 'sector', ownership: 'ownership' };
+    const rows = data.filter(r => {
+      for (const k of Object.keys(FIELD)) {
+        if (sel[k].length && !sel[k].includes(r[FIELD[k]])) return false;
+      }
+      if (st.sgQ && !r.name.toLowerCase().includes(st.sgQ.toLowerCase())) return false;
+      return true;
+    }).sort((a, b) => b.fit - a.fit);
+    const countFor = (k, v) => data.filter(r => r[FIELD[k]] === v).length;
+    const activeCount = Object.keys(FIELD).filter(k => sel[k].length).length;
+    return {
+      sgQ: st.sgQ,
+      sgShowFilters: st.sgShowFilters,
+      sgFiltersLabel: st.sgShowFilters ? 'Hide Filters' : 'Show Filters',
+      sgActiveCount: activeCount,
+      sgPageLabel: rows.length ? '1 - ' + rows.length + ' of ' + rows.length : '0 results',
+      sgFilterRows: FILTERS.map(([key, label, opts]) => {
+        const open = st.sgOpen === key;
+        return {
+          key, label, open,
+          chev: open ? 'm6 9 6 6 6-6' : 'm9 18 6-6-6-6',
+          tags: sel[key].slice(0, 2).concat(sel[key].length > 2 ? ['+' + (sel[key].length - 2)] : []),
+          chips: opts.map(v => {
+            const on = sel[key].includes(v);
+            return {
+              label: v, count: FIELD[key] ? String(countFor(key, v)) : '',
+              border: on ? 'var(--amber)' : 'var(--line)',
+              bg: on ? 'var(--amber-dim)' : 'transparent',
+            };
+          }),
+        };
+      }),
+      sgRows: rows.map(r => ({ ...r, fit: String(r.fit) })),
+      sgToggleOpen: (e) => { const k = e.currentTarget.dataset.key; this.setState(s => ({ sgOpen: s.sgOpen === k ? null : k })); },
+      sgToggleChip: (e) => {
+        const key = e.currentTarget.dataset.key, val = e.currentTarget.dataset.val;
+        const list = this.state.sgSel[key];
+        const next = key === 'offlimits' ? [val] : (list.includes(val) ? list.filter(x => x !== val) : list.concat(val));
+        this.setState(s => ({ sgSel: { ...s.sgSel, [key]: next } }));
+      },
+      sgReset: (e) => { const k = e.currentTarget.dataset.key; this.setState(s => ({ sgSel: { ...s.sgSel, [k]: [] } })); },
+      sgSearch: (e) => this.setState({ sgQ: e.target.value }),
+      sgToggleFilters: () => this.setState(s => ({ sgShowFilters: !s.sgShowFilters })),
+      sgSaveSearch: () => this.showToast('Search saved'),
+      sgAiResearch: () => this.showToast('AI research started — results stream into the table'),
+      sgAddAll: () => this.showToast('Added ' + rows.length + ' companies to universe'),
+      sgRowAdd: (e) => this.showToast(e.currentTarget.dataset.name + ' added to universe'),
+    };
+  }
+
   renderVals() {
     const st = this.state, pos = st.pos;
     const page = st.page;
@@ -3122,6 +3234,7 @@ class Component extends DCLogic {
     const existing = st.inviteMode === 'existing';
 
     return {
+      ...this.sgVals(st),
       wsMenuOpen: st.wsMenuOpen,
       toggleWsMenu: () => this.setState(s => ({ wsMenuOpen: !s.wsMenuOpen })),
       themeLabel: st.dark ? 'Light mode' : 'Dark mode',

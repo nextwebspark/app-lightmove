@@ -28,7 +28,7 @@ export function EstimateBanner({
         <button
           type="button"
           onClick={onGoToSourcing}
-          className="flex flex-none items-center gap-[7px] rounded-[8px] border border-amber-btn bg-amber-btn px-[13px] py-[7px] font-sans text-[13px] font-semibold text-[#141414] hover:brightness-105"
+          className="flex flex-none items-center gap-[7px] rounded-[8px] border border-amber-btn bg-amber-btn px-[13px] py-[7px] font-sans text-[13px] font-semibold text-on-amber hover:brightness-105"
         >
           Go to sourcing
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
