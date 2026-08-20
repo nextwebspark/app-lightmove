@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--shadow:0 8px 28px rgba(15,23,42,.10);--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif}
+    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--shadow:0 8px 28px rgba(0,0,0,.5)}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+    a{color:var(--sky);text-decoration:none}
+    a:hover{text-decoration:underline}
+    input::placeholder,textarea::placeholder{color:var(--text3)}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  </style>
+</helmet>
+<div style="height:100vh;display:flex;overflow:hidden">
+
+    <nav style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s ease">
+      <div style="position:relative;margin:0 2px 12px">
+      <button onClick="{{ toggleWsMenu }}" title="LightMove workspace" style="display:flex;align-items:center;gap:8px;padding:4px 6px 4px 4px;border-radius:7px;background:none;border:none;cursor:pointer;color:var(--text)" style-hover="background:var(--panel2)">
+        <span style="width:24px;height:24px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 12px var(--sans);flex:none">L</span>
+        <span style="display:{{ labelDisp }};font:700 14px var(--sans);letter-spacing:.01em;white-space:nowrap">LightMove</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
+      </button>
+      <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;top:40px;left:0;width:268px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:6px;z-index:80">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--line-soft);margin-bottom:6px">
+            <span style="width:30px;height:30px;border-radius:8px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 13px var(--mono)">L</span>
+            <div>
+              <div style="font:600 13px var(--mono)">LightMove</div>
+              <div style="font:400 11px var(--mono);color:var(--text3)">5 members · Pro plan</div>
+            </div>
+          </div>
+          <a href="Settings.dc.html?section=general" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v4m0 14v4M4.2 4.2l2.8 2.8m10 10 2.8 2.8M1 12h4m14 0h4M4.2 19.8 7 17m10-10 2.8-2.8"></path></svg>
+            Workspace settings
+          </a>
+          <a href="Workspace.dc.html?view=team" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            Members
+          </a>
+          <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
+          <a href="Login.dc.html" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>
+            Sign out
+          </a>
+        </div>
+      </sc-if>
+      </div>
+      <a href="Workspace.dc.html" title="All projects" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:500 13px var(--sans);color:var(--text2);text-decoration:none;margin-bottom:6px" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+        <span style="display:{{ labelDisp }};white-space:nowrap">All projects</span>
+      </a>
+      <div style="height:1px;background:var(--line-soft);margin:0 4px 10px"></div>
+      <span title="Stage: Mapping" style="display:{{ stageBadgeDisp }};align-items:center;gap:5px;padding:3px 9px;border-radius:6px;font:600 10px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--amber);background:var(--amber-dim);margin:0 10px 12px;align-self:{{ stageBadgeAlign }}">
+        <span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>
+        <span style="display:{{ labelDisp }};white-space:nowrap">Mapping</span>
+      </span>
+      <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="3">
+        <div style="display:{{ groupDisp }};font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:10px 10px 6px">{{ g.group }}</div>
+        <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
+          <a href="{{ it.href }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }};text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
+            <span style="display:{{ labelDisp }};white-space:nowrap">{{ it.label }}</span>
+          </a>
+        </sc-for>
+      </sc-for>
+      <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--line-soft)">
+        <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path></svg>
+          <span style="display:{{ labelDisp }};white-space:nowrap">{{ themeLabel }}</span>
+        </button>
+        <button onClick="{{ toggleCollapse }}" title="{{ collapseTitle }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ collapseIcon }}"></path></svg>
+          <span style="display:{{ labelDisp }};white-space:nowrap">Collapse</span>
+        </button>
+      </div>
+    </nav>
+
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0;padding:10px 10px 10px 0">
+    <main data-screen-label="Strategy" style="flex:1;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:15px;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+      <div style="flex:none;display:flex;align-items:center;gap:18px;padding:16px 32px 14px;border-bottom:1px solid var(--line)">
+        <div style="min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;font:500 12px var(--sans);color:var(--text3)">
+            <a href="Workspace.dc.html" style="color:var(--text3);text-decoration:none" style-hover="color:var(--text);text-decoration:none">Projects</a>
+            <span style="opacity:.5">/</span>
+            <span style="width:8px;height:8px;border-radius:3px;background:var(--sky);flex:none"></span>
+            <span style="white-space:nowrap">Meridian Energy Group</span>
+          </div>
+          <div style="font:700 20px var(--sans);color:var(--text);letter-spacing:-.01em;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Chief Financial Officer</div>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+          <span style="display:flex">
+            <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky);border:2px solid var(--panel)">YH</span>
+            <span title="Yousef Iman" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--amber-dim);color:var(--amber);border:2px solid var(--panel);margin-left:-8px">YI</span>
+            <span title="Omar Khalil" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--red-dim);color:var(--red);border:2px solid var(--panel);margin-left:-8px">OK</span>
+          </span>
+        </div>
+      </div>
+
+      <div style="flex:none;display:flex;align-items:center;gap:14px;padding:6px 20px;min-height:44px;background:var(--panel2);border-bottom:1px solid var(--line-soft)">
+        <button onClick="{{ saveSearch }}" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font:400 13px var(--sans);color:var(--text3);padding:4px 0;white-space:nowrap" style-hover="color:var(--text)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" style="flex:none"><path d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1Z"></path></svg>
+          Save Search
+        </button>
+        <button onClick="{{ toggleShowFilters }}" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font:400 13px var(--sans);color:var(--text3);padding:8px;border-radius:6px;white-space:nowrap" style-hover="color:var(--text);background:var(--panel)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z"></path></svg>
+          {{ filtersLabel }}
+          <span style="font:700 10px var(--sans);color:var(--sky);background:var(--sky-dim);border-radius:4px;padding:2px 5px">{{ activeCount }}</span>
+        </button>
+        <button onClick="{{ aiResearch }}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:6px;border:1px solid #4f46e5;background:linear-gradient(90deg,#6366f1,#3b82f6);color:#fff;font:600 13px var(--sans);cursor:pointer;white-space:nowrap;box-shadow:0 4px 12px -2px rgba(0,0,0,.15)" style-hover="filter:brightness(1.07)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg>
+          AI Research
+        </button>
+        <div style="display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:6px;padding:8px 12px;width:240px;flex:none">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+          <input value="{{ q }}" onInput="{{ onSearch }}" placeholder="Search companies..." style="background:none;border:none;outline:none;width:100%;font:400 13px var(--sans);color:var(--text)">
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:13px">
+          <button style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;background:var(--panel);border:1px solid var(--line-soft);font:400 13px var(--sans);color:var(--text3);cursor:pointer;white-space:nowrap" style-hover="color:var(--text);border-color:var(--line)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M15 12H3M17 18H3M21 6H3"></path></svg>
+            Group
+          </button>
+          <button style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;background:var(--panel);border:1px solid var(--line-soft);font:400 13px var(--sans);color:var(--text3);cursor:pointer;white-space:nowrap" style-hover="color:var(--text);border-color:var(--line)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"></path></svg>
+            Columns
+          </button>
+          <button onClick="{{ addAll }}" style="background:none;border:none;cursor:pointer;font:400 13px var(--sans);color:var(--text3);white-space:nowrap" style-hover="color:var(--text)">Add all to Universe  →</button>
+        </div>
+      </div>
+
+      <div style="flex:1;display:flex;min-height:0">
+        <sc-if value="{{ showFilters }}" hint-placeholder-val="{{ true }}">
+          <div style="width:340px;flex:none;border-right:1px solid var(--line-soft);overflow-y:auto">
+
+            <!-- Location -->
+            <div onClick="{{ toggleOpen }}" data-key="loc" role="button" style="display:flex;align-items:center;gap:8px;min-height:52px;padding:12px 16px;border-bottom:1px solid var(--line-soft);cursor:pointer" style-hover="background:var(--panel2)">
+              <sc-if value="{{ locOpen }}" hint-placeholder-val="{{ true }}">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.8" style="flex:none"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+              </sc-if>
+              <span style="font:{{ locTitleFont }};letter-spacing:{{ locTitleLs }};color:var(--text);white-space:nowrap">Location</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;overflow:hidden">
+                <sc-if value="{{ locClosed }}" hint-placeholder-val="{{ false }}">
+                  <span style="display:flex;gap:4px;overflow:hidden">
+                    <sc-for list="{{ locTags }}" as="t" hint-placeholder-count="2"><span style="font:700 10px var(--sans);color:var(--sky);background:var(--sky-dim);border-radius:4px;padding:2px 5px;white-space:nowrap">{{ t }}</span></sc-for>
+                  </span>
+                </sc-if>
+                <sc-if value="{{ locOpen }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ resetFilter }}" data-key="loc" style="background:none;border:none;cursor:pointer;font:600 11px var(--sans);color:var(--text3);padding:2px 4px;flex:none" style-hover="color:var(--text)">Reset</button>
+                </sc-if>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none"><path d="{{ locChev }}"></path></svg>
+              </span>
+            </div>
+            <sc-if value="{{ locOpen }}" hint-placeholder-val="{{ true }}">
+              <div style="padding:16px;border-bottom:1px solid var(--line-soft)">
+                <div style="display:flex;flex-wrap:wrap;gap:8px">
+                  <sc-for list="{{ locChips }}" as="c" hint-placeholder-count="6">
+                    <button onClick="{{ toggleVal }}" data-key="loc" data-val="{{ c.name }}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;border:none;box-shadow:inset 0 0 0 1px {{ c.ring }};background:{{ c.bg }};cursor:pointer" style-hover="box-shadow:inset 0 0 0 1px var(--amber)">
+                      <span style="font:600 13px var(--sans);color:{{ c.color }}">{{ c.name }}</span>
+                      <span style="font:600 13px var(--sans);color:{{ c.countColor }}">{{ c.count }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <!-- # Employees -->
+            <div onClick="{{ toggleOpen }}" data-key="emp" role="button" style="display:flex;align-items:center;gap:8px;min-height:52px;padding:12px 16px;border-bottom:1px solid var(--line-soft);cursor:pointer" style-hover="background:var(--panel2)">
+              <sc-if value="{{ empOpen }}" hint-placeholder-val="{{ false }}">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.8" style="flex:none"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+              </sc-if>
+              <span style="font:{{ empTitleFont }};color:var(--text);white-space:nowrap">Employees</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;overflow:hidden">
+                <sc-if value="{{ empClosed }}" hint-placeholder-val="{{ true }}">
+                  <span style="display:flex;gap:4px;overflow:hidden">
+                    <sc-for list="{{ empTags }}" as="t" hint-placeholder-count="1"><span style="font:700 10px var(--sans);color:var(--sky);background:var(--sky-dim);border-radius:4px;padding:2px 5px;white-space:nowrap">{{ t }}</span></sc-for>
+                  </span>
+                </sc-if>
+                <sc-if value="{{ empOpen }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ resetFilter }}" data-key="emp" style="background:none;border:none;cursor:pointer;font:600 11px var(--sans);color:var(--text3);padding:2px 4px;flex:none" style-hover="color:var(--text)">Reset</button>
+                </sc-if>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none"><path d="{{ empChev }}"></path></svg>
+              </span>
+            </div>
+            <sc-if value="{{ empOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:16px;border-bottom:1px solid var(--line-soft);display:flex;flex-direction:column;gap:14px">
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <button onClick="{{ setRangeMode }}" data-key="emp" data-mode="pre" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:1px solid {{ empPreBorder }};background:{{ empPreBg }};cursor:pointer;text-align:left">
+                    <span style="width:16px;height:16px;border-radius:50%;box-shadow:inset 0 0 0 1.5px {{ empPreRing }};display:grid;place-items:center;flex:none"><span style="width:8px;height:8px;border-radius:50%;background:{{ empPreDot }}"></span></span>
+                    <span style="font:600 13px var(--sans);color:{{ empPreColor }}">Predefined Range</span>
+                  </button>
+                  <button onClick="{{ setRangeMode }}" data-key="emp" data-mode="custom" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:1px solid {{ empCusBorder }};background:{{ empCusBg }};cursor:pointer;text-align:left">
+                    <span style="width:16px;height:16px;border-radius:50%;box-shadow:inset 0 0 0 1.5px {{ empCusRing }};display:grid;place-items:center;flex:none"><span style="width:8px;height:8px;border-radius:50%;background:{{ empCusDot }}"></span></span>
+                    <span style="font:600 13px var(--sans);color:{{ empCusColor }}">Custom Range</span>
+                  </button>
+                </div>
+                <sc-if value="{{ empIsPre }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <sc-for list="{{ empRows }}" as="r" hint-placeholder-count="8">
+                      <button onClick="{{ toggleVal }}" data-key="emp" data-val="{{ r.name }}" style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:8px 4px;background:none;border:none;border-radius:5px;cursor:pointer" style-hover="background:var(--panel2)">
+                        <span style="display:flex;align-items:center;gap:12px">
+                          <span style="width:18px;height:18px;border-radius:4px;box-shadow:inset 0 0 0 1.5px {{ r.ring }};background:{{ r.bg }};display:grid;place-items:center;flex:none">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="{{ r.check }}" stroke-width="3.2"><path d="M20 6 9 17l-5-5"></path></svg>
+                          </span>
+                          <span style="font:500 14px var(--sans);color:var(--text)">{{ r.name }}</span>
+                        </span>
+                        <span style="font:500 13px var(--sans);color:var(--text3)">{{ r.count }}</span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ empIsCustom }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <input placeholder="Min" style="width:0;flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font:500 13px var(--sans);color:var(--text);outline:none">
+                    <span style="font:500 12px var(--sans);color:var(--text3)">to</span>
+                    <input placeholder="Max" style="width:0;flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font:500 13px var(--sans);color:var(--text);outline:none">
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+
+            <!-- Revenue -->
+            <div onClick="{{ toggleOpen }}" data-key="rev" role="button" style="display:flex;align-items:center;gap:8px;min-height:52px;padding:12px 16px;border-bottom:1px solid var(--line-soft);cursor:pointer" style-hover="background:var(--panel2)">
+              <sc-if value="{{ revOpen }}" hint-placeholder-val="{{ false }}">
+                <span style="font:700 12px var(--sans);color:var(--amber);width:16px;text-align:center;flex:none">$</span>
+              </sc-if>
+              <span style="font:{{ revTitleFont }};color:var(--text);white-space:nowrap">Revenue</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;overflow:hidden">
+                <sc-if value="{{ revClosed }}" hint-placeholder-val="{{ true }}">
+                  <span style="display:flex;gap:4px;overflow:hidden">
+                    <sc-for list="{{ revTags }}" as="t" hint-placeholder-count="1"><span style="font:700 10px var(--sans);color:var(--sky);background:var(--sky-dim);border-radius:4px;padding:2px 5px;white-space:nowrap">{{ t }}</span></sc-for>
+                  </span>
+                </sc-if>
+                <sc-if value="{{ revOpen }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ resetFilter }}" data-key="rev" style="background:none;border:none;cursor:pointer;font:600 11px var(--sans);color:var(--text3);padding:2px 4px;flex:none" style-hover="color:var(--text)">Reset</button>
+                </sc-if>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none"><path d="{{ revChev }}"></path></svg>
+              </span>
+            </div>
+            <sc-if value="{{ revOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:16px;border-bottom:1px solid var(--line-soft);display:flex;flex-direction:column;gap:14px">
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <button onClick="{{ setRangeMode }}" data-key="rev" data-mode="pre" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:1px solid {{ revPreBorder }};background:{{ revPreBg }};cursor:pointer;text-align:left">
+                    <span style="width:16px;height:16px;border-radius:50%;box-shadow:inset 0 0 0 1.5px {{ revPreRing }};display:grid;place-items:center;flex:none"><span style="width:8px;height:8px;border-radius:50%;background:{{ revPreDot }}"></span></span>
+                    <span style="font:600 13px var(--sans);color:{{ revPreColor }}">Predefined Range</span>
+                  </button>
+                  <button onClick="{{ setRangeMode }}" data-key="rev" data-mode="custom" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:1px solid {{ revCusBorder }};background:{{ revCusBg }};cursor:pointer;text-align:left">
+                    <span style="width:16px;height:16px;border-radius:50%;box-shadow:inset 0 0 0 1.5px {{ revCusRing }};display:grid;place-items:center;flex:none"><span style="width:8px;height:8px;border-radius:50%;background:{{ revCusDot }}"></span></span>
+                    <span style="font:600 13px var(--sans);color:{{ revCusColor }}">Custom Range</span>
+                  </button>
+                </div>
+                <sc-if value="{{ revIsPre }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <sc-for list="{{ revRows }}" as="r" hint-placeholder-count="8">
+                      <button onClick="{{ toggleVal }}" data-key="rev" data-val="{{ r.name }}" style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:8px 4px;background:none;border:none;border-radius:5px;cursor:pointer" style-hover="background:var(--panel2)">
+                        <span style="display:flex;align-items:center;gap:12px">
+                          <span style="width:18px;height:18px;border-radius:4px;box-shadow:inset 0 0 0 1.5px {{ r.ring }};background:{{ r.bg }};display:grid;place-items:center;flex:none">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="{{ r.check }}" stroke-width="3.2"><path d="M20 6 9 17l-5-5"></path></svg>
+                          </span>
+                          <span style="font:500 14px var(--sans);color:var(--text)">{{ r.name }}</span>
+                        </span>
+                        <span style="font:500 13px var(--sans);color:var(--text3)">{{ r.count }}</span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ revIsCustom }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <input placeholder="Min $" style="width:0;flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font:500 13px var(--sans);color:var(--text);outline:none">
+                    <span style="font:500 12px var(--sans);color:var(--text3)">to</span>
+                    <input placeholder="Max $" style="width:0;flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font:500 13px var(--sans);color:var(--text);outline:none">
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+
+            <!-- Industry -->
+            <div onClick="{{ toggleOpen }}" data-key="ind" role="button" style="display:flex;align-items:center;gap:8px;min-height:52px;padding:12px 16px;border-bottom:1px solid var(--line-soft);cursor:pointer" style-hover="background:var(--panel2)">
+              <sc-if value="{{ indOpenState }}" hint-placeholder-val="{{ false }}">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.8" style="flex:none"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"></path><path d="M17 18h1M12 18h1M7 18h1"></path></svg>
+              </sc-if>
+              <span style="font:{{ indTitleFont }};color:var(--text);white-space:nowrap">Industry</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;overflow:hidden">
+                <sc-if value="{{ indClosed }}" hint-placeholder-val="{{ true }}">
+                  <span style="display:flex;gap:4px;overflow:hidden">
+                    <sc-for list="{{ indHdrTags }}" as="t" hint-placeholder-count="3"><span style="font:700 10px var(--sans);color:var(--sky);background:var(--sky-dim);border-radius:4px;padding:2px 5px;white-space:nowrap">{{ t }}</span></sc-for>
+                  </span>
+                </sc-if>
+                <sc-if value="{{ indOpenState }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ resetFilter }}" data-key="ind" style="background:none;border:none;cursor:pointer;font:600 11px var(--sans);color:var(--text3);padding:2px 4px;flex:none" style-hover="color:var(--text)">Reset</button>
+                </sc-if>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none"><path d="{{ indChev }}"></path></svg>
+              </span>
+            </div>
+            <sc-if value="{{ indOpenState }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:16px;border-bottom:1px solid var(--line-soft);display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;gap:4px;padding:3px;border-radius:6px;background:var(--panel2)">
+                  <button onClick="{{ setIndTab }}" data-tab="browse" style="flex:1;padding:6px 0;border:none;border-radius:4px;background:{{ tabBrowseBg }};font:600 12px var(--sans);color:{{ tabBrowseColor }};cursor:pointer">Industries</button>
+                  <button onClick="{{ setIndTab }}" data-tab="adjacent" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 0;border:none;border-radius:4px;background:{{ tabAdjBg }};font:600 12px var(--sans);color:{{ tabAdjColor }};cursor:pointer">Adjacent<span style="display:{{ adjDotDisp }};width:6px;height:6px;border-radius:50%;background:var(--green)"></span></button>
+                </div>
+                <sc-if value="{{ hasIndTags }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;flex-wrap:wrap;gap:5px">
+                    <sc-for list="{{ indTags }}" as="tg" hint-placeholder-count="5">
+                      <button onClick="{{ toggleVal }}" data-key="ind" data-val="{{ tg.name }}" title="Remove" style="display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:4px;border:none;box-shadow:inset 0 0 0 1px rgba(226,182,92,.25);background:var(--amber-dim);cursor:pointer">
+                        <span style="font:500 11px var(--sans);color:var(--amber)">{{ tg.name }}</span>
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2.4"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <div style="height:1px;background:var(--line-soft)"></div>
+                <sc-if value="{{ indBrowse }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:6px;background:var(--panel2);border:1px solid var(--line)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                    <input value="{{ indQ }}" onInput="{{ onIndQ }}" placeholder="Search industries..." style="background:none;border:none;outline:none;width:100%;font:500 12px var(--sans);color:var(--text)">
+                  </div>
+                  <div style="display:flex;flex-direction:column">
+                    <sc-for list="{{ indRows }}" as="p" hint-placeholder-count="8">
+                      <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 2px">
+                        <button onClick="{{ toggleVal }}" data-key="ind" data-val="{{ p.name }}" style="display:flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;padding:0">
+                          <span style="width:15px;height:15px;border-radius:3px;box-shadow:inset 0 0 0 1.2px {{ p.ring }};background:{{ p.bg }};display:grid;place-items:center;flex:none">
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="{{ p.check }}" stroke-width="3.4"><path d="M20 6 9 17l-5-5"></path></svg>
+                          </span>
+                          <span style="font:600 13px var(--sans);color:var(--text)">{{ p.name }}</span>
+                        </button>
+                        <button onClick="{{ expandInd }}" data-parent="{{ p.name }}" style="display:{{ p.chevDisp }};background:none;border:none;cursor:pointer;padding:2px 4px;color:var(--text3)">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ p.chev }}"></path></svg>
+                        </button>
+                      </div>
+                      <sc-if value="{{ p.expanded }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;flex-direction:column;padding:0 0 4px 25px">
+                          <sc-for list="{{ p.subs }}" as="sb" hint-placeholder-count="5">
+                            <button onClick="{{ toggleVal }}" data-key="ind" data-val="{{ sb.name }}" style="display:flex;align-items:center;gap:7px;padding:5px 2px;background:none;border:none;cursor:pointer">
+                              <span style="width:13px;height:13px;border-radius:3px;box-shadow:inset 0 0 0 1px {{ sb.ring }};background:{{ sb.bg }};display:grid;place-items:center;flex:none">
+                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="{{ sb.check }}" stroke-width="3.4"><path d="M20 6 9 17l-5-5"></path></svg>
+                              </span>
+                              <span style="font:500 12px var(--sans);color:{{ sb.color }}">{{ sb.name }}</span>
+                            </button>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ indAdjacent }}" hint-placeholder-val="{{ false }}">
+                  <div>
+                    <div style="font:600 13px var(--sans);color:var(--green)">Expand your search</div>
+                    <div style="font:400 12px/1.5 var(--sans);color:var(--text3);margin-top:4px;text-wrap:pretty">Industries with overlapping talent and transferrable skills based on your selections.</div>
+                  </div>
+                  <sc-for list="{{ adjGroups }}" as="g" hint-placeholder-count="2">
+                    <div style="display:flex;flex-direction:column;gap:2px">
+                      <div style="display:flex;align-items:center;gap:6px;padding:4px 0">
+                        <span style="font:400 10px var(--sans);color:var(--text3)">from</span>
+                        <span style="font:500 10px var(--sans);color:var(--amber);background:var(--amber-dim);border-radius:3px;padding:2px 6px">{{ g.parent }}</span>
+                      </div>
+                      <sc-for list="{{ g.items }}" as="a" hint-placeholder-count="3">
+                        <button onClick="{{ toggleVal }}" data-key="ind" data-val="{{ a.name }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 6px;border-radius:6px;background:none;border:none;cursor:pointer;text-align:left" style-hover="background:var(--panel2)">
+                          <span style="width:22px;height:22px;border-radius:11px;background:var(--green-dim);display:grid;place-items:center;flex:none">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.4"><path d="{{ a.plusPath }}"></path></svg>
+                          </span>
+                          <span style="display:flex;flex-direction:column;gap:2px;min-width:0">
+                            <span style="font:500 13px var(--sans);color:var(--text)">{{ a.name }}</span>
+                            <span style="font:400 11px var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.desc }}</span>
+                          </span>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </sc-if>
+                <div style="height:1px;background:var(--line-soft)"></div>
+                <button onClick="{{ applyInd }}" style="width:100%;padding:10px 0;border:none;border-radius:8px;background:var(--amber-btn);color:#17130a;font:600 13px var(--sans);cursor:pointer" style-hover="filter:brightness(1.05)">Apply Industry Filter</button>
+              </div>
+            </sc-if>
+
+            <!-- Ownership Type -->
+            <div onClick="{{ toggleOpen }}" data-key="own" role="button" style="display:flex;align-items:center;gap:8px;min-height:52px;padding:12px 16px;border-bottom:1px solid var(--line-soft);cursor:pointer" style-hover="background:var(--panel2)">
+              <sc-if value="{{ ownOpen }}" hint-placeholder-val="{{ false }}">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.8" style="flex:none"><circle cx="12" cy="8" r="6"></circle><path d="M15.5 13 17 22l-5-3-5 3 1.5-9"></path></svg>
+              </sc-if>
+              <span style="font:{{ ownTitleFont }};letter-spacing:{{ ownTitleLs }};color:var(--text);white-space:nowrap">Ownership Type</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;overflow:hidden">
+                <sc-if value="{{ ownClosed }}" hint-placeholder-val="{{ true }}">
+                  <span style="display:flex;gap:4px;overflow:hidden">
+                    <sc-for list="{{ ownTags }}" as="t" hint-placeholder-count="2"><span style="font:700 10px var(--sans);color:var(--amber);background:var(--amber-dim);border-radius:4px;padding:2px 5px;white-space:nowrap">{{ t }}</span></sc-for>
+                  </span>
+                </sc-if>
+                <sc-if value="{{ ownOpen }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ resetFilter }}" data-key="own" style="background:none;border:none;cursor:pointer;font:600 11px var(--sans);color:var(--text3);padding:2px 4px;flex:none" style-hover="color:var(--text)">Reset</button>
+                </sc-if>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none"><path d="{{ ownChev }}"></path></svg>
+              </span>
+            </div>
+            <sc-if value="{{ ownOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:16px;border-bottom:1px solid var(--line-soft)">
+                <div style="display:flex;flex-direction:column;gap:2px">
+                  <sc-for list="{{ ownRows }}" as="r" hint-placeholder-count="7">
+                    <button onClick="{{ toggleVal }}" data-key="own" data-val="{{ r.name }}" style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:8px 4px;background:none;border:none;border-radius:5px;cursor:pointer" style-hover="background:var(--panel2)">
+                      <span style="display:flex;align-items:center;gap:12px">
+                        <span style="width:18px;height:18px;border-radius:4px;box-shadow:inset 0 0 0 1.5px {{ r.ring }};background:{{ r.bg }};display:grid;place-items:center;flex:none">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="{{ r.check }}" stroke-width="3.2"><path d="M20 6 9 17l-5-5"></path></svg>
+                        </span>
+                        <span style="font:500 14px var(--sans);color:var(--text)">{{ r.name }}</span>
+                      </span>
+                      <span style="font:500 13px var(--sans);color:var(--text3)">{{ r.count }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <!-- Off-limits -->
+            <div onClick="{{ toggleOpen }}" data-key="off" role="button" style="display:flex;align-items:center;gap:8px;min-height:52px;padding:12px 16px;border-bottom:1px solid var(--line-soft);cursor:pointer" style-hover="background:var(--panel2)">
+              <span style="width:8px;height:8px;border-radius:50%;background:var(--red);flex:none"></span>
+              <span style="font:{{ offTitleFont }};letter-spacing:{{ offTitleLs }};color:var(--text);white-space:nowrap">Off-limits</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;overflow:hidden">
+                <sc-if value="{{ offClosed }}" hint-placeholder-val="{{ true }}">
+                  <span style="font:700 10px var(--sans);color:var(--red);background:var(--red-dim);border-radius:4px;padding:2px 5px;white-space:nowrap">{{ offCount }}</span>
+                </sc-if>
+                <sc-if value="{{ offOpen }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ resetFilter }}" data-key="off" style="background:none;border:none;cursor:pointer;font:600 11px var(--sans);color:var(--text3);padding:2px 4px;flex:none" style-hover="color:var(--text)">Reset</button>
+                </sc-if>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none"><path d="{{ offChev }}"></path></svg>
+              </span>
+            </div>
+            <sc-if value="{{ offOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:16px;border-bottom:1px solid var(--line-soft);display:flex;flex-direction:column;gap:14px">
+                <div style="font:400 12px/1.5 var(--sans);color:var(--text3);text-wrap:pretty">Companies added here will be completely excluded from your active sourcing search results.</div>
+                <div style="display:flex;align-items:center;gap:8px;height:35px;padding:0 12px;border-radius:6px;background:var(--panel2);border:1px solid var(--line)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                  <input value="{{ offQ }}" onInput="{{ onOffQ }}" onKeyDown="{{ offEnter }}" placeholder="Search companies..." style="background:none;border:none;outline:none;width:100%;font:500 13px var(--sans);color:var(--text)">
+                </div>
+                <div>
+                  <div style="font:600 10px var(--sans);letter-spacing:1px;color:var(--text3);margin-bottom:8px">{{ offExcludedLabel }}</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    <sc-for list="{{ offExcluded }}" as="x" hint-placeholder-count="3">
+                      <button onClick="{{ offRemove }}" data-name="{{ x.name }}" title="Remove" style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:4px;border:none;box-shadow:inset 0 0 0 .5px rgba(226,182,92,.5);background:rgba(226,182,92,.1);cursor:pointer">
+                        <span style="font:500 11px var(--sans);color:var(--amber)">{{ x.name }}</span>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+                      </button>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="height:1px;background:var(--line-soft)"></div>
+                <div>
+                  <div style="font:600 10px var(--sans);letter-spacing:1px;color:var(--text3);margin-bottom:8px">QUICK ADD RECENT</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    <sc-for list="{{ offSuggestions }}" as="sug" hint-placeholder-count="3">
+                      <button onClick="{{ offAdd }}" data-name="{{ sug.name }}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;border:none;box-shadow:inset 0 0 0 1px var(--line);background:none;cursor:pointer" style-hover="box-shadow:inset 0 0 0 1px var(--text3)">
+                        <span style="font:500 11px var(--sans);color:var(--text3)">{{ sug.name }}</span>
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
+                      </button>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+
+          </div>
+        </sc-if>
+
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;padding:20px">
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:8px;overflow:hidden">
+            <div style="flex:1;min-height:0;overflow:auto">
+              <div style="position:sticky;top:0;z-index:6;display:grid;grid-template-columns:minmax(170px,1.6fr) 44px minmax(96px,1fr) minmax(120px,1.2fr) minmax(96px,1fr) 84px minmax(130px,1.4fr) 112px;gap:12px;align-items:center;height:33px;padding:0 16px 0 0;min-width:1080px;background:var(--panel2);border-bottom:1px solid var(--line)">
+                <span style="position:sticky;left:0;z-index:1;background:var(--panel2);height:100%;display:flex;align-items:center;padding-left:16px;font:600 11px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);white-space:nowrap">Company</span>
+                <span style="font:600 11px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);white-space:nowrap">Fit</span>
+                <span style="font:600 11px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);white-space:nowrap">Country</span>
+                <span style="font:600 11px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);white-space:nowrap">Sector</span>
+                <span style="font:600 11px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);white-space:nowrap">Revenue</span>
+                <span style="font:600 11px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);white-space:nowrap">Employees</span>
+                <span style="font:600 11px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);white-space:nowrap">Notes</span>
+                <span style="font:600 11px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);white-space:nowrap;text-align:right">Actions</span>
+              </div>
+              <sc-for list="{{ tableRows }}" as="r" hint-placeholder-count="10">
+                <div style="display:grid;grid-template-columns:minmax(170px,1.6fr) 44px minmax(96px,1fr) minmax(120px,1.2fr) minmax(96px,1fr) 84px minmax(130px,1.4fr) 112px;gap:12px;align-items:center;height:40px;padding:0 16px 0 0;min-width:1080px;border-bottom:1px solid var(--line-soft)" style-hover="background:var(--panel2)">
+                  <span style="position:sticky;left:0;z-index:1;background:var(--panel);height:100%;display:flex;align-items:center;padding-left:16px;box-shadow:1px 0 0 var(--line-soft);font:500 13px var(--sans);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span>
+                  <span style="font:600 13px var(--sans);color:var(--text2)">{{ r.fit }}</span>
+                  <span style="font:400 13px var(--sans);color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.country }}</span>
+                  <span style="font:400 13px var(--sans);color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sector }}</span>
+                  <span style="font:400 13px var(--sans);color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.revenue }}</span>
+                  <span style="font:400 13px var(--sans);color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.employees }}</span>
+                  <span style="font:400 13px var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.note }}</span>
+                  <span style="display:flex;justify-content:flex-end;gap:6px">
+                    <button title="Add to universe" onClick="{{ rowAdd }}" data-name="{{ r.name }}" style="width:24px;height:24px;display:grid;place-items:center;border-radius:5px;background:none;border:none;cursor:pointer;color:var(--text3)" style-hover="color:var(--text);background:var(--panel2)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg></button>
+                    <button title="Shortlist" style="width:24px;height:24px;display:grid;place-items:center;border-radius:5px;background:none;border:none;cursor:pointer;color:var(--text3)" style-hover="color:var(--amber);background:var(--panel2)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2Z"></path></svg></button>
+                    <button title="Exclude — add to off-limits" onClick="{{ offAdd }}" data-name="{{ r.name }}" style="width:24px;height:24px;display:grid;place-items:center;border-radius:5px;background:none;border:none;cursor:pointer;color:var(--text3)" style-hover="color:var(--red);background:var(--panel2)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M4.9 4.9l14.2 14.2"></path></svg></button>
+                    <button title="More" style="width:24px;height:24px;display:grid;place-items:center;border-radius:5px;background:none;border:none;cursor:pointer;color:var(--text3)" style-hover="color:var(--text);background:var(--panel2)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle></svg></button>
+                  </span>
+                </div>
+              </sc-for>
+              <sc-if value="{{ tableEmpty }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:40px;text-align:center;color:var(--text3);font:400 13px var(--sans)">No companies match the current filters.</div>
+              </sc-if>
+            </div>
+          </div>
+          <div style="flex:none;display:flex;align-items:center;gap:16px">
+            <button style="width:32px;height:32px;display:grid;place-items:center;border-radius:6px;border:1px solid var(--line-soft);background:none;cursor:pointer;color:var(--text3)" style-hover="color:var(--text);border-color:var(--line)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"></path></svg></button>
+            <span style="display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;border:1px solid var(--line-soft);font:600 13px var(--sans);color:var(--text)">
+              1
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg>
+            </span>
+            <button style="width:32px;height:32px;display:grid;place-items:center;border-radius:6px;border:1px solid var(--line-soft);background:none;cursor:pointer;color:var(--text3)" style-hover="color:var(--text);border-color:var(--line)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"></path></svg></button>
+            <span style="font:400 13px var(--sans);color:var(--text3)">{{ pageLabel }}</span>
+          </div>
+        </div>
+      </div>
+    </main>
+    </div>
+
+  <sc-if value="{{ toastVisible }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);z-index:170;animation:fadeUp .2s ease both">{{ toastMsg }}</div>
+  </sc-if>
+
+</div>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><text x="50" y="50" fill="#e2b65c" font-family="Geist,sans-serif" font-size="26" font-weight="700" text-anchor="middle" dominant-baseline="central">ST</text></svg></template>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;filtersOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Filters&quot;},&quot;openFilter&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;loc&quot;,&quot;options&quot;:[&quot;loc&quot;,&quot;emp&quot;,&quot;rev&quot;,&quot;ind&quot;,&quot;own&quot;,&quot;off&quot;,&quot;none&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Filters&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.DATA = [
+      { name: 'ACWA Power', fit: 88, country: 'Saudi Arabia', sector: 'Energy & Utilities', revenue: '$5B - $10B', employees: '1001-2000', ownership: 'Public Company', note: 'IPP leader, renewables pivot' },
+      { name: 'Masdar', fit: 86, country: 'UAE', sector: 'Energy & Utilities', revenue: '$1B - $5B', employees: '1001-2000', ownership: 'Government', note: 'Clean energy platform' },
+      { name: 'TAQA', fit: 84, country: 'UAE', sector: 'Energy & Utilities', revenue: '$10B+', employees: '5001-10000', ownership: 'Public Company', note: 'Integrated utility, T&D scale' },
+      { name: 'Nebras Power', fit: 81, country: 'Qatar', sector: 'Energy & Utilities', revenue: '$500M - $1B', employees: '201-500', ownership: 'Government', note: 'International IPP portfolio' },
+      { name: 'Alfanar Energy', fit: 78, country: 'Saudi Arabia', sector: 'Manufacturing', revenue: '$1B - $5B', employees: '5001-10000', ownership: 'Privately Held', note: 'EPC and manufacturing base' },
+      { name: 'Empower', fit: 76, country: 'UAE', sector: 'Energy & Utilities', revenue: '$500M - $1B', employees: '501-1000', ownership: 'Public Company', note: 'District cooling leader' },
+      { name: 'Qatar Electricity & Water', fit: 74, country: 'Qatar', sector: 'Energy & Utilities', revenue: '$1B - $5B', employees: '1001-2000', ownership: 'Public Company', note: 'Generation and desalination' },
+      { name: 'OQ Alternative Energy', fit: 72, country: 'Oman', sector: 'Energy & Utilities', revenue: '$500M - $1B', employees: '201-500', ownership: 'Government', note: 'Green hydrogen pipeline' },
+      { name: 'Kahramaa', fit: 69, country: 'Qatar', sector: 'Energy & Utilities', revenue: '$1B - $5B', employees: '1001-2000', ownership: 'Government', note: 'Transmission monopoly' },
+      { name: 'ENGIE Middle East', fit: 67, country: 'UAE', sector: 'Energy & Utilities', revenue: '$1B - $5B', employees: '1001-2000', ownership: 'Privately Held', note: 'Regional arm, JV structures' },
+      { name: 'Yellow Door Energy', fit: 66, country: 'UAE', sector: 'Energy & Utilities', revenue: '$50M - $100M', employees: '51-100', ownership: 'Privately Held', note: 'Distributed solar' },
+      { name: 'Bahrain EWA', fit: 62, country: 'Bahrain', sector: 'Energy & Utilities', revenue: '$500M - $1B', employees: '1001-2000', ownership: 'Government', note: 'National utility' },
+      { name: 'Shamal Energy', fit: 58, country: 'Kuwait', sector: 'Construction', revenue: '$200M - $500M', employees: '501-1000', ownership: 'Privately Held', note: 'Services, adjacency only' },
+    ];
+    this.LOC = [['Bahrain', '47'], ['Kuwait', '83'], ['Oman', '31'], ['Qatar', '62'], ['Saudi Arabia', '156'], ['UAE', '214']];
+    this.EMP = [['1-10', '12.8K'], ['11-20', '3.2K'], ['21-50', '1.6K'], ['51-100', '560'], ['101-200', '289'], ['201-500', '217'], ['501-1000', '121'], ['1001-2000', '84'], ['2001-5000', '42'], ['5001-10000', '18'], ['10000+', '5']];
+    this.REV = [['< $1M', '4.2K'], ['$1M - $10M', '3.6K'], ['$10M - $50M', '2.8K'], ['$50M - $100M', '1.5K'], ['$100M - $200M', '890'], ['$200M - $500M', '542'], ['$500M - $1B', '318'], ['$1B - $5B', '156'], ['$5B - $10B', '47'], ['$10B+', '23']];
+    this.OWN = [['Privately Held', '3.4K'], ['Public Company', '2.1K'], ['Government', '1.5K'], ['Non-Profit', '890'], ['Subsidiary', '670'], ['Partnership', '340'], ['Sole Proprietorship', '180']];
+    this.INDUSTRIES = ['Technology', 'Healthcare', 'Financial Services', 'Real Estate', 'Manufacturing', 'Retail & Consumer', 'Energy & Utilities', 'Construction', 'Telecommunications', 'Hospitality & Tourism', 'Education', 'Agriculture', 'Media & Entertainment', 'Professional Services', 'Aerospace & Defense', 'Transportation', 'Automotive', 'Food & Beverage'];
+    this.SUBS = { Technology: ['SaaS & Cloud', 'Cybersecurity', 'AI & ML', 'FinTech', 'E-commerce', 'DevOps'] };
+    this.ADJ = [
+      { parent: 'Technology', items: [
+        { name: 'Telecommunications', desc: 'Network infrastructure, 5G, systems architecture' },
+        { name: 'Defense & Intelligence', desc: 'Security clearance tech, encrypted systems, SIGINT' },
+        { name: 'Media & Digital', desc: 'Content platforms, ad-tech, streaming infrastructure' },
+      ] },
+      { parent: 'Healthcare', items: [
+        { name: 'Life Sciences & Genomics', desc: 'Clinical R&D, lab operations, regulatory affairs' },
+        { name: 'Wellness & Fitness', desc: 'Preventive health tech, consumer wearables' },
+        { name: 'Veterinary & Animal Health', desc: 'Clinical ops, pharma knowledge, diagnostics' },
+      ] },
+    ];
+    this.state = {
+      dark: false, toast: '', wsMenuOpen: false,
+      collapsed: (() => { try { return localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) { return false; } })(),
+      showFilters: props.filtersOpen ?? true,
+      open: props.openFilter === 'none' ? null : (props.openFilter || 'loc'),
+      q: '', indQ: '', offQ: '',
+      sel: {
+        loc: ['Saudi Arabia', 'UAE'],
+        emp: ['1-10'], rev: ['< $1M'], own: ['Privately Held'],
+        ind: ['Technology', 'SaaS & Cloud', 'Cybersecurity', 'Healthcare', 'Biotech'],
+      },
+      rangeMode: { emp: 'pre', rev: 'pre' },
+      indTab: 'browse', indParentOpen: 'Technology',
+      excluded: ['Acme Corp', 'Globex Inc', 'Initech'],
+    };
+  }
+  componentDidMount() {
+    try {
+      if (localStorage.getItem('lm-theme') !== 'light') { document.body.classList.add('dark'); this.setState({ dark: true }); }
+    } catch (e) {}
+  }
+  showToast(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._tx);
+    this._tx = setTimeout(() => this.setState({ toast: '' }), 2200);
+  }
+  navVals() {
+    const st = this.state;
+    const CURRENT = 'strategy';
+    const item = (key, label, icon, href) => ({
+      key, label, icon, href,
+      color: CURRENT === key ? 'var(--text)' : 'var(--text2)',
+      bg: CURRENT === key ? 'var(--panel2)' : 'transparent',
+      iconColor: CURRENT === key ? 'var(--amber)' : 'currentColor',
+    });
+    const navGroups = [
+      { group: 'Mandate', items: [
+        item('position', 'Position', 'M12 2 3 7l9 5 9-5-9-5ZM3 12l9 5 9-5M3 17l9 5 9-5', 'Position.dc.html'),
+        item('strategy', 'Strategy', 'M12 20V10M18 20V4M6 20v-4', 'Strategy.dc.html'),
+      ] },
+      { group: 'Companies', items: [
+        item('sourcing', 'Sourcing', 'M21 21l-4.3-4.3m1.8-5.2a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z', 'Project.dc.html?page=sourcing'),
+      ] },
+      { group: 'People', items: [
+        item('candidates', 'Candidates', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z', 'Project.dc.html?page=candidates'),
+        item('outreach', 'Outreach', 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z', 'Project.dc.html?page=outreach'),
+      ] },
+      { group: 'Project', items: [
+        item('reports', 'Reports', 'M9 12h6m-6 4h6M9 8h1M5 21h14a2 2 0 0 0 2-2V7l-5-5H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2Z', 'Project.dc.html?page=reports'),
+        item('team', 'Team & access', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', 'Project.dc.html?page=team'),
+      ] },
+    ];
+    return {
+      navGroups,
+      wsMenuOpen: st.wsMenuOpen,
+      toggleWsMenu: () => this.setState(s => ({ wsMenuOpen: !s.wsMenuOpen })),
+      themeLabel: st.dark ? 'Light mode' : 'Dark mode',
+      toggleTheme: () => {
+        const dark = !this.state.dark;
+        document.body.classList.toggle('dark', dark);
+        try { localStorage.setItem('lm-theme', dark ? 'dark' : 'light'); } catch (e) {}
+        this.setState({ dark });
+      },
+      sideWidth: st.collapsed ? '56px' : '240px',
+      labelDisp: st.collapsed ? 'none' : 'inline',
+      groupDisp: st.collapsed ? 'none' : 'block',
+      navJustify: st.collapsed ? 'center' : 'flex-start',
+      stageBadgeDisp: st.collapsed ? 'none' : 'inline-flex',
+      stageBadgeAlign: 'flex-start',
+      collapseIcon: st.collapsed ? 'm13 17 5-5-5-5M6 17l5-5-5-5' : 'm11 17-5-5 5-5M18 17l-5-5 5-5',
+      collapseTitle: st.collapsed ? 'Expand sidebar' : 'Collapse sidebar',
+      toggleCollapse: () => {
+        const collapsed = !this.state.collapsed;
+        try { localStorage.setItem('lm-side-collapsed', collapsed ? '1' : '0'); } catch (e) {}
+        this.setState({ collapsed });
+      },
+      toastVisible: !!st.toast, toastMsg: st.toast,
+    };
+  }
+  renderVals() {
+    const st = this.state, sel = st.sel;
+    const CHEV_OPEN = 'm6 9 6 6 6-6', CHEV_CLOSED = 'm9 18 6-6-6-6';
+    const hdr = (key) => {
+      const open = st.open === key;
+      const vals = key === 'off' ? st.excluded : sel[key];
+      return {
+        [key + 'Open']: open, [key + 'Closed']: !open,
+        [key + 'Chev']: open ? CHEV_OPEN : CHEV_CLOSED,
+        [key + 'TitleFont']: open ? '700 14px var(--sans)' : '500 13px var(--sans)',
+        [key + 'TitleLs']: open ? '.5px' : '0',
+        [key + 'Tags']: vals.slice(0, 2).concat(vals.length > 2 ? ['+' + (vals.length - 2)] : []),
+      };
+    };
+    const ck = (on) => ({
+      ring: on ? 'var(--amber)' : 'var(--line)',
+      bg: on ? 'var(--amber-dim)' : 'transparent',
+      check: on ? 'var(--amber)' : 'transparent',
+    });
+    const ckRow = (key, name, count) => ({ name, count, ...ck(sel[key].includes(name)) });
+    const rad = (key, p) => {
+      const pre = st.rangeMode[key] === 'pre';
+      const mk = (b) => ({ border: b ? 'var(--line)' : 'transparent', bg: b ? 'var(--panel2)' : 'transparent', ring: b ? 'var(--amber)' : 'var(--text3)', dot: b ? 'var(--amber)' : 'transparent', color: b ? 'var(--text)' : 'var(--text3)' });
+      const a = mk(pre), b = mk(!pre);
+      return {
+        [p + 'PreBorder']: a.border, [p + 'PreBg']: a.bg, [p + 'PreRing']: a.ring, [p + 'PreDot']: a.dot, [p + 'PreColor']: a.color,
+        [p + 'CusBorder']: b.border, [p + 'CusBg']: b.bg, [p + 'CusRing']: b.ring, [p + 'CusDot']: b.dot, [p + 'CusColor']: b.color,
+        [p + 'IsPre']: pre, [p + 'IsCustom']: !pre,
+      };
+    };
+    const iq = st.indQ.toLowerCase().trim();
+    const indRows = this.INDUSTRIES.filter(n => !iq || n.toLowerCase().includes(iq)).map(name => {
+      const subs = this.SUBS[name] || [];
+      const expanded = st.indParentOpen === name && subs.length > 0;
+      return {
+        name, ...ck(sel.ind.includes(name)),
+        chevDisp: subs.length ? 'block' : 'none',
+        chev: expanded ? CHEV_OPEN : CHEV_CLOSED,
+        expanded,
+        subs: expanded ? subs.map(s => ({ name: s, ...ck(sel.ind.includes(s)), color: sel.ind.includes(s) ? 'var(--amber)' : 'var(--text2)' })) : [],
+      };
+    });
+    const browse = st.indTab === 'browse';
+    const rows = this.DATA.filter(r => {
+      if (st.excluded.includes(r.name)) return false;
+      if (sel.loc.length && !sel.loc.includes(r.country)) return false;
+      if (st.q && !r.name.toLowerCase().includes(st.q.toLowerCase())) return false;
+      return true;
+    }).sort((a, b) => b.fit - a.fit);
+    const activeCount = ['loc', 'emp', 'rev', 'own', 'ind'].filter(k => sel[k].length).length + (st.excluded.length ? 1 : 0);
+    return {
+      ...this.navVals(),
+      ...hdr('loc'), ...hdr('emp'), ...hdr('rev'), ...hdr('own'),
+      indOpenState: st.open === 'ind', indClosed: st.open !== 'ind',
+      indChev: st.open === 'ind' ? CHEV_OPEN : CHEV_CLOSED,
+      indTitleFont: st.open === 'ind' ? '700 14px var(--sans)' : '500 13px var(--sans)',
+      indHdrTags: sel.ind.slice(0, 2).concat(sel.ind.length > 2 ? ['+' + (sel.ind.length - 2)] : []),
+      offOpen: st.open === 'off', offClosed: st.open !== 'off',
+      offChev: st.open === 'off' ? CHEV_OPEN : CHEV_CLOSED,
+      offTitleFont: st.open === 'off' ? '700 14px var(--sans)' : '700 13px var(--sans)',
+      offTitleLs: st.open === 'off' ? '.5px' : '0',
+      offCount: String(st.excluded.length),
+      showFilters: st.showFilters,
+      filtersLabel: st.showFilters ? 'Hide Filters' : 'Show Filters',
+      activeCount: String(activeCount),
+      q: st.q, indQ: st.indQ, offQ: st.offQ,
+      locChips: this.LOC.map(([name, count]) => {
+        const on = sel.loc.includes(name);
+        return {
+          name, count,
+          ring: on ? 'var(--amber)' : 'var(--line)',
+          bg: on ? 'var(--amber-dim)' : 'transparent',
+          color: on ? 'var(--text)' : 'var(--text2)',
+          countColor: on ? 'var(--amber)' : 'var(--text3)',
+        };
+      }),
+      empRows: this.EMP.map(([n, c]) => ckRow('emp', n, c)),
+      revRows: this.REV.map(([n, c]) => ckRow('rev', n, c)),
+      ownRows: this.OWN.map(([n, c]) => ckRow('own', n, c)),
+      ...rad('emp', 'emp'), ...rad('rev', 'rev'),
+      indBrowse: browse, indAdjacent: !browse,
+      tabBrowseBg: browse ? 'var(--panel)' : 'transparent',
+      tabBrowseColor: browse ? 'var(--text)' : 'var(--text3)',
+      tabAdjBg: !browse ? 'var(--panel)' : 'transparent',
+      tabAdjColor: !browse ? 'var(--text)' : 'var(--text3)',
+      adjDotDisp: browse ? 'inline-block' : 'none',
+      indTags: sel.ind.map(name => ({ name })),
+      hasIndTags: sel.ind.length > 0,
+      indRows,
+      adjGroups: this.ADJ.filter(g => sel.ind.includes(g.parent)).map(g => ({
+        parent: g.parent,
+        items: g.items.map(a => ({ name: a.name, desc: a.desc, plusPath: sel.ind.includes(a.name) ? 'M20 6 9 17l-5-5' : 'M12 5v14M5 12h14' })),
+      })),
+      offExcludedLabel: 'EXCLUDED (' + st.excluded.length + ')',
+      offExcluded: st.excluded.map(name => ({ name })),
+      offSuggestions: ['Hooli', 'Umbrella Corp', 'Stark Industries'].filter(n => !st.excluded.includes(n)).map(name => ({ name })),
+      tableRows: rows.map(r => ({ ...r, fit: String(r.fit) })),
+      tableEmpty: rows.length === 0,
+      pageLabel: rows.length ? '1 - ' + rows.length + ' of ' + rows.length : '0 results',
+      toggleOpen: (e) => { const k = e.currentTarget.dataset.key; this.setState(s => ({ open: s.open === k ? null : k })); },
+      toggleVal: (e) => {
+        e.stopPropagation();
+        const { key, val } = e.currentTarget.dataset;
+        const list = this.state.sel[key];
+        const next = list.includes(val) ? list.filter(x => x !== val) : list.concat(val);
+        this.setState(s => ({ sel: { ...s.sel, [key]: next } }));
+      },
+      resetFilter: (e) => {
+        e.stopPropagation();
+        const k = e.currentTarget.dataset.key;
+        if (k === 'off') this.setState({ excluded: [] });
+        else this.setState(s => ({ sel: { ...s.sel, [k]: [] } }));
+      },
+      setRangeMode: (e) => { const d = e.currentTarget.dataset; this.setState(s => ({ rangeMode: { ...s.rangeMode, [d.key]: d.mode } })); },
+      setIndTab: (e) => this.setState({ indTab: e.currentTarget.dataset.tab }),
+      expandInd: (e) => {
+        e.stopPropagation();
+        const p = e.currentTarget.dataset.parent;
+        this.setState(s => ({ indParentOpen: s.indParentOpen === p ? null : p }));
+      },
+      applyInd: () => this.showToast('Industry filter applied'),
+      onIndQ: (e) => this.setState({ indQ: e.target.value }),
+      onOffQ: (e) => this.setState({ offQ: e.target.value }),
+      offEnter: (e) => {
+        if (e.key !== 'Enter') return;
+        const v = this.state.offQ.trim();
+        if (!v) return;
+        if (!this.state.excluded.includes(v)) this.setState(s => ({ excluded: s.excluded.concat(v), offQ: '' }));
+        else this.setState({ offQ: '' });
+      },
+      offAdd: (e) => {
+        const n = e.currentTarget.dataset.name;
+        if (!this.state.excluded.includes(n)) this.setState(s => ({ excluded: s.excluded.concat(n) }));
+        this.showToast(n + ' excluded from sourcing');
+      },
+      offRemove: (e) => {
+        const n = e.currentTarget.dataset.name;
+        this.setState(s => ({ excluded: s.excluded.filter(x => x !== n) }));
+      },
+      onSearch: (e) => this.setState({ q: e.target.value }),
+      toggleShowFilters: () => this.setState(s => ({ showFilters: !s.showFilters })),
+      saveSearch: () => this.showToast('Search saved'),
+      aiResearch: () => this.showToast('AI research started — results stream into the table'),
+      addAll: () => this.showToast('Added ' + rows.length + ' companies to universe'),
+      rowAdd: (e) => this.showToast(e.currentTarget.dataset.name + ' added to universe'),
+    };
+  }
+}
+</script>
+</body>
+</html>
