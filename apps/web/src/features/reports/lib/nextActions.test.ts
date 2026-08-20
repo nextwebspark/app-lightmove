@@ -9,16 +9,14 @@ import { nextActionsFor } from "./nextActions";
 describe("nextActionsFor", () => {
   const scoped: Report = {
     universeCount: 42,
-    targetCompanies: 3,
     offLimitsCompanies: 1,
     sectorsInScope: 2,
     marketsInScope: 4,
-    relevance: [{ label: "DIRECT", count: 42 }],
     sectors: [{ label: "Retail", count: 42 }],
     countries: [{ label: "AE", count: 42 }],
     cities: [{ label: "Dubai", count: 30 }],
     mandateBand: { min: 900000, max: 1300000, currency: "USD" },
-    caveats: { offLimitsNotApplied: 0, sectorsNotInSource: [], revenueBandExcludesUnknown: false },
+    caveats: { revenueBandExcludesUnknown: false },
   };
 
   const titles = (report: Report) => nextActionsFor(report, "p1").map((action) => action.title);
@@ -36,11 +34,8 @@ describe("nextActionsFor", () => {
     expect(titles({ ...scoped, universeCount: 0 })).toContain("Widen the scope");
   });
 
-  it("asks for the target list and the band only while each is missing", () => {
-    expect(titles(scoped)).not.toContain("Seed the target list");
+  it("asks for the compensation band only while it is missing", () => {
     expect(titles(scoped)).not.toContain("State the compensation band");
-
-    expect(titles({ ...scoped, targetCompanies: 0 })).toContain("Seed the target list");
     expect(titles({ ...scoped, mandateBand: null })).toContain("State the compensation band");
   });
 

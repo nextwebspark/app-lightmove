@@ -11,20 +11,6 @@ import type { ScopeCaveats } from "../api/types";
 export function ScopeCaveatsNotice({ caveats }: { caveats: ScopeCaveats }) {
   const lines: string[] = [];
 
-  if (caveats.offLimitsNotApplied > 0) {
-    lines.push(
-      `${caveats.offLimitsNotApplied} off-limits ${
-        caveats.offLimitsNotApplied === 1 ? "company is" : "companies are"
-      } still counted below. This report's company data has no shared identifier with the client registry, so the mandate's exclusions cannot be applied to it.`,
-    );
-  }
-  if (caveats.sectorsNotInSource.length > 0) {
-    lines.push(
-      `Not represented in this report's company data: ${caveats.sectorsNotInSource.join(", ")}. Companies in ${
-        caveats.sectorsNotInSource.length === 1 ? "that sector" : "those sectors"
-      } are missing from the figures rather than absent from the market.`,
-    );
-  }
   if (caveats.revenueBandExcludesUnknown) {
     lines.push(
       "A revenue band is part of this scope, and companies with no revenue figure are excluded from the counts — most of this source carries none.",

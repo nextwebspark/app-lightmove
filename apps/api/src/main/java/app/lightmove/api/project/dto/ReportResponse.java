@@ -12,14 +12,16 @@ import java.util.List;
  *
  * <p>{@code mandateBand} is null until the position brief carries a salary range — the screen says so
  * rather than showing a band of zero, which would read as a stated figure.
+ *
+ * <p>There is no relevance breakdown any more. It split the scope across direct / adjacent / inferred
+ * match tiers, which the criteria model produced and the flat filter that replaced it does not: every
+ * company in scope now matches every selected criterion, so a tier chart would be one bar.
  */
 public record ReportResponse(
         long universeCount,
-        int targetCompanies,
         int offLimitsCompanies,
         int sectorsInScope,
         int marketsInScope,
-        List<BreakdownDto> relevance,
         List<BreakdownDto> sectors,
         List<BreakdownDto> countries,
         List<BreakdownDto> cities,

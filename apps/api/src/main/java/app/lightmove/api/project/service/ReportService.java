@@ -1,8 +1,5 @@
 package app.lightmove.api.project.service;
 
-import app.lightmove.api.company.service.ApolloCompanyQueryService;
-import app.lightmove.api.company.model.ScopeBreakdown;
-import app.lightmove.api.company.model.ScopeFilter;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.project.dto.BreakdownDto;
@@ -10,11 +7,13 @@ import app.lightmove.api.project.dto.CompensationBandDto;
 import app.lightmove.api.project.dto.ReportResponse;
 import app.lightmove.api.project.dto.ScopeCaveatsDto;
 import app.lightmove.api.project.model.Position;
-import app.lightmove.api.project.model.Strategy;
 import app.lightmove.api.project.repository.PositionRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
-import app.lightmove.api.project.repository.StrategyRepository;
-import java.util.ArrayList;
+import app.lightmove.api.strategy.constant.RevenueBand;
+import app.lightmove.api.strategy.model.CompanyScope;
+import app.lightmove.api.strategy.model.ScopeBreakdown;
+import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
+import app.lightmove.api.strategy.service.StrategyService;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,16 +26,24 @@ import org.springframework.transaction.annotation.Transactional;
  * aggregated live rather than stored. A report nobody generated is still a true report — the figures
  * are a view of the scope as it stands, so a snapshot table would only let the screen go stale.
  *
- * <p>The scope resolves through {@link StrategyScope} — the same translation Sourcing uses — but it is
- * measured against a <i>different source</i>: {@link ApolloCompanyQueryService} reads
- * {@code app_lm_apollo_companies}, where Sourcing reads the brightdata warehouse copy. <b>The two will
- * therefore disagree on counts, by design.</b> Apollo cannot answer the whole scope either: the
- * off-limits list has no key there, its industry vocabulary covers a fraction of the labels the
- * Strategy screen offers, and its revenue figure is sparse — so each shortfall is reported as a caveat
- * beside the figures rather than silently lowering them.
+ * <p>The scope resolves through {@link StrategyScope} — the same translation the Strategy screen's own
+ * list uses, against the same table. That is new: the report used to measure Apollo while triage
+ * measured the brightdata warehouse copy, so the two legitimately disagreed on every count and the
+ * difference had to be explained in caveats. With one universe they agree, and two of the three
+ * caveats have gone with the second source.
+ *
+ * <p>One remains, and it is about the data rather than the plumbing: Apollo publishes a revenue figure
+ * on 7,132 of 71,822 rows, so a revenue-scoped report is measuring a tenth of the market unless the
+ * Unknown band is among those selected. That is reported beside the figures rather than silently
+ * lowering them.
  *
  * <p>Deliberately narrow: everything the mockup's report derives from mapped executives has no data
  * behind it yet, and the screen says so rather than being handed a zero to render as a finding.
+ *
+ * <p>This is a sanctioned {@code project} → {@code strategy} seam, and it is deliberately one method
+ * wide: {@link StrategyService#scopeOf} hands back the resolved scope, so the report never learns how
+ * a filter is stored, validated or translated. The universe read beside it crosses into the same
+ * feature, and is the same shape of seam: one public method over {@code strategy}'s own records.
  */
 @Service
 @RequiredArgsConstructor
@@ -48,7 +55,9 @@ public class ReportService {
     private static final int CITY_LIMIT = 8;
 
     private final ProjectRepository projects;
-    private final StrategyRepository strategies;
+    // The one thing this feature needs from strategy: the scope a mandate's saved filter defines.
+    // A single public method, so the report never learns how a filter is stored or resolved.
+    private final StrategyService strategy;
     private final PositionRepository positions;
     private final ApolloCompanyQueryService companies;
 
@@ -57,28 +66,20 @@ public class ReportService {
         requireProject(projectId, workspaceId);
         // Unlike the Strategy screen's own read, an unsaved strategy is not seeded here: a report is a
         // read, and writing a row to answer one would make a client representative's page load a write.
-        Strategy strategy = strategies.findByProjectId(projectId)
-                .orElseGet(() -> Strategy.forProject(projectId));
-        ScopeFilter scope = StrategyScope.of(strategy, null);
-
-        List<String> selectedSectors = new ArrayList<>(scope.directSectors());
-        selectedSectors.addAll(scope.adjacentSectors());
+        // scopeOf resolves the mandate's project against the workspace a second time; that is a cheap
+        // lookup and the alternative is a method that trusts a project id it was handed.
+        CompanyScope scope = strategy.scopeOf(workspaceId, projectId);
 
         return new ReportResponse(
-                companies.estimate(scope),
-                strategy.getTargetCompanies().size(),
-                strategy.getOffLimitsCompanies().size(),
-                selectedSectors.size(),
-                scope.markets().size(),
-                toDtos(companies.countByMatchTier(scope)),
+                companies.count(scope),
+                scope.offLimitsAccountIds().size(),
+                scope.industries().size(),
+                scope.countries().size(),
                 toDtos(companies.countBySector(scope, SECTOR_LIMIT)),
                 toDtos(companies.countByCountry(scope, COUNTRY_LIMIT)),
                 toDtos(companies.countByCity(scope, CITY_LIMIT)),
                 mandateBandOf(positions.findByProjectId(projectId)),
-                new ScopeCaveatsDto(
-                        strategy.getOffLimitsCompanies().size(),
-                        companies.sectorsAbsentFromSource(selectedSectors),
-                        !scope.revenueBands().isEmpty()));
+                new ScopeCaveatsDto(excludesUnknownRevenue(scope)));
     }
 
     private void requireProject(UUID projectId, UUID workspaceId) {
@@ -93,6 +94,15 @@ public class ReportService {
                 .map(brief -> new CompensationBandDto(
                         brief.getSalaryMin(), brief.getSalaryMax(), brief.getCurrency()))
                 .orElse(null);
+    }
+
+    /**
+     * True when the scope narrows by revenue without taking the Unknown band with it — the one case
+     * where the figures below describe a tenth of the market and look like the whole of it.
+     */
+    private static boolean excludesUnknownRevenue(CompanyScope scope) {
+        return !scope.revenueBands().isEmpty()
+                && !scope.revenueBands().contains(RevenueBand.R_UNKNOWN.value());
     }
 
     private static List<BreakdownDto> toDtos(List<ScopeBreakdown> rows) {

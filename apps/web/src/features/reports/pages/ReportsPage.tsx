@@ -8,13 +8,12 @@ import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
 import type { Project } from "../../projects/api/types";
 import * as reportApi from "../api/reportApi";
-import type { Breakdown, CompensationBand, Report } from "../api/types";
+import type { CompensationBand, Report } from "../api/types";
 import { BarList } from "../components/BarList";
 import { ReportNav, type ReportNavItem } from "../components/ReportNav";
 import { ReportSection } from "../components/ReportSection";
 import { ScopeCaveatsNotice } from "../components/ScopeCaveatsNotice";
 import { SectionUnavailable } from "../components/SectionUnavailable";
-import { StackedBar } from "../components/StackedBar";
 import { StatRibbon } from "../components/StatRibbon";
 import { nextActionsFor } from "../lib/nextActions";
 
@@ -120,14 +119,8 @@ function ReportBody({ project, report }: { project: Project; report: Report }) {
           <StatRibbon
             stats={[
               { label: "Companies in scope", value: String(report.universeCount) },
-              {
-                label: "Direct",
-                value: String(tierCount(report.relevance, "DIRECT")),
-                valueClass: "text-green",
-              },
-              { label: "Adjacent", value: String(tierCount(report.relevance, "ADJACENT")) },
-              { label: "Inferred", value: String(tierCount(report.relevance, "INFERRED")) },
-              { label: "Target list", value: String(report.targetCompanies) },
+              { label: "Sectors in scope", value: String(report.sectorsInScope) },
+              { label: "Markets in scope", value: String(report.marketsInScope) },
               {
                 label: "Off-limits",
                 value: String(report.offLimitsCompanies),
@@ -163,14 +156,14 @@ function ReportBody({ project, report }: { project: Project; report: Report }) {
                 "Pick a sector on Strategy and the market takes shape here."
               )
             }
-            lede="Relevance is how a company entered the scope: a sector you named directly, an adjacent one, or an inferred tag."
+            lede="Where the companies this search is scoped to actually sit — by sector, and by the place they are run from."
           >
             {scoped ? (
               <div className="grid gap-[30px] [grid-template-columns:repeat(auto-fit,minmax(272px,1fr))]">
                 {/* "Largest"/"Top", not "by": the server caps these lists, so a caption that read as
                     the full set would make the bars a complete picture they are not. */}
                 <BarList caption="Largest sectors" rows={report.sectors} />
-                <StackedBar caption="Relevance mix" rows={report.relevance} />
+                <BarList caption="Largest markets" rows={report.countries} />
               </div>
             ) : (
               <SectionUnavailable body="The universe is empty until the Strategy tab names at least one sector." />
@@ -311,9 +304,6 @@ function ReportBody({ project, report }: { project: Project; report: Report }) {
   );
 }
 
-function tierCount(relevance: Breakdown[], tier: string): number {
-  return relevance.find((row) => row.label === tier)?.count ?? 0;
-}
 
 function bandLabel(band: CompensationBand): string {
   const min = band.min === null ? null : abbreviateAmount(band.min);

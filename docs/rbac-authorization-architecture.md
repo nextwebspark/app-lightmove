@@ -228,12 +228,13 @@ Every method reads the workspace from the **principal**, never the path.
 | `ProjectsController` | `PUT/DELETE /projects/{projectId}/members/{memberId}` | `can(principal, #projectId, 'TEAM_MANAGE')` |
 | `StrategyController` | `GET /projects/{projectId}/strategy` | `can(principal, #projectId, 'WORK_EXECUTE')` |
 | `StrategyController` | `PUT .../sectors`, `/company-size`, `/geography`, `/ownership` | `can(principal, #projectId, 'PROJECT_EDIT')` |
-| `SourcingController` | `GET /projects/{projectId}/sourcing` | `can(principal, #projectId, 'WORK_EXECUTE')` |
+| `TriageCompanyController` | `GET /projects/{projectId}/triage` | `can(principal, #projectId, 'WORK_VIEW')` |
+| `TriageCompanyController` | `POST /triage`, `/triage/from-filter`, `PATCH /triage/{triageCompanyId}` | `can(principal, #projectId, 'WORK_EXECUTE')` |
 | `PositionController` | `GET /projects/{projectId}/position` | `can(principal, #projectId, 'WORK_EXECUTE')` |
 | `PositionController` | `PUT /position`, `/criteria`, `/competencies`, `POST /lock` | `can(principal, #projectId, 'PROJECT_EDIT')` |
 | `PositionController` | `POST /unlock` | `can(principal, #projectId, 'POSITION_UNLOCK')` |
 
-**Read vs write pattern:** project *content reads* (`GET strategy/sourcing/position`) gate on
+**Read vs write pattern:** project *content reads* (`GET strategy/triage/position`) gate on
 `WORK_VIEW` (every seated role, including CLIENT); *writes* gate on `PROJECT_EDIT` (LEAD); the
 *unlock* gates on `POSITION_UNLOCK` (LEAD too, since V19). This is the "everyone seated can see it,
 staff can work it, only the lead locks the universe" rule, expressed as actions.

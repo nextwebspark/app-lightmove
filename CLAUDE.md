@@ -11,21 +11,30 @@ then treated as staff; a *pure* client (only `CLIENT`) is the one kept out of st
 workspace `CLIENT` role grants nothing; access is the project `CLIENT` seat, which grants `WORK_VIEW`
 (read a mandate's content, never edit).
 
-**Built so far: auth, workspace management, minimal projects, and the RBAC layer.** Signup (3 steps),
-login, OAuth sign-in (Google and LinkedIn), invitations, the roster, the projects/clients screens, a
-project's Team & access tab, and the client registry with representative invites and their scoped
-read-only project access. The Project screen's own tables (candidates, pipeline) don't exist yet.
-Don't build ahead of the mockups: if a screen isn't being built this session, its tables and entities
-don't exist yet.
+**Built so far: auth, workspace management, projects, the RBAC layer, and the search layer.** Signup
+(3 steps), login, OAuth sign-in (Google and LinkedIn), invitations, the roster, the projects/clients
+screens, a project's Team & access tab, the client registry with representative invites and their
+scoped read-only project access, and **Strategy → Triage**: a filter over the company universe, the
+searches saved against it, and the triage of the companies a mandate takes from it. The Project
+screen's people tables (candidates, pipeline, outreach) don't exist yet. Don't build ahead of the
+mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
 
 ## Layout
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven) |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `workspace`, `project`, `strategy`, `triagecompany` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
 | `ops/cloudsql/` | Database bootstrap and hardening scripts |
+
+`strategy` and `triagecompany` split one story in two, in the order a consultant works: **`strategy`
+is the market side** — the saved filter, the saved searches, the reads over the Apollo universe, and
+every band/facet/taxonomy the search is expressed in. A *strategy company* is a row of the market that
+belongs to nobody. **`triagecompany` is the mapping side** — one project↔company row per decision,
+carrying a triage stage (in universe / shortlisted / declined) and a write-time snapshot. A *triage
+company* is a decision. Searching goes in `strategy` however company-shaped its name; `triagecompany`
+holds only what a mandate *did* about a company. Details in `java-spring-development`.
 
 ## Commands
 
@@ -33,6 +42,7 @@ don't exist yet.
 npm run dev                  # docker postgres (:55433) + api (:8080) + web (:5173)
 npm run dev:db:reset         # drop the local database; next boot re-runs every migration from V1
 npm run dev:db:psql          # psql shell in the local container
+npm run dev:db:apollo        # copy the Apollo company universe down from Cloud SQL into it
 npm run dev:cloud            # api + web against the SHARED Cloud SQL dev database
 npm test                     # both suites
 cd apps/api && ./mvnw test   # backend — needs Docker (Testcontainers)
@@ -41,7 +51,9 @@ cd apps/web && npm run build # the real frontend typecheck
 ```
 
 `npm run dev` needs Docker and nothing else — no gcloud, no `application-local.yml`. Its database is
-yours alone, so a migration in your tree applies only to you.
+yours alone, so a migration in your tree applies only to you. The one thing it cannot conjure is the
+Apollo universe: `npm run dev:db:apollo` pulls the 71,822 rows down once (that step needs gcloud), and
+from there `dev:db:reset` snapshots them out and back in rather than wiping them with everything else.
 
 `npm run dev:cloud` hits the shared dev database and applies your migrations to everyone at boot. It
 needs `cp apps/api/src/main/resources/application-local.yml{.example,}` with the DB password filled in,
@@ -58,7 +70,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 | `lightmove-domain` | **any** auth / signup / OAuth / workspace / membership / invitation / RBAC / client-representative / verification work |
 | `java-spring-development` | any backend code — architecture, conventions, Boot 4 notes, and the backend traps live there |
 | `react` | any frontend code — real stack, conventions, and the frontend traps live there |
-| `db-ops` | migrations, grants, `harden.sql`, `ops/cloudsql` scripts, the company-universe sync |
+| `db-ops` | migrations, grants, `harden.sql`, `ops/cloudsql` scripts, the Apollo company universe |
 | `pr-cleanup` | addressing PR review feedback |
 | `verify` | running the app end-to-end |
 
@@ -81,8 +93,12 @@ its area — the invariants below are the summary; the skills hold the rationale
 Cloud SQL Postgres 16, instance `bright-gcc`, database `lightmove`. All tables prefixed **`app_lm_`**.
 **Hibernate never touches the schema** — `ddl-auto: none`; hand-written Flyway SQL in
 `apps/api/src/main/resources/db/migration/`. **Never edit an applied migration; add a new one.**
-`app_lm_companies` is a read-only **copy** of the warehouse's universe, keyed `(source, source_id)` —
-never its `id`. Everything else (roles, hardening, grants, sync mechanics) → `db-ops` skill.
+`app_lm_apollo_companies` is the **company universe** — 71,822 GCC companies, ETL-owned and read-only
+to the application, keyed on `apollo_account_id`. Anything that stores a company stores that id plus a
+**write-time snapshot**, and never a foreign key: the pipeline reloads the table wholesale.
+`app_lm_companies` is the retired brightdata copy — nothing reads it, nothing refills it, and it is
+left in place rather than dropped. A mandate's whole filter is one `jsonb` column on `app_lm_strategy`
+(V30 explains why). Everything else (roles, hardening, grants) → `db-ops` skill.
 
 ## Conventions (the short form)
 

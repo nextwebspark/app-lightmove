@@ -1,66 +1,100 @@
 import { request } from "../../../lib/apiClient";
-import type { Strategy } from "./types";
+import type {
+  BulkAddResult,
+  CompanyPage,
+  CompanySort,
+  SavedSearch,
+  Strategy,
+  StrategyFilter,
+} from "./types";
 
-/** Every call the strategy screen makes to its own project-scoped endpoints. Writes are snapshot PUTs. */
+/** A mandate's own search: its filter, its off-limits list, its saved searches, and the results. */
 
 export const STRATEGY_KEY = (projectId: string) => ["strategy", projectId] as const;
 
-/** Mutation key shared by every scope-write autosave, so other screens (Sourcing) can tell a
- *  strategy save is in flight via `useIsMutating` and hold their own reads until it commits. */
-export const STRATEGY_WRITE_KEY = (projectId: string) => ["strategy-write", projectId] as const;
+/**
+ * Every filter write shares this key, so the results list can tell whether it is about to read a
+ * scope the server has not been told about yet.
+ */
+export const STRATEGY_WRITE_KEY = (projectId: string) => ["strategyWrite", projectId] as const;
+
+export const STRATEGY_COMPANIES_KEY_PREFIX = (projectId: string) =>
+  ["strategyCompanies", projectId] as const;
+
+export const STRATEGY_COMPANIES_KEY = (
+  projectId: string,
+  page: number,
+  size: number,
+  query: string,
+  sort: CompanySort,
+) =>
+  [...STRATEGY_COMPANIES_KEY_PREFIX(projectId), page, size, query, sort.field, sort.direction] as const;
 
 export function getStrategy(projectId: string): Promise<Strategy> {
   return request<Strategy>(`/projects/${projectId}/strategy`);
 }
 
-export function putSectors(projectId: string, strategy: Strategy): Promise<Strategy> {
-  return request<Strategy>(`/projects/${projectId}/strategy/sectors`, {
+export function putFilter(projectId: string, filter: StrategyFilter): Promise<Strategy> {
+  return request<Strategy>(`/projects/${projectId}/strategy/filter`, {
     method: "PUT",
-    body: strategy,
+    body: { filter },
   });
 }
 
-export function putCompanySize(
-  projectId: string,
-  employee: string[],
-  revenue: string[],
-): Promise<Strategy> {
-  return request<Strategy>(`/projects/${projectId}/strategy/company-size`, {
-    method: "PUT",
-    body: { employee, revenue },
-  });
-}
-
-export function putGeography(projectId: string, markets: string[]): Promise<Strategy> {
-  return request<Strategy>(`/projects/${projectId}/strategy/geography`, {
-    method: "PUT",
-    body: { markets },
-  });
-}
-
-export function putOwnership(projectId: string, structures: string[]): Promise<Strategy> {
-  return request<Strategy>(`/projects/${projectId}/strategy/ownership`, {
-    method: "PUT",
-    body: { structures },
-  });
-}
-
-/** The company lists write bare keys — the server resolves every snapshot field itself. */
-export interface CompanyKey {
-  source: string;
-  sourceId: string;
-}
-
-export function putTargets(projectId: string, companies: CompanyKey[]): Promise<Strategy> {
-  return request<Strategy>(`/projects/${projectId}/strategy/targets`, {
-    method: "PUT",
-    body: { companies },
-  });
-}
-
-export function putOffLimits(projectId: string, companies: CompanyKey[]): Promise<Strategy> {
+export function putOffLimits(projectId: string, apolloAccountIds: string[]): Promise<Strategy> {
   return request<Strategy>(`/projects/${projectId}/strategy/off-limits`, {
     method: "PUT",
-    body: { companies },
+    body: { apolloAccountIds },
   });
+}
+
+export function getCompanies(
+  projectId: string,
+  page: number,
+  size: number,
+  query: string,
+  sort: CompanySort,
+  signal?: AbortSignal,
+): Promise<CompanyPage> {
+  const params = new URLSearchParams({
+    page: String(page),
+    size: String(size),
+    sort: sort.field,
+    direction: sort.direction,
+  });
+  if (query) params.set("q", query);
+  return request<CompanyPage>(`/projects/${projectId}/strategy/companies?${params}`, { signal });
+}
+
+export function saveSearch(projectId: string, name: string): Promise<SavedSearch> {
+  // No filter in the body: the server saves what the mandate has already autosaved, so what is
+  // captured is exactly what is on screen and the two cannot drift.
+  return request<SavedSearch>(`/projects/${projectId}/strategy/searches`, {
+    method: "POST",
+    body: { name },
+  });
+}
+
+export function renameSearch(
+  projectId: string,
+  searchId: string,
+  name: string,
+): Promise<SavedSearch> {
+  return request<SavedSearch>(`/projects/${projectId}/strategy/searches/${searchId}`, {
+    method: "PATCH",
+    body: { name },
+  });
+}
+
+export function deleteSearch(projectId: string, searchId: string): Promise<void> {
+  return request<void>(`/projects/${projectId}/strategy/searches/${searchId}`, { method: "DELETE" });
+}
+
+export function addToUniverse(projectId: string, apolloAccountId: string): Promise<unknown> {
+  return request(`/projects/${projectId}/triage`, { method: "POST", body: { apolloAccountId } });
+}
+
+export function addAllInScope(projectId: string): Promise<BulkAddResult> {
+  // No body: the scope is the stored filter, so this cannot ask for a wider one than is on screen.
+  return request<BulkAddResult>(`/projects/${projectId}/triage/from-filter`, { method: "POST" });
 }

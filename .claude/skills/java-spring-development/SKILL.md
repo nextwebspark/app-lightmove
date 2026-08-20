@@ -196,7 +196,10 @@ core/
   config/      LightMoveProperties (root record) + one *Settings record per branch,
                SpaResourceConfig                          (cross-cutting; no type split)
 
-workspace/                 # feature template — project / strategy / candidate copy this
+workspace/                 # feature template — project / strategy / triagecompany / candidate copy this
+  # strategy/ is the fullest example: constant/(EmployeeBand, RevenueBand, CompanySortField, …)
+  # model/(Strategy, StrategyFilter, StrategySearch, CompanyScope, CompanyRow) repository/
+  # service/(StrategyService, ApolloCompanyQueryService, SectorTaxonomy, …) controller/ dto/
   constant/   MemberStatus, WorkspaceStatus, InvitationStatus
   model/      Workspace, WorkspaceMember, PendingOnboarding, Invitation,
               CreateWorkspaceCommand, InviteCommand
@@ -226,12 +229,37 @@ part of `workspace` (membership), not their own feature.
 on a feature — the deliberate exceptions are `AuthResponseAssembler` (`core/security/controller`), which
 reads workspace repositories to build the `/me` response (the auth `UserResponse` embedding
 the workspace `WorkspaceSummary` is the same seam), and the `rbac/` access services, which read the
-workspace/project repositories because authorisation is answered from membership rows. One
-feature→feature seam is sanctioned: `project`'s `StrategyService` calls `company`'s
-`CompanyQueryService.refsByKeys` to resolve strategy-list company snapshots at write time — the
-universe lookup lives with the universe rather than being duplicated SQL in `project`, and the seam
-is a public service method plus the `company/model` records it returns, never `company` internals.
-A second seam is sanctioned for client representatives: `project`'s `ClientRepresentativeService`
+workspace/project repositories because authorisation is answered from membership rows.
+
+**`strategy` and `triagecompany` are two tiers of one story, and the line between them is
+load-bearing.**
+`strategy` is the *market* side: finding companies. It owns the mandate's saved filter, the searches
+saved beside it, the reads over `app_lm_apollo_companies`, and the whole vocabulary a search is
+expressed in — `EmployeeBand`, `RevenueBand`, the sector taxonomy, the market segments, the facet
+counts, the sort allowlist. A band is a way of asking the market a question, not a property of any one
+mandate, so none of it belongs to a project. `triagecompany` is the *mapping* side and holds one
+thing: the project↔company row and its stage (`IN_UNIVERSE` / `SHORTLISTED` / `DECLINED`), stored as a
+write-time snapshot rather than a foreign key because the Apollo pipeline reloads its table wholesale.
+Strategy answers "which companies match?"; triagecompany answers "what did this mandate do about that
+one?" If a new type is about *searching*, it goes in `strategy` however company-shaped its name is.
+
+The package is named for the row it holds rather than for a screen. **There is no Sourcing** — the
+screen of that name ran its own search against the warehouse, and when discovery moved into Strategy
+the only thing left was the triage. Naming the package `company` invited the searching back into it;
+naming it `triagecompany` does not.
+
+Feature→feature seams are sanctioned in one direction only, and all of them are a public service
+method plus the records it returns — never another feature's internals:
+
+- `triagecompany`'s `TriageCompanyService` calls `strategy`'s `ApolloCompanyQueryService` to resolve
+  a company snapshot at write time, and `StrategyService.scopeOf` to resolve the saved filter behind
+  "Add all to Universe". `strategy` never looks back at a mandate's triaged companies.
+- `project`'s `ReportService` calls `StrategyService.scopeOf` — one method wide, so the report never
+  learns how a mandate's filter is stored, validated or translated — and `ApolloCompanyQueryService`
+  for the universe counts beside it. `project`'s `ClientService` uses the same service to resolve the
+  company a new client record names.
+
+A further seam is sanctioned for client representatives: `project`'s `ClientRepresentativeService`
 calls `workspace`'s `InvitationService.onboardClientRepresentative` to grant membership (a representative
 is a CLIENT-role workspace member, and membership is the workspace's to grant). That call chooses the
 path: an email that is **already an active member** gains the `CLIENT` role on their existing membership

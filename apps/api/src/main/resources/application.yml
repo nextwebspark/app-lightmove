@@ -47,6 +47,13 @@ spring:
     enabled: ${FLYWAY_ENABLED:true}
     locations: classpath:db/migration
     baseline-on-migrate: true
+    # Baseline at 0, not Flyway's default of 1 — otherwise "adopt a non-empty schema" silently means
+    # "assume V1 has already run". ops/dev/db.sh restores app_lm_apollo_companies into the fresh volume
+    # before the API boots (it carries the pipeline-owned universe across `dev:db:reset`), so Flyway
+    # meets a schema holding exactly one table and no history, marks it baselined at the default 1, and
+    # starts at V2 — leaving V4 to fail on an app_lm_user that V1 was never asked to create.
+    # A baseline of 0 records "nothing has been applied yet" and runs the whole chain from V1.
+    baseline-version: 0
     placeholders:
       # The Cloud SQL IAM principal granted read access to the schema (see V2). Empty = grant nothing,
       # which is what a production deployment wants.
@@ -168,8 +175,8 @@ lightmove:
     base-url: ${WEB_BASE_URL:http://localhost:5173}
     cors-allowed-origins: ${WEB_CORS_ORIGINS:http://localhost:5173}
     oauth-success-path: /auth/callback
-  # Read limits over the shared company universe (app_lm_companies). Defaults are production-ready;
-  # these placeholders let a deployed service retune the picker without a recompile.
+  # Read and write limits around the company universe (app_lm_apollo_companies). Defaults are
+  # production-ready; these placeholders let a deployed service retune them without a recompile.
   company:
     search:
       # Rows returned when the request names no explicit limit.
@@ -178,16 +185,13 @@ lightmove:
       max-result-limit: ${COMPANY_SEARCH_MAX_LIMIT:25}
       # Longest accepted query text; beyond it the request is rejected — a scope, not an attack.
       max-query-length: ${COMPANY_SEARCH_MAX_QUERY_LENGTH:100}
-    estimate:
-      # Most sector-plus-tag labels one estimate may carry before it is rejected.
-      max-labels: ${COMPANY_ESTIMATE_MAX_LABELS:100}
-    suggestions:
-      # How many adjacent sectors the suggestion panel shows at most.
-      adjacent-sector-limit: ${COMPANY_SUGGESTIONS_ADJACENT_LIMIT:10}
-      # How many inferred tags survive to the response.
-      inferred-tag-limit: ${COMPANY_SUGGESTIONS_INFERRED_LIMIT:8}
-      # How many co-occurring tags to pull before filtering out ground the sectors already cover.
-      inferred-tag-fetch-size: ${COMPANY_SUGGESTIONS_INFERRED_FETCH:30}
+    list:
+      # Rows per page when the request names no explicit size.
+      default-page-size: ${COMPANY_LIST_DEFAULT_PAGE_SIZE:25}
+      # Hard ceiling on one page; a larger requested size is rejected.
+      max-page-size: ${COMPANY_LIST_MAX_PAGE_SIZE:100}
+      # How many companies one "Add all to Universe" may take. An untouched filter matches all 71,822.
+      bulk-add-limit: ${COMPANY_BULK_ADD_LIMIT:500}
 
 management:
   # Actuator listens on its own port, bound to loopback — it is not reachable from the internet at all.

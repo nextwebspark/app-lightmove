@@ -1,0 +1,190 @@
+{
+  "Technology": [
+    "information technology & services",
+    "computer & network security",
+    "computer games",
+    "internet",
+    "semiconductors",
+    "computer hardware",
+    "computer networking",
+    "computer software",
+    "nanotechnology",
+    "information services",
+    "program development"
+  ],
+  "Healthcare": [
+    "hospital & health care",
+    "health, wellness & fitness",
+    "medical practice",
+    "pharmaceuticals",
+    "medical devices",
+    "mental health care",
+    "veterinary",
+    "biotechnology",
+    "alternative medicine"
+  ],
+  "Financial Services": [
+    "financial services",
+    "investment management",
+    "insurance",
+    "accounting",
+    "banking",
+    "venture capital & private equity",
+    "investment banking",
+    "capital markets"
+  ],
+  "Real Estate": [
+    "real estate",
+    "commercial real estate",
+    "architecture & planning"
+  ],
+  "Manufacturing": [
+    "machinery",
+    "mechanical or industrial engineering",
+    "electrical/electronic manufacturing",
+    "chemicals",
+    "plastics",
+    "packaging & containers",
+    "printing",
+    "paper & forest products",
+    "business supplies & equipment",
+    "industrial automation",
+    "railroad manufacture",
+    "shipbuilding"
+  ],
+  "Retail & Consumer": [
+    "retail",
+    "apparel & fashion",
+    "consumer goods",
+    "consumer services",
+    "luxury goods & jewelry",
+    "cosmetics",
+    "supermarkets",
+    "sporting goods",
+    "furniture",
+    "textiles",
+    "arts & crafts",
+    "tobacco",
+    "consumer electronics"
+  ],
+  "Energy & Utilities": [
+    "oil & energy",
+    "utilities",
+    "renewables & environment",
+    "mining & metals",
+    "environmental services"
+  ],
+  "Construction": [
+    "construction",
+    "civil engineering",
+    "building materials",
+    "glass, ceramics & concrete"
+  ],
+  "Telecommunications": [
+    "telecommunications",
+    "wireless"
+  ],
+  "Hospitality & Tourism": [
+    "hospitality",
+    "leisure, travel & tourism",
+    "events services",
+    "sports",
+    "recreational facilities & services",
+    "gambling & casinos"
+  ],
+  "Education": [
+    "education management",
+    "higher education",
+    "primary/secondary education",
+    "e-learning",
+    "libraries"
+  ],
+  "Agriculture": [
+    "farming",
+    "agriculture",
+    "ranching",
+    "dairy",
+    "fishery"
+  ],
+  "Media & Entertainment": [
+    "media production",
+    "online media",
+    "publishing",
+    "newspapers",
+    "broadcast media",
+    "music",
+    "motion pictures & film",
+    "animation",
+    "performing arts",
+    "fine art",
+    "entertainment"
+  ],
+  "Professional Services": [
+    "management consulting",
+    "marketing & advertising",
+    "design",
+    "graphic design",
+    "human resources",
+    "staffing & recruiting",
+    "legal services",
+    "law practice",
+    "professional training & coaching",
+    "public relations & communications",
+    "market research",
+    "research",
+    "outsourcing/offshoring",
+    "translation & localization",
+    "writing & editing",
+    "security & investigations",
+    "facilities services",
+    "international trade & development",
+    "import & export",
+    "wholesale",
+    "alternative dispute resolution",
+    "photography"
+  ],
+  "Aerospace & Defense": [
+    "aviation & aerospace",
+    "defense & space"
+  ],
+  "Transportation": [
+    "logistics & supply chain",
+    "transportation/trucking/railroad",
+    "maritime",
+    "airlines/aviation",
+    "package/freight delivery",
+    "warehousing"
+  ],
+  "Automotive": [
+    "automotive"
+  ],
+  "Food & Beverage": [
+    "food & beverages",
+    "food production",
+    "restaurants",
+    "wine & spirits"
+  ],
+  "Government & Public Sector": [
+    "government administration",
+    "government relations",
+    "public safety",
+    "public policy",
+    "military",
+    "law enforcement",
+    "executive office",
+    "legislative office",
+    "judiciary",
+    "international affairs",
+    "political organization"
+  ],
+  "Nonprofit & Social": [
+    "nonprofit organization management",
+    "civic & social organization",
+    "individual & family services",
+    "philanthropy",
+    "fund-raising",
+    "religious institutions",
+    "museums & institutions",
+    "think tanks"
+  ]
+}

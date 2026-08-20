@@ -1,0 +1,13 @@
+{
+  "B2B": ["b2b"],
+  "B2C": ["b2c"],
+  "B2B2C": ["b2b2c"],
+  "E-commerce": ["e-commerce", "ecommerce"],
+  "Fintech": ["fintech"],
+  "D2C": ["d2c"],
+  "Non-Profit": ["non-profit", "nonprofit"],
+  "SaaS": ["saas"],
+  "Consulting": ["consulting"],
+  "Services": ["services"],
+  "Retail": ["retail"]
+}

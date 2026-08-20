@@ -17,6 +17,7 @@
     "dev:db:down": "./ops/dev/db.sh down",
     "dev:db:reset": "./ops/dev/db.sh reset",
     "dev:db:psql": "./ops/dev/db.sh psql",
+    "dev:db:apollo": "./ops/dev/db.sh apollo-pull",
     "dev:cloud": "concurrently -n api,web -c yellow,cyan \"npm:dev:api:cloud\" \"npm:dev:web\"",
     "dev:api:cloud": "cd apps/api && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local",
     "build": "npm run build:api && npm run build:web",

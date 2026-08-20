@@ -1,32 +1,27 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import * as companiesApi from "../api/companiesApi";
-import type { CompanySearchResult } from "../api/types";
-import { companyKeyOf } from "../lib/companyKey";
+import type { CompanySuggestion } from "../api/types";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 
 /** How long a pause in typing must last before the query fires. */
 const DEBOUNCE_MS = 250;
 
 /**
- * The company-list picker over the shared universe. Focusing the empty box browses it — companies
- * in the strategy's direct sectors (all, when none are picked), ordered by revenue per list — and
- * any typed text switches to a name match instead. Server-backed and debounced (~54k companies
- * can't sit in memory); no add-on-blur, because a list entry must be a picked row, never a guessed
- * one.
+ * The company picker over the universe — the off-limits list and the client registry both use it.
+ *
+ * <p>Server-backed and debounced: 71,822 companies cannot sit in memory. A blank box offers nothing
+ * rather than browsing, because six arbitrary companies before a key is pressed suggests they were
+ * chosen for a reason. No add-on-blur either — an entry must be a picked row, never a guessed one.
  */
 export function CompanySearchCombobox({
   listId,
-  excludedKeys,
-  browseSectors,
-  browseOrder,
+  excludedIds,
   onPick,
 }: {
   listId: string;
-  excludedKeys: Set<string>;
-  browseSectors: string[];
-  browseOrder: companiesApi.CompanySearchOrder;
-  onPick: (company: CompanySearchResult) => void;
+  excludedIds: Set<string>;
+  onPick: (company: CompanySuggestion) => void;
 }) {
   const [draft, setDraft] = useState("");
   const [settled, setSettled] = useState("");
@@ -47,19 +42,19 @@ export function CompanySearchCombobox({
   );
 
   const { data } = useQuery({
-    queryKey: companiesApi.SEARCH_KEY(settled, browseSectors, browseOrder),
-    queryFn: () => companiesApi.searchCompanies(settled, browseSectors, browseOrder),
-    enabled: open,
+    queryKey: companiesApi.COMPANY_SEARCH_KEY(settled),
+    queryFn: ({ signal }) => companiesApi.searchCompanies(settled, undefined, signal),
+    enabled: open && settled.length > 0,
     placeholderData: keepPreviousData,
   });
 
   const matches = (data?.companies ?? []).filter(
-    (company) => !excludedKeys.has(companyKeyOf(company)),
+    (company) => !excludedIds.has(company.apolloAccountId),
   );
   const showList = open && matches.length > 0;
   const showEmpty = open && data !== undefined && matches.length === 0;
 
-  const pick = (company: CompanySearchResult) => {
+  const pick = (company: CompanySuggestion) => {
     onPick(company);
     setDraft("");
     setSettled("");
@@ -114,7 +109,7 @@ export function CompanySearchCombobox({
         >
           {matches.map((company, index) => (
             <li
-              key={companyKeyOf(company)}
+              key={company.apolloAccountId}
               id={`${listId}-${index}`}
               role="option"
               aria-selected={index === active}
@@ -129,9 +124,9 @@ export function CompanySearchCombobox({
                 index === active ? "bg-panel2 text-text" : "text-text2"
               }`}
             >
-              <CompanyLogo name={company.name} logo={company.logo} size={16} />
+              <CompanyLogo name={company.companyName} logo={company.logoUrl} size={16} />
               <span className="truncate font-sans text-[13px] font-medium text-text">
-                {company.name}
+                {company.companyName}
               </span>
               <span className="min-w-0 flex-1 truncate text-right font-mono text-[10.5px] text-text3">
                 {metaOf(company)}
@@ -152,8 +147,8 @@ export function CompanySearchCombobox({
   );
 }
 
-/** The muted context line: whichever of slogan, industry and location the row has. */
-function metaOf(company: CompanySearchResult): string {
-  const location = [company.hqCity, company.hqCountry].filter(Boolean).join(", ");
-  return [company.slogan, company.primaryIndustry, location].filter(Boolean).join(" · ");
+/** The muted context line: whichever of industry and location the row has. */
+function metaOf(company: CompanySuggestion): string {
+  const location = [company.companyCity, company.companyCountry].filter(Boolean).join(", ");
+  return [company.industry, location].filter(Boolean).join(" · ");
 }

@@ -7,11 +7,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
-import java.sql.PreparedStatement;
-import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,23 +21,32 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
 
 /**
- * The mandate report: the saved Strategy scope measured against the company universe, gated on the
+ * The mandate report: the saved Strategy filter measured against the company universe, gated on the
  * same WORK_VIEW seat as the rest of a project's content — so an attached client representative reads
  * it, and a member with no seat does not.
+ *
+ * <p>The report and the Strategy screen now measure the <b>same table</b>. That is what removed two of
+ * the three caveats this test used to assert: the off-limits bar could not be applied when the two
+ * read different universes, and a selected sector could be missing from the report's source entirely.
+ * Both are gone, and the tests that pinned them went with them. The remaining caveat is about the
+ * data rather than the plumbing — Apollo publishes a revenue figure on a minority of rows.
  */
 @IntegrationTest
 @Import(RecordingEmailSender.Config.class)
 class ReportIntegrationTest extends FlowTestSupport {
 
-    private static final String RETAIL_SCOPE = """
-            {"direct":[{"label":"Retail","selected":true}],"adjacent":[],"inferred":[]}""";
+    private static final String RETAIL_FILTER = """
+            {"filter":{"industries":["retail"],"marketSegments":[],"countries":[],
+                       "employeeBands":[],"revenueBands":[]}}""";
 
     @Autowired JdbcTemplate db;
 
+    private ApolloUniverse universe;
+
     @BeforeEach
     void freshUniverse() {
-        db.execute("DELETE FROM app_lm_apollo_companies");
-        db.execute("DELETE FROM app_lm_companies");
+        universe = new ApolloUniverse(db);
+        universe.reset();
     }
 
     @Test
@@ -133,243 +141,168 @@ class ReportIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a mandate with no scope reports nothing rather than the whole universe")
-    void anUnscopedMandateReportsNothing() throws Exception {
-        String admin = adminOf("Report Empty Firm");
+    @DisplayName("a mandate with no filter reports the whole universe, matching what Strategy shows")
+    void anUnscopedMandateReportsTheWholeUniverse() throws Exception {
+        String admin = adminOf("Report Unscoped Firm");
         String projectId = projectOf(admin, "Head of Retail");
-        apolloCompany("Alpha Retail", "retail", "United Arab Emirates", "Dubai");
+        universe.company("a1", "One").industry("retail").country("Qatar").employees(10).insert();
+        universe.company("a2", "Two").industry("oil & energy").country("Qatar").employees(10).insert();
 
-        mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.universeCount").value(0))
-                .andExpect(jsonPath("$.sectorsInScope").value(0))
-                .andExpect(jsonPath("$.sectors.length()").value(0))
-                .andExpect(jsonPath("$.countries.length()").value(0))
-                .andExpect(jsonPath("$.relevance.length()").value(0));
-    }
-
-    @Test
-    @DisplayName("the report measures the scope the strategy saved, broken down by tier, sector and place")
-    void theReportMeasuresTheSavedScope() throws Exception {
-        String admin = adminOf("Report Scope Firm");
-        String projectId = projectOf(admin, "Head of Retail");
-        // Apollo lower-cases every industry and spells countries out; the strategy below selects the
-        // Title Case labels the Strategy screen stores, so this is the case-fold in action.
-        apolloCompany("Alpha Retail", "retail", "United Arab Emirates", "Dubai");
-        apolloCompany("Bravo Retail", "retail", "United Arab Emirates", "Dubai");
-        apolloCompany("Charlie Grocery", "grocery stores", "Saudi Arabia", "Riyadh");
-        apolloCompany("Delta Energy", "oil & energy", "Saudi Arabia", "Riyadh");
-        // In scope and counted, but it carries no city — a bar labelled with a blank is not a finding.
-        apolloCompany("Echo Retail", "retail", "United Arab Emirates", null);
-
-        mvc.perform(put("/api/v1/projects/" + projectId + "/strategy/sectors")
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"direct":[{"label":"Retail","selected":true}],
-                                 "adjacent":[{"label":"Grocery Stores","selected":true}],
-                                 "inferred":[]}"""))
-                .andExpect(status().isOk());
-
-        mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
-                .andExpect(status().isOk())
-                // Delta Energy is out of scope, so the universe is four, not five.
-                .andExpect(jsonPath("$.universeCount").value(4))
-                .andExpect(jsonPath("$.sectorsInScope").value(2))
-                .andExpect(jsonPath("$.relevance[0].label").value("DIRECT"))
-                .andExpect(jsonPath("$.relevance[0].count").value(3))
-                .andExpect(jsonPath("$.relevance[1].label").value("ADJACENT"))
-                .andExpect(jsonPath("$.relevance[1].count").value(1))
-                .andExpect(jsonPath("$.sectors[0].label").value("retail"))
-                .andExpect(jsonPath("$.sectors[0].count").value(3))
-                .andExpect(jsonPath("$.countries[0].label").value("United Arab Emirates"))
-                .andExpect(jsonPath("$.countries[0].count").value(3))
-                // Echo Retail counts in the universe and its country, but contributes no city bar.
-                .andExpect(jsonPath("$.cities.length()").value(2))
-                .andExpect(jsonPath("$.cities[0].label").value("Dubai"))
-                .andExpect(jsonPath("$.cities[0].count").value(2));
-    }
-
-    @Test
-    @DisplayName("a scope of inferred tags alone reports every match as inferred")
-    void aTagOnlyScopeIsAllInferred() throws Exception {
-        String admin = adminOf("Report Tag Scope Firm");
-        String projectId = projectOf(admin, "Head of Retail");
-        apolloCompanyWithKeyword("Alpha Logistics", "transportation", "cold chain", "United Arab Emirates");
-        apolloCompanyWithKeyword("Bravo Logistics", "warehousing", "cold chain", "United Arab Emirates");
-        apolloCompany("Charlie Retail", "retail", "United Arab Emirates", "Dubai");
-
-        // No sector at all: the match-tier CASE collapses to a bare 'INFERRED' literal, which is the
-        // only report shape whose generated SQL differs structurally.
-        mvc.perform(put("/api/v1/projects/" + projectId + "/strategy/sectors")
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"direct":[],"adjacent":[],
-                                 "inferred":[{"label":"Cold Chain","selected":true}]}"""))
-                .andExpect(status().isOk());
-
+        // This is a reversal. The criteria model refused to answer without a sector, so an unscoped
+        // mandate reported zero; the search screen that replaced it opens on everything, and a report
+        // that disagreed with the screen beside it would be the confusing one.
         mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.universeCount").value(2))
                 .andExpect(jsonPath("$.sectorsInScope").value(0))
-                .andExpect(jsonPath("$.relevance.length()").value(1))
-                .andExpect(jsonPath("$.relevance[0].label").value("INFERRED"))
-                .andExpect(jsonPath("$.relevance[0].count").value(2));
+                .andExpect(jsonPath("$.marketsInScope").value(0));
+    }
+
+    @Test
+    @DisplayName("the report measures the filter the strategy saved, broken down by sector and place")
+    void theReportMeasuresTheSavedFilter() throws Exception {
+        String admin = adminOf("Report Scope Firm");
+        String projectId = projectOf(admin, "Head of Retail");
+        universe.company("a1", "Spinneys").industry("retail").country("United Arab Emirates")
+                .city("Dubai").employees(10).insert();
+        universe.company("a2", "Lulu").industry("retail").country("United Arab Emirates")
+                .city("Abu Dhabi").employees(10).insert();
+        universe.company("a3", "Carrefour Qatar").industry("retail").country("Qatar")
+                .city("Doha").employees(10).insert();
+        universe.company("a4", "ACWA Power").industry("oil & energy").country("Saudi Arabia")
+                .city("Riyadh").employees(10).insert();
+        putFilter(admin, projectId, RETAIL_FILTER);
+
+        mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.universeCount").value(3))
+                .andExpect(jsonPath("$.sectorsInScope").value(1))
+                .andExpect(jsonPath("$.sectors[0].label").value("retail"))
+                .andExpect(jsonPath("$.sectors[0].count").value(3))
+                .andExpect(jsonPath("$.countries[0].label").value("United Arab Emirates"))
+                .andExpect(jsonPath("$.countries[0].count").value(2))
+                .andExpect(jsonPath("$.cities.length()").value(3));
     }
 
     @Test
     @DisplayName("the mandate band is absent until the brief states one")
-    void theMandateBandFollowsTheBrief() throws Exception {
+    void mandateBandAbsentUntilStated() throws Exception {
         String admin = adminOf("Report Band Firm");
-        String projectId = projectOf(admin, "Chief Financial Officer");
+        String projectId = projectOf(admin, "Head of Retail");
 
+        // Null, not a band of zero, which would read as a stated figure.
         mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
-                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.mandateBand").doesNotExist());
 
         mvc.perform(put("/api/v1/projects/" + projectId + "/position")
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"mandateReason":"NEW_ROLE","salaryMin":900000,"salaryMax":1300000,
-                                 "currency":"USD","benefits":[],"confidential":false}"""))
+                                {"mandateReason":"SUCCESSION","narrative":"A hands-on CFO.",
+                                 "location":"Abu Dhabi, UAE","employmentType":"FULL_TIME_PERMANENT",
+                                 "salaryMin":500000,"salaryMax":750000,"currency":"AED",
+                                 "confidential":false}"""))
                 .andExpect(status().isOk());
 
         mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.mandateBand.min").value(900000))
-                .andExpect(jsonPath("$.mandateBand.max").value(1300000))
-                .andExpect(jsonPath("$.mandateBand.currency").value("USD"));
+                .andExpect(jsonPath("$.mandateBand.min").value(500000))
+                .andExpect(jsonPath("$.mandateBand.max").value(750000))
+                .andExpect(jsonPath("$.mandateBand.currency").value("AED"));
     }
 
     @Test
-    @DisplayName("an off-limits company still counts, and the report says the bar could not be applied")
-    void offLimitsCannotBeAppliedAndSaysSo() throws Exception {
-        String admin = adminOf("Report Lists Firm");
+    @DisplayName("the off-limits bar is applied now that both sides share one universe")
+    void offLimitsIsApplied() throws Exception {
+        String admin = adminOf("Report Off Limits Firm");
         String projectId = projectOf(admin, "Head of Retail");
-        // The off-limits list is picked from the warehouse registry, so the barred company is seeded
-        // there; the report measures Apollo, where that (source, source_id) key does not exist.
-        String barred = company("Bravo Retail", "Retail", "AE", "Dubai");
-        apolloCompany("Alpha Retail", "retail", "United Arab Emirates", "Dubai");
-        apolloCompany("Bravo Retail", "retail", "United Arab Emirates", "Dubai");
-
-        mvc.perform(put("/api/v1/projects/" + projectId + "/strategy/sectors")
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(RETAIL_SCOPE))
-                .andExpect(status().isOk());
+        universe.company("a1", "Spinneys").industry("retail").country("Qatar").employees(10).insert();
+        universe.company("a2", "Barred").industry("retail").country("Qatar").employees(10).insert();
         mvc.perform(put("/api/v1/projects/" + projectId + "/strategy/off-limits")
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"companies":[{"source":"test","sourceId":"%s"}]}
-                                """.formatted(barred)))
+                                {"apolloAccountIds":["a2"]}"""))
                 .andExpect(status().isOk());
 
+        // The old report could only say the bar was unenforceable — its source had no key for it.
         mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.offLimitsCompanies").value(1))
-                .andExpect(jsonPath("$.targetCompanies").value(0))
-                // Both Apollo rows still count: the bar cannot reach this source, so the report states
-                // that rather than quietly reporting a universe the reader would take as filtered.
-                .andExpect(jsonPath("$.universeCount").value(2))
-                .andExpect(jsonPath("$.caveats.offLimitsNotApplied").value(1));
-    }
-
-    @Test
-    @DisplayName("a selected sector this source does not carry is named, not reported as an empty market")
-    void aSectorAbsentFromTheSourceIsNamed() throws Exception {
-        String admin = adminOf("Report Absent Sector Firm");
-        String projectId = projectOf(admin, "Head of Retail");
-        apolloCompany("Alpha Retail", "retail", "United Arab Emirates", "Dubai");
-
-        mvc.perform(put("/api/v1/projects/" + projectId + "/strategy/sectors")
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"direct":[{"label":"Retail","selected":true},
-                                           {"label":"Nanotechnology","selected":true}],
-                                 "adjacent":[],"inferred":[]}"""))
-                .andExpect(status().isOk());
-
-        mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
-                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.universeCount").value(1))
-                .andExpect(jsonPath("$.caveats.sectorsNotInSource.length()").value(1))
-                .andExpect(jsonPath("$.caveats.sectorsNotInSource[0]").value("Nanotechnology"));
+                .andExpect(jsonPath("$.offLimitsCompanies").value(1));
     }
 
     @Test
-    @DisplayName("a size band matches Apollo's raw headcount, and a revenue band excludes the unknowns")
-    void sizeBandsResolveToNumericBounds() throws Exception {
-        String admin = adminOf("Report Bands Firm");
+    @DisplayName("a size band matches the raw headcount, and a revenue band flags the excluded unknowns")
+    void sizeBandsAndTheRevenueCaveat() throws Exception {
+        String admin = adminOf("Report Size Firm");
         String projectId = projectOf(admin, "Head of Retail");
-        apolloCompanyWithSize("Small Retail", "retail", "United Arab Emirates", 40, 3_000_000L);
-        apolloCompanyWithSize("Mid Retail", "retail", "United Arab Emirates", 120, 3_000_000L);
-        // In band on headcount, but Apollo carries no revenue figure for it.
-        apolloCompanyWithSize("Unknown Revenue Retail", "retail", "United Arab Emirates", 30, null);
+        universe.company("a1", "Small").industry("retail").country("Qatar").employees(120)
+                .revenue(null).insert();
+        universe.company("a2", "Large").industry("retail").country("Qatar").employees(3_000)
+                .revenue(2_000_000_000L).insert();
 
-        mvc.perform(put("/api/v1/projects/" + projectId + "/strategy/sectors")
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(RETAIL_SCOPE))
-                .andExpect(status().isOk());
-        mvc.perform(put("/api/v1/projects/" + projectId + "/strategy/company-size")
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"employee":["11-50"],"revenue":[]}"""))
-                .andExpect(status().isOk());
-
-        // "11-50" is a range string in the warehouse and a pair of bounds on num_employees here.
+        putFilter(admin, projectId, """
+                {"filter":{"industries":["retail"],"marketSegments":[],"countries":[],
+                           "employeeBands":["2001-5000"],"revenueBands":[]}}""");
         mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.universeCount").value(2))
+                .andExpect(jsonPath("$.universeCount").value(1))
                 .andExpect(jsonPath("$.caveats.revenueBandExcludesUnknown").value(false));
 
-        mvc.perform(put("/api/v1/projects/" + projectId + "/strategy/company-size")
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"employee":["11-50"],"revenue":["<5M"]}"""))
-                .andExpect(status().isOk());
-
-        // The no-figure row drops out: it cannot be shown to fall in the band, and the report says so.
+        putFilter(admin, projectId, """
+                {"filter":{"industries":["retail"],"marketSegments":[],"countries":[],
+                           "employeeBands":[],"revenueBands":["1b-5b"]}}""");
+        // A revenue-scoped report measures a tenth of the market, and has to say so.
         mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
-                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.universeCount").value(1))
                 .andExpect(jsonPath("$.caveats.revenueBandExcludesUnknown").value(true));
     }
 
     @Test
-    @DisplayName("an ISO market selection matches the country name Apollo spells out")
-    void marketsResolveToApolloCountryNames() throws Exception {
-        String admin = adminOf("Report Market Firm");
+    @DisplayName("taking the Unknown band with a revenue selection clears the caveat")
+    void unknownBandClearsTheRevenueCaveat() throws Exception {
+        String admin = adminOf("Report Unknown Band Firm");
         String projectId = projectOf(admin, "Head of Retail");
-        apolloCompany("Dubai Retail", "retail", "United Arab Emirates", "Dubai");
-        apolloCompany("Riyadh Retail", "retail", "Saudi Arabia", "Riyadh");
+        universe.company("a1", "Silent").industry("retail").country("Qatar").employees(10)
+                .revenue(null).insert();
 
-        mvc.perform(put("/api/v1/projects/" + projectId + "/strategy/sectors")
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(RETAIL_SCOPE))
-                .andExpect(status().isOk());
-        mvc.perform(put("/api/v1/projects/" + projectId + "/strategy/geography")
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"markets":["AE"]}"""))
-                .andExpect(status().isOk());
+        putFilter(admin, projectId, """
+                {"filter":{"industries":["retail"],"marketSegments":[],"countries":[],
+                           "employeeBands":[],"revenueBands":["1b-5b","unknown"]
+                           }}""");
+
+        // Nothing is being hidden if the companies without a figure were deliberately included.
+        mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.universeCount").value(1))
+                .andExpect(jsonPath("$.caveats.revenueBandExcludesUnknown").value(false));
+    }
+
+    @Test
+    @DisplayName("a country selection matches the name the universe spells out")
+    void countrySelectionMatches() throws Exception {
+        String admin = adminOf("Report Country Firm");
+        String projectId = projectOf(admin, "Head of Retail");
+        universe.company("a1", "Dubai Retail").industry("retail").country("United Arab Emirates")
+                .employees(10).insert();
+        universe.company("a2", "Doha Retail").industry("retail").country("Qatar").employees(10).insert();
+
+        putFilter(admin, projectId, """
+                {"filter":{"industries":["retail"],"marketSegments":[],
+                           "countries":["United Arab Emirates"],"employeeBands":[],
+                           "revenueBands":[]}}""");
 
         mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
-                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.universeCount").value(1))
-                .andExpect(jsonPath("$.marketsInScope").value(1))
-                .andExpect(jsonPath("$.countries[0].label").value("United Arab Emirates"));
+                .andExpect(jsonPath("$.marketsInScope").value(1));
     }
 
     // ── fixture ──────────────────────────────────────────────────────────────
+
+    private void putFilter(String token, String projectId, String bodyJson) throws Exception {
+        mvc.perform(put("/api/v1/projects/" + projectId + "/strategy/filter")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(bodyJson))
+                .andExpect(status().isOk());
+    }
 
     private static String reportUrl(String projectId) {
         return "/api/v1/projects/" + projectId + "/report";
@@ -404,68 +337,5 @@ class ReportIntegrationTest extends FlowTestSupport {
                                 """.formatted(clientId, positionTitle)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
-    }
-
-    /** One Apollo row. Industries arrive lower-cased and countries spelled out, as Apollo stores them. */
-    private void apolloCompany(String name, String industry, String country, String city) {
-        apolloRow(name, industry, new String[0], country, city, null, null);
-    }
-
-    private void apolloCompanyWithKeyword(String name, String industry, String keyword, String country) {
-        apolloRow(name, industry, new String[] {keyword}, country, "Dubai", null, null);
-    }
-
-    private void apolloCompanyWithSize(String name, String industry, String country, Integer numEmployees,
-                                        Long annualRevenue) {
-        apolloRow(name, industry, new String[0], country, "Dubai", numEmployees, annualRevenue);
-    }
-
-    private void apolloRow(String name, String industry, String[] keywords, String country, String city,
-                            Integer numEmployees, Long annualRevenue) {
-        db.update(connection -> {
-            PreparedStatement ps = connection.prepareStatement("""
-                    INSERT INTO app_lm_apollo_companies
-                        (apollo_account_id, company_name, industry, keywords, company_country,
-                         company_city, num_employees, annual_revenue, row_hash)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""");
-            ps.setString(1, UUID.randomUUID().toString());
-            ps.setString(2, name);
-            ps.setString(3, industry);
-            ps.setArray(4, connection.createArrayOf("text", keywords));
-            ps.setString(5, country);
-            ps.setString(6, city);
-            ps.setObject(7, numEmployees);
-            ps.setObject(8, annualRevenue);
-            ps.setString(9, UUID.randomUUID().toString());
-            return ps;
-        });
-    }
-
-    /**
-     * One warehouse row, returning its {@code source_id}. Only the off-limits test needs this: the
-     * strategy's company lists are picked from the warehouse registry even though the report measures
-     * Apollo, which is exactly why the bar cannot be applied there.
-     */
-    private String company(String name, String sector, String hqCountry, String hqCity) {
-        return companyWithTags(name, sector, new String[0], hqCountry, hqCity);
-    }
-
-    private String companyWithTags(String name, String sector, String[] tags, String hqCountry,
-                                    String hqCity) {
-        String sourceId = UUID.randomUUID().toString();
-        db.update(connection -> {
-            PreparedStatement ps = connection.prepareStatement("""
-                    INSERT INTO app_lm_companies
-                        (source, source_id, name, primary_industry, industry_tags, hq_country, hq_city)
-                    VALUES ('test', ?, ?, ?, ?, ?, ?)""");
-            ps.setString(1, sourceId);
-            ps.setString(2, name);
-            ps.setString(3, sector);
-            ps.setArray(4, connection.createArrayOf("text", tags));
-            ps.setString(5, hqCountry);
-            ps.setString(6, hqCity);
-            return ps;
-        });
-        return sourceId;
     }
 }
