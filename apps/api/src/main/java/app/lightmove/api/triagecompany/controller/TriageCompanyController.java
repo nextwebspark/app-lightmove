@@ -25,15 +25,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * A mandate's triaged companies — one resource, because a triage row is one thing whether you are
- * reading it or moving it.
- *
- * <p><b>The two halves of the seat are gated differently, which is why the annotations are per
- * method rather than on the class.</b> Reading is WORK_VIEW, held by every seated role including
- * CLIENT: what a team has shortlisted reveals its thinking as directly as the filter does, so it gets
- * a team-only gate rather than the workspace-level PROJECT_BROWSE that {@code CompanySearchController}
- * uses for the shape of the market itself. Every write is WORK_EXECUTE — a client representative who
- * follows a mandate must not be able to add a company to it or move one to Declined.
+ * A mandate's triaged companies. Gated per method rather than per class: reading is WORK_VIEW, held
+ * by every seated role including CLIENT, while every write is WORK_EXECUTE — a client representative
+ * may see that a company was shortlisted without being able to shortlist one.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/triage")
@@ -64,11 +58,7 @@ public class TriageCompanyController {
         return ResponseEntity.status(HttpStatus.CREATED).body(added);
     }
 
-    /**
-     * "Add all to Universe" — everything the mandate's saved filter matches, up to the configured cap.
-     * Takes no body: the scope is the stored filter, so a request cannot ask for a wider one than the
-     * screen is showing.
-     */
+    /** Takes no body: the scope is the stored filter, so a request cannot ask for a wider one. */
     @PostMapping("/from-filter")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
     public ResponseEntity<TriageBulkAddResponse> addAllInScope(@AuthenticationPrincipal AuthPrincipal principal,

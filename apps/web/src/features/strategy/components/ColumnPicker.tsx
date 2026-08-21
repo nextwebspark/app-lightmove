@@ -10,16 +10,9 @@ const HIDEABLE = companyColumns
   .map((column) => ({ id: column.id as string, label: String(column.header) }));
 
 /**
- * The toolbar's Columns menu.
- *
- * <p><b>It reads the column definitions, not the table instance.</b> The table lives beside the
- * results and this button lives in the toolbar; passing a table instance up through the page to get
- * it here would couple the toolbar to the table's construction for a menu whose entire content is a
- * list of ids and labels the definitions already carry.
- *
- * <p>Company and Actions never appear: the first is the row's identity and the second is the only
- * thing the screen is for. Both say so with `enableHiding: false` on the column itself, so a new
- * column is offered here automatically unless it opts out.
+ * The toolbar's Columns menu. It reads the column definitions rather than the table instance,
+ * which lives beside the results. Company and Actions opt out with `enableHiding: false`, so a new
+ * column is offered here automatically.
  */
 export function ColumnPicker({
   visibility,
@@ -28,8 +21,7 @@ export function ColumnPicker({
   visibility: ColumnVisibilityState;
   onChange: (visibility: ColumnVisibilityState) => void;
 }) {
-  // Absent means visible: the state records exceptions, so a column added later shows up rather than
-  // hiding behind a record written before it existed.
+  // Absent means visible: the state records only the exceptions.
   const isVisible = (id: string) => visibility[id] !== false;
   const hiddenCount = HIDEABLE.filter((column) => !isVisible(column.id)).length;
 

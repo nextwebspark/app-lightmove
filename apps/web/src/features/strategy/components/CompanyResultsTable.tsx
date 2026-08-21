@@ -16,48 +16,26 @@ const NO_COMPANIES: CompanyResult[] = [];
 /** `gap-3` in numbers, so the row's minimum width can be added up rather than guessed. */
 const ROW_GAP = 12;
 
-/**
- * Sticky classes for a pinned column.
- *
- * <p>The hairline is a `shadow` rather than a border because a border would take part in the grid
- * track and shift every column by a pixel; a shadow paints outside the box and costs no layout. The
- * opaque background is not decoration — without it the scrolling columns show *through* the pinned
- * one, which is the classic broken-sticky-table look.
- */
+// A shadow rather than a border: a border would join the grid track and shift every column by a
+// pixel. The opaque background stops the scrolling columns showing through the pinned one.
 const PINNED_START = "sticky start-0 ps-4 shadow-[1px_0_0_0_var(--color-line-soft)]";
 const PINNED_END = "sticky end-0 pe-4 shadow-[-1px_0_0_0_var(--color-line-soft)]";
 
-/**
- * A pinned cell has to fill its row, not just wrap its text.
- *
- * <p>The row centres its cells, so a cell is only as tall as its content. An opaque background on a
- * cell that tall is a band with daylight above and below it, and the scrolling columns slide through
- * the gaps. `self-stretch` takes the whole row height back and re-centres the content inside it.
- */
+// The row centres its cells, so without `self-stretch` an opaque cell is a band with daylight
+// above and below it, and the scrolling columns slide through the gaps.
 const PINNED_FILL = "flex items-center self-stretch bg-panel transition group-hover:bg-panel2";
 
 /**
- * The company table — TanStack Table v9 driving a CSS grid.
+ * The company table: TanStack Table v9 computing the models, this file owning every pixel.
  *
- * <p>Headless, in the strict sense: the table computes header groups, row models, visibility and
- * sort state; this file owns every pixel. It is a grid rather than a `<table>` because a `<table>`
- * cannot size its columns from state the way `grid-template-columns` can. The track list is built
- * from the *visible* leaf columns, so hiding one re-flows the header and every row together.
+ * <p>One scroll box for both axes with the header sticky inside it. A body with its own
+ * `overflow-y` becomes a horizontal scroll container too — the browser will not honour
+ * `overflow-x: visible` beside a scrolling y-axis — which would strand the header the moment the
+ * rows scrolled sideways.
  *
- * <p><b>One scroll box, both axes, header sticky inside it.</b> Header and rows must never scroll
- * apart, and a body with its own `overflow-y` becomes a horizontal scroll container too — the
- * browser will not honour `overflow-x: visible` beside a scrolling y-axis — which would leave the
- * header stranded the moment the rows scrolled sideways.
- *
- * <p><b>Sorting and paging are the server's.</b> `manualSorting` is on and no sorted row model is
- * registered: this component holds one page of 25 out of tens of thousands, and sorting those 25
- * client-side would reorder the page while claiming to have ordered the result. A header click
- * therefore changes the query, not the array.
- *
- * <p><b>Sorting is single-column and cannot be cleared.</b> The API takes one field and one
- * direction, so multi-sort would silently drop everything after the first, and a third click landing
- * on "no sort" would send a request with no ORDER BY — a different, unstated ordering rather than
- * the absence of one.
+ * <p>Sorting and paging are the server's: this holds one page of 25 out of tens of thousands, so a
+ * header click changes the query rather than the array. Single-column and non-clearable, because
+ * the API takes one field and one direction and a third click would send no ORDER BY at all.
  */
 export function CompanyResultsTable({
   companies,
@@ -80,8 +58,7 @@ export function CompanyResultsTable({
   onAddToUniverse: (company: CompanyResult) => void;
   addingId: string | null;
 }) {
-  // The API's { field, direction } and the table's [{ id, desc }] are the same fact in two shapes.
-  // Converting at this boundary keeps the wire shape out of the table and the table's out of the URL.
+  // The API's { field, direction } and the table's [{ id, desc }] are one fact in two shapes.
   const sorting = useMemo<SortingState>(
     () => [{ id: sort.field, desc: sort.direction === "desc" }],
     [sort],
@@ -113,10 +90,8 @@ export function CompanyResultsTable({
   const visibleColumns = table.getVisibleLeafColumns();
 
   /*
-   * Each column's percentage share becomes an `fr`, and its floor the `minmax` minimum. `fr` rather
-   * than a literal `%` because percentages resolve against the grid's content box and ignore the
-   * gaps: shares summing to 100 would overflow the row by the width of every gap between them.
-   * Hiding a column hands its share back to the rest, which is what a proportion should do.
+   * `fr`, not a literal `%`: percentages resolve against the grid's content box and ignore the gaps,
+   * so shares summing to 100 would overflow the row by the width of every gap between them.
    */
   const gridTemplateColumns = visibleColumns
     .map((column) => {
@@ -126,11 +101,8 @@ export function CompanyResultsTable({
     })
     .join(" ");
 
-  /*
-   * What the row cannot shrink below: every track's floor plus the gaps between them. A grid honours
-   * a `minmax` floor whether or not the container can afford it, so without this the row overflows a
-   * narrow container that clips rather than scrolls, and the last column silently stops existing.
-   */
+  // A grid honours a `minmax` floor whatever the container's width, so without this sum the row
+  // overflows a container that clips rather than scrolls, and the last column stops existing.
   const minWidth =
     visibleColumns.reduce((total, column) => total + (column.columnDef.meta?.min ?? 96), 0) +
     (visibleColumns.length - 1) * ROW_GAP;
@@ -156,8 +128,7 @@ export function CompanyResultsTable({
               const sorted = header.column.getIsSorted();
               const pinned = header.column.getIsPinned();
               const label = (
-                // `block` for the same reason the body cells need it: an inline box ignores
-                // overflow, so "EMPLOYEES" would run straight over "FOUNDED" rather than clip.
+                // `block`: an inline box ignores overflow, so "EMPLOYEES" would run over "FOUNDED", not clip.
                 <span
                   className={cn(
                     "block truncate font-sans text-[11px] font-semibold uppercase tracking-[0.04em]",
@@ -176,8 +147,7 @@ export function CompanyResultsTable({
                   aria-sort={sorted ? (sorted === "asc" ? "ascending" : "descending") : undefined}
                   className={cn(
                     "min-w-0",
-                    // The gutter travels with the pinned cell: a sticky box stops at the scrollport
-                    // edge, so padding left on the row would scroll away from underneath it.
+                    // The gutter travels with the pinned cell; padding on the row would scroll out from under it.
                     pinned === "start" && `${PINNED_START} z-10 self-stretch bg-panel2`,
                     pinned === "end" && `${PINNED_END} z-10 self-stretch bg-panel2`,
                     !pinned && "first:ps-4 last:pe-4",
@@ -227,8 +197,7 @@ export function CompanyResultsTable({
                       role="cell"
                       className={cn(
                         "min-w-0",
-                        // The row's hover tint is painted by the row, which the pinned cell covers —
-                        // so the pinned cell has to repaint it or it stays white as the row lights up.
+                        // The row paints the hover tint and the pinned cell covers it, so it has to repaint it.
                         pinned && PINNED_FILL,
                         pinned === "start" && PINNED_START,
                         pinned === "end" && PINNED_END,

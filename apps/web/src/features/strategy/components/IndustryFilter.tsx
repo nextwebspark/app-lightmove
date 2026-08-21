@@ -1,186 +1,302 @@
-import { useEffect, useMemo, useState } from "react";
-import type { SectorGroup } from "../api/types";
+import { useMemo, useState } from "react";
 import { Icon } from "../../../components/layout/Icon";
+import { cn } from "../../../lib/cn";
+import type { SectorGroup } from "../api/types";
+import { adjacentTo } from "../lib/sectorAdjacency";
 import { CheckBox } from "./FilterCheckRow";
 
-const CHEVRON_OPEN = "m6 9 6 6 6-6";
-const CHEVRON_CLOSED = "m9 18 6-6-6-6";
 const SEARCH = "M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm10 18-4.3-4.3";
-const CLOSE = "M18 6 6 18M6 6l12 12";
+const CHECK = "m5 13 4 4L19 7";
+const PLUS = "M12 5v14M5 12h14";
+const SPARKLE =
+  "M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z";
+
+const ADJACENT_SHOWN = 6;
 
 /**
- * The Industry panel: the selection as removable tags, a search box, and a two-level checkbox tree.
+ * The Industry panel: a sector list, the sub-industries of whichever sector is open, and the
+ * sectors beside it.
  *
- * <p>This is the one axis that cannot be a flat list. The universe carries 148 industry labels, so
- * the API groups them into twenty sectors and each renders as a parent row with its leaves behind a
- * chevron. Ticking the parent ticks every leaf; it draws indeterminate when only some are on.
+ * <p>Selecting a sector stores its industries, never its name — the grouping is editorial and will
+ * be re-tuned, and a saved search must not widen because a label moved.
  *
- * <p><b>Selecting a group stores its industries, never the group name.</b> The grouping is editorial
- * and will be re-tuned; a saved search that silently widened because someone moved a label between
- * sectors would be a scope change nobody asked for.
- *
- * <p><b>Apply is deliberate, and Industry alone has it.</b> Every other panel writes through on
- * click, which is right when one click is one decision. Here a single intent — "technology, but not
- * computer games" — is six or seven clicks, and autosaving each one would re-run the query, re-page
- * the table and write an audit event for every intermediate state the consultant never meant to
- * express. So the tree edits a draft and the amber button commits it.
+ * <p>Include Sub-Industries is what a sector click means: ticked it takes the whole sector,
+ * unticked the sector is only a lens and nothing enters the filter until an industry is picked.
  */
 export function IndustryFilter({
   groups,
   selected,
-  onApply,
+  onChange,
 }: {
   groups: SectorGroup[];
   selected: string[];
-  onApply: (industries: string[]) => void;
+  onChange: (industries: string[]) => void;
 }) {
-  const [draft, setDraft] = useState<string[]>(selected);
-  const [expanded, setExpanded] = useState<string[]>([]);
-  const [query, setQuery] = useState("");
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const [includeSubIndustries, setIncludeSubIndustries] = useState(true);
+  const [groupQuery, setGroupQuery] = useState("");
+  const [industryQuery, setIndustryQuery] = useState("");
+  const [showAllAdjacent, setShowAllAdjacent] = useState(false);
 
-  // A saved search loaded from the toolbar replaces the committed selection under the open panel;
-  // the draft has to follow it, or Apply would silently re-commit the filter that was just replaced.
-  useEffect(() => setDraft(selected), [selected]);
+  const chosen = useMemo(() => new Set(selected), [selected]);
+  const byName = useMemo(
+    () => new Map(groups.map((group) => [group.name, group])),
+    [groups],
+  );
 
-  const draftSet = useMemo(() => new Set(draft), [draft]);
-  const isDirty =
-    draft.length !== selected.length || draft.some((value) => !selected.includes(value));
-
-  const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase();
+  const visibleGroups = useMemo(() => {
+    const needle = groupQuery.trim().toLowerCase();
     if (!needle) return groups;
-    return groups
-      .map((group) => ({
-        ...group,
-        industries: group.name.toLowerCase().includes(needle)
-          ? group.industries
-          : group.industries.filter((leaf) => leaf.label.toLowerCase().includes(needle)),
-      }))
-      .filter((group) => group.industries.length > 0);
-  }, [groups, query]);
+    // Matching on the industries inside a sector too, so "aws" finds Technology without the
+    // consultant knowing where we filed it.
+    return groups.filter(
+      (group) =>
+        group.name.toLowerCase().includes(needle) ||
+        group.industries.some((industry) => industry.label.toLowerCase().includes(needle)),
+    );
+  }, [groups, groupQuery]);
 
-  const toggleLeaf = (value: string) => {
-    setDraft((current) =>
-      current.includes(value) ? current.filter((entry) => entry !== value) : [...current, value],
+  const open = openGroup === null ? null : (byName.get(openGroup) ?? null);
+
+  const visibleIndustries = useMemo(() => {
+    if (!open) return [];
+    const needle = industryQuery.trim().toLowerCase();
+    if (!needle) return open.industries;
+    return open.industries.filter((industry) => industry.label.toLowerCase().includes(needle));
+  }, [open, industryQuery]);
+
+  /**
+   * Anchored to the open sector so the list does not move: deriving it from everything selected made
+   * taking one suggestion drop that chip and fold in new ones, shifting whatever was about to be
+   * clicked next. A taken neighbour stays, rendered as taken.
+   */
+  const adjacent = useMemo(() => (open ? adjacentTo(open, byName) : []), [open, byName]);
+
+  const toggleIndustry = (value: string) => {
+    onChange(
+      chosen.has(value) ? selected.filter((entry) => entry !== value) : [...selected, value],
     );
   };
 
-  const toggleGroup = (group: SectorGroup) => {
-    const leaves = group.industries.map((leaf) => leaf.value);
-    const allOn = leaves.every((leaf) => draftSet.has(leaf));
-    setDraft((current) =>
-      allOn
-        ? current.filter((entry) => !leaves.includes(entry))
-        : [...new Set([...current, ...leaves])],
+  const selectedCountIn = (group: SectorGroup) =>
+    group.industries.filter((entry) => chosen.has(entry.value)).length;
+
+  /** Take a whole sector, or give it back if it is already wholly taken. */
+  const toggleWholeGroup = (group: SectorGroup) => {
+    const values = group.industries.map((entry) => entry.value);
+    const allTaken = values.every((value) => chosen.has(value));
+    onChange(
+      allTaken
+        ? selected.filter((entry) => !values.includes(entry))
+        : [...new Set([...selected, ...values])],
     );
+  };
+
+  const openAndMaybeTake = (group: SectorGroup) => {
+    setOpenGroup(group.name);
+    setIndustryQuery("");
+    if (includeSubIndustries) toggleWholeGroup(group);
+  };
+
+  // Deliberately does not open the sector: swapping the sub-industry list out mid-click is the
+  // other half of the churn this panel had.
+  const toggleAdjacent = (name: string) => {
+    const group = byName.get(name);
+    if (group) toggleWholeGroup(group);
   };
 
   return (
     <div className="flex flex-col gap-3">
-      {draft.length > 0 && (
-        <div className="flex flex-wrap gap-[5px]">
-          {draft.map((value) => (
-            <button
-              key={value}
-              type="button"
-              title="Remove"
-              onClick={() => toggleLeaf(value)}
-              className="inline-flex items-center gap-1 rounded-[4px] bg-amber-dim px-[7px] py-1 shadow-[inset_0_0_0_1px_var(--color-amber-dim)]"
-            >
-              <span className="font-sans text-[11px] font-medium text-amber">{value}</span>
-              <Icon d={CLOSE} size={8} className="text-text3" />
-            </button>
-          ))}
-        </div>
-      )}
+      <SearchBox
+        value={groupQuery}
+        onChange={setGroupQuery}
+        placeholder="Search industries…"
+        label="Search industries"
+      />
 
-      <div className="h-px bg-line-soft" />
-
-      <label className="flex h-8 items-center gap-2 rounded-md border border-line bg-panel2 px-[10px]">
-        <Icon d={SEARCH} size={13} className="flex-none text-text3" />
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search industries..."
-          aria-label="Search industries"
-          className="w-full bg-transparent font-sans text-[12px] font-medium text-text outline-none"
-        />
-      </label>
-
-      <div className="flex flex-col">
-        {visible.map((group) => {
-          const leaves = group.industries.map((leaf) => leaf.value);
-          const chosen = leaves.filter((leaf) => draftSet.has(leaf)).length;
-          const isOpen = expanded.includes(group.name) || query.trim() !== "";
-
+      <ScrollList empty={visibleGroups.length === 0 ? "No sector matches that" : null}>
+        {visibleGroups.map((group) => {
+          const taken = selectedCountIn(group);
           return (
-            <div key={group.name}>
-              <div className="flex items-center justify-between py-[7px] pr-[2px]">
-                <button
-                  type="button"
-                  role="checkbox"
-                  aria-checked={chosen === leaves.length ? true : chosen > 0 ? "mixed" : false}
-                  onClick={() => toggleGroup(group)}
-                  className="flex items-center gap-2"
-                >
-                  <CheckBox
-                    checked={chosen === leaves.length && leaves.length > 0}
-                    indeterminate={chosen > 0}
-                    size="sm"
-                  />
-                  <span className="font-sans text-[13px] font-semibold text-text">{group.name}</span>
-                </button>
-                <button
-                  type="button"
-                  aria-label={`${isOpen ? "Collapse" : "Expand"} ${group.name}`}
-                  aria-expanded={isOpen}
-                  onClick={() =>
-                    setExpanded((current) =>
-                      current.includes(group.name)
-                        ? current.filter((entry) => entry !== group.name)
-                        : [...current, group.name],
-                    )
-                  }
-                  className="px-1 py-[2px] text-text3 transition hover:text-text"
-                >
-                  <Icon d={isOpen ? CHEVRON_OPEN : CHEVRON_CLOSED} size={12} />
-                </button>
-              </div>
-
-              {isOpen && (
-                <div className="flex flex-col pb-1 pl-[25px]">
-                  {group.industries.map((leaf) => (
-                    <button
-                      key={leaf.value}
-                      type="button"
-                      role="checkbox"
-                      aria-checked={draftSet.has(leaf.value)}
-                      onClick={() => toggleLeaf(leaf.value)}
-                      className="flex items-center gap-[7px] px-[2px] py-[5px] text-left"
-                    >
-                      <CheckBox checked={draftSet.has(leaf.value)} size="sm" />
-                      <span className="font-sans text-[12px] font-medium text-text">
-                        {leaf.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <Row
+              key={group.name}
+              label={group.name}
+              // What this sector contributes to the filter, not its size in the universe.
+              hint={taken > 0 ? `${taken}/${group.industries.length}` : undefined}
+              active={openGroup === group.name}
+              checked={taken > 0 && taken === group.industries.length}
+              partial={taken > 0 && taken < group.industries.length}
+              onClick={() => openAndMaybeTake(group)}
+            />
           );
         })}
-      </div>
-
-      <div className="h-px bg-line-soft" />
+      </ScrollList>
 
       <button
         type="button"
-        onClick={() => onApply(draft)}
-        disabled={!isDirty}
-        className="w-full rounded-lg bg-amber-btn py-[10px] font-sans text-[13px] font-semibold text-on-amber transition hover:brightness-105 disabled:opacity-40"
+        role="checkbox"
+        aria-checked={includeSubIndustries}
+        onClick={() => setIncludeSubIndustries((on) => !on)}
+        className="flex items-center gap-3 px-1 py-1 text-left"
       >
-        Apply Industry Filter
+        <CheckBox checked={includeSubIndustries} />
+        <span className="font-sans text-[14px] font-medium text-text">Include Sub-Industries</span>
       </button>
+
+      {open && (
+        <>
+          <SearchBox
+            value={industryQuery}
+            onChange={setIndustryQuery}
+            placeholder={`Search within ${open.name}…`}
+            label={`Search within ${open.name}`}
+          />
+
+          <ScrollList empty={visibleIndustries.length === 0 ? "No industry matches that" : null}>
+            {visibleIndustries.map((industry) => (
+              <Row
+                key={industry.value}
+                label={industry.label}
+                hint={industry.count.toLocaleString()}
+                checked={chosen.has(industry.value)}
+                onClick={() => toggleIndustry(industry.value)}
+              />
+            ))}
+          </ScrollList>
+        </>
+      )}
+
+      {adjacent.length > 0 && (
+        <div className="flex flex-col gap-2 border-t border-line-soft pt-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5">
+              <Icon d={SPARKLE} size={13} className="flex-none text-amber" />
+              <span className="font-sans text-[13px] font-semibold text-text">
+                Adjacent Industries
+              </span>
+            </span>
+            <span className="font-sans text-[11px] text-text3">Based on your selection</span>
+          </div>
+
+          <div className="flex flex-wrap gap-[6px]">
+            {(showAllAdjacent ? adjacent : adjacent.slice(0, ADJACENT_SHOWN)).map((name) => {
+              const group = byName.get(name)!;
+              const taken = selectedCountIn(group) > 0;
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  aria-pressed={taken}
+                  onClick={() => toggleAdjacent(name)}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full border px-[9px] py-[5px] font-sans text-[12px] font-medium transition",
+                    taken
+                      ? "border-amber bg-amber-dim text-amber"
+                      : "border-line text-text2 hover:border-amber hover:text-amber",
+                  )}
+                >
+                  <Icon d={taken ? CHECK : PLUS} size={10} className="flex-none" />
+                  {name}
+                </button>
+              );
+            })}
+          </div>
+
+          {adjacent.length > ADJACENT_SHOWN && (
+            <button
+              type="button"
+              onClick={() => setShowAllAdjacent((shown) => !shown)}
+              className="self-start font-sans text-[11px] text-text3 transition hover:text-text"
+            >
+              {showAllAdjacent
+                ? "Show fewer"
+                : `+ ${adjacent.length - ADJACENT_SHOWN} more sectors`}
+            </button>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+function SearchBox({
+  value,
+  onChange,
+  placeholder,
+  label,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  label: string;
+}) {
+  return (
+    <label className="flex h-9 items-center gap-2 rounded-md border border-line bg-panel2 px-[10px]">
+      <Icon d={SEARCH} size={13} className="flex-none text-text3" />
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        aria-label={label}
+        className="w-full bg-transparent font-sans text-[12px] font-medium text-text outline-none placeholder:text-text3"
+      />
+    </label>
+  );
+}
+
+/** Bounded: the panel must not grow past the rail whatever is inside it. */
+function ScrollList({ children, empty }: { children: React.ReactNode; empty: string | null }) {
+  return (
+    <div className="max-h-[180px] overflow-y-auto rounded-md border border-line">
+      {empty ? (
+        <p className="px-3 py-4 text-center font-sans text-[12px] text-text3">{empty}</p>
+      ) : (
+        children
+      )}
+    </div>
+  );
+}
+
+/**
+ * One row of either list. The tick sits on the right and the label never changes weight or colour,
+ * so the eye follows one column of marks. `active` is the open sector, a different fact from being
+ * selected, so it gets a different signal.
+ */
+function Row({
+  label,
+  hint,
+  checked,
+  partial,
+  active,
+  onClick,
+}: {
+  label: string;
+  hint?: string;
+  checked?: boolean;
+  partial?: boolean;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked ? true : partial ? "mixed" : false}
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center justify-between gap-2 px-3 py-[9px] text-left transition",
+        active ? "bg-panel2" : "hover:bg-panel2",
+      )}
+    >
+      <span className="truncate font-sans text-[13px] font-medium text-text">{label}</span>
+      <span className="flex flex-none items-center gap-2">
+        {hint && <span className="font-sans text-[11px] text-text3">{hint}</span>}
+        {checked ? (
+          <Icon d={CHECK} size={13} className="text-amber" />
+        ) : partial ? (
+          <span className="size-[7px] rounded-full bg-amber" />
+        ) : null}
+      </span>
+    </button>
   );
 }

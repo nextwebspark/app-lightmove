@@ -48,10 +48,4 @@ public record CompanyScope(List<String> industries, List<String> marketSegments,
     public CompanyScope {
         nameQuery = nameQuery == null || nameQuery.isBlank() ? null : nameQuery.trim();
     }
-
-    /** The same scope narrowed by a caller's name filter, leaving the stored criteria untouched. */
-    public CompanyScope withNameQuery(String query) {
-        return new CompanyScope(industries, marketSegments, countries, employeeBands, revenueBands,
-                employeeRange, revenueRange, offLimitsAccountIds, query);
-    }
 }

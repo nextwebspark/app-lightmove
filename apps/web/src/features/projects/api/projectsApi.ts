@@ -22,13 +22,6 @@ export function createProject(payload: {
   return request<Project>("/projects", { method: "POST", body: payload });
 }
 
-export function updateProject(
-  projectId: string,
-  payload: { targetDate?: string },
-): Promise<Project> {
-  return request<Project>(`/projects/${projectId}`, { method: "PATCH", body: payload });
-}
-
 /**
  * Seats the member with this staff role, or moves an existing seat to it. One role per seat; a CLIENT
  * role the seat already carries survives, so staffing a client contact never revokes their read access.

@@ -102,8 +102,14 @@ left in place rather than dropped. A mandate's whole filter is one `jsonb` colum
 
 ## Conventions (the short form)
 
-- Names carry intent; every type name must read standalone. Comments explain *why*, not *what* —
-  inline comments documenting shipped bugs are load-bearing, never strip them.
+- Names carry intent; every type name must read standalone.
+- **Comments are the exception, not the habit.** Default to none: a well-named function needs no
+  preamble, and a paragraph justifying an ordinary decision is noise a reader has to wade through.
+  Write one only where the logic is genuinely hard to follow, or where the *why* is invisible from
+  the code — a trap, a security boundary, a non-obvious ordering. Never restate what the line does,
+  never narrate alternatives that were not taken, and keep a class doc to a line or two.
+  The exception that stays: **inline comments documenting shipped bugs are load-bearing, never strip
+  them** — they are why the bug has not come back.
 - Errors: RFC 9457 via `GlobalExceptionHandler`; the frontend switches on `code`, never `detail`.
 - Java/Lombok/architecture detail → `java-spring-development` skill. React detail → `react` skill.
 

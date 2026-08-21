@@ -38,19 +38,14 @@ import org.springframework.transaction.annotation.Transactional;
  * A mandate's triaged companies: taking one out of the market, moving it between the three stages,
  * and reading a stage back a page at a time.
  *
- * <p>Reading and writing are one service because they are one screen and one row. The split they used
- * to have was the split between a discovery screen that ran its own search and a separate "add to
- * universe" write; discovery moved to {@code strategy} and took the second search with it, so what is
- * left is a single standing record of what the team decided about each company.
- *
- * <p>Everything stored here is a <b>snapshot resolved from the market at write time</b> — the client
- * names an id and nothing else, so it cannot file a company under a name of its own choosing, and the
- * row keeps rendering after the Apollo pipeline stops publishing its subject.
+ * <p>Every row is a snapshot resolved from the market at write time — the client names an id and
+ * nothing else, so it cannot file a company under a name of its own choosing, and the row keeps
+ * rendering after the Apollo pipeline stops publishing its subject.
  */
 @Service
 public class TriageCompanyService {
 
-    /** A generous ceiling on page size — a scope, not an attack. */
+    /** A scope, not an attack. */
     public static final int MAX_PAGE_SIZE = 100;
 
     private final TriageCompanyRepository triaged;
@@ -74,14 +69,9 @@ public class TriageCompanyService {
     }
 
     /**
-     * One stage of a mandate's triage, newest first — the companies a consultant just added are the
-     * ones they are about to work on.
-     *
-     * <p>This reads {@code app_lm_project_triage_company} and nothing else. A mandate nobody has
-     * triaged shows an empty screen rather than the market: the market is Strategy's to show.
-     *
-     * <p>The three counts travel with every page because the stage sub-nav is always visible — a badge
-     * that only refreshed when its own tab was opened would be wrong on the tab you were looking at.
+     * One stage, newest first. The three counts travel with every page because the stage sub-nav is
+     * always visible, and a badge that only refreshed on its own tab would be wrong on the tab you
+     * were looking at.
      */
     @Transactional(readOnly = true)
     public TriageCompaniesResponse list(UUID workspaceId, UUID projectId, String statusToken,
@@ -135,16 +125,9 @@ public class TriageCompanyService {
     }
 
     /**
-     * "Add all to Universe": everything the mandate's current filter matches, up to the configured
-     * cap.
-     *
-     * <p>The cap is the whole design of this method. An untouched filter matches all 71,822 companies,
-     * and a button that quietly writes that many into a mandate is not a shortcut but an accident —
-     * so the request takes the first {@code bulkAddLimit} in the list's own order and <b>says</b> it
-     * capped, rather than failing or implying it took everything.
-     *
-     * <p>Companies the mandate already holds are skipped, declined ones included: re-running this
-     * after widening the filter must not quietly resurrect a company the team already ruled out.
+     * "Add all to Universe", capped. An untouched filter matches all 71,822 companies, so this takes
+     * the first {@code bulkAddLimit} and <b>says</b> it capped. Companies the mandate already holds are
+     * skipped, declined ones included: re-running after widening must not resurrect a ruled-out company.
      */
     @Transactional
     public TriageBulkAddResponse addAllInScope(UUID userId, UUID workspaceId, UUID projectId,
@@ -204,7 +187,7 @@ public class TriageCompanyService {
         return toDto(company);
     }
 
-    /** The landing stage is the working set, which is where a company arrives from Strategy. */
+    /** The landing stage is where a company arrives from Strategy. */
     private static TriageCompanyStatus resolveStatus(String token) {
         if (token == null || token.isBlank()) {
             return TriageCompanyStatus.IN_UNIVERSE;

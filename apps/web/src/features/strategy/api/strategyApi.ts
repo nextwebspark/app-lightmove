@@ -75,17 +75,6 @@ export function saveSearch(projectId: string, name: string): Promise<SavedSearch
   });
 }
 
-export function renameSearch(
-  projectId: string,
-  searchId: string,
-  name: string,
-): Promise<SavedSearch> {
-  return request<SavedSearch>(`/projects/${projectId}/strategy/searches/${searchId}`, {
-    method: "PATCH",
-    body: { name },
-  });
-}
-
 export function deleteSearch(projectId: string, searchId: string): Promise<void> {
   return request<void>(`/projects/${projectId}/strategy/searches/${searchId}`, { method: "DELETE" });
 }

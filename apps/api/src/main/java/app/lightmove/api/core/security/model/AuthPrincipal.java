@@ -33,11 +33,6 @@ public record AuthPrincipal(
         roles = roles == null ? Set.of() : Set.copyOf(roles);
     }
 
-    /** True once the user has a workspace and may use the app proper. */
-    public boolean hasWorkspace() {
-        return workspaceId != null;
-    }
-
     /**
      * The workspace id, or a refusal. Call this — not {@link #workspaceId()} — anywhere the caller must
      * already be in a tenant, so a missing workspace fails loudly rather than becoming a {@code null} in

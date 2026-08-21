@@ -48,6 +48,11 @@ const FACETS: Facets = {
         { value: "utilities", label: "utilities", count: 1 },
       ],
     },
+    {
+      name: "Construction",
+      count: 5,
+      industries: [{ value: "construction", label: "construction", count: 5 }],
+    },
   ],
   marketSegments: [{ value: "B2B", label: "B2B", count: 40 }],
   countries: [
@@ -160,20 +165,109 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     expect(cancel.mock.invocationCallOrder[0]).toBeLessThan(invalidate.mock.invocationCallOrder[0]!);
   });
 
-  it("selecting a sector group stores its industries, never the group name", async () => {
+  it("selecting a sector stores its industries, never the sector name", async () => {
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
 
     await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
     await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
-    await userEvent.click(within(filters).getByRole("button", { name: "Apply Industry Filter" }));
 
+    // No Apply step: the click is the decision, and the filter's own autosave coalesces a burst.
     await waitFor(() => expect(strategyApi.putFilter).toHaveBeenCalled(), { timeout: 2000 });
     // Storing the group would silently widen this mandate the day the taxonomy is re-tuned.
     expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
       "oil & energy",
       "utilities",
     ]);
+  });
+
+  it("browsing a sector takes nothing when sub-industries are not included", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
+
+    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include Sub-Industries" }));
+    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
+
+    // Unticked, a sector is a lens rather than a selection — "we're looking at Energy" is not the
+    // same claim as "we want all of Energy", and only the second one belongs in the filter.
+    expect(within(filters).getByRole("checkbox", { name: /oil & energy/ })).toBeInTheDocument();
+    expect(strategyApi.putFilter).not.toHaveBeenCalled();
+
+    await userEvent.click(within(filters).getByRole("checkbox", { name: /oil & energy/ }));
+
+    await waitFor(() => expect(strategyApi.putFilter).toHaveBeenCalled(), { timeout: 2000 });
+    expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
+      "oil & energy",
+    ]);
+  });
+
+  it("suggests the sectors beside the one chosen, and adds them to what is already selected", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
+
+    // Nothing open yet, so there is nothing to be adjacent *to*.
+    expect(within(filters).queryByText("Adjacent Industries")).not.toBeInTheDocument();
+
+    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
+    expect(within(filters).getByText("Adjacent Industries")).toBeInTheDocument();
+
+    const chip = within(filters).getByRole("button", { name: /Construction/ });
+    await userEvent.click(chip);
+
+    // The suggestion adds to the selection rather than replacing it — the results panel has to show
+    // the union, which is the whole point of offering a neighbour.
+    await waitFor(
+      () =>
+        expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
+          "oil & energy",
+          "utilities",
+          "construction",
+        ]),
+      { timeout: 2000 },
+    );
+  });
+
+  it("an adjacent chip stays put once taken, so several can be picked in a row", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
+    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
+
+    const chip = within(filters).getByRole("button", { name: /Construction/ });
+    await userEvent.click(chip);
+
+    // Dropping a chip the moment it is used answers the click by deleting the thing clicked, and
+    // moves whatever the consultant was about to press second.
+    expect(within(filters).getByRole("button", { name: /Construction/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    // And it is still the way back: a suggestion taken by accident has to be releasable.
+    await userEvent.click(within(filters).getByRole("button", { name: /Construction/ }));
+    await waitFor(
+      () =>
+        expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
+          "oil & energy",
+          "utilities",
+        ]),
+      { timeout: 2000 },
+    );
+  });
+
+  it("searches the sector list by the industries inside it, not only by its name", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
+
+    // "utilities" is a label filed under Energy & Utilities; a consultant should not have to know
+    // where we filed it to find it.
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
+
+    expect(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ })).toBeInTheDocument();
+    expect(within(filters).queryByRole("checkbox", { name: /Construction/ })).not.toBeInTheDocument();
   });
 
   it("offers an Unknown revenue row, because most companies publish no figure", async () => {

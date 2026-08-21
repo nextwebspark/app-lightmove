@@ -261,17 +261,6 @@ public class ApolloCompanyQueryService {
                 "company_city IS NOT NULL AND company_city <> ''", limit);
     }
 
-    /** Which industries the universe carries at all. The taxonomy coverage check reads this. */
-    public List<String> distinctIndustries() {
-        return jdbc.sql("""
-                        SELECT DISTINCT industry
-                        FROM app_lm_apollo_companies
-                        WHERE industry IS NOT NULL AND industry <> ''
-                        """)
-                .query(String.class)
-                .list();
-    }
-
     /**
      * The shared shape behind every grouped aggregate: the scope's WHERE clause, grouped by one
      * column. {@code presenceCondition} drops rows the grouping column is missing on, since a bar

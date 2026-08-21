@@ -2,27 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../../lib/cn";
 
-/** Bubble geometry, in numbers, because the position is computed rather than classed. */
 const MAX_WIDTH = 380;
 const EDGE_GAP = 12;
 const ANCHOR_GAP = 6;
 
 /**
- * One clipped line of text that reveals itself on hover.
+ * One clipped line of text that reveals itself on hover, and only when it is actually clipped —
+ * `scrollWidth > clientWidth` asks the element rather than guessing from a character count.
  *
- * <p><b>The bubble only appears when the text is actually cut.</b> Hovering a cell that already shows
- * its whole value and getting a tooltip repeating it is noise, and in a table of thirty cells per row
- * it is constant noise. `scrollWidth > clientWidth` is the question "did the ellipsis happen", asked
- * of the element itself rather than guessed from a character count that cannot know the font.
- *
- * <p><b>It renders in a portal, not in place.</b> The company table is a scroll container in both
- * axes; an absolutely positioned bubble inside it would be clipped by the very box it needs to escape,
- * which is worse than no bubble at all — it would look broken rather than absent. Fixed positioning
- * from the element's own rect puts it over everything, and any scroll dismisses it rather than
- * letting it drift away from the cell it describes.
- *
- * <p>The full string is in the DOM either way, so a screen reader reads it whole regardless of what
- * the ellipsis does. This is a visual affordance, not an accessibility one.
+ * <p>Portalled because the table scrolls in both axes: a bubble positioned inside it would be
+ * clipped by the box it needs to escape, which looks broken rather than absent.
  */
 export function TruncatedText({ value, className }: { value: string | null; className?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -31,8 +20,7 @@ export function TruncatedText({ value, className }: { value: string | null; clas
   useEffect(() => {
     if (!anchor) return;
     const dismiss = () => setAnchor(null);
-    // Capture: the scroll happens on the table's own box, not on the window, and a bubble pinned to
-    // a rect from before the scroll would sit beside whatever moved into that space.
+    // Capture: the scroll is the table's box, not the window.
     window.addEventListener("scroll", dismiss, true);
     window.addEventListener("resize", dismiss);
     return () => {
@@ -65,8 +53,7 @@ export function TruncatedText({ value, className }: { value: string | null; clas
             role="tooltip"
             style={{
               top: anchor.bottom + ANCHOR_GAP,
-              // Keep the bubble on screen: the Notes column sits at the right edge, where a bubble
-              // left-aligned to its cell would hang off the window.
+              // The Notes column sits at the right edge, where a left-aligned bubble would hang off-screen.
               left: Math.max(
                 EDGE_GAP,
                 Math.min(anchor.left, window.innerWidth - MAX_WIDTH - EDGE_GAP),

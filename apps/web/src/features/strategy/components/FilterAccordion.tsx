@@ -18,7 +18,7 @@ const CHEVRON_CLOSED = "m9 18 6-6-6-6";
  * controls that set them would be noise. Reset appears only when open, for the same reason: it
  * belongs to the controls, not to the summary.
  *
- * <p>The tag preview is capped at two then `+N`. That is a real constraint in a 300px rail, not a
+ * <p>The tag preview is capped at two then `+N`. That is a real constraint in a 350px rail, not a
  * stylistic one — three long industry names would push the chevron off the row — and a header that
  * only said "3 selected" would force you to open it to find out which three.
  */
