@@ -91,6 +91,59 @@ public class MemberService {
                 .record();
     }
 
+    /**
+     * Withdraws the CLIENT role a client-representative grant put on a membership — the mirror of
+     * {@link InvitationService#onboardClientRepresentative}, called by the project side once the last
+     * representative row behind that grant is revoked. A member who also holds a staff role keeps it.
+     *
+     * <p>When CLIENT was all they held, the <b>membership itself goes</b> rather than staying active with
+     * an empty role set: {@code WorkspaceAccess.isPureClient} answers "false" for no roles at all, so a
+     * role-less member would pass {@code requireStaff} and reach the roster and the client registry —
+     * strictly more access than the portal guest they were. Removal also frees the one-active-membership
+     * index, so the person can be invited again later.
+     *
+     * <p>No last-admin guard and no {@code assertRemovable}: a membership whose only role is CLIENT holds
+     * neither the ADMIN role nor any staff project seat — {@code requireStaffRow} refuses to seat a pure
+     * client in the first place.
+     */
+    @Transactional
+    public void withdrawClientRole(UUID workspaceId, UUID userId, UUID actorId,
+                                   HttpServletRequest request) {
+        WorkspaceMember member = access.activeMember(userId, workspaceId).orElse(null);
+        if (member == null) {
+            return;
+        }
+
+        Set<Role> remaining = member.getRoles().stream()
+                .filter(role -> !role.is(WorkspaceRole.CLIENT))
+                .collect(Collectors.toSet());
+        if (remaining.size() == member.getRoles().size()) {
+            return;
+        }
+
+        String previous = roleNames(member);
+        if (remaining.isEmpty()) {
+            member.remove();
+            detachment.detach(member.getId());
+
+            log.info("Membership {} removed with the last client grant in workspace {}",
+                    member.getId(), workspaceId);
+            audit.event(WorkspaceEventType.MEMBER_REMOVED)
+                    .actor(actorId).workspace(workspaceId).target("member", member.getId()).from(request)
+                    .detail("removedUserId", userId.toString())
+                    .detail("reason", "client_access_revoked")
+                    .record();
+            return;
+        }
+
+        member.changeRoles(remaining);
+        audit.event(WorkspaceEventType.MEMBER_ROLE_CHANGED)
+                .actor(actorId).workspace(workspaceId).target("member", member.getId()).from(request)
+                .detail("from", previous)
+                .detail("to", roleNames(member))
+                .record();
+    }
+
     private boolean holds(WorkspaceMember member, WorkspaceRole role) {
         return member.getRoles().stream().anyMatch(r -> r.is(role));
     }

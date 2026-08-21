@@ -109,4 +109,17 @@ public class ClientRepresentative extends BaseEntity {
         this.userId = userId;
         this.status = ClientRepStatus.ACTIVE;
     }
+
+    /**
+     * Access withdrawn. The account and invitation ids stay: a revoked row still records who it was and
+     * which invitation it rode, and {@link #reinvite} is what clears them if the row is reused.
+     */
+    public void revoke() {
+        this.status = ClientRepStatus.REVOKED;
+    }
+
+    /** A resend may mint a fresh invitation row, so the row must point at the live one. */
+    public void reissueInvitation(UUID invitationId) {
+        this.invitationId = invitationId;
+    }
 }

@@ -18,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -85,5 +86,34 @@ public class ClientsController {
                 principal.userId(), principal.requireWorkspaceId(), clientId,
                 request.fullName(), request.position(), request.email(), httpRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(invited);
+    }
+
+    /**
+     * Withdraws a representative's access — cancelling an outstanding invite and revoking a live one are
+     * the same decision, so they are the same endpoint. Registry tier like the rest of this controller:
+     * whoever may name a client's contacts may un-name them. Detaching one from a single mandate is the
+     * lead's separate call on {@code ProjectsController}.
+     */
+    @DeleteMapping("/{clientId}/representatives/{representativeId}")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
+    public ResponseEntity<Void> revokeRepresentative(@AuthenticationPrincipal AuthPrincipal principal,
+                                                     @PathVariable UUID clientId,
+                                                     @PathVariable UUID representativeId,
+                                                     HttpServletRequest httpRequest) {
+        representatives.revoke(principal.userId(), principal.requireWorkspaceId(), clientId,
+                representativeId, httpRequest);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{clientId}/representatives/{representativeId}/resend")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
+    public ResponseEntity<Void> resendRepresentativeInvite(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable UUID clientId,
+            @PathVariable UUID representativeId,
+            HttpServletRequest httpRequest) {
+        representatives.resendInvitation(principal.userId(), principal.requireWorkspaceId(), clientId,
+                representativeId, httpRequest);
+        return ResponseEntity.noContent().build();
     }
 }

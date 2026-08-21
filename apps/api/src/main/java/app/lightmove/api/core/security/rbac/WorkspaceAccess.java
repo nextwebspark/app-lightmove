@@ -6,6 +6,7 @@ import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -31,8 +32,16 @@ public class WorkspaceAccess {
     private final WorkspaceMemberRepository members;
 
     public WorkspaceMember requireActiveMember(UUID userId, UUID workspaceId) {
-        return members.findByWorkspaceIdAndUserIdAndStatus(workspaceId, userId, MemberStatus.ACTIVE)
+        return activeMember(userId, workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_A_MEMBER));
+    }
+
+    /**
+     * The membership row if there is a live one, for the callers whose work is still correct without it
+     * — withdrawing an access grant from someone whose membership already ended must not 404.
+     */
+    public Optional<WorkspaceMember> activeMember(UUID userId, UUID workspaceId) {
+        return members.findByWorkspaceIdAndUserIdAndStatus(workspaceId, userId, MemberStatus.ACTIVE);
     }
 
     /**

@@ -14,6 +14,7 @@ public enum ProjectEventType implements AuditEventType {
     CLIENT_UPDATED,
     CLIENT_REP_INVITED,
     CLIENT_REP_ACCEPTED,
+    CLIENT_REP_REVOKED,
 
     POSITION_UPDATED,
     POSITION_LOCKED,
