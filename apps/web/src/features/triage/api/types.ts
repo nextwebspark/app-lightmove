@@ -40,10 +40,9 @@ export interface TriageCompaniesPage {
   counts: TriageCounts;
 }
 
-/** What "Add all to Universe" did. `capped` means the filter matched more than `limit`. */
+/** What "Add all to Universe" did. Never partial — an oversized filter is refused, not truncated. */
 export interface BulkAddResult {
   added: number;
+  /** Companies the mandate already held, declined ones included. */
   skipped: number;
-  capped: boolean;
-  limit: number;
 }

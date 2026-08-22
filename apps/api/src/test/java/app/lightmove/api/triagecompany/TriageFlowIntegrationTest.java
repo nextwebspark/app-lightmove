@@ -251,12 +251,39 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.added").value(2))
-                .andExpect(jsonPath("$.skipped").value(0))
-                .andExpect(jsonPath("$.capped").value(false));
+                .andExpect(jsonPath("$.skipped").value(0));
 
         // The retail company was never in scope, so it is not in the universe.
         mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$.totalCount").value(2));
+    }
+
+    @Test
+    @DisplayName("a filter matching more than the limit is refused whole, and writes nothing")
+    void bulkAddRefusesAnOversizedScope() throws Exception {
+        String admin = adminOf("Universe Oversized Firm");
+        String projectId = project(admin);
+        // One past the test profile's bulk-add-limit of 5.
+        for (int index = 1; index <= 6; index++) {
+            universe.company("a" + index, "Energy " + index).industry("oil & energy")
+                    .employees(100 - index).insert();
+        }
+        putFilter(admin, projectId, """
+                {"filter":{"industries":["oil & energy"],"marketSegments":[],"countries":[],
+                           "employeeBands":[],"revenueBands":[]}}""");
+
+        MvcResult refused = mvc.perform(post(triageUrl(projectId) + "/from-filter")
+                        .header("Authorization", "Bearer " + admin))
+                .andReturn();
+        assertThat(refused.getResponse().getStatus()).isEqualTo(409);
+        assertThat(codeOf(refused)).isEqualTo("BULK_ADD_SCOPE_TOO_LARGE");
+        // The numbers are the point of the message: neither is anything the caller sent.
+        assertThat(body(refused).get("detail").asText()).contains("6").contains("5");
+
+        // Nothing partial. Taking the first five would silently decide which five the mandate got.
+        mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.totalCount").value(0))
+                .andExpect(jsonPath("$.counts.inUniverse").value(0));
     }
 
     @Test

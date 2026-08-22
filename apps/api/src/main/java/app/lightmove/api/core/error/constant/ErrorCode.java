@@ -97,6 +97,13 @@ public enum ErrorCode {
     POSITION_NOT_READY(HttpStatus.CONFLICT,
             "Balance both competency panels to exactly 100% and keep at least one required criterion"),
 
+    /**
+     * "Add all to Universe" against a filter matching more companies than one bulk add may take.
+     * Nothing is written: the caller narrows the filter and tries again.
+     */
+    BULK_ADD_SCOPE_TOO_LARGE(HttpStatus.CONFLICT,
+            "This filter matches more companies than one bulk add may take"),
+
     /** The typed confirmation on workspace deletion did not match. */
     WORKSPACE_NAME_MISMATCH(HttpStatus.BAD_REQUEST,
             "Type the workspace name exactly to confirm deletion"),

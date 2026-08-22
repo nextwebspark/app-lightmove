@@ -18,9 +18,11 @@ import lombok.Getter;
  * {@link #withField} are the opt-in for the other kind — a fixed sentence written to be read by the
  * person who made the request, which the handler renders as the {@code detail}.
  *
- * <p>Only ever hand {@code userFacing} a literal. The moment a message interpolates request input it
- * becomes a reflection of whatever the caller sent, which is precisely what the default channel exists
- * to suppress; those stay on the plain constructor and answer with the code's own wording.
+ * <p>Never interpolate <b>request input</b> into {@code userFacing}. The moment a message reflects
+ * what the caller sent it becomes an echo, which is precisely what the default channel exists to
+ * suppress; those stay on the plain constructor and answer with the code's own wording. A value the
+ * server derived itself — a count over stored state, a configured limit — is not input and may be
+ * interpolated where it tells the caller something they cannot otherwise see.
  */
 @Getter
 public class ApiException extends RuntimeException {

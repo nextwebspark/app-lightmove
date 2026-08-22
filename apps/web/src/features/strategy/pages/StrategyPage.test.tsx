@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
+import { ApiRequestError } from "../../../lib/apiClient";
 import type { Project } from "../../projects/api/types";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
@@ -399,12 +400,7 @@ describe("StrategyPage — the filter sidebar and its results", () => {
   });
 
   it("flushes the pending filter before adding everything in scope", async () => {
-    vi.mocked(triageApi.addAllInScope).mockResolvedValue({
-      added: 12,
-      skipped: 0,
-      capped: false,
-      limit: 500,
-    });
+    vi.mocked(triageApi.addAllInScope).mockResolvedValue({ added: 12, skipped: 0 });
     renderPage();
 
     await userEvent.click(await screen.findByRole("button", { name: /Qatar/ }));
@@ -418,19 +414,22 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     );
   });
 
-  it("says what a capped bulk add actually did", async () => {
-    vi.mocked(triageApi.addAllInScope).mockResolvedValue({
-      added: 500,
-      skipped: 0,
-      capped: true,
-      limit: 500,
-    });
+  it("shows the server's own numbers when a bulk add is refused as too large", async () => {
+    vi.mocked(triageApi.addAllInScope).mockRejectedValue(
+      new ApiRequestError({
+        code: "BULK_ADD_SCOPE_TOO_LARGE",
+        detail: "3,000 companies match this filter. You can add 200 at a time — narrow it and try again.",
+        status: 409,
+        correlationId: "test",
+      }),
+    );
     renderPage();
 
     await userEvent.click(await screen.findByRole("button", { name: /Add all to Universe/ }));
 
-    // A toast claiming the whole universe was added when 500 of 71,822 were is the failure here.
-    expect(await screen.findByText(/capped at 500/i)).toBeInTheDocument();
+    // The code is deliberately absent from MESSAGES so messageFor falls through to the server's
+    // detail: no fixed sentence here could name how many matched or how many may be added.
+    expect(await screen.findByText(/3,000 companies match this filter/i)).toBeInTheDocument();
   });
 
   it("saves a search under a name and lets it be loaded back", async () => {

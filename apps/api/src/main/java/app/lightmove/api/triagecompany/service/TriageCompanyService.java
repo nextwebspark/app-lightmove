@@ -133,16 +133,25 @@ public class TriageCompanyService {
     }
 
     /**
-     * "Add all to Universe", capped. An untouched filter matches all 71,822 companies, so this takes
-     * the first {@code bulkAddLimit} and <b>says</b> it capped. Companies the mandate already holds are
-     * skipped, declined ones included: re-running after widening must not resurrect a ruled-out company.
+     * "Add all to Universe". A filter matching more than {@code bulkAddLimit} is <b>refused whole</b>:
+     * an untouched one matches all 71,822 companies, and taking the first {@code bulkAddLimit} of them
+     * would silently decide which ones a mandate got. Companies the mandate already holds are skipped,
+     * declined ones included: re-running after widening must not resurrect a ruled-out company.
      */
     @Transactional
     public TriageBulkAddResponse addAllInScope(UUID userId, UUID workspaceId, UUID projectId,
                                                HttpServletRequest httpRequest) {
         CompanyScope scope = strategy.scopeOf(workspaceId, projectId);
         int limit = listConfig.bulkAddLimit();
-        boolean capped = market.count(scope) > limit;
+        long matching = market.count(scope);
+        if (matching > limit) {
+            // Interpolated into a user-facing message, which the class doc otherwise reserves for
+            // literals. Neither number came from the caller: the scope is the mandate's stored filter
+            // — this endpoint takes no body — and the limit is configuration.
+            throw ApiException.userFacing(ErrorCode.BULK_ADD_SCOPE_TOO_LARGE,
+                    "%,d companies match this filter. You can add %,d at a time — narrow it and try again."
+                            .formatted(matching, limit));
+        }
 
         List<CompanyRow> rows = market.search(scope, CompanySortField.EMPLOYEES, SortDirection.DESC,
                 0, limit);
@@ -156,7 +165,7 @@ public class TriageCompanyService {
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .detail("added", String.valueOf(added))
                 .record();
-        return new TriageBulkAddResponse(added, rows.size() - added, capped, limit);
+        return new TriageBulkAddResponse(added, rows.size() - added);
     }
 
     @Transactional

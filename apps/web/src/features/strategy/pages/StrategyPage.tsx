@@ -187,9 +187,7 @@ function StrategyEditor() {
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
       toast(
-        result.capped
-          ? `Added ${result.added} companies — capped at ${result.limit}. Narrow the filter to take the rest.`
-          : `Added ${result.added} companies to universe${result.skipped > 0 ? `, ${result.skipped} already there` : ""}`,
+        `Added ${result.added} companies to universe${result.skipped > 0 ? `, ${result.skipped} already there` : ""}`,
       );
     },
     onError: (error) => toast(messageFor(error)),

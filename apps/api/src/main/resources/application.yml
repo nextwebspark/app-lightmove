@@ -190,8 +190,9 @@ lightmove:
       default-page-size: ${COMPANY_LIST_DEFAULT_PAGE_SIZE:25}
       # Hard ceiling on one page; a larger requested size is rejected.
       max-page-size: ${COMPANY_LIST_MAX_PAGE_SIZE:100}
-      # How many companies one "Add all to Universe" may take. An untouched filter matches all 71,822.
-      bulk-add-limit: ${COMPANY_BULK_ADD_LIMIT:500}
+      # How many companies one "Add all to Universe" may take; a filter matching more is refused, not
+      # truncated. Above CompanyListSettings.MAX_BULK_ADD_LIMIT the application refuses to start.
+      bulk-add-limit: ${COMPANY_BULK_ADD_LIMIT:200}
 
 management:
   # Actuator listens on its own port, bound to loopback — it is not reachable from the internet at all.
