@@ -269,13 +269,37 @@ this shows up in both places.
 
 ---
 
+### F10 — 861 companies carry no industry, so the Sector axis alone cannot reach them · **medium**
+
+Found only when these scripts were re-run against the **real** universe, which is what §1 said was
+still needed. The stand-in populated `industry` for every row, so this pass could not have seen it.
+
+`industry IS NULL` for 861 of 71,822 rows (0 are blank strings; all 148 industries are themselves
+covered by the taxonomy). `lower(industry) IN (:industries)` cannot match NULL, so:
+
+- the Sector accordion's counts sum to **70,961**, not 71,822 — the rail disagrees with the table
+  beside it on an untouched filter; and
+- **ticking all 20 sector groups returns the same 70,961 as ticking one.** There is no way to say
+  "any industry, including the ones we don't know" — the escape hatch `RevenueBand.R_UNKNOWN` gives
+  the revenue axis.
+
+**Scope, precisely:** those companies are *not* missing from the product. With no sector selected
+they appear normally and combine with every other filter — 296 of them under `country = UAE`, 76
+under headcount 51–100, 815 under revenue Unknown. Only the Sector axis excludes them.
+
+Tracked as **issue #91**. Cases `14.4` and `S2.4` print the sum as a NOTE rather than asserting it,
+so a known gap on one axis does not turn the whole matrix red.
+
+---
+
 ## 4. What was verified as correct
 
 Worth recording, because most of this is the part that is easy to get wrong.
 
 **Facet counts** — all five accordions reconcile exactly with `SELECT count(*)`. The employee bands
 sum to the whole universe, the revenue bands sum to the whole universe *including* Unknown at 64,690,
-the 20 sector groups cover all 148 industries with none dropped, and the market segments overlap by
+the 20 sector groups cover all 148 industries with none dropped (though not every *company* — see
+F10), and the market segments overlap by
 design — they sum to 140,002 over 71,822 rows, which is the honest answer for an axis where a company
 can hold several positions.
 

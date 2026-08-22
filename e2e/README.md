@@ -21,9 +21,10 @@ run-all.sh                the whole matrix, all three boot variants, one exit co
 stack/up.sh  down.sh      bring the stack up / tear it down
 api/lib.sh                curl + assertion helpers, sourced by every script
 api/fixtures.sh           builds the cast (cast.env) that 09-13 and spa/roles.mjs source
-api/01..13*.sh            the matrix, in dependency order
+api/01..14*.sh            the matrix, in dependency order
 spa/run.mjs               headless Chromium over the real SPA
 spa/roles.mjs             the same, once per workspace role
+spa/strategy.mjs          the Strategy screen over the company universe
 results/current/          per-run logs, cookie jars, cases.tsv  (gitignored)
 spa/screenshots/          browser screenshots                    (gitignored)
 ```
@@ -51,6 +52,23 @@ KEEP_DB=1 ./stack/down.sh      # drop KEEP_DB to remove the database container t
 Boot takes ~40 s: the Cloud SQL connector is bypassed but Flyway still applies the migrations against
 an empty schema. `up.sh` waits for the API to answer and refuses to continue unless the email provider
 is what the caller declared.
+
+**The Apollo universe.** `api/14-strategy-company-search.sh` and `spa/strategy.mjs` read
+`app_lm_apollo_companies`, which is ETL-owned and pulled with gcloud. `stack/up.sh` builds an empty
+database, so on a runner both scripts **skip themselves and exit 0** rather than reporting a few
+hundred vacuous passes or one red case about the environment. To make them do real work, point them at
+a database that has the universe:
+
+```bash
+npm run dev:db:apollo                                       # once, needs gcloud
+npm run dev                                                 # api + web + postgres on :55433
+cd e2e
+PG_URL=postgresql://lm_app:lm@localhost:55433/lightmove bash api/14-strategy-company-search.sh
+PG_URL=postgresql://lm_app:lm@localhost:55433/lightmove node spa/strategy.mjs
+```
+
+`PG_URL` defaults to the e2e stack's **:55432**, not the dev database's :55433 — left at the default
+against `npm run dev` these two read the wrong database and find no universe.
 
 **`PROFILE`** picks the Spring profile, defaulting to `local` — your own datasource password and OAuth
 client. CI sets `PROFILE=e2e`, which is
