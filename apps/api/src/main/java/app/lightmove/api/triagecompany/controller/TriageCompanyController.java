@@ -41,8 +41,8 @@ public class TriageCompanyController {
     public ResponseEntity<TriageCompaniesResponse> list(@AuthenticationPrincipal AuthPrincipal principal,
                                                         @PathVariable UUID projectId,
                                                         @RequestParam(required = false) String status,
-                                                        @RequestParam(defaultValue = "0") int page,
-                                                        @RequestParam(defaultValue = "25") int size) {
+                                                        @RequestParam(required = false) Integer page,
+                                                        @RequestParam(required = false) Integer size) {
         return ResponseEntity.ok(triage.list(principal.requireWorkspaceId(), projectId, status,
                 page, size));
     }

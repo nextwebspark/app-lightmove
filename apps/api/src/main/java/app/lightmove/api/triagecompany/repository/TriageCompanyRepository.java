@@ -2,7 +2,6 @@ package app.lightmove.api.triagecompany.repository;
 
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.model.TriageCompany;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -23,7 +22,5 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
 
     long countByProjectIdAndStatus(UUID projectId, TriageCompanyStatus status);
 
-    /** Which of these companies the mandate already holds — the bulk add's conflict check. */
-    List<TriageCompany> findByProjectIdAndApolloAccountIdIn(UUID projectId,
-                                                                     List<String> apolloAccountIds);
+    Optional<TriageCompany> findByProjectIdAndApolloAccountId(UUID projectId, String apolloAccountId);
 }

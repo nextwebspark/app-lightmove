@@ -75,26 +75,6 @@ public class TriageCompany extends BaseEntity {
     @Column(name = "added_by", nullable = false, updatable = false)
     private UUID addedBy;
 
-    /** A company entering the mandate's universe, snapshotted as it stands in Apollo right now. */
-    public static TriageCompany taken(UUID projectId, UUID addedBy, String apolloAccountId,
-                                               String companyName, String industry, String companyCountry,
-                                               String companyCity, Integer numEmployees, Long annualRevenue,
-                                               String website, String logoUrl) {
-        TriageCompany company = new TriageCompany();
-        company.projectId = projectId;
-        company.addedBy = addedBy;
-        company.apolloAccountId = apolloAccountId;
-        company.status = TriageCompanyStatus.IN_UNIVERSE;
-        company.companyName = companyName;
-        company.industry = industry;
-        company.companyCountry = companyCountry;
-        company.companyCity = companyCity;
-        company.numEmployees = numEmployees;
-        company.annualRevenue = annualRevenue;
-        company.website = website;
-        company.logoUrl = logoUrl;
-        return company;
-    }
 
     public void moveTo(TriageCompanyStatus newStatus) {
         this.status = newStatus;

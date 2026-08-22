@@ -12,6 +12,10 @@ import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
+import app.lightmove.api.strategy.model.CompanyRow;
+import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,6 +39,7 @@ import org.springframework.test.web.servlet.MvcResult;
 class TriageFlowIntegrationTest extends FlowTestSupport {
 
     @Autowired JdbcTemplate db;
+    @Autowired TriageCompanyWriter writer;
 
     private ApolloUniverse universe;
 
@@ -201,6 +206,33 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                 .andReturn();
         assertThat(result.getResponse().getStatus()).isEqualTo(400);
         assertThat(codeOf(result)).isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
+    @DisplayName("the insert itself ignores a company the mandate already holds")
+    void insertIgnoresAHeldCompany() throws Exception {
+        String admin = adminOf("Universe Conflict Firm");
+        String projectId = project(admin);
+        universe.company("a1", "Energy One").industry("oil & energy").employees(100).insert();
+        universe.company("a2", "Energy Two").industry("oil & energy").employees(90).insert();
+
+        List<CompanyRow> rows = List.of(
+                new CompanyRow("a1", "Energy One", "oil & energy", "Saudi Arabia", "Riyadh",
+                        100, null, null, null, null, null),
+                new CompanyRow("a2", "Energy Two", "oil & energy", "Saudi Arabia", "Riyadh",
+                        90, null, null, null, null, null));
+        UUID project = UUID.fromString(projectId);
+        UUID actor = db.queryForObject(
+                "SELECT id FROM app_lm_user WHERE email = ?", UUID.class, "alok@" + domain);
+
+        // Straight at the writer, past the service's read-first fast path — which is what a second
+        // "Add all" click racing the first gets past too. Without ON CONFLICT the second call fails
+        // the whole batch on app_lm_project_triage_company_uk.
+        assertThat(writer.insertIgnoringHeld(project, actor, rows)).isEqualTo(2);
+        assertThat(writer.insertIgnoringHeld(project, actor, rows)).isZero();
+
+        mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.totalCount").value(2));
     }
 
     @Test

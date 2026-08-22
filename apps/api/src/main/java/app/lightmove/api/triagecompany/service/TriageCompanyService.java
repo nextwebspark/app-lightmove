@@ -22,11 +22,10 @@ import app.lightmove.api.triagecompany.dto.TriageCountsDto;
 import app.lightmove.api.triagecompany.dto.UpdateTriageCompanyRequest;
 import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
+import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -45,10 +44,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class TriageCompanyService {
 
-    /** A scope, not an attack. */
-    public static final int MAX_PAGE_SIZE = 100;
-
     private final TriageCompanyRepository triaged;
+    private final TriageCompanyWriter writer;
     private final ProjectRepository projects;
     private final StrategyService strategy;
     private final AuditService audit;
@@ -57,10 +54,12 @@ public class TriageCompanyService {
 
     // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
     // properties root rather than taking it, which is the one case the Lombok rule exempts.
-    public TriageCompanyService(TriageCompanyRepository triaged, ProjectRepository projects,
-                                StrategyService strategy, AuditService audit,
-                                ApolloCompanyQueryService market, LightMoveProperties properties) {
+    public TriageCompanyService(TriageCompanyRepository triaged, TriageCompanyWriter writer,
+                                ProjectRepository projects, StrategyService strategy,
+                                AuditService audit, ApolloCompanyQueryService market,
+                                LightMoveProperties properties) {
         this.triaged = triaged;
+        this.writer = writer;
         this.projects = projects;
         this.strategy = strategy;
         this.audit = audit;
@@ -75,13 +74,15 @@ public class TriageCompanyService {
      */
     @Transactional(readOnly = true)
     public TriageCompaniesResponse list(UUID workspaceId, UUID projectId, String statusToken,
-                                        int page, int size) {
+                                        Integer requestedPage, Integer requestedSize) {
+        int page = requestedPage == null ? 0 : requestedPage;
+        int size = requestedSize == null ? listConfig.defaultPageSize() : requestedSize;
         if (page < 0) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "page must not be negative");
         }
-        if (size < 1 || size > MAX_PAGE_SIZE) {
+        if (size < 1 || size > listConfig.maxPageSize()) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    "size must be between 1 and " + MAX_PAGE_SIZE);
+                    "size must be between 1 and " + listConfig.maxPageSize());
         }
         TriageCompanyStatus status = resolveStatus(statusToken);
         requireProject(projectId, workspaceId);
@@ -106,21 +107,28 @@ public class TriageCompanyService {
 
         // Already held is not an error: the button is on every row and a second click means the same
         // thing as the first. Returning the existing row makes the response idempotent.
-        List<TriageCompany> existing =
-                triaged.findByProjectIdAndApolloAccountIdIn(projectId, List.of(accountId));
-        if (!existing.isEmpty()) {
-            return toDto(existing.getFirst());
+        Optional<TriageCompany> held = triaged.findByProjectIdAndApolloAccountId(projectId, accountId);
+        if (held.isPresent()) {
+            return toDto(held.get());
         }
 
         CompanyRow row = market.byAccountIds(List.of(accountId)).stream().findFirst()
                 .orElseThrow(() -> new ApiException(ErrorCode.VALIDATION_FAILED,
                         "Not in the universe: " + accountId));
-        TriageCompany taken = triaged.save(snapshotOf(projectId, userId, row));
 
-        audit.event(ProjectEventType.TRIAGE_COMPANY_ADDED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
-                .detail("apolloAccountId", accountId)
-                .record();
+        // The check above is a fast path, not the guard: a second click racing this one passes it too.
+        // The insert ignores the conflict and the row is read back either way, so both callers get the
+        // company and only the one that actually wrote it records an event.
+        int inserted = writer.insertIgnoringHeld(projectId, userId, List.of(row));
+        TriageCompany taken = triaged.findByProjectIdAndApolloAccountId(projectId, accountId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+
+        if (inserted > 0) {
+            audit.event(ProjectEventType.TRIAGE_COMPANY_ADDED)
+                    .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                    .detail("apolloAccountId", accountId)
+                    .record();
+        }
         return toDto(taken);
     }
 
@@ -138,25 +146,17 @@ public class TriageCompanyService {
 
         List<CompanyRow> rows = market.search(scope, CompanySortField.EMPLOYEES, SortDirection.DESC,
                 0, limit);
-        Set<String> alreadyHeld = new HashSet<>();
-        triaged.findByProjectIdAndApolloAccountIdIn(projectId,
-                        rows.stream().map(CompanyRow::apolloAccountId).toList())
-                .forEach(held -> alreadyHeld.add(held.getApolloAccountId()));
 
-        List<TriageCompany> taken = new ArrayList<>();
-        for (CompanyRow row : rows) {
-            if (alreadyHeld.contains(row.apolloAccountId())) {
-                continue;
-            }
-            taken.add(snapshotOf(projectId, userId, row));
-        }
-        triaged.saveAll(taken);
+        // No read-then-filter: the insert ignores the companies the mandate already holds, so the
+        // count it answers with is the number that were new. A row already declined stays declined —
+        // re-running after widening the filter must not resurrect a ruled-out company.
+        int added = writer.insertIgnoringHeld(projectId, userId, rows);
 
         audit.event(ProjectEventType.TRIAGE_BULK_ADDED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
-                .detail("added", String.valueOf(taken.size()))
+                .detail("added", String.valueOf(added))
                 .record();
-        return new TriageBulkAddResponse(taken.size(), rows.size() - taken.size(), capped, limit);
+        return new TriageBulkAddResponse(added, rows.size() - added, capped, limit);
     }
 
     @Transactional
@@ -204,13 +204,8 @@ public class TriageCompanyService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
-    private static TriageCompany snapshotOf(UUID projectId, UUID userId, CompanyRow row) {
-        return TriageCompany.taken(projectId, userId, row.apolloAccountId(), row.companyName(),
-                row.industry(), row.companyCountry(), row.companyCity(), row.numEmployees(),
-                row.annualRevenue(), row.website(), row.logoUrl());
-    }
 
-    static TriageCompanyResponse toDto(TriageCompany company) {
+    private static TriageCompanyResponse toDto(TriageCompany company) {
         return new TriageCompanyResponse(company.getId(), company.getApolloAccountId(),
                 company.getStatus().value(), company.getNote(), company.getCompanyName(),
                 company.getIndustry(), company.getCompanyCountry(), company.getCompanyCity(),
