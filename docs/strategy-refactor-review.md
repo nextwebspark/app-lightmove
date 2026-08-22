@@ -420,28 +420,125 @@ settled; it never checked the nested record for derived accessors. A round-trip 
 Worth recording as the class of bug reading alone does not find — the annotation was present and
 correct one level up, and only exercising the write-then-read caught it.
 
-## Still open — filed as issues
-
-| Issue | § | What |
-|---|---|---|
-| #84 | 4.6 | `/companies/facets` recomputes ~15 aggregates per request; nothing caches what only the pipeline changes |
-| #85 | 4.1–4.3, 5 | `ApolloCompanyQueryService` at 527 lines doing six jobs; consumers on the concrete `StrategyService`; `CompanyScope` restating `StrategyFilter`; `StrategyScope` unfolded |
-| #86 | new | `COMPANY_BULK_ADD_LIMIT` above ~7,280 exceeds Postgres's 65,535 bind-parameter ceiling — a latent limit the 1.1 fix introduced |
-| #87 | 2, 3.3, 5 | `STRATEGY_WRITE_KEY`, `website` on the list DTO, the un-rehomed `externalUrl` guard, two raw icon paths, the two `ProjectLayout` lists, `sectorsInScope` |
-| #88 | 3.2 | List-query validation still written three times, though the three now behave alike |
-| #89 | 6 | Class docs at 20–38 lines against the two-line rule, with the trap comments that must survive a trim |
-
-Issue #55 — duplicated SQL binding helpers between `CompanyQueryService` and
-`ApolloCompanyQueryService` — is obsolete: `CompanyQueryService` went with the warehouse.
-
 ## Assessment
 
-The five defects are closed and the two riskiest fixes — the conflict-ignoring insert and the
+The five defects are closed, and the two riskiest fixes — the conflict-ignoring insert and the
 ownership reassignment — are done properly rather than papered over. What is left is structural
-(#85), a cache (#84), and tidying (#87, #88, #89); none of it blocks the branch. #86 is worth a look
+(#85), a cache (#84), and tidying (#87, #88, #89); none of it blocks the branch. #86 is worth doing
 before anyone tunes the bulk-add limit upward.
 
-The one caveat on this pass: the backend integration tests were read, not run. They should be run
-somewhere with Docker before merge — particularly `TriageFlowIntegrationTest.insertIgnoresAHeldCompany`
-and `StrategyFlowIntegrationTest.customRangeSurvivesTheRoundTrip`, which guard the two bugs most
-likely to reappear.
+One caveat on this pass: the backend integration tests were read, not run — Testcontainers needs
+Docker and the reviewing container had none. Run them somewhere that does before merge, particularly
+`TriageFlowIntegrationTest.insertIgnoresAHeldCompany` and
+`StrategyFlowIntegrationTest.customRangeSurvivesTheRoundTrip`, which guard the two bugs most likely
+to reappear.
+
+Issue #55 — duplicated SQL binding helpers between `CompanyQueryService` and
+`ApolloCompanyQueryService` — has been closed as not planned: `CompanyQueryService` went with the
+warehouse in `a3434bb`, so there is no second copy left to drift from. The observation behind it
+survives in #85.
+
+---
+
+# Work order — the remaining items
+
+Written for whoever picks these up next. Each is independent and separately shippable; the order
+below is the one that minimises rework, not a dependency chain. Nothing here blocks the branch.
+
+## Rules that apply to all of it
+
+- **Do not edit an applied migration.** V30–V32 are applied; anything schema-shaped is a new file.
+- **Never strip a trap comment.** `CLAUDE.md` marks comments documenting shipped bugs as
+  load-bearing. The full list is under #89 — the `NumericRange` Jackson note especially, which is the
+  only thing standing between the codebase and a repeat of `3968e70`.
+- **Load the matching skill first** — `java-spring-development` for backend, `react` for frontend,
+  `db-ops` for anything touching migrations or `ops/cloudsql`.
+- **Behaviour-preserving means tested as such.** Every item below is a refactor or an addition; none
+  should change a response body. Where a change is claimed to be behaviour-preserving, the existing
+  tests passing is the evidence.
+
+### Verification, every time
+
+```bash
+cd apps/api && ./mvnw test          # Testcontainers — needs Docker
+cd apps/web && npx vitest run       # 197 tests at time of writing
+cd apps/web && npm run build        # the real frontend typecheck
+```
+
+A first `./mvnw` run pulls the Spring Boot 4.1 tree and takes a few minutes.
+
+## #86 — Chunk the bulk insert *(do first: smallest, and it is a live limit)*
+
+`TriageCompanyWriter.insertIgnoringHeld` binds nine parameters per row against Postgres's 65,535
+ceiling, so it fails hard above ~7,280 rows. `COMPANY_BULK_ADD_LIMIT` is presented as a product knob
+with nothing hinting at that.
+
+- Chunk internally — batches of ~1,000, summing the returned counts. `ON CONFLICT DO NOTHING` makes
+  chunking safe and the statement shape is unchanged.
+- Keep `addAllInScope`'s `added` count exact; it is stated to the user in a toast.
+- Test: a batch above one chunk boundary inserts every row and reports the right count.
+
+## #87 — Leftovers *(mechanical, no design decisions)*
+
+| What | Where | Do |
+|---|---|---|
+| `STRATEGY_WRITE_KEY` | `strategyApi.ts:15`, `StrategyPage.tsx:108` | Delete both, and the `mutationKey` line. Nothing observes it. |
+| `website` on the list payload | `CompanyResultDto`, `strategy/api/types.ts:97`, `ROW_COLUMNS` | Drop from the DTO and the TS type. **Keep `CompanyRow.website()`** — `ClientService` derives the client domain from it. |
+| The `externalUrl` guard | deleted in `a3434bb` | Recover with `git show a3434bb^:apps/web/src/features/sourcing/lib/externalUrl.ts` (and its test) into `apps/web/src/lib/externalUrl.ts`. It is a `javascript:` href guard; the backend half already got re-created as `WebsiteDomain`. |
+| Two raw icon paths | `StrategyToolbar.tsx:67`, `TriagePage.tsx:212` | Add to `ICONS` and reference by name. |
+| Two overlapping route lists | `ProjectLayout.tsx:17,27` | One map keyed by suffix. |
+| `sectorsInScope` | `ReportService.java:76` | An empty filter is the whole universe, so it reports "71,822 companies, 0 sectors in scope". Decide what the figure means and say that. |
+
+## #84 — Cache the facets
+
+No cache starter in `apps/api/pom.xml` and no `@EnableCaching` anywhere, so this is groundwork plus
+five annotations.
+
+- Add the cache starter, enable caching, and give it a TTL sized to the pipeline's reload cadence.
+- Annotate `sectorGroups`, `marketSegmentFacets`, `countryFacets`, `employeeBandFacets`,
+  `revenueBandFacets`. No cache key needed — they take no arguments.
+- Optional while in there: collapse the eleven per-segment queries into one pass with
+  `count(*) FILTER (WHERE keywords && ARRAY[…])`. Keep the overlap semantics — a company can be B2B
+  and SaaS at once, and a plain `GROUP BY` would silently pick one.
+- Config belongs beside the others in `core/config`, overridable per environment like every existing
+  setting.
+
+## #88 — One list-query validation object
+
+Page bounds, size bounds and token resolution are written in `StrategyService.companies`,
+`TriageCompanyService.list` and `CompanySearchController.search`. They agree today because someone
+made them agree by hand.
+
+- One `CompanyListQuery` in `strategy`, `of(page, size, sort, direction, q, CompanySettings)`, owning
+  the bounds and `resolveSort` / `resolveDirection` / `normaliseQuery`.
+- Reject, never clamp — that is now the settled behaviour across all three, and the error strings
+  should converge too.
+- Existing tests are the regression net; no response body should move.
+
+## #85 — Split `ApolloCompanyQueryService` *(largest; do last)*
+
+527 lines, six jobs, and every consumer takes all of it.
+
+- `CompanyScopeSql` (package-private) — `buildWhere`, `rangeClause`, the band clauses, `arrayLiteral`,
+  `escapeLikePattern` (`:516`), `bind` (`:520`)
+- `CompanyRowMapper` — the hand-written mapper, **`founded_year`/`Number` comment intact**
+- `CompanyFacetQueryService` — the five accordions and the band `CASE` builders
+- `ApolloCompanyQueryService` — `count`, `search`, `byAccountIds`, `typeahead`, the breakdowns
+
+Then narrow the consumers: `CompanySearchController` takes facets + typeahead, `ReportService` takes
+breakdowns. Introduce `MandateScopeProvider` (interface in `strategy`,
+`CompanyScope scopeOf(UUID workspaceId, UUID projectId)`) so `TriageCompanyService` and
+`ReportService` stop depending on the concrete `StrategyService`. Collapse `CompanyScope` to
+`(StrategyFilter filter, List<String> offLimitsAccountIds, String nameQuery)` with delegating
+accessors, and fold `StrategyScope.of` into `CompanyScope.from` so the class can go.
+
+**Keep the SQL text byte-identical.** The comments explaining the `ARRAY[…]::text[]` cast and the
+`NULLS LAST` / `NULLIF` choices move with the code they explain. If a query string changes, that is
+a different piece of work and wants its own test.
+
+## #89 — Trim the class comments *(do after #85, or the two conflict everywhere)*
+
+Class docs run 20–38 lines against `CLAUDE.md`'s two-line rule, several narrating rejected
+alternatives, which the rule names specifically. Trim the prose; keep every trap comment listed in
+the issue. Two docs have already drifted from the code once — long docs rot silently, which is the
+argument for the rule rather than against the comments.
