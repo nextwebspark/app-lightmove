@@ -3,6 +3,7 @@ package app.lightmove.api.strategy.service;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CompanyListSettings;
+import app.lightmove.api.core.config.CompanySearchSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
@@ -26,7 +27,6 @@ import app.lightmove.api.strategy.model.StrategyCompanyRef;
 import app.lightmove.api.strategy.model.NumericRange;
 import app.lightmove.api.strategy.model.StrategyFilter;
 import app.lightmove.api.strategy.repository.StrategyRepository;
-import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -59,7 +59,7 @@ import org.springframework.transaction.annotation.Transactional;
  * feature: a band or a sector group is a way of asking the market a question, not a property of the
  * mandate asking it. What this service does <b>not</b> own is the answer a mandate then records about
  * a company — that is a project-to-company row with a triage status, and it lives in
- * {@code company}, which depends on {@link #scopeOf} rather than the other way round.
+ * {@code triagecompany}, which depends on {@link #scopeOf} rather than the other way round.
  */
 @Service
 public class StrategyService {
@@ -68,15 +68,13 @@ public class StrategyService {
     private static final CompanySortField DEFAULT_SORT = CompanySortField.EMPLOYEES;
     private static final SortDirection DEFAULT_DIRECTION = SortDirection.DESC;
 
-    /** Longer than any company name, short enough not to be a payload. */
-    private static final int MAX_QUERY_LENGTH = 100;
-
     private final StrategyRepository strategies;
     private final ProjectRepository projects;
     private final StrategySearchService searches;
     private final AuditService audit;
     private final ApolloCompanyQueryService companies;
     private final CompanyListSettings listConfig;
+    private final CompanySearchSettings searchConfig;
 
     // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
     // properties root rather than taking it, which is the one case the Lombok rule exempts.
@@ -89,11 +87,19 @@ public class StrategyService {
         this.audit = audit;
         this.companies = companies;
         this.listConfig = properties.company().list();
+        this.searchConfig = properties.company().search();
     }
 
-    @Transactional
+    /**
+     * The screen's first read. It does not seed: the endpoint is WORK_VIEW, so a client representative
+     * opening the tab would otherwise perform an INSERT to answer their own page load. An unsaved
+     * mandate answers from a transient row and only the write paths persist one.
+     */
+    @Transactional(readOnly = true)
     public StrategyResponse get(UUID workspaceId, UUID projectId) {
-        return toResponse(load(projectId, workspaceId), projectId);
+        requireProject(projectId, workspaceId);
+        return toResponse(strategies.findByProjectId(projectId)
+                .orElseGet(() -> Strategy.forProject(projectId)), workspaceId, projectId);
     }
 
     @Transactional
@@ -108,7 +114,7 @@ public class StrategyService {
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .detail("section", "filter")
                 .record();
-        return toResponse(strategy, projectId);
+        return toResponse(strategy, workspaceId, projectId);
     }
 
     @Transactional
@@ -122,7 +128,7 @@ public class StrategyService {
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .detail("section", "offLimits")
                 .record();
-        return toResponse(strategy, projectId);
+        return toResponse(strategy, workspaceId, projectId);
     }
 
     /** One page of the universe as the mandate's filter narrows it. */
@@ -202,8 +208,7 @@ public class StrategyService {
             if (row == null) {
                 throw new ApiException(ErrorCode.VALIDATION_FAILED, "Not in the universe: " + id);
             }
-            refs.add(StrategyCompanyRef.of(row.apolloAccountId(), row.companyName(), row.industry(),
-                    row.companyCity(), row.companyCountry(), row.logoUrl()));
+            refs.add(StrategyCompanyRef.of(row));
         }
         return refs;
     }
@@ -241,14 +246,14 @@ public class StrategyService {
     }
 
     /** Blank is no filter; anything longer than a company name is a mistake, not a search. */
-    private static String normaliseQuery(String query) {
+    private String normaliseQuery(String query) {
         if (query == null || query.isBlank()) {
             return null;
         }
         String trimmed = query.trim();
-        if (trimmed.length() > MAX_QUERY_LENGTH) {
+        if (trimmed.length() > searchConfig.maxQueryLength()) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    "q exceeds " + MAX_QUERY_LENGTH + " characters");
+                    "q exceeds " + searchConfig.maxQueryLength() + " characters");
         }
         return trimmed;
     }
@@ -291,14 +296,14 @@ public class StrategyService {
         return dto == null ? null : new NumericRange(dto.min(), dto.max());
     }
 
-    private StrategyResponse toResponse(Strategy strategy, UUID projectId) {
+    private StrategyResponse toResponse(Strategy strategy, UUID workspaceId, UUID projectId) {
         StrategyFilter filter = strategy.getFilter();
         return new StrategyResponse(
                 new StrategyFilterDto(filter.industries(), filter.marketSegments(), filter.countries(),
                         filter.employeeBands(), filter.revenueBands(), NumericRangeDto.of(filter.employeeRange()),
                         NumericRangeDto.of(filter.revenueRange())),
                 strategy.getOffLimitsCompanies().stream().map(StrategyService::toDto).toList(),
-                searches.list(projectId));
+                searches.list(workspaceId, projectId));
     }
 
     private static CompanyRefDto toDto(StrategyCompanyRef ref) {
@@ -309,7 +314,7 @@ public class StrategyService {
     private static CompanyResultDto toDto(CompanyRow row) {
         return new CompanyResultDto(row.apolloAccountId(), row.companyName(), row.industry(),
                 row.companyCountry(), row.companyCity(), row.numEmployees(), row.annualRevenue(),
-                row.website(), row.companyLinkedinUrl(), row.logoUrl(), row.shortDescription(),
+                row.website(), row.logoUrl(), row.shortDescription(),
                 row.foundedYear());
     }
 }

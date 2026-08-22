@@ -11,7 +11,7 @@ package app.lightmove.api.strategy.dto;
  * and the client renders it as unknown rather than as zero.
  *
  * <p>There is no off-limits flag. A barred company never reaches this response: the Off-limits panel
- * says such companies are "completely excluded from your active sourcing search results", and the
+ * says such companies are "completely excluded from your active search results", and the
  * query honours that unconditionally rather than returning them with a marker.
  */
 public record CompanyResultDto(
@@ -23,7 +23,6 @@ public record CompanyResultDto(
         Integer numEmployees,
         Long annualRevenue,
         String website,
-        String linkedinUrl,
         String logoUrl,
         String shortDescription,
         Integer foundedYear

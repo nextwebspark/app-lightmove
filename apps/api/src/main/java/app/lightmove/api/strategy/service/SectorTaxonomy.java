@@ -1,13 +1,9 @@
 package app.lightmove.api.strategy.service;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
-import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -27,19 +23,9 @@ public class SectorTaxonomy {
     private final Map<String, List<String>> industriesByGroup;
 
     public SectorTaxonomy(ObjectMapper json) {
-        this.industriesByGroup = load(json);
+        this.industriesByGroup = ClasspathVocabulary.read(json, RESOURCE);
         checkNoIndustryInTwoGroups(industriesByGroup);
     }
-
-    private static Map<String, List<String>> load(ObjectMapper json) {
-        ClassPathResource resource = new ClassPathResource(RESOURCE);
-        try (InputStream in = resource.getInputStream()) {
-            return json.readValue(in, new TypeReference<LinkedHashMap<String, List<String>>>() {});
-        } catch (IOException e) {
-            throw new IllegalStateException("Could not load " + RESOURCE, e);
-        }
-    }
-
 
     /** Fails at startup on a label filed under two sectors. */
     private static void checkNoIndustryInTwoGroups(Map<String, List<String>> industriesByGroup) {

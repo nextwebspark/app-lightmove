@@ -16,10 +16,10 @@ package app.lightmove.api.strategy.model;
  *
  * <p>There is no off-limits flag. A barred company is excluded from every filtered read rather than
  * returned and marked, which is what the Off-limits panel promises in so many words: "completely
- * excluded from your active sourcing search results". A flag that is false on every row a caller can
+ * excluded from your active search results". A flag that is false on every row a caller can
  * ever see is not information.
  */
 public record CompanyRow(String apolloAccountId, String companyName, String industry,
                           String companyCountry, String companyCity, Integer numEmployees,
-                          Long annualRevenue, String website, String companyLinkedinUrl,
-                          String logoUrl, String shortDescription, Integer foundedYear) {}
+                          Long annualRevenue, String website, String logoUrl,
+                          String shortDescription, Integer foundedYear) {}

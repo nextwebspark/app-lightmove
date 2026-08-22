@@ -63,7 +63,7 @@ public class CompanySearchController {
     public ResponseEntity<CompanySuggestionsResponse> search(@RequestParam(name = "q") String query,
                                                              @RequestParam(name = "limit", required = false)
                                                              Integer limit) {
-        String trimmed = query == null ? "" : query.trim();
+        String trimmed = query.trim();
         if (trimmed.length() > searchConfig.maxQueryLength()) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED,
                     "q exceeds " + searchConfig.maxQueryLength() + " characters");
@@ -71,9 +71,13 @@ public class CompanySearchController {
         if (trimmed.isEmpty()) {
             return ResponseEntity.ok(new CompanySuggestionsResponse(List.of()));
         }
-        int resolvedLimit = limit == null
-                ? searchConfig.defaultResultLimit()
-                : Math.clamp(limit, 1, searchConfig.maxResultLimit());
+        // Refused rather than clamped, matching every other list read: a silently narrowed limit is a
+        // wrong answer to a stated request, and the caller cannot tell it got one.
+        if (limit != null && (limit < 1 || limit > searchConfig.maxResultLimit())) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED,
+                    "limit must be between 1 and " + searchConfig.maxResultLimit());
+        }
+        int resolvedLimit = limit == null ? searchConfig.defaultResultLimit() : limit;
         return ResponseEntity.ok(new CompanySuggestionsResponse(
                 companies.typeahead(trimmed, resolvedLimit).stream()
                         .map(CompanySearchController::toSuggestion)

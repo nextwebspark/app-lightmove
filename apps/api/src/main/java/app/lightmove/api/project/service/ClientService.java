@@ -4,6 +4,7 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.text.service.WebsiteDomain;
 import app.lightmove.api.core.security.rbac.ProjectRole;
 import app.lightmove.api.project.constant.ClientRepStatus;
 import app.lightmove.api.project.constant.ClientType;
@@ -165,25 +166,9 @@ public class ClientService {
         // The universe publishes a website rather than a bare domain, so the domain is derived from it.
         String hqCountry = request.hqCountry() != null ? request.hqCountry() : row.companyCountry();
         return Client.fromUniverse(workspaceId, accountId, row.companyName(), request.sector(),
-                hqCountry, domainOf(row.website()), userId);
+                hqCountry, WebsiteDomain.of(row.website()), userId);
     }
 
-    /**
-     * The registrable domain inside a website URL. Apollo publishes {@code website} and no domain
-     * column, and the client record wants the bare host — {@code https://www.acwapower.com/en} is
-     * {@code acwapower.com}. A value that will not parse is dropped rather than stored raw: a domain
-     * column holding a URL is worse than one holding nothing.
-     */
-    private static String domainOf(String website) {
-        if (website == null || website.isBlank()) {
-            return null;
-        }
-        String trimmed = website.trim();
-        String withoutScheme = trimmed.replaceFirst("^[a-zA-Z][a-zA-Z0-9+.-]*://", "");
-        String host = withoutScheme.split("[/?#]", 2)[0];
-        host = host.replaceFirst("^www\\.", "");
-        return host.isBlank() || !host.contains(".") ? null : host.toLowerCase(java.util.Locale.ROOT);
-    }
 
     private Client fromCustom(UUID userId, UUID workspaceId, CreateClientRequest request) {
         if (request.customName() == null || request.customName().isBlank()) {

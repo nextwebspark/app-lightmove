@@ -15,5 +15,7 @@ public interface StrategySearchRepository extends JpaRepository<StrategySearch, 
 
     List<StrategySearch> findByProjectIdOrderByNameAsc(UUID projectId);
 
+    long countByProjectId(UUID projectId);
+
     Optional<StrategySearch> findByIdAndProjectId(UUID id, UUID projectId);
 }

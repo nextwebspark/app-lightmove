@@ -17,7 +17,7 @@ import java.util.List;
  * <p>{@code marketSegments} counts overlap by design — a company can be B2B and SaaS at once — so they
  * sum to more than the universe. Every other facet's counts partition it.
  *
- * <p>There is no ownership facet: the universe has no ownership column. See {@code CompanyFacet}.
+ * <p>There is no ownership facet: the universe has no ownership column.
  */
 public record FacetsResponse(List<SectorGroup> sectorGroups, List<FacetCount> marketSegments,
                              List<FacetCount> countries, List<FacetCount> employeeBands,

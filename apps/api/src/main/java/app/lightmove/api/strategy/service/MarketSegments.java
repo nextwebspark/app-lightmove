@@ -1,15 +1,10 @@
 package app.lightmove.api.strategy.service;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
-import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -42,16 +37,7 @@ public class MarketSegments {
     private final Map<String, List<String>> keywordsBySegment;
 
     public MarketSegments(ObjectMapper json) {
-        this.keywordsBySegment = load(json);
-    }
-
-    private static Map<String, List<String>> load(ObjectMapper json) {
-        ClassPathResource resource = new ClassPathResource(RESOURCE);
-        try (InputStream in = resource.getInputStream()) {
-            return json.readValue(in, new TypeReference<LinkedHashMap<String, List<String>>>() {});
-        } catch (IOException e) {
-            throw new IllegalStateException("Could not load " + RESOURCE, e);
-        }
+        this.keywordsBySegment = ClasspathVocabulary.read(json, RESOURCE);
     }
 
     /** Every segment in file order, which is the order the accordion renders. */

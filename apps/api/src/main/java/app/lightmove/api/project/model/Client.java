@@ -33,6 +33,9 @@ import lombok.Setter;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Client extends BaseEntity {
 
+    /** The only universe there is. Recorded per row so an older vintage stays recognisable as one. */
+    public static final String UNIVERSE_SOURCE = "apollo";
+
     @Column(name = "workspace_id", nullable = false)
     private UUID workspaceId;
 
@@ -66,9 +69,6 @@ public class Client extends BaseEntity {
 
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
-
-    /** The only universe there is. Recorded per row so an older vintage stays recognisable as one. */
-    public static final String UNIVERSE_SOURCE = "apollo";
 
     /**
      * A universe-backed client: the display fields are seeded from the resolved snapshot, and the

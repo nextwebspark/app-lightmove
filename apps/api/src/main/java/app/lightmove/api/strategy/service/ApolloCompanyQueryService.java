@@ -1,6 +1,5 @@
 package app.lightmove.api.strategy.service;
 
-import app.lightmove.api.strategy.constant.CompanyFacet;
 import app.lightmove.api.strategy.constant.CompanySortField;
 import app.lightmove.api.strategy.constant.EmployeeBand;
 import app.lightmove.api.strategy.constant.RevenueBand;
@@ -14,6 +13,7 @@ import app.lightmove.api.strategy.model.ScopeBreakdown;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -58,7 +58,7 @@ public class ApolloCompanyQueryService {
     /** Every column the list and the write-path snapshots need, in one place so they cannot drift. */
     private static final String ROW_COLUMNS = """
             apollo_account_id, company_name, industry, company_country, company_city,
-            num_employees, annual_revenue, website, company_linkedin_url, logo_url,
+            num_employees, annual_revenue, website, logo_url,
             short_description, founded_year""";
 
     private final JdbcClient jdbc;
@@ -103,7 +103,7 @@ public class ApolloCompanyQueryService {
             return List.of();
         }
         return jdbc.sql("""
-                        SELECT %s, false AS off_limits
+                        SELECT %s
                         FROM app_lm_apollo_companies
                         WHERE apollo_account_id IN (:ids)
                         """.formatted(ROW_COLUMNS))
@@ -120,7 +120,7 @@ public class ApolloCompanyQueryService {
     public List<CompanyRow> typeahead(String query, int limit) {
         String pattern = escapeLikePattern(query);
         return jdbc.sql("""
-                        SELECT %s, false AS off_limits
+                        SELECT %s
                         FROM app_lm_apollo_companies
                         WHERE company_name ILIKE :contains ESCAPE '\\'
                         ORDER BY (company_name ILIKE :prefix ESCAPE '\\') DESC,
@@ -228,7 +228,7 @@ public class ApolloCompanyQueryService {
     public List<FacetCount> employeeBandFacets() {
         Map<String, Object> params = new LinkedHashMap<>();
         Map<String, Long> counts = bandCounts(employeeBandCase(params), params);
-        return List.of(EmployeeBand.values()).stream()
+        return Arrays.stream(EmployeeBand.values())
                 .map(band -> new FacetCount(band.value(), band.label(),
                         counts.getOrDefault(band.value(), 0L)))
                 .toList();
@@ -238,7 +238,7 @@ public class ApolloCompanyQueryService {
     public List<FacetCount> revenueBandFacets() {
         Map<String, Object> params = new LinkedHashMap<>();
         Map<String, Long> counts = bandCounts(revenueBandCase(params), params);
-        return List.of(RevenueBand.values()).stream()
+        return Arrays.stream(RevenueBand.values())
                 .map(band -> new FacetCount(band.value(), band.label(),
                         counts.getOrDefault(band.value(), 0L)))
                 .toList();
@@ -449,9 +449,8 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * Hand-written rather than the reflective mapper: {@code off_limits} is a projected expression
-     * with no column behind it, and the nullable numerics have to come back as boxed types so a
-     * missing revenue reads as absent rather than as zero.
+     * Hand-written rather than the reflective mapper: the nullable numerics have to come back as boxed
+     * types so a missing revenue reads as absent rather than as zero.
      *
      * <p>{@code founded_year} goes through {@link Number} rather than a direct cast. It is a
      * {@code smallint}, and {@code getObject} on one returns an {@code Integer} from this driver —
@@ -470,7 +469,6 @@ public class ApolloCompanyQueryService {
                 (Integer) rs.getObject("num_employees"),
                 (Long) rs.getObject("annual_revenue"),
                 rs.getString("website"),
-                rs.getString("company_linkedin_url"),
                 rs.getString("logo_url"),
                 rs.getString("short_description"),
                 intOrNull((Number) rs.getObject("founded_year")));

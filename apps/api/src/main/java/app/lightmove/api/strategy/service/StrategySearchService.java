@@ -47,12 +47,10 @@ public class StrategySearchService {
     private final ProjectRepository projects;
     private final AuditService audit;
 
-    /**
-     * A project's saved searches, by name. Called from {@code StrategyService} as part of the screen's
-     * first read, so it takes a project id already resolved against the caller's workspace.
-     */
+    /** A project's saved searches, by name — part of the Strategy screen's first read. */
     @Transactional(readOnly = true)
-    public List<SavedSearchResponse> list(UUID projectId) {
+    public List<SavedSearchResponse> list(UUID workspaceId, UUID projectId) {
+        requireProject(projectId, workspaceId);
         return searches.findByProjectIdOrderByNameAsc(projectId).stream()
                 .map(StrategySearchService::toDto)
                 .toList();
@@ -62,7 +60,7 @@ public class StrategySearchService {
     public SavedSearchResponse save(UUID userId, UUID workspaceId, UUID projectId,
                                     SaveSearchRequest request, HttpServletRequest httpRequest) {
         requireProject(projectId, workspaceId);
-        if (searches.findByProjectIdOrderByNameAsc(projectId).size() >= MAX_SEARCHES_PER_PROJECT) {
+        if (searches.countByProjectId(projectId) >= MAX_SEARCHES_PER_PROJECT) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                     "This mandate already has the maximum number of saved searches.");
         }

@@ -42,15 +42,14 @@ public class StrategyCompanyRef {
     @Column(name = "logo_url")
     private String logoUrl;
 
-    public static StrategyCompanyRef of(String apolloAccountId, String companyName, String industry,
-                                        String companyCity, String companyCountry, String logoUrl) {
+    public static StrategyCompanyRef of(CompanyRow row) {
         StrategyCompanyRef ref = new StrategyCompanyRef();
-        ref.apolloAccountId = apolloAccountId;
-        ref.companyName = companyName;
-        ref.industry = industry;
-        ref.companyCity = companyCity;
-        ref.companyCountry = companyCountry;
-        ref.logoUrl = logoUrl;
+        ref.apolloAccountId = row.apolloAccountId();
+        ref.companyName = row.companyName();
+        ref.industry = row.industry();
+        ref.companyCity = row.companyCity();
+        ref.companyCountry = row.companyCountry();
+        ref.logoUrl = row.logoUrl();
         return ref;
     }
 }
