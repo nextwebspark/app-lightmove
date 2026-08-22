@@ -32,9 +32,29 @@ GRANT  USAGE   ON SEQUENCE app_lm_audit_event_id_seq TO lm_app;
 --    the pipeline and is typically already owned by the human who loaded it, which is why the grant is
 --    guarded: on a database where postgres does not own it, ALTER TABLE would fail and take the rest
 --    of this file with it.
+--
+--    Ownership, not just the grant. In Postgres an owner is not bound by the grant table: it can
+--    re-GRANT itself anything a REVOKE took away, and TRUNCATE, ALTER or DROP the table regardless.
+--    Where lm_app owns this table — which is the case on any database where the app created it — the
+--    read-only property above is a claim and not a control. Reassign where the connected role is able
+--    to, and say so out loud where it cannot, so a database on which the property does not hold is
+--    never mistaken for one on which it does.
 DO $$
+DECLARE
+    current_owner text;
 BEGIN
     IF to_regclass('public.app_lm_apollo_companies') IS NOT NULL THEN
+        SELECT pg_get_userbyid(relowner) INTO current_owner
+        FROM pg_class WHERE oid = 'public.app_lm_apollo_companies'::regclass;
+
+        IF current_owner <> 'postgres' THEN
+            IF pg_has_role(current_user, current_owner, 'USAGE') THEN
+                EXECUTE 'ALTER TABLE app_lm_apollo_companies OWNER TO postgres';
+            ELSE
+                RAISE NOTICE 'app_lm_apollo_companies is owned by % and this role cannot reassign it. The universe stays writable by its owner: re-run this file as postgres.', current_owner;
+            END IF;
+        END IF;
+
         EXECUTE 'REVOKE ALL    ON app_lm_apollo_companies FROM lm_app';
         EXECUTE 'GRANT  SELECT ON app_lm_apollo_companies TO   lm_app';
     END IF;
