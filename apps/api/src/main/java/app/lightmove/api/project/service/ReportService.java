@@ -97,12 +97,18 @@ public class ReportService {
     }
 
     /**
-     * True when the scope narrows by revenue without taking the Unknown band with it — the one case
-     * where the figures below describe a tenth of the market and look like the whole of it.
+     * True when the scope narrows by revenue without taking the Unknown band with it — the case where
+     * the figures below describe a tenth of the market and look like the whole of it.
+     *
+     * <p>A custom range counts too. Bands and {@code revenueRange} are the two modes of one axis, and
+     * {@code annual_revenue BETWEEN ...} excludes every null just as a band list does — 64,690 rows of
+     * 71,822. Reading only the band list left Custom Range reporting a tenth of the market with no
+     * caveat beside it, which is the failure this flag exists to prevent.
      */
     private static boolean excludesUnknownRevenue(CompanyScope scope) {
-        return !scope.revenueBands().isEmpty()
-                && !scope.revenueBands().contains(RevenueBand.R_UNKNOWN.value());
+        return scope.revenueRange() != null
+                || (!scope.revenueBands().isEmpty()
+                        && !scope.revenueBands().contains(RevenueBand.R_UNKNOWN.value()));
     }
 
     private static List<BreakdownDto> toDtos(List<ScopeBreakdown> rows) {

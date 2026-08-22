@@ -257,6 +257,28 @@ class ReportIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a custom revenue range carries the caveat too, not only a band selection")
+    void customRevenueRangeCarriesTheCaveat() throws Exception {
+        String admin = adminOf("Report Revenue Range Firm");
+        String projectId = projectOf(admin, "Head of Retail");
+        universe.company("a1", "Silent").industry("retail").country("Qatar").employees(10)
+                .revenue(null).insert();
+        universe.company("a2", "Stated").industry("retail").country("Qatar").employees(10)
+                .revenue(2_000_000_000L).insert();
+
+        putFilter(admin, projectId, """
+                {"filter":{"industries":["retail"],"marketSegments":[],"countries":[],
+                           "employeeBands":[],"revenueBands":[],
+                           "revenueRange":{"min":1000000000,"max":5000000000}}}""");
+
+        // Bands and the custom range are two modes of one axis: BETWEEN excludes every null just as a
+        // band list does, so a range-scoped report measures the same tenth of the market.
+        mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.universeCount").value(1))
+                .andExpect(jsonPath("$.caveats.revenueBandExcludesUnknown").value(true));
+    }
+
+    @Test
     @DisplayName("taking the Unknown band with a revenue selection clears the caveat")
     void unknownBandClearsTheRevenueCaveat() throws Exception {
         String admin = adminOf("Report Unknown Band Firm");
