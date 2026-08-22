@@ -396,7 +396,7 @@ All five defects are fixed, and the fixes are better than the report asked for i
 | 1.5 | A `WORK_VIEW` GET performed an INSERT | `get` is `readOnly` and falls back to a transient `Strategy.forProject`. Only the write paths seed. |
 
 Also settled: `CompanyFacet` deleted, the inert `off_limits` projection and its false javadoc,
-the self-package import, `filterRef`, `ICONS.sourcing`, `linkedinUrl`; triage now reads
+the self-package import, `filterRef`, `linkedinUrl`; triage now reads
 `CompanyListSettings` instead of its own `MAX_PAGE_SIZE` and hard-coded `defaultValue = "25"`;
 `ClasspathVocabulary` behind both JSON loaders; `StrategyCompanyRef.of(CompanyRow)` with
 `TriageCompany.taken` gone, which removes the transposed city/country hazard by removing the
@@ -427,11 +427,14 @@ ownership reassignment — are done properly rather than papered over. What is l
 (#85), a cache (#84), and tidying (#87, #88, #89); none of it blocks the branch. #86 is worth doing
 before anyone tunes the bulk-add limit upward.
 
-One caveat on this pass: the backend integration tests were read, not run — Testcontainers needs
-Docker and the reviewing container had none. Run them somewhere that does before merge, particularly
-`TriageFlowIntegrationTest.insertIgnoresAHeldCompany` and
-`StrategyFlowIntegrationTest.customRangeSurvivesTheRoundTrip`, which guard the two bugs most likely
-to reappear.
+A caveat on the reviewing pass, now resolved: its container had no Docker, so the backend
+integration tests were read rather than run. They have since been run on a machine that does —
+**backend 328 passed, frontend 197, e2e 602 passed / 0 failed** on `PROFILE=e2e`. Both tests that
+guard the bugs most likely to reappear pass: `TriageFlowIntegrationTest.insertIgnoresAHeldCompany`
+and `StrategyFlowIntegrationTest.customRangeSurvivesTheRoundTrip`.
+
+The original review's §2 also listed `ICONS.sourcing` as orphaned. It was not: `a3434bb` removed it
+with the Sourcing feature, before this pass began.
 
 Issue #55 — duplicated SQL binding helpers between `CompanyQueryService` and
 `ApolloCompanyQueryService` — has been closed as not planned: `CompanyQueryService` went with the
@@ -467,78 +470,89 @@ cd apps/web && npm run build        # the real frontend typecheck
 
 A first `./mvnw` run pulls the Spring Boot 4.1 tree and takes a few minutes.
 
-## #86 — Chunk the bulk insert *(do first: smallest, and it is a live limit)*
+## #86 — Refuse an oversized bulk add — **DONE** (`0193ad0`)
 
-`TriageCompanyWriter.insertIgnoringHeld` binds nine parameters per row against Postgres's 65,535
-ceiling, so it fails hard above ~7,280 rows. `COMPANY_BULK_ADD_LIMIT` is presented as a product knob
-with nothing hinting at that.
+Rewritten from "chunk the insert" by a product decision: the cap came **down**, and hitting it is a
+refusal rather than a partial write. What shipped:
 
-- Chunk internally — batches of ~1,000, summing the returned counts. `ON CONFLICT DO NOTHING` makes
-  chunking safe and the statement shape is unchanged.
-- Keep `addAllInScope`'s `added` count exact; it is stated to the user in a toast.
-- Test: a batch above one chunk boundary inserts every row and reports the right count.
+- A filter matching more than `bulk-add-limit` adds **nothing** and answers 409
+  `BULK_ADD_SCOPE_TOO_LARGE`, whose detail names both numbers. The code is deliberately absent from
+  the SPA's `MESSAGES`, so `messageFor` falls through to the server's wording — no fixed sentence
+  there could carry them. Extension members turned out unnecessary.
+- Default 500 → **200**. `CompanyListSettings.MAX_BULK_ADD_LIMIT` plus a compact constructor refuses
+  a larger configured value at binding, so a bad `COMPANY_BULK_ADD_LIMIT` fails the deploy rather
+  than every bulk add — no `@Validated`, no Bean Validation on the config tree.
+- `TriageBulkAddResponse.capped` and `limit` went with the truncating path, as did `StrategyPage`'s
+  capped toast branch — the refusal arrives through the existing `onError`.
+- Not chunked. Chunking exists to let the number grow, and the number is not supposed to grow.
+- First non-literal `ApiException.userFacing` call, so its class doc now states the boundary it was
+  actually protecting: never request input; a server-derived count or configured limit is not input.
+
+Refusing also retires an unstated product rule: the truncating cap took companies ordered by
+employee count, so it silently decided *which* 200 of 3,000 a mandate received.
+
+`TriageCompanyWriter.insertIgnoringHeld` binds nine parameters per row plus three shared, against
+Postgres's 65,535 ceiling — a hard limit of ~7,281 rows. At 200 that is 1,803. The startup guard is
+what keeps anyone from finding the ceiling by hand.
+
+Tested by `TriageFlowIntegrationTest.bulkAddRefusesAnOversizedScope` (the mandate's counts stay at
+zero — that nothing was written is the point) and `CompanyListSettingsTest`. The test profile pins
+the limit to 5 so the refusal is reachable without seeding 201 companies.
 
 ## #87 — Leftovers *(mechanical, no design decisions)*
 
-| What | Where | Do |
-|---|---|---|
-| `STRATEGY_WRITE_KEY` | `strategyApi.ts:15`, `StrategyPage.tsx:108` | Delete both, and the `mutationKey` line. Nothing observes it. |
-| `website` on the list payload | `CompanyResultDto`, `strategy/api/types.ts:97`, `ROW_COLUMNS` | Drop from the DTO and the TS type. **Keep `CompanyRow.website()`** — `ClientService` derives the client domain from it. |
-| The `externalUrl` guard | deleted in `a3434bb` | Recover with `git show a3434bb^:apps/web/src/features/sourcing/lib/externalUrl.ts` (and its test) into `apps/web/src/lib/externalUrl.ts`. It is a `javascript:` href guard; the backend half already got re-created as `WebsiteDomain`. |
-| Two raw icon paths | `StrategyToolbar.tsx:67`, `TriagePage.tsx:212` | Add to `ICONS` and reference by name. |
-| Two overlapping route lists | `ProjectLayout.tsx:17,27` | One map keyed by suffix. |
-| `sectorsInScope` | `ReportService.java:76` | An empty filter is the whole universe, so it reports "71,822 companies, 0 sectors in scope". Decide what the figure means and say that. |
+All subtracting or renaming; nothing here adds a file.
+
+- Delete `STRATEGY_WRITE_KEY` and its `mutationKey` line — no `useIsMutating` observes it.
+- Drop `website` from `CompanyResultDto` and the TS type; no column renders it. It **stays** on
+  `CompanyRow`, which `ClientService` and the typeahead both read.
+- Four raw icon paths the last sweep missed go through `ICONS`: `StrategyToolbar.tsx:67` and `:82`,
+  `SaveSearchMenu.tsx:45`, `TriagePage.tsx:212`.
+
+Dropped from this item: re-homing `externalUrl` (adds a file nothing imports — it returns with the
+first link column), merging `ProjectLayout`'s two route lists (a keyed map for two two-element arrays
+is more machinery for less clarity), and `sectorsInScope` (a product-semantics question the SPA
+branches on, not a sweep item).
 
 ## #84 — Cache the facets
 
-No cache starter in `apps/api/pom.xml` and no `@EnableCaching` anywhere, so this is groundwork plus
-five annotations.
+`@EnableCaching`, a Caffeine cache with a TTL sized to the pipeline's reload cadence, and
+`@Cacheable` on the five facet methods. No cache key — the reads take no arguments. Caffeine is
+already a dependency. One config class and five annotations; no SQL is touched.
 
-- Add the cache starter, enable caching, and give it a TTL sized to the pipeline's reload cadence.
-- Annotate `sectorGroups`, `marketSegmentFacets`, `countryFacets`, `employeeBandFacets`,
-  `revenueBandFacets`. No cache key needed — they take no arguments.
-- Optional while in there: collapse the eleven per-segment queries into one pass with
-  `count(*) FILTER (WHERE keywords && ARRAY[…])`. Keep the overlap semantics — a company can be B2B
-  and SaaS at once, and a plain `GROUP BY` would silently pick one.
-- Config belongs beside the others in `core/config`, overridable per environment like every existing
-  setting.
+Dropped: collapsing the eleven per-segment queries into one `count(*) FILTER` pass. Once cached they
+run once per TTL, so it trades readable SQL for nothing measurable.
 
-## #88 — One list-query validation object
+## #88 — One list-query validation
 
-Page bounds, size bounds and token resolution are written in `StrategyService.companies`,
-`TriageCompanyService.list` and `CompanySearchController.search`. They agree today because someone
-made them agree by hand.
+Page bounds, size bounds and token resolution are written three times, in `StrategyService.companies`,
+`TriageCompanyService.list` and `CompanySearchController.search`, with three error strings for the
+same mistake. They agree only because someone made them agree.
 
-- One `CompanyListQuery` in `strategy`, `of(page, size, sort, direction, q, CompanySettings)`, owning
-  the bounds and `resolveSort` / `resolveDirection` / `normaliseQuery`.
-- Reject, never clamp — that is now the settled behaviour across all three, and the error strings
-  should converge too.
-- Existing tests are the regression net; no response body should move.
+One `CompanyListQuery` record with a single `of(...)` factory taking the settings; the three call
+sites take what they need. No builder, no interface. Status-token resolution stays in triage, where
+it is the only user. Behaviour-preserving — the existing tests are the evidence.
 
-## #85 — Split `ApolloCompanyQueryService` *(largest; do last)*
+## #85 — Fold `StrategyScope`, extract the SQL builder
 
-527 lines, six jobs, and every consumer takes all of it.
+Rescoped: the original four-way split plus an interface was more structure than the problem has.
 
-- `CompanyScopeSql` (package-private) — `buildWhere`, `rangeClause`, the band clauses, `arrayLiteral`,
-  `escapeLikePattern` (`:516`), `bind` (`:520`)
-- `CompanyRowMapper` — the hand-written mapper, **`founded_year`/`Number` comment intact**
-- `CompanyFacetQueryService` — the five accordions and the band `CASE` builders
-- `ApolloCompanyQueryService` — `count`, `search`, `byAccountIds`, `typeahead`, the breakdowns
+- Fold `StrategyScope`'s two methods into `CompanyScope.from(strategy, nameQuery)` and delete the
+  class — three names for one idea become two.
+- Extract only the SQL text generation (`buildWhere`, `rangeClause`, the band clauses, `arrayLiteral`,
+  `escapeLikePattern`, `bind`) into a package-private `CompanyScopeSql`, SQL byte-identical, the
+  `ARRAY[…]::text[]` trap comment verbatim.
+- Optional, when a filter axis is next added: `CompanyScope` wrapping `StrategyFilter` with
+  delegating accessors, which removes one of the four files an axis currently touches.
 
-Then narrow the consumers: `CompanySearchController` takes facets + typeahead, `ReportService` takes
-breakdowns. Introduce `MandateScopeProvider` (interface in `strategy`,
-`CompanyScope scopeOf(UUID workspaceId, UUID projectId)`) so `TriageCompanyService` and
-`ReportService` stop depending on the concrete `StrategyService`. Collapse `CompanyScope` to
-`(StrategyFilter filter, List<String> offLimitsAccountIds, String nameQuery)` with delegating
-accessors, and fold `StrategyScope.of` into `CompanyScope.from` so the class can go.
-
-**Keep the SQL text byte-identical.** The comments explaining the `ARRAY[…]::text[]` cast and the
-`NULLS LAST` / `NULLIF` choices move with the code they explain. If a query string changes, that is
-a different piece of work and wants its own test.
+Dropped: a separate `CompanyRowMapper` file for fifteen lines (move it above its callers instead),
+a separate `CompanyFacetQueryService`, and `MandateScopeProvider` — an interface with one
+implementation and two consumers in the same module enforces nothing a reviewer isn't already
+checking.
 
 ## #89 — Trim the class comments *(do after #85, or the two conflict everywhere)*
 
 Class docs run 20–38 lines against `CLAUDE.md`'s two-line rule, several narrating rejected
-alternatives, which the rule names specifically. Trim the prose; keep every trap comment listed in
-the issue. Two docs have already drifted from the code once — long docs rot silently, which is the
-argument for the rule rather than against the comments.
+alternatives, which the rule names specifically. **Delete, do not rewrite** — if a file's diff gains
+prose, the edit went wrong. Keep every trap comment listed in the issue, the `NumericRange` Jackson
+note above all: it is the only thing standing between the codebase and a repeat of `3968e70`.
