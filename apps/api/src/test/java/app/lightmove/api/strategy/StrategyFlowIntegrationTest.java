@@ -106,6 +106,33 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a custom range survives the round trip through the jsonb column")
+    void customRangeSurvivesTheRoundTrip() throws Exception {
+        String admin = adminOf("Strategy Custom Range Firm");
+        String projectId = project(admin);
+        universe.company("a1", "Mid Cap").industry("retail").country("Qatar").employees(700).insert();
+        universe.company("a2", "Small Cap").industry("retail").country("Qatar").employees(20).insert();
+
+        putFilter(admin, projectId, """
+                {"filter":{"industries":[],"marketSegments":[],"countries":[],
+                           "employeeBands":[],"revenueBands":[],
+                           "employeeRange":{"min":500,"max":1000}}}""");
+
+        // Jackson read NumericRange.isEmpty() as a bean property, wrote "empty" into the document and
+        // then refused to read it back, so a mandate that used Custom Range could never be loaded
+        // again — this GET, its results, its report and bulk add all 500ed on the next request.
+        mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filter.employeeRange.min").value(500))
+                .andExpect(jsonPath("$.filter.employeeRange.max").value(1000));
+
+        mvc.perform(get(strategyUrl(projectId) + "/companies").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(1))
+                .andExpect(jsonPath("$.companies[0].companyName").value("Mid Cap"));
+    }
+
+    @Test
     @DisplayName("each axis narrows the list, and the axes combine")
     void axesNarrowAndCombine() throws Exception {
         String admin = adminOf("Strategy Narrowing Firm");
