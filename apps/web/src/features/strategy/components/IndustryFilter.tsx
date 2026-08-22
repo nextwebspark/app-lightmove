@@ -1,13 +1,10 @@
 import { useMemo, useState } from "react";
-import { Icon } from "../../../components/layout/Icon";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import type { SectorGroup } from "../api/types";
 import { adjacentTo } from "../lib/sectorAdjacency";
 import { CheckBox } from "./FilterCheckRow";
 
-const SEARCH = "M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm10 18-4.3-4.3";
-const CHECK = "m5 13 4 4L19 7";
-const PLUS = "M12 5v14M5 12h14";
 const SPARKLE =
   "M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z";
 
@@ -195,7 +192,7 @@ export function IndustryFilter({
                       : "border-line text-text2 hover:border-amber hover:text-amber",
                   )}
                 >
-                  <Icon d={taken ? CHECK : PLUS} size={10} className="flex-none" />
+                  <Icon d={taken ? ICONS.check : ICONS.plus} size={10} className="flex-none" />
                   {name}
                 </button>
               );
@@ -232,7 +229,7 @@ function SearchBox({
 }) {
   return (
     <label className="flex h-9 items-center gap-2 rounded-md border border-line bg-panel2 px-[10px]">
-      <Icon d={SEARCH} size={13} className="flex-none text-text3" />
+      <Icon d={ICONS.search} size={13} className="flex-none text-text3" />
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -292,7 +289,7 @@ function Row({
       <span className="flex flex-none items-center gap-2">
         {hint && <span className="font-sans text-[11px] text-text3">{hint}</span>}
         {checked ? (
-          <Icon d={CHECK} size={13} className="text-amber" />
+          <Icon d={ICONS.check} size={13} className="text-amber" />
         ) : partial ? (
           <span className="size-[7px] rounded-full bg-amber" />
         ) : null}

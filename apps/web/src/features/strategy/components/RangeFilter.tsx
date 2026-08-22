@@ -1,5 +1,6 @@
 import type { FacetCount, NumericRange } from "../api/types";
 import { cn } from "../../../lib/cn";
+import { FacetsUnavailable } from "./FacetsUnavailable";
 import { FilterCheckRow } from "./FilterCheckRow";
 
 /**
@@ -13,6 +14,7 @@ import { FilterCheckRow } from "./FilterCheckRow";
  */
 export function RangeFilter({
   options,
+  unavailable = false,
   selectedBands,
   range,
   onToggleBand,
@@ -22,6 +24,8 @@ export function RangeFilter({
   footnote,
 }: {
   options: FacetCount[] | undefined;
+  /** The counts were refused, not merely unread — a skeleton here would pulse forever. */
+  unavailable?: boolean;
   selectedBands: string[];
   range: NumericRange | null;
   onToggleBand: (value: string) => void;
@@ -66,19 +70,18 @@ export function RangeFilter({
         </div>
       ) : (
         <div className="flex flex-col gap-[2px]">
-          {options ? (
-            options.map((option) => (
-              <FilterCheckRow
-                key={option.value}
-                label={option.label}
-                count={option.count}
-                checked={selectedBands.includes(option.value)}
-                onToggle={() => onToggleBand(option.value)}
-              />
-            ))
-          ) : (
-            <RowSkeleton />
-          )}
+          {unavailable && <FacetsUnavailable />}
+          {!unavailable && options
+            ? options.map((option) => (
+                <FilterCheckRow
+                  key={option.value}
+                  label={option.label}
+                  count={option.count}
+                  checked={selectedBands.includes(option.value)}
+                  onToggle={() => onToggleBand(option.value)}
+                />
+              ))
+            : !unavailable && <RowSkeleton />}
         </div>
       )}
 
@@ -127,6 +130,8 @@ function ModeOption({
   );
 }
 
+const MAX_BOUND_DIGITS = 15;
+
 /**
  * A bound that is empty rather than zero when cleared. Parsing "" to 0 would turn "delete what I
  * typed" into "at least nothing", which reads as a constraint and is not one.
@@ -147,7 +152,10 @@ function BoundInput({
       placeholder={placeholder}
       value={value ?? ""}
       onChange={(event) => {
-        const raw = event.target.value.replace(/[^\d]/g, "");
+        // Capped at the digits a headcount or a revenue figure can plausibly need. Past
+        // Number.MAX_SAFE_INTEGER the value the server receives is not the one that was typed, and
+        // past Long.MAX_VALUE it answers with a JSON parse error rather than a validation message.
+        const raw = event.target.value.replace(/[^\d]/g, "").slice(0, MAX_BOUND_DIGITS);
         onChange(raw === "" ? null : Number(raw));
       }}
       className="w-0 flex-1 rounded-md border border-line bg-panel2 px-[10px] py-2 font-sans text-[13px] font-medium text-text outline-none focus:border-amber"

@@ -39,3 +39,11 @@ export interface TriageCompaniesPage {
   /** Travels with every page, because the sub-nav is visible on all of them. */
   counts: TriageCounts;
 }
+
+/** What "Add all to Universe" did. `capped` means the filter matched more than `limit`. */
+export interface BulkAddResult {
+  added: number;
+  skipped: number;
+  capped: boolean;
+  limit: number;
+}

@@ -1,10 +1,8 @@
 import type { ReactNode } from "react";
-import { Icon } from "../../../components/layout/Icon";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 
 /** Chevron down when open, right when closed — the wireframe's two paths. */
-const CHEVRON_OPEN = "m6 9 6 6 6-6";
-const CHEVRON_CLOSED = "m9 18 6-6-6-6";
 
 /**
  * One accordion in the filter sidebar: a 52px header, and the panel's own controls beneath when open.
@@ -108,7 +106,7 @@ export function FilterAccordion({
             </button>
           )}
           <Icon
-            d={open ? CHEVRON_OPEN : CHEVRON_CLOSED}
+            d={open ? ICONS.chevronDown : ICONS.chevronRight}
             size={14}
             className="flex-none text-text3"
           />

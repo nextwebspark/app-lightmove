@@ -1,5 +1,10 @@
 import { request } from "../../../lib/apiClient";
-import type { TriageCompaniesPage, TriageCompany, TriageCompanyStatus } from "./types";
+import type {
+  BulkAddResult,
+  TriageCompaniesPage,
+  TriageCompany,
+  TriageCompanyStatus,
+} from "./types";
 
 /**
  * A mandate's triaged companies — what Strategy's "Add to Universe" wrote.
@@ -39,4 +44,17 @@ export function updateTriageCompany(
     method: "PATCH",
     body: changes,
   });
+}
+
+/** Strategy's per-row "Add to Universe". Already held answers with the existing row, not an error. */
+export function addToUniverse(projectId: string, apolloAccountId: string): Promise<TriageCompany> {
+  return request<TriageCompany>(`/projects/${projectId}/triage`, {
+    method: "POST",
+    body: { apolloAccountId },
+  });
+}
+
+export function addAllInScope(projectId: string): Promise<BulkAddResult> {
+  // No body: the scope is the stored filter, so this cannot ask for a wider one than is on screen.
+  return request<BulkAddResult>(`/projects/${projectId}/triage/from-filter`, { method: "POST" });
 }

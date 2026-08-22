@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { CompanyRef, Facets, NumericRange, StrategyFilter } from "../api/types";
+import { FacetsUnavailable } from "./FacetsUnavailable";
 import { FilterAccordion } from "./FilterAccordion";
 import { FilterCheckRow } from "./FilterCheckRow";
 import { FilterChip } from "./FilterChip";
@@ -30,12 +31,15 @@ type AccordionKey = "location" | "employees" | "revenue" | "industry" | "segment
  */
 export function FilterSidebar({
   facets,
+  facetsError,
   filter,
   offLimits,
   onChange,
   onOffLimitsChange,
 }: {
   facets: Facets | undefined;
+  /** The counts were refused. Absent counts and refused counts look identical without this. */
+  facetsError: boolean;
   filter: StrategyFilter;
   offLimits: CompanyRef[];
   onChange: (filter: StrategyFilter) => void;
@@ -98,7 +102,9 @@ export function FilterSidebar({
         onToggleOpen={() => toggleOpen("location")}
         onReset={() => onChange({ ...filter, countries: [] })}
       >
-        {facets ? (
+        {facetsError ? (
+          <FacetsUnavailable />
+        ) : facets ? (
           <div className="flex flex-wrap gap-2">
             {facets.countries.map((option) => (
               <FilterChip
@@ -124,6 +130,7 @@ export function FilterSidebar({
       >
         <RangeFilter
           options={facets?.employeeBands}
+          unavailable={facetsError}
           selectedBands={filter.employeeBands}
           range={filter.employeeRange}
           onToggleBand={(value) => toggleValue("employeeBands", value)}
@@ -140,6 +147,7 @@ export function FilterSidebar({
       >
         <RangeFilter
           options={facets?.revenueBands}
+          unavailable={facetsError}
           selectedBands={filter.revenueBands}
           range={filter.revenueRange}
           onToggleBand={(value) => toggleValue("revenueBands", value)}
@@ -164,7 +172,9 @@ export function FilterSidebar({
         onToggleOpen={() => toggleOpen("industry")}
         onReset={() => onChange({ ...filter, industries: [] })}
       >
-        {facets ? (
+        {facetsError ? (
+          <FacetsUnavailable />
+        ) : facets ? (
           <IndustryFilter
             groups={facets.sectorGroups}
             selected={filter.industries}
@@ -183,7 +193,9 @@ export function FilterSidebar({
         onReset={() => onChange({ ...filter, marketSegments: [] })}
       >
         <div className="flex flex-col gap-[2px]">
-          {facets ? (
+          {facetsError ? (
+            <FacetsUnavailable />
+          ) : facets ? (
             facets.marketSegments.map((option) => (
               <FilterCheckRow
                 key={option.value}

@@ -9,7 +9,7 @@ import {
 } from "@tanstack/react-table";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { TruncatedText } from "../../../components/ui/TruncatedText";
-import { Icon } from "../../../components/layout/Icon";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import type { CompanyResult } from "../api/types";
 
 interface CompanyColumnMeta {
@@ -141,7 +141,7 @@ export const companyColumns = helper.columns([
             disabled={meta?.addingId === company.apolloAccountId}
             className="grid size-6 place-items-center rounded-[5px] text-text3 transition hover:bg-panel2 hover:text-text disabled:opacity-40"
           >
-            <Icon d="M12 5v14M5 12h14" size={14} />
+            <Icon d={ICONS.plus} size={14} />
           </button>
         </span>
       );

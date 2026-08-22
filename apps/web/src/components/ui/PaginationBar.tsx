@@ -1,4 +1,4 @@
-import { Icon } from "../../../components/layout/Icon";
+import { Icon, ICONS } from "../layout/Icon";
 
 /**
  * The mockup's pagination row, wired for real: its own buttons were decorative because every row
@@ -23,7 +23,7 @@ export function PaginationBar({
     <div className="flex flex-none items-center gap-4">
       <PageButton
         label="Previous page"
-        path="m15 18-6-6 6-6"
+        path={ICONS.back}
         disabled={page === 0}
         onClick={() => onPage(page - 1)}
       />
@@ -32,7 +32,7 @@ export function PaginationBar({
       </span>
       <PageButton
         label="Next page"
-        path="m9 18 6-6-6-6"
+        path={ICONS.chevronRight}
         disabled={page >= lastPage}
         onClick={() => onPage(page + 1)}
       />

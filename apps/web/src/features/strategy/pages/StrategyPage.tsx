@@ -1,10 +1,11 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Spinner } from "../../../components/ui";
 import { useToast } from "../../../components/ui/Toast";
 import { messageFor } from "../../../lib/errorCodes";
+import { PAGE_SIZE } from "../../../lib/paging";
 import { useAutosave } from "../../../lib/useAutosave";
 import * as reportApi from "../../reports/api/reportApi";
 import * as triageApi from "../../triage/api/triageApi";
@@ -15,10 +16,9 @@ import { CompanyResultsTable } from "../components/CompanyResultsTable";
 import { DEFAULT_COLUMN_VISIBILITY } from "../lib/companyColumns";
 import { useColumnVisibility } from "../lib/useColumnVisibility";
 import { FilterSidebar } from "../components/FilterSidebar";
-import { PaginationBar } from "../components/PaginationBar";
+import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { StrategyToolbar } from "../components/StrategyToolbar";
 
-const PAGE_SIZE = 25;
 const DEFAULT_SORT: CompanySort = { field: "employees", direction: "desc" };
 
 export function StrategyPage() {
@@ -83,8 +83,6 @@ function StrategyEditor() {
     project.id,
     DEFAULT_COLUMN_VISIBILITY,
   );
-  const filterRef = useRef(filter);
-  filterRef.current = filter;
 
   // A keystroke should narrow the list, not fire a request per character.
   useEffect(() => {
@@ -170,7 +168,7 @@ function StrategyEditor() {
   });
 
   const addOne = useMutation({
-    mutationFn: (company: CompanyResult) => strategyApi.addToUniverse(project.id, company.apolloAccountId),
+    mutationFn: (company: CompanyResult) => triageApi.addToUniverse(project.id, company.apolloAccountId),
     onSuccess: (_result, company) => {
       void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
       toast(`${company.companyName} added to universe`);
@@ -184,7 +182,7 @@ function StrategyEditor() {
       // Flush first: "Add all" acts on the *stored* filter, and a debounced edit still in the
       // timer would mean the server adds companies from the filter as it was two chips ago.
       await autosave.flush();
-      return strategyApi.addAllInScope(project.id);
+      return triageApi.addAllInScope(project.id);
     },
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
@@ -226,6 +224,7 @@ function StrategyEditor() {
         {showFilters && (
           <FilterSidebar
             facets={facets.data}
+            facetsError={facets.isError}
             filter={filter}
             offLimits={data?.offLimits ?? []}
             onChange={applyFilter}

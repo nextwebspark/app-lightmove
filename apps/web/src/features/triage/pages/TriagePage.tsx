@@ -5,13 +5,13 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { EmptyState } from "../../../components/ui";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
+import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { useToast } from "../../../components/ui/Toast";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
+import { PAGE_SIZE } from "../../../lib/paging";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompany, TriageCompanyStatus } from "../api/types";
-
-const PAGE_SIZE = 25;
 
 /**
  * The three stages, with the empty copy each one needs.
@@ -150,26 +150,13 @@ export function TriagePage() {
       )}
 
       {lastPage > 0 && (
-        <div className="mt-3 flex items-center gap-4">
-          <button
-            type="button"
-            disabled={page === 0}
-            onClick={() => setPage(page - 1)}
-            className="rounded-[6px] border border-line-soft px-3 py-1.5 font-sans text-[13px] text-text2 transition hover:text-text disabled:opacity-40"
-          >
-            Previous
-          </button>
-          <span className="font-mono text-[12px] text-text3">
-            {page + 1} / {lastPage + 1}
-          </span>
-          <button
-            type="button"
-            disabled={page >= lastPage}
-            onClick={() => setPage(page + 1)}
-            className="rounded-[6px] border border-line-soft px-3 py-1.5 font-sans text-[13px] text-text2 transition hover:text-text disabled:opacity-40"
-          >
-            Next
-          </button>
+        <div className="mt-3">
+          <PaginationBar
+            page={page}
+            size={PAGE_SIZE}
+            totalCount={triaged.data?.totalCount ?? 0}
+            onPage={setPage}
+          />
         </div>
       )}
     </div>
@@ -208,14 +195,14 @@ function TriageRow({
         {company.status !== "shortlisted" && (
           <TriageButton
             label="Shortlist"
-            path="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2Z"
+            path={ICONS.star}
             onClick={() => onTriage("shortlisted")}
           />
         )}
         {company.status !== "declined" && (
           <TriageButton
             label="Decline"
-            path="M18 6 6 18M6 6l12 12"
+            path={ICONS.close}
             onClick={() => onTriage("declined")}
           />
         )}

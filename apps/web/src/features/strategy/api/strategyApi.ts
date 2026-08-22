@@ -1,6 +1,5 @@
 import { request } from "../../../lib/apiClient";
 import type {
-  BulkAddResult,
   CompanyPage,
   CompanySort,
   SavedSearch,
@@ -12,10 +11,7 @@ import type {
 
 export const STRATEGY_KEY = (projectId: string) => ["strategy", projectId] as const;
 
-/**
- * Every filter write shares this key, so the results list can tell whether it is about to read a
- * scope the server has not been told about yet.
- */
+/** Every filter write shares this key, which is what names them together in the devtools. */
 export const STRATEGY_WRITE_KEY = (projectId: string) => ["strategyWrite", projectId] as const;
 
 export const STRATEGY_COMPANIES_KEY_PREFIX = (projectId: string) =>
@@ -79,11 +75,3 @@ export function deleteSearch(projectId: string, searchId: string): Promise<void>
   return request<void>(`/projects/${projectId}/strategy/searches/${searchId}`, { method: "DELETE" });
 }
 
-export function addToUniverse(projectId: string, apolloAccountId: string): Promise<unknown> {
-  return request(`/projects/${projectId}/triage`, { method: "POST", body: { apolloAccountId } });
-}
-
-export function addAllInScope(projectId: string): Promise<BulkAddResult> {
-  // No body: the scope is the stored filter, so this cannot ask for a wider one than is on screen.
-  return request<BulkAddResult>(`/projects/${projectId}/triage/from-filter`, { method: "POST" });
-}

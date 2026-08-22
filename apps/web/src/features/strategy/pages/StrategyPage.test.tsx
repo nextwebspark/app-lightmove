@@ -8,6 +8,7 @@ import type { Project } from "../../projects/api/types";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
 import type { CompanyPage, Facets, Strategy, StrategyFilter } from "../api/types";
+import * as triageApi from "../../triage/api/triageApi";
 import { StrategyPage } from "./StrategyPage";
 
 vi.mock("../api/strategyApi", async (importOriginal) => ({
@@ -18,6 +19,9 @@ vi.mock("../api/strategyApi", async (importOriginal) => ({
   saveSearch: vi.fn(),
   deleteSearch: vi.fn(),
   putOffLimits: vi.fn(),
+}));
+vi.mock("../../triage/api/triageApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof triageApi>()),
   addToUniverse: vi.fn(),
   addAllInScope: vi.fn(),
 }));
@@ -86,7 +90,6 @@ const pageOf = (overrides: Partial<CompanyPage> = {}): CompanyPage => ({
       numEmployees: 3000,
       annualRevenue: 6_000_000_000,
       website: "https://acwapower.com",
-      linkedinUrl: null,
       logoUrl: null,
       shortDescription: "IPP leader",
       foundedYear: 2004,
@@ -134,6 +137,20 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     // opened on zero results would read as an empty market rather than an untouched filter.
     expect(await screen.findByText("ACWA Power")).toBeInTheDocument();
     expect(screen.getByText("1 - 1 of 1")).toBeInTheDocument();
+  });
+
+  it("says the counts were refused rather than pulsing at a client representative forever", async () => {
+    // A project CLIENT seat holds WORK_VIEW, so the mandate and its results load, but /companies/facets
+    // is gated PROJECT_BROWSE and 403s. Rendering the loading skeleton for that left the rail pulsing
+    // beside a table that had loaded fine, with nothing on screen saying why.
+    vi.mocked(companiesApi.getFacets).mockRejectedValue(new Error("Forbidden"));
+    renderPage();
+
+    expect(await screen.findByText("ACWA Power")).toBeInTheDocument();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await waitFor(() =>
+      expect(within(filters).getByText(/counts are not available to you/i)).toBeInTheDocument(),
+    );
   });
 
   it("autosaves a chip as a whole-filter snapshot", async () => {
@@ -382,7 +399,7 @@ describe("StrategyPage — the filter sidebar and its results", () => {
   });
 
   it("flushes the pending filter before adding everything in scope", async () => {
-    vi.mocked(strategyApi.addAllInScope).mockResolvedValue({
+    vi.mocked(triageApi.addAllInScope).mockResolvedValue({
       added: 12,
       skipped: 0,
       capped: false,
@@ -395,14 +412,14 @@ describe("StrategyPage — the filter sidebar and its results", () => {
 
     // "Add all" acts on the stored filter; a debounced edit still in the timer would mean the
     // server adds companies from the filter as it was two chips ago.
-    await waitFor(() => expect(strategyApi.addAllInScope).toHaveBeenCalled());
+    await waitFor(() => expect(triageApi.addAllInScope).toHaveBeenCalled());
     expect(vi.mocked(strategyApi.putFilter).mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(strategyApi.addAllInScope).mock.invocationCallOrder[0]!,
+      vi.mocked(triageApi.addAllInScope).mock.invocationCallOrder[0]!,
     );
   });
 
   it("says what a capped bulk add actually did", async () => {
-    vi.mocked(strategyApi.addAllInScope).mockResolvedValue({
+    vi.mocked(triageApi.addAllInScope).mockResolvedValue({
       added: 500,
       skipped: 0,
       capped: true,

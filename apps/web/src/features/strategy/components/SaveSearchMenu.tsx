@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Icon } from "../../../components/layout/Icon";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Popover } from "../../../components/ui/Popover";
 import type { SavedSearch, StrategyFilter } from "../api/types";
 
@@ -99,7 +99,7 @@ export function SaveSearchMenu({
                 onClick={() => onDelete(search.id)}
                 className="grid size-6 flex-none place-items-center rounded-[5px] text-text3 opacity-0 transition group-hover:opacity-100 hover:text-red"
               >
-                <Icon d="M18 6 6 18M6 6l12 12" size={13} />
+                <Icon d={ICONS.close} size={13} />
               </button>
             </div>
           ))}

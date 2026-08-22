@@ -95,7 +95,6 @@ export interface CompanyResult {
   numEmployees: number | null;
   annualRevenue: number | null;
   website: string | null;
-  linkedinUrl: string | null;
   logoUrl: string | null;
   shortDescription: string | null;
   foundedYear: number | null;
@@ -138,10 +137,3 @@ export interface CompanySort {
   direction: SortDirection;
 }
 
-/** What "Add all to Universe" did. `capped` means the filter matched more than `limit`. */
-export interface BulkAddResult {
-  added: number;
-  skipped: number;
-  capped: boolean;
-  limit: number;
-}

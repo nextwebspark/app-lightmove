@@ -1,8 +1,6 @@
 import type { CompanyRef, CompanySuggestion } from "../api/types";
-import { Icon } from "../../../components/layout/Icon";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import { CompanySearchCombobox } from "./CompanySearchCombobox";
-
-const CLOSE = "M18 6 6 18M6 6l12 12";
 
 /**
  * The Off-limits panel: companies this mandate may not approach, barred by name.
@@ -42,7 +40,7 @@ export function OffLimitsFilter({
   return (
     <div className="flex flex-col gap-[14px]">
       <p className="font-sans text-[12px] leading-relaxed text-text3">
-        Companies added here will be completely excluded from your active sourcing search results.
+        Companies added here will be completely excluded from your active search results.
       </p>
 
       <CompanySearchCombobox
@@ -71,7 +69,7 @@ export function OffLimitsFilter({
                 <span className="font-sans text-[11px] font-medium text-amber">
                   {company.companyName}
                 </span>
-                <Icon d={CLOSE} size={9} className="text-amber" />
+                <Icon d={ICONS.close} size={9} className="text-amber" />
               </button>
             ))}
           </div>

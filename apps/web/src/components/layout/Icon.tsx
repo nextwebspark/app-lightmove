@@ -48,6 +48,8 @@ export const ICONS = {
   linkedin: "M16 8.5a5.5 5.5 0 0 1 5.5 5.5V21h-3.6v-7a1.9 1.9 0 0 0-3.8 0v7h-3.6v-12h3.6v1.4M3 9.5h3.6V21H3zM4.8 4a1.6 1.6 0 1 0 .01 0",
   briefcase: "M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2ZM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2",
   chevronDown: "m6 9 6 6 6-6",
+  chevronRight: "m9 18 6-6-6-6",
+  check: "m5 13 4 4L19 7",
   /** Three vertical tracks — the Columns menu, where a track is a column of the table. */
   columns: "M3 4h18v16H3zM9 4v16M15 4v16",
   position: "M12 2 3 7l9 5 9-5-9-5ZM3 12l9 5 9-5M3 17l9 5 9-5",
