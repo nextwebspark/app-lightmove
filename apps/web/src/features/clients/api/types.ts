@@ -68,7 +68,7 @@ export interface ClientDetail {
 
 /** Either a universe pick (`company`) or a custom record (`customName`), plus an optional primary contact. */
 export interface CreateClientPayload {
-  company?: { source: string; sourceId: string } | null;
+  company?: { apolloAccountId: string } | null;
   customName?: string;
   customDomain?: string;
   sector?: string;

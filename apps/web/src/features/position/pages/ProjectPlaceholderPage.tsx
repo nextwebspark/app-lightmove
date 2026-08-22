@@ -2,7 +2,7 @@ import { EmptyState } from "../../../components/ui";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 
 /**
- * The not-yet-built tabs of the project shell (Strategy, Sourcing, Candidates, Outreach, Reports).
+ * The not-yet-built tabs of the project shell (Strategy, Triage, Candidates, Outreach, Reports).
  * Deliberately just a placeholder — their tables don't exist yet, and we don't build ahead of the
  * mockups being taken on.
  */

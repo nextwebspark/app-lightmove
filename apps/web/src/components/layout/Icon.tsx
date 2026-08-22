@@ -48,9 +48,18 @@ export const ICONS = {
   linkedin: "M16 8.5a5.5 5.5 0 0 1 5.5 5.5V21h-3.6v-7a1.9 1.9 0 0 0-3.8 0v7h-3.6v-12h3.6v1.4M3 9.5h3.6V21H3zM4.8 4a1.6 1.6 0 1 0 .01 0",
   briefcase: "M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2ZM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2",
   chevronDown: "m6 9 6 6 6-6",
+  chevronRight: "m9 18 6-6-6-6",
+  check: "m5 13 4 4L19 7",
+  /** Three vertical tracks — the Columns menu, where a track is a column of the table. */
+  columns: "M3 4h18v16H3zM9 4v16M15 4v16",
   position: "M12 2 3 7l9 5 9-5-9-5ZM3 12l9 5 9-5M3 17l9 5 9-5",
   strategy: "M12 20V10M18 20V4M6 20v-4",
-  sourcing: "M21 21l-4.3-4.3m1.8-5.2a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z",
+  /** Triage: two decided rows and two undecided ones — the screen is a sorting job, not a search. */
+  triage: "m3 6 2 2 3-3M3 15l2 2 3-3M13 7h8M13 17h8",
+  /** The three triage stages, in the order the sidebar lists them. Globe is also the universe. */
+  star: "m12 3 2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.4l6-.8L12 3Z",
+  close: "M18 6 6 18M6 6l12 12",
+  warning: "M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4M12 17h.01",
   candidates: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z",
   outreach: "M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z",
   reports: "M9 12h6m-6 4h6M9 8h1M5 21h14a2 2 0 0 0 2-2V7l-5-5H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2Z",

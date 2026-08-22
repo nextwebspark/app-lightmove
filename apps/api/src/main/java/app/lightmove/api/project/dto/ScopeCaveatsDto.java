@@ -1,20 +1,20 @@
 package app.lightmove.api.project.dto;
 
-import java.util.List;
-
 /**
- * Where the report's source could not answer the mandate's scope in full. Every report figure is a
- * stated measurement, so the ways the measurement is narrower than the scope travel with it rather
- * than being left for the reader to infer from a number that looks lower than it should.
+ * Where the report's measurement is narrower than the mandate's scope. Every report figure is a
+ * stated measurement, so the ways it falls short travel with it rather than being left for the reader
+ * to infer from a number that looks lower than it should.
+ *
+ * <p>Two earlier caveats are gone, and both because the product now has one universe instead of two.
+ * The off-limits list used to be unenforceable here — it was keyed on the warehouse's
+ * {@code (source, source_id)}, which the report's source had no counterpart for — and selected
+ * sectors could be absent from the source entirely, because the two universes drew industries from
+ * different vocabularies. The report and the Strategy screen now read the same table, so neither can
+ * happen.
  */
 public record ScopeCaveatsDto(
-        /* Barred companies that could not be excluded: the off-limits list is keyed on the
-         * warehouse's (source, source_id), which this source has no counterpart for. */
-        int offLimitsNotApplied,
-        /* Selected sectors this source does not carry at all — the difference between "the market
-         * is empty" and "we cannot see this part of it". */
-        List<String> sectorsNotInSource,
-        /* True when a revenue band is selected: this source carries a revenue figure on a minority
-         * of rows, and one without a figure cannot be shown to fall in the band. */
+        /* True when a revenue band is selected. The universe carries a revenue figure on 7,132 of
+         * 71,822 rows, and a company without one cannot be shown to fall in a band — so a revenue-
+         * scoped report is measuring a tenth of the market unless Unknown is among the bands. */
         boolean revenueBandExcludesUnknown
 ) {}

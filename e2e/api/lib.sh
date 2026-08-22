@@ -128,6 +128,10 @@ fail() { FAIL_COUNT=$((FAIL_COUNT+1)); printf '  %sFAIL%s %-6s %s\n%s       %s%s
 
 # A case whose observed behaviour is worth reporting but is not a pass/fail judgement.
 note() { printf '  %sNOTE%s %-6s %s\n' "$C_DIM" "$C_OFF" "$1" "$2"; record "$1" NOTE "$2"; }
+# Neither a pass nor a failure: the case could not run at all. A precondition this environment cannot
+# meet must not go red — a suite that cries wolf nightly gets switched off rather than fixed — but it
+# must not go quietly green either, or "0 failed" reads as coverage nobody actually got.
+skip() { printf '  %sSKIP%s %-6s %s\n%s       %s%s\n' "$C_DIM" "$C_OFF" "$1" "$2" "$C_DIM" "$3" "$C_OFF"; record "$1" SKIP "$2 -- $3"; }
 
 # check ID DESCRIPTION EXPECTED ACTUAL
 check() {

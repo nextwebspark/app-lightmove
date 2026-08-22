@@ -89,8 +89,14 @@ step api/09-workspace-roles.sh
 step api/11-client-access.sh
 step api/13-client-access-tiers.sh
 
+# 14 and spa/strategy.mjs build their own cast and need the Apollo universe, which is pulled with
+# gcloud and is therefore absent on a runner. Both skip themselves and exit 0 when the table is empty,
+# so they cost a second here and do real work on a laptop that has run `npm run dev:db:apollo`.
+step api/14-strategy-company-search.sh
+
 step_node spa/run.mjs
 step_node spa/roles.mjs
+step_node spa/strategy.mjs
 
 # 10 mutates the cast it runs against, so it gets a fresh one. 12 goes after it and last.
 step api/fixtures.sh

@@ -223,7 +223,7 @@ public class GlobalExceptionHandler {
      * The catch-all. Anything reaching here is a bug: it was not anticipated, so we have no idea what
      * its message contains and must assume the worst.
      *
-     * <p>Except a client that hung up. The SPA cancels a Sourcing read the moment a Strategy save
+     * <p>Except a client that hung up. The SPA cancels a company read the moment a Strategy save
      * supersedes it, so a half-written response is routine rather than a fault; logging each one at
      * error with a stack trace would bury the failures that really are ours.
      */

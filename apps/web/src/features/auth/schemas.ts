@@ -106,7 +106,6 @@ export type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;
 export type AcceptInviteValues = z.infer<typeof acceptInviteSchema>;
 export type WorkspaceValues = z.infer<typeof workspaceSchema>;
-export type InviteValues = z.infer<typeof inviteSchema>;
 
 /** The dropdown options, taken from Signup.dc.html. */
 export const COMPANY_SIZES = ["1–10 people", "11–50 people", "51–200 people", "200+ people"];

@@ -36,6 +36,7 @@ export type ApiErrorCode =
   | "PROJECT_LAST_LEAD"
   | "POSITION_LOCKED"
   | "POSITION_NOT_READY"
+  | "BULK_ADD_SCOPE_TOO_LARGE"
   | "WORKSPACE_NAME_MISMATCH"
   | "CONFLICT"
   | "RATE_LIMITED"
@@ -46,6 +47,8 @@ export type ApiErrorCode =
   | "NOT_ACCEPTABLE"
   | "INTERNAL_ERROR";
 
+// BULK_ADD_SCOPE_TOO_LARGE is deliberately absent: its server detail names how many companies matched
+// and how many may be added, which no fixed sentence here could. Adding it would lose both numbers.
 const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   LAST_ADMIN: "A workspace must keep at least one admin.",
   MEMBER_LEADS_PROJECTS: "They are the only lead on active projects — hand those over first.",

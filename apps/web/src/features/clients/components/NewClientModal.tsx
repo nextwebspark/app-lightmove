@@ -3,16 +3,17 @@ import { useEffect, useState } from "react";
 import { Button, Field, FormError, Input, Modal, Spinner, useToast } from "../../../components/ui";
 import { isValidEmail } from "../../../lib/email";
 import { messageFor } from "../../../lib/errorCodes";
-import { SEARCH_KEY, searchCompanies } from "../../strategy/api/companiesApi";
-import type { CompanySearchResult } from "../../strategy/api/types";
+import { COMPANY_SEARCH_KEY, searchCompanies } from "../../strategy/api/companiesApi";
+import type { CompanySuggestion } from "../../strategy/api/types";
 import * as clientsApi from "../api/clientsApi";
 
 /**
  * The New-client modal — company-database-first, matching Clients.dc.html.
  *
  * Stage one picks the company: search the universe, or add a custom record when it isn't there. Stage
- * two adds an optional primary contact, who is invited as a representative immediately. A DB pick stores the
- * company's rebuild-stable key; the server resolves its canonical name and domain.
+ * two adds an optional primary contact, who is invited as a representative immediately. A DB pick
+ * stores the company's Apollo account id; the server resolves its canonical name and domain, so a
+ * client cannot file a company under a name of its own choosing.
  */
 export function NewClientModal({
   open,
@@ -31,7 +32,7 @@ export function NewClientModal({
 
   const [companyQuery, setCompanyQuery] = useState("");
   const [debounced, setDebounced] = useState("");
-  const [selected, setSelected] = useState<CompanySearchResult | null>(null);
+  const [selected, setSelected] = useState<CompanySuggestion | null>(null);
   const [custom, setCustom] = useState<{ name: string; domain: string } | null>(null);
   const [newCompanyOpen, setNewCompanyOpen] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState("");
@@ -52,8 +53,8 @@ export function NewClientModal({
   // The same shared universe reader the Strategy pickers use — a non-empty query name-matches, so
   // sectors/order are inert here, and the result shares one cache entry with those pickers.
   const { data: hits = [], isFetching } = useQuery({
-    queryKey: SEARCH_KEY(debounced, [], "revenue_desc"),
-    queryFn: () => searchCompanies(debounced, [], "revenue_desc").then((page) => page.companies),
+    queryKey: COMPANY_SEARCH_KEY(debounced),
+    queryFn: () => searchCompanies(debounced).then((page) => page.companies),
     enabled: open && !hasSelection && debounced.length >= 2,
   });
 
@@ -69,8 +70,8 @@ export function NewClientModal({
 
       return clientsApi.createClient(
         selected
-          ? { company: { source: selected.source, sourceId: selected.sourceId },
-              sector: selected.primaryIndustry ?? undefined, primaryContact }
+          ? { company: { apolloAccountId: selected.apolloAccountId },
+              sector: selected.industry ?? undefined, primaryContact }
           : { customName: custom!.name, customDomain: custom!.domain || undefined, primaryContact },
       );
     },
@@ -87,9 +88,9 @@ export function NewClientModal({
     onError: (mutationError) => setError(messageFor(mutationError)),
   });
 
-  const pickHit = (hit: CompanySearchResult) => {
-    if (existingNames.has(hit.name.toLowerCase())) {
-      toast(`${hit.name} is already a client`);
+  const pickHit = (hit: CompanySuggestion) => {
+    if (existingNames.has(hit.companyName.toLowerCase())) {
+      toast(`${hit.companyName} is already a client`);
       return;
     }
     setSelected(hit);
@@ -165,20 +166,20 @@ export function NewClientModal({
               )}
               {!isFetching &&
                 hits.map((hit) => {
-                  const alreadyClient = existingNames.has(hit.name.toLowerCase());
+                  const alreadyClient = existingNames.has(hit.companyName.toLowerCase());
                   return (
                     <button
-                      key={`${hit.source}:${hit.sourceId}`}
+                      key={hit.apolloAccountId}
                       type="button"
                       onClick={() => pickHit(hit)}
                       className="flex w-full items-center gap-2.5 border-b border-line-soft px-3 py-2.5 text-left last:border-0 hover:bg-panel2"
                     >
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[13px] font-medium text-text">
-                          {hit.name}
+                          {hit.companyName}
                         </span>
                         <span className="block truncate font-mono text-[11px] text-text3">
-                          {[hit.primaryIndustry, hit.hqCountry].filter(Boolean).join(" · ") || "—"}
+                          {[hit.industry, hit.companyCountry].filter(Boolean).join(" · ") || "—"}
                         </span>
                       </span>
                       {alreadyClient ? (
@@ -244,11 +245,11 @@ export function NewClientModal({
           <div className="mb-4 flex items-center gap-2.5 rounded-lg border border-line-soft bg-panel2 px-3 py-2.5">
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[13px] font-semibold text-text">
-                {selected ? selected.name : custom!.name}
+                {selected ? selected.companyName : custom!.name}
               </span>
               <span className="block truncate font-mono text-[11px] text-text3">
                 {selected
-                  ? [selected.primaryIndustry, selected.hqCountry].filter(Boolean).join(" · ") +
+                  ? [selected.industry, selected.companyCountry].filter(Boolean).join(" · ") +
                     " · from company DB"
                   : "new company record"}
               </span>

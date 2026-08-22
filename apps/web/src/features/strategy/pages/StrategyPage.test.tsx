@@ -1,85 +1,107 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ToastProvider } from "../../../components/ui";
+import { ToastProvider } from "../../../components/ui/Toast";
+import { ApiRequestError } from "../../../lib/apiClient";
 import type { Project } from "../../projects/api/types";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
-import type { Strategy } from "../api/types";
+import type { CompanyPage, Facets, Strategy, StrategyFilter } from "../api/types";
+import * as triageApi from "../../triage/api/triageApi";
 import { StrategyPage } from "./StrategyPage";
 
-const mockNavigate = vi.fn();
-vi.mock("react-router-dom", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("react-router-dom")>()),
-  useNavigate: () => mockNavigate,
-}));
 vi.mock("../api/strategyApi", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../api/strategyApi")>()),
+  ...(await importOriginal<typeof strategyApi>()),
   getStrategy: vi.fn(),
-  putSectors: vi.fn(),
-  putCompanySize: vi.fn(),
-  putGeography: vi.fn(),
-  putOwnership: vi.fn(),
-  putTargets: vi.fn(),
+  putFilter: vi.fn(),
+  getCompanies: vi.fn(),
+  saveSearch: vi.fn(),
+  deleteSearch: vi.fn(),
   putOffLimits: vi.fn(),
 }));
+vi.mock("../../triage/api/triageApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof triageApi>()),
+  addToUniverse: vi.fn(),
+  addAllInScope: vi.fn(),
+}));
 vi.mock("../api/companiesApi", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../api/companiesApi")>()),
-  getSectors: vi.fn(),
-  getSuggestions: vi.fn(),
-  getEstimate: vi.fn(),
+  ...(await importOriginal<typeof companiesApi>()),
+  getFacets: vi.fn(),
   searchCompanies: vi.fn(),
 }));
 
-const project: Project = {
-  id: "p1",
-  clientId: "c1",
-  clientName: "Meridian Energy Group",
-  positionTitle: "Head of Retail",
-  stage: "BRIEF",
-  health: "OK",
-  targetDate: null,
-  team: [],
-  representatives: [],
-  companies: 0,
-  candidates: 0,
-  createdAt: "2026-07-01T00:00:00Z",
+const project = { id: "p1", positionTitle: "CFO" } as Project;
+
+const EMPTY_FILTER: StrategyFilter = {
+  industries: [],
+  marketSegments: [],
+  countries: [],
+  employeeBands: [],
+  revenueBands: [],
+  employeeRange: null,
+  revenueRange: null,
 };
 
-const seeded: Strategy = {
-  direct: [{ label: "Retail", selected: true }],
-  adjacent: [],
-  inferred: [],
-  employee: [],
-  revenue: [],
-  markets: [],
-  structures: [],
-  targets: [],
-  offLimits: [],
-};
-
-const acme = {
-  source: "test",
-  sourceId: "acme",
-  name: "Acme Retail",
-  domain: "acme.example",
-  slogan: "Everything store",
-  logo: null,
-  hqCity: "Dubai",
-  hqCountry: "AE",
-  primaryIndustry: "Retail",
-  employeeCount: 500,
-};
-
-const sectors = {
-  sectors: [
-    { name: "Retail", count: 1299 },
-    { name: "Wholesale", count: 500 },
-    { name: "Oil and Gas", count: 1526 },
+const FACETS: Facets = {
+  sectorGroups: [
+    {
+      name: "Energy & Utilities",
+      count: 3,
+      industries: [
+        { value: "oil & energy", label: "oil & energy", count: 2 },
+        { value: "utilities", label: "utilities", count: 1 },
+      ],
+    },
+    {
+      name: "Construction",
+      count: 5,
+      industries: [{ value: "construction", label: "construction", count: 5 }],
+    },
+  ],
+  marketSegments: [{ value: "B2B", label: "B2B", count: 40 }],
+  countries: [
+    { value: "United Arab Emirates", label: "United Arab Emirates", count: 37154 },
+    { value: "Qatar", label: "Qatar", count: 4609 },
+  ],
+  employeeBands: [
+    { value: "1001-2000", label: "1001-2000", count: 2022 },
+    { value: "2001-5000", label: "2001-5000", count: 640 },
+  ],
+  revenueBands: [
+    { value: "1b-5b", label: "$1B - $5B", count: 289 },
+    { value: "unknown", label: "Unknown", count: 64690 },
   ],
 };
+
+const strategyOf = (filter: StrategyFilter = EMPTY_FILTER): Strategy => ({
+  filter,
+  offLimits: [],
+  searches: [],
+});
+
+const pageOf = (overrides: Partial<CompanyPage> = {}): CompanyPage => ({
+  companies: [
+    {
+      apolloAccountId: "a1",
+      companyName: "ACWA Power",
+      industry: "oil & energy",
+      companyCountry: "Saudi Arabia",
+      companyCity: "Riyadh",
+      numEmployees: 3000,
+      annualRevenue: 6_000_000_000,
+      website: "https://acwapower.com",
+      logoUrl: null,
+      shortDescription: "IPP leader",
+      foundedYear: 2004,
+    },
+  ],
+  totalCount: 1,
+  page: 0,
+  size: 25,
+  ...overrides,
+});
 
 const renderPage = (client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) =>
   render(
@@ -96,448 +118,522 @@ const renderPage = (client = new QueryClient({ defaultOptions: { queries: { retr
     </MemoryRouter>,
   );
 
-describe("StrategyPage — the sector-scope editor", () => {
+describe("StrategyPage — the filter sidebar and its results", () => {
   beforeEach(() => {
-    vi.resetAllMocks();
-    vi.mocked(strategyApi.getStrategy).mockResolvedValue(seeded);
-    vi.mocked(strategyApi.putSectors).mockImplementation((_id, payload) => Promise.resolve(payload));
-    vi.mocked(strategyApi.putCompanySize).mockImplementation((_id, employee, revenue) =>
-      Promise.resolve({ ...seeded, employee, revenue }),
+    // restoreAllMocks in the shared setup restores spies but leaves a vi.fn()'s call history alone,
+    // so without this an assertion on `mock.calls.at(-1)` reads the previous test's last call.
+    vi.clearAllMocks();
+    // Column visibility is persisted per project, so one test's ticked column is the next one's
+    // starting state unless the store is cleared between them.
+    localStorage.clear();
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(strategyOf());
+    vi.mocked(companiesApi.getFacets).mockResolvedValue(FACETS);
+    vi.mocked(companiesApi.searchCompanies).mockResolvedValue({ companies: [] });
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf());
+    vi.mocked(strategyApi.putFilter).mockImplementation(async (_id, filter) => strategyOf(filter));
+  });
+
+  it("opens on the whole universe rather than on nothing", async () => {
+    renderPage();
+
+    // The criteria model this replaced refused to answer without a sector. A search screen that
+    // opened on zero results would read as an empty market rather than an untouched filter.
+    expect(await screen.findByText("ACWA Power")).toBeInTheDocument();
+    expect(screen.getByText("1 - 1 of 1")).toBeInTheDocument();
+  });
+
+  it("says the counts were refused rather than pulsing at a client representative forever", async () => {
+    // A project CLIENT seat holds WORK_VIEW, so the mandate and its results load, but /companies/facets
+    // is gated PROJECT_BROWSE and 403s. Rendering the loading skeleton for that left the rail pulsing
+    // beside a table that had loaded fine, with nothing on screen saying why.
+    vi.mocked(companiesApi.getFacets).mockRejectedValue(new Error("Forbidden"));
+    renderPage();
+
+    expect(await screen.findByText("ACWA Power")).toBeInTheDocument();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await waitFor(() =>
+      expect(within(filters).getByText(/counts are not available to you/i)).toBeInTheDocument(),
     );
-    vi.mocked(strategyApi.putGeography).mockImplementation((_id, markets) =>
-      Promise.resolve({ ...seeded, markets }),
-    );
-    vi.mocked(strategyApi.putOwnership).mockImplementation((_id, structures) =>
-      Promise.resolve({ ...seeded, structures }),
-    );
-    vi.mocked(strategyApi.putTargets).mockImplementation((_id, companies) =>
-      Promise.resolve({
-        ...seeded,
-        targets: companies.map((key) => ({ ...acme, ...key })),
-      }),
-    );
-    vi.mocked(strategyApi.putOffLimits).mockImplementation((_id, companies) =>
-      Promise.resolve({
-        ...seeded,
-        offLimits: companies.map((key) => ({ ...acme, ...key })),
-      }),
-    );
-    vi.mocked(companiesApi.searchCompanies).mockResolvedValue({ companies: [acme] });
-    vi.mocked(companiesApi.getSectors).mockResolvedValue(sectors);
-    vi.mocked(companiesApi.getSuggestions).mockResolvedValue({
-      adjacent: ["Wholesale"],
-      inferredTags: [{ tag: "Grocery Retail", count: 100 }],
+  });
+
+  it("autosaves a chip as a whole-filter snapshot", async () => {
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Qatar/ }));
+
+    await waitFor(() => expect(strategyApi.putFilter).toHaveBeenCalled(), { timeout: 2000 });
+    expect(vi.mocked(strategyApi.putFilter).mock.calls[0]![1]).toEqual({
+      ...EMPTY_FILTER,
+      countries: ["Qatar"],
     });
-    vi.mocked(companiesApi.getEstimate).mockResolvedValue({ count: 4200 });
   });
 
-  it("renders the three groups and the seeded direct sector", async () => {
-    renderPage();
-
-    expect(await screen.findByText("Direct")).toBeInTheDocument();
-    expect(screen.getByText("Adjacent")).toBeInTheDocument();
-    expect(screen.getByText("Inferred")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Retail" })).toHaveAttribute("aria-pressed", "true");
-  });
-
-  it("merges arriving suggestions as pre-selected chips", async () => {
-    renderPage();
-
-    // The direct sector drives a suggestions fetch; the adjacent tag arrives selected.
-    const wholesale = await screen.findByRole("button", { name: "Wholesale" });
-    expect(wholesale).toHaveAttribute("aria-pressed", "true");
-    expect(await screen.findByRole("button", { name: "Grocery Retail" })).toBeInTheDocument();
-    expect(companiesApi.getSuggestions).toHaveBeenCalledWith(["Retail"]);
-  });
-
-  it("renders the live estimate for the current scope", async () => {
-    renderPage();
-    expect(await screen.findByText("4,200")).toBeInTheDocument();
-  });
-
-  it("clears the suggestions when the last direct sector is deselected", async () => {
-    renderPage();
-    // Wholesale is suggested from Retail.
-    await screen.findByRole("button", { name: "Wholesale" });
-
-    // Deselect the only direct sector.
-    await userEvent.click(screen.getByRole("button", { name: "Retail" }));
-
-    // Its adjacent/inferred suggestions go with it.
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Wholesale" })).not.toBeInTheDocument());
-    await waitFor(
-      () =>
-        expect(
-          vi.mocked(strategyApi.putSectors).mock.calls.some(
-            ([, payload]) => payload.adjacent.length === 0 && payload.inferred.length === 0,
-          ),
-        ).toBe(true),
-      { timeout: 2000 },
-    );
-  });
-
-  it("toggles a chip off and autosaves the flipped selection", async () => {
-    renderPage();
-    const retail = await screen.findByRole("button", { name: "Retail" });
-
-    await userEvent.click(retail);
-
-    await waitFor(
-      () =>
-        expect(vi.mocked(strategyApi.putSectors).mock.calls.some(([, payload]) =>
-          payload.direct.some((chip) => chip.label === "Retail" && !chip.selected),
-        )).toBe(true),
-      { timeout: 2000 },
-    );
-  });
-
-  it("invalidates the Sourcing list after a scope save, so it refetches with the new criteria", async () => {
-    // No suggestions to merge, so the only save is the user's own sector toggle.
-    vi.mocked(companiesApi.getSuggestions).mockResolvedValue({ adjacent: [], inferredTags: [] });
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const invalidate = vi.spyOn(client, "invalidateQueries");
-    renderPage(client);
-
-    await userEvent.click(await screen.findByRole("button", { name: "Retail" }));
-
-    await waitFor(
-      () => expect(invalidate).toHaveBeenCalledWith({ queryKey: ["sourcing", "p1"] }),
-      { timeout: 2000 },
-    );
-  });
-
-  it("cancels the Sourcing list before invalidating it, so a read of the pre-edit scope cannot win", async () => {
-    vi.mocked(companiesApi.getSuggestions).mockResolvedValue({ adjacent: [], inferredTags: [] });
+  it("cancels the results before invalidating them, so a read of the pre-edit scope cannot win", async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const cancel = vi.spyOn(client, "cancelQueries");
     const invalidate = vi.spyOn(client, "invalidateQueries");
     renderPage(client);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Retail" }));
-
-    await waitFor(() => expect(cancel).toHaveBeenCalledWith({ queryKey: ["sourcing", "p1"] }), {
-      timeout: 2000,
-    });
-    // A read left running would resolve after the invalidation and clear the stale flag, stranding the
-    // pre-edit companies in the cache as fresh for the whole staleTime.
-    expect(cancel.mock.invocationCallOrder[0]).toBeLessThan(invalidate.mock.invocationCallOrder[0]);
-  });
-
-  it("does not invalidate the Sourcing list after an ownership save — ownership is not in scope", async () => {
-    vi.mocked(companiesApi.getSuggestions).mockResolvedValue({ adjacent: [], inferredTags: [] });
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const cancel = vi.spyOn(client, "cancelQueries");
-    const invalidate = vi.spyOn(client, "invalidateQueries");
-    renderPage(client);
-
-    await screen.findByRole("button", { name: "Retail" });
-    await userEvent.click(screen.getByRole("button", { name: "Ownership Type" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Privately Held" }));
-
-    await waitFor(() => expect(strategyApi.putOwnership).toHaveBeenCalled(), { timeout: 2000 });
-    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ["sourcing", "p1"] });
-    expect(cancel).not.toHaveBeenCalledWith({ queryKey: ["sourcing", "p1"] });
-  });
-
-  it("removes a sector from Adjacent when it is added as Direct", async () => {
-    // Wholesale arrives as an adjacent suggestion; promoting it to Direct must strip it from Adjacent.
-    renderPage();
-    await screen.findByRole("button", { name: "Wholesale" });
-
-    const field = screen.getByLabelText("Add a sector");
-    await userEvent.type(field, "Wholesale");
-    await userEvent.type(field, "{Enter}");
+    await userEvent.click(await screen.findByRole("button", { name: /Qatar/ }));
 
     await waitFor(
+      () => expect(cancel).toHaveBeenCalledWith({ queryKey: ["strategyCompanies", "p1"] }),
+      { timeout: 2000 },
+    );
+    // A read left running would resolve after the invalidation and reinstate the pre-edit companies
+    // as fresh for the whole staleTime.
+    expect(cancel.mock.invocationCallOrder[0]).toBeLessThan(invalidate.mock.invocationCallOrder[0]!);
+  });
+
+  it("selecting a sector stores its industries, never the sector name", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+
+    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
+    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
+
+    // No Apply step: the click is the decision, and the filter's own autosave coalesces a burst.
+    await waitFor(() => expect(strategyApi.putFilter).toHaveBeenCalled(), { timeout: 2000 });
+    // Storing the group would silently widen this mandate the day the taxonomy is re-tuned.
+    expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
+      "oil & energy",
+      "utilities",
+    ]);
+  });
+
+  it("browsing a sector takes nothing when sub-industries are not included", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
+
+    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include Sub-Industries" }));
+    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
+
+    // Unticked, a sector is a lens rather than a selection — "we're looking at Energy" is not the
+    // same claim as "we want all of Energy", and only the second one belongs in the filter.
+    expect(within(filters).getByRole("checkbox", { name: /oil & energy/ })).toBeInTheDocument();
+    expect(strategyApi.putFilter).not.toHaveBeenCalled();
+
+    await userEvent.click(within(filters).getByRole("checkbox", { name: /oil & energy/ }));
+
+    await waitFor(() => expect(strategyApi.putFilter).toHaveBeenCalled(), { timeout: 2000 });
+    expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
+      "oil & energy",
+    ]);
+  });
+
+  it("suggests the sectors beside the one chosen, and adds them to what is already selected", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
+
+    // Nothing open yet, so there is nothing to be adjacent *to*.
+    expect(within(filters).queryByText("Adjacent Industries")).not.toBeInTheDocument();
+
+    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
+    expect(within(filters).getByText("Adjacent Industries")).toBeInTheDocument();
+
+    const chip = within(filters).getByRole("button", { name: /Construction/ });
+    await userEvent.click(chip);
+
+    // The suggestion adds to the selection rather than replacing it — the results panel has to show
+    // the union, which is the whole point of offering a neighbour.
+    await waitFor(
       () =>
-        expect(
-          vi.mocked(strategyApi.putSectors).mock.calls.some(
-            ([, payload]) =>
-              payload.direct.some((chip) => chip.label === "Wholesale") &&
-              !payload.adjacent.some((chip) => chip.label === "Wholesale"),
-          ),
-        ).toBe(true),
+        expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
+          "oil & energy",
+          "utilities",
+          "construction",
+        ]),
       { timeout: 2000 },
     );
   });
 
-  it("adds a direct sector through the typeahead", async () => {
+  it("an adjacent chip stays put once taken, so several can be picked in a row", async () => {
     renderPage();
-    await screen.findByText("Direct");
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
+    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
 
-    const field = screen.getByLabelText("Add a sector");
-    await userEvent.type(field, "Oil");
-    // The single match is active; Enter commits it.
-    expect(await screen.findByRole("option")).toBeInTheDocument();
-    await userEvent.type(field, "{Enter}");
+    const chip = within(filters).getByRole("button", { name: /Construction/ });
+    await userEvent.click(chip);
 
-    await waitFor(
-      () =>
-        expect(vi.mocked(strategyApi.putSectors).mock.calls.some(([, payload]) =>
-          payload.direct.some((chip) => chip.label === "Oil and Gas"),
-        )).toBe(true),
-      { timeout: 2000 },
-    );
-  });
-
-  it("switches to Company Size and renders both band axes from the catalog", async () => {
-    renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Company Size" }));
-
-    expect(screen.getByText("Employees")).toBeInTheDocument();
-    expect(screen.getByText("Revenue")).toBeInTheDocument();
-    // A band pill from each catalog, unselected to start.
-    expect(screen.getByRole("button", { name: "51–200" })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: "$5M–25M" })).toHaveAttribute("aria-pressed", "false");
-  });
-
-  it("toggles a band on and autosaves the selected values for that axis", async () => {
-    renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Company Size" }));
-
-    await userEvent.click(screen.getByRole("button", { name: "51–200" }));
-
-    await waitFor(
-      () =>
-        expect(
-          vi.mocked(strategyApi.putCompanySize).mock.calls.some(
-            ([, employee, revenue]) => employee.includes("51-200") && revenue.length === 0,
-          ),
-        ).toBe(true),
-      { timeout: 2000 },
-    );
-  });
-
-  it("narrows the live estimate by the selected company-size bands too", async () => {
-    renderPage();
-    await screen.findByText("4,200");
-    await userEvent.click(await screen.findByRole("button", { name: "Company Size" }));
-
-    await userEvent.click(screen.getByRole("button", { name: "51–200" }));
-
-    await waitFor(() =>
-      expect(
-        vi.mocked(companiesApi.getEstimate).mock.calls.some(
-          ([, , employeeBands]) => employeeBands.includes("51-200"),
-        ),
-      ).toBe(true),
-    );
-  });
-
-  it("narrows the live estimate by the selected geography markets too", async () => {
-    renderPage();
-    await screen.findByText("4,200");
-    await userEvent.click(await screen.findByRole("button", { name: "Location" }));
-
-    await userEvent.click(screen.getByRole("button", { name: "Saudi Arabia" }));
-
-    await waitFor(() =>
-      expect(
-        vi.mocked(companiesApi.getEstimate).mock.calls.some(
-          ([, , , , markets]) => markets.includes("SA"),
-        ),
-      ).toBe(true),
-    );
-  });
-
-  it("navigates to the project's Sourcing screen from the Go to sourcing button", async () => {
-    renderPage();
-
-    await userEvent.click(await screen.findByRole("button", { name: /Go to sourcing/ }));
-
-    expect(mockNavigate).toHaveBeenCalledWith("/projects/p1/sourcing");
-  });
-
-  it("switches to Ownership Type and renders the structure catalog by display name", async () => {
-    renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Ownership Type" }));
-
-    expect(screen.getByText("Structures")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Privately Held" })).toHaveAttribute(
+    // Dropping a chip the moment it is used answers the click by deleting the thing clicked, and
+    // moves whatever the consultant was about to press second.
+    expect(within(filters).getByRole("button", { name: /Construction/ })).toHaveAttribute(
       "aria-pressed",
-      "false",
+      "true",
     );
-    expect(
-      screen.getByRole("button", { name: "Government Agency" }),
-    ).toBeInTheDocument();
-  });
 
-  it("toggles a structure on and autosaves its wire value, not its display label", async () => {
-    renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Ownership Type" }));
-
-    await userEvent.click(screen.getByRole("button", { name: "Privately Held" }));
-
+    // And it is still the way back: a suggestion taken by accident has to be releasable.
+    await userEvent.click(within(filters).getByRole("button", { name: /Construction/ }));
     await waitFor(
       () =>
-        expect(
-          vi.mocked(strategyApi.putOwnership).mock.calls.some(([, structures]) =>
-            structures.includes("Privately Held"),
-          ),
-        ).toBe(true),
+        expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
+          "oil & energy",
+          "utilities",
+        ]),
       { timeout: 2000 },
     );
   });
 
-  it("switches to Location and renders the market catalog by display name", async () => {
+  it("searches the sector list by the industries inside it, not only by its name", async () => {
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Location" }));
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
 
-    expect(screen.getByText("Markets")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "UAE" })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: "Saudi Arabia" })).toBeInTheDocument();
+    // "utilities" is a label filed under Energy & Utilities; a consultant should not have to know
+    // where we filed it to find it.
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
+
+    expect(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ })).toBeInTheDocument();
+    expect(within(filters).queryByRole("checkbox", { name: /Construction/ })).not.toBeInTheDocument();
   });
 
-  it("toggles a market on and autosaves its ISO code, not its display name", async () => {
+  it("offers an Unknown revenue row, because most companies publish no figure", async () => {
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Location" }));
+    const filters = await screen.findByRole("region", { name: "Filters" });
 
-    await userEvent.click(screen.getByRole("button", { name: "Saudi Arabia" }));
+    // Scoped to the rail: the results table has a sortable "Revenue" header of the same name.
+    await userEvent.click(within(filters).getByRole("button", { name: "Revenue" }));
+
+    // Without it the 64,690 companies with no revenue are unreachable by this axis.
+    expect(within(filters).getByRole("checkbox", { name: /Unknown/ })).toBeInTheDocument();
+  });
+
+  it("renders each axis with the control its values deserve, not chips everywhere", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+
+    // Location is six countries and reads as pills; the count lives on the pill itself.
+    expect(within(filters).getByRole("button", { name: /Qatar/ })).toBeInTheDocument();
+    expect(within(filters).queryByRole("checkbox", { name: /Qatar/ })).not.toBeInTheDocument();
+
+    // Employees is an ordered axis of eleven bands, so it is a checkbox list. Pills would lose the
+    // order, which is the only thing that makes the list readable.
+    await userEvent.click(within(filters).getByRole("button", { name: "# Employees" }));
+    expect(within(filters).getByRole("checkbox", { name: /1001-2000/ })).toBeInTheDocument();
+  });
+
+  it("keeps a band row's label identical whether it is ticked or not", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "# Employees" }));
+
+    const row = within(filters).getByRole("checkbox", { name: /1001-2000/ });
+    const label = within(row).getByText("1001-2000");
+    const before = label.className;
+
+    await userEvent.click(row);
+
+    // Only the box changes. A list where ticked rows also recolour reads as two kinds of row, and
+    // the eye has to re-scan to find the checked ones instead of following the checkmarks down.
+    await waitFor(() => expect(row).toHaveAttribute("aria-checked", "true"));
+    expect(label.className).toBe(before);
+  });
+
+  it("a custom range replaces the band selection rather than narrowing it further", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "# Employees" }));
+
+    await userEvent.click(within(filters).getByRole("checkbox", { name: /1001-2000/ }));
+    await userEvent.click(within(filters).getByRole("radio", { name: "Custom Range" }));
+    await userEvent.type(within(filters).getByLabelText("Min"), "250");
 
     await waitFor(
-      () =>
-        expect(
-          vi.mocked(strategyApi.putGeography).mock.calls.some(([, markets]) =>
-            markets.includes("SA"),
-          ),
-        ).toBe(true),
+      () => expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].employeeRange).toEqual({
+        min: 250,
+        max: null,
+      }),
       { timeout: 2000 },
+    );
+    // Ticked bands cannot survive the mode switch, or the stored filter would say two things.
+    expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].employeeBands).toEqual([]);
+  });
+
+  it("counts a custom range as an active axis, but not the mode switch on its own", async () => {
+    renderPage();
+    const filtersButton = await screen.findByRole("button", { name: /Show Filters|Hide Filters/ });
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "# Employees" }));
+
+    // Entering Custom Range emits an empty range, which the server normalises away. Counting that
+    // would put the badge at 1 over an unfiltered table.
+    await userEvent.click(within(filters).getByRole("radio", { name: "Custom Range" }));
+    expect(within(filtersButton).getByText("0")).toBeInTheDocument();
+
+    // A typed bound does narrow the scope, and the badge said 0 while it did — the accordion's own
+    // tag showed the range all along, so two counters on one screen disagreed.
+    await userEvent.type(within(filters).getByLabelText("Min"), "250");
+    await waitFor(() => expect(within(filtersButton).getByText("1")).toBeInTheDocument());
+  });
+
+  it("counts the axes that carry a selection, not the chips", async () => {
+    renderPage();
+    const filtersButton = await screen.findByRole("button", { name: /Show Filters|Hide Filters/ });
+    expect(within(filtersButton).getByText("0")).toBeInTheDocument();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Qatar/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /United Arab Emirates/ }));
+
+    // Two chips on one axis is still one active filter.
+    await waitFor(() => expect(within(filtersButton).getByText("1")).toBeInTheDocument());
+  });
+
+  it("does not claim an empty result while the first page is still loading", async () => {
+    let release!: (page: CompanyPage) => void;
+    vi.mocked(strategyApi.getCompanies).mockReturnValue(
+      new Promise<CompanyPage>((resolve) => {
+        release = resolve;
+      }),
+    );
+    renderPage();
+
+    // "0 results" beside a loading skeleton states as fact that nothing matched, at the moment the
+    // screen does not yet know — the table and the bar contradicting each other.
+    expect(await screen.findByRole("button", { name: "Next page" })).toBeInTheDocument();
+    expect(screen.queryByText("0 results")).not.toBeInTheDocument();
+
+    release(pageOf());
+    expect(await screen.findByText("1 - 1 of 1")).toBeInTheDocument();
+  });
+
+  it("renders a 403 as an error rather than as an empty market", async () => {
+    vi.mocked(strategyApi.getCompanies).mockRejectedValue(new Error("forbidden"));
+    renderPage();
+
+    // The count is the tell: "no companies match" states as fact a number the caller could not read.
+    expect(await screen.findByText(/could not be loaded/i)).toBeInTheDocument();
+    expect(screen.queryByText(/No companies match/i)).not.toBeInTheDocument();
+  });
+
+  it("bars a company through its own endpoint, and says how many are barred", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue({
+      ...strategyOf(),
+      offLimits: [
+        {
+          apolloAccountId: "x1",
+          companyName: "Acme Corp",
+          industry: null,
+          companyCity: null,
+          companyCountry: null,
+          logoUrl: null,
+        },
+      ],
+    });
+    vi.mocked(strategyApi.putOffLimits).mockResolvedValue(strategyOf());
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+
+    await userEvent.click(within(filters).getByRole("button", { name: /Off-limits/ }));
+    expect(within(filters).getByText("EXCLUDED (1)")).toBeInTheDocument();
+
+    await userEvent.click(within(filters).getByRole("button", { name: "Remove Acme Corp" }));
+
+    // Off-limits is a decision, not a draft: it writes immediately rather than through the timer.
+    await waitFor(() => expect(strategyApi.putOffLimits).toHaveBeenCalledWith("p1", []));
+    expect(strategyApi.putFilter).not.toHaveBeenCalled();
+  });
+
+  it("closes the suggestion list once a company is barred, rather than covering the chips it joined", async () => {
+    vi.mocked(companiesApi.searchCompanies).mockResolvedValue({
+      companies: [
+        {
+          apolloAccountId: "x1",
+          companyName: "Acme Corp",
+          industry: null,
+          companyCity: null,
+          companyCountry: null,
+          website: null,
+          logoUrl: null,
+          numEmployees: null,
+        },
+      ],
+    });
+    vi.mocked(strategyApi.putOffLimits).mockResolvedValue(strategyOf());
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: /Off-limits/ }));
+
+    await userEvent.type(within(filters).getByLabelText("Search companies"), "Acme");
+    await userEvent.click(await within(filters).findByRole("option", { name: /Acme Corp/ }));
+
+    // keepPreviousData keeps serving the last query's rows after a pick clears the box, so a list
+    // left open sits over the EXCLUDED chips — including the one just added, and its remove button.
+    await waitFor(() =>
+      expect(within(filters).getByRole("combobox")).toHaveAttribute("aria-expanded", "false"),
+    );
+    expect(within(filters).queryByRole("option")).not.toBeInTheDocument();
+  });
+
+  it("flushes the pending filter before saving a search", async () => {
+    vi.mocked(strategyApi.saveSearch).mockResolvedValue({
+      id: "s1",
+      name: "Fast save",
+      filter: EMPTY_FILTER,
+      createdAt: "2026-08-22",
+    });
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Qatar/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Save Search/ }));
+    await userEvent.type(screen.getByLabelText("Name this search"), "Fast save");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    // The request carries only a name — the server snapshots the *stored* filter. Saving inside the
+    // 700ms debounce recorded the scope as it was before the chip click, silently, and stayed wrong
+    // for every later load of that search.
+    await waitFor(() => expect(strategyApi.saveSearch).toHaveBeenCalled());
+    expect(vi.mocked(strategyApi.putFilter).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(strategyApi.saveSearch).mock.invocationCallOrder[0]!,
     );
   });
 
-  it("switches to Target List Seeding and shows the empty state with a company search", async () => {
+  it("flushes the pending filter before adding everything in scope", async () => {
+    vi.mocked(triageApi.addAllInScope).mockResolvedValue({ added: 12, skipped: 0 });
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Target List Seeding" }));
 
-    expect(screen.getByText("None yet.")).toBeInTheDocument();
-    expect(screen.getByLabelText("Search companies")).toBeInTheDocument();
-  });
+    await userEvent.click(await screen.findByRole("button", { name: /Qatar/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Add all to Universe/ }));
 
-  it("picks a searched company into the target list and autosaves bare keys", async () => {
-    renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Target List Seeding" }));
-
-    await userEvent.type(screen.getByLabelText("Search companies"), "acme");
-    await userEvent.click(await screen.findByRole("option", { name: /Acme Retail/ }));
-
-    // The row renders from the picked snapshot; the wire carries only the key pair.
-    expect(screen.getByText("Acme Retail")).toBeInTheDocument();
-    expect(screen.getByText("Everything store")).toBeInTheDocument();
-    await waitFor(
-      () =>
-        expect(
-          vi.mocked(strategyApi.putTargets).mock.calls.some(
-            ([, companies]) =>
-              companies.length === 1 &&
-              companies[0].source === "test" &&
-              companies[0].sourceId === "acme" &&
-              !("name" in companies[0]),
-          ),
-        ).toBe(true),
-      { timeout: 2000 },
+    // "Add all" acts on the stored filter; a debounced edit still in the timer would mean the
+    // server adds companies from the filter as it was two chips ago.
+    await waitFor(() => expect(triageApi.addAllInScope).toHaveBeenCalled());
+    expect(vi.mocked(strategyApi.putFilter).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(triageApi.addAllInScope).mock.invocationCallOrder[0]!,
     );
   });
 
-  it("removes a target company and autosaves the list without it", async () => {
-    renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Target List Seeding" }));
-    await userEvent.type(screen.getByLabelText("Search companies"), "acme");
-    await userEvent.click(await screen.findByRole("option", { name: /Acme Retail/ }));
-
-    await userEvent.click(screen.getByRole("button", { name: "Remove Acme Retail" }));
-
-    // Row-scoped check: once removed, the company may legitimately reappear as a browse option.
-    expect(screen.queryByRole("button", { name: "Remove Acme Retail" })).not.toBeInTheDocument();
-    await waitFor(
-      () =>
-        expect(
-          vi.mocked(strategyApi.putTargets).mock.calls.some(([, companies]) => companies.length === 0),
-        ).toBe(true),
-      { timeout: 2000 },
+  it("shows the server's own numbers when a bulk add is refused as too large", async () => {
+    vi.mocked(triageApi.addAllInScope).mockRejectedValue(
+      new ApiRequestError({
+        code: "BULK_ADD_SCOPE_TOO_LARGE",
+        detail: "3,000 companies match this filter. You can add 200 at a time — narrow it and try again.",
+        status: 409,
+        correlationId: "test",
+      }),
     );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Add all to Universe/ }));
+
+    // The code is deliberately absent from MESSAGES so messageFor falls through to the server's
+    // detail: no fixed sentence here could name how many matched or how many may be added.
+    expect(await screen.findByText(/3,000 companies match this filter/i)).toBeInTheDocument();
   });
 
-  it("picks a company into Off-limits and autosaves through the off-limits endpoint", async () => {
+  it("saves a search under a name and lets it be loaded back", async () => {
+    const saved = { id: "s1", name: "GCC energy", filter: EMPTY_FILTER, createdAt: "2026-08-20" };
+    vi.mocked(strategyApi.saveSearch).mockResolvedValue(saved);
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Off-limits" }));
 
-    await userEvent.type(screen.getByLabelText("Search companies"), "acme");
-    await userEvent.click(await screen.findByRole("option", { name: /Acme Retail/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+    await userEvent.type(screen.getByLabelText("Name this search"), "GCC energy");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(screen.getByText("Acme Retail")).toBeInTheDocument();
-    await waitFor(
-      () =>
-        expect(
-          vi.mocked(strategyApi.putOffLimits).mock.calls.some(
-            ([, companies]) => companies.length === 1 && companies[0].sourceId === "acme",
-          ),
-        ).toBe(true),
-      { timeout: 2000 },
-    );
-    expect(vi.mocked(strategyApi.putTargets)).not.toHaveBeenCalled();
+    await waitFor(() => expect(strategyApi.saveSearch).toHaveBeenCalledWith("p1", "GCC energy"));
   });
 
-  it("browses prominent-first for targets and smallest-first for off-limits, within the direct sectors", async () => {
+  it("returns to the first page when the filter changes", async () => {
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf({ totalCount: 200 }));
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Target List Seeding" }));
-    await userEvent.click(screen.getByLabelText("Search companies"));
+
+    await userEvent.click(await screen.findByRole("button", { name: "Next page" }));
+    await waitFor(() =>
+      expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![1]).toBe(1),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /Qatar/ }));
+
+    // Staying on page 4 of a filter that now matches two companies shows an empty table over a
+    // non-empty result.
+    await waitFor(() => expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![1]).toBe(0));
+  });
+  it("sorts on the server rather than reordering the page it happens to hold", async () => {
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf({ totalCount: 4000 }));
+    renderPage();
+
+    // Scoped to the table: "Revenue" also names a filter accordion, and the two must not be one
+    // control by accident.
+    const table = await screen.findByRole("table", { name: "Companies" });
+    await userEvent.click(within(table).getByRole("button", { name: /Revenue/ }));
+
+    // The table holds 25 of tens of thousands. Sorting those 25 client-side would reorder the page
+    // while claiming to have ordered the result, so a header click has to become a new query.
+    await waitFor(() =>
+      expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![4]).toEqual({
+        field: "revenue",
+        direction: "desc",
+      }),
+    );
+
+    await userEvent.click(within(table).getByRole("button", { name: /Revenue/ }));
 
     await waitFor(() =>
-      expect(companiesApi.searchCompanies).toHaveBeenCalledWith("", ["Retail"], "revenue_desc"),
-    );
-
-    await userEvent.click(screen.getByRole("button", { name: "Off-limits" }));
-    await userEvent.click(screen.getByLabelText("Search companies"));
-
-    await waitFor(() =>
-      expect(companiesApi.searchCompanies).toHaveBeenCalledWith("", ["Retail"], "revenue_asc"),
+      expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![4]).toEqual({
+        field: "revenue",
+        direction: "asc",
+      }),
     );
   });
 
-  it("rolls a rejected save back to the server state instead of wedging the list", async () => {
-    vi.mocked(strategyApi.putTargets).mockRejectedValueOnce(
-      Object.assign(new Error("rejected"), { code: "VALIDATION_FAILED" }),
-    );
+  it("never sorts by a column the server has no ORDER BY for", async () => {
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Target List Seeding" }));
-    await userEvent.type(screen.getByLabelText("Search companies"), "acme");
-    await userEvent.click(await screen.findByRole("option", { name: /Acme Retail/ }));
+    const table = await screen.findByRole("table", { name: "Companies" });
 
-    // The rejected ref leaves the draft — the row disappears back to the empty server state.
-    await waitFor(
-      () =>
-        expect(screen.queryByRole("button", { name: "Remove Acme Retail" })).not.toBeInTheDocument(),
-      { timeout: 2000 },
-    );
-
-    // The list is not wedged: the next pick saves cleanly.
-    await userEvent.type(screen.getByLabelText("Search companies"), "acme");
-    await userEvent.click(await screen.findByRole("option", { name: /Acme Retail/ }));
-    await waitFor(
-      () =>
-        expect(
-          vi.mocked(strategyApi.putTargets).mock.calls.filter(
-            ([, companies]) => companies.length === 1 && companies[0].sourceId === "acme",
-          ).length,
-        ).toBe(2),
-      { timeout: 2000 },
-    );
-    expect(screen.getByRole("button", { name: "Remove Acme Retail" })).toBeInTheDocument();
+    // Notes is short_description, which the sort allowlist deliberately omits — alphabetising a
+    // description answers no question. A header that looked clickable and did nothing would be worse.
+    expect(within(table).getByText("Notes")).toBeInTheDocument();
+    expect(within(table).queryByRole("button", { name: /Notes/ })).not.toBeInTheDocument();
   });
 
-  it("hides a company already on either list from the search results", async () => {
+  it("hides a column on request and remembers it for this mandate", async () => {
+    const { unmount } = renderPage();
+    expect(within(await screen.findByRole("table", { name: "Companies" })).getByText("Sector"))
+      .toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Columns/ }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Sector" }));
+
+    const table = screen.getByRole("table", { name: "Companies" });
+    expect(within(table).queryByText("Sector")).not.toBeInTheDocument();
+    // Hiding a column is presentation: the rows stay, and the server is not re-asked.
+    expect(within(table).getByText("ACWA Power")).toBeInTheDocument();
+
+    unmount();
+    renderPage(new QueryClient({ defaultOptions: { queries: { retry: false } } }));
+
+    // A layout that resets on every visit is a layout nobody bothers to set.
+    const reopened = await screen.findByRole("table", { name: "Companies" });
+    expect(within(reopened).queryByText("Sector")).not.toBeInTheDocument();
+  });
+
+  it("does not offer to hide the company name or the actions", async () => {
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Target List Seeding" }));
-    await userEvent.type(screen.getByLabelText("Search companies"), "acme");
-    await userEvent.click(await screen.findByRole("option", { name: /Acme Retail/ }));
+    await screen.findByRole("table", { name: "Companies" });
 
-    // Same list: the picked company never reappears as an option.
-    await userEvent.type(screen.getByLabelText("Search companies"), "acme");
-    await waitFor(() => expect(screen.queryByRole("option")).not.toBeInTheDocument());
+    await userEvent.click(screen.getByRole("button", { name: /Columns/ }));
 
-    // Other list: off-limits excludes it too — the cross-list contradiction can't be picked.
-    await userEvent.click(screen.getByRole("button", { name: "Off-limits" }));
-    await userEvent.type(screen.getByLabelText("Search companies"), "acme");
-    await waitFor(() => expect(screen.queryByRole("option")).not.toBeInTheDocument());
+    // The name is the row's identity and the add button is the only thing this screen is for.
+    // Hiding either leaves a table of figures about nothing, or one you can only read.
+    expect(screen.queryByRole("checkbox", { name: "Company" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Actions" })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Country" })).toBeInTheDocument();
+  });
+
+  it("keeps City and Founded one tick away rather than on screen", async () => {
+    renderPage();
+    const table = await screen.findByRole("table", { name: "Companies" });
+
+    // Both are real Apollo fields the server sorts by; the wireframe's table is eight columns wide,
+    // and adding two more squeezes the eight that earn their place.
+    expect(within(table).queryByText("Riyadh")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Columns/ }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "City" }));
+
+    expect(within(screen.getByRole("table", { name: "Companies" })).getByText("Riyadh"))
+      .toBeInTheDocument();
   });
 });

@@ -95,9 +95,4 @@ public class PasswordPolicy {
     public void equaliseFailureCost(String rawPassword) {
         encoder.matches(rawPassword, decoyHash);
     }
-
-    /** Exposed for Spring Security's own machinery (e.g. the OAuth2 client). */
-    public PasswordEncoder encoder() {
-        return encoder;
-    }
 }

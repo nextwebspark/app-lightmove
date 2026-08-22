@@ -27,7 +27,7 @@ import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralP
 import { SettingsMembersPage } from "../features/settings/pages/SettingsMembersPage";
 import { SettingsProfilePage } from "../features/settings/pages/SettingsProfilePage";
 import { SettingsSecurityPage } from "../features/settings/pages/SettingsSecurityPage";
-import { SourcingPage } from "../features/sourcing/pages/SourcingPage";
+import { TriagePage } from "../features/triage/pages/TriagePage";
 import { StrategyPage } from "../features/strategy/pages/StrategyPage";
 import { TeamPage } from "../features/workspace/pages/TeamPage";
 
@@ -86,7 +86,7 @@ export function AppRoutes() {
       <Route element={<RequireWorkspace><ProjectLayout /></RequireWorkspace>}>
         <Route path="/projects/:projectId" element={<PositionPage />} />
         <Route path="/projects/:projectId/strategy" element={<StrategyPage />} />
-        <Route path="/projects/:projectId/sourcing" element={<SourcingPage />} />
+        <Route path="/projects/:projectId/triage" element={<TriagePage />} />
         <Route path="/projects/:projectId/candidates" element={<ProjectPlaceholderPage title="Candidates" icon="candidates" />} />
         <Route path="/projects/:projectId/outreach" element={<ProjectPlaceholderPage title="Outreach" icon="outreach" />} />
         <Route path="/projects/:projectId/reports" element={<ReportsPage />} />

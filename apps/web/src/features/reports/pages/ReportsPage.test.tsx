@@ -47,14 +47,9 @@ describe("ReportsPage", () => {
 
   const report: Report = {
     universeCount: 42,
-    targetCompanies: 3,
     offLimitsCompanies: 1,
     sectorsInScope: 2,
     marketsInScope: 4,
-    relevance: [
-      { label: "DIRECT", count: 26 },
-      { label: "ADJACENT", count: 16 },
-    ],
     sectors: [
       { label: "Retail", count: 26 },
       { label: "Grocery Stores", count: 16 },
@@ -62,7 +57,7 @@ describe("ReportsPage", () => {
     countries: [{ label: "AE", count: 30 }],
     cities: [{ label: "Dubai", count: 22 }],
     mandateBand: null,
-    caveats: { offLimitsNotApplied: 0, sectorsNotInSource: [], revenueBandExcludesUnknown: false },
+    caveats: { revenueBandExcludesUnknown: false },
   };
 
   const userWith = (roles: WorkspaceRole[]) => ({
@@ -155,8 +150,6 @@ describe("ReportsPage", () => {
     vi.mocked(reportApi.getReport).mockResolvedValue({
       ...report,
       caveats: {
-        offLimitsNotApplied: 2,
-        sectorsNotInSource: ["Nanotechnology"],
         revenueBandExcludesUnknown: true,
       },
     });
@@ -164,9 +157,8 @@ describe("ReportsPage", () => {
     const { unmount } = renderPage();
 
     expect(await screen.findByText("What these figures do not cover")).toBeInTheDocument();
-    // Named, not merely counted: a sector missing from the source is not an empty market.
-    expect(screen.getByText(/Nanotechnology/)).toBeInTheDocument();
-    expect(screen.getByText(/2 off-limits companies are still counted/)).toBeInTheDocument();
+    // One caveat is left. The other two — an unenforceable off-limits bar and a sector the source
+    // did not carry — were artefacts of the report and triage reading different universes.
     expect(screen.getByText(/no revenue figure are excluded/)).toBeInTheDocument();
 
     unmount();

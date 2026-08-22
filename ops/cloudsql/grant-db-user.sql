@@ -11,7 +11,7 @@
 -- This is deliberately not a Flyway migration; see the header of grant-db-user.sh.
 --
 -- Every grant is guarded, because harden.sql moves the ground under this file: it reassigns
--- app_lm_audit_event and app_lm_companies to postgres and strips lm_app of cloudsqlsuperuser. After it
+-- app_lm_audit_event and the company tables to postgres and strips lm_app of cloudsqlsuperuser. After it
 -- runs, no single role can grant everything, so this script grants what the connected role owns and
 -- tells you plainly what it could not — rather than half-succeeding in silence.
 
@@ -28,9 +28,12 @@ DECLARE
 
     -- Reference data, never writable by a human:
     --   app_lm_audit_event — append-only. A log its subject can rewrite is not a log.
-    --   app_lm_companies   — owned by the ETL pipeline. A hand-written row survives only until the next
-    --                        sync-companies.sh overwrites it.
-    read_only_tables constant text[] := ARRAY['app_lm_audit_event', 'app_lm_companies'];
+    --   app_lm_apollo_companies — the company universe, owned by the ETL pipeline. A hand-written row
+    --                        survives only until the next load overwrites it.
+    --   app_lm_companies   — the retired brightdata copy. Nothing reads it and nothing refills it, but
+    --                        it is still reference data and a human has no business editing it.
+    read_only_tables constant text[] :=
+        ARRAY['app_lm_audit_event', 'app_lm_apollo_companies', 'app_lm_companies'];
 
     rel      record;
     creator  text;

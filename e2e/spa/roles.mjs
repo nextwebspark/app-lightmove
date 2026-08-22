@@ -189,7 +189,7 @@ try {
     ["S3.5", "GET /members", "GET", "/members", null, 403],
     ["S3.6", "GET /clients", "GET", "/clients", null, 403],
     ["S3.7", "GET /workspace", "GET", "/workspace", null, 403],
-    ["S3.8", "GET /companies/sectors", "GET", "/companies/sectors", null, 403],
+    ["S3.8", "GET /companies/facets", "GET", "/companies/facets", null, 403],
     ["S3.9", "POST /projects", "POST", "/projects", { clientId: cast.CLIENT_ID, positionTitle: "Client Made" }, 403],
     ["S3.10", "GET the unattached mandate's brief", "GET", `/projects/${cast.OTHER_PROJECT_ID}/position`, null, 403],
   ];

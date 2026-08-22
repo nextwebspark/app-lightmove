@@ -19,7 +19,14 @@ public enum ProjectEventType implements AuditEventType {
     POSITION_LOCKED,
     POSITION_UNLOCKED,
 
-    STRATEGY_UPDATED;
+    STRATEGY_UPDATED,
+    STRATEGY_SEARCH_SAVED,
+    STRATEGY_SEARCH_RENAMED,
+    STRATEGY_SEARCH_DELETED,
+
+    TRIAGE_COMPANY_ADDED,
+    TRIAGE_COMPANY_MOVED,
+    TRIAGE_BULK_ADDED;
 
     @Override
     public String code() {

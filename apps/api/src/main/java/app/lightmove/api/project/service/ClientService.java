@@ -1,12 +1,10 @@
 package app.lightmove.api.project.service;
 
-import app.lightmove.api.company.model.CompanyKey;
-import app.lightmove.api.company.model.CompanyRefRow;
-import app.lightmove.api.company.service.CompanyQueryService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.text.service.WebsiteDomain;
 import app.lightmove.api.core.security.rbac.ProjectRole;
 import app.lightmove.api.project.constant.ClientRepStatus;
 import app.lightmove.api.project.constant.ClientType;
@@ -14,18 +12,20 @@ import app.lightmove.api.project.dto.ClientDetailResponse;
 import app.lightmove.api.project.dto.ClientListResponse;
 import app.lightmove.api.project.dto.ClientMandateResponse;
 import app.lightmove.api.project.dto.CreateClientRequest;
+import app.lightmove.api.project.dto.ProjectResponse;
 import app.lightmove.api.project.dto.RepAvatar;
 import app.lightmove.api.project.dto.RepresentativeResponse;
+import app.lightmove.api.project.dto.TeamMemberResponse;
 import app.lightmove.api.project.dto.UpdateClientRequest;
 import app.lightmove.api.project.dto.ViewerSummary;
-import app.lightmove.api.project.dto.ProjectResponse;
-import app.lightmove.api.project.dto.TeamMemberResponse;
 import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ClientRepository;
 import app.lightmove.api.project.repository.ClientRepresentativeRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.strategy.model.CompanyRow;
+import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +50,7 @@ public class ClientService {
     private final ClientRepository clients;
     private final ProjectRepository projects;
     private final ClientRepresentativeRepository representatives;
-    private final CompanyQueryService companies;
+    private final ApolloCompanyQueryService companies;
     private final ClientRepresentativeService representativeService;
     private final ProjectService projectService;
     private final AuditService audit;
@@ -158,15 +158,17 @@ public class ClientService {
     }
 
     private Client fromUniverse(UUID userId, UUID workspaceId, CreateClientRequest request) {
-        CompanyKey key = new CompanyKey(request.company().source(), request.company().sourceId());
-        CompanyRefRow row = companies.refsByKeys(List.of(key)).stream().findFirst()
+        String accountId = request.company().apolloAccountId();
+        CompanyRow row = companies.byAccountIds(List.of(accountId)).stream().findFirst()
                 .orElseThrow(() -> ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                         "That company is no longer in the database"));
         // Name and domain are the universe's, not the request's; sector/HQ are the editable overrides.
-        String hqCountry = request.hqCountry() != null ? request.hqCountry() : row.hqCountry();
-        return Client.fromUniverse(workspaceId, key, row.name(), request.sector(), hqCountry,
-                row.domain(), userId);
+        // The universe publishes a website rather than a bare domain, so the domain is derived from it.
+        String hqCountry = request.hqCountry() != null ? request.hqCountry() : row.companyCountry();
+        return Client.fromUniverse(workspaceId, accountId, row.companyName(), request.sector(),
+                hqCountry, WebsiteDomain.of(row.website()), userId);
     }
+
 
     private Client fromCustom(UUID userId, UUID workspaceId, CreateClientRequest request) {
         if (request.customName() == null || request.customName().isBlank()) {

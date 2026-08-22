@@ -26,10 +26,6 @@ export function setAccessToken(token: string | null): void {
   accessToken = token;
 }
 
-export function getAccessToken(): string | null {
-  return accessToken;
-}
-
 export function onSessionExpired(handler: () => void): void {
   onSessionLost = handler;
 }

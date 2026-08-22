@@ -1,4 +1,4 @@
-/** One labelled slice of the scoped company universe — a sector, a country, a city, a match tier. */
+/** One labelled slice of the scoped company universe — a sector, a country, a city. */
 export interface Breakdown {
   label: string;
   count: number;
@@ -12,15 +12,17 @@ export interface CompensationBand {
 }
 
 /**
- * Where the report's source could not answer the mandate's scope in full. Every figure here is a
- * stated measurement, so the ways it is narrower than the scope travel with it.
+ * Where the report's measurement is narrower than the mandate's scope.
+ *
+ * <p>Two earlier caveats are gone, and both because the product has one universe instead of two: the
+ * off-limits bar was unenforceable when the report and triage read different tables, and a selected
+ * sector could be absent from the report's source entirely. Neither can happen now.
  */
 export interface ScopeCaveats {
-  /** Barred companies that could not be excluded — the off-limits key does not exist in this source. */
-  offLimitsNotApplied: number;
-  /** Selected sectors this source does not carry at all. */
-  sectorsNotInSource: string[];
-  /** True when a revenue band is selected: companies with no revenue figure are excluded. */
+  /**
+   * True when a revenue band is selected without Unknown beside it. The universe publishes a revenue
+   * figure on roughly a tenth of its rows, so such a report measures a tenth of the market.
+   */
   revenueBandExcludesUnknown: boolean;
 }
 
@@ -30,12 +32,9 @@ export interface ScopeCaveats {
  */
 export interface Report {
   universeCount: number;
-  targetCompanies: number;
   offLimitsCompanies: number;
   sectorsInScope: number;
   marketsInScope: number;
-  /** DIRECT, then ADJACENT, then INFERRED — a strength ladder, so the server fixes the order. */
-  relevance: Breakdown[];
   sectors: Breakdown[];
   countries: Breakdown[];
   cities: Breakdown[];

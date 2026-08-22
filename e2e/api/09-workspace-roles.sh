@@ -132,10 +132,12 @@ row R5.2 "POST /projects" POST /projects \
   "$(jq -nc --arg c "$CLIENT_ID" '{clientId:$c, positionTitle:"Probe Role"}')" \
   client=403:FORBIDDEN
 
-row R5.3 "GET /companies/sectors — PROJECT_BROWSE" GET /companies/sectors "" \
+row R5.3 "GET /companies/facets — PROJECT_BROWSE" GET /companies/facets "" \
   admin=200 member=200 dual=200 client=403:FORBIDDEN
 
-row R5.4 "GET /companies/search" GET "/companies/search?query=acme" "" \
+# `q` is required and a blank one answers 400 before the gate, so the probe has to carry a real query
+# or this measures Bean Validation instead of authorisation.
+row R5.4 "GET /companies/search" GET "/companies/search?q=acme" "" \
   admin=200 member=200 dual=200 client=403:FORBIDDEN
 
 section "R6  what each role's project list actually contains"
