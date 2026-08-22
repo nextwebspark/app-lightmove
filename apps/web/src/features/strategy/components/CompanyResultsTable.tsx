@@ -109,11 +109,14 @@ export function CompanyResultsTable({
 
   const rows = table.getRowModel().rows;
 
+  const refreshing = loading && rows.length > 0;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[8px] border border-line bg-panel">
       <div
         role="table"
         aria-label="Companies"
+        aria-busy={loading}
         className="flex min-h-0 flex-1 flex-col overflow-auto"
       >
         {table.getHeaderGroups().map((headerGroup) => (
@@ -170,7 +173,12 @@ export function CompanyResultsTable({
           </div>
         ))}
 
-        <div className="flex-1">
+        <div
+          className={cn(
+            "flex-1 transition-opacity",
+            refreshing && "pointer-events-none opacity-40",
+          )}
+        >
           {/* A refused read is not an empty market: branch on the error before the count, or a 403
               renders "no companies match" as a fact about the data. */}
           {error ? (

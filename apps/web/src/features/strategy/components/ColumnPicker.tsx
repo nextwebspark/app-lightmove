@@ -36,7 +36,7 @@ export function ColumnPicker({
           Columns
           {hiddenCount > 0 && (
             <span className="rounded-[4px] bg-sky-dim px-[5px] py-[2px] font-sans text-[10px] font-bold text-sky">
-              {hiddenCount}
+              {hiddenCount} hidden
             </span>
           )}
         </>

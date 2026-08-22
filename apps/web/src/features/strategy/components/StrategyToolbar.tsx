@@ -1,18 +1,32 @@
 import type { ColumnVisibilityState } from "@tanstack/react-table";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import type { SavedSearch, StrategyFilter } from "../api/types";
+import type { NumericRange, SavedSearch, StrategyFilter } from "../api/types";
 import { ColumnPicker } from "./ColumnPicker";
 import { SaveSearchMenu } from "./SaveSearchMenu";
 
-/** How many accordions carry a selection — the mockup's sky badge beside Show Filters. */
+/**
+ * A range narrows the scope only once a bound is typed. Entering Custom Range emits an empty one —
+ * that is a mode, not a constraint, and the server normalises it away — so counting it would put the
+ * badge at 1 over an unfiltered table. Matches FilterSidebar's rangeTag, which shows no tag for it.
+ */
+function constrains(range: NumericRange | null): boolean {
+  return range !== null && (range.min !== null || range.max !== null);
+}
+
+/**
+ * How many accordions carry a selection — the mockup's sky badge beside Show Filters.
+ *
+ * <p>An axis is one accordion, so its bands and its custom range count once between them: they are
+ * two modes of the same panel and choosing a range clears the bands.
+ */
 function activeAxisCount(filter: StrategyFilter): number {
   return [
-    filter.industries,
-    filter.marketSegments,
-    filter.countries,
-    filter.employeeBands,
-    filter.revenueBands,
-  ].filter((axis) => axis.length > 0).length;
+    filter.industries.length > 0,
+    filter.marketSegments.length > 0,
+    filter.countries.length > 0,
+    filter.employeeBands.length > 0 || constrains(filter.employeeRange),
+    filter.revenueBands.length > 0 || constrains(filter.revenueRange),
+  ].filter(Boolean).length;
 }
 
 export function StrategyToolbar({

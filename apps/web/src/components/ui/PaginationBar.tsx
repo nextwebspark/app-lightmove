@@ -3,6 +3,10 @@ import { Icon, ICONS } from "../layout/Icon";
 /**
  * The mockup's pagination row, wired for real: its own buttons were decorative because every row
  * fitted on one page of seeded data. The universe is 71,822 companies, so they have to work.
+ *
+ * <p>An undefined {@code totalCount} means "not known yet" and is not the same as zero: rendering
+ * "0 results" against a page that is still loading states as fact that nothing matched, next to a
+ * table that is showing a skeleton.
  */
 export function PaginationBar({
   page,
@@ -12,12 +16,19 @@ export function PaginationBar({
 }: {
   page: number;
   size: number;
-  totalCount: number;
+  totalCount: number | undefined;
   onPage: (page: number) => void;
 }) {
-  const lastPage = Math.max(0, Math.ceil(totalCount / size) - 1);
-  const first = totalCount === 0 ? 0 : page * size + 1;
-  const last = Math.min((page + 1) * size, totalCount);
+  const known = totalCount ?? 0;
+  const lastPage = Math.max(0, Math.ceil(known / size) - 1);
+
+  const countLabel = () => {
+    if (totalCount === undefined) return "";
+    if (totalCount === 0) return "0 results";
+    const first = page * size + 1;
+    const last = Math.min((page + 1) * size, totalCount);
+    return `${first} - ${last} of ${totalCount.toLocaleString()}`;
+  };
 
   return (
     <div className="flex flex-none items-center gap-4">
@@ -36,9 +47,7 @@ export function PaginationBar({
         disabled={page >= lastPage}
         onClick={() => onPage(page + 1)}
       />
-      <span className="font-sans text-[13px] text-text3">
-        {totalCount === 0 ? "0 results" : `${first} - ${last} of ${totalCount.toLocaleString()}`}
-      </span>
+      <span className="font-sans text-[13px] text-text3">{countLabel()}</span>
     </div>
   );
 }

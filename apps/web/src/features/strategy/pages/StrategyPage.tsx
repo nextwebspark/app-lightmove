@@ -15,6 +15,7 @@ import type { CompanyResult, CompanySort, StrategyFilter } from "../api/types";
 import { CompanyResultsTable } from "../components/CompanyResultsTable";
 import { DEFAULT_COLUMN_VISIBILITY } from "../lib/companyColumns";
 import { useColumnVisibility } from "../lib/useColumnVisibility";
+import { useCompanySort } from "../lib/useCompanySort";
 import { FilterSidebar } from "../components/FilterSidebar";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { StrategyToolbar } from "../components/StrategyToolbar";
@@ -77,7 +78,7 @@ function StrategyEditor() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [page, setPage] = useState(0);
-  const [sort, setSort] = useState<CompanySort>(DEFAULT_SORT);
+  const [sort, setSort] = useCompanySort(project.id, DEFAULT_SORT);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility(
     project.id,
@@ -133,7 +134,13 @@ function StrategyEditor() {
   });
 
   const saveSearch = useMutation({
-    mutationFn: (name: string) => strategyApi.saveSearch(project.id, name),
+    // Flush first, for the same reason "Add all" does: the request carries only a name and the server
+    // snapshots the *stored* filter, so a save inside the debounce window records the scope as it was
+    // before the last chip click — silently, and for every later load of that search.
+    mutationFn: async (name: string) => {
+      await autosave.flush();
+      return strategyApi.saveSearch(project.id, name);
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: strategyApi.STRATEGY_KEY(project.id) });
       toast("Search saved");
@@ -158,6 +165,9 @@ function StrategyEditor() {
    */
   const offLimitsWrite = useMutation({
     mutationFn: async (apolloAccountIds: string[]) => {
+      // The response is the whole Strategy and it goes straight into the cache, so a filter edit still
+      // sitting in the timer would be overwritten by the copy the server had before it.
+      await autosave.flush();
       queryClient.setQueryData(
         strategyApi.STRATEGY_KEY(project.id),
         await strategyApi.putOffLimits(project.id, apolloAccountIds),
@@ -248,7 +258,7 @@ function StrategyEditor() {
           <PaginationBar
             page={page}
             size={PAGE_SIZE}
-            totalCount={companies.data?.totalCount ?? 0}
+            totalCount={companies.data?.totalCount}
             onPage={setPage}
           />
         </div>

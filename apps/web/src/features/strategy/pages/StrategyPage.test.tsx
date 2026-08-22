@@ -29,6 +29,7 @@ vi.mock("../../triage/api/triageApi", async (importOriginal) => ({
 vi.mock("../api/companiesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof companiesApi>()),
   getFacets: vi.fn(),
+  searchCompanies: vi.fn(),
 }));
 
 const project = { id: "p1", positionTitle: "CFO" } as Project;
@@ -127,6 +128,7 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     localStorage.clear();
     vi.mocked(strategyApi.getStrategy).mockResolvedValue(strategyOf());
     vi.mocked(companiesApi.getFacets).mockResolvedValue(FACETS);
+    vi.mocked(companiesApi.searchCompanies).mockResolvedValue({ companies: [] });
     vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf());
     vi.mocked(strategyApi.putFilter).mockImplementation(async (_id, filter) => strategyOf(filter));
   });
@@ -350,6 +352,23 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].employeeBands).toEqual([]);
   });
 
+  it("counts a custom range as an active axis, but not the mode switch on its own", async () => {
+    renderPage();
+    const filtersButton = await screen.findByRole("button", { name: /Show Filters|Hide Filters/ });
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "# Employees" }));
+
+    // Entering Custom Range emits an empty range, which the server normalises away. Counting that
+    // would put the badge at 1 over an unfiltered table.
+    await userEvent.click(within(filters).getByRole("radio", { name: "Custom Range" }));
+    expect(within(filtersButton).getByText("0")).toBeInTheDocument();
+
+    // A typed bound does narrow the scope, and the badge said 0 while it did — the accordion's own
+    // tag showed the range all along, so two counters on one screen disagreed.
+    await userEvent.type(within(filters).getByLabelText("Min"), "250");
+    await waitFor(() => expect(within(filtersButton).getByText("1")).toBeInTheDocument());
+  });
+
   it("counts the axes that carry a selection, not the chips", async () => {
     renderPage();
     const filtersButton = await screen.findByRole("button", { name: /Show Filters|Hide Filters/ });
@@ -360,6 +379,24 @@ describe("StrategyPage — the filter sidebar and its results", () => {
 
     // Two chips on one axis is still one active filter.
     await waitFor(() => expect(within(filtersButton).getByText("1")).toBeInTheDocument());
+  });
+
+  it("does not claim an empty result while the first page is still loading", async () => {
+    let release!: (page: CompanyPage) => void;
+    vi.mocked(strategyApi.getCompanies).mockReturnValue(
+      new Promise<CompanyPage>((resolve) => {
+        release = resolve;
+      }),
+    );
+    renderPage();
+
+    // "0 results" beside a loading skeleton states as fact that nothing matched, at the moment the
+    // screen does not yet know — the table and the bar contradicting each other.
+    expect(await screen.findByRole("button", { name: "Next page" })).toBeInTheDocument();
+    expect(screen.queryByText("0 results")).not.toBeInTheDocument();
+
+    release(pageOf());
+    expect(await screen.findByText("1 - 1 of 1")).toBeInTheDocument();
   });
 
   it("renders a 403 as an error rather than as an empty market", async () => {
@@ -397,6 +434,60 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     // Off-limits is a decision, not a draft: it writes immediately rather than through the timer.
     await waitFor(() => expect(strategyApi.putOffLimits).toHaveBeenCalledWith("p1", []));
     expect(strategyApi.putFilter).not.toHaveBeenCalled();
+  });
+
+  it("closes the suggestion list once a company is barred, rather than covering the chips it joined", async () => {
+    vi.mocked(companiesApi.searchCompanies).mockResolvedValue({
+      companies: [
+        {
+          apolloAccountId: "x1",
+          companyName: "Acme Corp",
+          industry: null,
+          companyCity: null,
+          companyCountry: null,
+          website: null,
+          logoUrl: null,
+          numEmployees: null,
+        },
+      ],
+    });
+    vi.mocked(strategyApi.putOffLimits).mockResolvedValue(strategyOf());
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: /Off-limits/ }));
+
+    await userEvent.type(within(filters).getByLabelText("Search companies"), "Acme");
+    await userEvent.click(await within(filters).findByRole("option", { name: /Acme Corp/ }));
+
+    // keepPreviousData keeps serving the last query's rows after a pick clears the box, so a list
+    // left open sits over the EXCLUDED chips — including the one just added, and its remove button.
+    await waitFor(() =>
+      expect(within(filters).getByRole("combobox")).toHaveAttribute("aria-expanded", "false"),
+    );
+    expect(within(filters).queryByRole("option")).not.toBeInTheDocument();
+  });
+
+  it("flushes the pending filter before saving a search", async () => {
+    vi.mocked(strategyApi.saveSearch).mockResolvedValue({
+      id: "s1",
+      name: "Fast save",
+      filter: EMPTY_FILTER,
+      createdAt: "2026-08-22",
+    });
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Qatar/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Save Search/ }));
+    await userEvent.type(screen.getByLabelText("Name this search"), "Fast save");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    // The request carries only a name — the server snapshots the *stored* filter. Saving inside the
+    // 700ms debounce recorded the scope as it was before the chip click, silently, and stayed wrong
+    // for every later load of that search.
+    await waitFor(() => expect(strategyApi.saveSearch).toHaveBeenCalled());
+    expect(vi.mocked(strategyApi.putFilter).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(strategyApi.saveSearch).mock.invocationCallOrder[0]!,
+    );
   });
 
   it("flushes the pending filter before adding everything in scope", async () => {

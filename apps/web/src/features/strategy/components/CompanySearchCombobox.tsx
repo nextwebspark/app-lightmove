@@ -51,14 +51,19 @@ export function CompanySearchCombobox({
   const matches = (data?.companies ?? []).filter(
     (company) => !excludedIds.has(company.apolloAccountId),
   );
-  const showList = open && matches.length > 0;
-  const showEmpty = open && data !== undefined && matches.length === 0;
+  // `settled` and not `matches` alone: keepPreviousData keeps serving the last query's rows after a
+  // pick clears the box, so without this the list reopens itself over an empty input.
+  const showList = open && settled.length > 0 && matches.length > 0;
+  const showEmpty = open && settled.length > 0 && data !== undefined && matches.length === 0;
 
   const pick = (company: CompanySuggestion) => {
     onPick(company);
     setDraft("");
     setSettled("");
     setActive(0);
+    // Left open, the list covers the very chips it just added to — and the row's onMouseDown
+    // preventDefaults, so the blur that would otherwise close it never fires.
+    setOpen(false);
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
