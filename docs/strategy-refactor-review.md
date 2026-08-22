@@ -369,3 +369,79 @@ Verification for any of them: `cd apps/api && ./mvnw test` (Testcontainers, need
 `cd apps/web && npx vitest && npm run build` (the build is the real typecheck), then `npm run dev`
 with `npm run dev:db:apollo` and a walk through Strategy → save search → Add all → Triage → Reports
 as an ADMIN and as a project CLIENT seat — that seat is what §1.4 and §1.5 are about.
+
+---
+
+# Verification pass — 22 Aug 2026
+
+Re-read against `feature/stratagy-makeover` at `d9ff2c8`, six commits after the report above
+(`3968e70`, `e69c0f3`, `041c316`, `77eda1e`, `74f6564`, `d9ff2c8`). Every finding was checked against
+the code as it now stands, not against the commit messages.
+
+**Checks run.** Backend compiles clean (271 sources, `mvnw compile`). Web builds — the real typecheck —
+and the full frontend suite is green: 36 files, 197 tests. The backend suite could not run here:
+Testcontainers needs Docker and this container has none, so the new integration tests were read rather
+than executed.
+
+## Addressed, and correctly
+
+All five defects are fixed, and the fixes are better than the report asked for in two places.
+
+| § | Finding | How it was settled |
+|---|---|---|
+| 1.1 | Bulk add races its own unique index | `TriageCompanyWriter` — a real multi-row `INSERT … ON CONFLICT DO NOTHING`, every value bound, the row template generating placeholder names rather than interpolating. Both `add` and `addAllInScope` go through it. The audit event now fires only when the insert actually wrote, so a losing racer gets the company without a phantom event; `addAllInScope` dropped the read-then-filter entirely and takes its `added` count from the statement. V32's header is now true. |
+| 1.2 | Report caveat missed Custom Range | `excludesUnknownRevenue` leads with `revenueRange != null`. Covered by `ReportIntegrationTest`. |
+| 1.3 | `harden.sql` left the universe writable by its owner | Reads the current owner from `pg_class`, reassigns to `postgres` where the connected role can, and `RAISE NOTICE`s the owner's name where it cannot — so a database on which the property does not hold says so instead of being assumed. Stronger than the report's suggestion. |
+| 1.4 | Client rep's filter rail skeletons forever | `FacetsUnavailable`, threaded through `FilterSidebar` on `facets.isError`, with a line that also tells the reader the results beside it are unaffected. Covered by a `StrategyPage` test named for the case. |
+| 1.5 | A `WORK_VIEW` GET performed an INSERT | `get` is `readOnly` and falls back to a transient `Strategy.forProject`. Only the write paths seed. |
+
+Also settled: `CompanyFacet` deleted, the inert `off_limits` projection and its false javadoc,
+the self-package import, `filterRef`, `ICONS.sourcing`, `linkedinUrl`; triage now reads
+`CompanyListSettings` instead of its own `MAX_PAGE_SIZE` and hard-coded `defaultValue = "25"`;
+`ClasspathVocabulary` behind both JSON loaders; `StrategyCompanyRef.of(CompanyRow)` with
+`TriageCompany.taken` gone, which removes the transposed city/country hazard by removing the
+positional constructors entirely; `PaginationBar` shared from `components/ui`, `PAGE_SIZE` from
+`lib/paging`, triage calls moved to `triageApi` and typed; `StrategySearchService.list` takes a
+workspace id and counts with `countByProjectId`; `WebsiteDomain` parsing with `URI`, with tests for
+the port and userinfo cases; `toDto` private; `UNIVERSE_SOURCE` at the top of `Client`;
+`EmployeeBand` relabelled `10001+`; the "sourcing" copy gone from the UI; `BoundInput` capped at 15
+digits.
+
+## What the fix pass caught that this review missed
+
+`3968e70` — **a saved Custom Range could never be read back.** Jackson read `NumericRange.isEmpty()`
+as a bean property, wrote `"empty"` into the `filter` jsonb, and then refused to deserialise the
+document it had just written. Saving a custom range on either axis left the mandate permanently
+unreadable: Strategy, its results, the report and bulk add all 500ing on every subsequent request,
+with the same shape stored on every saved search.
+
+This review read `StrategyFilter`'s `@JsonIgnoreProperties` and took the serialisation path as
+settled; it never checked the nested record for derived accessors. A round-trip test now guards it.
+Worth recording as the class of bug reading alone does not find — the annotation was present and
+correct one level up, and only exercising the write-then-read caught it.
+
+## Still open — filed as issues
+
+| Issue | § | What |
+|---|---|---|
+| #84 | 4.6 | `/companies/facets` recomputes ~15 aggregates per request; nothing caches what only the pipeline changes |
+| #85 | 4.1–4.3, 5 | `ApolloCompanyQueryService` at 527 lines doing six jobs; consumers on the concrete `StrategyService`; `CompanyScope` restating `StrategyFilter`; `StrategyScope` unfolded |
+| #86 | new | `COMPANY_BULK_ADD_LIMIT` above ~7,280 exceeds Postgres's 65,535 bind-parameter ceiling — a latent limit the 1.1 fix introduced |
+| #87 | 2, 3.3, 5 | `STRATEGY_WRITE_KEY`, `website` on the list DTO, the un-rehomed `externalUrl` guard, two raw icon paths, the two `ProjectLayout` lists, `sectorsInScope` |
+| #88 | 3.2 | List-query validation still written three times, though the three now behave alike |
+| #89 | 6 | Class docs at 20–38 lines against the two-line rule, with the trap comments that must survive a trim |
+
+Issue #55 — duplicated SQL binding helpers between `CompanyQueryService` and
+`ApolloCompanyQueryService` — is obsolete: `CompanyQueryService` went with the warehouse.
+
+## Assessment
+
+The five defects are closed and the two riskiest fixes — the conflict-ignoring insert and the
+ownership reassignment — are done properly rather than papered over. What is left is structural
+(#85), a cache (#84), and tidying (#87, #88, #89); none of it blocks the branch. #86 is worth a look
+before anyone tunes the bulk-add limit upward.
+
+The one caveat on this pass: the backend integration tests were read, not run. They should be run
+somewhere with Docker before merge — particularly `TriageFlowIntegrationTest.insertIgnoresAHeldCompany`
+and `StrategyFlowIntegrationTest.customRangeSurvivesTheRoundTrip`, which guard the two bugs most
+likely to reappear.
