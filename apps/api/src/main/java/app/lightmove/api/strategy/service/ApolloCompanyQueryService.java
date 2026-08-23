@@ -78,7 +78,12 @@ public class ApolloCompanyQueryService {
     /**
      * How many companies the scope matches. An empty scope is the whole universe, not nothing.
      */
-    @Cacheable(CompanyCacheConfig.COMPANY_SCOPE_COUNT)
+    @Cacheable(cacheNames = CompanyCacheConfig.COMPANY_SCOPE_COUNT,
+            // Same condition as the page below, for the same reason and one more: the key is the whole
+            // scope, off-limits list included, so a name query mints a fat key per keystroke that
+            // nothing will read twice. Cached alongside an uncached page, it would also describe a
+            // different universe than the rows beside it.
+            condition = "#scope.nameQuery() == null")
     public long count(CompanyScope scope) {
         return countUncached(scope);
     }

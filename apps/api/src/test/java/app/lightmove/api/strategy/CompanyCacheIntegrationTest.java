@@ -128,6 +128,21 @@ class CompanyCacheIntegrationTest extends FlowTestSupport {
         assertThat(totalOnPage(admin, projectId, 0)).isEqualTo(3);
     }
 
+    @Test
+    @DisplayName("a name-filtered total is not cached, so it cannot outlive the page beside it")
+    void scopeCountSkipsNameFilteredSearches() throws Exception {
+        String admin = adminOf("Cache Name Filter Firm");
+        String projectId = project(admin);
+        universe.company("c1", "Saudi Aramco").employees(10).insert();
+
+        assertThat(totalMatching(admin, projectId, "saudi")).isEqualTo(1);
+
+        universe.company("c2", "Saudi Telecom").employees(20).insert();
+
+        // No evictCaches(): the rows are uncached under a name query, and the total must match them.
+        assertThat(totalMatching(admin, projectId, "saudi")).isEqualTo(2);
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private MvcResult facets(String token) throws Exception {
@@ -154,6 +169,13 @@ class CompanyCacheIntegrationTest extends FlowTestSupport {
 
     private long totalOnPage(String token, String projectId, int page) throws Exception {
         return body(mvc.perform(get("/api/v1/projects/" + projectId + "/strategy/companies?page=" + page)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn()).get("totalCount").asLong();
+    }
+
+    private long totalMatching(String token, String projectId, String query) throws Exception {
+        return body(mvc.perform(get("/api/v1/projects/" + projectId + "/strategy/companies?q=" + query)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andReturn()).get("totalCount").asLong();

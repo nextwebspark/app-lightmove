@@ -6,8 +6,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 /**
  * The in-process caches over the company universe.
  *
- * <p>Every key here is partly caller-supplied — the typeahead's query, the scope's {@code nameQuery} —
- * so every cache is bounded, or it is a slow memory leak fed by whoever is typing.
+ * <p>Bounds, not just TTLs: the typeahead's key is caller-supplied text, and a scope key carries the
+ * mandate's whole off-limits list. Unbounded, either is a memory leak fed by whoever is typing.
  */
 public record CompanyCacheSettings(
 
@@ -17,7 +17,7 @@ public record CompanyCacheSettings(
         @DefaultValue("1h") Duration typeaheadTtl,
         @DefaultValue("2000") int typeaheadMaxEntries,
         @DefaultValue("1h") Duration scopeTtl,
-        @DefaultValue("5000") int scopeCountMaxEntries,
+        @DefaultValue("500") int scopeCountMaxEntries,
         @DefaultValue("1000") int scopePageMaxEntries,
 
         /** A ceiling on how often traffic may trigger a reload check, not a promise of one. */

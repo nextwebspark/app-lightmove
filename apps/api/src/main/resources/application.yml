@@ -201,7 +201,7 @@ lightmove:
       typeahead-ttl: ${COMPANY_CACHE_TYPEAHEAD_TTL:1h}
       typeahead-max-entries: ${COMPANY_CACHE_TYPEAHEAD_MAX_ENTRIES:2000}
       scope-ttl: ${COMPANY_CACHE_SCOPE_TTL:1h}
-      scope-count-max-entries: ${COMPANY_CACHE_SCOPE_COUNT_MAX_ENTRIES:5000}
+      scope-count-max-entries: ${COMPANY_CACHE_SCOPE_COUNT_MAX_ENTRIES:500}
       scope-page-max-entries: ${COMPANY_CACHE_SCOPE_PAGE_MAX_ENTRIES:1000}
       reload-check-interval: ${COMPANY_CACHE_RELOAD_CHECK_INTERVAL:2m}
 
