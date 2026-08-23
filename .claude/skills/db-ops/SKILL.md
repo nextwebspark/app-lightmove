@@ -1,6 +1,6 @@
 ---
 name: db-ops
-description: LightMove database operations — Flyway migration workflow, Cloud SQL roles and hardening, granting humans access, and the company-universe sync from the brightdata warehouse. Load for any work on migrations, db/migration SQL, grants, harden.sql, ops/cloudsql scripts, app_lm_companies, or the sync pipeline.
+description: LightMove database operations — Flyway migration workflow, Cloud SQL roles and hardening, granting humans access, and the ETL-owned Apollo company universe. Load for any work on migrations, db/migration SQL, grants, harden.sql, ops/cloudsql scripts, or app_lm_apollo_companies.
 ---
 
 # LightMove database operations
@@ -26,37 +26,56 @@ the database with their Google identity and no password.
 
 To add *another* human, run `ops/cloudsql/grant-db-user.sh <email> [--write]` — don't copy V2. V2
 takes one principal, and it could grant on the whole schema only because Flyway ran as the owner of
-every table; after `harden.sql` neither `lm_app` nor `lm_migrate` owns `app_lm_audit_event` or
-`app_lm_companies`, and a non-owner cannot grant. So the grant runs as `postgres`, which makes it an
-ops script and not a migration. `--write` covers `app_lm_*` but never those two: the audit trail
+every table; after `harden.sql` neither `lm_app` nor `lm_migrate` owns `app_lm_audit_event` or the company
+tables, and a non-owner cannot grant. So the grant runs as `postgres`, which makes it an
+ops script and not a migration. `--write` covers `app_lm_*` but never those: the audit trail
 stays append-only, and the company universe belongs to the pipeline.
 
-## The company universe is a copy, not a link
+## The company universe is ETL-owned, and the application only reads it
 
-The same instance hosts a second database, **`brightdata`** — the ETL warehouse. It holds the scrape
-sources (`src_linkedin`, `src_zoominfo`, `supabase_company_dnb`, …) and `app_companies`, a built
-projection over them: ~54k companies, the list a consultant actually searches.
+**`app_lm_apollo_companies`** is the universe: 71,822 GCC companies, loaded **out of band by the
+pipeline** — there is no script for it in this repo, and `row_hash` is the loader's change detector.
+The application never writes it (`harden.sql` leaves `lm_app` with `SELECT`), and `grant-db-user.sh
+--write` never covers it.
 
-`app_lm_companies` is a **copy** of it, refreshed by `ops/cloudsql/sync-companies.sh`. Don't reach
-for a second `DataSource` or `postgres_fdw` — Postgres has no cross-database queries, and a company
-list that can't be joined to a project is not a company list. It is reference data: the pipeline
-writes it, the application only reads it (`harden.sql` reassigns the table to `postgres` and leaves
-`lm_app` with `SELECT`).
+Its primary key is **`apollo_account_id`**, stable across exports. Everything that stores a company —
+a mandate's off-limits list, its triaged universe, a client record's provenance — stores that id plus
+a **write-time snapshot of the display fields**, and never a foreign key. Both halves matter: the
+pipeline reloads the table wholesale, so a foreign key would let a load cascade away a mandate's
+decisions, and a row with no snapshot would render blank the day its company stops being published.
 
-The sync goes out through GCS — `gcloud sql export csv` → bucket → `gcloud sql import csv` — which
-looks like a detour and isn't. `brightdata.app_companies` is owned by `postgres` with **no grants at
-all**, so no role you can log in as is able to `SELECT` from it; the export runs server-side as the
-instance's service agent and is authorised by your *gcloud* identity, not by any database password.
-That agent needs `roles/storage.objectAdmin` on the bucket, granted once (the script's header has
-the command).
+What the live data actually looks like, because it shapes what a filter can offer:
 
-The sync **upserts on `(source, source_id)`**, never on `id`. Upstream ids are re-minted on every
-pipeline rebuild, so anything that references a company must reference *our* id — adopt the
-warehouse's and the next rebuild silently repoints every project. Rows that vanish upstream are
-reported, never deleted.
+| Column | Coverage of 71,822 rows |
+|---|---|
+| `num_employees`, `company_country` | 100%. Countries are exactly six — UAE, Saudi Arabia, Qatar, Kuwait, Oman, Bahrain, spelled out |
+| `industry` | 98.8%, **148 distinct lower-cased labels**, no hierarchy. `sector-taxonomy.json` groups them |
+| `keywords[]` | 93.7%, lower-case throughout, GIN-indexed. Backs the market-segment filter via `keywords && ARRAY[…]::text[]` |
+| `annual_revenue` | **9.9%** — which is why `RevenueBand.R_UNKNOWN` exists |
 
-Eventually the pipeline writes into `lightmove` directly and the sync script retires. Nothing about
-the table changes when it does — which is the point of keying it that way now.
+There is **no ownership column**, and none can be derived honestly: `latest_funding` covers 2,123 rows
+and `parent_company` 1,811.
+
+**`app_lm_companies`** is the retired brightdata copy — 54k rows synced from `brightdata.app_companies`
+by a `sync-companies.sh` that has been deleted. Nothing reads it and nothing refills it. It is left in
+place rather than dropped, so if you meet it, ignore it.
+
+Locally the table starts empty — V23 creates it and nothing fills it. `npm run dev:db:apollo`
+(`ops/dev/db.sh apollo-pull`) copies the rows down from the shared Cloud SQL database over
+cloud-sql-proxy, straight into the container with no CSV on disk. It spells the 46 columns out on both
+sides of the pipe rather than `SELECT *`: the deployed table was created by the pipeline and the local
+one by V23, so they agree on the columns and not on their order, and a positional COPY would shift
+every value one column sideways.
+
+`reset` would otherwise throw those rows away, so it dumps the table to `ops/dev/.cache/apollo.dump`
+(gitignored) before dropping the volume, and `up` restores it before the API boots. Restoring first is
+what makes it work: Flyway then meets the table already present and V23's guard skips its body, exactly
+as it does against the deployed database. A snapshot that cannot be written aborts the wipe rather than
+proceeding without it.
+
+Profiling the universe read-only is `./ops/cloudsql/psql.sh -c "…"` — it opens a session as *you*
+over cloud-sql-proxy with `--auto-iam-authn`, no password and no application boot, which is the only
+safe way to look at the shared database while a migration is unfinished in your tree.
 
 ## Connecting
 

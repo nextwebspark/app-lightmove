@@ -21,9 +21,10 @@ run-all.sh                the whole matrix, all three boot variants, one exit co
 stack/up.sh  down.sh      bring the stack up / tear it down
 api/lib.sh                curl + assertion helpers, sourced by every script
 api/fixtures.sh           builds the cast (cast.env) that 09-13 and spa/roles.mjs source
-api/01..13*.sh            the matrix, in dependency order
+api/01..14*.sh            the matrix, in dependency order
 spa/run.mjs               headless Chromium over the real SPA
 spa/roles.mjs             the same, once per workspace role
+spa/strategy.mjs          the Strategy screen over the company universe
 results/current/          per-run logs, cookie jars, cases.tsv  (gitignored)
 spa/screenshots/          browser screenshots                    (gitignored)
 ```
@@ -32,17 +33,23 @@ spa/screenshots/          browser screenshots                    (gitignored)
 
 ```bash
 cd e2e
-./run-all.sh                   # everything; non-zero exit if any case failed
+PROFILE=e2e ./run-all.sh       # everything; non-zero exit if any case failed
 ```
 
 That is the whole thing: it brings the stack up, runs the scripts in dependency order, restarts the
 API twice for the two scripts that need a different one (below), tears down, and prints the tally.
 
+**Always `PROFILE=e2e`.** `stack/up.sh` defaults to `local` for historical reasons, and
+`application-local.yml` is the one profile that does not raise `password-reset-requests-per-hour`.
+Left at the production budget of 3/hour, the fourth reset request in the run is refused, so the link
+never reaches the log, `token_for` hands back the previous one, and N20.2-3 and N30.1-4 fail against
+a tree that is green on the profile CI uses. Six red cases, no bug.
+
 To drive one script by hand:
 
 ```bash
 cd e2e
-./stack/up.sh                  # postgres:16-alpine on :55432, API on :8080, Vite on :5173
+PROFILE=e2e ./stack/up.sh      # postgres:16-alpine on :55432, API on :8080, Vite on :5173
 bash api/01-happy-path.sh
 node spa/run.mjs               # must be run from the e2e directory
 KEEP_DB=1 ./stack/down.sh      # drop KEEP_DB to remove the database container too
@@ -51,6 +58,23 @@ KEEP_DB=1 ./stack/down.sh      # drop KEEP_DB to remove the database container t
 Boot takes ~40 s: the Cloud SQL connector is bypassed but Flyway still applies the migrations against
 an empty schema. `up.sh` waits for the API to answer and refuses to continue unless the email provider
 is what the caller declared.
+
+**The Apollo universe.** `api/14-strategy-company-search.sh` and `spa/strategy.mjs` read
+`app_lm_apollo_companies`, which is ETL-owned and pulled with gcloud. `stack/up.sh` builds an empty
+database, so on a runner both scripts **skip themselves and exit 0** rather than reporting a few
+hundred vacuous passes or one red case about the environment. To make them do real work, point them at
+a database that has the universe:
+
+```bash
+npm run dev:db:apollo                                       # once, needs gcloud
+npm run dev                                                 # api + web + postgres on :55433
+cd e2e
+PG_URL=postgresql://lm_app:lm@localhost:55433/lightmove bash api/14-strategy-company-search.sh
+PG_URL=postgresql://lm_app:lm@localhost:55433/lightmove node spa/strategy.mjs
+```
+
+`PG_URL` defaults to the e2e stack's **:55432**, not the dev database's :55433 — left at the default
+against `npm run dev` these two read the wrong database and find no universe.
 
 **`PROFILE`** picks the Spring profile, defaulting to `local` — your own datasource password and OAuth
 client. CI sets `PROFILE=e2e`, which is

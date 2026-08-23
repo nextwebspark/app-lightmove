@@ -31,14 +31,6 @@ export function nextActionsFor(report: Report, projectId: string): NextAction[] 
     });
   }
 
-  if (report.targetCompanies === 0) {
-    actions.push({
-      title: "Seed the target list",
-      body: "Name the companies the client already has in mind, so the search starts from them.",
-      to: strategy,
-    });
-  }
-
   if (report.mandateBand === null) {
     actions.push({
       title: "State the compensation band",

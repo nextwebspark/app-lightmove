@@ -144,7 +144,7 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/members").header("Authorization", "Bearer " + rep))
                 .andExpect(status().isForbidden());
-        mvc.perform(get("/api/v1/companies/sectors").header("Authorization", "Bearer " + rep))
+        mvc.perform(get("/api/v1/companies/facets").header("Authorization", "Bearer " + rep))
                 .andExpect(status().isForbidden());
     }
 

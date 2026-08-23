@@ -79,14 +79,14 @@ get "/projects/$PROJECT_ID/position" -H "$(auth_header "$CLIENT_TOKEN")"
 check_status C4.1 "the brief of the mandate they are attached to" 200
 get "/projects/$PROJECT_ID/strategy" -H "$(auth_header "$CLIENT_TOKEN")"
 check_status C4.2 "its strategy" 200
-get "/projects/$PROJECT_ID/sourcing" -H "$(auth_header "$CLIENT_TOKEN")"
-check_status C4.3 "its sourcing" 200
+get "/projects/$PROJECT_ID/triage" -H "$(auth_header "$CLIENT_TOKEN")"
+check_status C4.3 "its triaged companies" 200
 
 get "/projects/$OTHER_PROJECT_ID/position" -H "$(auth_header "$CLIENT_TOKEN")"
 check_code C4.4 "a mandate they are NOT attached to" 403 FORBIDDEN
 get "/projects/$OTHER_PROJECT_ID/strategy" -H "$(auth_header "$CLIENT_TOKEN")"
 check_code C4.5 "on either surface" 403 FORBIDDEN
-get "/projects/$DUAL_PROJECT_ID/sourcing" -H "$(auth_header "$CLIENT_TOKEN")"
+get "/projects/$DUAL_PROJECT_ID/triage" -H "$(auth_header "$CLIENT_TOKEN")"
 check_code C4.6 "nor a mandate created after they joined" 403 FORBIDDEN
 
 http PATCH "/projects/$PROJECT_ID" -H 'Content-Type: application/json' -d '{"targetDate":"2027-01-01"}' \
@@ -94,8 +94,9 @@ http PATCH "/projects/$PROJECT_ID" -H 'Content-Type: application/json' -d '{"tar
 check_code C4.7 "they cannot edit the mandate they can read" 403 FORBIDDEN
 # A well-formed payload, deliberately: Bean Validation runs during argument resolution, before method
 # security, so a malformed body answers 400 and never reaches the gate this case is about.
-http PUT "/projects/$PROJECT_ID/strategy/sectors" -H 'Content-Type: application/json' \
-  -d '{"direct":[],"adjacent":[],"inferred":[]}' -H "$(auth_header "$CLIENT_TOKEN")"
+http PUT "/projects/$PROJECT_ID/strategy/filter" -H 'Content-Type: application/json' \
+  -d '{"filter":{"industries":[],"marketSegments":[],"countries":[],"employeeBands":[],"revenueBands":[]}}' \
+  -H "$(auth_header "$CLIENT_TOKEN")"
 check_code C4.8 "nor write its strategy" 403 FORBIDDEN
 http PUT "/projects/$PROJECT_ID/members/$(member_id_of "$MEMBER_EMAIL")" \
   -H 'Content-Type: application/json' -d '{"role":"LEAD"}' -H "$(auth_header "$CLIENT_TOKEN")"

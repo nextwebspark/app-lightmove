@@ -25,19 +25,53 @@ GRANT  INSERT, SELECT ON app_lm_audit_event TO   lm_app;
 GRANT  USAGE   ON SEQUENCE app_lm_audit_event_id_seq TO lm_app;
 
 -- 3. The company universe is reference data: the brightdata pipeline writes it (through
---    ops/cloudsql/sync-companies.sh), the application only reads it. Giving lm_app write access to it
---    would buy nothing and would let a SQL-injection foothold in the app rewrite every company a
---    consultant sees.
+--    the pipeline), the application only reads it. Giving lm_app write access would buy nothing and
+--    would let a SQL-injection foothold in the app rewrite every company a consultant sees.
 --
---    Note this changes who can run the sync. Today it connects as lm_app, which still owns the table and
---    has CREATE for its staging table. Once this file has run, lm_app has neither — so from then on run
---    it as the owner: DB_USER=postgres ./ops/cloudsql/sync-companies.sh (or as the lm_migrate role in
---    the deploy note below, once that exists).
-ALTER TABLE app_lm_companies OWNER TO postgres;
-ALTER SEQUENCE app_lm_companies_id_seq OWNER TO postgres;
+--    app_lm_apollo_companies is the universe the product actually reads. It is loaded out of band by
+--    the pipeline and is typically already owned by the human who loaded it, which is why the grant is
+--    guarded: on a database where postgres does not own it, ALTER TABLE would fail and take the rest
+--    of this file with it.
+--
+--    Ownership, not just the grant. In Postgres an owner is not bound by the grant table: it can
+--    re-GRANT itself anything a REVOKE took away, and TRUNCATE, ALTER or DROP the table regardless.
+--    Where lm_app owns this table — which is the case on any database where the app created it — the
+--    read-only property above is a claim and not a control. Reassign where the connected role is able
+--    to, and say so out loud where it cannot, so a database on which the property does not hold is
+--    never mistaken for one on which it does.
+DO $$
+DECLARE
+    current_owner text;
+BEGIN
+    IF to_regclass('public.app_lm_apollo_companies') IS NOT NULL THEN
+        SELECT pg_get_userbyid(relowner) INTO current_owner
+        FROM pg_class WHERE oid = 'public.app_lm_apollo_companies'::regclass;
 
-REVOKE ALL     ON app_lm_companies FROM lm_app;
-GRANT  SELECT  ON app_lm_companies TO   lm_app;
+        IF current_owner <> 'postgres' THEN
+            IF pg_has_role(current_user, current_owner, 'USAGE') THEN
+                EXECUTE 'ALTER TABLE app_lm_apollo_companies OWNER TO postgres';
+            ELSE
+                RAISE NOTICE 'app_lm_apollo_companies is owned by % and this role cannot reassign it. The universe stays writable by its owner: re-run this file as postgres.', current_owner;
+            END IF;
+        END IF;
+
+        EXECUTE 'REVOKE ALL    ON app_lm_apollo_companies FROM lm_app';
+        EXECUTE 'GRANT  SELECT ON app_lm_apollo_companies TO   lm_app';
+    END IF;
+END $$;
+
+--    app_lm_companies is the retired brightdata copy. Nothing has read it since the Apollo universe
+--    replaced it and no script refills it — sync-companies.sh is deleted. The table is deliberately
+--    left in place rather than dropped; this keeps it locked down for as long as it sits there.
+DO $$
+BEGIN
+    IF to_regclass('public.app_lm_companies') IS NOT NULL THEN
+        EXECUTE 'ALTER TABLE app_lm_companies OWNER TO postgres';
+        EXECUTE 'ALTER SEQUENCE app_lm_companies_id_seq OWNER TO postgres';
+        EXECUTE 'REVOKE ALL    ON app_lm_companies FROM lm_app';
+        EXECUTE 'GRANT  SELECT ON app_lm_companies TO   lm_app';
+    END IF;
+END $$;
 
 -- 4. No CREATE on the public schema: the app reads and writes, migrations are what change shape.
 --    (Flyway needs this back during a deploy — see the note at the foot of this file.)
@@ -60,6 +94,7 @@ GRANT CONNECT ON DATABASE lightmove TO lm_app;
 -- exists, skip step 4 or the next `mvnw spring-boot:run` will fail at startup.
 --
 -- Step 5 also removes lm_app's TEMPORARY privilege on the database, which it inherited from PUBLIC.
--- Nothing in the application wants a temp table; sync-companies.sh does, which is one of the reasons it
--- connects as postgres rather than as the app.
+-- Nothing in the application wants a temp table. The company-universe sync did, which is one of the
+-- reasons it connected as postgres — that script is gone now, and the Apollo universe is loaded out of
+-- band by the pipeline rather than by anything in this repo.
 -- ─────────────────────────────────────────────────────────────────────────────

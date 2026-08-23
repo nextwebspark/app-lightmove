@@ -98,7 +98,7 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("a client that hung up mid-response is not logged as our failure")
     void clientDisconnectIsNotAnError() {
-        // The SPA cancels a superseded Sourcing read on every criteria change; at error level each one
+        // The SPA cancels a superseded company read on every filter change; at error level each one
         // would arrive with a stack trace and bury the 500s that are actually ours.
         Exception brokenPipe = new HttpMessageNotWritableException("Could not write JSON",
                 new IOException("Broken pipe"));

@@ -18,6 +18,9 @@ npm run dev
 `npm run dev` starts a `postgres:16-alpine` container, applies every migration into it, and boots the
 API and the SPA against it. The database is **yours** — nothing you do locally reaches anyone else.
 
+The one thing it cannot conjure is the company universe the Strategy screens search over. That is a
+separate one-time step — see **The company universe** below.
+
 | | |
 |---|---|
 | Web | http://localhost:5173 |
@@ -34,6 +37,45 @@ npm run dev:db:down      # stop the container, keep the data
 Port **55433** avoids 5432 (usually taken by another project) and 55432 (the e2e stack's own throwaway
 container, which `e2e/stack/down.sh` deletes). The two never collide, so an e2e run cannot wipe your
 dev data.
+
+### The company universe
+
+`app_lm_apollo_companies` holds 71,822 GCC companies. An external pipeline owns it, nothing in this
+repo can regenerate it, and it is far too large for git — so migrations create the table empty and
+every Strategy screen renders blank until you fill it. Two ways to do that, and you only ever do it
+once: the rows then survive `dev:db:reset`, which snapshots them out before the wipe and restores them
+on the next boot.
+
+**Someone hands you the file.** No GCP of any kind — the restore is a local `pg_restore`.
+
+```bash
+mkdir -p ops/dev/.cache
+cp ~/Downloads/apollo.dump ops/dev/.cache/apollo.dump
+shasum -a 256 ops/dev/.cache/apollo.dump   # compare with the sender before booting
+npm run dev
+```
+
+The path and the filename are both exact — `ops/dev/db.sh` restores that one file, before the API
+boots, so Flyway meets the table already there and `V23` no-ops. Look for `restored 71822 rows` in the
+startup log. Put the file in place *before* `npm run dev`; if you have already booted, drop it in and
+run `npm run dev` again — the restore loads into Flyway's empty table instead.
+
+Transfer it as binary. A truncated or re-encoded archive fails part-way through the load and leaves
+half a table, which is why the checksum step is not optional. The sender's copy is at the same path.
+
+**Or pull it from Cloud SQL**, if you have the access described below plus `brew install
+cloud-sql-proxy libpq`:
+
+```bash
+npm run dev         # once, so Flyway applies V23 and the table exists to copy into
+npm run dev:db:apollo
+```
+
+This streams the table down over `cloud-sql-proxy` as your own read-only IAM identity and writes the
+same `ops/dev/.cache/apollo.dump` on the way past. It refuses if the table already holds rows.
+
+`ops/dev/.cache/` is gitignored and stays that way — it is licensed third-party data, not source.
+Don't commit it, and don't forward it outside the team.
 
 ### Running against the shared Cloud SQL database
 

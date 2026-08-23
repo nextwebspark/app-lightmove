@@ -2,7 +2,7 @@ package app.lightmove.api.core.config;
 
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
-/** The company picker typeahead and zero-query browse — {@code GET /api/v1/companies/search}. */
+/** The company picker typeahead — {@code GET /api/v1/companies/search}. */
 public record CompanySearchSettings(
         /** Rows returned when the request names no explicit {@code limit}. */
         @DefaultValue("10") int defaultResultLimit,

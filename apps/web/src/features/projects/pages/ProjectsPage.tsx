@@ -108,7 +108,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
         <EmptyState
           icon={<Icon d={ICONS.briefcase} size={24} />}
           title="Create your first project"
-          body="A project holds one search mandate end to end — brief, company universe, sourcing and candidates."
+          body="A project holds one search mandate end to end — brief, company universe, triage and candidates."
         >
           {newProjectButton}
           <div className="mt-[34px] flex items-center gap-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-text3">

@@ -30,6 +30,13 @@ lightmove:
     rate-limit:
       enabled: false
 
+  company:
+    list:
+      # Small so the refusal path is reachable. At the production 200 a test would have to seed 201
+      # companies to trip it, and the behaviour under test is the limit rather than the number.
+      # A bulk-add test seeding more than this gets a 409, which is the point.
+      bulk-add-limit: 5
+
   email:
     provider: log
     validation:
