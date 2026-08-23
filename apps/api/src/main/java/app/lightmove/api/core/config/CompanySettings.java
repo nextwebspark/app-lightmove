@@ -12,11 +12,6 @@ public record CompanySettings(
         CompanySearchSettings search,
         CompanyListSettings list,
 
-        /**
-         * {@code @DefaultValue} so an absent {@code cache:} block binds to the record's own defaults
-         * rather than to {@code null}. Without it, omitting the block is not "take the defaults" but
-         * a {@code NullPointerException} in {@code CacheConfig} during refresh, with no key named —
-         * which is the 3am null this properties tree exists to rule out.
-         */
+        /** Without {@code @DefaultValue} an absent {@code cache:} block binds to null, not defaults. */
         @DefaultValue CompanyCacheSettings cache
 ) {}

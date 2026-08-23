@@ -150,9 +150,7 @@ public class TriageCompanyService {
         CompanyScope scope = strategy.scopeOf(workspaceId, projectId);
         int limit = listConfig.bulkAddLimit();
         // Uncached, and so is the search below: the gate and the rows it admits must describe the
-        // same universe. A cached total taken before a pipeline reload could clear the gate that the
-        // fresh query then fills with an arbitrary slice of a much larger match — the silent choice
-        // this refusal exists to prevent, and stored permanently once written.
+        // same universe. See ApolloCompanyQueryService#countUncached.
         long matching = market.countUncached(scope);
         if (matching > limit) {
             // Interpolated into a user-facing message, which the class doc otherwise reserves for

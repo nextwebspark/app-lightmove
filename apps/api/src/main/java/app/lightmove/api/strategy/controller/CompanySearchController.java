@@ -45,13 +45,7 @@ public class CompanySearchController {
         this.searchConfig = properties.company().search();
     }
 
-    /**
-     * Everything the five filter accordions render, counted over the whole universe.
-     *
-     * <p>All five reads are cached, so this asks {@link UniverseReloadWatch} first whether the
-     * pipeline has reloaded underneath them. Nearly every call returns from that immediately — it is
-     * throttled to one probe per interval across the whole instance.
-     */
+    /** Everything the five filter accordions render, counted over the whole universe. */
     @GetMapping("/facets")
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
     public ResponseEntity<FacetsResponse> facets() {

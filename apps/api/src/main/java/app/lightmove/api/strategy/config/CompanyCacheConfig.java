@@ -1,4 +1,7 @@
-package app.lightmove.api.core.config;
+package app.lightmove.api.strategy.config;
+
+import app.lightmove.api.core.config.CompanyCacheSettings;
+import app.lightmove.api.core.config.LightMoveProperties;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.Duration;
@@ -11,38 +14,26 @@ import org.springframework.cache.support.SimpleCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * The caches over the company universe, and the only ones the application has. Why they are safe to
- * share process-wide is argued on {@code ApolloCompanyQueryService}; read that before adding one here.
- *
- * <p>{@link SimpleCacheManager} so an unknown cache name fails the call rather than minting one.
- */
+/** The caches over the company universe. Why they may be shared: {@code ApolloCompanyQueryService}. */
 @Configuration
 @EnableCaching
-public class CacheConfig {
+public class CompanyCacheConfig {
 
     /**
-     * The five filter accordions, each under an explicit literal key. Those keys are load-bearing:
-     * all five methods take no arguments, and Spring keys a zero-argument method as
-     * {@code SimpleKey.EMPTY}, so without them the five would share one entry and four would be
-     * served the fifth's value — no exception, no clue.
+     * Its five entries need explicit literal keys: the facet methods take no arguments, and Spring
+     * keys a zero-argument method as {@code SimpleKey.EMPTY}, so without them all five share one entry
+     * and four are served the fifth's value, silently.
      */
     public static final String COMPANY_FACETS = "companyFacets";
 
-    /** The picker typeahead, keyed by the query and the row limit. */
     public static final String COMPANY_TYPEAHEAD = "companyTypeahead";
-
-    /** How many companies a filter matches, keyed by the scope. */
     public static final String COMPANY_SCOPE_COUNT = "companyScopeCount";
-
-    /** One page of a filtered list, keyed by the scope, the sort and the page. */
     public static final String COMPANY_SCOPE_PAGE = "companyScopePage";
 
-    /** Every cache over the universe, so a reload can clear them as one. */
     public static final List<String> COMPANY_UNIVERSE_CACHES =
             List.of(COMPANY_FACETS, COMPANY_TYPEAHEAD, COMPANY_SCOPE_COUNT, COMPANY_SCOPE_PAGE);
 
-    /** Five keys today, with headroom: a sixth added upstream must not silently thrash at exactly 5. */
+    /** Headroom: five keys today, and a sixth must not silently thrash at a maximum of exactly five. */
     private static final int FACET_ENTRIES = 16;
 
     @Bean
@@ -61,7 +52,6 @@ public class CacheConfig {
         return manager;
     }
 
-    /** {@code expireAfterWrite}: a hot entry is the one most likely to be wrong after a reload. */
     private static CaffeineCache cache(String name, Duration ttl, int maximumEntries) {
         return new CaffeineCache(name, Caffeine.newBuilder()
                 .expireAfterWrite(ttl)

@@ -27,16 +27,12 @@ import org.springframework.test.web.servlet.MvcResult;
 /**
  * That the universe caches are actually holding, and holding the right thing.
  *
- * <p>Every test here seeds a company <b>behind the cache's back</b> — straight into the table without
- * evicting — and then asserts the endpoint still answers with the old number. That shape is the point:
- * a test that seeds through {@code universe.reset()} and asserts the new number passes identically
- * with caching turned off, and would prove nothing. The stale answer <i>is</i> the evidence.
+ * <p>Every test seeds <b>behind the cache's back</b> and asserts the endpoint still answers with the
+ * old number — seeding through {@code reset()} would pass identically with caching off.
  */
 @IntegrationTest
 @Import(RecordingEmailSender.Config.class)
-// Pinned high rather than left on the production default: every test here needs the cache to survive
-// a seed made behind its back, and a future tuning of that default would otherwise turn these into
-// silent false passes rather than failures.
+// Pinned so a future tuning of the production default cannot turn these into silent false passes.
 @TestPropertySource(properties = "lightmove.company.cache.reload-check-interval=1h")
 class CompanyCacheIntegrationTest extends FlowTestSupport {
 
@@ -60,7 +56,6 @@ class CompanyCacheIntegrationTest extends FlowTestSupport {
 
         assertThat(energyCount(admin)).isEqualTo(2);
 
-        // Behind the cache's back: no eviction, so the endpoint must not notice.
         universe.company("c3", "Three").industry("oil & energy").employees(10).insert();
         assertThat(energyCount(admin)).isEqualTo(2);
 
@@ -71,11 +66,8 @@ class CompanyCacheIntegrationTest extends FlowTestSupport {
     @Test
     @DisplayName("the five facet sections keep their own entries rather than collapsing onto one")
     void everyFacetSectionKeepsItsOwnEntry() throws Exception {
-        // The regression test for the trap this cache was nearly built with. All five facet methods
-        // take no arguments, and Spring keys a zero-argument method as SimpleKey.EMPTY — so sharing
-        // one cache without naming a key gives all five the entry whichever ran first wrote, and
-        // sectorGroups() starts answering with country facets. Nothing throws; the screen is just
-        // wrong. Reading all five in one response is what would catch it.
+        // Regression test for SimpleKey.EMPTY: without explicit keys all five zero-argument facet
+        // methods share one entry and four are served the fifth's value, silently.
         String admin = adminOf("Cache Facet Keys Firm");
         universe.company("c1", "One").industry("oil & energy").country("Saudi Arabia")
                 .employees(10).keywords("saas").insert();
@@ -89,9 +81,7 @@ class CompanyCacheIntegrationTest extends FlowTestSupport {
         assertThat(labels(facets.get("employeeBands"))).isNotEmpty();
         assertThat(labels(facets.get("revenueBands"))).contains("Unknown");
 
-        // Every section distinct, compared pairwise. Chaining both isNotEqualTo onto one subject —
-        // which is what this did first — only ever compares that subject, so the marketSegments and
-        // revenueBands pair went unchecked while the comment claimed otherwise.
+        // Pairwise: chaining both isNotEqualTo onto one subject leaves two pairs uncompared.
         List<List<String>> sections = List.of(
                 labels(facets.get("marketSegments")),
                 labels(facets.get("countries")),
@@ -112,9 +102,6 @@ class CompanyCacheIntegrationTest extends FlowTestSupport {
 
         assertThat(suggestionCount(admin, "SAUDI")).isEqualTo(1);
 
-        // Both matches are ILIKE, so these two queries have identical answers and must share one
-        // entry. Seeded behind the cache's back: if the key were case-sensitive, "saudi" would miss
-        // and go to the database, where the second company now is.
         universe.company("c2", "Saudi Telecom").employees(10).insert();
         assertThat(suggestionCount(admin, "saudi")).isEqualTo(1);
         assertThat(suggestionCount(admin, "SaUdI")).isEqualTo(1);
@@ -133,8 +120,7 @@ class CompanyCacheIntegrationTest extends FlowTestSupport {
 
         assertThat(totalOnPage(admin, projectId, 0)).isEqualTo(2);
 
-        // A different page is a different key for the rows, but the same key for the total — so the
-        // count must come back cached even though this page has never been asked for before.
+        // A different page keys the rows differently but the total identically.
         universe.company("c3", "Three").employees(30).insert();
         assertThat(totalOnPage(admin, projectId, 1)).isEqualTo(2);
 

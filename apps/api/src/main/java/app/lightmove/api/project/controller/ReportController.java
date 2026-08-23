@@ -28,11 +28,6 @@ public class ReportController {
     private final ReportService reports;
     private final UniverseReloadWatch reloadWatch;
 
-    /**
-     * The report totals come from the same cached universe reads the Strategy screen uses, so this
-     * asks the same question first — otherwise the screen would self-correct after a pipeline reload
-     * while the report kept quoting the old numbers for a whole TTL.
-     */
     @GetMapping
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
     public ResponseEntity<ReportResponse> get(@AuthenticationPrincipal AuthPrincipal principal,

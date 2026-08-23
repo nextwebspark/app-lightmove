@@ -79,8 +79,6 @@ public class StrategyController {
     /**
      * The results table. The scope is resolved server-side from the saved filter; the caller supplies
      * only the name query, the page and the sort, none of which widens what they can see.
-     *
-     * <p>The reload check is here, not in the service — see {@link UniverseReloadWatch}.
      */
     @GetMapping("/companies")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")

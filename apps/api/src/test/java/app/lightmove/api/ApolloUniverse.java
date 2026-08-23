@@ -17,9 +17,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * <p>{@code reset()} first, always. Testcontainers reuses one database across the suite, so a test
  * that skipped it would count another test's companies and pass or fail depending on ordering.
  *
- * <p>It also clears the universe caches, which is why it takes a {@link UniverseReloadWatch}: those
- * reads are cached process-wide and one Spring context is shared across the suite, so otherwise one
- * test's facet counts are served to the next.
+ * <p>It also clears the universe caches: those reads are cached process-wide and one Spring context is
+ * shared across the suite, so otherwise one test's facet counts are served to the next.
  */
 public final class ApolloUniverse {
 
@@ -37,10 +36,7 @@ public final class ApolloUniverse {
         reloadWatch.resetBaseline();
     }
 
-    /**
-     * Forget what is cached without touching the rows — for a test that seeds after a read and needs
-     * the next read to see it. Ordinary tests want {@link #reset()}.
-     */
+    /** Forget what is cached without touching the rows. Ordinary tests want {@link #reset()}. */
     public void evictCaches() {
         reloadWatch.resetBaseline();
     }

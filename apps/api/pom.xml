@@ -98,7 +98,6 @@
 			<version>${bucket4j.version}</version>
 		</dependency>
 
-		<!-- Caffeine was already here for the rate limiter; the starter adds only the abstraction. -->
 		<dependency>
 			<groupId>com.github.ben-manes.caffeine</groupId>
 			<artifactId>caffeine</artifactId>
