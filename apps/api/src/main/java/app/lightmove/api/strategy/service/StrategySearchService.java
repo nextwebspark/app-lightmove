@@ -8,7 +8,6 @@ import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.strategy.dto.RenameSearchRequest;
 import app.lightmove.api.strategy.dto.SaveSearchRequest;
 import app.lightmove.api.strategy.dto.SavedSearchResponse;
-import app.lightmove.api.strategy.dto.NumericRangeDto;
 import app.lightmove.api.strategy.dto.StrategyFilterDto;
 import app.lightmove.api.strategy.model.Strategy;
 import app.lightmove.api.strategy.model.StrategyFilter;
@@ -116,12 +115,7 @@ public class StrategySearchService {
     }
 
     private static SavedSearchResponse toDto(StrategySearch search) {
-        StrategyFilter filter = search.getFilter();
         return new SavedSearchResponse(search.getId(), search.getName(),
-                new StrategyFilterDto(filter.industries(), filter.marketSegments(), filter.countries(),
-                        filter.employeeBands(), filter.revenueBands(),
-                        NumericRangeDto.of(filter.employeeRange()),
-                        NumericRangeDto.of(filter.revenueRange())),
-                search.getCreatedAt());
+                StrategyFilterDto.of(search.getFilter()), search.getCreatedAt());
     }
 }

@@ -297,11 +297,8 @@ public class StrategyService {
     }
 
     private StrategyResponse toResponse(Strategy strategy, UUID workspaceId, UUID projectId) {
-        StrategyFilter filter = strategy.getFilter();
         return new StrategyResponse(
-                new StrategyFilterDto(filter.industries(), filter.marketSegments(), filter.countries(),
-                        filter.employeeBands(), filter.revenueBands(), NumericRangeDto.of(filter.employeeRange()),
-                        NumericRangeDto.of(filter.revenueRange())),
+                StrategyFilterDto.of(strategy.getFilter()),
                 strategy.getOffLimitsCompanies().stream().map(StrategyService::toDto).toList(),
                 searches.list(workspaceId, projectId));
     }

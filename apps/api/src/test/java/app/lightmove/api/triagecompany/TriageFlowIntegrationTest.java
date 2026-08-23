@@ -335,6 +335,50 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a single add honours the off-limits bar too")
+    void addRefusesAnOffLimitsCompany() throws Exception {
+        String admin = adminOf("Universe Add Off Limits Firm");
+        String projectId = project(admin);
+        universe.company("a1", "Barred One").industry("oil & energy").employees(100).insert();
+        mvc.perform(put(strategyUrl(projectId) + "/off-limits")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountIds":["a1"]}"""))
+                .andExpect(status().isOk());
+
+        mvc.perform(post(triageUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountId":"a1"}"""))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.totalCount").value(0));
+    }
+
+    @Test
+    @DisplayName("barring a company the mandate already holds does not evict it")
+    void barringDoesNotEvictAHeldCompany() throws Exception {
+        String admin = adminOf("Universe Bar After Add Firm");
+        String projectId = project(admin);
+        universe.company("a1", "Energy One").industry("oil & energy").employees(100).insert();
+        String id = add(admin, projectId, "a1");
+
+        mvc.perform(put(strategyUrl(projectId) + "/off-limits")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountIds":["a1"]}"""))
+                .andExpect(status().isOk());
+
+        mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.totalCount").value(1));
+        assertThat(add(admin, projectId, "a1")).isEqualTo(id);
+    }
+
+    @Test
     @DisplayName("another mandate's universe row cannot be triaged through this one")
     void anotherMandatesRowIsNotFound() throws Exception {
         String admin = adminOf("Universe Isolation Firm");

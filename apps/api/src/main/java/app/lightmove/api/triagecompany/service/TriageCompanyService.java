@@ -112,6 +112,12 @@ public class TriageCompanyService {
             return toDto(held.get());
         }
 
+        CompanyScope scope = strategy.scopeOf(workspaceId, projectId);
+        if (scope.offLimitsAccountIds().contains(accountId)) {
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
+                    "This company is off-limits for this mandate.");
+        }
+
         CompanyRow row = market.byAccountIds(List.of(accountId)).stream().findFirst()
                 .orElseThrow(() -> new ApiException(ErrorCode.VALIDATION_FAILED,
                         "Not in the universe: " + accountId));

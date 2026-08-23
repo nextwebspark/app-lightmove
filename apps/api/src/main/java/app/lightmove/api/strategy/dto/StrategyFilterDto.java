@@ -1,5 +1,6 @@
 package app.lightmove.api.strategy.dto;
 
+import app.lightmove.api.strategy.model.StrategyFilter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -47,4 +48,11 @@ public record StrategyFilterDto(
         @Valid NumericRangeDto employeeRange,
 
         @Valid NumericRangeDto revenueRange
-) {}
+) {
+
+    public static StrategyFilterDto of(StrategyFilter filter) {
+        return new StrategyFilterDto(filter.industries(), filter.marketSegments(), filter.countries(),
+                filter.employeeBands(), filter.revenueBands(),
+                NumericRangeDto.of(filter.employeeRange()), NumericRangeDto.of(filter.revenueRange()));
+    }
+}
