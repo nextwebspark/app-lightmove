@@ -48,7 +48,13 @@ npm test                     # both suites
 cd apps/api && ./mvnw test   # backend — needs Docker (Testcontainers)
 cd apps/web && npx vitest    # frontend
 cd apps/web && npm run build # the real frontend typecheck
+cd e2e && PROFILE=e2e ./run-all.sh   # the end-to-end matrix — never without PROFILE=e2e
 ```
+
+**The e2e matrix always runs `PROFILE=e2e`.** `stack/up.sh` still defaults to `local`, which is the
+gitignored personal profile and does not raise `password-reset-requests-per-hour` — so a plain
+`./run-all.sh` burns the production budget of 3/hour and fails six cases (N20.2-3, N30.1-4) that are
+green on the profile CI uses. Those failures are the profile, never the code.
 
 `npm run dev` needs Docker and nothing else — no gcloud, no `application-local.yml`. Its database is
 yours alone, so a migration in your tree applies only to you. The one thing it cannot conjure is the

@@ -33,17 +33,23 @@ spa/screenshots/          browser screenshots                    (gitignored)
 
 ```bash
 cd e2e
-./run-all.sh                   # everything; non-zero exit if any case failed
+PROFILE=e2e ./run-all.sh       # everything; non-zero exit if any case failed
 ```
 
 That is the whole thing: it brings the stack up, runs the scripts in dependency order, restarts the
 API twice for the two scripts that need a different one (below), tears down, and prints the tally.
 
+**Always `PROFILE=e2e`.** `stack/up.sh` defaults to `local` for historical reasons, and
+`application-local.yml` is the one profile that does not raise `password-reset-requests-per-hour`.
+Left at the production budget of 3/hour, the fourth reset request in the run is refused, so the link
+never reaches the log, `token_for` hands back the previous one, and N20.2-3 and N30.1-4 fail against
+a tree that is green on the profile CI uses. Six red cases, no bug.
+
 To drive one script by hand:
 
 ```bash
 cd e2e
-./stack/up.sh                  # postgres:16-alpine on :55432, API on :8080, Vite on :5173
+PROFILE=e2e ./stack/up.sh      # postgres:16-alpine on :55432, API on :8080, Vite on :5173
 bash api/01-happy-path.sh
 node spa/run.mjs               # must be run from the e2e directory
 KEEP_DB=1 ./stack/down.sh      # drop KEEP_DB to remove the database container too
