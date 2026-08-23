@@ -53,31 +53,17 @@ import org.springframework.stereotype.Service;
  * would keep changing under the hand that is trying to decide how big a slice of the market it
  * represents. It also means the five accordions are one cacheable read that no filter invalidates.
  *
- * <p><b>Every read below is cached, and the reason they may be is worth stating rather than
- * assuming.</b> The application's tenant-isolation rule is that a workspace-scoped query filters by
- * {@code AuthPrincipal.requireWorkspaceId()} — and these caches are shared across every workspace in
- * the process, so that rule has to be met differently here:
+ * <p>Every read below is cached, shared across every workspace in the process. That is safe because no
+ * read here takes a workspace, a project or a user — each is a pure function of its arguments over
+ * reference data every tenant reads identically. Part of the key <i>is</i> caller-supplied, though:
+ * {@code CompanyScope.nameQuery} carries the request's {@code ?q=}, so the key space is unbounded and
+ * only {@code maximumSize} keeps it honest.
  *
- * <ul>
- *   <li><b>No read here takes a workspace, a project or a user.</b> Each is a pure function of its
- *       arguments over reference data. Two mandates in two different firms with the same filter share
- *       an entry and both get the same correct answer, because they were asking the same question of
- *       the same table.
- *   <li><b>A caller cannot forge a key.</b> {@link CompanyScope} is resolved server-side from the
- *       mandate's stored filter by {@code StrategyScope}, never from a request parameter.
- *   <li><b>There is no oracle.</b> Producing a key means already being able to run the query, and the
- *       answer is universe data the caller holds {@code PROJECT_BROWSE} or {@code WORK_VIEW} to read.
- * </ul>
- *
- * <p><b>The guard-rail:</b> all of that holds only while the arguments fully determine the result. A
- * filter axis drawing on mandate-specific data — "exclude companies already triaged into <i>this</i>
- * project" is the obvious next one, and {@code triagecompany} sits right beside this — would make the
- * scope an incomplete key, and every row served from {@code companyScopeCount} /
- * {@code companyScopePage} would then be one mandate's answer handed to another. Adding such an axis
- * means re-keying these caches or dropping them, not just editing {@code buildWhere}.
- *
- * <p>Staleness is bounded twice: a TTL per cache, and {@link UniverseReloadWatch}, which notices a
- * pipeline reload and clears the lot.
+ * <p><b>The guard-rail:</b> that holds only while the arguments fully determine the result. A filter
+ * axis drawing on mandate-specific data — "exclude companies already triaged into <i>this</i> project"
+ * is the obvious next one — would make the scope an incomplete key, and one mandate's answer would be
+ * served to another. Adding such an axis means re-keying these caches, not just editing
+ * {@code buildWhere}.
  */
 @Service
 @RequiredArgsConstructor
@@ -93,17 +79,15 @@ public class ApolloCompanyQueryService {
     private final SectorTaxonomy taxonomy;
     private final MarketSegments marketSegments;
 
-    // Every cached read below returns an immutable list, and that is a requirement rather than a
-    // preference. A cache hands the same instance to every caller, so one that sorted or added to
-    // what it got back would rewrite the answer every later request receives — silently, for a whole
-    // TTL, and never reproducibly. Immutable turns that into an exception at the mutation.
+    // Every cached read returns an immutable list, and that is a requirement: a cache hands the same
+    // instance to every caller, so one that sorted what it got back would rewrite the answer every
+    // later request receives, for a whole TTL and never reproducibly.
 
     /**
      * How many companies the scope matches. An empty scope is the whole universe, not nothing.
      *
-     * <p>The most valuable entry in any of these caches. The Strategy table asks for this total
-     * alongside every page it draws, so it is recomputed on every page turn and every sort change of
-     * a filter that has not moved — and unlike a page of rows, the value is one {@code Long}.
+     * <p>The most valuable entry in any of these caches: the Strategy table asks for this total
+     * alongside every page it draws, so an unmoved filter recomputes it on every page turn.
      */
     @Cacheable(CacheConfig.COMPANY_SCOPE_COUNT)
     public long count(CompanyScope scope) {
@@ -117,9 +101,8 @@ public class ApolloCompanyQueryService {
      * supplies the page, the size and the sort; the scope itself is resolved server-side from the
      * mandate's saved filter and never from a request parameter.
      *
-     * <p>All five arguments are the key, because all five change the answer. The heaviest entries the
-     * application holds — up to {@code max-page-size} rows apiece — which is why their cache is the
-     * most tightly bounded.
+     * <p>All five arguments are the key. The heaviest entries the application holds, at up to
+     * {@code max-page-size} rows apiece, which is why their cache is the most tightly bounded.
      */
     @Cacheable(CacheConfig.COMPANY_SCOPE_PAGE)
     public List<CompanyRow> search(CompanyScope scope, CompanySortField sort, SortDirection direction,
@@ -162,25 +145,23 @@ public class ApolloCompanyQueryService {
      * so a prefix match beats a match buried mid-name, then by size, because the company a consultant
      * means when they type three letters is almost always the biggest one that starts with them.
      *
-     * <p>The cache key lower-cases the query, which costs nothing in correctness and doubles the hit
-     * rate: both matches are {@code ILIKE}, so "SAU", "Sau" and "sau" return byte-identical rows, and
-     * a picker is exactly where people type the same three letters three different ways. {@code
-     * Locale.ROOT} rather than the default locale — under a Turkish default, {@code "I"} lower-cases
-     * to a dotless {@code ı} and the same query would key to two entries on two machines.
+     * <p>The key lower-cases the query under {@code Locale.ROOT}. Both matches are {@code ILIKE}, so
+     * case variants return identical rows and collapsing them multiplies the hit rate. {@code ROOT}
+     * rather than the default locale is the load-bearing half: under a Turkish default {@code "I"}
+     * and {@code "ı"} lower-case to the same key while Postgres treats them as different queries, so
+     * one search would be served the other's rows. A SpEL list rather than a concatenated string
+     * because no separator is collision-free when half the key is arbitrary user text.
      *
-     * <p>The key is a SpEL list rather than a concatenated string so that it cannot collide: no
-     * choice of separator is safe when one half is arbitrary user text.
-     *
-     * <p>A <b>miss</b> still costs a full scan of the universe: {@code company_name} carries no index
-     * and a leading-wildcard {@code ILIKE} could not use one anyway. User-typed text is an unbounded
-     * key space, so the tail always misses, and the durable fix for that is a {@code pg_trgm} index —
-     * an ops script, since this table is owned by {@code postgres} post-harden, not a migration.
+     * <p>A <b>miss</b> still scans the whole universe — {@code company_name} has no index and a
+     * leading-wildcard {@code ILIKE} could not use one. The durable fix is a {@code pg_trgm} index,
+     * which must be an ops script rather than a migration: {@code harden.sql} leaves this table owned
+     * by {@code postgres}.
      */
     @Cacheable(cacheNames = CacheConfig.COMPANY_TYPEAHEAD,
             key = "{#limit, #query.toLowerCase(T(java.util.Locale).ROOT)}")
     public List<CompanyRow> typeahead(String query, int limit) {
         String pattern = escapeLikePattern(query);
-        return jdbc.sql("""
+        return List.copyOf(jdbc.sql("""
                         SELECT %s
                         FROM app_lm_apollo_companies
                         WHERE company_name ILIKE :contains ESCAPE '\\'
@@ -193,9 +174,7 @@ public class ApolloCompanyQueryService {
                 .param("prefix", pattern + "%")
                 .param("limit", limit)
                 .query(COMPANY_ROW_MAPPER)
-                .list()
-                .stream()
-                .toList();
+                .list());
     }
 
     /**

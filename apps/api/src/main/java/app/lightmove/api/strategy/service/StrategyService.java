@@ -73,7 +73,6 @@ public class StrategyService {
     private final StrategySearchService searches;
     private final AuditService audit;
     private final ApolloCompanyQueryService companies;
-    private final UniverseReloadWatch reloadWatch;
     private final CompanyListSettings listConfig;
     private final CompanySearchSettings searchConfig;
 
@@ -81,14 +80,12 @@ public class StrategyService {
     // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public StrategyService(StrategyRepository strategies, ProjectRepository projects,
                            StrategySearchService searches, AuditService audit,
-                           ApolloCompanyQueryService companies, UniverseReloadWatch reloadWatch,
-                           LightMoveProperties properties) {
+                           ApolloCompanyQueryService companies, LightMoveProperties properties) {
         this.strategies = strategies;
         this.projects = projects;
         this.searches = searches;
         this.audit = audit;
         this.companies = companies;
-        this.reloadWatch = reloadWatch;
         this.listConfig = properties.company().list();
         this.searchConfig = properties.company().search();
     }
@@ -155,12 +152,6 @@ public class StrategyService {
         Strategy strategy = strategies.findByProjectId(projectId)
                 .orElseGet(() -> Strategy.forProject(projectId));
         CompanyScope scope = StrategyScope.of(strategy, normaliseQuery(query));
-
-        // Both reads below answer from a cache keyed on that scope, so ask first whether the universe
-        // moved under them. After the project check, not before: a caller naming a mandate that is not
-        // theirs gets a 404 without reaching the database twice. Throttled instance-wide, so this is a
-        // field read on every call but one per interval.
-        reloadWatch.checkForReload();
 
         List<CompanyRow> rows = companies.search(scope, sort, direction, page, size);
         return new StrategyCompaniesResponse(

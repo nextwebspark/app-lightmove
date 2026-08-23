@@ -31,7 +31,7 @@ import org.springframework.test.web.servlet.MvcResult;
  */
 @IntegrationTest
 @Import(RecordingEmailSender.Config.class)
-@TestPropertySource(properties = "lightmove.company.cache.reload-check-interval=1ms")
+@TestPropertySource(properties = "lightmove.company.cache.reload-check-interval=10ms")
 class UniverseReloadWatchIntegrationTest extends FlowTestSupport {
 
     @Autowired JdbcTemplate db;
@@ -72,10 +72,14 @@ class UniverseReloadWatchIntegrationTest extends FlowTestSupport {
 
         assertThat(energyCount(admin)).isEqualTo(1);
 
-        // A change the fingerprint deliberately cannot see: the row count is the same and nothing sets
-        // updated_at on this table (it has a default, not a trigger), so the pair has not moved. The
-        // caches must therefore hold, and the endpoint must still answer with what it had.
-        db.update("UPDATE app_lm_apollo_companies SET industry = 'utilities' "
+        // A change the fingerprint deliberately cannot see: the row count is unchanged and nothing
+        // sets updated_at on this table (it has a default, not a trigger), so the pair has not moved.
+        //
+        // 'retail', not 'utilities' — the taxonomy puts 'utilities' in Energy & Utilities alongside
+        // 'oil & energy', so that version of this test held at 1 whether the cache was cleared or not
+        // and would have passed with @Cacheable deleted. Moving the row to another group means an
+        // eviction drops this count to 0, so the assertion can actually fail.
+        db.update("UPDATE app_lm_apollo_companies SET industry = 'retail' "
                 + "WHERE apollo_account_id = 'c1'");
 
         assertThat(energyCount(admin)).isEqualTo(1);

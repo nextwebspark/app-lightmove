@@ -17,13 +17,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * <p>{@code reset()} first, always. Testcontainers reuses one database across the suite, so a test
  * that skipped it would count another test's companies and pass or fail depending on ordering.
  *
- * <p>It also clears the universe caches, which is why it takes a {@link UniverseReloadWatch}. The
- * reads over this table are cached process-wide and the Spring context is shared across the suite, so
- * without this one test's facet counts are served to the next and the failure looks like a data bug
- * rather than a stale cache. Clearing here rather than disabling caching under the test profile is
- * deliberate: {@code reset()} <i>means</i> "the universe changed", which is precisely the event the
- * cache is invalidated by — and a suite that never exercises the cache is a suite that stays green
- * while the cache is broken.
+ * <p>It also clears the universe caches, which is why it takes a {@link UniverseReloadWatch}: those
+ * reads are cached process-wide and the Spring context is shared across the suite, so otherwise one
+ * test's facet counts are served to the next. Clearing here rather than disabling caching under the
+ * test profile is deliberate — a suite that never exercises the cache stays green while it is broken.
  */
 public final class ApolloUniverse {
 
@@ -38,7 +35,7 @@ public final class ApolloUniverse {
     /** Empty the universe and forget everything cached about it. Call from {@code @BeforeEach}. */
     public void reset() {
         db.execute("DELETE FROM app_lm_apollo_companies");
-        reloadWatch.forgetUniverse();
+        reloadWatch.resetBaseline();
     }
 
     /**
@@ -46,7 +43,7 @@ public final class ApolloUniverse {
      * the next read to see it. Ordinary tests want {@link #reset()}.
      */
     public void evictCaches() {
-        reloadWatch.evictAll();
+        reloadWatch.resetBaseline();
     }
 
     /** A company to be filled in and inserted. */

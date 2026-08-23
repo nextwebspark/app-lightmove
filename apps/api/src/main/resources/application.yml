@@ -194,35 +194,22 @@ lightmove:
       # truncated. Above CompanyListSettings.MAX_BULK_ADD_LIMIT the application refuses to start.
       bulk-add-limit: ${COMPANY_BULK_ADD_LIMIT:200}
 
-    # The in-process caches over the universe. Everything here is ETL-owned reference data the
-    # application only reads and every workspace reads identically, so the one event that makes any of
-    # it stale is the pipeline reloading the table.
-    #
-    # These TTLs are the backstop, not the mechanism: UniverseFingerprint checks (count, max(updated_at))
-    # at most once per reload-check-interval on the read path and clears every cache the moment the pair
-    # moves. Deliberately NOT a @Scheduled task — Cloud Run throttles CPU to near-zero between requests
-    # unless --no-cpu-throttling is set, and it is not, so a scheduled check would fire late or not at
-    # all. Riding a request means the check happens when there is traffic, which is when staleness costs
-    # anything.
-    #
-    # The caches are per instance and cold starts wipe them. With --max-instances 2 that is two copies
-    # warming independently, which is correct for read-only reference data — unlike the rate limiter
-    # above, where per-instance state is a real limitation (#17).
+    # The in-process caches over the universe. These TTLs are the backstop, not the mechanism —
+    # UniverseReloadWatch notices a pipeline reload well inside them; see that class for why.
+    # Per instance, and cold starts wipe them, which is fine for read-only reference data.
     cache:
       # Off sends every read to Postgres, exactly as it behaved before caching existed.
       enabled: ${COMPANY_CACHE_ENABLED:true}
 
-      # The five filter accordions: ~15 aggregate scans over all 71,822 rows, identical for every
-      # workspace, every mandate and every user. Long, because the fingerprint catches a reload first.
+      # The five filter accordions: ~15 aggregate scans over all 71,822 rows, identical for everyone.
       facets-ttl: ${COMPANY_CACHE_FACETS_TTL:6h}
 
-      # The picker typeahead. Bounded by entry count because the key is user-typed text: an unbounded
-      # cache here is a memory leak fed by whoever is typing.
+      # The picker typeahead. Bounded because the key is user-typed text.
       typeahead-ttl: ${COMPANY_CACHE_TYPEAHEAD_TTL:1h}
       typeahead-max-entries: ${COMPANY_CACHE_TYPEAHEAD_MAX_ENTRIES:2000}
 
-      # The Strategy table's filtered count and page. The count is the valuable half — it is identical
-      # across every page turn and every sort change of one mandate, and the value is a single Long.
+      # The Strategy table's filtered count and page. Also partly user-keyed (the ?q= name filter),
+      # so also bounded.
       scope-ttl: ${COMPANY_CACHE_SCOPE_TTL:1h}
       scope-count-max-entries: ${COMPANY_CACHE_SCOPE_COUNT_MAX_ENTRIES:5000}
       scope-page-max-entries: ${COMPANY_CACHE_SCOPE_PAGE_MAX_ENTRIES:1000}

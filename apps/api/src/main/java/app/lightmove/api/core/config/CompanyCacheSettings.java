@@ -11,12 +11,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * the universe. The TTLs below are the backstop for that; {@code UniverseFingerprint} is what actually
  * notices, and {@code reloadCheckInterval} is how often it is allowed to look.
  *
- * <p>The maximum sizes are entry counts, not bytes, and they are the reason this is configuration
- * rather than three constants. A typeahead key is user-typed text, so its key space is unbounded and
- * an unbounded cache would be a slow memory leak fed by whoever is typing; the page cache holds up to
- * {@code lightmove.company.list.max-page-size} rows per entry, which is the widest value here. The
- * numbers are sized for the 1 GiB Cloud Run container the service actually runs in — see the compact
- * constructor for the ceiling and why it exists.
+ * <p>The maximum sizes are entry counts. Every cache here has a partly caller-supplied key — the
+ * typeahead's query, and the scope's {@code nameQuery} — so all of them are bounded, or they would be
+ * slow memory leaks fed by whoever is typing.
  */
 public record CompanyCacheSettings(
 
@@ -53,15 +50,10 @@ public record CompanyCacheSettings(
 ) {
 
     /**
-     * The ceiling on every {@code *MaxEntries} value, enforced at startup rather than discovered as an
-     * OutOfMemoryError in production.
-     *
-     * <p>The page cache is what sets it. One entry holds up to {@code max-page-size} (100) {@code
-     * CompanyRow}s, each carrying {@code short_description}, so a single entry can run to tens of
-     * kilobytes. The container is 1 GiB with {@code -XX:MaxRAMPercentage=75.0} — about 768 MB of heap —
-     * serving up to 80 concurrent requests, so a mistyped size here is not a slow degradation but a
-     * dead instance. Anything genuinely needing more than this wants a shared cache, not a bigger
-     * in-process one.
+     * The ceiling on every {@code *MaxEntries} value, enforced at startup rather than found as an
+     * OutOfMemoryError. The page cache sets it: one entry holds up to {@code max-page-size} (100)
+     * {@code CompanyRow}s carrying {@code short_description}, against ~768 MB of heap
+     * ({@code -XX:MaxRAMPercentage=75.0} on a 1 GiB container) at 80 concurrent requests.
      */
     public static final int MAX_CACHE_ENTRIES = 50_000;
 
@@ -82,11 +74,7 @@ public record CompanyCacheSettings(
         }
     }
 
-    /**
-     * Zero is rejected rather than read as "never cache". Caffeine treats a zero {@code
-     * expireAfterWrite} as evict-immediately, so the caches would be built, reported as present, and
-     * hold nothing — the switch for that is {@link #enabled}, which says so.
-     */
+    /** Zero would build caches that hold nothing; the switch for "never cache" is {@link #enabled}. */
     private static void requirePositive(String key, Duration value) {
         if (value.isZero() || value.isNegative()) {
             throw new IllegalArgumentException("lightmove.company.cache." + key

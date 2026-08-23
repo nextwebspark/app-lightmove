@@ -67,8 +67,8 @@ class CompanyCacheSettingsTest {
     }
 
     @Test
-    @DisplayName("the shipped defaults bind")
-    void acceptsTheShippedDefaults() {
+    @DisplayName("a valid configuration binds")
+    void acceptsAValidConfiguration() {
         CompanyCacheSettings settings = with(2_000, 5_000, 1_000);
         assertThat(settings.enabled()).isTrue();
         assertThat(settings.typeaheadMaxEntries()).isEqualTo(2_000);

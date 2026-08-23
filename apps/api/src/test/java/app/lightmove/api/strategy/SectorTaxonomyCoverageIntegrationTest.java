@@ -2,8 +2,10 @@ package app.lightmove.api.strategy;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.strategy.service.SectorTaxonomy;
+import app.lightmove.api.strategy.service.UniverseReloadWatch;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -30,10 +32,13 @@ class SectorTaxonomyCoverageIntegrationTest {
 
     @Autowired JdbcTemplate db;
     @Autowired SectorTaxonomy taxonomy;
+    @Autowired UniverseReloadWatch reloadWatch;
 
     @BeforeEach
     void freshUniverse() {
-        db.execute("DELETE FROM app_lm_apollo_companies");
+        // Through the helper rather than a raw DELETE: this test reads via SQL only, so it would not
+        // notice a stale cache itself, but it shares a Spring context with tests that would.
+        new ApolloUniverse(db, reloadWatch).reset();
     }
 
     @Test
