@@ -18,9 +18,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * that skipped it would count another test's companies and pass or fail depending on ordering.
  *
  * <p>It also clears the universe caches, which is why it takes a {@link UniverseReloadWatch}: those
- * reads are cached process-wide and the Spring context is shared across the suite, so otherwise one
- * test's facet counts are served to the next. Clearing here rather than disabling caching under the
- * test profile is deliberate — a suite that never exercises the cache stays green while it is broken.
+ * reads are cached process-wide and one Spring context is shared across the suite, so otherwise one
+ * test's facet counts are served to the next.
  */
 public final class ApolloUniverse {
 

@@ -289,6 +289,46 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the refusal reads the universe live, not a total cached before it grew")
+    void bulkAddGateIgnoresACachedTotal() throws Exception {
+        // Regression test. count(scope) is @Cacheable, and this gate decides whether rows are written
+        // permanently. When the gate read through that cache, a total cached while the filter matched
+        // little would clear it after a pipeline reload had grown the match — and the LIMITed query
+        // that follows would then store an arbitrary slice, which is the exact silent choice this
+        // refusal exists to prevent. The write path must read live.
+        String admin = adminOf("Universe Stale Gate Firm");
+        String projectId = project(admin);
+        universe.company("a1", "Energy One").industry("oil & energy").employees(100).insert();
+        universe.company("a2", "Energy Two").industry("oil & energy").employees(90).insert();
+        putFilter(admin, projectId, """
+                {"filter":{"industries":["oil & energy"],"marketSegments":[],"countries":[],
+                           "employeeBands":[],"revenueBands":[]}}""");
+
+        // Populate the count cache at 2, which is under the test profile's bulk-add-limit of 5.
+        mvc.perform(get("/api/v1/projects/" + projectId + "/strategy/companies")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(2));
+
+        // The universe grows behind the cache's back, exactly as an ETL reload would.
+        for (int index = 3; index <= 8; index++) {
+            universe.company("a" + index, "Energy " + index).industry("oil & energy")
+                    .employees(100 - index).insert();
+        }
+
+        MvcResult refused = mvc.perform(post(triageUrl(projectId) + "/from-filter")
+                        .header("Authorization", "Bearer " + admin))
+                .andReturn();
+        assertThat(refused.getResponse().getStatus()).isEqualTo(409);
+        assertThat(codeOf(refused)).isEqualTo("BULK_ADD_SCOPE_TOO_LARGE");
+        // 8, not the 2 the cache still holds.
+        assertThat(body(refused).get("detail").asText()).contains("8");
+
+        mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.totalCount").value(0));
+    }
+
+    @Test
     @DisplayName("bulk add re-run skips what the mandate holds and never resurrects a declined company")
     void bulkAddDoesNotResurrectDeclined() throws Exception {
         String admin = adminOf("Universe Rerun Firm");

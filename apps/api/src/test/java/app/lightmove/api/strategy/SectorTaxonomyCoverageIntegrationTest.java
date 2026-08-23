@@ -36,8 +36,8 @@ class SectorTaxonomyCoverageIntegrationTest {
 
     @BeforeEach
     void freshUniverse() {
-        // Through the helper rather than a raw DELETE: this test reads via SQL only, so it would not
-        // notice a stale cache itself, but it shares a Spring context with tests that would.
+        // Through the helper rather than a raw DELETE, for uniformity: every other test empties the
+        // universe this way, and one copy of the bare statement is one place to forget the caches.
         new ApolloUniverse(db, reloadWatch).reset();
     }
 

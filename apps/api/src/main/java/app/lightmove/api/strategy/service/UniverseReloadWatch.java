@@ -1,8 +1,8 @@
 package app.lightmove.api.strategy.service;
 
 import app.lightmove.api.core.config.CacheConfig;
+import app.lightmove.api.core.config.CompanyCacheSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -10,7 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 /**
  * Notices that the pipeline has reloaded the company universe, and clears every cache over it.
@@ -19,10 +19,8 @@ import org.springframework.stereotype.Component;
  * {@code app_lm_apollo_companies}, by hand and on no schedule this application can know. A TTL alone
  * would serve counts known to be wrong for whatever is left on it.
  *
- * <p><b>Not {@code @Scheduled}.</b> Cloud Run throttles CPU to near-zero between requests here —
- * {@code --min-instances 0}, no {@code --no-cpu-throttling} (see {@code ops/gcp/deploy.sh}) — so a
- * scheduled task would fire late, in bursts, or not at all. Riding the read path means the check
- * happens when there is traffic, which is when staleness costs anything.
+ * <p>Not {@code @Scheduled}: Cloud Run throttles CPU to near-zero between requests here
+ * ({@code --min-instances 0}, no {@code --no-cpu-throttling} in {@code ops/gcp/deploy.sh}).
  *
  * <p><b>Callers are controllers, and must stay controllers.</b> {@code @Cacheable} short-circuits the
  * method body, so a check moved inside {@code ApolloCompanyQueryService} would never run on a cache
@@ -30,13 +28,13 @@ import org.springframework.stereotype.Component;
  * {@code @Transactional} method: a failed probe would abort the transaction the reads then use.
  */
 @Slf4j
-@Component
+@Service
 public class UniverseReloadWatch {
 
     /**
      * Both halves: {@code max(updated_at)} cannot see a reload that only removed rows, {@code count(*)}
-     * can. Snake-case aliases because Postgres folds an unquoted identifier to lower case, so
-     * {@code AS companyCount} arrives as {@code companycount} and the record mapper misses it.
+     * can. Snake-case aliases to match the table's own column naming, and because the mapper resolves
+     * them directly rather than through its lower-case-first fallback.
      */
     private static final String FINGERPRINT_SQL = """
             SELECT count(*) AS company_count, max(updated_at) AS last_loaded_at
@@ -45,15 +43,14 @@ public class UniverseReloadWatch {
 
     private final JdbcClient jdbc;
     private final CacheManager caches;
-    private final Duration checkInterval;
+    /** Off means there is nothing to invalidate, so the probe is pure cost. */
+    private final boolean enabled;
+    private final long checkIntervalNanos;
 
     /** Null until the first probe, which therefore only records — "never looked" is not a change. */
     private final AtomicReference<UniverseFingerprint> lastSeen = new AtomicReference<>();
 
-    /**
-     * {@code nanoTime}, not {@code currentTimeMillis}: an NTP step backwards would make the elapsed
-     * time negative, read as "checked recently", and suspend detection for the length of the step.
-     */
+    /** {@code nanoTime}: a wall clock stepping backwards would suspend detection for the step. */
     private final AtomicLong lastCheckedAt;
 
     // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
@@ -61,15 +58,20 @@ public class UniverseReloadWatch {
     public UniverseReloadWatch(JdbcClient jdbc, CacheManager caches, LightMoveProperties properties) {
         this.jdbc = jdbc;
         this.caches = caches;
-        this.checkInterval = properties.company().cache().reloadCheckInterval();
-        this.lastCheckedAt = new AtomicLong(System.nanoTime() - checkInterval.toNanos());
+        CompanyCacheSettings config = properties.company().cache();
+        this.enabled = config.enabled();
+        this.checkIntervalNanos = config.reloadCheckInterval().toNanos();
+        this.lastCheckedAt = new AtomicLong(System.nanoTime() - checkIntervalNanos);
     }
 
     /** Called before serving a universe read. Returns at once unless this caller owes the check. */
     public void checkForReload() {
+        if (!enabled) {
+            return;
+        }
         long now = System.nanoTime();
         long lastChecked = lastCheckedAt.get();
-        if (now - lastChecked < checkInterval.toNanos()) {
+        if (now - lastChecked < checkIntervalNanos) {
             return;
         }
         // Claim the slot before probing, not after: two callers arriving together must produce one
@@ -83,6 +85,11 @@ public class UniverseReloadWatch {
     /**
      * A failed probe must not fail the request carrying it: the worst case of an unreadable
      * fingerprint is a cache one TTL stale, which is the behaviour without this class at all.
+     *
+     * <p>One window stays open, deliberately. A read that missed and is still running when the clear
+     * happens will write its pre-reload value in afterwards, and the fingerprint has already advanced
+     * so no later probe will clear it — that entry lives out its TTL. Closing it needs a generation
+     * counter and hand-rolled cache access; the TTL is the backstop until that is worth the code.
      */
     private void probe() {
         UniverseFingerprint current;
@@ -122,15 +129,13 @@ public class UniverseReloadWatch {
     public void resetBaseline() {
         clearCaches();
         lastSeen.set(null);
-        lastCheckedAt.set(System.nanoTime() - checkInterval.toNanos());
+        lastCheckedAt.set(System.nanoTime() - checkIntervalNanos);
     }
 
     /**
      * What the universe looked like the last time anyone asked.
      *
-     * <p>{@code lastLoadedAt} is null on an empty universe — a fresh schema creates this ETL-owned
-     * table with no rows. Left nullable rather than coalesced to {@code -infinity}, whose JDBC
-     * mapping varies by driver version; record equality handles the null.
+     * <p>{@code lastLoadedAt} is null on an empty universe, which record equality handles.
      */
     record UniverseFingerprint(long companyCount, Instant lastLoadedAt) {}
 }

@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MvcResult;
 
 /**
@@ -33,6 +34,10 @@ import org.springframework.test.web.servlet.MvcResult;
  */
 @IntegrationTest
 @Import(RecordingEmailSender.Config.class)
+// Pinned high rather than left on the production default: every test here needs the cache to survive
+// a seed made behind its back, and a future tuning of that default would otherwise turn these into
+// silent false passes rather than failures.
+@TestPropertySource(properties = "lightmove.company.cache.reload-check-interval=1h")
 class CompanyCacheIntegrationTest extends FlowTestSupport {
 
     @Autowired JdbcTemplate db;
@@ -84,10 +89,19 @@ class CompanyCacheIntegrationTest extends FlowTestSupport {
         assertThat(labels(facets.get("employeeBands"))).isNotEmpty();
         assertThat(labels(facets.get("revenueBands"))).contains("Unknown");
 
-        // Every section distinct: the collision would make at least two of them identical.
-        assertThat(labels(facets.get("countries")))
-                .isNotEqualTo(labels(facets.get("marketSegments")))
-                .isNotEqualTo(labels(facets.get("revenueBands")));
+        // Every section distinct, compared pairwise. Chaining both isNotEqualTo onto one subject —
+        // which is what this did first — only ever compares that subject, so the marketSegments and
+        // revenueBands pair went unchecked while the comment claimed otherwise.
+        List<List<String>> sections = List.of(
+                labels(facets.get("marketSegments")),
+                labels(facets.get("countries")),
+                labels(facets.get("employeeBands")),
+                labels(facets.get("revenueBands")));
+        for (int i = 0; i < sections.size(); i++) {
+            for (int j = i + 1; j < sections.size(); j++) {
+                assertThat(sections.get(i)).isNotEqualTo(sections.get(j));
+            }
+        }
     }
 
     @Test

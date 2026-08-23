@@ -80,10 +80,7 @@ public class StrategyController {
      * The results table. The scope is resolved server-side from the saved filter; the caller supplies
      * only the name query, the page and the sort, none of which widens what they can see.
      *
-     * <p>The reload check runs here rather than in the service because the service method is
-     * {@code @Transactional}: a probe that failed inside it would abort the Postgres transaction, and
-     * the two reads that follow would fail on a connection the caught exception had already poisoned
-     * — turning a swallowed hiccup into the 500 it was swallowed to prevent.
+     * <p>The reload check is here, not in the service — see {@link UniverseReloadWatch}.
      */
     @GetMapping("/companies")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")

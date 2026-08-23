@@ -149,7 +149,11 @@ public class TriageCompanyService {
                                                HttpServletRequest httpRequest) {
         CompanyScope scope = strategy.scopeOf(workspaceId, projectId);
         int limit = listConfig.bulkAddLimit();
-        long matching = market.count(scope);
+        // Uncached, and so is the search below: the gate and the rows it admits must describe the
+        // same universe. A cached total taken before a pipeline reload could clear the gate that the
+        // fresh query then fills with an arbitrary slice of a much larger match — the silent choice
+        // this refusal exists to prevent, and stored permanently once written.
+        long matching = market.countUncached(scope);
         if (matching > limit) {
             // Interpolated into a user-facing message, which the class doc otherwise reserves for
             // literals. Neither number came from the caller: the scope is the mandate's stored filter
@@ -159,8 +163,8 @@ public class TriageCompanyService {
                             .formatted(matching, limit));
         }
 
-        List<CompanyRow> rows = market.search(scope, CompanySortField.EMPLOYEES, SortDirection.DESC,
-                0, limit);
+        List<CompanyRow> rows = market.searchUncached(scope, CompanySortField.EMPLOYEES,
+                SortDirection.DESC, 0, limit);
 
         // No read-then-filter: the insert ignores the companies the mandate already holds, so the
         // count it answers with is the number that were new. A row already declined stays declined —

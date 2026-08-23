@@ -98,11 +98,7 @@
 			<version>${bucket4j.version}</version>
 		</dependency>
 
-		<!--
-			Caffeine backs two unrelated things: the rate limiter's token buckets, and the company
-			universe caches. The starter adds only Spring's cache abstraction and @EnableCaching
-			support - Caffeine itself was already here for the limiter.
-		-->
+		<!-- Caffeine was already here for the rate limiter; the starter adds only the abstraction. -->
 		<dependency>
 			<groupId>com.github.ben-manes.caffeine</groupId>
 			<artifactId>caffeine</artifactId>

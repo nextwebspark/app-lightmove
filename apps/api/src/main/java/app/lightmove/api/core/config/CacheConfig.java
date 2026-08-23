@@ -15,9 +15,7 @@ import org.springframework.context.annotation.Configuration;
  * The caches over the company universe, and the only ones the application has. Why they are safe to
  * share process-wide is argued on {@code ApolloCompanyQueryService}; read that before adding one here.
  *
- * <p>{@link SimpleCacheManager} rather than {@code CaffeineCacheManager}, which mints a cache on
- * demand for any name asked of it — so a typo in a {@code @Cacheable} name would yield a silent
- * second cache, unbounded and never expiring, that nothing ever clears.
+ * <p>{@link SimpleCacheManager} so an unknown cache name fails the call rather than minting one.
  */
 @Configuration
 @EnableCaching
@@ -44,14 +42,12 @@ public class CacheConfig {
     public static final List<String> COMPANY_UNIVERSE_CACHES =
             List.of(COMPANY_FACETS, COMPANY_TYPEAHEAD, COMPANY_SCOPE_COUNT, COMPANY_SCOPE_PAGE);
 
-    /** One per {@code key = "'…'"} literal in {@code ApolloCompanyQueryService}; grep there if a sixth is added. */
-    private static final int FACET_ENTRIES = 5;
+    /** Five keys today, with headroom: a sixth added upstream must not silently thrash at exactly 5. */
+    private static final int FACET_ENTRIES = 16;
 
     @Bean
     public CacheManager cacheManager(LightMoveProperties properties) {
         CompanyCacheSettings config = properties.company().cache();
-        // A no-op manager rather than skipping @EnableCaching: the annotations stay in place and
-        // inert, so switching this off is a configuration change and not a different code path.
         if (!config.enabled()) {
             return new NoOpCacheManager();
         }
@@ -65,10 +61,7 @@ public class CacheConfig {
         return manager;
     }
 
-    /**
-     * {@code expireAfterWrite}, never {@code expireAfterAccess}: an entry kept fresh by being read
-     * often is exactly the one most likely to be wrong after a reload.
-     */
+    /** {@code expireAfterWrite}: a hot entry is the one most likely to be wrong after a reload. */
     private static CaffeineCache cache(String name, Duration ttl, int maximumEntries) {
         return new CaffeineCache(name, Caffeine.newBuilder()
                 .expireAfterWrite(ttl)

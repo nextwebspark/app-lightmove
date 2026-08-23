@@ -4,8 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.context.properties.bind.BindException;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
 
 /**
  * The cache bounds, enforced when the settings bind rather than when the heap runs out.
@@ -64,6 +68,31 @@ class CompanyCacheSettingsTest {
                 Duration.ofMinutes(-1)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("reload-check-interval");
+    }
+
+    @Test
+    @DisplayName("an absent cache block binds to the defaults rather than to null")
+    void anAbsentBlockBindsToDefaults() {
+        // The constructor cases below cannot catch this: they never touch the binder, so a removed
+        // cache: block or a renamed key passes all of them and NPEs at startup instead.
+        CompanySettings bound = new Binder(new MapConfigurationPropertySource(
+                Map.of("lightmove.company.list.bulk-add-limit", "5")))
+                .bind("lightmove.company", CompanySettings.class)
+                .get();
+
+        assertThat(bound.cache()).isNotNull();
+        assertThat(bound.cache().enabled()).isTrue();
+    }
+
+    @Test
+    @DisplayName("an out-of-range value fails the bind rather than the first request")
+    void anOutOfRangeValueFailsTheBind() {
+        Binder binder = new Binder(new MapConfigurationPropertySource(Map.of(
+                "lightmove.company.cache.scope-page-max-entries",
+                String.valueOf(CompanyCacheSettings.MAX_PAGE_CACHE_ENTRIES + 1))));
+
+        assertThatThrownBy(() -> binder.bind("lightmove.company", CompanySettings.class).get())
+                .isInstanceOf(BindException.class);
     }
 
     @Test
