@@ -96,6 +96,22 @@ class CompanyCacheSettingsTest {
     }
 
     @Test
+    @DisplayName("a nanosecond reload interval binds and stays positive")
+    void aNanosecondReloadIntervalBinds() {
+        // UniverseReloadWatchIntegrationTest sets exactly this, so that every request owes a probe;
+        // anything a request could finish inside lets the second of two consecutive calls skip its
+        // check and serve a stale cache, which is how that test failed on CI at 10ms. Asserted here
+        // because a duration the binder rejects would surface as a context-load failure over there,
+        // where the cause is far less obvious.
+        CompanySettings bound = new Binder(new MapConfigurationPropertySource(
+                Map.of("lightmove.company.cache.reload-check-interval", "1ns")))
+                .bind("lightmove.company", CompanySettings.class)
+                .get();
+
+        assertThat(bound.cache().reloadCheckInterval()).isEqualTo(Duration.ofNanos(1));
+    }
+
+    @Test
     @DisplayName("a valid configuration binds")
     void acceptsAValidConfiguration() {
         CompanyCacheSettings settings = with(2_000, 5_000, 1_000);

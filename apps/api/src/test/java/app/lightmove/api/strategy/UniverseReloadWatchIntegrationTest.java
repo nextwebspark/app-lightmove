@@ -31,7 +31,12 @@ import org.springframework.test.web.servlet.MvcResult;
  */
 @IntegrationTest
 @Import(RecordingEmailSender.Config.class)
-@TestPropertySource(properties = "lightmove.company.cache.reload-check-interval=10ms")
+// 1ns, not a "small" interval: this test needs the probe to run on EVERY request, and any
+// duration a request could finish inside reintroduces the race it is meant to exclude — at
+// 10ms two consecutive MockMvc calls both landed in one window on CI, the second skipped its
+// probe, and the eviction under test never fired. The throttle measures nanoTime, so 1ns is
+// exact rather than approximate; zero is refused because it would read as "never cache".
+@TestPropertySource(properties = "lightmove.company.cache.reload-check-interval=1ns")
 class UniverseReloadWatchIntegrationTest extends FlowTestSupport {
 
     @Autowired JdbcTemplate db;
