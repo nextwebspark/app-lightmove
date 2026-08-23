@@ -9,6 +9,7 @@ import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
+import app.lightmove.api.strategy.service.UniverseReloadWatch;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,12 +30,13 @@ import org.springframework.test.web.servlet.MvcResult;
 class CompanyFacetIntegrationTest extends FlowTestSupport {
 
     @Autowired JdbcTemplate db;
+    @Autowired UniverseReloadWatch reloadWatch;
 
     private ApolloUniverse universe;
 
     @BeforeEach
     void freshUniverse() {
-        universe = new ApolloUniverse(db);
+        universe = new ApolloUniverse(db, reloadWatch);
         universe.reset();
     }
 

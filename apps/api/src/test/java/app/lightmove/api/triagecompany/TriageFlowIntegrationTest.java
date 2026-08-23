@@ -13,6 +13,7 @@ import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.strategy.model.CompanyRow;
+import app.lightmove.api.strategy.service.UniverseReloadWatch;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
 import java.util.List;
 import java.util.UUID;
@@ -39,13 +40,14 @@ import org.springframework.test.web.servlet.MvcResult;
 class TriageFlowIntegrationTest extends FlowTestSupport {
 
     @Autowired JdbcTemplate db;
+    @Autowired UniverseReloadWatch reloadWatch;
     @Autowired TriageCompanyWriter writer;
 
     private ApolloUniverse universe;
 
     @BeforeEach
     void freshUniverse() {
-        universe = new ApolloUniverse(db);
+        universe = new ApolloUniverse(db, reloadWatch);
         universe.reset();
     }
 
