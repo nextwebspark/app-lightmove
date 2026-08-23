@@ -1,5 +1,6 @@
 package app.lightmove.api;
 
+import app.lightmove.api.strategy.service.UniverseReloadWatch;
 import java.sql.Array;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,18 +16,29 @@ import org.springframework.jdbc.core.JdbcTemplate;
  *
  * <p>{@code reset()} first, always. Testcontainers reuses one database across the suite, so a test
  * that skipped it would count another test's companies and pass or fail depending on ordering.
+ *
+ * <p>It also clears the universe caches: those reads are cached process-wide and one Spring context is
+ * shared across the suite, so otherwise one test's facet counts are served to the next.
  */
 public final class ApolloUniverse {
 
     private final JdbcTemplate db;
+    private final UniverseReloadWatch reloadWatch;
 
-    public ApolloUniverse(JdbcTemplate db) {
+    public ApolloUniverse(JdbcTemplate db, UniverseReloadWatch reloadWatch) {
         this.db = db;
+        this.reloadWatch = reloadWatch;
     }
 
-    /** Empty the universe. Call from {@code @BeforeEach} in any test that reads it. */
+    /** Empty the universe and forget everything cached about it. Call from {@code @BeforeEach}. */
     public void reset() {
         db.execute("DELETE FROM app_lm_apollo_companies");
+        reloadWatch.resetBaseline();
+    }
+
+    /** Forget what is cached without touching the rows. Ordinary tests want {@link #reset()}. */
+    public void evictCaches() {
+        reloadWatch.resetBaseline();
     }
 
     /** A company to be filled in and inserted. */

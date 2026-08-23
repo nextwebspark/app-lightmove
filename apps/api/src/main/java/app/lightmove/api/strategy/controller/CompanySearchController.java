@@ -9,6 +9,7 @@ import app.lightmove.api.strategy.dto.CompanySuggestionsResponse;
 import app.lightmove.api.strategy.dto.FacetsResponse;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
+import app.lightmove.api.strategy.service.UniverseReloadWatch;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -32,12 +33,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class CompanySearchController {
 
     private final ApolloCompanyQueryService companies;
+    private final UniverseReloadWatch reloadWatch;
     private final CompanySearchSettings searchConfig;
 
     // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
     // properties root rather than taking it, which is the one case the Lombok rule exempts.
-    public CompanySearchController(ApolloCompanyQueryService companies, LightMoveProperties properties) {
+    public CompanySearchController(ApolloCompanyQueryService companies, UniverseReloadWatch reloadWatch,
+                                   LightMoveProperties properties) {
         this.companies = companies;
+        this.reloadWatch = reloadWatch;
         this.searchConfig = properties.company().search();
     }
 
@@ -45,6 +49,7 @@ public class CompanySearchController {
     @GetMapping("/facets")
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
     public ResponseEntity<FacetsResponse> facets() {
+        reloadWatch.checkForReload();
         return ResponseEntity.ok(new FacetsResponse(
                 companies.sectorGroups(),
                 companies.marketSegmentFacets(),
@@ -78,6 +83,7 @@ public class CompanySearchController {
                     "limit must be between 1 and " + searchConfig.maxResultLimit());
         }
         int resolvedLimit = limit == null ? searchConfig.defaultResultLimit() : limit;
+        reloadWatch.checkForReload();
         return ResponseEntity.ok(new CompanySuggestionsResponse(
                 companies.typeahead(trimmed, resolvedLimit).stream()
                         .map(CompanySearchController::toSuggestion)

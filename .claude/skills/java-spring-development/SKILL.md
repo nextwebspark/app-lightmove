@@ -258,6 +258,15 @@ method plus the records it returns — never another feature's internals:
   learns how a mandate's filter is stored, validated or translated — and `ApolloCompanyQueryService`
   for the universe counts beside it. `project`'s `ClientService` uses the same service to resolve the
   company a new client record names.
+- `project`'s `ReportController` calls `strategy`'s `UniverseReloadWatch.checkForReload()`. **The one
+  seam whose caller is a controller rather than a service**, and it has to be, which is the part worth
+  knowing before "tidying" it downwards. The universe reads are `@Cacheable`, and a `@Cacheable`
+  method short-circuits its own body on a hit — so a reload check moved inside
+  `ApolloCompanyQueryService` would never run in exactly the case it exists for. It cannot sit in
+  `ReportService` either: that method is `@Transactional`, and a probe failing inside it aborts the
+  Postgres transaction the cached reads then use, turning a deliberately swallowed error into a 500.
+  The controller is the only layer left. `CompanySearchController` and `StrategyController` call it
+  for the same reason; those are within `strategy` and so are not seams at all.
 
 A further seam is sanctioned for client representatives: `project`'s `ClientRepresentativeService`
 calls `workspace`'s `InvitationService.onboardClientRepresentative` to grant membership (a representative

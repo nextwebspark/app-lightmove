@@ -1,5 +1,6 @@
 package app.lightmove.api.strategy.service;
 
+import app.lightmove.api.strategy.config.CompanyCacheConfig;
 import app.lightmove.api.strategy.constant.CompanySortField;
 import app.lightmove.api.strategy.constant.EmployeeBand;
 import app.lightmove.api.strategy.constant.RevenueBand;
@@ -20,6 +21,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -50,6 +52,11 @@ import org.springframework.stereotype.Service;
  * matches the mockup, and it is the more useful reading: a chip that answered "how many are left"
  * would keep changing under the hand that is trying to decide how big a slice of the market it
  * represents. It also means the five accordions are one cacheable read that no filter invalidates.
+ *
+ * <p>Every read below is cached and shared across workspaces, which is safe only because none takes a
+ * workspace, a project or a user. <b>A filter axis drawing on mandate-specific data — "exclude
+ * companies already triaged into <i>this</i> project" — would make the scope an incomplete key and
+ * serve one mandate's answer to another.</b> Adding one means re-keying these caches.
  */
 @Service
 @RequiredArgsConstructor
@@ -65,8 +72,28 @@ public class ApolloCompanyQueryService {
     private final SectorTaxonomy taxonomy;
     private final MarketSegments marketSegments;
 
-    /** How many companies the scope matches. An empty scope is the whole universe, not nothing. */
+    // Cached reads return immutable lists: a cache hands the same instance to every caller, so one
+    // that sorted what it got back would rewrite the answer every later request receives.
+
+    /**
+     * How many companies the scope matches. An empty scope is the whole universe, not nothing.
+     */
+    @Cacheable(cacheNames = CompanyCacheConfig.COMPANY_SCOPE_COUNT,
+            // Same condition as the page below, for the same reason and one more: the key is the whole
+            // scope, off-limits list included, so a name query mints a fat key per keystroke that
+            // nothing will read twice. Cached alongside an uncached page, it would also describe a
+            // different universe than the rows beside it.
+            condition = "#scope.nameQuery() == null")
     public long count(CompanyScope scope) {
+        return countUncached(scope);
+    }
+
+    /**
+     * The same count, taken now. <b>The write paths must use this.</b> A cached total can clear the
+     * bulk-add gate that the fresh {@code LIMIT} query then fills with an arbitrary slice of a much
+     * larger match — the silent choice that refusal exists to prevent, stored permanently.
+     */
+    public long countUncached(CompanyScope scope) {
         WhereClause where = buildWhere(scope);
         return bind(jdbc.sql("SELECT count(*) FROM app_lm_apollo_companies WHERE " + where.sql()),
                 where.params()).query(Long.class).single();
@@ -77,8 +104,18 @@ public class ApolloCompanyQueryService {
      * supplies the page, the size and the sort; the scope itself is resolved server-side from the
      * mandate's saved filter and never from a request parameter.
      */
+    @Cacheable(cacheNames = CompanyCacheConfig.COMPANY_SCOPE_PAGE,
+            // A name-filtered page is one keystroke of one session; caching it would evict the
+            // unfiltered pages every mandate reuses.
+            condition = "#scope.nameQuery() == null")
     public List<CompanyRow> search(CompanyScope scope, CompanySortField sort, SortDirection direction,
                                    int page, int size) {
+        return searchUncached(scope, sort, direction, page, size);
+    }
+
+    /** The same page, guaranteed to have been read now. For the write paths — see {@link #countUncached}. */
+    public List<CompanyRow> searchUncached(CompanyScope scope, CompanySortField sort,
+                                           SortDirection direction, int page, int size) {
         WhereClause where = buildWhere(scope);
         Map<String, Object> params = new LinkedHashMap<>(where.params());
         String sql = """
@@ -90,7 +127,7 @@ public class ApolloCompanyQueryService {
                 """.formatted(ROW_COLUMNS, where.sql(), sort.orderByTerms(direction));
         params.put("size", size);
         params.put("offset", (long) page * size);
-        return bind(jdbc.sql(sql), params).query(COMPANY_ROW_MAPPER).list();
+        return List.copyOf(bind(jdbc.sql(sql), params).query(COMPANY_ROW_MAPPER).list());
     }
 
     /**
@@ -116,10 +153,16 @@ public class ApolloCompanyQueryService {
      * Name-prefix search for the company pickers — the off-limits list and the client registry. Ranked
      * so a prefix match beats a match buried mid-name, then by size, because the company a consultant
      * means when they type three letters is almost always the biggest one that starts with them.
+     *
+     * <p>{@code Locale.ROOT} is load-bearing: under a Turkish default {@code "I"} and {@code "ı"}
+     * lower-case to one key while Postgres treats them as different queries, so one search would be
+     * served the other's rows. A miss still scans the whole universe — issue #100.
      */
+    @Cacheable(cacheNames = CompanyCacheConfig.COMPANY_TYPEAHEAD,
+            key = "{#limit, #query.toLowerCase(T(java.util.Locale).ROOT)}")
     public List<CompanyRow> typeahead(String query, int limit) {
         String pattern = escapeLikePattern(query);
-        return jdbc.sql("""
+        return List.copyOf(jdbc.sql("""
                         SELECT %s
                         FROM app_lm_apollo_companies
                         WHERE company_name ILIKE :contains ESCAPE '\\'
@@ -132,7 +175,7 @@ public class ApolloCompanyQueryService {
                 .param("prefix", pattern + "%")
                 .param("limit", limit)
                 .query(COMPANY_ROW_MAPPER)
-                .list();
+                .list());
     }
 
     /**
@@ -145,6 +188,7 @@ public class ApolloCompanyQueryService {
      * sidebar entirely. {@code SectorTaxonomyCoverageIntegrationTest} asserts that set is empty
      * against the real table, so this is a guarded impossibility rather than a silent loss.
      */
+    @Cacheable(cacheNames = CompanyCacheConfig.COMPANY_FACETS, key = "'sectorGroups'", sync = true)
     public List<SectorGroup> sectorGroups() {
         Map<String, Long> countByIndustry = new LinkedHashMap<>();
         jdbc.sql("""
@@ -168,7 +212,7 @@ public class ApolloCompanyQueryService {
             groups.add(new SectorGroup(groupName,
                     counted.stream().mapToLong(FacetCount::count).sum(), counted));
         });
-        return groups;
+        return List.copyOf(groups);
     }
 
     /**
@@ -183,6 +227,7 @@ public class ApolloCompanyQueryService {
      * <p>Segments keep the file's order, not size order: this is a short fixed list the eye learns,
      * and re-ranking it on every pipeline load would move the chip out from under the hand.
      */
+    @Cacheable(cacheNames = CompanyCacheConfig.COMPANY_FACETS, key = "'marketSegmentFacets'", sync = true)
     public List<FacetCount> marketSegmentFacets() {
         List<FacetCount> facets = new ArrayList<>();
         marketSegments.segments().forEach((segment, keywords) -> {
@@ -195,13 +240,14 @@ public class ApolloCompanyQueryService {
             long count = bind(jdbc.sql(sql), params).query(Long.class).single();
             facets.add(new FacetCount(segment, segment, count));
         });
-        return facets;
+        return List.copyOf(facets);
     }
 
     /**
      * The Location accordion. Ranked by size, and the live vocabulary is the six GCC countries — which
      * is why the mockup's six fixed chips turned out to be the whole list rather than a sample.
      */
+    @Cacheable(cacheNames = CompanyCacheConfig.COMPANY_FACETS, key = "'countryFacets'", sync = true)
     public List<FacetCount> countryFacets() {
         return jdbc.sql("""
                         SELECT company_country AS label, count(*) AS count
@@ -225,6 +271,7 @@ public class ApolloCompanyQueryService {
      * <p>Bands are returned in enum order, including any that count zero: a band silently missing
      * from the sidebar reads as "no such size", where a zero reads as "none in this market".
      */
+    @Cacheable(cacheNames = CompanyCacheConfig.COMPANY_FACETS, key = "'employeeBandFacets'", sync = true)
     public List<FacetCount> employeeBandFacets() {
         Map<String, Object> params = new LinkedHashMap<>();
         Map<String, Long> counts = bandCounts(employeeBandCase(params), params);
@@ -235,6 +282,7 @@ public class ApolloCompanyQueryService {
     }
 
     /** The Revenue accordion, Unknown included — see {@link RevenueBand#R_UNKNOWN}. */
+    @Cacheable(cacheNames = CompanyCacheConfig.COMPANY_FACETS, key = "'revenueBandFacets'", sync = true)
     public List<FacetCount> revenueBandFacets() {
         Map<String, Object> params = new LinkedHashMap<>();
         Map<String, Long> counts = bandCounts(revenueBandCase(params), params);
@@ -244,18 +292,28 @@ public class ApolloCompanyQueryService {
                 .toList();
     }
 
-    /** The scope's most populous industries, largest first — a report aggregate. */
+    /**
+     * The scope's most populous industries, largest first — a report aggregate.
+     *
+     * <p>Shares a cache with {@link #count} so the report's four numbers move together. The leading
+     * literal in each key is load-bearing: all three take {@code (scope, limit)} and the report calls
+     * two with the same limit ({@code COUNTRY_LIMIT} and {@code CITY_LIMIT} are both 8), so the
+     * default key would print cities under "Countries".
+     */
+    @Cacheable(cacheNames = CompanyCacheConfig.COMPANY_SCOPE_COUNT, key = "{'sector', #scope, #limit}")
     public List<ScopeBreakdown> countBySector(CompanyScope scope, int limit) {
         return breakdown(scope, "industry", "industry IS NOT NULL AND industry <> ''", limit);
     }
 
-    /** The scope's most populous countries, largest first — a report aggregate. */
+    /** The scope's most populous countries, largest first — see {@link #countBySector} on the key. */
+    @Cacheable(cacheNames = CompanyCacheConfig.COMPANY_SCOPE_COUNT, key = "{'country', #scope, #limit}")
     public List<ScopeBreakdown> countByCountry(CompanyScope scope, int limit) {
         return breakdown(scope, "company_country",
                 "company_country IS NOT NULL AND company_country <> ''", limit);
     }
 
-    /** The scope's most populous cities, largest first — a report aggregate. */
+    /** The scope's most populous cities, largest first — see {@link #countBySector} on the key. */
+    @Cacheable(cacheNames = CompanyCacheConfig.COMPANY_SCOPE_COUNT, key = "{'city', #scope, #limit}")
     public List<ScopeBreakdown> countByCity(CompanyScope scope, int limit) {
         return breakdown(scope, "company_city",
                 "company_city IS NOT NULL AND company_city <> ''", limit);
@@ -279,7 +337,7 @@ public class ApolloCompanyQueryService {
                 ORDER BY count(*) DESC, 1
                 LIMIT :groupLimit
                 """.formatted(column, where.sql(), presenceCondition);
-        return bind(jdbc.sql(sql), params).query(ScopeBreakdown.class).list();
+        return List.copyOf(bind(jdbc.sql(sql), params).query(ScopeBreakdown.class).list());
     }
 
     /**

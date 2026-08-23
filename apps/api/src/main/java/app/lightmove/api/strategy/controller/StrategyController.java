@@ -10,6 +10,7 @@ import app.lightmove.api.strategy.dto.StrategyCompaniesResponse;
 import app.lightmove.api.strategy.dto.StrategyResponse;
 import app.lightmove.api.strategy.service.StrategySearchService;
 import app.lightmove.api.strategy.service.StrategyService;
+import app.lightmove.api.strategy.service.UniverseReloadWatch;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -46,6 +47,7 @@ public class StrategyController {
 
     private final StrategyService strategy;
     private final StrategySearchService searches;
+    private final UniverseReloadWatch reloadWatch;
 
     @GetMapping
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
@@ -88,6 +90,7 @@ public class StrategyController {
             @RequestParam(required = false) String direction,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size) {
+        reloadWatch.checkForReload();
         return ResponseEntity.ok(strategy.companies(principal.requireWorkspaceId(), projectId, query,
                 sort, direction, page, size));
     }
