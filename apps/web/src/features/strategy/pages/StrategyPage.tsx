@@ -230,17 +230,24 @@ function StrategyEditor() {
 
       <div className="flex min-h-0 flex-1">
         {showFilters && (
-          <FilterSidebar
-            facets={facets.data}
-            facetsError={facets.isError}
-            filter={filter}
-            offLimits={data?.offLimits ?? []}
-            onChange={applyFilter}
-            onOffLimitsChange={(ids) => offLimitsWrite.mutate(ids)}
-          />
+          <>
+            <div
+              className="fixed inset-0 z-[90] bg-[rgba(15,20,30,0.4)] lg:hidden"
+              onClick={() => setShowFilters(false)}
+            />
+            <FilterSidebar
+              facets={facets.data}
+              facetsError={facets.isError}
+              filter={filter}
+              offLimits={data?.offLimits ?? []}
+              onChange={applyFilter}
+              onOffLimitsChange={(ids) => offLimitsWrite.mutate(ids)}
+              onClose={() => setShowFilters(false)}
+            />
+          </>
         )}
 
-        <div className="flex min-w-0 flex-1 flex-col gap-3 p-5">
+        <div className="flex min-w-0 flex-1 flex-col gap-3 p-3 sm:p-5">
           <CompanyResultsTable
             companies={companies.data?.companies ?? []}
             sort={sort}
