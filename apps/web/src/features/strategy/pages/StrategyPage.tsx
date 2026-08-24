@@ -5,6 +5,7 @@ import type { ProjectOutletContext } from "../../../components/layout/ProjectLay
 import { Spinner } from "../../../components/ui";
 import { useToast } from "../../../components/ui/Toast";
 import { messageFor } from "../../../lib/errorCodes";
+import { hasRoomForRails } from "../../../lib/viewport";
 import { PAGE_SIZE } from "../../../lib/paging";
 import { useAutosave } from "../../../lib/useAutosave";
 import * as reportApi from "../../reports/api/reportApi";
@@ -74,7 +75,7 @@ function StrategyEditor() {
   });
 
   const [filter, setFilter] = useState<StrategyFilter>(() => strategy.data!.filter);
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(hasRoomForRails);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [page, setPage] = useState(0);
