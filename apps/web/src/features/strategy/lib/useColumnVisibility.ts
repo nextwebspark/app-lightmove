@@ -7,8 +7,11 @@ const STORAGE_PREFIX = "lm.strategy.columns.";
  * Which company columns this mandate shows, remembered per project in `localStorage`.
  *
  * <p>Per project because two mandates want different columns, and local because a column tick is
- * not worth an audit event. Absent keys are visible, so a column added later is not hidden by a
- * record written before it existed.
+ * not worth an audit event.
+ *
+ * <p>A stored record is merged over the defaults rather than replacing them, so a column added after
+ * it was written takes its declared default. The other way round — trusting absence to mean visible —
+ * meant every user who had ever opened this screen got the next release's new columns switched on.
  */
 export function useColumnVisibility(projectId: string, initial: ColumnVisibilityState) {
   const [visibility, setVisibility] = useState<ColumnVisibilityState>(() =>
@@ -33,11 +36,12 @@ function read(projectId: string, fallback: ColumnVisibilityState): ColumnVisibil
     const parsed: unknown = JSON.parse(stored);
     // localStorage can hold anything, including a truncated write from another release.
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return fallback;
-    return Object.fromEntries(
+    const ticked = Object.fromEntries(
       Object.entries(parsed as Record<string, unknown>).filter(
         ([, visible]) => typeof visible === "boolean",
       ),
     ) as ColumnVisibilityState;
+    return { ...fallback, ...ticked };
   } catch {
     return fallback;
   }

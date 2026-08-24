@@ -12,7 +12,8 @@ const HIDEABLE = companyColumns
 /**
  * The toolbar's Columns menu. It reads the column definitions rather than the table instance,
  * which lives beside the results. Company and Actions opt out with `enableHiding: false`, so a new
- * column is offered here automatically.
+ * column is offered here automatically — which is why the list scrolls: the universe offers twenty
+ * of them, and the popover would otherwise run off the bottom of the screen.
  */
 export function ColumnPicker({
   visibility,
@@ -43,7 +44,7 @@ export function ColumnPicker({
       )}
     >
       {() => (
-        <div className="flex flex-col">
+        <div className="flex max-h-[60vh] flex-col overflow-y-auto">
           {HIDEABLE.map((column) => (
             <FilterCheckRow
               key={column.id}

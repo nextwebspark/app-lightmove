@@ -1,6 +1,8 @@
 package app.lightmove.api.strategy;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -245,6 +247,31 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.companies[0].companyCity").value("Riyadh"))
                 .andExpect(jsonPath("$.companies[0].numEmployees").value(3000))
                 .andExpect(jsonPath("$.companies[0].foundedYear").value(2004));
+    }
+
+    @Test
+    @DisplayName("the row carries the wider universe columns the Columns menu offers")
+    void rowCarriesTheOfferableColumns() throws Exception {
+        String admin = adminOf("Strategy Wide Row Firm");
+        String projectId = project(admin);
+        universe.company("a1", "ACWA Power").industry("oil & energy").employees(3_000)
+                .linkedin("https://linkedin.com/company/acwapower")
+                .keywords("renewables", "desalination")
+                .technologies("salesforce").insert();
+        universe.company("a2", "Quiet Co").industry("oil & energy").employees(10).insert();
+
+        mvc.perform(get(companiesUrl(projectId)).param("sort", "employees")
+                        .param("direction", "desc")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.companies[0].companyLinkedinUrl")
+                        .value("https://linkedin.com/company/acwapower"))
+                .andExpect(jsonPath("$.companies[0].keywords")
+                        .value(containsInAnyOrder("renewables", "desalination")))
+                .andExpect(jsonPath("$.companies[0].technologies").value(contains("salesforce")))
+                // A NULL text[] reads back as empty, so no caller has to tell it from "none set".
+                .andExpect(jsonPath("$.companies[1].technologies").isEmpty())
+                .andExpect(jsonPath("$.companies[1].companyLinkedinUrl").doesNotExist());
     }
 
     @Test
