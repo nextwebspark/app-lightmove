@@ -3,8 +3,13 @@ import { formatDate } from "../../../lib/format";
 import type { Project, TeamMember } from "../api/types";
 import type { SortKey } from "../lib/filtering";
 
-/** The mandate list: sortable mono headers, stage pills, health dots, overlapping avatar stacks. */
-export function ProjectsTable({
+/**
+ * The mandate list: a sortable table on a wide screen, and a stack of cards below `md`.
+ *
+ * <p>Seven columns is a table people scan, and scanning sideways is not scanning — so the narrow
+ * layout gives each mandate its own card rather than a row to drag around.
+ */
+export function ProjectsList({
   projects,
   sortKey,
   sortDirection,
@@ -28,7 +33,14 @@ export function ProjectsTable({
   const pinned = "sticky start-0 z-[1] bg-panel group-hover:bg-panel2";
 
   return (
-    <div className="overflow-x-auto">
+    <>
+      <div className="flex flex-col gap-2.5 md:hidden">
+        {projects.map((project) => (
+          <ProjectCard key={project.id} project={project} onOpen={() => onOpen(project.id)} />
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto md:block">
       <table className="w-full min-w-[860px] border-collapse">
       <thead>
         <tr>
@@ -93,8 +105,57 @@ export function ProjectsTable({
           </tr>
         ))}
       </tbody>
-      </table>
-    </div>
+        </table>
+      </div>
+    </>
+  );
+}
+
+/** One mandate as a card: the same fields the row carries, stacked for a thumb. */
+function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full flex-col gap-2.5 rounded-[10px] border border-line bg-panel p-3.5 text-left transition hover:bg-panel2"
+    >
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-mono text-[11.5px] font-medium text-text3">
+            {project.clientName}
+          </div>
+          <div className="mt-0.5 text-[13.5px] font-semibold text-text">{project.positionTitle}</div>
+        </div>
+        <HealthDot health={project.health} />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <StagePill stage={project.stage} />
+        <span className="font-mono text-[11px] text-text3">
+          Lead · {leadOf(project.team)?.fullName ?? "—"}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-2.5 border-t border-line-soft pt-2.5">
+        <span className="flex">
+          {project.team.map((seat, index) => (
+            <Avatar
+              key={seat.memberId}
+              id={seat.memberId}
+              name={seat.fullName}
+              src={seat.avatarUrl}
+              size="sm"
+              className={`border-2 border-panel ${index > 0 ? "-ml-[7px]" : ""}`}
+            />
+          ))}
+        </span>
+        <span className="ml-auto font-mono text-[11px] text-text2">
+          <b className="font-semibold text-text">{project.companies}</b> cos ·{" "}
+          <b className="font-semibold text-text">{project.candidates}</b> cand
+        </span>
+        <span className="font-mono text-[11px] text-text3">{formatDate(project.targetDate)}</span>
+      </div>
+    </button>
   );
 }
 

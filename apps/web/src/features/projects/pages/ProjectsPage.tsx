@@ -10,7 +10,7 @@ import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as projectsApi from "../api/projectsApi";
 import { NewProjectModal } from "../components/NewProjectModal";
 import { ProjectDrawer } from "../components/ProjectDrawer";
-import { ProjectsTable } from "../components/ProjectsTable";
+import { ProjectsList } from "../components/ProjectsList";
 import { CHIPS, filterProjects, sortProjects, type ChipKey, type SortKey } from "../lib/filtering";
 
 /**
@@ -163,7 +163,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
         </div>
       </div>
 
-      <ProjectsTable
+      <ProjectsList
         projects={rows}
         sortKey={sortKey}
         sortDirection={sortDirection}

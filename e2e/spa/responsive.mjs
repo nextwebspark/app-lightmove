@@ -16,7 +16,7 @@ const WEB = process.argv[2] ?? process.env.WEB ?? "http://localhost:5173";
 
 /** Set where the sandbox ships a Chromium that the pinned Playwright would otherwise re-download. */
 const EXECUTABLE_PATH = process.env.CHROMIUM_PATH;
-const SHOTS = new URL("./shots/", import.meta.url).pathname;
+const SHOTS = new URL("./screenshots/responsive/", import.meta.url).pathname;
 
 const VIEWPORTS = [
   { name: "phone", width: 390, height: 844 },

@@ -1,8 +1,10 @@
 import { initials } from "../../../lib/format";
 import type { Client, ClientRepStatus, ClientType, ViewerSummary } from "../api/types";
 
-/** The client registry list: type pills, overlapping representative avatars, and a viewers summary. */
-export function ClientsTable({
+/**
+ * The client registry: a table on a wide screen, and a stack of cards below `md`.
+ */
+export function ClientsList({
   clients,
   onOpen,
 }: {
@@ -16,7 +18,14 @@ export function ClientsTable({
   const pinned = "sticky start-0 z-[1] bg-panel group-hover:bg-panel2";
 
   return (
-    <div className="overflow-x-auto">
+    <>
+      <div className="flex flex-col gap-2.5 md:hidden">
+        {clients.map((client) => (
+          <ClientCard key={client.id} client={client} onOpen={() => onOpen(client.id)} />
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto md:block">
       <table className="w-full min-w-[820px] border-collapse">
       <thead>
         <tr>
@@ -61,8 +70,42 @@ export function ClientsTable({
           </tr>
         ))}
       </tbody>
-      </table>
-    </div>
+        </table>
+      </div>
+    </>
+  );
+}
+
+/** One client as a card: the same fields the row carries, stacked for a thumb. */
+function ClientCard({ client, onOpen }: { client: Client; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full flex-col gap-2.5 rounded-[10px] border border-line bg-panel p-3.5 text-left transition hover:bg-panel2"
+    >
+      <div className="flex items-start gap-2.5">
+        <span className="grid size-7 flex-none place-items-center rounded-md bg-amber-dim font-mono text-[10px] font-semibold text-amber">
+          {initials(client.name)}
+        </span>
+        <span className="min-w-0 flex-1 text-[13.5px] font-semibold text-text">{client.name}</span>
+        <span className="flex-none">
+          <TypePill type={client.type} />
+        </span>
+      </div>
+
+      <div className="font-mono text-[11.5px] text-text3">
+        {[client.sector, client.hqCountry].filter(Boolean).join(" · ") || "—"}
+      </div>
+
+      <div className="flex items-center gap-2.5 border-t border-line-soft pt-2.5">
+        <RepStack contacts={client.contacts} />
+        <span className="ml-auto font-mono text-[11px] text-text2">
+          <b className="font-semibold text-text">{client.activeMandates}</b> active
+        </span>
+        <ViewerCell viewers={client.viewers} />
+      </div>
+    </button>
   );
 }
 

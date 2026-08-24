@@ -6,7 +6,7 @@ import { Button, EmptyState, TableSkeleton } from "../../../components/ui";
 import { NewProjectModal } from "../../projects/components/NewProjectModal";
 import * as clientsApi from "../api/clientsApi";
 import { ClientDrawer } from "../components/ClientDrawer";
-import { ClientsTable } from "../components/ClientsTable";
+import { ClientsList } from "../components/ClientsList";
 import { NewClientModal } from "../components/NewClientModal";
 import { CHIPS, filterClients, type ChipKey } from "../lib/filtering";
 
@@ -111,7 +111,7 @@ export function ClientsPage() {
             </div>
           </div>
 
-          <ClientsTable clients={rows} onOpen={setOpenClientId} />
+          <ClientsList clients={rows} onOpen={setOpenClientId} />
 
           {rows.length === 0 && (
             <div className="p-12 text-center font-mono text-[13px] text-text3">
