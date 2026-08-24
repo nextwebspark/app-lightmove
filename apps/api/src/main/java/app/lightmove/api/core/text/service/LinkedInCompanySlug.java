@@ -28,9 +28,9 @@ public final class LinkedInCompanySlug {
     /**
      * {@code linkedin.com} itself or a subdomain of it, and nothing else.
      *
-     * <p>A plain {@code endsWith} is the trap here and it shipped once: {@code notlinkedin.com} ends
-     * with {@code linkedin.com}, so any host an attacker registers under that pattern would have had
-     * its slug matched against the universe as if it were LinkedIn's.
+     * <p>A plain {@code endsWith} is the trap: {@code notlinkedin.com} ends with {@code linkedin.com},
+     * so any host registered under that pattern would have its slug matched against the universe as if
+     * it were LinkedIn's.
      */
     private static boolean isLinkedInHost(String host) {
         if (host == null) {

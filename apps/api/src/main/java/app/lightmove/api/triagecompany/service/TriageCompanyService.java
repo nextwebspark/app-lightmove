@@ -206,15 +206,27 @@ public class TriageCompanyService {
     }
 
     /**
-     * The id the caller sent wins, because the extension resolved it against the same universe a moment
-     * ago and a match by id is exact. Only when it sent none is the page's own web identity tried.
+     * The id the caller sent is tried first, because the extension resolved it against this same
+     * universe a moment ago and a match by id is exact. The page's own web identity is the fallback.
+     *
+     * <p><b>The fallback runs even when an id was supplied and did not resolve, and that is the whole
+     * point of this method.</b> An early return there was a hole: any unresolvable string in this
+     * optional field skipped the web lookup, so a company the universe <i>does</i> publish was written
+     * as a capture, carrying the request's own name and headcount and never meeting
+     * {@code fromUniverse}'s off-limits check. One garbage token turned off both the rule that a client
+     * cannot file a known company under a name of its own choosing and the mandate's off-limits bar.
      */
     private Optional<CompanyRow> resolveAgainstUniverse(CaptureCompanyRequest request) {
-        if (request.apolloAccountId() != null && !request.apolloAccountId().isBlank()) {
-            return market.byAccountIds(List.of(request.apolloAccountId())).stream().findFirst();
+        return namedAccount(request)
+                .or(() -> market.byDomainOrLinkedIn(WebsiteDomain.of(request.website()),
+                        LinkedInCompanySlug.of(request.linkedinUrl())));
+    }
+
+    private Optional<CompanyRow> namedAccount(CaptureCompanyRequest request) {
+        if (request.apolloAccountId() == null || request.apolloAccountId().isBlank()) {
+            return Optional.empty();
         }
-        return market.byDomainOrLinkedIn(WebsiteDomain.of(request.website()),
-                LinkedInCompanySlug.of(request.linkedinUrl()));
+        return market.byAccountIds(List.of(request.apolloAccountId())).stream().findFirst();
     }
 
     private TriageCompany fromUniverse(UUID workspaceId, UUID projectId, UUID userId, CompanyRow row,
@@ -326,7 +338,8 @@ public class TriageCompanyService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
 
         // Null leaves that half alone. Moving a company to Declined must not silently clear the note
-        // explaining why, and clearing a note is an explicit empty string rather than an omission.
+        // explaining why, and clearing a note is an explicit empty string rather than an omission —
+        // a rule TriageCompany.annotate now owns, so both callers cannot drift apart on it.
         if (request.status() != null) {
             TriageCompanyStatus status = TriageCompanyStatus.fromValue(request.status());
             if (status == null) {
@@ -334,9 +347,7 @@ public class TriageCompanyService {
             }
             company.moveTo(status);
         }
-        if (request.note() != null) {
-            company.annotate(request.note());
-        }
+        company.annotate(request.note());
 
         audit.event(ProjectEventType.TRIAGE_COMPANY_MOVED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)

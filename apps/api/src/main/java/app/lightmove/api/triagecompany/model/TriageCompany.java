@@ -160,15 +160,28 @@ public class TriageCompany extends BaseEntity {
         this.status = newStatus;
     }
 
-    /** Blank clears the note rather than storing an empty string, so "has a note" stays a null check. */
+    /**
+     * Sets the note. <b>Null leaves the existing one alone; an empty string clears it.</b>
+     *
+     * <p>The asymmetry is the point. Written the other way round — null meaning "clear" — a re-capture
+     * from the browser popup, whose note box starts empty on every open, silently destroyed a note
+     * somebody had written on the triage screen. Omitting a field must never be read as asking to
+     * erase it. {@link #retag} treats null the same way, and the two must agree: they are
+     * called on adjacent lines.
+     *
+     * <p>A blank string still stores null rather than "", so "has a note" stays a null check.
+     */
     public void annotate(String newNote) {
-        this.note = newNote == null || newNote.isBlank() ? null : newNote.trim();
+        if (newNote == null) {
+            return;
+        }
+        this.note = newNote.isBlank() ? null : newNote.trim();
     }
 
     /**
-     * Replaces the tags, trimmed and de-duplicated case-insensitively. An empty result is stored as
-     * null rather than an empty array, so "has tags" stays a null check the way {@link #annotate}
-     * keeps "has a note" one.
+     * Replaces the tags, trimmed and de-duplicated case-insensitively. Null leaves them alone, the
+     * same rule {@link #annotate} follows. An empty result is stored as null rather than an empty
+     * array, so "has tags" stays a null check the way "has a note" is one.
      */
     public void retag(List<String> newTags) {
         if (newTags == null) {

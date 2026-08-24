@@ -166,7 +166,10 @@ class CompanyCaptureIntegrationTest extends FlowTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"status":"inUniverse","companyName":"Nameless Holding"}"""))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.detail").value(
+                        "A website is required for a company that is not in the universe."));
     }
 
     @Test
@@ -179,7 +182,8 @@ class CompanyCaptureIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(CAPTURE_BODY.formatted("declined")))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
     }
 
     @Test
@@ -202,7 +206,92 @@ class CompanyCaptureIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"status":"inUniverse","companyName":"Barred Holding",
                                  "website":"https://barred.ae"}"""))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("This company is off-limits for this mandate."));
+    }
+
+    @Test
+    @DisplayName("an unresolvable Apollo id falls through to the page's own identity, bar and all")
+    void captureFallsThroughWhenTheNamedAccountDoesNotResolve() throws Exception {
+        String admin = adminOf("Capture Stale Id Firm");
+        String projectId = project(admin);
+        universe.company("a9", "Barred Holding").website("https://barred.ae").employees(500).insert();
+
+        mvc.perform(put("/api/v1/projects/" + projectId + "/strategy/off-limits")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountIds":["a9"]}"""))
+                .andExpect(status().isOk());
+
+        // The hole this closes: an unresolvable id used to short-circuit the web-identity lookup, so a
+        // company the universe publishes was filed as a capture — under a name the request chose, and
+        // without ever meeting the off-limits bar. A stale id must not be a way past either rule.
+        mvc.perform(post(captureUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"status":"inUniverse","apolloAccountId":"no-longer-published",
+                                 "companyName":"Totally Different Name Ltd","website":"https://barred.ae",
+                                 "numEmployees":99999}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("This company is off-limits for this mandate."));
+    }
+
+    @Test
+    @DisplayName("a stale Apollo id still resolves the snapshot from the universe, not from the page")
+    void captureWithAStaleIdStillTakesApollosSnapshot() throws Exception {
+        String admin = adminOf("Capture Stale Snapshot Firm");
+        String projectId = project(admin);
+        universe.company("a3", "Zenith Industrial").website("https://zenith-industrial.sa")
+                .employees(800).industry("industrial").insert();
+
+        mvc.perform(post(captureUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"status":"inUniverse","apolloAccountId":"stale-and-gone",
+                                 "companyName":"Whatever The Page Said","website":"https://zenith-industrial.sa",
+                                 "numEmployees":7}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.apolloAccountId").value("a3"))
+                .andExpect(jsonPath("$.origin").value("STRATEGY"))
+                .andExpect(jsonPath("$.companyName").value("Zenith Industrial"))
+                .andExpect(jsonPath("$.numEmployees").value(800));
+    }
+
+    @Test
+    @DisplayName("a re-capture leaves a note somebody already wrote alone")
+    void captureDoesNotEraseAnExistingNote() throws Exception {
+        String admin = adminOf("Capture Note Firm");
+        String projectId = project(admin);
+
+        String triageId = capture(admin, projectId, "inUniverse");
+        mvc.perform(patch(triageUrl(projectId) + "/" + triageId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"note":"CFO retiring Q3, confirmed by Sara."}"""))
+                .andExpect(status().isOk());
+
+        // The popup's note box starts empty on every open, so the ordinary "capture it again to
+        // shortlist it" gesture sends no note at all. Omitting a field is not asking to erase it.
+        mvc.perform(post(captureUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(CAPTURE_BODY.formatted("shortlisted")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("shortlisted"))
+                .andExpect(jsonPath("$.note").value("CFO retiring Q3, confirmed by Sara."));
+
+        // An explicit empty string is how a note is cleared, and that still works.
+        mvc.perform(patch(triageUrl(projectId) + "/" + triageId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"note":""}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.note").doesNotExist());
     }
 
     @Test
