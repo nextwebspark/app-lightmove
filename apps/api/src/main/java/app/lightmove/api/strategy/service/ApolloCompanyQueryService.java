@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -122,6 +123,59 @@ public class ApolloCompanyQueryService {
                 .param("ids", apolloAccountIds)
                 .query(COMPANY_ROW_MAPPER)
                 .list();
+    }
+
+    /**
+     * Normalised to the same shape {@code WebsiteDomain.of} produces, so a page's domain and Apollo's
+     * {@code website} column can be compared at all: the column holds full URLs, bare hosts, and both
+     * with and without {@code www}. Scheme off, path off, {@code www.} off, lower-cased.
+     */
+    private static final String NORMALISED_WEBSITE_DOMAIN = """
+            regexp_replace(
+                split_part(
+                    regexp_replace(lower(coalesce(website, '')), '^[a-z][a-z0-9+.-]*://', ''),
+                    '/', 1),
+                '^www\\.', '')""";
+
+    /** The same idea for LinkedIn: everything between {@code /company/} and the next slash. */
+    private static final String NORMALISED_LINKEDIN_SLUG = """
+            split_part(
+                split_part(rtrim(lower(coalesce(company_linkedin_url, '')), '/'), '/company/', 2),
+                '/', 1)""";
+
+    /**
+     * The universe row a captured web page is — the lookup behind the Chrome extension's capture.
+     *
+     * <p>Matching on the domain first and the LinkedIn slug second, because a domain is the stronger
+     * claim: a company's own site is its own, while a LinkedIn URL can be reached from a job posting,
+     * an employee's profile, or a redirect. Both are already-normalised values from
+     * {@code WebsiteDomain} and {@code LinkedInCompanySlug}; pass a raw URL and nothing will match.
+     *
+     * <p>A sequential scan, and knowingly: normalising the two columns rules out any index, and the
+     * ETL owns this table so one cannot be added (see V23). It runs once per capture, against a table
+     * the facet counts already scan whole.
+     */
+    public Optional<CompanyRow> byDomainOrLinkedIn(String domain, String linkedInSlug) {
+        if (domain == null && linkedInSlug == null) {
+            return Optional.empty();
+        }
+        // Cast, because Postgres cannot infer a bare parameter's type from `IS NOT NULL` alone and
+        // answers "could not determine data type of parameter" instead of running the query.
+        String domainMatches = "(:domain)::text IS NOT NULL AND %s = :domain".formatted(NORMALISED_WEBSITE_DOMAIN);
+        String linkedInMatches =
+                "(:linkedInSlug)::text IS NOT NULL AND %s = :linkedInSlug".formatted(NORMALISED_LINKEDIN_SLUG);
+
+        return jdbc.sql("""
+                        SELECT %s
+                        FROM app_lm_apollo_companies
+                        WHERE (%s) OR (%s)
+                        ORDER BY (%s) DESC, num_employees DESC NULLS LAST
+                        LIMIT 1
+                        """.formatted(ROW_COLUMNS, domainMatches, linkedInMatches, domainMatches))
+                .param("domain", domain)
+                .param("linkedInSlug", linkedInSlug)
+                .query(COMPANY_ROW_MAPPER)
+                .optional();
     }
 
     /**

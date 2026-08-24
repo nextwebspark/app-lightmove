@@ -6,6 +6,8 @@ import app.lightmove.api.core.config.CompanyListSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.text.service.LinkedInCompanySlug;
+import app.lightmove.api.core.text.service.WebsiteDomain;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.strategy.constant.CompanySortField;
 import app.lightmove.api.strategy.constant.SortDirection;
@@ -15,17 +17,21 @@ import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import app.lightmove.api.strategy.service.StrategyService;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.AddTriageCompanyRequest;
+import app.lightmove.api.triagecompany.dto.CaptureCompanyRequest;
 import app.lightmove.api.triagecompany.dto.TriageBulkAddResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.dto.TriageCountsDto;
 import app.lightmove.api.triagecompany.dto.UpdateTriageCompanyRequest;
 import app.lightmove.api.triagecompany.model.TriageCompany;
+import app.lightmove.api.triagecompany.model.TriageCompanySnapshot;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -43,6 +49,13 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class TriageCompanyService {
+
+    /**
+     * The two stages a capture may land in. Declined is deliberately not among them: ruling a company
+     * out is a triage decision taken with the mandate in view, not something a browser popup does.
+     */
+    private static final Set<TriageCompanyStatus> CAPTURE_DESTINATIONS =
+            EnumSet.of(TriageCompanyStatus.IN_UNIVERSE, TriageCompanyStatus.SHORTLISTED);
 
     private final TriageCompanyRepository triaged;
     private final TriageCompanyWriter writer;
@@ -139,6 +152,136 @@ public class TriageCompanyService {
     }
 
     /**
+     * A company written in from the browser extension.
+     *
+     * <p>The difference from {@link #add} is which company it can accept, not what it writes. That one
+     * names an Apollo id and the universe answers what the company is. This one starts from a page,
+     * which the universe may never have heard of — so it <b>resolves first and falls back second</b>:
+     *
+     * <ul>
+     *   <li>Resolved to a universe row — by the id the caller sent, or failing that by the page's
+     *       domain and LinkedIn slug — and the row is written exactly as Strategy would write it:
+     *       snapshot from Apollo, request's company fields ignored, off-limits enforced. The rule that
+     *       a client cannot file a known company under a name of its own choosing is untouched.
+     *   <li>Not resolved, and the row is keyed on the normalised domain and carries what the page said.
+     *       The off-limits list is keyed to Apollo ids, so it cannot speak to a company Apollo does not
+     *       publish; nothing is silently skipped here, there is simply nothing to compare against.
+     * </ul>
+     *
+     * <p>A company the mandate already holds is <b>promoted, never demoted</b>: capturing to the
+     * shortlist moves a company sitting in the universe, capturing to the universe leaves a shortlisted
+     * one alone. Both answer with the row, so a second click means the same as the first. A declined
+     * company is refused outright rather than quietly revived — see {@link ErrorCode#TRIAGE_COMPANY_DECLINED}.
+     */
+    @Transactional
+    public TriageCompanyResponse capture(UUID userId, UUID workspaceId, UUID projectId,
+                                         CaptureCompanyRequest request, HttpServletRequest httpRequest) {
+        requireProject(projectId, workspaceId);
+        TriageCompanyStatus destination = resolveCaptureDestination(request.status());
+
+        Optional<CompanyRow> universeMatch = resolveAgainstUniverse(request);
+        TriageCompany held = universeMatch
+                .flatMap(row -> triaged.findByProjectIdAndApolloAccountId(projectId, row.apolloAccountId()))
+                .or(() -> Optional.ofNullable(captureKeyOf(request))
+                        .flatMap(key -> triaged.findByProjectIdAndCaptureKey(projectId, key)))
+                .orElse(null);
+
+        if (held != null) {
+            return annotateAndPromote(held, destination, request);
+        }
+        TriageCompany taken = universeMatch.isPresent()
+                ? fromUniverse(workspaceId, projectId, userId, universeMatch.get(), destination, request)
+                : fromPage(projectId, userId, destination, request);
+
+        taken.annotate(request.note());
+        taken.retag(request.tags());
+        triaged.save(taken);
+
+        audit.event(ProjectEventType.TRIAGE_COMPANY_CAPTURED)
+                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                .detail("origin", taken.getOrigin().name())
+                .detail("company", universeMatch.map(CompanyRow::apolloAccountId).orElse(taken.getCaptureKey()))
+                .record();
+        return toDto(taken);
+    }
+
+    /**
+     * The id the caller sent wins, because the extension resolved it against the same universe a moment
+     * ago and a match by id is exact. Only when it sent none is the page's own web identity tried.
+     */
+    private Optional<CompanyRow> resolveAgainstUniverse(CaptureCompanyRequest request) {
+        if (request.apolloAccountId() != null && !request.apolloAccountId().isBlank()) {
+            return market.byAccountIds(List.of(request.apolloAccountId())).stream().findFirst();
+        }
+        return market.byDomainOrLinkedIn(WebsiteDomain.of(request.website()),
+                LinkedInCompanySlug.of(request.linkedinUrl()));
+    }
+
+    private TriageCompany fromUniverse(UUID workspaceId, UUID projectId, UUID userId, CompanyRow row,
+                                       TriageCompanyStatus destination, CaptureCompanyRequest request) {
+        CompanyScope scope = strategy.scopeOf(workspaceId, projectId);
+        if (scope.offLimitsAccountIds().contains(row.apolloAccountId())) {
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
+                    "This company is off-limits for this mandate.");
+        }
+        return TriageCompany.fromUniverse(projectId, userId, row.apolloAccountId(), destination,
+                snapshotOf(row), request.sourceUrl());
+    }
+
+    private TriageCompany fromPage(UUID projectId, UUID userId, TriageCompanyStatus destination,
+                                   CaptureCompanyRequest request) {
+        String captureKey = captureKeyOf(request);
+        if (captureKey == null) {
+            // Without a domain there is nothing to key the row on, and two captures of the same
+            // company would become two rows. The popup requires a website for exactly this reason.
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
+                    "A website is required for a company that is not in the universe.");
+        }
+        return TriageCompany.fromPage(projectId, userId, captureKey, destination,
+                new TriageCompanySnapshot(request.companyName().trim(), request.industry(),
+                        request.companyCountry(), request.companyCity(), request.numEmployees(),
+                        request.annualRevenue(), request.website(), request.linkedinUrl(), null),
+                request.sourceUrl());
+    }
+
+    /**
+     * Already held. Promotion only, and the note and tags are applied because a re-capture is usually
+     * someone adding what they meant to say the first time.
+     */
+    private TriageCompanyResponse annotateAndPromote(TriageCompany held, TriageCompanyStatus destination,
+                                                     CaptureCompanyRequest request) {
+        if (held.getStatus() == TriageCompanyStatus.DECLINED) {
+            throw ApiException.of(ErrorCode.TRIAGE_COMPANY_DECLINED);
+        }
+        if (destination == TriageCompanyStatus.SHORTLISTED) {
+            held.moveTo(TriageCompanyStatus.SHORTLISTED);
+        }
+        held.annotate(request.note());
+        held.retag(request.tags());
+        return toDto(held);
+    }
+
+    private static String captureKeyOf(CaptureCompanyRequest request) {
+        String fromWebsite = WebsiteDomain.of(request.website());
+        return fromWebsite != null ? fromWebsite : WebsiteDomain.of(request.sourceUrl());
+    }
+
+    private static TriageCompanySnapshot snapshotOf(CompanyRow row) {
+        return new TriageCompanySnapshot(row.companyName(), row.industry(), row.companyCountry(),
+                row.companyCity(), row.numEmployees(), row.annualRevenue(), row.website(),
+                row.companyLinkedinUrl(), row.logoUrl());
+    }
+
+    private static TriageCompanyStatus resolveCaptureDestination(String token) {
+        TriageCompanyStatus status = TriageCompanyStatus.fromValue(token);
+        if (status == null || !CAPTURE_DESTINATIONS.contains(status)) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED,
+                    "A capture goes to the universe or the shortlist, not: " + token);
+        }
+        return status;
+    }
+
+    /**
      * "Add all to Universe". A filter matching more than {@code bulkAddLimit} is <b>refused whole</b>:
      * an untouched one matches all 71,822 companies, and taking the first {@code bulkAddLimit} of them
      * would silently decide which ones a mandate got. Companies the mandate already holds are skipped,
@@ -225,6 +368,7 @@ public class TriageCompanyService {
                 company.getStatus().value(), company.getNote(), company.getCompanyName(),
                 company.getIndustry(), company.getCompanyCountry(), company.getCompanyCity(),
                 company.getNumEmployees(), company.getAnnualRevenue(), company.getWebsite(),
-                company.getLogoUrl());
+                company.getLinkedinUrl(), company.getLogoUrl(), company.getOrigin().name(),
+                company.getSourceUrl(), company.getTags());
     }
 }

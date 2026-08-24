@@ -23,4 +23,7 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
     long countByProjectIdAndStatus(UUID projectId, TriageCompanyStatus status);
 
     Optional<TriageCompany> findByProjectIdAndApolloAccountId(UUID projectId, String apolloAccountId);
+
+    /** The other identity: a captured company the Apollo universe does not publish, keyed on its domain. */
+    Optional<TriageCompany> findByProjectIdAndCaptureKey(UUID projectId, String captureKey);
 }

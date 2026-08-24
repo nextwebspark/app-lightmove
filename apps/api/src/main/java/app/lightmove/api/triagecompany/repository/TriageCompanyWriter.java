@@ -29,9 +29,13 @@ public class TriageCompanyWriter {
             VALUES
             """;
 
+    // The predicate is not decoration: V33 made this index partial so a captured company, which has
+    // no Apollo id, can sit in the same table. Postgres infers the target index from the conflict
+    // clause, and a bare (project_id, apollo_account_id) matches no index any more — "Add all to
+    // Universe" fails outright with "no unique or exclusion constraint matching" without it.
     private static final String IGNORE_HELD = """
 
-            ON CONFLICT (project_id, apollo_account_id) DO NOTHING
+            ON CONFLICT (project_id, apollo_account_id) WHERE apollo_account_id IS NOT NULL DO NOTHING
             """;
 
     private final NamedParameterJdbcTemplate jdbc;

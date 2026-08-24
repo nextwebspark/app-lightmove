@@ -26,7 +26,14 @@ public enum ProjectEventType implements AuditEventType {
 
     TRIAGE_COMPANY_ADDED,
     TRIAGE_COMPANY_MOVED,
-    TRIAGE_BULK_ADDED;
+    TRIAGE_BULK_ADDED,
+
+    /**
+     * A company written in from the browser extension rather than taken from the Strategy screen.
+     * Its own type because the provenance is the interesting part: these rows may carry a snapshot
+     * the Apollo pipeline never vouched for.
+     */
+    TRIAGE_COMPANY_CAPTURED;
 
     @Override
     public String code() {

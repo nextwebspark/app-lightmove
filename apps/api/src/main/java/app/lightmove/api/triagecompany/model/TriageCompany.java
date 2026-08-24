@@ -1,5 +1,6 @@
 package app.lightmove.api.triagecompany.model;
 
+import app.lightmove.api.triagecompany.constant.TriageCompanyOrigin;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import jakarta.persistence.Column;
@@ -7,7 +8,13 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -28,6 +35,13 @@ import lombok.NoArgsConstructor;
  * <p>{@code status} is stored as its enum name rather than its wire token, matching the CHECK
  * constraint in V32. The wire token is the client's vocabulary and is free to change; the stored name
  * is the schema's.
+ *
+ * <p>A row carries <b>one of two identities</b>, and which one it holds is what {@link #origin} says.
+ * A company the Apollo universe publishes is keyed on {@code apolloAccountId} and its snapshot is
+ * resolved server-side, so a client cannot file it under a name of its own choosing. A company the
+ * universe has never heard of — the ordinary case when the Chrome extension reads a GCC company's own
+ * website — is keyed on {@link #captureKey}, its normalised domain, and its snapshot is what the page
+ * said. V33 holds that as a CHECK: one of the two is always present.
  */
 @Entity
 @Table(name = "app_lm_project_triage_company")
@@ -38,8 +52,17 @@ public class TriageCompany extends BaseEntity {
     @Column(name = "project_id", nullable = false, updatable = false)
     private UUID projectId;
 
-    @Column(name = "apollo_account_id", nullable = false, updatable = false)
+    /** Null for a captured company the Apollo universe does not publish; then {@link #captureKey} identifies it. */
+    @Column(name = "apollo_account_id", updatable = false)
     private String apolloAccountId;
+
+    /** The normalised domain. Null when {@link #apolloAccountId} carries the identity instead. */
+    @Column(name = "capture_key", updatable = false)
+    private String captureKey;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "origin", nullable = false, updatable = false, length = 16)
+    private TriageCompanyOrigin origin;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 16)
@@ -69,12 +92,69 @@ public class TriageCompany extends BaseEntity {
     @Column(name = "website")
     private String website;
 
+    @Column(name = "linkedin_url")
+    private String linkedinUrl;
+
     @Column(name = "logo_url")
     private String logoUrl;
+
+    /** The page a capture was read from. Null for a company Strategy took out of the universe. */
+    @Column(name = "source_url", updatable = false)
+    private String sourceUrl;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "tags", columnDefinition = "text[]")
+    private List<String> tags;
 
     @Column(name = "added_by", nullable = false, updatable = false)
     private UUID addedBy;
 
+
+    private TriageCompany(UUID projectId, UUID addedBy, TriageCompanyOrigin origin,
+                          TriageCompanyStatus status, TriageCompanySnapshot snapshot, String sourceUrl) {
+        this.projectId = projectId;
+        this.addedBy = addedBy;
+        this.origin = origin;
+        this.status = status;
+        this.companyName = snapshot.companyName();
+        this.industry = snapshot.industry();
+        this.companyCountry = snapshot.companyCountry();
+        this.companyCity = snapshot.companyCity();
+        this.numEmployees = snapshot.numEmployees();
+        this.annualRevenue = snapshot.annualRevenue();
+        this.website = snapshot.website();
+        this.linkedinUrl = snapshot.linkedinUrl();
+        this.logoUrl = snapshot.logoUrl();
+        this.sourceUrl = sourceUrl;
+    }
+
+    /**
+     * A company the Apollo universe publishes. The snapshot must have been resolved from the universe
+     * rather than taken from the request — that is what keeps a client from filing a known company
+     * under a name of its own choosing.
+     */
+    public static TriageCompany fromUniverse(UUID projectId, UUID addedBy, String apolloAccountId,
+                                             TriageCompanyStatus status, TriageCompanySnapshot snapshot,
+                                             String sourceUrl) {
+        TriageCompany company = new TriageCompany(projectId, addedBy, TriageCompanyOrigin.STRATEGY,
+                status, snapshot, sourceUrl);
+        company.apolloAccountId = apolloAccountId;
+        return company;
+    }
+
+    /**
+     * A company read off a page because the universe had no match. Identified by {@code captureKey} —
+     * its normalised domain — and carrying whatever the page said, which is why the popup makes every
+     * field editable before this is written.
+     */
+    public static TriageCompany fromPage(UUID projectId, UUID addedBy, String captureKey,
+                                         TriageCompanyStatus status, TriageCompanySnapshot snapshot,
+                                         String sourceUrl) {
+        TriageCompany company = new TriageCompany(projectId, addedBy, TriageCompanyOrigin.CAPTURE,
+                status, snapshot, sourceUrl);
+        company.captureKey = captureKey;
+        return company;
+    }
 
     public void moveTo(TriageCompanyStatus newStatus) {
         this.status = newStatus;
@@ -83,5 +163,23 @@ public class TriageCompany extends BaseEntity {
     /** Blank clears the note rather than storing an empty string, so "has a note" stays a null check. */
     public void annotate(String newNote) {
         this.note = newNote == null || newNote.isBlank() ? null : newNote.trim();
+    }
+
+    /**
+     * Replaces the tags, trimmed and de-duplicated case-insensitively. An empty result is stored as
+     * null rather than an empty array, so "has tags" stays a null check the way {@link #annotate}
+     * keeps "has a note" one.
+     */
+    public void retag(List<String> newTags) {
+        if (newTags == null) {
+            return;
+        }
+        Map<String, String> byComparisonKey = new LinkedHashMap<>();
+        for (String tag : newTags) {
+            if (tag != null && !tag.isBlank()) {
+                byComparisonKey.putIfAbsent(tag.trim().toLowerCase(Locale.ROOT), tag.trim());
+            }
+        }
+        this.tags = byComparisonKey.isEmpty() ? null : List.copyOf(byComparisonKey.values());
     }
 }

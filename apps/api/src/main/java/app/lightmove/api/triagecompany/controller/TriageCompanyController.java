@@ -2,6 +2,7 @@ package app.lightmove.api.triagecompany.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.triagecompany.dto.AddTriageCompanyRequest;
+import app.lightmove.api.triagecompany.dto.CaptureCompanyRequest;
 import app.lightmove.api.triagecompany.dto.TriageBulkAddResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
@@ -56,6 +57,22 @@ public class TriageCompanyController {
         TriageCompanyResponse added = triage.add(principal.userId(), principal.requireWorkspaceId(),
                 projectId, request, httpRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(added);
+    }
+
+    /**
+     * The browser extension's write. Same gate and the same table as {@link #add} — a capture is a
+     * triage decision like any other — but it accepts a company the Apollo universe does not publish,
+     * which is the ordinary case when a consultant is reading a GCC company's own website.
+     */
+    @PostMapping("/captures")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
+    public ResponseEntity<TriageCompanyResponse> capture(@AuthenticationPrincipal AuthPrincipal principal,
+                                                         @PathVariable UUID projectId,
+                                                         @Valid @RequestBody CaptureCompanyRequest request,
+                                                         HttpServletRequest httpRequest) {
+        TriageCompanyResponse captured = triage.capture(principal.userId(),
+                principal.requireWorkspaceId(), projectId, request, httpRequest);
+        return ResponseEntity.status(HttpStatus.CREATED).body(captured);
     }
 
     /** Takes no body: the scope is the stored filter, so a request cannot ask for a wider one. */

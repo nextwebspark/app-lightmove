@@ -104,6 +104,15 @@ public enum ErrorCode {
     BULK_ADD_SCOPE_TOO_LARGE(HttpStatus.CONFLICT,
             "This filter matches more companies than one bulk add may take"),
 
+    /**
+     * A capture named a company this mandate has already declined. Refused rather than quietly
+     * re-filed: V32 keeps declined rows precisely so a later add cannot resurrect a decision the team
+     * already took, and a capture is a later add like any other. The caller is told which company, and
+     * moves it back from the triage screen if that is genuinely what they meant.
+     */
+    TRIAGE_COMPANY_DECLINED(HttpStatus.CONFLICT,
+            "This mandate has already declined that company"),
+
     /** The typed confirmation on workspace deletion did not match. */
     WORKSPACE_NAME_MISMATCH(HttpStatus.BAD_REQUEST,
             "Type the workspace name exactly to confirm deletion"),

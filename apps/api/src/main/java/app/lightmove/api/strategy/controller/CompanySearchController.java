@@ -4,6 +4,9 @@ import app.lightmove.api.core.config.CompanySearchSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.text.service.LinkedInCompanySlug;
+import app.lightmove.api.core.text.service.WebsiteDomain;
+import app.lightmove.api.strategy.dto.CompanyMatchResponse;
 import app.lightmove.api.strategy.dto.CompanySuggestion;
 import app.lightmove.api.strategy.dto.CompanySuggestionsResponse;
 import app.lightmove.api.strategy.dto.FacetsResponse;
@@ -82,6 +85,27 @@ public class CompanySearchController {
                 companies.typeahead(trimmed, resolvedLimit).stream()
                         .map(CompanySearchController::toSuggestion)
                         .toList()));
+    }
+
+    /**
+     * Does the universe publish the company on this page? The lookup behind the Chrome extension's
+     * capture: it decides whether a captured company is filed under its Apollo identity, with the
+     * snapshot resolved server-side, or as a company of its own.
+     *
+     * <p>Both parameters are raw as the page gave them and are normalised here — a domain to its
+     * registrable host, a LinkedIn URL to its company slug — so a caller never has to know the shape
+     * the universe stores. Naming neither is a miss rather than an error: a page with no domain and no
+     * LinkedIn link is a page the universe cannot be asked about.
+     */
+    @GetMapping("/resolve")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
+    public ResponseEntity<CompanyMatchResponse> resolve(
+            @RequestParam(name = "domain", required = false) String domain,
+            @RequestParam(name = "linkedinUrl", required = false) String linkedinUrl) {
+        return ResponseEntity.ok(companies
+                .byDomainOrLinkedIn(WebsiteDomain.of(domain), LinkedInCompanySlug.of(linkedinUrl))
+                .map(row -> new CompanyMatchResponse(true, toSuggestion(row)))
+                .orElseGet(CompanyMatchResponse::noMatch));
     }
 
     private static CompanySuggestion toSuggestion(CompanyRow row) {
