@@ -5,9 +5,9 @@ import { isPureClient } from "../../features/auth/roles";
 import * as clientsApi from "../../features/clients/api/clientsApi";
 import * as projectsApi from "../../features/projects/api/projectsApi";
 import * as workspaceApi from "../../features/workspace/api/workspaceApi";
+import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
-import { Sidebar, type SidebarGroup } from "./Sidebar";
-import { Topbar } from "./Topbar";
+import { type SidebarGroup } from "./Sidebar";
 
 /**
  * The app shell: topbar, the workspace sidebar with live counts, and the main panel the routed page
@@ -71,20 +71,13 @@ export function WorkspaceLayout() {
       ];
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
-      <Topbar />
-
-      <div className="flex min-h-0 flex-1 gap-3.5 px-3.5 pb-3.5">
-        <Sidebar groups={groups} />
-
-        <main className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-line bg-panel">
-          {/* Wider than the mockups' 1160px on purpose: the data tables need the room, and a wide
-              monitor was otherwise leaving ~280px unused. Text blocks cap themselves. */}
-          <div className="mx-auto max-w-[1440px] px-7 pb-[60px] pt-7">
-            <Outlet />
-          </div>
-        </main>
-      </div>
-    </div>
+    /* Wider than the mockups' 1160px on purpose: the data tables need the room, and a wide monitor
+       was otherwise leaving ~280px unused. Text blocks cap themselves. */
+    <AppShell
+      navGroups={groups}
+      contentClassName="mx-auto max-w-[1440px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7"
+    >
+      <Outlet />
+    </AppShell>
   );
 }

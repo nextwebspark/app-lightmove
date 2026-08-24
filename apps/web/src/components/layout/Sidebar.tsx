@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { useTheme } from "../../features/theme/useTheme";
+import { cn } from "../../lib/cn";
 import { Icon, ICONS } from "./Icon";
 import { useSidebarCollapsed } from "./useSidebarCollapsed";
 
@@ -21,49 +22,89 @@ export interface SidebarGroup {
 /**
  * The mockups' left rail: a rounded panel of grouped nav links, theme and collapse rows pinned to
  * the bottom, 240px wide or 56px collapsed (labels, group headers and counts disappear).
+ *
+ * <p>Below `lg` it slides in over the content as a drawer instead, and ignores the collapsed
+ * preference: a 56px icon-only overlay would be all cost and no benefit on a phone.
  */
 export function Sidebar({
   groups,
   backLink,
   header,
+  open = false,
+  onClose,
 }: {
   groups: SidebarGroup[];
   backLink?: SidebarItem;
   /** Rendered under the back link when expanded — the project shell's stage badge lives here. */
   header?: ReactNode;
+  /** Drawer state below `lg`; ignored at `lg` and up, where the rail is always in flow. */
+  open?: boolean;
+  onClose?: () => void;
 }) {
   const { collapsed, toggle } = useSidebarCollapsed();
   const { theme, toggle: toggleTheme } = useTheme();
   const dark = theme === "dark";
+  const navRef = useRef<HTMLElement>(null);
 
-  const rowClass =
-    "flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13.5px] " +
-    "transition hover:bg-panel2 hover:text-text " +
-    (collapsed ? "justify-center" : "");
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    navRef.current?.focus();
+    return () => previous?.focus();
+  }, [open]);
+
+  const rowClass = (extra?: string) =>
+    cn(
+      "flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13.5px] transition",
+      "hover:bg-panel2 hover:text-text",
+      collapsed && "lg:justify-center",
+      extra,
+    );
+
+  // Collapsing is a desktop preference, so labels only disappear at `lg` and up — the drawer keeps
+  // them whatever the stored preference says.
+  const labelsHidden = collapsed ? "lg:hidden" : "";
 
   return (
     <nav
-      className={`flex flex-none flex-col overflow-y-auto overflow-x-hidden rounded-[10px] border border-line bg-panel px-2 py-3.5 transition-[width] duration-150 ${collapsed ? "w-14" : "w-60"}`}
+      ref={navRef}
+      id="app-nav"
+      tabIndex={-1}
+      aria-label="Main"
+      className={cn(
+        "flex flex-none flex-col overflow-y-auto overflow-x-hidden rounded-[10px] border border-line bg-panel px-2 py-3.5 outline-none",
+        "fixed bottom-3.5 left-3.5 top-[52px] z-[95] w-60 shadow-panel transition-transform duration-200",
+        open ? "translate-x-0" : "-translate-x-[calc(100%+18px)]",
+        "lg:static lg:translate-x-0 lg:shadow-none lg:transition-[width] lg:duration-150",
+        collapsed ? "lg:w-14" : "lg:w-60",
+      )}
     >
       {backLink && (
         <>
-          <NavLink to={backLink.to} title={backLink.label} className={`${rowClass} mb-1.5 font-medium text-text2`}>
+          <NavLink
+            to={backLink.to}
+            title={backLink.label}
+            className={rowClass("mb-1.5 font-medium text-text2")}
+          >
             <Icon d={backLink.icon} className="flex-none" />
-            {!collapsed && <span className="whitespace-nowrap">{backLink.label}</span>}
+            <span className={cn("whitespace-nowrap", labelsHidden)}>{backLink.label}</span>
           </NavLink>
           <div className="mx-1 mb-1.5 h-px bg-line-soft" />
         </>
       )}
 
-      {header && !collapsed && <div className="px-2.5 pb-1 pt-0.5">{header}</div>}
+      {header && <div className={cn("px-2.5 pb-1 pt-0.5", labelsHidden)}>{header}</div>}
 
       {groups.map((group) => (
         <div key={group.label}>
-          {!collapsed && (
-            <div className="px-2.5 pb-1.5 pt-3.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-text3">
-              {group.label}
-            </div>
-          )}
+          <div
+            className={cn(
+              "px-2.5 pb-1.5 pt-3.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-text3",
+              labelsHidden,
+            )}
+          >
+            {group.label}
+          </div>
           {group.items.map((item) => (
             <NavLink
               key={item.to}
@@ -71,19 +112,20 @@ export function Sidebar({
               end={item.end}
               title={item.label}
               className={({ isActive }) =>
-                `${rowClass} ${isActive ? "bg-panel2 text-text [&_svg]:text-amber" : "text-text2"}`
+                rowClass(isActive ? "bg-panel2 text-text [&_svg]:text-amber" : "text-text2")
               }
             >
               <Icon d={item.icon} className="flex-none" />
-              {!collapsed && (
-                <>
-                  <span className="whitespace-nowrap">{item.label}</span>
-                  {item.count !== undefined && (
-                    <span className="ml-auto font-mono text-[11px] font-medium text-text3">
-                      {item.count}
-                    </span>
+              <span className={cn("whitespace-nowrap", labelsHidden)}>{item.label}</span>
+              {item.count !== undefined && (
+                <span
+                  className={cn(
+                    "ml-auto font-mono text-[11px] font-medium text-text3",
+                    labelsHidden,
                   )}
-                </>
+                >
+                  {item.count}
+                </span>
               )}
             </NavLink>
           ))}
@@ -95,19 +137,29 @@ export function Sidebar({
           type="button"
           onClick={toggleTheme}
           title={dark ? "Light mode" : "Dark mode"}
-          className={`${rowClass} text-text2`}
+          className={rowClass("text-text2")}
         >
           <Icon d={dark ? ICONS.sun : ICONS.moon} className="flex-none" />
-          {!collapsed && <span className="whitespace-nowrap">{dark ? "Light mode" : "Dark mode"}</span>}
+          <span className={cn("whitespace-nowrap", labelsHidden)}>
+            {dark ? "Light mode" : "Dark mode"}
+          </span>
         </button>
         <button
           type="button"
           onClick={toggle}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className={`${rowClass} text-text2`}
+          className={rowClass("hidden text-text2 lg:flex")}
         >
           <Icon d={collapsed ? ICONS.expand : ICONS.collapse} className="flex-none" />
-          {!collapsed && <span className="whitespace-nowrap">Collapse</span>}
+          <span className={cn("whitespace-nowrap", labelsHidden)}>Collapse</span>
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className={rowClass("text-text2 lg:hidden")}
+        >
+          <Icon d={ICONS.close} className="flex-none" />
+          <span className="whitespace-nowrap">Close menu</span>
         </button>
       </div>
     </nav>
