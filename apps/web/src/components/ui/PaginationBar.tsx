@@ -31,7 +31,7 @@ export function PaginationBar({
   };
 
   return (
-    <div className="flex flex-none items-center gap-4">
+    <div className="flex flex-none flex-wrap items-center gap-x-4 gap-y-2">
       <PageButton
         label="Previous page"
         path={ICONS.back}

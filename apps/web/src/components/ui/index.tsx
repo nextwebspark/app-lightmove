@@ -172,7 +172,7 @@ export function Select({
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("animate-fade-up rounded-panel border border-line bg-panel p-8 shadow-panel", className)}>
+    <div className={cn("animate-fade-up rounded-panel border border-line bg-panel p-6 shadow-panel sm:p-8", className)}>
       {children}
     </div>
   );
