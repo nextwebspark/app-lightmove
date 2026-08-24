@@ -53,8 +53,8 @@ export const companyColumns = helper.columns([
     id: "name",
     header: "Company",
     enableHiding: false,
-    // The floor still clears a mid-length name once the logo and gutters take their 54px.
-    meta: { share: 22, min: 186 },
+    // The floor covers a twenty-odd-character name: logo and gutters eat 54px before a letter draws.
+    meta: { share: 22, min: 230 },
     cell: (info) => (
       <span className="flex min-w-0 items-center gap-2.5">
         <CompanyLogo name={info.getValue()} logo={info.row.original.logoUrl} size={28} />
