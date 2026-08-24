@@ -12,7 +12,8 @@ import { RangeFilter } from "./RangeFilter";
 type AccordionKey = "location" | "employees" | "revenue" | "industry" | "segments" | "offlimits";
 
 /**
- * The 350px filter rail.
+ * The filter rail: a share of the results row, floored at 300px and capped at 360px. `shrink-0`
+ * because below the floor the accordion labels wrap.
  *
  * <p>Single-open, like the wireframe: opening one closes the last, and clicking an open header closes
  * it. That is a real constraint rather than a stylistic one — Industry alone is twenty groups over
@@ -93,7 +94,7 @@ export function FilterSidebar({
     <div
       role="region"
       aria-label="Filters"
-      className="w-[350px] flex-none overflow-y-auto border-r border-line-soft"
+      className="w-[22%] min-w-[300px] max-w-[360px] shrink-0 overflow-y-auto border-r border-line-soft"
     >
       <FilterAccordion
         label="Location"

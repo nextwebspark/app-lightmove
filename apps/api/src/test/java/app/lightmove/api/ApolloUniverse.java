@@ -49,7 +49,9 @@ public final class ApolloUniverse {
         private String logoUrl;
         private String shortDescription;
         private Short foundedYear;
+        private String companyLinkedinUrl;
         private final List<String> keywords = new ArrayList<>();
+        private final List<String> technologies = new ArrayList<>();
 
         private Seed(JdbcTemplate db, String apolloAccountId, String companyName) {
             this.db = db;
@@ -109,14 +111,24 @@ public final class ApolloUniverse {
             return this;
         }
 
+        public Seed linkedin(String value) {
+            this.companyLinkedinUrl = value;
+            return this;
+        }
+
+        public Seed technologies(String... values) {
+            this.technologies.addAll(List.of(values));
+            return this;
+        }
+
         public void insert() {
             db.update(connection -> {
                 var statement = connection.prepareStatement("""
                         INSERT INTO app_lm_apollo_companies
                             (apollo_account_id, company_name, industry, company_country, company_city,
                              num_employees, annual_revenue, website, logo_url, short_description,
-                             founded_year, keywords, row_hash)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                             founded_year, keywords, company_linkedin_url, technologies, row_hash)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """);
                 Array keywordArray = connection.createArrayOf("text", keywords.toArray());
                 statement.setString(1, apolloAccountId);
@@ -135,8 +147,13 @@ public final class ApolloUniverse {
                     statement.setShort(11, foundedYear);
                 }
                 statement.setArray(12, keywordArray);
+                statement.setString(13, companyLinkedinUrl);
+                // Left NULL rather than empty when unset, so the reader's null-array path is exercised.
+                statement.setArray(14, technologies.isEmpty()
+                        ? null
+                        : connection.createArrayOf("text", technologies.toArray()));
                 // row_hash is the loader's change detector and NOT NULL; nothing here reads it.
-                statement.setString(13, apolloAccountId);
+                statement.setString(15, apolloAccountId);
                 return statement;
             });
         }

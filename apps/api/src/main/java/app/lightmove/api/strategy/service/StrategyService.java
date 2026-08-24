@@ -308,10 +308,35 @@ public class StrategyService {
                 ref.getCompanyCity(), ref.getCompanyCountry(), ref.getLogoUrl());
     }
 
+    /** One argument per line: they are all positional, and a misplaced one still compiles. */
     private static CompanyResultDto toDto(CompanyRow row) {
-        return new CompanyResultDto(row.apolloAccountId(), row.companyName(), row.industry(),
-                row.companyCountry(), row.companyCity(), row.numEmployees(), row.annualRevenue(),
-                row.website(), row.logoUrl(), row.shortDescription(),
-                row.foundedYear());
+        return new CompanyResultDto(
+                row.apolloAccountId(),
+                row.companyName(),
+                row.industry(),
+                row.companyCountry(),
+                row.companyCity(),
+                row.numEmployees(),
+                row.annualRevenue(),
+                row.website(),
+                row.logoUrl(),
+                row.shortDescription(),
+                row.foundedYear(),
+                row.companyLinkedinUrl(),
+                row.facebookUrl(),
+                row.twitterUrl(),
+                row.companyPhone(),
+                row.companyState(),
+                row.companyAddress(),
+                row.parentCompany(),
+                row.totalFunding(),
+                row.latestFunding(),
+                row.latestFundingAmount(),
+                row.lastRaisedAt(),
+                row.numberOfRetailLocations(),
+                row.keywords(),
+                row.technologies(),
+                row.sicCodes(),
+                row.naicsCodes());
     }
 }

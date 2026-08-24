@@ -216,11 +216,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
         universe.company("a1", "Energy One").industry("oil & energy").employees(100).insert();
         universe.company("a2", "Energy Two").industry("oil & energy").employees(90).insert();
 
-        List<CompanyRow> rows = List.of(
-                new CompanyRow("a1", "Energy One", "oil & energy", "Saudi Arabia", "Riyadh",
-                        100, null, null, null, null, null),
-                new CompanyRow("a2", "Energy Two", "oil & energy", "Saudi Arabia", "Riyadh",
-                        90, null, null, null, null, null));
+        List<CompanyRow> rows = List.of(row("a1", "Energy One", 100), row("a2", "Energy Two", 90));
         UUID project = UUID.fromString(projectId);
         UUID actor = db.queryForObject(
                 "SELECT id FROM app_lm_user WHERE email = ?", UUID.class, "alok@" + domain);
@@ -473,4 +469,12 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
     }
+
+    /** Only the snapshot fields carry here; the rest are not the subject. */
+    private static CompanyRow row(String apolloAccountId, String companyName, int employees) {
+        return new CompanyRow(apolloAccountId, companyName, "oil & energy", "Saudi Arabia", "Riyadh",
+                employees, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, List.of(), List.of(), List.of(), List.of());
+    }
+
 }

@@ -10,8 +10,10 @@ import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.model.NumericRange;
 import app.lightmove.api.strategy.model.ScopeBreakdown;
+import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -19,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -55,11 +58,20 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class ApolloCompanyQueryService {
 
-    /** Every column the list and the write-path snapshots need, in one place so they cannot drift. */
+    /**
+     * Every column the list and the write-path snapshots need, in one place so they cannot drift.
+     *
+     * <p>What the universe's other columns hold is not a fact about the company — Apollo's own CRM
+     * state, its AI-workflow scratch, the loader's bookkeeping and the ids of other systems.
+     */
     private static final String ROW_COLUMNS = """
             apollo_account_id, company_name, industry, company_country, company_city,
             num_employees, annual_revenue, website, logo_url,
-            short_description, founded_year""";
+            short_description, founded_year,
+            company_linkedin_url, facebook_url, twitter_url,
+            company_phone, company_state, company_address, parent_company,
+            total_funding, latest_funding, latest_funding_amount, last_raised_at,
+            number_of_retail_locations, keywords, technologies, sic_codes, naics_codes""";
 
     private final JdbcClient jdbc;
     private final SectorTaxonomy taxonomy;
@@ -471,7 +483,33 @@ public class ApolloCompanyQueryService {
                 rs.getString("website"),
                 rs.getString("logo_url"),
                 rs.getString("short_description"),
-                intOrNull((Number) rs.getObject("founded_year")));
+                intOrNull((Number) rs.getObject("founded_year")),
+                rs.getString("company_linkedin_url"),
+                rs.getString("facebook_url"),
+                rs.getString("twitter_url"),
+                rs.getString("company_phone"),
+                rs.getString("company_state"),
+                rs.getString("company_address"),
+                rs.getString("parent_company"),
+                (Long) rs.getObject("total_funding"),
+                rs.getString("latest_funding"),
+                (Long) rs.getObject("latest_funding_amount"),
+                rs.getObject("last_raised_at", LocalDate.class),
+                (Integer) rs.getObject("number_of_retail_locations"),
+                stringList(rs, "keywords"),
+                stringList(rs, "technologies"),
+                stringList(rs, "sic_codes"),
+                stringList(rs, "naics_codes"));
+    }
+
+    /** An absent {@code text[]} arrives as a null {@link Array}, not as an empty one. */
+    private static List<String> stringList(ResultSet rs, String column) throws SQLException {
+        Array array = rs.getArray(column);
+        if (array == null) {
+            return List.of();
+        }
+        String[] values = (String[]) array.getArray();
+        return values == null ? List.of() : Arrays.stream(values).filter(Objects::nonNull).toList();
     }
 
     /**

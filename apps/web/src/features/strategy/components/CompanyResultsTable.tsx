@@ -19,7 +19,6 @@ const ROW_GAP = 12;
 // A shadow rather than a border: a border would join the grid track and shift every column by a
 // pixel. The opaque background stops the scrolling columns showing through the pinned one.
 const PINNED_START = "sticky start-0 ps-4 shadow-[1px_0_0_0_var(--color-line-soft)]";
-const PINNED_END = "sticky end-0 pe-4 shadow-[-1px_0_0_0_var(--color-line-soft)]";
 
 // The row centres its cells, so without `self-stretch` an opaque cell is a band with daylight
 // above and below it, and the scrolling columns slide through the gaps.
@@ -136,7 +135,6 @@ export function CompanyResultsTable({
                   className={cn(
                     "block truncate font-sans text-[11px] font-semibold uppercase tracking-[0.04em]",
                     sorted ? "text-text" : "text-text3",
-                    header.column.columnDef.meta?.align === "right" && "text-right",
                   )}
                 >
                   <table.FlexRender header={header} />
@@ -152,7 +150,6 @@ export function CompanyResultsTable({
                     "min-w-0",
                     // The gutter travels with the pinned cell; padding on the row would scroll out from under it.
                     pinned === "start" && `${PINNED_START} z-10 self-stretch bg-panel2`,
-                    pinned === "end" && `${PINNED_END} z-10 self-stretch bg-panel2`,
                     !pinned && "first:ps-4 last:pe-4",
                   )}
                 >
@@ -206,9 +203,7 @@ export function CompanyResultsTable({
                       className={cn(
                         "min-w-0",
                         // The row paints the hover tint and the pinned cell covers it, so it has to repaint it.
-                        pinned && PINNED_FILL,
-                        pinned === "start" && PINNED_START,
-                        pinned === "end" && PINNED_END,
+                        pinned === "start" && `${PINNED_FILL} ${PINNED_START}`,
                         !pinned && "first:ps-4 last:pe-4",
                       )}
                     >
