@@ -177,8 +177,7 @@ public class ApolloCompanyQueryService {
                     .sorted(Comparator.comparingLong(FacetCount::count).reversed()
                             .thenComparing(FacetCount::label))
                     .toList();
-            groups.add(new SectorGroup(groupName,
-                    counted.stream().mapToLong(FacetCount::count).sum(), counted));
+            groups.add(new SectorGroup(groupName, counted));
         });
         return groups;
     }

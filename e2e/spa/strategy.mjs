@@ -195,7 +195,7 @@ try {
     check("S2.3", "the revenue bands, Unknown included, account for every company", UNIVERSE, sum("revenueBands"));
     // Not asserted — see 14.4 and issue #91: companies with no industry fall outside every sector
     // group, so this sum is short by exactly those rows. Printed, not failed.
-    note("S2.4", `sector groups sum to ${facets.sectorGroups.reduce((total, group) => total + group.count, 0).toLocaleString()} of ${UNIVERSE.toLocaleString()} — the rest carry no industry (#91)`);
+    note("S2.4", `sector groups sum to ${facets.sectorGroups.flatMap((group) => group.industries).reduce((total, industry) => total + industry.count, 0).toLocaleString()} of ${UNIVERSE.toLocaleString()} — the rest carry no industry (#91)`);
     check("S2.5", "Unknown revenue is the rows carrying no figure",
       num("SELECT count(*) FROM app_lm_apollo_companies WHERE annual_revenue IS NULL"),
       facets.revenueBands.find((band) => band.value === "unknown")?.count);

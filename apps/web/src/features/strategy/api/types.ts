@@ -13,8 +13,6 @@ export interface FacetCount {
  */
 export interface SectorGroup {
   name: string;
-  /** Rolled up across `industries`, so the header states the slice without the client summing it. */
-  count: number;
   industries: FacetCount[];
 }
 

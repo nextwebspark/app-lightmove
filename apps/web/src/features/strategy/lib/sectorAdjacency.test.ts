@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { adjacencyEntries, adjacentTo } from "./sectorAdjacency";
 import type { SectorGroup } from "../api/types";
 
-const groupNamed = (name: string): SectorGroup => ({ name, count: 0, industries: [] });
+const groupNamed = (name: string): SectorGroup => ({ name, industries: [] });
 
 describe("sector adjacency", () => {
   it("is symmetric", () => {

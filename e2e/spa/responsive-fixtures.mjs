@@ -142,7 +142,6 @@ const FACETS = {
   sectorGroups: [
     {
       name: "Industrials",
-      count: 21400,
       industries: [
         { value: "manufacturing", label: "Manufacturing", count: 6100 },
         { value: "oil & energy", label: "Oil & Energy", count: 4300 },

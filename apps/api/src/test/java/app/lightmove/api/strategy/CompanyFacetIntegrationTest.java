@@ -39,7 +39,7 @@ class CompanyFacetIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("industries arrive grouped by the taxonomy, with rolled-up group counts")
+    @DisplayName("industries arrive grouped by the taxonomy, each with its own count")
     void industriesArriveGrouped() throws Exception {
         String admin = adminOf("Facet Sector Firm");
         universe.company("a1", "One").industry("oil & energy").employees(10).insert();
@@ -52,8 +52,8 @@ class CompanyFacetIntegrationTest extends FlowTestSupport {
                 .andReturn();
 
         var energy = groupNamed(result, "Energy & Utilities");
-        // The group header states the size of the whole slice, so the client never sums the children.
-        assertThat(energy.get("count").asLong()).isEqualTo(3);
+        // The group carries no rolled-up total: the sidebar states a group by what is inside it.
+        assertThat(energy.has("count")).isFalse();
         assertThat(industryCount(energy, "oil & energy")).isEqualTo(2);
         assertThat(industryCount(energy, "utilities")).isEqualTo(1);
     }

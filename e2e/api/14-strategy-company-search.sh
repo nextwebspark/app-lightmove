@@ -67,7 +67,7 @@ check 14.3 "the revenue bands, Unknown included, account for every company" \
 # Not asserted: the sector facet is short by the rows carrying no industry at all, because
 # `industry IN (...)` cannot match NULL. Recorded as issue #91 and in the UAT report rather than held
 # as a red case — it is a known gap on one axis, not suite drift. The number is still printed.
-note 14.4 "sector groups sum to $(printf '%s' "$FACETS" | jq '[.sectorGroups[].count] | add') of $UNIVERSE — the rest carry no industry (#91)"
+note 14.4 "sector groups sum to $(printf '%s' "$FACETS" | jq '[.sectorGroups[].industries[].count] | add') of $UNIVERSE — the rest carry no industry (#91)"
 check 14.5 "Unknown revenue is exactly the rows carrying no figure" \
   "$(sql 'SELECT count(*) FROM app_lm_apollo_companies WHERE annual_revenue IS NULL')" \
   "$(printf '%s' "$FACETS" | jq '[.revenueBands[] | select(.value=="unknown")][0].count')"
