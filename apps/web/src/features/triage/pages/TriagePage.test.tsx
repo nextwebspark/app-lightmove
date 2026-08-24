@@ -22,6 +22,7 @@ const pageOf = (overrides: Partial<TriageCompaniesPage> = {}): TriageCompaniesPa
     {
       id: "u1",
       apolloAccountId: "a1",
+      origin: "STRATEGY",
       status: "inUniverse",
       note: null,
       companyName: "ACWA Power",
@@ -31,7 +32,10 @@ const pageOf = (overrides: Partial<TriageCompaniesPage> = {}): TriageCompaniesPa
       numEmployees: 3000,
       annualRevenue: null,
       website: null,
+      linkedinUrl: null,
       logoUrl: null,
+      sourceUrl: null,
+      tags: null,
     },
   ],
   totalCount: 1,

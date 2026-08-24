@@ -179,8 +179,21 @@ function TriageRow({
     >
       <CompanyLogo name={company.companyName} logo={company.logoUrl} size={26} />
       <div className="min-w-0 flex-1">
-        <div className="truncate font-sans text-[13px] font-medium text-text">
-          {company.companyName}
+        <div className="flex items-center gap-1.5">
+          <span className="truncate font-sans text-[13px] font-medium text-text">
+            {company.companyName}
+          </span>
+          {company.origin === "CAPTURE" && (
+            // Worth a mark of its own: this row's figures came off a web page rather than out of the
+            // Apollo pipeline, and a consultant weighing a shortlist needs to know which they are
+            // reading before treating a headcount as a fact.
+            <span
+              title={company.sourceUrl ? `Captured from ${company.sourceUrl}` : "Captured from the browser"}
+              className="flex-none rounded bg-sky-dim px-1.5 py-px font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-sky"
+            >
+              Captured
+            </span>
+          )}
         </div>
         <div className="truncate font-mono text-[11.5px] text-text3">
           {[company.companyCity, company.companyCountry, company.industry].filter(Boolean).join(" · ")}

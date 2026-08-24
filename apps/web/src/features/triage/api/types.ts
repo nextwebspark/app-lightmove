@@ -11,7 +11,14 @@ export type TriageCompanyStatus = "inUniverse" | "shortlisted" | "declined";
 export interface TriageCompany {
   /** The triage row's id — what a status change addresses. Not the company's. */
   id: string;
-  apolloAccountId: string;
+  /** Null for a captured company the Apollo universe does not publish; `origin` says which. */
+  apolloAccountId: string | null;
+  /**
+   * How the row arrived, and therefore how far its fields can be trusted. `STRATEGY` means the
+   * snapshot was resolved from the Apollo universe; `CAPTURE` means the browser extension read it off
+   * a page, and the team should know that before treating a headcount as a fact.
+   */
+  origin: "STRATEGY" | "CAPTURE";
   status: TriageCompanyStatus;
   note: string | null;
   companyName: string;
@@ -21,7 +28,11 @@ export interface TriageCompany {
   numEmployees: number | null;
   annualRevenue: number | null;
   website: string | null;
+  linkedinUrl: string | null;
   logoUrl: string | null;
+  /** The page a capture was read from. Null for a company Strategy took out of the universe. */
+  sourceUrl: string | null;
+  tags: string[] | null;
 }
 
 /** The status sub-nav's badge counts. */
