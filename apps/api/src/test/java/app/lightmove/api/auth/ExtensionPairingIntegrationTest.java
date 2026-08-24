@@ -1,6 +1,7 @@
 package app.lightmove.api.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -9,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
+import jakarta.servlet.http.Cookie;
 import tools.jackson.databind.JsonNode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -47,9 +49,15 @@ class ExtensionPairingIntegrationTest extends FlowTestSupport {
     @Test
     @DisplayName("minting a token needs a session; spending one does not")
     void mintingIsAuthenticatedAndSpendingIsNot() throws Exception {
-        // Nobody may mint a credential for an account they have not proved they hold.
-        mvc.perform(post("/api/v1/auth/extension/tokens"))
-                .andExpect(status().isUnauthorized());
+        // Nobody may mint a credential for an account they have not proved they hold. Asserted as "no
+        // token came back" rather than as a status code: chain 1 sets an accessDeniedHandler but no
+        // authenticationEntryPoint, so Spring's default answers an anonymous denial with 403 where
+        // chain 3, which installs the bearer entry point, answers 401. Which of the two it is, is
+        // incidental to this test — that nothing was minted is not.
+        MvcResult anonymous = mvc.perform(post("/api/v1/auth/extension/tokens"))
+                .andExpect(status().is4xxClientError())
+                .andReturn();
+        assertThat(anonymous.getResponse().getContentAsString()).doesNotContain("refreshToken");
 
         String user = signedInUser("Pairing Gate Firm");
         String refreshToken = body(pair(user)).get("refreshToken").asText();
@@ -93,15 +101,46 @@ class ExtensionPairingIntegrationTest extends FlowTestSupport {
     @Test
     @DisplayName("the extension's session is listed as its own device, so it can be revoked from the web")
     void theExtensionSessionIsVisibleAndRevocable() throws Exception {
-        String user = signedInUser("Pairing Sessions Firm");
-        pair(user);
+        String workspaceOwner = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", workspaceOwner), "Pairing Sessions Firm");
+
+        // The refresh cookie as well as the bearer token: /auth/sessions marks which row is *this*
+        // session, and it can only know that by matching the cookie presented — so without one it
+        // refuses rather than guessing. ActiveSessionsIntegrationTest pins that behaviour.
+        MvcResult signIn = signInRaw(workspaceOwner);
+        String browserToken = body(signIn).get("accessToken").asText();
+        Cookie browserCookie = refreshCookieOf(signIn);
+
+        pair(browserToken);
 
         // Named rather than left as a second indistinguishable "Chrome — macOS": the extension's own
         // fetches carry the host browser's User-Agent, so without a label of its own a consultant
         // could not tell which entry to end.
-        mvc.perform(get("/api/v1/auth/sessions").header("Authorization", "Bearer " + user))
+        mvc.perform(get("/api/v1/auth/sessions")
+                        .header("Authorization", "Bearer " + browserToken)
+                        .cookie(browserCookie))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.deviceKind == 'EXTENSION')]").isNotEmpty());
+    }
+
+    @Test
+    @DisplayName("a browser session's refresh token cannot be redeemed on the extension route")
+    void aWebTokenIsRefusedOnTheExtensionRoute() throws Exception {
+        String workspaceOwner = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", workspaceOwner), "Pairing Client Fence Firm");
+        Cookie browserCookie = refreshCookieOf(signInRaw(workspaceOwner));
+
+        // The web refresh token exists only as an httpOnly SameSite=Strict cookie. Redeeming it here
+        // would hand its successor back in a plaintext body — laundering a credential kept out of
+        // script's reach into a bearer token, and relabelling the browser session as an extension.
+        mvc.perform(post("/api/v1/auth/extension/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(browserCookie.getValue())))
+                .andExpect(status().isUnauthorized());
+
+        // And it is still a perfectly good cookie for the route it belongs to.
+        mvc.perform(post("/api/v1/auth/refresh").cookie(browserCookie).with(csrf()))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -142,6 +181,22 @@ class ExtensionPairingIntegrationTest extends FlowTestSupport {
     private static String refreshBody(String refreshToken) {
         return """
                 {"refreshToken":"%s"}""".formatted(refreshToken);
+    }
+
+    /** Login kept whole, because the refresh cookie is on the response and {@code login} drops it. */
+    private MvcResult signInRaw(String emailAddress) throws Exception {
+        return mvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"%s"}""".formatted(emailAddress, PASSWORD)))
+                .andExpect(status().isOk())
+                .andReturn();
+    }
+
+    private static Cookie refreshCookieOf(MvcResult result) {
+        Cookie cookie = result.getResponse().getCookie("lm_refresh");
+        assertThat(cookie).as("login should set the refresh cookie").isNotNull();
+        return cookie;
     }
 
     /** A verified user with a workspace — the extension pairs to a mandate-holding account or to none. */

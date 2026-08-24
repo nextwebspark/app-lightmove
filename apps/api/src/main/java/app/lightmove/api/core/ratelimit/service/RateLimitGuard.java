@@ -73,6 +73,16 @@ public class RateLimitGuard {
         checkRateLimit("password-change", email, request, config.passwordChangeAttemptsPerHour(), Duration.ofHours(1));
     }
 
+    /**
+     * Guards minting a browser-extension token. The caller is already authenticated, so this is not
+     * about guessing — it is about blast radius: the route hands back a long-lived refresh token in a
+     * response body, and script holding a stolen in-memory access token must not be able to mint them
+     * repeatedly before anyone notices.
+     */
+    public void checkExtensionPairing(String email, HttpServletRequest request) {
+        checkRateLimit("extension-pairing", email, request, config.extensionPairingsPerHour(), Duration.ofHours(1));
+    }
+
     private void checkRateLimit(String action, String email, HttpServletRequest request, int limit, Duration window) {
         if (!config.enabled()) {
             return;

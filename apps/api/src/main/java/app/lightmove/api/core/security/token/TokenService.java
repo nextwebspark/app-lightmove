@@ -113,6 +113,23 @@ public class TokenService {
                 .orElseThrow(() -> new ApiException(ErrorCode.REFRESH_TOKEN_INVALID,
                         "No refresh token matches the presented hash"));
 
+        // A token belongs to the client its family was opened for, and may only be redeemed there.
+        // Without this, a *web* refresh token — which exists only as an httpOnly SameSite=Strict cookie
+        // — could be presented to /auth/extension/refresh, and its successor would come back in a
+        // plaintext response body: a credential deliberately kept out of script's reach turned into a
+        // bearer token, and the victim's browser session silently relabelled as their extension.
+        //
+        // Recognised by the session label rather than a column of its own, which is the limitation
+        // worth naming: for a WEB_APP family that column holds the caller's own User-Agent header, so
+        // somebody who can already log in can open a family that looks like an extension's. That buys
+        // them nothing they did not have — they hold the password — and it does not weaken the check
+        // this makes, which is that a genuine browser session cannot be redeemed here. A dedicated
+        // client column would close the cosmetic half too; see the note in ExtensionAuthController.
+        if (!clientMatches(existing, client)) {
+            throw new ApiException(ErrorCode.REFRESH_TOKEN_INVALID,
+                    "Refresh token belongs to a different client than " + client);
+        }
+
         if (existing.isRevoked()) {
             // Why it was revoked, not merely that it was. A logout or a password change leaves a dead
             // token behind by design, and calling that theft revoked the family, alarmed the user, and
@@ -225,6 +242,19 @@ public class TokenService {
         }
 
         return jwtEncoder.encode(JwtEncoderParameters.from(claims.build())).getTokenValue();
+    }
+
+    /**
+     * Whether this family was opened for the client now trying to redeem it.
+     *
+     * <p>Deliberately exact, not a prefix or a contains: the extension's label is a constant this
+     * codebase writes, so an exact match is the whole test, and anything looser would let a
+     * caller-supplied User-Agent that merely mentions the product through.
+     */
+    private static boolean clientMatches(RefreshToken token, SessionClient client) {
+        boolean tokenIsExtension = SessionClient.BROWSER_EXTENSION.sessionLabel()
+                .equals(token.getUserAgent());
+        return tokenIsExtension == (client == SessionClient.BROWSER_EXTENSION);
     }
 
     private Duration refreshTokenTtl(SessionClient client) {

@@ -6,6 +6,7 @@ import app.lightmove.api.core.security.dto.ExtensionRefreshRequest;
 import app.lightmove.api.core.security.dto.ExtensionSessionResponse;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
+import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.service.AuthenticationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -38,6 +39,12 @@ import org.springframework.web.bind.annotation.RestController;
  *       {@code SecurityConfig} gives: CSRF exists because a browser attaches a cookie automatically,
  *       and there is no cookie here for it to attach.
  * </ul>
+ *
+ * <p><b>A token may only be redeemed by the client its family was opened for</b> — {@code TokenService}
+ * refuses a web session's refresh token here, so a cookie-only credential cannot be laundered into a
+ * body-carried one. It recognises the two by the session label, which for a web family is the caller's
+ * own User-Agent; a dedicated client column on {@code app_lm_refresh_token} would make that
+ * unspoofable, and is the honest next step if this route ever carries more.
  */
 @RestController
 @RequestMapping("/api/v1/auth/extension")
@@ -46,6 +53,7 @@ public class ExtensionAuthController {
 
     private final AuthenticationService authentication;
     private final AuthResponseAssembler assembler;
+    private final RateLimitGuard rateLimit;
 
     /**
      * Pairs the extension with the caller's account and returns its refresh token.
@@ -57,6 +65,11 @@ public class ExtensionAuthController {
     @PostMapping("/tokens")
     public ResponseEntity<ExtensionSessionResponse> pair(@AuthenticationPrincipal AuthPrincipal principal,
                                                          HttpServletRequest httpRequest) {
+        // Rate-limited despite being authenticated, and that is the point: this route converts a
+        // 15-minute in-memory access token into a 14-day one that leaves in a response body. Script
+        // that has got hold of the former should not be able to farm the latter in a loop.
+        rateLimit.checkExtensionPairing(principal.email(), httpRequest);
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(toSession(authentication.pairExtension(principal.userId(), httpRequest)));
     }
