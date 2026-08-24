@@ -63,7 +63,7 @@ export function StrategyToolbar({
   addingAll: boolean;
 }) {
   return (
-    <div className="flex min-h-[44px] flex-none items-center gap-3.5 border-b border-line-soft bg-panel2 px-5 py-1.5">
+    <div className="flex min-h-[44px] flex-none flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-line-soft bg-panel2 px-3 py-2 sm:px-5 sm:py-1.5">
       <SaveSearchMenu
         searches={searches}
         onSave={onSaveSearch}
@@ -97,10 +97,10 @@ export function StrategyToolbar({
           size={15}
           className="flex-none"
         />
-        AI Research
+        <span className="hidden sm:inline">AI Research</span>
       </button>
 
-      <div className="flex w-[240px] flex-none items-center gap-2 rounded-[6px] border border-line px-3 py-2">
+      <div className="order-last flex w-full min-w-[180px] items-center gap-2 rounded-[6px] border border-line px-3 py-2 sm:order-none sm:w-[240px] sm:flex-none">
         <Icon d={ICONS.search} size={14} className="flex-none text-text3" />
         <input
           value={query}
@@ -111,7 +111,7 @@ export function StrategyToolbar({
         />
       </div>
 
-      <div className="ml-auto flex items-center gap-3">
+      <div className="flex items-center gap-3 sm:ml-auto">
         <ColumnPicker visibility={columnVisibility} onChange={onColumnVisibilityChange} />
 
         <button

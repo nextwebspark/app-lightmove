@@ -10,7 +10,7 @@ import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as projectsApi from "../api/projectsApi";
 import { NewProjectModal } from "../components/NewProjectModal";
 import { ProjectDrawer } from "../components/ProjectDrawer";
-import { ProjectsTable } from "../components/ProjectsTable";
+import { ProjectsList } from "../components/ProjectsList";
 import { CHIPS, filterProjects, sortProjects, type ChipKey, type SortKey } from "../lib/filtering";
 
 /**
@@ -137,7 +137,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
       />
 
       <div className="mb-3.5 flex flex-wrap items-center gap-2.5">
-        <div className="flex w-[300px] items-center gap-2 rounded-lg border border-line bg-panel2 px-[11px] py-[7px]">
+        <div className="flex w-full items-center sm:w-[300px] gap-2 rounded-lg border border-line bg-panel2 px-[11px] py-[7px]">
           <Icon d={ICONS.search} size={14} className="text-text3" />
           <input
             value={query}
@@ -163,7 +163,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
         </div>
       </div>
 
-      <ProjectsTable
+      <ProjectsList
         projects={rows}
         sortKey={sortKey}
         sortDirection={sortDirection}

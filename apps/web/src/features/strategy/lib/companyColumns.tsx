@@ -40,7 +40,7 @@ export const companyTableFeatures = tableFeatures({
 const helper = createColumnHelper<typeof companyTableFeatures, CompanyResult>();
 
 const ICON_BUTTON =
-  "grid size-6 place-items-center rounded-[5px] text-text3 transition hover:bg-panel2 hover:text-text";
+  "grid size-9 place-items-center rounded-[5px] text-text3 transition hover:bg-panel2 hover:text-text lg:size-6";
 
 /**
  * Each sortable column's id is its wire sort token, the same string `CompanySortField` allowlists,
@@ -71,7 +71,7 @@ export const companyColumns = helper.columns([
     header: "Actions",
     enableSorting: false,
     enableHiding: false,
-    meta: { share: 0, min: 72 },
+    meta: { share: 0, min: 64 },
     cell: (info) => {
       const company = info.row.original;
       const meta = info.table.options.meta;
@@ -96,7 +96,7 @@ export const companyColumns = helper.columns([
     id: "links",
     header: "Links",
     enableSorting: false,
-    meta: { share: 0, min: 108 },
+    meta: { share: 0, min: 84 },
     cell: (info) => {
       const company = info.row.original;
       return (
@@ -132,35 +132,35 @@ export const companyColumns = helper.columns([
   helper.accessor("companyCountry", {
     id: "country",
     header: "Country",
-    meta: { share: 12, min: 96 },
+    meta: { share: 12, min: 82 },
     cell: (info) => <Cell value={info.getValue()} />,
   }),
 
   helper.accessor("industry", {
     id: "sector",
     header: "Sector",
-    meta: { share: 18, min: 120 },
+    meta: { share: 18, min: 100 },
     cell: (info) => <Cell value={info.getValue()} />,
   }),
 
   helper.accessor("companyCity", {
     id: "location",
     header: "City",
-    meta: { share: 11, min: 96 },
+    meta: { share: 11, min: 82 },
     cell: (info) => <Cell value={info.getValue()} />,
   }),
 
   helper.accessor("annualRevenue", {
     id: "revenue",
     header: "Revenue",
-    meta: { share: 11, min: 96 },
+    meta: { share: 11, min: 82 },
     cell: (info) => <Cell value={formatMoney(info.getValue())} />,
   }),
 
   helper.accessor("numEmployees", {
     id: "employees",
     header: "Employees",
-    meta: { share: 9, min: 84 },
+    meta: { share: 9, min: 74 },
     cell: (info) => <Cell value={info.getValue()?.toLocaleString() ?? null} />,
   }),
 
@@ -176,7 +176,7 @@ export const companyColumns = helper.columns([
     header: "Notes",
     // Not in the server's sort allowlist: alphabetising a description answers no question.
     enableSorting: false,
-    meta: { share: 12, min: 130 },
+    meta: { share: 12, min: 108 },
     cell: (info) => <Cell value={info.getValue()} muted />,
   }),
 
@@ -208,7 +208,7 @@ export const companyColumns = helper.columns([
     id: "parent",
     header: "Parent company",
     enableSorting: false,
-    meta: { share: 12, min: 130 },
+    meta: { share: 12, min: 108 },
     cell: (info) => <Cell value={info.getValue()} />,
   }),
 

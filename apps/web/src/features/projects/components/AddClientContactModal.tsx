@@ -49,7 +49,7 @@ export function AddClientContactModal({
   const attachedIds = new Set(project.representatives.map((rep) => rep.representativeId));
 
   return (
-    <Modal open onClose={onClose} title="Add client contact" className="w-[490px]">
+    <Modal open onClose={onClose} title="Add client contact" className="md:w-[490px]">
       <p className="-mt-3 mb-4 font-mono text-xs text-text3">
         Invite someone from {project.clientName} to this project
       </p>

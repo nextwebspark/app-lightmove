@@ -66,7 +66,7 @@ export function ProfileForm({
     <form onSubmit={handleSubmit(submit)} noValidate>
       <FormError message={formError} />
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
+      <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 md:grid-cols-2">
         <Field label="Full name" error={errors.fullName?.message}>
           <Input
             autoComplete="name"

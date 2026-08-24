@@ -31,7 +31,7 @@ export function PaginationBar({
   };
 
   return (
-    <div className="flex flex-none items-center gap-4">
+    <div className="flex flex-none flex-wrap items-center gap-x-4 gap-y-2">
       <PageButton
         label="Previous page"
         path={ICONS.back}
@@ -69,7 +69,7 @@ function PageButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="grid size-8 place-items-center rounded-[6px] border border-line-soft text-text3 transition hover:border-line hover:text-text disabled:opacity-40 disabled:hover:border-line-soft disabled:hover:text-text3"
+      className="grid size-10 place-items-center rounded-[6px] border border-line-soft lg:size-8 text-text3 transition hover:border-line hover:text-text disabled:opacity-40 disabled:hover:border-line-soft disabled:hover:text-text3"
     >
       <Icon d={path} size={14} />
     </button>

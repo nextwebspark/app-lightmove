@@ -103,7 +103,7 @@ export function TriagePage() {
         </p>
       </div>
 
-      <div className="mb-4 flex items-center gap-1.5">
+      <div className="mb-4 flex flex-wrap items-center gap-1.5">
         {TABS.map((tab) => (
           <button
             key={tab.status}
@@ -233,7 +233,7 @@ function TriageButton({
       title={label}
       aria-label={label}
       onClick={onClick}
-      className="grid size-7 place-items-center rounded-[6px] text-text3 transition hover:bg-panel hover:text-text"
+      className="grid size-10 place-items-center rounded-[6px] text-text3 transition hover:bg-panel hover:text-text lg:size-7"
     >
       <Icon d={path} size={14} />
     </button>

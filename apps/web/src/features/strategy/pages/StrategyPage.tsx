@@ -5,6 +5,7 @@ import type { ProjectOutletContext } from "../../../components/layout/ProjectLay
 import { Spinner } from "../../../components/ui";
 import { useToast } from "../../../components/ui/Toast";
 import { messageFor } from "../../../lib/errorCodes";
+import { hasRoomForRails } from "../../../lib/viewport";
 import { PAGE_SIZE } from "../../../lib/paging";
 import { useAutosave } from "../../../lib/useAutosave";
 import * as reportApi from "../../reports/api/reportApi";
@@ -74,7 +75,7 @@ function StrategyEditor() {
   });
 
   const [filter, setFilter] = useState<StrategyFilter>(() => strategy.data!.filter);
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(hasRoomForRails);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [page, setPage] = useState(0);
@@ -230,17 +231,24 @@ function StrategyEditor() {
 
       <div className="flex min-h-0 flex-1">
         {showFilters && (
-          <FilterSidebar
-            facets={facets.data}
-            facetsError={facets.isError}
-            filter={filter}
-            offLimits={data?.offLimits ?? []}
-            onChange={applyFilter}
-            onOffLimitsChange={(ids) => offLimitsWrite.mutate(ids)}
-          />
+          <>
+            <div
+              className="fixed inset-0 z-[90] bg-[rgba(15,20,30,0.4)] lg:hidden"
+              onClick={() => setShowFilters(false)}
+            />
+            <FilterSidebar
+              facets={facets.data}
+              facetsError={facets.isError}
+              filter={filter}
+              offLimits={data?.offLimits ?? []}
+              onChange={applyFilter}
+              onOffLimitsChange={(ids) => offLimitsWrite.mutate(ids)}
+              onClose={() => setShowFilters(false)}
+            />
+          </>
         )}
 
-        <div className="flex min-w-0 flex-1 flex-col gap-3 p-5">
+        <div className="flex min-w-0 flex-1 flex-col gap-3 p-3 sm:p-5">
           <CompanyResultsTable
             companies={companies.data?.companies ?? []}
             sort={sort}

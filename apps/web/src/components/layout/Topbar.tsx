@@ -6,15 +6,38 @@ import { Icon, ICONS } from "./Icon";
 
 /**
  * The 46px header: the workspace dropdown (settings, members, sign out) on the left, the user's
- * avatar on the right. Settings screens pass a breadcrumb instead of the dropdown.
+ * avatar on the right. Settings screens pass a breadcrumb instead of the dropdown. Below `lg` it
+ * also carries the nav drawer's button.
  */
-export function Topbar({ breadcrumb }: { breadcrumb?: ReactNode }) {
+export function Topbar({
+  breadcrumb,
+  navOpen = false,
+  onMenuClick,
+}: {
+  breadcrumb?: ReactNode;
+  navOpen?: boolean;
+  onMenuClick?: () => void;
+}) {
   const { user } = useAuth();
 
   return (
-    <header className="relative z-[60] flex h-[46px] flex-none items-center gap-3 px-3.5">
-      {breadcrumb ?? <WorkspaceMenu />}
-      <div className="ml-auto flex items-center gap-2.5">
+    <header className="relative z-[60] flex h-[46px] flex-none items-center gap-2 px-3.5 sm:gap-3">
+      {onMenuClick && (
+        <button
+          type="button"
+          onClick={onMenuClick}
+          aria-label="Open navigation"
+          aria-expanded={navOpen}
+          aria-controls="app-nav"
+          className="-ml-1 flex size-9 flex-none items-center justify-center rounded-[7px] text-text2 transition hover:bg-panel2 hover:text-text lg:hidden"
+        >
+          <Icon d={ICONS.menu} size={18} />
+        </button>
+      )}
+
+      <div className="flex min-w-0 flex-1 items-center">{breadcrumb ?? <WorkspaceMenu />}</div>
+
+      <div className="flex flex-none items-center gap-2.5">
         {user && <Avatar id={user.id} name={user.fullName} src={user.avatarUrl} />}
       </div>
     </header>
@@ -30,21 +53,21 @@ export function ProjectBreadcrumb({
   positionTitle: string;
 }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex min-w-0 items-center gap-2">
       <WorkspaceMenu compact />
       <Link
         to="/"
-        className="whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-text3 hover:bg-panel2 hover:text-text"
+        className="hidden whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-text3 hover:bg-panel2 hover:text-text md:inline"
       >
         Projects
       </Link>
-      <span className="text-xs text-text3 opacity-40">/</span>
-      <span className="flex items-center gap-1.5 whitespace-nowrap font-mono text-[13px] font-medium text-text2">
+      <span className="hidden text-xs text-text3 opacity-40 md:inline">/</span>
+      <span className="hidden items-center gap-1.5 whitespace-nowrap font-mono text-[13px] font-medium text-text2 sm:flex">
         <span className="size-1.5 rounded-full bg-sky" />
         {clientName}
       </span>
-      <span className="text-xs text-text3 opacity-40">/</span>
-      <span className="max-w-[280px] truncate whitespace-nowrap text-sm font-semibold text-text">
+      <span className="hidden text-xs text-text3 opacity-40 sm:inline">/</span>
+      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-text lg:max-w-[280px] lg:flex-none">
         {positionTitle}
       </span>
     </div>
@@ -54,18 +77,18 @@ export function ProjectBreadcrumb({
 /** The breadcrumb variant: `[L] Workspace / Settings / {section}`. */
 export function SettingsBreadcrumb({ section }: { section: string }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex min-w-0 items-center gap-2">
       <WorkspaceMenu compact />
       <Link
         to="/"
-        className="whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-text3 hover:bg-panel2 hover:text-text"
+        className="hidden whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-text3 hover:bg-panel2 hover:text-text md:inline"
       >
         Workspace
       </Link>
-      <span className="text-xs text-text3 opacity-40">/</span>
-      <span className="whitespace-nowrap text-sm font-semibold text-text">Settings</span>
-      <span className="text-xs text-text3 opacity-40">/</span>
-      <span className="whitespace-nowrap font-mono text-[13px] font-medium text-text2">{section}</span>
+      <span className="hidden text-xs text-text3 opacity-40 md:inline">/</span>
+      <span className="hidden whitespace-nowrap text-sm font-semibold text-text sm:inline">Settings</span>
+      <span className="hidden text-xs text-text3 opacity-40 sm:inline">/</span>
+      <span className="truncate font-mono text-[13px] font-medium text-text2">{section}</span>
     </div>
   );
 }
@@ -115,13 +138,15 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
       >
         <LogoTile mark={workspace.logoMark ?? workspace.name[0]} />
         {!compact && (
-          <span className="font-mono text-[13px] font-semibold tracking-[0.02em]">{workspace.name}</span>
+          <span className="max-w-[40vw] truncate font-mono text-[13px] font-semibold tracking-[0.02em] sm:max-w-none">
+            {workspace.name}
+          </span>
         )}
         <Icon d={ICONS.chevronDown} size={13} className="text-text3" />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-10 z-[80] w-[268px] rounded-[10px] border border-line bg-panel p-1.5 shadow-panel">
+        <div className="absolute left-0 top-10 z-[80] w-[min(268px,calc(100vw-24px))] rounded-[10px] border border-line bg-panel p-1.5 shadow-panel">
           <div className="mb-1.5 flex items-center gap-2.5 border-b border-line-soft p-2.5">
             <LogoTile mark={workspace.logoMark ?? workspace.name[0]} size={30} />
             <div>

@@ -85,6 +85,43 @@ You are a senior front-end developer specializing in ReactJS, TypeScript, HTML, 
   resolved-empty path is broken. Await the query reaching `success` (or a positive `findByRole`)
   before asserting *absence*.
 
+## Responsive layout
+
+The app is one codebase for phone, tablet and desktop. Two breakpoints carry almost all of it, and
+they are Tailwind v4's defaults — there is no custom `--breakpoint-*` and there should not be one.
+
+- **`lg` (1024px) is the shell threshold.** The nav rail costs ~268px with its gutters, which a 390px
+  viewport does not have. Below `lg` the rail is an off-canvas drawer `AppShell` owns; at `lg` and up
+  it is the static rail. Strategy's filter rail follows the same rule.
+- **`md` (768px) is the content threshold.** Two-column grids collapse to one, toolbars stop needing
+  to wrap, and the list screens swap their card stack for a table.
+
+Write classes **mobile-first**: the unprefixed class is the phone and `md:`/`lg:` restore the desktop
+value. Reach for a Tailwind variant, not JavaScript — there is no `useMediaQuery` here and adding one
+would duplicate the thresholds somewhere that can drift. The single exception is
+`lib/viewport.ts#hasRoomForRails()`, a non-reactive one-shot read for the *initial* open state of a
+disclosure, which CSS genuinely cannot express.
+
+Wide data grids scroll horizontally inside their own `overflow-x` box with a `sticky start-0` first
+column, per `CompanyResultsTable`. Lists people *scan* (mandates, clients) render as cards below `md`
+instead — scanning sideways is not scanning.
+
+Verify with `node e2e/spa/responsive.mjs` against a bare `npm run dev -w apps/web`: it stubs
+`/api/v1`, so it needs no backend, and it sweeps every route at 390/768/1440 asserting nothing pushes
+the document sideways.
+
+### Responsive traps
+
+- **`twMerge` resolves conflicts per breakpoint, and a caller's unprefixed class only beats the
+  unprefixed one.** `cn("w-full md:w-[440px]", "w-[480px]")` yields `md:w-[440px] w-[480px]` — 480px on
+  a phone and 440px on a desktop, the exact inverse of the intent. When a primitive goes mobile-first,
+  every caller's width override must gain the same prefix.
+- **A blank page has no horizontal overflow.** Any layout check must prove the screen rendered before
+  it believes the measurement, or a crashed route reads as a pass.
+- **Both card and table markup are in the DOM**, with CSS showing one. jsdom applies no CSS, so a test
+  asserting on a row matches twice — use `findAllByText`. jsdom also answers `false` to every media
+  query, so `src/test/setup.ts` reports a desktop width; a test wanting the narrow layout overrides it.
+
 ## Traps this codebase has already fallen into
 
 - **A refused read is not an empty list.** `useQuery` with `data: rows = []` renders the *empty state*

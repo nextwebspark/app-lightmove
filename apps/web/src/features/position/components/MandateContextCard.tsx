@@ -32,7 +32,7 @@ export function MandateContextCard({
       <div className="mb-3.5 mt-1 font-mono text-[11.5px] text-text3">
         Why this mandate exists and anything sensitive the hiring manager shared.
       </div>
-      <div className="grid grid-cols-[200px_1fr] gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-[200px_1fr]">
         <div>
           <MicroLabel>Reason for mandate</MicroLabel>
           <Select value={reason} onChange={(e) => onReason(e.target.value as MandateReason)}>
