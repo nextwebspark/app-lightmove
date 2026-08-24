@@ -24,9 +24,9 @@ export function PackageCard({
   return (
     <div className="mb-[22px]">
       <SectionHeading title="Package Details" />
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-[10px] border border-line-soft bg-panel2 p-4">
-          <div className="grid grid-cols-2 gap-x-5 gap-y-3.5">
+          <div className="grid grid-cols-1 gap-x-5 gap-y-3.5 sm:grid-cols-2">
             <MoneyField
               label="Base salary min"
               value={details.salaryMin}

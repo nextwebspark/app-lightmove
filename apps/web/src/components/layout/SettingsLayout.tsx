@@ -1,8 +1,9 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
+import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
-import { Sidebar, type SidebarGroup } from "./Sidebar";
-import { SettingsBreadcrumb, Topbar } from "./Topbar";
+import { type SidebarGroup } from "./Sidebar";
+import { SettingsBreadcrumb } from "./Topbar";
 
 /**
  * The settings sections that exist, in the mockup's two groups.
@@ -45,21 +46,13 @@ export function SettingsLayout() {
   const section = SETTINGS_SECTIONS.find((candidate) => pathname.startsWith(candidate.to));
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
-      <Topbar breadcrumb={<SettingsBreadcrumb section={section?.label ?? "Settings"} />} />
-
-      <div className="flex min-h-0 flex-1 gap-3.5 px-3.5 pb-3.5">
-        <Sidebar
-          groups={groups}
-          backLink={{ to: "/", label: "Back to workspace", icon: ICONS.back }}
-        />
-
-        <main className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-line bg-panel">
-          <div className="mx-auto max-w-[760px] px-7 pb-[60px] pt-7">
-            <Outlet />
-          </div>
-        </main>
-      </div>
-    </div>
+    <AppShell
+      breadcrumb={<SettingsBreadcrumb section={section?.label ?? "Settings"} />}
+      navGroups={groups}
+      navBackLink={{ to: "/", label: "Back to workspace", icon: ICONS.back }}
+      contentClassName="mx-auto max-w-[760px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7"
+    >
+      <Outlet />
+    </AppShell>
   );
 }

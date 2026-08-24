@@ -1,3 +1,5 @@
+import { cn } from "../../../lib/cn";
+
 /**
  * The progress indicator from Signup.dc.html, plus the Verify step the mockup does not model.
  *
@@ -39,7 +41,10 @@ export function Stepper({
   backableSteps?: number[];
 }) {
   return (
-    <nav aria-label="Signup progress" className="flex animate-fade-up items-center [animation-delay:40ms]">
+    <nav
+      aria-label="Signup progress"
+      className="flex animate-fade-up items-center [animation-delay:40ms]"
+    >
       {steps.map((step, index) => {
         const done = step.n < current;
         const active = step.n === current;
@@ -50,7 +55,10 @@ export function Stepper({
           <div key={step.n} className="flex items-center">
             {index > 0 && (
               <span
-                className={`mx-2 h-px w-8 ${step.n <= current ? "bg-amber-btn" : "bg-line"}`}
+                className={cn(
+                  "mx-1.5 h-px w-4 sm:mx-2 sm:w-8",
+                  step.n <= current ? "bg-amber-btn" : "bg-line",
+                )}
                 aria-hidden="true"
               />
             )}
@@ -75,9 +83,11 @@ export function Stepper({
               </span>
 
               <span
-                className={`text-xs font-medium ${
-                  active ? "text-text" : done ? "text-text2" : "text-text3"
-                }`}
+                className={cn(
+                  "text-xs font-medium",
+                  active ? "inline text-text" : "hidden sm:inline",
+                  done ? "text-text2" : !active && "text-text3",
+                )}
               >
                 {step.label}
               </span>

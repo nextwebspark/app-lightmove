@@ -3,8 +3,8 @@ import { formatDate } from "../../../lib/format";
 import type { Project, TeamMember } from "../api/types";
 import type { SortKey } from "../lib/filtering";
 
-/** The mandate list: sortable mono headers, stage pills, health dots, overlapping avatar stacks. */
-export function ProjectsTable({
+/** The mandate list: a sortable table on a wide screen, a stack of cards below `md`. */
+export function ProjectsList({
   projects,
   sortKey,
   sortDirection,
@@ -23,12 +23,22 @@ export function ProjectsTable({
     "whitespace-nowrap border-b border-line px-3 py-[9px] text-left font-mono text-[10.5px] " +
     "font-semibold uppercase tracking-[0.12em] text-text3";
   const td = "border-b border-line-soft px-3 py-[11px]";
+  // A sticky cell is transparent by default, so the scrolled columns would slide under it.
+  const pinned = "sticky start-0 z-[1] bg-panel group-hover:bg-panel2";
 
   return (
-    <table className="w-full border-collapse">
+    <>
+      <div className="flex flex-col gap-2.5 md:hidden">
+        {projects.map((project) => (
+          <ProjectCard key={project.id} project={project} onOpen={() => onOpen(project.id)} />
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto md:block">
+      <table className="w-full min-w-[860px] border-collapse">
       <thead>
         <tr>
-          <th className={`${th} cursor-pointer`} onClick={() => onSort("client")}>
+          <th className={`${th} ${pinned} cursor-pointer`} onClick={() => onSort("client")}>
             Client <span className="text-amber">{arrow("client")}</span>
           </th>
           <th className={th}>Position</th>
@@ -45,8 +55,12 @@ export function ProjectsTable({
       </thead>
       <tbody>
         {projects.map((project) => (
-          <tr key={project.id} className="cursor-pointer hover:bg-panel2" onClick={() => onOpen(project.id)}>
-            <td className={`${td} whitespace-nowrap font-mono text-[12.5px] font-medium text-text2`}>
+          <tr
+            key={project.id}
+            className="group cursor-pointer hover:bg-panel2"
+            onClick={() => onOpen(project.id)}
+          >
+            <td className={`${td} ${pinned} whitespace-nowrap font-mono text-[12.5px] font-medium text-text2`}>
               {project.clientName}
             </td>
             <td className={`${td} whitespace-nowrap`}>
@@ -85,7 +99,56 @@ export function ProjectsTable({
           </tr>
         ))}
       </tbody>
-    </table>
+        </table>
+      </div>
+    </>
+  );
+}
+
+function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full flex-col gap-2.5 rounded-[10px] border border-line bg-panel p-3.5 text-left transition hover:bg-panel2"
+    >
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-mono text-[11.5px] font-medium text-text3">
+            {project.clientName}
+          </div>
+          <div className="mt-0.5 text-[13.5px] font-semibold text-text">{project.positionTitle}</div>
+        </div>
+        <HealthDot health={project.health} />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <StagePill stage={project.stage} />
+        <span className="font-mono text-[11px] text-text3">
+          Lead · {leadOf(project.team)?.fullName ?? "—"}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-2.5 border-t border-line-soft pt-2.5">
+        <span className="flex">
+          {project.team.map((seat, index) => (
+            <Avatar
+              key={seat.memberId}
+              id={seat.memberId}
+              name={seat.fullName}
+              src={seat.avatarUrl}
+              size="sm"
+              className={`border-2 border-panel ${index > 0 ? "-ml-[7px]" : ""}`}
+            />
+          ))}
+        </span>
+        <span className="ml-auto font-mono text-[11px] text-text2">
+          <b className="font-semibold text-text">{project.companies}</b> cos ·{" "}
+          <b className="font-semibold text-text">{project.candidates}</b> cand
+        </span>
+        <span className="font-mono text-[11px] text-text3">{formatDate(project.targetDate)}</span>
+      </div>
+    </button>
   );
 }
 

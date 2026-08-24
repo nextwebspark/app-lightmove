@@ -13,7 +13,7 @@ export function BarList({ caption, rows }: { caption: string; rows: Breakdown[] 
       </div>
       {rows.map((row) => (
         <div key={row.label} className="flex items-center gap-2.5 py-[5px]">
-          <span className="w-[132px] flex-none truncate text-xs text-text2" title={row.label}>
+          <span className="w-[92px] flex-none truncate sm:w-[132px] text-xs text-text2" title={row.label}>
             {row.label}
           </span>
           <span className="h-2 flex-1 overflow-hidden rounded-[4px] bg-line-soft">

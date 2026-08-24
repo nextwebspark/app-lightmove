@@ -4,9 +4,10 @@ import * as projectsApi from "../../features/projects/api/projectsApi";
 import type { Project } from "../../features/projects/api/types";
 import { cn } from "../../lib/cn";
 import { Spinner, StagePill } from "../ui";
+import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
-import { Sidebar, type SidebarGroup } from "./Sidebar";
-import { ProjectBreadcrumb, Topbar } from "./Topbar";
+import { type SidebarGroup } from "./Sidebar";
+import { ProjectBreadcrumb } from "./Topbar";
 
 /**
  * Tabs whose own content scrolls, so the shell must not. They need a *definite* height to size that
@@ -47,7 +48,7 @@ export function ProjectLayout() {
   if (!project) {
     if (isPending) {
       return (
-        <div className="flex min-h-screen items-center justify-center">
+        <div className="flex min-h-dvh items-center justify-center">
           <Spinner />
         </div>
       );
@@ -85,33 +86,21 @@ export function ProjectLayout() {
   ];
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
-      <Topbar
-        breadcrumb={
-          <ProjectBreadcrumb clientName={project.clientName} positionTitle={project.positionTitle} />
-        }
-      />
-
-      <div className="flex min-h-0 flex-1 gap-3.5 px-3.5 pb-3.5">
-        <Sidebar
-          groups={groups}
-          backLink={{ to: "/", label: "All projects", icon: ICONS.back }}
-          header={<StagePill stage={project.stage} />}
-        />
-
-        <main className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-line bg-panel">
-          {/* Wider than the mockups' 1160px on purpose — see WorkspaceLayout for the reasoning. */}
-          <div
-            className={cn(
-              fullBleed ? "w-full" : "mx-auto max-w-[1440px] px-7 pb-[60px] pt-7",
-              fillsViewport && "flex h-full flex-col",
-            )}
-          >
-            <Outlet context={{ project } satisfies ProjectOutletContext} />
-          </div>
-        </main>
-      </div>
-    </div>
+    <AppShell
+      breadcrumb={
+        <ProjectBreadcrumb clientName={project.clientName} positionTitle={project.positionTitle} />
+      }
+      navGroups={groups}
+      navBackLink={{ to: "/", label: "All projects", icon: ICONS.back }}
+      navHeader={<StagePill stage={project.stage} />}
+      /* Wider than the mockups' 1160px on purpose — see WorkspaceLayout for the reasoning. */
+      contentClassName={cn(
+        fullBleed ? "w-full" : "mx-auto max-w-[1440px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7",
+        fillsViewport && "flex h-full flex-col",
+      )}
+    >
+      <Outlet context={{ project } satisfies ProjectOutletContext} />
+    </AppShell>
   );
 }
 

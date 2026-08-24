@@ -47,7 +47,7 @@ export function AddTeamMemberModal({ project, onClose }: { project: Project; onC
   const addable = directory.filter((person) => !staffed.has(person.memberId));
 
   return (
-    <Modal open onClose={onClose} title="Add team member" className="w-[480px]">
+    <Modal open onClose={onClose} title="Add team member" className="md:w-[480px]">
       <p className="-mt-3 mb-4 font-mono text-xs text-text3">
         Pick from the firm directory and set the role they join with
       </p>

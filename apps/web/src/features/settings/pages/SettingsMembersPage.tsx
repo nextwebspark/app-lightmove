@@ -108,7 +108,7 @@ function MemberRow({ member }: { member: Member }) {
   });
 
   return (
-    <div className="flex items-center gap-3 border-t border-line-soft py-3 first:border-t-0">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line-soft py-3 first:border-t-0">
       <Avatar id={member.memberId} name={member.fullName} src={member.avatarUrl} size="lg" />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-medium">
@@ -197,7 +197,7 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
   const busy = resend.isPending || revoke.isPending;
 
   return (
-    <div className="flex items-center gap-3 border-t border-line-soft py-3 first:border-t-0">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line-soft py-3 first:border-t-0">
       <div className="min-w-0 flex-1">
         <div className="truncate font-mono text-[13px]">{invitation.email}</div>
         <div className="mt-0.5 font-mono text-[11px] text-text3">

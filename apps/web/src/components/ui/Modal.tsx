@@ -40,7 +40,8 @@ export function Modal({
         aria-label={title}
         onClick={(event) => event.stopPropagation()}
         className={cn(
-          "w-[440px] max-w-[94vw] animate-fade-up rounded-xl border border-line bg-panel p-[22px] shadow-panel",
+          "max-h-[90dvh] w-full max-w-[94vw] overflow-y-auto rounded-xl border border-line bg-panel p-5 shadow-panel",
+          "animate-fade-up md:w-[440px] md:p-[22px]",
           className,
         )}
       >

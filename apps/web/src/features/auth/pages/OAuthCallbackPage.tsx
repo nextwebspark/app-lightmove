@@ -58,7 +58,7 @@ export function OAuthCallbackPage() {
   }, [navigate, adopt]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-4 p-4 sm:p-6">
       <Logo />
       <p className="font-mono text-xs text-text3">Signing you in…</p>
     </div>

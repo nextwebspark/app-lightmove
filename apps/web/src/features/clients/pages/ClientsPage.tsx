@@ -6,7 +6,7 @@ import { Button, EmptyState, TableSkeleton } from "../../../components/ui";
 import { NewProjectModal } from "../../projects/components/NewProjectModal";
 import * as clientsApi from "../api/clientsApi";
 import { ClientDrawer } from "../components/ClientDrawer";
-import { ClientsTable } from "../components/ClientsTable";
+import { ClientsList } from "../components/ClientsList";
 import { NewClientModal } from "../components/NewClientModal";
 import { CHIPS, filterClients, type ChipKey } from "../lib/filtering";
 
@@ -85,7 +85,7 @@ export function ClientsPage() {
       ) : (
         <>
           <div className="mb-3.5 flex flex-wrap items-center gap-2.5">
-            <div className="flex w-[300px] items-center gap-2 rounded-lg border border-line bg-panel2 px-[11px] py-[7px]">
+            <div className="flex w-full items-center sm:w-[300px] gap-2 rounded-lg border border-line bg-panel2 px-[11px] py-[7px]">
               <Icon d={ICONS.search} size={14} className="text-text3" />
               <input
                 value={query}
@@ -111,7 +111,7 @@ export function ClientsPage() {
             </div>
           </div>
 
-          <ClientsTable clients={rows} onOpen={setOpenClientId} />
+          <ClientsList clients={rows} onOpen={setOpenClientId} />
 
           {rows.length === 0 && (
             <div className="p-12 text-center font-mono text-[13px] text-text3">

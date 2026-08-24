@@ -354,7 +354,7 @@ function Shell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-4 sm:p-6">
       <Logo />
 
       <Card className="w-[440px] max-w-[94vw] text-center [animation-delay:60ms]">
@@ -371,7 +371,7 @@ function Shell({
 
 function Dead({ title, detail }: { title: string; detail: string }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-4 sm:p-6">
       <Logo />
 
       <Card className="w-[420px] max-w-[94vw] text-center [animation-delay:60ms]">
@@ -388,7 +388,7 @@ function Dead({ title, detail }: { title: string; detail: string }) {
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-4 p-4 sm:p-6">
       <Logo />
       <p className="font-mono text-xs text-text3">{children}</p>
     </div>

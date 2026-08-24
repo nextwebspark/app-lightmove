@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Icon, ICONS } from "../../../components/layout/Icon";
+import { cn } from "../../../lib/cn";
 import type { CompanyRef, Facets, NumericRange, StrategyFilter } from "../api/types";
 import { FacetsUnavailable } from "./FacetsUnavailable";
 import { FilterAccordion } from "./FilterAccordion";
@@ -37,6 +39,7 @@ export function FilterSidebar({
   offLimits,
   onChange,
   onOffLimitsChange,
+  onClose,
 }: {
   facets: Facets | undefined;
   /** The counts were refused. Absent counts and refused counts look identical without this. */
@@ -45,6 +48,8 @@ export function FilterSidebar({
   offLimits: CompanyRef[];
   onChange: (filter: StrategyFilter) => void;
   onOffLimitsChange: (apolloAccountIds: string[]) => void;
+  /** Dismisses the rail where it overlays the results, below `lg`. */
+  onClose: () => void;
 }) {
   const [open, setOpen] = useState<AccordionKey | null>("location");
 
@@ -94,8 +99,26 @@ export function FilterSidebar({
     <div
       role="region"
       aria-label="Filters"
-      className="w-[22%] min-w-[300px] max-w-[360px] shrink-0 overflow-y-auto border-r border-line-soft"
+      className={cn(
+        "overflow-y-auto border-line-soft bg-panel",
+        // A 300px rail beside the table does not fit a phone, so below `lg` it overlays the results.
+        "fixed inset-y-0 start-0 z-[95] w-[min(320px,88vw)] border-e shadow-panel",
+        "lg:static lg:z-auto lg:w-[22%] lg:min-w-[300px] lg:max-w-[360px] lg:shrink-0 lg:shadow-none",
+      )}
     >
+      <div className="flex items-center justify-between border-b border-line-soft px-4 py-2.5 lg:hidden">
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-text3">
+          Filters
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Hide filters"
+          className="flex size-8 items-center justify-center rounded-[6px] text-text3 transition hover:bg-panel2 hover:text-text"
+        >
+          <Icon d={ICONS.close} size={16} />
+        </button>
+      </div>
       <FilterAccordion
         label="Location"
         selectedValues={labelsOf("countries")}
