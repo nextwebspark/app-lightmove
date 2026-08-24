@@ -101,9 +101,13 @@ class CompanyCaptureIntegrationTest extends FlowTestSupport {
                 // that come back as one row.
                 .andExpect(jsonPath("$.tags.length()").value(1));
 
-        assertThat(db.queryForObject(
-                "SELECT capture_key FROM app_lm_project_triage_company WHERE company_name = 'Desert Foods LLC'",
-                String.class))
+        // Scoped to this mandate. Unscoped, it matched every other test's "Desert Foods LLC" too —
+        // the container is shared across the whole class, so a read with no project_id is a read of
+        // whatever else happened to run first.
+        assertThat(db.queryForObject("""
+                        SELECT capture_key FROM app_lm_project_triage_company
+                        WHERE project_id = ?::uuid AND company_name = 'Desert Foods LLC'
+                        """, String.class, projectId))
                 .isEqualTo("desertfoods.qa");
     }
 
