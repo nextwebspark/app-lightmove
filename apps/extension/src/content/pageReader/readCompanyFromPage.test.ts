@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
 import { readCompanyFromPage } from "./readCompanyFromPage";
+import { companyDirectoryExtractor } from "./extractors/companyDirectoryExtractor";
 import { linkedInCompanyExtractor } from "./extractors/linkedInCompanyExtractor";
 import { structuredDataExtractor } from "./extractors/structuredDataExtractor";
 import { mergeExtracted } from "./extractedCompany";
@@ -108,5 +109,48 @@ describe("merging what several extractors read", () => {
 
   it("answers nulls rather than undefined when nothing was read", () => {
     expect(mergeExtracted([])).toMatchObject({ companyName: null, numEmployees: null });
+  });
+});
+
+describe("a company directory page", () => {
+  const document = documentAt("companyDirectoryPage.html", "https://app.apollo.io/companies/zenith");
+
+  it("reads facts out of a definition list, a table and a div pair alike", () => {
+    // The extractor keys on the label, not the markup, because these sites restyle often and a
+    // class-name selector would not survive it.
+    expect(companyDirectoryExtractor(document)).toMatchObject({
+      companyName: "Zenith Industrial",
+      website: "zenith-industrial.sa",
+      industry: "Industrial Machinery",
+      description: "Heavy machinery for the GCC construction sector.",
+    });
+  });
+
+  it("takes the headcount as a number, commas and all", () => {
+    expect(companyDirectoryExtractor(document).numEmployees).toBe(2400);
+  });
+
+  it("splits the headquarters, dropping the province between city and country", () => {
+    expect(companyDirectoryExtractor(document)).toMatchObject({
+      companyCity: "Riyadh",
+      companyCountry: "Saudi Arabia",
+    });
+  });
+
+  it("does not mistake prose beginning with a label for a fact row", () => {
+    // The length guard earns its place here: without it, "Industry analysts have covered this
+    // company…" would overwrite a real industry with a sentence.
+    expect(companyDirectoryExtractor(document).industry).toBe("Industrial Machinery");
+  });
+
+  it("says nothing at all about a page that is not a directory page", () => {
+    // Narrow by host on purpose: "the text next to the word Industry" is reliable on a fact table and
+    // reckless on a page of prose.
+    const elsewhere = documentAt("corporateSite.html", "https://alrawabidairy.ae/");
+    expect(companyDirectoryExtractor(elsewhere)).toEqual({});
+  });
+
+  it("does not let the directory's own domain become the company's website", () => {
+    expect(readCompanyFromPage(document).website).toBe("zenith-industrial.sa");
   });
 });

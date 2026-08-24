@@ -71,6 +71,37 @@ function firstAnswer<K extends keyof ExtractedCompany>(
   return EMPTY_EXTRACTED_COMPANY[field];
 }
 
+/**
+ * Drops the fields an extractor had nothing to say about.
+ *
+ * Load-bearing for the merge, not tidiness: an explicit null still counts as "this extractor answered"
+ * and would stop a later, broader extractor filling the gap.
+ */
+export function withoutEmpty(fields: Partial<ExtractedCompany>): Partial<ExtractedCompany> {
+  return Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value !== null && value !== undefined && value !== ""),
+  ) as Partial<ExtractedCompany>;
+}
+
+/**
+ * Splits a place into its parts — "Dubai, Dubai, United Arab Emirates" is city first, country last,
+ * with whatever administrative region sits between them dropped.
+ */
+export function splitPlaceParts(place: string | null | undefined): string[] {
+  return cleanText(place)?.split(",").map((part) => part.trim()).filter(Boolean) ?? [];
+}
+
+/** The city a place names, or nothing. */
+export function cityOf(place: string | null | undefined): string | null {
+  return splitPlaceParts(place)[0] ?? null;
+}
+
+/** The country a place names — the last part, and only when there is more than one. */
+export function countryOf(place: string | null | undefined): string | null {
+  const parts = splitPlaceParts(place);
+  return parts.length > 1 ? parts[parts.length - 1] : null;
+}
+
 /** Collapses whitespace and trims; returns null for what is left of an empty string. */
 export function cleanText(value: string | null | undefined): string | null {
   if (!value) {

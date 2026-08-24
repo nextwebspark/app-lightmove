@@ -1,4 +1,4 @@
-import { DEVELOPMENT_WORKSPACE_ORIGIN, PRODUCTION_WORKSPACE_ORIGIN } from "./src/workspaceOrigins";
+import { DEVELOPMENT_WORKSPACE_ORIGIN, PRODUCTION_WORKSPACE_ORIGIN } from "./src/buildTargets";
 
 /**
  * The single source of the extension's manifest.
@@ -83,16 +83,19 @@ export function buildManifest(isProduction: boolean) {
       type: "module",
     },
 
-    // The one standing content script, and it runs on exactly one page: the workspace's pairing screen.
-    // It exists to carry the paired token from that page into extension storage, and it is matched this
-    // narrowly so that no other page — including any other page of the workspace — can talk to it.
-    content_scripts: [
-      {
-        matches: [`${workspaceOrigin}/extension/connect*`],
-        js: ["pairing-bridge.js"],
-        run_at: "document_idle",
-      },
-    ],
+    // How the workspace hands the paired session over, and the only channel that keeps it private.
+    //
+    // This was a content script and a window.postMessage, which was wrong: postMessage to the page's
+    // own window is delivered to every listener in that frame, and a content script's isolated world
+    // does not isolate it from those events. Any other extension the consultant had installed with a
+    // broad content script — a grammar checker, a coupon finder — would have received the refresh
+    // token. externally_connectable delivers to this extension and to nothing else.
+    //
+    // The id is not a secret and pinning it costs nothing: PINNED_PUBLIC_KEY above fixes it, and
+    // application.yml already names the same id in the CORS allow-list.
+    externally_connectable: {
+      matches: [`${workspaceOrigin}/*`],
+    },
 
     commands: {
       _execute_action: {

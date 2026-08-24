@@ -1,4 +1,12 @@
-import { cleanText, parseHeadcount, type CompanyExtractor, type ExtractedCompany } from "../extractedCompany";
+import {
+  cityOf,
+  cleanText,
+  countryOf,
+  parseHeadcount,
+  withoutEmpty,
+  type CompanyExtractor,
+  type ExtractedCompany,
+} from "../extractedCompany";
 
 /**
  * `linkedin.com/company/*` — the richest source, and the most fragile.
@@ -35,14 +43,12 @@ export const linkedInCompanyExtractor: CompanyExtractor = (document) => {
       ?? hrefOf(document, 'a[data-tracking-control-name*="website"]'),
     industry: details.get("industry"),
     numEmployees: parseHeadcount(details.get("company size") ?? companySizeFromSummary(document)),
-    companyCity: cityFrom(details.get("headquarters")),
-    companyCountry: countryFrom(details.get("headquarters")),
+    companyCity: cityOf(details.get("headquarters")),
+    companyCountry: countryOf(details.get("headquarters")),
     description: details.get("overview") ?? cleanText(textOf(document, 'p[class*="about-us__description"]')),
   };
 
-  return Object.fromEntries(
-    Object.entries(extracted).filter(([, value]) => value !== null && value !== undefined && value !== ""),
-  ) as Partial<ExtractedCompany>;
+  return withoutEmpty(extracted);
 };
 
 function isLinkedInCompanyPage(document: Document): boolean {
@@ -110,24 +116,6 @@ function nextDefinition(term: Element): Element | null {
 function companySizeFromSummary(document: Document): string | null {
   const summary = cleanText(document.querySelector('[class*="org-top-card-summary-info"]')?.textContent);
   return summary?.match(/[\d,]+(?:-[\d,]+)?\s+employees/i)?.[0] ?? null;
-}
-
-/**
- * "Dubai, Dubai, United Arab Emirates" is a city of Dubai in the UAE — first segment and last, with
- * whatever administrative region LinkedIn puts between them dropped.
- */
-function cityFrom(headquarters: string | null | undefined): string | null {
-  const segments = splitHeadquarters(headquarters);
-  return segments.length > 0 ? segments[0] : null;
-}
-
-function countryFrom(headquarters: string | null | undefined): string | null {
-  const segments = splitHeadquarters(headquarters);
-  return segments.length > 1 ? segments[segments.length - 1] : null;
-}
-
-function splitHeadquarters(headquarters: string | null | undefined): string[] {
-  return cleanText(headquarters)?.split(",").map((part) => part.trim()).filter(Boolean) ?? [];
 }
 
 function textOf(document: Document, selector: string): string | null {

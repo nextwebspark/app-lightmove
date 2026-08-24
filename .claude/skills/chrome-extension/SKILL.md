@@ -53,8 +53,16 @@ in a tab; there is still no in-popup login):
 2. That SPA route, already signed in, calls `POST /api/v1/auth/extension/tokens` with its in-memory
    access token. The server mints a refresh token through the **existing** `app_lm_refresh_token` family
    machinery — same rotation, same reuse detection, same revocation — and returns it in the response body.
-3. The page `postMessage`s it to `content/pairingBridge.ts`, which forwards it to the worker.
+3. The page hands it to this extension with `chrome.runtime.sendMessage(EXTENSION_ID, …)`, permitted by
+   the manifest's `externally_connectable` and accepted by the worker only from the workspace origin.
 4. The worker exchanges it at `POST /api/v1/auth/extension/refresh` for access tokens from then on.
+
+**Address the handover, never broadcast it.** `window.postMessage` to the page's own window is
+delivered to every listener in that frame, and a content script's isolated world does *not* isolate it
+from those events — so any other extension the consultant has installed with a broad content script
+reads the refresh token straight off the page. This build shipped that mistake in review and it was
+caught there. The extension id is not a secret: the manifest pins it and `application.yml` already
+names it in the CORS allow-list.
 
 Consequences worth keeping in mind:
 
@@ -66,8 +74,9 @@ Consequences worth keeping in mind:
 - Rotation applies. If a rotation response is lost the stored token is stale, the next exchange looks
   like replay, and the family is revoked — the user re-pairs. Same trade the SPA makes; don't disable
   rotation to avoid it.
-- The extension ID is never hardcoded in the SPA. The bridge is a content script matched on that one URL,
-  and it verifies `event.source === window` and `event.origin === location.origin` before forwarding.
+- A token may only be redeemed by the client its family was opened for — a web session's refresh token
+  is refused at `/auth/extension/refresh`, so a cookie-only credential cannot be laundered into a
+  body-carried one.
 
 ## Permissions: least privilege, checked at review
 

@@ -1,4 +1,12 @@
-import { cleanText, parseHeadcount, type CompanyExtractor, type ExtractedCompany } from "../extractedCompany";
+import {
+  cityOf,
+  cleanText,
+  countryOf,
+  parseHeadcount,
+  withoutEmpty,
+  type CompanyExtractor,
+  type ExtractedCompany,
+} from "../extractedCompany";
 
 /**
  * Company directories — Apollo and Crunchbase.
@@ -28,9 +36,7 @@ export const companyDirectoryExtractor: CompanyExtractor = (document) => {
     description: cleanText(facts.get("description") ?? facts.get("about")),
   };
 
-  return Object.fromEntries(
-    Object.entries(extracted).filter(([, value]) => value !== null && value !== undefined && value !== ""),
-  ) as Partial<ExtractedCompany>;
+  return withoutEmpty(extracted);
 };
 
 const DIRECTORY_HOSTS = [/(^|\.)apollo\.io$/i, /(^|\.)crunchbase\.com$/i];
@@ -95,23 +101,11 @@ function linkedInLink(document: Document): string | null {
   return document.querySelector('a[href*="linkedin.com/company/"]')?.getAttribute("href") ?? null;
 }
 
+/** An explicit city field wins; otherwise the first part of whatever place the page names. */
 function cityFrom(facts: Map<string, string>): string | null {
-  const explicit = facts.get("city");
-  if (explicit) {
-    return explicit;
-  }
-  return splitPlace(facts.get("headquarters") ?? facts.get("location"))[0] ?? null;
+  return facts.get("city") ?? cityOf(facts.get("headquarters") ?? facts.get("location"));
 }
 
 function countryFrom(facts: Map<string, string>): string | null {
-  const explicit = facts.get("country");
-  if (explicit) {
-    return explicit;
-  }
-  const segments = splitPlace(facts.get("headquarters") ?? facts.get("location"));
-  return segments.length > 1 ? segments[segments.length - 1] : null;
-}
-
-function splitPlace(place: string | null | undefined): string[] {
-  return cleanText(place)?.split(",").map((part) => part.trim()).filter(Boolean) ?? [];
+  return facts.get("country") ?? countryOf(facts.get("headquarters") ?? facts.get("location"));
 }

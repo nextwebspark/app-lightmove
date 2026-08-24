@@ -3,9 +3,9 @@ import { captureCompany } from "../api/captureCompanyApi";
 import { resolveCompany } from "../api/companyResolveApi";
 import { listProjects } from "../api/projectsApi";
 import type { ExtensionSession } from "../api/types";
-import { isReadablePageUrl } from "../domain/companyDomainName";
 import { workspaceOrigin } from "../workspaceOrigin";
 import type { ExtensionFailure, ExtensionRequest, ReadPageResult } from "./extensionMessages";
+import { isReadablePageUrl } from "./readablePageUrl";
 import {
   currentAccessToken,
   pairedUser,
@@ -29,19 +29,19 @@ import {
 
 const api = createLightMoveApiClient({
   baseOrigin: workspaceOrigin,
-  accessToken: currentAccessToken,
+  currentAccessToken,
   renewAccessToken,
 });
 
 const LAST_PROJECT_KEY = "lightmove.lastProjectId";
 
-/** What the pairing content script sends. Kept apart from ExtensionRequest: a different sender. */
+/** What the workspace's connect page sends over externally_connectable. */
 interface StorePairedSessionMessage {
   kind: "storePairedSession";
   session: ExtensionSession;
 }
 
-chrome.runtime.onMessage.addListener((message: ExtensionRequest | StorePairedSessionMessage, _sender, respond) => {
+chrome.runtime.onMessage.addListener((message: ExtensionRequest, _sender, respond) => {
   // Answering asynchronously requires returning true synchronously, so the work is started here and
   // the channel held open. Returning the promise itself does not work in Chrome.
   handle(message)
@@ -50,11 +50,33 @@ chrome.runtime.onMessage.addListener((message: ExtensionRequest | StorePairedSes
   return true;
 });
 
-async function handle(message: ExtensionRequest | StorePairedSessionMessage): Promise<unknown> {
+/**
+ * Pairing, and only pairing, arrives here — from a web page rather than from inside the extension.
+ *
+ * A separate listener from the one above, because the trust is different. `onMessage` can only be
+ * reached by this extension's own popup; `onMessageExternal` is reachable by any page the manifest's
+ * `externally_connectable` names, so the sender is checked before a credential is stored. The manifest
+ * already narrows it to the workspace origin — this is the second lock on the same door, and it is the
+ * one that still holds if that match pattern is ever widened.
+ */
+chrome.runtime.onMessageExternal.addListener((message: StorePairedSessionMessage, sender, respond) => {
+  if (message?.kind !== "storePairedSession" || !isWorkspaceSender(sender)) {
+    respond({ ok: false, code: "SENDER_REFUSED", message: "Not the LightMove workspace." });
+    return false;
+  }
+  storePairedSession(message.session)
+    .then(() => respond({ ok: true, value: null }))
+    .catch((error) => respond(toFailure(error)));
+  return true;
+});
+
+/** The sender's own origin, which Chrome sets and a page cannot forge. */
+function isWorkspaceSender(sender: chrome.runtime.MessageSender): boolean {
+  return sender.origin === workspaceOrigin;
+}
+
+async function handle(message: ExtensionRequest): Promise<unknown> {
   switch (message.kind) {
-    case "storePairedSession":
-      await storePairedSession(message.session);
-      return null;
     case "getPairedUser":
       return pairedUser();
     case "signOut":

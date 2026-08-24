@@ -9,9 +9,9 @@ import { buildManifest } from "./manifest.config";
 /**
  * The popup and the service worker.
  *
- * The pairing content script is built separately (`vite.content.config.ts`) and for one reason: a
- * Manifest V3 content script is a classic script, not a module, so it has to be bundled as an IIFE.
- * Everything here is ES — the popup is a page and the service worker declares `type: module`.
+ * The page reader is built separately (`vite.page-reader.config.ts`) for one reason: it is injected by
+ * `chrome.scripting` as a classic script, not a module, so it has to be bundled as an IIFE. Everything
+ * here is ES — the popup is a page and the service worker declares `type: module`.
  */
 export default defineConfig(({ mode }) => ({
   plugins: [

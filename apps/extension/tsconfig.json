@@ -21,5 +21,11 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "manifest.config.ts", "vite.config.ts"]
+  "include": [
+    "src",
+    "manifest.config.ts",
+    "vite.config.ts",
+    "vite.iife.ts",
+    "vite.page-reader.config.ts"
+  ]
 }

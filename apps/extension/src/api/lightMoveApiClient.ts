@@ -28,7 +28,7 @@ export interface ApiClientOptions {
   /** Where the workspace lives, without a trailing slash. */
   baseOrigin: string;
   /** The token to send now. */
-  accessToken: () => Promise<string | null>;
+  currentAccessToken: () => Promise<string | null>;
   /** Called once on a 401, to get a token to retry with. Null gives up. */
   renewAccessToken: () => Promise<string | null>;
 }
@@ -73,7 +73,7 @@ export function createLightMoveApiClient(options: ApiClientOptions): LightMoveAp
 
   return {
     async request<T>(path: string, request: ApiRequestOptions = {}): Promise<T> {
-      let response = await send(path, request, await options.accessToken());
+      let response = await send(path, request, await options.currentAccessToken());
 
       // One retry, for an expired token only. A second 401 means the session is genuinely over and
       // retrying again would just spend refresh tokens against a server that has already said no.

@@ -1,4 +1,10 @@
-import { cleanText, parseHeadcount, type CompanyExtractor, type ExtractedCompany } from "../extractedCompany";
+import {
+  cleanText,
+  parseHeadcount,
+  withoutEmpty,
+  type CompanyExtractor,
+  type ExtractedCompany,
+} from "../extractedCompany";
 
 /**
  * The universal reader: schema.org JSON-LD, then OpenGraph, then the page's own head.
@@ -153,11 +159,4 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
-}
-
-/** Keeps the merge honest: an explicit null would still count as "this extractor answered". */
-function withoutEmpty(fields: Partial<ExtractedCompany>): Partial<ExtractedCompany> {
-  return Object.fromEntries(
-    Object.entries(fields).filter(([, value]) => value !== null && value !== undefined && value !== ""),
-  ) as Partial<ExtractedCompany>;
 }

@@ -8,9 +8,10 @@
  * and shares no module graph with the web app. A shared package for forty lines of custom properties
  * would couple the two builds for less than it saves. Only the palette is duplicated; no logic is.
  *
- * Dark is the popup's default. A browser toolbar popup is a small panel over whatever the consultant
- * is reading, and the mockups draw it dark; the light values are here so `prefers-color-scheme: light`
- * is not a white-on-white surprise.
+ * Dark is the popup's only theme, and deliberately: a toolbar popup is a small panel over whatever the
+ * consultant is reading, and the mockups draw it dark. `popup.html` sets `class="dark"` on <html>, so
+ * the `:root` values below are the fallback the `.dark` block overrides — not a light theme anybody
+ * reaches. Give the popup a light mode and it needs a `prefers-color-scheme` rule that is not here yet.
  */
 @custom-variant dark (&:where(.dark, .dark *));
 

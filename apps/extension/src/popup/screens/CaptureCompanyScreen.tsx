@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { askServiceWorker } from "../../background/extensionMessages";
 import type { CompanyMatch } from "../../api/types";
 import type { ExtractedCompany } from "../../content/pageReader/extractedCompany";
-import { companyDomainName } from "../../domain/companyDomainName";
 import type { TriageDestination } from "../../domain/triageDestination";
 import { DetectedFieldInput } from "../components/DetectedFieldInput";
 import { DestinationButtons } from "../components/DestinationButtons";
@@ -46,8 +45,8 @@ const EMPTY_DRAFT: CompanyDraft = {
  * added there is one row and not two.
  */
 export function CaptureCompanyScreen() {
-  const page = useActiveTabCompany(true);
-  const projects = useProjectSelection(true);
+  const page = useActiveTabCompany();
+  const projects = useProjectSelection();
   const capture = useCaptureCompany();
 
   const [draft, setDraft] = useState<CompanyDraft>(EMPTY_DRAFT);
@@ -55,23 +54,27 @@ export function CaptureCompanyScreen() {
   const [note, setNote] = useState("");
   const [attemptedDestination, setAttemptedDestination] = useState<TriageDestination | null>(null);
 
-  // Seeded from the read, then owned by the form. Keyed on the source URL so a re-scan of the same
-  // page does not discard corrections, while a genuinely different page starts clean.
+  // Seeded from the read, then owned by the form. This runs whenever the reader answers with a new
+  // object, so a re-scan does overwrite edits — which is what "Re-scan" is for. React Query's
+  // structural sharing is what keeps an unchanged re-read from resetting the form underneath someone.
   useEffect(() => {
     if (page.company) {
       setDraft(toDraft(page.company));
     }
-  }, [page.company, page.sourceUrl]);
+  }, [page.company]);
 
-  const domain = companyDomainName(draft.website) ?? companyDomainName(page.sourceUrl);
+  // Sent raw. The API normalises a website to its registrable domain itself, and it is the same
+  // normalisation that decides the key the row is stored under — so a second implementation here
+  // could only ever disagree with the one that matters. It used to, on underscored and IDN hosts.
+  const website = draft.website.trim() || page.sourceUrl || "";
 
   const match = useQuery<CompanyMatch>({
-    queryKey: ["extension", "companyMatch", domain, draft.linkedinUrl],
-    enabled: Boolean(domain || draft.linkedinUrl),
+    queryKey: ["extension", "companyMatch", website, draft.linkedinUrl],
+    enabled: Boolean(website || draft.linkedinUrl),
     queryFn: async () => {
       const result = await askServiceWorker({
         kind: "resolveCompany",
-        domain: domain ?? null,
+        domain: website || null,
         linkedinUrl: draft.linkedinUrl || null,
       });
       if (!result.ok) {
@@ -81,9 +84,11 @@ export function CaptureCompanyScreen() {
     },
   });
 
+  // A name, a mandate, and something the API can derive a domain from. Whether it *can* is the API's
+  // to decide — a company it cannot key has no row, and it says so in a sentence the footer renders.
   const canSave = useMemo(
-    () => Boolean(draft.companyName.trim()) && Boolean(projects.selectedProjectId) && Boolean(domain),
-    [draft.companyName, projects.selectedProjectId, domain],
+    () => Boolean(draft.companyName.trim()) && Boolean(projects.selectedProjectId) && Boolean(website),
+    [draft.companyName, projects.selectedProjectId, website],
   );
 
   const handleCapture = (destination: TriageDestination) => {
@@ -159,7 +164,11 @@ export function CaptureCompanyScreen() {
           <DetectedFieldInput label="Headcount" value={draft.numEmployees} onChange={update("numEmployees")} inputMode="numeric" />
         </div>
 
-        <UniverseMatchNote match={match.data} isChecking={match.isFetching} hasIdentity={Boolean(domain || draft.linkedinUrl)} />
+        <UniverseMatchNote
+          match={match.data}
+          isChecking={match.isFetching}
+          hasIdentity={Boolean(website || draft.linkedinUrl)}
+        />
 
         <SectionLabel className="mb-2 mt-[18px]">Tags</SectionLabel>
         <TagChipInput tags={tags} onChange={setTags} />
@@ -177,7 +186,7 @@ export function CaptureCompanyScreen() {
 
       <div className="flex flex-col gap-[9px] border-t border-line-soft px-3.5 py-[11px]">
         {capture.refusal && <RefusalNote refusal={capture.refusal} />}
-        {!domain && !page.isReading && (
+        {!website && !page.isReading && (
           <p className="text-[11px] leading-[1.5] text-text3">
             A website is needed to file a company that is not in the universe — add one above.
           </p>

@@ -57,9 +57,27 @@ export async function pairedUser(): Promise<WorkspaceUser | null> {
   return (await read())?.user ?? null;
 }
 
-/** Stores the session the workspace's connect page handed over. */
+/**
+ * Stores the session the workspace's connect page handed over.
+ *
+ * Validated here rather than trusted, even though the sender was already checked: this is the one
+ * place a credential enters the extension, and a shape check at the boundary it is stored at cannot
+ * be bypassed by a future second caller.
+ */
 export async function storePairedSession(session: ExtensionSession): Promise<void> {
+  if (!isUsableSession(session)) {
+    throw new Error("The workspace offered a session with no refresh token.");
+  }
   await write(session);
+}
+
+function isUsableSession(session: ExtensionSession | null | undefined): session is ExtensionSession {
+  return Boolean(
+    session
+      && typeof session.refreshToken === "string" && session.refreshToken.length > 0
+      && typeof session.accessToken === "string" && session.accessToken.length > 0
+      && typeof session.expiresIn === "number",
+  );
 }
 
 /** The token to send now — refreshing first if the stored one is spent or nearly so. */

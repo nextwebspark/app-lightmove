@@ -3,13 +3,14 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "LightMove Capture — the Chrome extension that writes a company from the open page into a mandate's triage",
+  "description": "LightMove Capture \u2014 the Chrome extension that writes a company from the open page into a mandate's triage",
   "scripts": {
-    "dev": "vite build --watch --mode development",
-    "build": "tsc --noEmit && vite build && vite build --config vite.pairing-bridge.config.ts && vite build --config vite.page-reader.config.ts",
+    "dev": "vite build --watch --mode development & npm run build:parts -- --watch",
+    "build": "tsc --noEmit && vite build && npm run build:parts",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:parts": "vite build --config vite.page-reader.config.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.2",

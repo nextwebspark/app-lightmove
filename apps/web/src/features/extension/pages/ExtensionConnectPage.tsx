@@ -11,46 +11,72 @@ import * as extensionApi from "../api/extensionApi";
  * attribute that protects it. So this page, which *is* on the right origin and *is* signed in, asks
  * the API for a refresh token of the extension's own and hands it over.
  *
- * The handover is a `postMessage` to a content script the extension injects on this exact URL. Two
- * things follow from that, and both are deliberate:
+ * **The handover is addressed to one extension, not broadcast.** `chrome.runtime.sendMessage(id, …)`
+ * delivers to exactly the extension named. The obvious-looking alternative — `window.postMessage` to
+ * this page's own window — is not private: every listener in the frame receives it, and a content
+ * script's isolated world does not isolate it from those events, so any other extension the consultant
+ * had installed with a broad content script would have read the refresh token straight off this page.
  *
- *  - **The extension's id is never hardcoded here.** `chrome.runtime.sendMessage(id, …)` would need
- *    one; a content script the extension itself chose to inject does not.
- *  - **Nothing is minted until the extension has answered.** The bridge announces itself on
- *    injection, and this page waits for that before asking for a token — so opening this URL without
- *    the extension installed creates no credential at all, rather than leaving a live refresh token
- *    in a page nothing collected it from.
+ * Naming the id here costs nothing. It is not a secret, it is pinned by the extension's manifest key,
+ * and `application.yml` already names the same id in the CORS allow-list — so it was never the
+ * "hardcoded id" the postMessage version claimed to avoid.
  */
 
-/** Shared verbatim with `apps/extension/src/content/pairingBridge.ts`. The one contract between them. */
-const EXTENSION_READY = "lightmove.extension.ready";
-const SESSION_OFFERED = "lightmove.extension.session";
-const SESSION_STORED = "lightmove.extension.paired";
+/**
+ * The extension's id, fixed by the public key pinned in `apps/extension/manifest.config.ts`.
+ *
+ * Must stay in step with `lightmove.web.cors-allowed-origins`, which allow-lists the matching
+ * `chrome-extension://` origin. Both derive from the same key; changing the key changes both.
+ */
+const EXTENSION_ID = "kllpamcdcnecpdblgdkehgbhdjdlbofh";
 
-/** How long to wait for the bridge before concluding the extension is not installed. */
-const BRIDGE_TIMEOUT_MS = 2_000;
+/** Shared verbatim with the extension's service worker — the one contract between them. */
+const STORE_PAIRED_SESSION = "storePairedSession";
 
-type ConnectState = "waitingForExtension" | "pairing" | "paired" | "notInstalled" | "failed";
+type ConnectState = "pairing" | "paired" | "notInstalled" | "failed";
+
+/** What `chrome.runtime` looks like from a web page: present only when an extension exposes it. */
+interface PageAccessibleChromeRuntime {
+  sendMessage: (
+    extensionId: string,
+    message: unknown,
+    callback: (response?: { ok?: boolean; message?: string }) => void,
+  ) => void;
+  lastError?: { message?: string };
+}
+
+function extensionChannel(): PageAccessibleChromeRuntime | null {
+  const runtime = (window as { chrome?: { runtime?: PageAccessibleChromeRuntime } }).chrome?.runtime;
+  return typeof runtime?.sendMessage === "function" ? runtime : null;
+}
 
 export function ExtensionConnectPage() {
-  const [state, setState] = useState<ConnectState>("waitingForExtension");
+  const [state, setState] = useState<ConnectState>("pairing");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const hasPaired = useRef(false);
+  const hasStarted = useRef(false);
 
   const pair = useCallback(async () => {
-    // A second announcement from the bridge — it sends one per injection — must not mint a second
-    // token. The first one is the session; the rest are noise.
-    if (hasPaired.current) {
+    const runtime = extensionChannel();
+    if (!runtime) {
+      // Checked before minting, deliberately: opening this URL without the extension installed must
+      // not leave a live refresh token in a page that has nothing to collect it.
+      setState("notInstalled");
       return;
     }
-    hasPaired.current = true;
-    setState("pairing");
 
+    setState("pairing");
     try {
       const session = await extensionApi.pairExtension();
-      window.postMessage({ type: SESSION_OFFERED, session }, window.location.origin);
+      runtime.sendMessage(EXTENSION_ID, { kind: STORE_PAIRED_SESSION, session }, (response) => {
+        // `lastError` has to be read or Chrome logs an unchecked-error warning; it is also the only
+        // signal that the id named above resolves to nothing installed.
+        if (runtime.lastError || !response?.ok) {
+          setState("notInstalled");
+          return;
+        }
+        setState("paired");
+      });
     } catch (error) {
-      hasPaired.current = false;
       setState("failed");
       setErrorMessage(
         error instanceof ApiRequestError
@@ -61,39 +87,19 @@ export function ExtensionConnectPage() {
   }, []);
 
   useEffect(() => {
-    const onMessage = (event: MessageEvent) => {
-      // Same two checks the extension's side makes, for the same reason: anything from another window
-      // or another origin is not our content script and has no business in this exchange.
-      if (event.source !== window || event.origin !== window.location.origin) {
-        return;
-      }
-      const message = event.data as { type?: unknown; ok?: unknown } | null;
-
-      if (message?.type === EXTENSION_READY) {
-        void pair();
-      }
-      if (message?.type === SESSION_STORED) {
-        setState(message.ok ? "paired" : "failed");
-        if (!message.ok) {
-          setErrorMessage("The extension did not accept the session. Reload this page and try again.");
-        }
-      }
-    };
-
-    window.addEventListener("message", onMessage);
-
-    // The bridge announces itself on injection, but it may already have done so before this listener
-    // existed — a content script at document_idle can beat React's first effect. So the page also
-    // gives up after a moment and says the extension is not there, rather than spinning forever.
-    const timeout = window.setTimeout(() => {
-      setState((current) => (current === "waitingForExtension" ? "notInstalled" : current));
-    }, BRIDGE_TIMEOUT_MS);
-
-    return () => {
-      window.removeEventListener("message", onMessage);
-      window.clearTimeout(timeout);
-    };
+    // Once per mount. A second run would mint a second token and abandon the first as a live
+    // credential nobody holds.
+    if (hasStarted.current) {
+      return;
+    }
+    hasStarted.current = true;
+    void pair();
   }, [pair]);
+
+  const retry = () => {
+    hasStarted.current = false;
+    void pair();
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg p-6">
@@ -101,13 +107,21 @@ export function ExtensionConnectPage() {
         <div className="flex justify-center">
           <Logo />
         </div>
-        <ConnectStatus state={state} errorMessage={errorMessage} />
+        <ConnectStatus state={state} errorMessage={errorMessage} onRetry={retry} />
       </Card>
     </div>
   );
 }
 
-function ConnectStatus({ state, errorMessage }: { state: ConnectState; errorMessage: string | null }) {
+function ConnectStatus({
+  state,
+  errorMessage,
+  onRetry,
+}: {
+  state: ConnectState;
+  errorMessage: string | null;
+  onRetry: () => void;
+}) {
   if (state === "paired") {
     return (
       <>
@@ -129,11 +143,11 @@ function ConnectStatus({ state, errorMessage }: { state: ConnectState; errorMess
       <>
         <h1 className="mt-6 text-lg font-semibold text-text">Extension not detected</h1>
         <p className="mt-2 text-sm leading-relaxed text-text2">
-          This page did not hear from LightMove Capture. Install it, make sure it is enabled at
-          <span className="font-mono"> chrome://extensions</span>, then reload this page.
+          This page could not reach LightMove Capture. Install it, make sure it is enabled at
+          <span className="font-mono"> chrome://extensions</span>, then try again.
         </p>
-        <Button className="mt-5" onClick={() => window.location.reload()}>
-          Reload and try again
+        <Button className="mt-5" onClick={onRetry}>
+          Try again
         </Button>
       </>
     );
@@ -146,7 +160,7 @@ function ConnectStatus({ state, errorMessage }: { state: ConnectState; errorMess
         <p role="alert" className="mt-2 text-sm leading-relaxed text-red">
           {errorMessage}
         </p>
-        <Button className="mt-5" onClick={() => window.location.reload()}>
+        <Button className="mt-5" onClick={onRetry}>
           Try again
         </Button>
       </>
@@ -156,9 +170,7 @@ function ConnectStatus({ state, errorMessage }: { state: ConnectState; errorMess
   return (
     <>
       <h1 className="mt-6 text-lg font-semibold text-text">Connecting LightMove Capture…</h1>
-      <p className="mt-2 text-sm leading-relaxed text-text2">
-        {state === "pairing" ? "Handing the session to the extension." : "Looking for the extension."}
-      </p>
+      <p className="mt-2 text-sm leading-relaxed text-text2">Handing the session to the extension.</p>
       <div className="mt-5 flex justify-center">
         <Spinner />
       </div>

@@ -10,12 +10,11 @@ import type { ProjectSummary } from "../../api/types";
  * consultant working a search captures a dozen companies into the same mandate in a row, and choosing
  * it again each time is the kind of friction that stops a tool being used.
  */
-export function useProjectSelection(enabled: boolean) {
+export function useProjectSelection() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   const projects = useQuery<ProjectSummary[]>({
     queryKey: ["extension", "projects"],
-    enabled,
     queryFn: async () => {
       const result = await askServiceWorker({ kind: "listProjects" });
       if (!result.ok) {
@@ -27,7 +26,6 @@ export function useProjectSelection(enabled: boolean) {
 
   const lastUsed = useQuery<string | null>({
     queryKey: ["extension", "lastUsedProject"],
-    enabled,
     queryFn: async () => {
       const result = await askServiceWorker({ kind: "lastUsedProject" });
       return result.ok ? result.value : null;
@@ -54,6 +52,5 @@ export function useProjectSelection(enabled: boolean) {
     selectedProjectId,
     selectProject,
     isLoading: projects.isPending || lastUsed.isPending,
-    loadError: projects.error instanceof Error ? projects.error.message : null,
   };
 }

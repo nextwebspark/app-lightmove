@@ -14,16 +14,21 @@ Coding standard: `.claude/skills/chrome-extension/SKILL.md` — read it before c
 ## Running it
 
 ```bash
-npm run dev            # at the repo root: database, API and the web app
-cd apps/extension && npm run build
+npm run dev                              # at the repo root: database, API and the web app
+cd apps/extension && npm run dev         # watch build against http://localhost:5173
 ```
 
 Then load it: `chrome://extensions` → Developer mode on → **Load unpacked** → pick
 `apps/extension/dist`. Open it with the toolbar icon or `⌥⇧L`.
 
-`npm run build` builds against `http://localhost:5173` (the Vite dev server, which proxies `/api` to
-the API). A production build against `https://app.lightmove.io` is `npx vite build --mode production`,
-which is what CI does — the origin is baked into `host_permissions` and cannot be changed at runtime.
+**`npm run dev` is the one to use locally, and `npm run build` is not.** `build` targets
+`https://app.lightmove.io`, because Vite defaults to production mode — the origin is baked into
+`host_permissions` and cannot be changed at runtime, so a `build`-ed extension simply cannot reach your
+local stack, and fails as an opaque network error with nothing in the console. `dev` targets the Vite
+dev server, which proxies `/api` to the API exactly as the web app does.
+
+Both build every part — popup, service worker, and the separately-bundled page reader. Running only
+`vite build` by hand does not, and leaves a manifest pointing at a file that is not there.
 
 To capture a company that resolves against the Apollo universe you need the universe locally:
 `npm run dev:db:apollo` once, from the repo root.
@@ -36,7 +41,13 @@ mean removing every attribute that protects it. Instead:
 
 1. The popup's **Open LightMove** button opens `<workspace>/extension/connect`.
 2. That page — where you are already signed in — asks the API for a refresh token of its own.
-3. It posts the token to `src/content/pairingBridge.ts`, which hands it to the service worker.
+3. It hands the token to this extension with `chrome.runtime.sendMessage(EXTENSION_ID, …)`, which the
+   manifest permits through `externally_connectable` and the service worker accepts only from the
+   workspace origin.
+
+Step 3 is addressed, not broadcast, and that matters: `window.postMessage` would deliver the token to
+*every* listener in the frame — including content scripts belonging to any other extension the
+consultant has installed.
 
 The result is an ordinary refresh-token family with a shorter TTL, listed in **Settings → Active
 sessions** as *LightMove Capture* and revocable from there. Signing out of the extension leaves the
@@ -50,7 +61,7 @@ thing you need to know about any file here.
 | Path | Runs as | Holds |
 |---|---|---|
 | `src/background/` | the service worker | the session, every network call, the message handlers |
-| `src/content/` | injected into a page | the pairing bridge and the page reader — never a credential |
+| `src/content/` | injected into a page | the page reader — never a credential |
 | `src/popup/` | a document destroyed on close | React; asks the worker for everything |
 | `src/api/` | (imported by the worker) | the only code that knows the API exists |
 | `src/domain/` | anywhere | domain normalisation, the two destinations |

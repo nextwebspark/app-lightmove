@@ -10,10 +10,9 @@ const ACTIVE_TAB_KEY = ["extension", "activeTabCompany"] as const;
  * and a remembered read would quietly offer the previous tab's company. `rescan` is the design's
  * "Re-scan" link, for the pages that finish rendering after the popup opened.
  */
-export function useActiveTabCompany(enabled: boolean) {
+export function useActiveTabCompany() {
   const page = useQuery<ReadPageResult>({
     queryKey: ACTIVE_TAB_KEY,
-    enabled,
     staleTime: 0,
     gcTime: 0,
     queryFn: async () => {
