@@ -53,8 +53,8 @@ export const companyColumns = helper.columns([
     id: "name",
     header: "Company",
     enableHiding: false,
-    // The floor covers a twenty-odd-character name: logo and gutters eat 54px before a letter draws.
-    meta: { share: 22, min: 230 },
+    // The floor still clears a mid-length name once the logo and gutters take their 54px.
+    meta: { share: 22, min: 186 },
     cell: (info) => (
       <span className="flex min-w-0 items-center gap-2.5">
         <CompanyLogo name={info.getValue()} logo={info.row.original.logoUrl} size={28} />
@@ -71,7 +71,7 @@ export const companyColumns = helper.columns([
     header: "Actions",
     enableSorting: false,
     enableHiding: false,
-    meta: { share: 0, min: 72 },
+    meta: { share: 0, min: 64 },
     cell: (info) => {
       const company = info.row.original;
       const meta = info.table.options.meta;
@@ -96,7 +96,7 @@ export const companyColumns = helper.columns([
     id: "links",
     header: "Links",
     enableSorting: false,
-    meta: { share: 0, min: 108 },
+    meta: { share: 0, min: 84 },
     cell: (info) => {
       const company = info.row.original;
       return (
@@ -132,35 +132,35 @@ export const companyColumns = helper.columns([
   helper.accessor("companyCountry", {
     id: "country",
     header: "Country",
-    meta: { share: 12, min: 96 },
+    meta: { share: 12, min: 82 },
     cell: (info) => <Cell value={info.getValue()} />,
   }),
 
   helper.accessor("industry", {
     id: "sector",
     header: "Sector",
-    meta: { share: 18, min: 120 },
+    meta: { share: 18, min: 100 },
     cell: (info) => <Cell value={info.getValue()} />,
   }),
 
   helper.accessor("companyCity", {
     id: "location",
     header: "City",
-    meta: { share: 11, min: 96 },
+    meta: { share: 11, min: 82 },
     cell: (info) => <Cell value={info.getValue()} />,
   }),
 
   helper.accessor("annualRevenue", {
     id: "revenue",
     header: "Revenue",
-    meta: { share: 11, min: 96 },
+    meta: { share: 11, min: 82 },
     cell: (info) => <Cell value={formatMoney(info.getValue())} />,
   }),
 
   helper.accessor("numEmployees", {
     id: "employees",
     header: "Employees",
-    meta: { share: 9, min: 84 },
+    meta: { share: 9, min: 74 },
     cell: (info) => <Cell value={info.getValue()?.toLocaleString() ?? null} />,
   }),
 
@@ -176,7 +176,7 @@ export const companyColumns = helper.columns([
     header: "Notes",
     // Not in the server's sort allowlist: alphabetising a description answers no question.
     enableSorting: false,
-    meta: { share: 12, min: 130 },
+    meta: { share: 12, min: 108 },
     cell: (info) => <Cell value={info.getValue()} muted />,
   }),
 
@@ -208,7 +208,7 @@ export const companyColumns = helper.columns([
     id: "parent",
     header: "Parent company",
     enableSorting: false,
-    meta: { share: 12, min: 130 },
+    meta: { share: 12, min: 108 },
     cell: (info) => <Cell value={info.getValue()} />,
   }),
 
