@@ -11,6 +11,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.security.service.ClientIpResolver;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -48,14 +49,24 @@ public class TokenService {
     /** A fresh login: a new access token and a refresh token that opens a new family. */
     @Transactional
     public AuthenticatedSession issue(User user, WorkspaceMember membership, HttpServletRequest request) {
+        return issue(user, membership, request, SessionClient.WEB_APP);
+    }
+
+    /**
+     * The same, for a named client. The extension pairs through this: the token it opens comes back in
+     * the response body rather than a cookie, so it needs its own TTL and its own session label.
+     */
+    @Transactional
+    public AuthenticatedSession issue(User user, WorkspaceMember membership, HttpServletRequest request,
+                                      SessionClient client) {
         Instant now = Instant.now();
 
         String plaintext = Tokens.generate();
         RefreshToken token = RefreshToken.issue(
                 user.getId(),
                 Tokens.hash(plaintext),
-                now.plus(config.refreshTokenTtl()),
-                userAgent(request),
+                now.plus(refreshTokenTtl(client)),
+                sessionLabel(client, request),
                 clientIpResolver.resolve(request));
         refreshTokens.save(token);
 
@@ -80,6 +91,18 @@ public class TokenService {
     @Transactional(noRollbackFor = ApiException.class)
     public AuthenticatedSession rotate(String presentedToken, HttpServletRequest request,
                                        UserLookup userLookup, MembershipLookup membershipLookup) {
+        return rotate(presentedToken, request, userLookup, membershipLookup, SessionClient.WEB_APP);
+    }
+
+    /**
+     * The same, for a named client. The client has to travel with the rotation, not just the first
+     * issue: the successor inherits neither the TTL nor the label otherwise, so an extension session
+     * would quietly become a 30-day one and stop naming itself in Settings after its first refresh.
+     */
+    @Transactional(noRollbackFor = ApiException.class)
+    public AuthenticatedSession rotate(String presentedToken, HttpServletRequest request,
+                                       UserLookup userLookup, MembershipLookup membershipLookup,
+                                       SessionClient client) {
         Instant now = Instant.now();
         String presentedHash = Tokens.hash(presentedToken);
 
@@ -119,8 +142,8 @@ public class TokenService {
                 user.getId(),
                 Tokens.hash(plaintext),
                 existing.getFamilyId(),
-                now.plus(config.refreshTokenTtl()),
-                userAgent(request),
+                now.plus(refreshTokenTtl(client)),
+                sessionLabel(client, request),
                 clientIpResolver.resolve(request));
         refreshTokens.save(successor);
 
@@ -202,6 +225,17 @@ public class TokenService {
         }
 
         return jwtEncoder.encode(JwtEncoderParameters.from(claims.build())).getTokenValue();
+    }
+
+    private Duration refreshTokenTtl(SessionClient client) {
+        return client == SessionClient.BROWSER_EXTENSION
+                ? config.extension().refreshTokenTtl()
+                : config.refreshTokenTtl();
+    }
+
+    /** A client with a label of its own overrides the caller's User-Agent; see {@link SessionClient}. */
+    private static String sessionLabel(SessionClient client, HttpServletRequest request) {
+        return client.sessionLabel() != null ? client.sessionLabel() : userAgent(request);
     }
 
     private static String userAgent(HttpServletRequest request) {

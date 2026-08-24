@@ -118,6 +118,12 @@ lightmove:
     # proof — admin approval of a join request, and invitations, are untouched. Never true in prod.
     auto-verify-email: ${AUTH_AUTO_VERIFY_EMAIL:false}
     bcrypt-strength: 12
+    extension:
+      # Much shorter than refresh-token-ttl above, and for a concrete reason: this token rests in the
+      # extension's own storage on disk rather than in the browser's cookie jar, and re-pairing is a
+      # single click from the popup. Everything else about it — rotation, reuse detection, revocation
+      # from Settings - Active sessions — is the ordinary machinery.
+      refresh-token-ttl: 14d
     jwt:
       issuer: lightmove
       private-key-location: ${JWT_PRIVATE_KEY_LOCATION:file:.keys/jwt-private.pem}
@@ -173,7 +179,11 @@ lightmove:
 
   web:
     base-url: ${WEB_BASE_URL:http://localhost:5173}
-    cors-allowed-origins: ${WEB_CORS_ORIGINS:http://localhost:5173}
+    # The SPA's origin, plus LightMove Capture's. The extension's id is stable because its manifest
+    # pins a public key (apps/extension/manifest.config.ts) — without that Chrome re-mints the id on
+    # every unpacked load and no origin could be allow-listed at all. A wildcard is not an option here:
+    # allow-credentials is on, and the spec forbids the pair.
+    cors-allowed-origins: ${WEB_CORS_ORIGINS:http://localhost:5173,chrome-extension://kllpamcdcnecpdblgdkehgbhdjdlbofh}
     oauth-success-path: /auth/callback
   # Read and write limits around the company universe (app_lm_apollo_companies). Defaults are
   # production-ready; these placeholders let a deployed service retune them without a recompile.

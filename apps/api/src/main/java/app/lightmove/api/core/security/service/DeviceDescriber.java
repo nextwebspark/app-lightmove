@@ -2,6 +2,7 @@ package app.lightmove.api.core.security.service;
 
 import app.lightmove.api.core.security.constant.DeviceKind;
 import app.lightmove.api.core.security.model.DeviceDescription;
+import app.lightmove.api.core.security.token.SessionClient;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
@@ -42,6 +43,13 @@ public class DeviceDescriber {
     public DeviceDescription describe(String userAgent) {
         if (userAgent == null || userAgent.isBlank()) {
             return DeviceDescription.unknown();
+        }
+
+        // Checked before any browser marker, because this is not a User-Agent the browser sent: the
+        // extension's session records a label of its own precisely so it can be told apart from the
+        // browser hosting it, which sends a string every marker below would match.
+        if (SessionClient.BROWSER_EXTENSION.sessionLabel().equals(userAgent)) {
+            return new DeviceDescription(DeviceKind.EXTENSION, userAgent);
         }
 
         PlatformMarker platform = platformOf(userAgent);

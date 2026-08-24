@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import app.lightmove.api.core.security.constant.DeviceKind;
 import app.lightmove.api.core.security.model.DeviceDescription;
 import app.lightmove.api.core.security.service.DeviceDescriber;
+import app.lightmove.api.core.security.token.SessionClient;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -70,5 +71,16 @@ class DeviceDescriberTest {
         assertThat(describer.describe(null)).isEqualTo(DeviceDescription.unknown());
         assertThat(describer.describe("  ")).isEqualTo(DeviceDescription.unknown());
         assertThat(describer.describe("curl/8.4.0")).isEqualTo(DeviceDescription.unknown());
+    }
+
+    @Test
+    @DisplayName("the browser extension is its own device, not another copy of the browser hosting it")
+    void namesTheBrowserExtension() {
+        // Its fetches carry Chrome's own User-Agent, so without the label its session would appear in
+        // the list as a second, indistinguishable "Chrome — macOS" and nobody could tell which to end.
+        DeviceDescription described = describer.describe(SessionClient.BROWSER_EXTENSION.sessionLabel());
+
+        assertThat(described.kind()).isEqualTo(DeviceKind.EXTENSION);
+        assertThat(described.label()).isEqualTo(SessionClient.BROWSER_EXTENSION.sessionLabel());
     }
 }
