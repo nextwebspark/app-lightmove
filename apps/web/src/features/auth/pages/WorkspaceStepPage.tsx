@@ -112,7 +112,7 @@ function CreateWorkspace({
 
         {/* No bottom margin: each Field already carries mb-4, and stacking the grid's own on top of the
             last row's put a double gap above Continue that the mockup does not have. */}
-        <div className="grid grid-cols-2 gap-x-4">
+        <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
           <Field label="Company size">
             <Select {...register("companySize")}>
               {COMPANY_SIZES.map((size) => (

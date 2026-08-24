@@ -188,7 +188,7 @@ function PositionEditor({ project, position }: { project: Project; position: Pos
             title="Competency Weighting"
             aside="drag to rebalance · type a number to set exactly"
           />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <CompetencyPanel
               title="Technical Competencies"
               accent="sky"

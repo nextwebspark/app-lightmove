@@ -40,7 +40,7 @@ export const companyTableFeatures = tableFeatures({
 const helper = createColumnHelper<typeof companyTableFeatures, CompanyResult>();
 
 const ICON_BUTTON =
-  "grid size-6 place-items-center rounded-[5px] text-text3 transition hover:bg-panel2 hover:text-text";
+  "grid size-9 place-items-center rounded-[5px] text-text3 transition hover:bg-panel2 hover:text-text lg:size-6";
 
 /**
  * Each sortable column's id is its wire sort token, the same string `CompanySortField` allowlists,

@@ -85,7 +85,7 @@ export function ClientsPage() {
       ) : (
         <>
           <div className="mb-3.5 flex flex-wrap items-center gap-2.5">
-            <div className="flex w-[300px] items-center gap-2 rounded-lg border border-line bg-panel2 px-[11px] py-[7px]">
+            <div className="flex w-full items-center sm:w-[300px] gap-2 rounded-lg border border-line bg-panel2 px-[11px] py-[7px]">
               <Icon d={ICONS.search} size={14} className="text-text3" />
               <input
                 value={query}

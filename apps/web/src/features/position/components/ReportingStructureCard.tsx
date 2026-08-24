@@ -24,7 +24,7 @@ export function ReportingStructureCard({
         <OrgBox label="Direct reports" value={details.directReports?.toString() ?? "—"} />
       </div>
 
-      <div className="grid grid-cols-2 gap-x-5 gap-y-3.5">
+      <div className="grid grid-cols-1 gap-x-5 gap-y-3.5 md:grid-cols-2">
         <div>
           <MicroLabel>Reports to</MicroLabel>
           <InlineInput
