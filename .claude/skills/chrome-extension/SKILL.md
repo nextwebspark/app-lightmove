@@ -136,12 +136,27 @@ hand-edit a built `manifest.json`.
 ## Commands
 
 ```bash
-cd apps/extension && npm run build     # bundle + manifest into dist/, load that unpacked
-cd apps/extension && npm run dev       # watch build; reload the extension in chrome://extensions
-cd apps/extension && npx vitest        # extractors against fixtures, plus the domain normaliser
-cd apps/extension && npx tsc --noEmit  # typecheck
+cd apps/extension && npm run dev        # watch build against localhost:5173 — the one to use locally
+cd apps/extension && npm run build      # production build; needs LM_WORKSPACE_ORIGIN to be useful
+cd apps/extension && npm run build:release  # the zip to upload; refuses to run without an origin
+cd apps/extension && npx vitest         # extractors against saved fixtures
+cd apps/extension && npx tsc --noEmit   # typecheck
 ```
 
 To try it end to end: `npm run dev` at the repo root, `npm run dev:db:apollo` once so the company
-universe exists, build the extension, load `apps/extension/dist` unpacked at `chrome://extensions`, then
-visit `/extension/connect` to pair.
+universe exists, `npm run dev` in `apps/extension`, load `apps/extension/dist` unpacked at
+`chrome://extensions`, then visit `/extension/connect` to pair.
+
+## The origin and the id are configuration, not literals
+
+**The workspace origin is fixed at build time** by `LM_WORKSPACE_ORIGIN`, because the manifest asks
+Chrome for permission on that exact host and a permission cannot be computed at runtime.
+`vite.config.ts` resolves it once and writes the same value into both the manifest and the bundle — do
+not add a second place that decides it. A production build with no origin falls back to a deliberately
+fake placeholder and warns; `build:release` refuses outright.
+
+**The extension id differs between development and the store.** The pinned manifest key fixes it for
+unpacked loading only; the Web Store assigns its own when the item is created. Two places take it as
+configuration and both default to the development id: `EXTENSION_ID` for the API's CORS allow-list
+(deploy) and `VITE_EXTENSION_ID` for the pairing page (`apps/web` build). Get either wrong after
+publishing and the extension is refused with nothing useful in the response. Never re-hardcode either.

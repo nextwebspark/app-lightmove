@@ -23,12 +23,19 @@ import * as extensionApi from "../api/extensionApi";
  */
 
 /**
- * The extension's id, fixed by the public key pinned in `apps/extension/manifest.config.ts`.
+ * The extension this page hands the session to.
  *
- * Must stay in step with `lightmove.web.cors-allowed-origins`, which allow-lists the matching
- * `chrome-extension://` origin. Both derive from the same key; changing the key changes both.
+ * Configurable because it has to be: the id below is the one the pinned manifest key produces when the
+ * extension is **loaded unpacked**, which is right for development and wrong for anything published —
+ * the Chrome Web Store assigns its own id when the item is created. Set `VITE_EXTENSION_ID` at build
+ * time to whatever the store assigned.
+ *
+ * It must stay in step with the API's `lightmove.web.cors-allowed-origins`, which allow-lists the
+ * matching `chrome-extension://` origin. Two places, one value; the extension README says how.
  */
-const EXTENSION_ID = "kllpamcdcnecpdblgdkehgbhdjdlbofh";
+const DEVELOPMENT_EXTENSION_ID = "kllpamcdcnecpdblgdkehgbhdjdlbofh";
+
+const EXTENSION_ID = import.meta.env.VITE_EXTENSION_ID || DEVELOPMENT_EXTENSION_ID;
 
 /** Shared verbatim with the extension's service worker — the one contract between them. */
 const STORE_PAIRED_SESSION = "storePairedSession";

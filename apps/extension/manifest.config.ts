@@ -1,5 +1,3 @@
-import { DEVELOPMENT_WORKSPACE_ORIGIN, PRODUCTION_WORKSPACE_ORIGIN } from "./src/buildTargets";
-
 /**
  * The single source of the extension's manifest.
  *
@@ -10,13 +8,16 @@ import { DEVELOPMENT_WORKSPACE_ORIGIN, PRODUCTION_WORKSPACE_ORIGIN } from "./src
  */
 
 /**
- * The public half of a pinned keypair, which is what makes the extension's id stable.
+ * The public half of a pinned keypair, which is what makes the extension's id stable **when loaded
+ * unpacked**: `kllpamcdcnecpdblgdkehgbhdjdlbofh`. Without it Chrome mints a fresh id on every load, so
+ * no `chrome-extension://` origin could be allow-listed for CORS and nothing would work locally.
  *
- * Without it Chrome mints a fresh id on every unpacked load, and since the API allow-lists the
- * extension's origin for CORS — `chrome-extension://kllpamcdcnecpdblgdkehgbhdjdlbofh` — a changing id
- * would mean a changing origin and every request refused. Public by nature; the private half signs a
- * self-hosted .crx and is not needed to load unpacked or to publish through the Web Store, which does
- * its own signing.
+ * <b>It does not decide the published id.</b> The Chrome Web Store assigns its own when the item is
+ * first created, so a published build has a different id from this one — which is why the API's CORS
+ * entry and the connect page both take it as configuration rather than a literal. See the README.
+ *
+ * Public by nature. The private half signs a self-hosted `.crx` and is not in this repo; neither
+ * loading unpacked nor Web Store publishing needs it.
  */
 const PINNED_PUBLIC_KEY =
   "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzEytfwFPI7Za1EUBOOPBAEpoHrYmNyz8P/i97riqVWaylCeZ" +
@@ -28,13 +29,12 @@ const PINNED_PUBLIC_KEY =
 /**
  * The manifest for one build.
  *
- * A function of the build mode rather than a constant, because `host_permissions` and the pairing
- * script's match pattern both name the workspace origin — and a permission cannot be computed from
- * something the user types at runtime. Taking the mode as an argument keeps it out of guesswork about
- * `process.env.NODE_ENV`, which Vite sets differently depending on how the build was invoked.
+ * Takes the origin rather than deciding it: `host_permissions` and `externally_connectable` both name
+ * it, and `vite.config.ts` resolves it once and hands the same value to both the manifest and the
+ * bundle. Guessing here — from `process.env.NODE_ENV`, say, which Vite sets differently depending on
+ * how the build was invoked — is how the two end up naming different hosts.
  */
-export function buildManifest(isProduction: boolean) {
-  const workspaceOrigin = isProduction ? PRODUCTION_WORKSPACE_ORIGIN : DEVELOPMENT_WORKSPACE_ORIGIN;
+export function buildManifest(workspaceOrigin: string) {
   return {
     manifest_version: 3,
     name: "LightMove Capture",

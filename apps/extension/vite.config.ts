@@ -1,10 +1,11 @@
 /// <reference types="vitest/config" />
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { buildManifest } from "./manifest.config";
+import { PLACEHOLDER_WORKSPACE_ORIGIN, resolveWorkspaceOrigin } from "./src/buildTargets";
 
 /**
  * The popup and the service worker.
@@ -13,7 +14,23 @@ import { buildManifest } from "./manifest.config";
  * `chrome.scripting` as a classic script, not a module, so it has to be bundled as an IIFE. Everything
  * here is ES — the popup is a page and the service worker declares `type: module`.
  */
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }) => {
+  // Loaded with an empty prefix so LM_WORKSPACE_ORIGIN is visible without a VITE_ prefix — it is a
+  // build parameter, not something the bundle reads for itself.
+  const workspaceOrigin = resolveWorkspaceOrigin(mode, loadEnv(mode, process.cwd(), ""));
+
+  if (workspaceOrigin === PLACEHOLDER_WORKSPACE_ORIGIN) {
+    // Warned, not thrown: CI builds this to typecheck and bundle, and failing there would say nothing
+    // useful. What must not happen is somebody shipping it, so the warning names the fix.
+    console.warn(
+      "\n\x1b[33m  ⚠  No LM_WORKSPACE_ORIGIN — built against the placeholder %s.\x1b[0m\n" +
+        "\x1b[33m     This build cannot talk to any real workspace. Do not publish it.\x1b[0m\n" +
+        "\x1b[33m     Set LM_WORKSPACE_ORIGIN to your domain, or to the Cloud Run URL the deploy prints.\x1b[0m\n",
+      PLACEHOLDER_WORKSPACE_ORIGIN,
+    );
+  }
+
+  return {
   plugins: [
     react(),
     tailwindcss(),
@@ -22,11 +39,14 @@ export default defineConfig(({ mode }) => ({
       // `writeBundle`, not `generateBundle`: the manifest is not part of the bundle graph and has no
       // business being hashed, watched, or transformed alongside the code.
       writeBundle() {
-        const manifest = buildManifest(mode === "production");
-        writeFileSync(resolve("dist/manifest.json"), JSON.stringify(manifest, null, 2));
+        writeFileSync(resolve("dist/manifest.json"),
+          JSON.stringify(buildManifest(workspaceOrigin), null, 2));
       },
     },
   ],
+
+  // The same origin the manifest above names. Substituted as a literal so the two cannot drift.
+  define: { __WORKSPACE_ORIGIN__: JSON.stringify(workspaceOrigin) },
 
   // Icons are copied verbatim from public/ into dist/.
   publicDir: "public",
@@ -58,4 +78,5 @@ export default defineConfig(({ mode }) => ({
     environment: "jsdom",
     globals: true,
   },
-}));
+  };
+});

@@ -21,14 +21,33 @@ cd apps/extension && npm run dev         # watch build against http://localhost:
 Then load it: `chrome://extensions` → Developer mode on → **Load unpacked** → pick
 `apps/extension/dist`. Open it with the toolbar icon or `⌥⇧L`.
 
-**`npm run dev` is the one to use locally, and `npm run build` is not.** `build` targets
-`https://app.lightmove.io`, because Vite defaults to production mode — the origin is baked into
-`host_permissions` and cannot be changed at runtime, so a `build`-ed extension simply cannot reach your
-local stack, and fails as an opaque network error with nothing in the console. `dev` targets the Vite
-dev server, which proxies `/api` to the API exactly as the web app does.
+**`npm run dev` is the one to use locally.** It targets the Vite dev server, which proxies `/api` to
+the API exactly as the web app does. `npm run build` is a production build and targets whatever
+`LM_WORKSPACE_ORIGIN` names — nothing, by default, so it falls back to a placeholder host and says so
+loudly. That build typechecks and bundles (which is all CI wants of it) but cannot talk to anything.
 
-Both build every part — popup, service worker, and the separately-bundled page reader. Running only
+Both build **every** part — popup, service worker, and the separately-bundled page reader. Running
 `vite build` by hand does not, and leaves a manifest pointing at a file that is not there.
+
+### Where a build points
+
+The workspace origin is fixed at **build time** and cannot be changed afterwards: the manifest asks
+Chrome for permission on that exact host, and a permission cannot be computed from something a user
+types later. One environment variable decides it, and `vite.config.ts` writes the same value into both
+the manifest and the bundle so they cannot disagree.
+
+| `LM_WORKSPACE_ORIGIN` | Mode | Result |
+|---|---|---|
+| unset | `dev` | `http://localhost:5173` |
+| unset | production | a placeholder, with a warning — **not shippable** |
+| set | either | exactly what you set |
+
+There is no deployed LightMove domain yet, and the placeholder is deliberately not a real one. Until
+there is a domain, the Cloud Run URL the deploy prints is a perfectly good origin to build against:
+
+```bash
+LM_WORKSPACE_ORIGIN=https://lightmove-api-xxxx.run.app npm run build
+```
 
 To capture a company that resolves against the Apollo universe you need the universe locally:
 `npm run dev:db:apollo` once, from the repo root.
@@ -52,6 +71,47 @@ consultant has installed.
 The result is an ordinary refresh-token family with a shorter TTL, listed in **Settings → Active
 sessions** as *LightMove Capture* and revocable from there. Signing out of the extension leaves the
 browser session alone, and vice versa.
+
+## Publishing to the Chrome Web Store
+
+```bash
+LM_WORKSPACE_ORIGIN=https://your-workspace-origin npm run build:release
+```
+
+That produces `release/lightmove-capture-<version>.zip`, ready to upload. It refuses to run without an
+origin, strips `key` from the packaged manifest, drops the source maps, and zips the *contents* of
+`dist/` rather than the folder — three things that are easy to get wrong by hand and each of which
+fails quietly.
+
+**The published extension has a different id from the one you develop with.** The pinned key in
+`manifest.config.ts` fixes the id for unpacked loading; the Web Store assigns its own when the item is
+first created, and you cannot choose it. So the id is configuration in two places, and both are wrong
+until you have published once:
+
+| Where | How to set it | What breaks if it is wrong |
+|---|---|---|
+| API CORS allow-list | `EXTENSION_ID` — a repository variable for the deploy workflow, or an env var for `ops/gcp/deploy.sh` | Every request from the extension is refused, with nothing in the response saying why |
+| The pairing page | `VITE_EXTENSION_ID` at `apps/web` build time | Pairing reports "extension not detected" forever |
+
+So the order is: publish once → note the assigned id → set both → redeploy. Until then, both default to
+the development id, which is right for a locally-loaded extension and right for nothing else.
+
+### The listing
+
+1. A developer account (one-off **$5**) at
+   [the Web Store dashboard](https://chrome.google.com/webstore/devconsole).
+2. Upload the zip, fill in a description, at least one 1280×800 screenshot, and a privacy policy URL.
+3. **Justify the permissions.** `storage`, `activeTab` and `scripting`, and it is worth saying plainly
+   that there is no `<all_urls>` content script — the extension reads a page only when the consultant
+   invokes it on that tab. Reviews go faster when the narrow scope is stated rather than inferred.
+4. Expect the **data-use disclosure** section, since the extension reads page content and handles
+   account data.
+5. **Consider Private or Unlisted visibility.** If this is for your own consultants rather than the
+   public, private distribution to a Google Workspace domain skips public review entirely, which is
+   almost certainly what you want first.
+
+One thing worth verifying rather than trusting: whether the store rejects a package that still contains
+`key` or merely ignores it. `build:release` strips it either way, because it does nothing there.
 
 ## Layout
 

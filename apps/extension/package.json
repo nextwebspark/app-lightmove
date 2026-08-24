@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "oxlint",
     "test": "vitest run",
-    "build:parts": "vite build --config vite.page-reader.config.ts"
+    "build:parts": "vite build --config vite.page-reader.config.ts",
+    "build:release": "node scripts/packageRelease.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.2",
