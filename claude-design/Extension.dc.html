@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--shadow:0 8px 28px rgba(15,23,42,.10);--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif}
+    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--shadow:0 8px 28px rgba(0,0,0,.5)}
+    *{box-sizing:border-box}
+    html,body{margin:0}
+    body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+    a{color:var(--sky);text-decoration:none}
+    a:hover{text-decoration:underline}
+    input::placeholder,textarea::placeholder{color:var(--text3)}
+    ::-webkit-scrollbar{width:8px;height:8px}
+    ::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
+  </style>
+  <script>try{if(localStorage.getItem('lm-theme')!=='light'){document.body.classList.add('dark');}}catch(e){}</script>
+</helmet>
+
+<section style="padding:40px 44px 64px">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:28px">
+    <div>
+      <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Browser extension · Chrome</div>
+      <h1 style="font:700 26px/1.15 var(--sans);letter-spacing:-.02em;margin:9px 0 0">LightMove Capture</h1>
+      <p style="font:400 13px/1.6 var(--sans);color:var(--text2);max-width:620px;margin:8px 0 0">Toolbar popup, 400 × 600. Reads the open page — a LinkedIn profile, a company page, a corporate bio — and writes it straight into a project section. Session is shared with the web app: signed-in users never see a login screen.</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:6px;background:var(--panel2);border:1px solid var(--line-soft);font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">5 states</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:6px;background:var(--amber-dim);border:1px solid var(--amber-dim);font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--amber)">Interactive</span>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start">
+
+    <div style="width:400px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
+        <span style="font:600 13px var(--sans)">1 · Signed out</span>
+        <span style="font:400 11.5px var(--mono);color:var(--text3)">no session cookie</span>
+      </div>
+      <div data-screen-label="Popup — signed out" style="width:400px;height:600px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:9px;padding:12px 14px;border-bottom:1px solid var(--line-soft)">
+          <span style="width:24px;height:24px;border-radius:7px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 12px var(--mono)">L</span>
+          <span style="font:600 13.5px var(--mono);letter-spacing:.02em">LightMove Capture</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px;gap:14px">
+          <span style="width:44px;height:44px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);display:grid;place-items:center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          </span>
+          <div style="font:600 15px var(--sans)">Sign in to capture</div>
+          <div style="font:400 12.5px/1.6 var(--sans);color:var(--text2);max-width:280px">Captures are written to your projects, so the extension needs your workspace session. Signing in opens LightMove in a new tab and closes itself when done.</div>
+          <button onClick="{{ goLogin }}" style="display:inline-flex;align-items:center;gap:7px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;font:600 13px var(--sans);padding:9px 16px;border-radius:8px;cursor:pointer;margin-top:4px" style-hover="filter:brightness(1.05)">
+            Open LightMove
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path></svg>
+          </button>
+          <div style="font:400 11px var(--mono);color:var(--text3);margin-top:2px">app.lightmove.io/login</div>
+        </div>
+        <div style="padding:11px 14px;border-top:1px solid var(--line-soft);display:flex;align-items:center;justify-content:space-between">
+          <span style="font:400 11px var(--mono);color:var(--text3)">v1.0 · linkedin.com detected</span>
+          <button onClick="{{ noop }}" style="background:none;border:none;padding:0;cursor:pointer;font:500 11.5px var(--sans);color:var(--sky)" style-hover="text-decoration:underline">Use SSO</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="width:400px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
+        <span style="font:600 13px var(--sans)">2 · Capture person</span>
+        <span style="font:400 11.5px var(--mono);color:var(--text3)">LinkedIn profile</span>
+      </div>
+      <div data-screen-label="Popup — capture person" style="width:400px;height:600px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--line-soft)">
+          <span style="width:22px;height:22px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
+          <span style="flex:1;font:600 12.5px var(--mono);letter-spacing:.02em">Capture</span>
+          <button onClick="{{ openSettings }}" style="display:grid;place-items:center;width:26px;height:26px;border-radius:7px;background:none;border:1px solid var(--line-soft);color:var(--text3);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.9 1.17V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 7 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 2.6 15a1.65 1.65 0 0 0-1.6-1H1a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 2.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 7 4.6h.09A1.65 1.65 0 0 0 8 3V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 4.6"></path></svg>
+          </button>
+          <span style="width:26px;height:26px;border-radius:50%;background:var(--green-dim);color:var(--green);display:grid;place-items:center;font:700 10.5px var(--mono)">SA</span>
+        </div>
+
+        <div style="display:flex;padding:0 14px;gap:2px;border-bottom:1px solid var(--line-soft)">
+          <button onClick="{{ setTab }}" data-tab="person" style="background:none;border:none;border-bottom:2px solid var(--amber-btn);padding:9px 4px;margin-right:14px;cursor:pointer;font:600 12px var(--sans);color:var(--text)">Person</button>
+          <button onClick="{{ setTab }}" data-tab="company" style="background:none;border:none;border-bottom:2px solid transparent;padding:9px 4px;cursor:pointer;font:500 12px var(--sans);color:var(--text3)" style-hover="color:var(--text2)">Company</button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--sky-dim);border-bottom:1px solid var(--line-soft)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--sky)" stroke-width="2.2"><path d="m5 13 4 4L19 7"></path></svg>
+          <span style="flex:1;font:400 11px var(--mono);color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Read from linkedin.com/in/amira-haddad</span>
+          <button onClick="{{ noop }}" style="background:none;border:none;padding:0;cursor:pointer;font:500 11px var(--sans);color:var(--sky)" style-hover="text-decoration:underline">Re-scan</button>
+        </div>
+
+        <div style="flex:1;overflow-y:auto;padding:14px">
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:16px">
+            <span style="width:40px;height:40px;flex:none;border-radius:50%;background:var(--amber-dim);color:var(--amber);display:grid;place-items:center;font:700 13px var(--mono)">AH</span>
+            <div style="min-width:0">
+              <div style="font:600 14.5px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Amira Haddad</div>
+              <div style="font:400 11.5px var(--mono);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Group CFO · Al Rawabi Dairy</div>
+            </div>
+          </div>
+
+          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Detected fields</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ personFields }}" as="f" hint-placeholder-count="7">
+              <label style="display:block">
+                <span style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">{{ f.label }}</span>
+                <input onInput="{{ noop }}" value="{{ f.value }}" style="width:100%;margin-top:4px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              </label>
+            </sc-for>
+          </div>
+
+          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Previous roles</div>
+          <div style="border:1px solid var(--line-soft);border-radius:8px;overflow:hidden">
+            <sc-for list="{{ prevRoles }}" as="r" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line-soft)">
+                <div style="flex:1;min-width:0">
+                  <div style="font:500 12px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.title }}</div>
+                  <div style="font:400 10.5px var(--mono);color:var(--text3)">{{ r.company }}</div>
+                </div>
+                <span style="font:400 10.5px var(--mono);color:var(--text3);white-space:nowrap">{{ r.years }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Seniority</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <sc-for list="{{ seniorityChips }}" as="s" hint-placeholder-count="4">
+              <button onClick="{{ pickSeniority }}" data-val="{{ s.id }}" style="padding:5px 11px;border-radius:6px;cursor:pointer;font:600 11px var(--sans);background:{{ s.bg }};border:1px solid {{ s.border }};color:{{ s.fg }}">{{ s.label }}</button>
+            </sc-for>
+          </div>
+
+          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Tags</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+            <sc-for list="{{ personTags }}" as="t" hint-placeholder-count="3">
+              <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:6px;background:var(--panel2);border:1px solid var(--line-soft);font:500 11px var(--sans);color:var(--text2)">
+                {{ t.label }}
+                <button onClick="{{ dropTag }}" data-id="{{ t.id }}" style="background:none;border:none;padding:0;cursor:pointer;color:var(--text3);display:grid;place-items:center" style-hover="color:var(--red)">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+                </button>
+              </span>
+            </sc-for>
+          </div>
+          <input onKeyDown="{{ addTag }}" placeholder="Add a tag, press enter" style="width:100%;background:var(--panel2);border:1px dashed var(--line);border-radius:7px;padding:7px 10px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-style:solid;border-color:var(--sky)">
+
+          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Notes</div>
+          <textarea onInput="{{ noop }}" placeholder="Why this person matters to the mandate" rows="3" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:8px 10px;font:400 12.5px/1.55 var(--sans);color:var(--text);outline:none;resize:vertical" style-focus="border-color:var(--sky)"></textarea>
+
+          <button onClick="{{ toggleOffLimits }}" style="width:100%;display:flex;align-items:center;gap:10px;margin-top:14px;padding:10px 11px;border-radius:8px;cursor:pointer;text-align:left;background:{{ olBg }};border:1px solid {{ olBorder }}">
+            <span style="width:15px;height:15px;flex:none;border-radius:4px;display:grid;place-items:center;background:{{ olBoxBg }};border:1px solid {{ olBoxBorder }}">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="{{ olTick }}" stroke-width="3.4"><path d="m5 13 4 4L19 7"></path></svg>
+            </span>
+            <span style="flex:1;min-width:0">
+              <span style="display:block;font:600 12px var(--sans);color:{{ olFg }}">Mark off-limits</span>
+              <span style="display:block;font:400 10.5px var(--mono);color:var(--text3);margin-top:1px">Blocks outreach across the project</span>
+            </span>
+          </button>
+        </div>
+
+        <div style="border-top:1px solid var(--line-soft);padding:11px 14px;display:flex;flex-direction:column;gap:9px">
+          <div style="display:flex;gap:8px">
+            <select onChange="{{ noop }}" style="flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 9px;font:400 11.5px var(--mono);color:var(--text);outline:none">
+              <option>CFO — GCC F&amp;B</option>
+              <option>CEO — Zenith Industrial</option>
+              <option>CHRO — Meridian Foods</option>
+            </select>
+            <select onChange="{{ noop }}" style="flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 9px;font:400 11.5px var(--mono);color:var(--text);outline:none">
+              <option>Candidates</option>
+              <option>Long list</option>
+              <option>Pipeline</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button onClick="{{ save }}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;font:600 12.5px var(--sans);padding:9px 12px;border-radius:8px;cursor:pointer" style-hover="filter:brightness(1.05)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 5v14M5 12h14"></path></svg>
+              Save to project
+            </button>
+            <button onClick="{{ noop }}" style="background:var(--panel);border:1px solid var(--line);color:var(--text2);font:500 12.5px var(--sans);padding:9px 12px;border-radius:8px;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Save &amp; next</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width:400px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
+        <span style="font:600 13px var(--sans)">3 · Capture company</span>
+        <span style="font:400 11.5px var(--mono);color:var(--text3)">company page or website</span>
+      </div>
+      <div data-screen-label="Popup — capture company" style="width:400px;height:600px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--line-soft)">
+          <span style="width:22px;height:22px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
+          <span style="flex:1;font:600 12.5px var(--mono);letter-spacing:.02em">Capture</span>
+          <span style="width:26px;height:26px;border-radius:50%;background:var(--green-dim);color:var(--green);display:grid;place-items:center;font:700 10.5px var(--mono)">SA</span>
+        </div>
+        <div style="display:flex;padding:0 14px;gap:2px;border-bottom:1px solid var(--line-soft)">
+          <button onClick="{{ setTab }}" data-tab="person" style="background:none;border:none;border-bottom:2px solid transparent;padding:9px 4px;margin-right:14px;cursor:pointer;font:500 12px var(--sans);color:var(--text3)" style-hover="color:var(--text2)">Person</button>
+          <button onClick="{{ setTab }}" data-tab="company" style="background:none;border:none;border-bottom:2px solid var(--amber-btn);padding:9px 4px;cursor:pointer;font:600 12px var(--sans);color:var(--text)">Company</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--sky-dim);border-bottom:1px solid var(--line-soft)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--sky)" stroke-width="2.2"><path d="m5 13 4 4L19 7"></path></svg>
+          <span style="flex:1;font:400 11px var(--mono);color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Read from alrawabidairy.ae/about</span>
+          <button onClick="{{ noop }}" style="background:none;border:none;padding:0;cursor:pointer;font:500 11px var(--sans);color:var(--sky)" style-hover="text-decoration:underline">Re-scan</button>
+        </div>
+
+        <div style="flex:1;overflow-y:auto;padding:14px">
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:16px">
+            <span style="width:40px;height:40px;flex:none;border-radius:9px;background:var(--panel2);border:1px solid var(--line);color:var(--text2);display:grid;place-items:center;font:700 13px var(--mono)">AR</span>
+            <div style="min-width:0">
+              <div style="font:600 14.5px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Al Rawabi Dairy</div>
+              <div style="font:400 11.5px var(--mono);color:var(--text3)">Dubai, UAE · alrawabidairy.ae</div>
+            </div>
+          </div>
+
+          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Detected fields</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ companyFields }}" as="f" hint-placeholder-count="8">
+              <label style="display:block">
+                <span style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">{{ f.label }}</span>
+                <input onInput="{{ noop }}" value="{{ f.value }}" style="width:100%;margin-top:4px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              </label>
+            </sc-for>
+          </div>
+
+          <div style="display:flex;align-items:flex-start;gap:7px;margin-top:18px;padding:9px 10px;border-radius:8px;background:var(--panel2);border:1px solid var(--line-soft)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+            <span style="font:400 11px/1.55 var(--mono);color:var(--text3)">Matches 4 of 5 Strategy criteria. Fails <span style="color:var(--text2)">revenue ≥ $500M</span>.</span>
+          </div>
+
+          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Tags</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+            <sc-for list="{{ companyTags }}" as="t" hint-placeholder-count="2">
+              <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:6px;background:var(--panel2);border:1px solid var(--line-soft);font:500 11px var(--sans);color:var(--text2)">{{ t.label }}</span>
+            </sc-for>
+          </div>
+          <input onKeyDown="{{ addCompanyTag }}" placeholder="Add a tag, press enter" style="width:100%;background:var(--panel2);border:1px dashed var(--line);border-radius:7px;padding:7px 10px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-style:solid;border-color:var(--sky)">
+
+          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Notes</div>
+          <textarea onInput="{{ noop }}" placeholder="Context for the universe entry" rows="3" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:8px 10px;font:400 12.5px/1.55 var(--sans);color:var(--text);outline:none;resize:vertical" style-focus="border-color:var(--sky)"></textarea>
+
+          <div style="display:flex;align-items:center;gap:8px;margin-top:14px;padding:10px 11px;border-radius:8px;background:var(--panel2);border:1px solid var(--line-soft)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="M17 21v-8H7v8M7 3v5h8"></path><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"></path></svg>
+            <span style="flex:1;font:400 11px/1.5 var(--mono);color:var(--text3)">Also queue <span style="color:var(--text2)">12 executives</span> found on this page for review</span>
+            <button onClick="{{ noop }}" style="background:none;border:none;padding:0;cursor:pointer;font:600 11px var(--sans);color:var(--sky)" style-hover="text-decoration:underline">Queue</button>
+          </div>
+        </div>
+
+        <div style="border-top:1px solid var(--line-soft);padding:11px 14px;display:flex;flex-direction:column;gap:9px">
+          <label style="display:block">
+            <span style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">Project</span>
+            <select onChange="{{ noop }}" style="width:100%;margin-top:4px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 12px var(--mono);color:var(--text);outline:none">
+              <option>CFO — GCC F&amp;B</option>
+              <option>CEO — Zenith Industrial</option>
+              <option>CHRO — Meridian Foods</option>
+            </select>
+          </label>
+          <div style="display:flex;gap:8px">
+            <button onClick="{{ save }}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;font:600 12.5px var(--sans);padding:9px 10px;border-radius:8px;cursor:pointer" style-hover="filter:brightness(1.05)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 5v14M5 12h14"></path></svg>
+              Add to universe
+            </button>
+            <button onClick="{{ save }}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--panel);border:1px solid var(--line);color:var(--text2);font:600 12.5px var(--sans);padding:9px 10px;border-radius:8px;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 13 4 4L19 7"></path></svg>
+              Add to shortlist
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width:400px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
+        <span style="font:600 13px var(--sans)">4 · Saved</span>
+        <span style="font:400 11.5px var(--mono);color:var(--text3)">auto-closes in 4s</span>
+      </div>
+      <div data-screen-label="Popup — saved" style="width:400px;height:600px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--line-soft)">
+          <span style="width:22px;height:22px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
+          <span style="flex:1;font:600 12.5px var(--mono);letter-spacing:.02em">Capture</span>
+          <span style="width:26px;height:26px;border-radius:50%;background:var(--green-dim);color:var(--green);display:grid;place-items:center;font:700 10.5px var(--mono)">SA</span>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:26px;gap:13px">
+          <span style="width:46px;height:46px;border-radius:50%;background:var(--green-dim);display:grid;place-items:center">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.6"><path d="m5 13 4 4L19 7"></path></svg>
+          </span>
+          <div style="font:600 15px var(--sans)">Amira Haddad added</div>
+          <div style="font:400 12.5px/1.6 var(--sans);color:var(--text2);max-width:290px">Filed under <span style="color:var(--text)">Candidates</span> in CFO — GCC F&amp;B, linked to Al Rawabi Dairy in the universe.</div>
+          <div style="width:100%;max-width:300px;border:1px solid var(--line-soft);border-radius:9px;padding:11px 12px;background:var(--panel2);display:flex;flex-direction:column;gap:7px;text-align:left;margin-top:2px">
+            <sc-for list="{{ receipt }}" as="r" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                <span style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">{{ r.label }}</span>
+                <span style="font:400 11.5px var(--mono);color:var(--text2);text-align:right">{{ r.value }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <button onClick="{{ noop }}" style="display:inline-flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);color:var(--text2);font:500 12px var(--sans);padding:8px 13px;border-radius:8px;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">View in project</button>
+            <button onClick="{{ noop }}" style="display:inline-flex;align-items:center;gap:7px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;font:600 12px var(--sans);padding:8px 13px;border-radius:8px;cursor:pointer" style-hover="filter:brightness(1.05)">Capture another</button>
+          </div>
+          <button onClick="{{ noop }}" style="background:none;border:none;padding:0;cursor:pointer;font:500 11.5px var(--sans);color:var(--sky);margin-top:2px" style-hover="text-decoration:underline">Undo</button>
+        </div>
+        <div style="padding:11px 14px;border-top:1px solid var(--line-soft);font:400 11px var(--mono);color:var(--text3);text-align:center">14 captures this week · 3 pending review</div>
+      </div>
+    </div>
+
+    <div style="width:400px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
+        <span style="font:600 13px var(--sans)">5 · Settings</span>
+        <span style="font:400 11.5px var(--mono);color:var(--text3)">default project &amp; session</span>
+      </div>
+      <div data-screen-label="Popup — settings" style="width:400px;height:600px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--line-soft)">
+          <button onClick="{{ closeSettings }}" style="display:grid;place-items:center;width:26px;height:26px;border-radius:7px;background:none;border:1px solid var(--line-soft);color:var(--text3);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"></path></svg>
+          </button>
+          <span style="flex:1;font:600 12.5px var(--mono);letter-spacing:.02em">Settings</span>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:16px 14px">
+          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Default destination</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <label style="display:block">
+              <span style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">Project</span>
+              <select onChange="{{ noop }}" style="width:100%;margin-top:4px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none">
+                <option>CFO — GCC F&amp;B</option>
+                <option>Ask every time</option>
+              </select>
+            </label>
+            <label style="display:block">
+              <span style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">Section for people</span>
+              <select onChange="{{ noop }}" style="width:100%;margin-top:4px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none">
+                <option>Candidates</option>
+                <option>Long list</option>
+                <option>Pipeline</option>
+              </select>
+            </label>
+            <label style="display:block">
+              <span style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">Section for companies</span>
+              <select onChange="{{ noop }}" style="width:100%;margin-top:4px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none">
+                <option>Universe</option>
+                <option>Shortlist</option>
+                <option>Long list</option>
+              </select>
+            </label>
+          </div>
+
+          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:20px 0 8px">Behaviour</div>
+          <div style="border:1px solid var(--line-soft);border-radius:9px;overflow:hidden">
+            <sc-for list="{{ toggles }}" as="t" hint-placeholder-count="4">
+              <button onClick="{{ flipToggle }}" data-id="{{ t.id }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:11px 12px;border:none;border-bottom:1px solid var(--line-soft);background:none;cursor:pointer;text-align:left">
+                <span style="flex:1;min-width:0">
+                  <span style="display:block;font:500 12.5px var(--sans);color:var(--text)">{{ t.label }}</span>
+                  <span style="display:block;font:400 10.5px var(--mono);color:var(--text3);margin-top:2px">{{ t.hint }}</span>
+                </span>
+                <span style="width:32px;height:18px;flex:none;border-radius:9px;padding:2px;display:flex;background:{{ t.trackBg }};border:1px solid {{ t.trackBorder }};justify-content:{{ t.justify }}">
+                  <span style="width:12px;height:12px;border-radius:50%;background:{{ t.knob }}"></span>
+                </span>
+              </button>
+            </sc-for>
+          </div>
+
+          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:20px 0 8px">Session</div>
+          <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--line-soft);border-radius:9px;background:var(--panel2)">
+            <span style="width:30px;height:30px;flex:none;border-radius:50%;background:var(--green-dim);color:var(--green);display:grid;place-items:center;font:700 11px var(--mono)">SA</span>
+            <div style="flex:1;min-width:0">
+              <div style="font:600 12.5px var(--sans)">Sara Al-Mansour</div>
+              <div style="font:400 10.5px var(--mono);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">s.almansour@firm.com · session shared with app</div>
+            </div>
+            <button onClick="{{ noop }}" style="background:none;border:1px solid var(--line);color:var(--text2);font:500 11px var(--sans);padding:6px 10px;border-radius:7px;cursor:pointer" style-hover="color:var(--red);border-color:var(--red)">Sign out</button>
+          </div>
+          <div style="font:400 10.5px/1.6 var(--mono);color:var(--text3);margin-top:10px">Sign-out here only clears the extension. Session cookies from app.lightmove.io are reused, so no separate login is ever required while you are signed in to the workspace.</div>
+        </div>
+        <div style="padding:11px 14px;border-top:1px solid var(--line-soft);display:flex;align-items:center;justify-content:space-between">
+          <span style="font:400 11px var(--mono);color:var(--text3)">Shortcut ⌥⇧L</span>
+          <a href="Settings.dc.html">Workspace settings</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><text x="50" y="52" fill="#e2b65c" font-family="Geist,sans-serif" font-size="24" font-weight="700" text-anchor="middle" dominant-baseline="central">EXT</text></svg></template>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;sky&quot;,&quot;options&quot;:[&quot;sky&quot;,&quot;amber&quot;,&quot;green&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Options&quot;}}">
+class Component extends DCLogic {
+  state = {
+    seniority: 'csuite',
+    relevance: 'direct',
+    offLimits: false,
+    pTags: [{ id: 't1', label: 'Dairy' }, { id: 't2', label: 'UAE' }, { id: 't3', label: 'Arabic + English' }],
+    cTags: [{ id: 'c1', label: 'Family-owned' }, { id: 'c2', label: 'GCC distribution' }],
+    toggles: {
+      autoDetect: true,
+      dedupe: true,
+      queuePeople: false,
+      closeAfterSave: true,
+    },
+  };
+
+  chip(active, tone) {
+    return active
+      ? { bg: 'var(--' + tone + '-dim)', border: 'var(--' + tone + ')', fg: 'var(--' + tone + ')' }
+      : { bg: 'var(--panel2)', border: 'var(--line)', fg: 'var(--text3)' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const accent = this.props.accent ?? 'sky';
+    const T = [
+      { id: 'autoDetect', label: 'Auto-detect page type', hint: 'Open on Person or Company without asking' },
+      { id: 'dedupe', label: 'Warn on duplicates', hint: 'Check the project before saving' },
+      { id: 'queuePeople', label: 'Queue people from company pages', hint: 'Collect executives listed on the page' },
+      { id: 'closeAfterSave', label: 'Close popup after save', hint: 'Dismiss 4 seconds after the receipt' },
+    ];
+    const on = (v) => ({
+      trackBg: v ? 'var(--' + accent + '-dim)' : 'var(--panel2)',
+      trackBorder: v ? 'var(--' + accent + ')' : 'var(--line)',
+      knob: v ? 'var(--' + accent + ')' : 'var(--text3)',
+      justify: v ? 'flex-end' : 'flex-start',
+    });
+
+    return {
+      personFields: [
+        { label: 'Full name', value: 'Amira Haddad' },
+        { label: 'Current title', value: 'Group Chief Financial Officer' },
+        { label: 'Current company', value: 'Al Rawabi Dairy' },
+        { label: 'Location', value: 'Dubai, United Arab Emirates' },
+        { label: 'Tenure', value: 'Since Mar 2021 · 4 yrs 5 mos' },
+        { label: 'LinkedIn', value: 'linkedin.com/in/amira-haddad' },
+        { label: 'Email · phone', value: 'a.haddad@alrawabidairy.ae · +971 4 ···' },
+      ],
+      companyFields: [
+        { label: 'Company name', value: 'Al Rawabi Dairy Company LLC' },
+        { label: 'Website', value: 'alrawabidairy.ae' },
+        { label: 'LinkedIn', value: 'linkedin.com/company/al-rawabi-dairy' },
+        { label: 'Sector', value: 'Food & Beverage Manufacturing' },
+        { label: 'HQ', value: 'Dubai, UAE' },
+        { label: 'Headcount band', value: '1K–2.5K' },
+        { label: 'Revenue band', value: '$250M–500M' },
+        { label: 'Ownership', value: 'Family-owned' },
+      ],
+      prevRoles: [
+        { title: 'Finance Director', company: 'Agthia Group', years: '2016–2021' },
+        { title: 'Head of FP&A', company: 'Almarai', years: '2012–2016' },
+        { title: 'Audit Manager', company: 'KPMG Lower Gulf', years: '2007–2012' },
+      ],
+      seniorityChips: [
+        { id: 'board', label: 'Board' },
+        { id: 'csuite', label: 'C-suite' },
+        { id: 'n1', label: 'N-1' },
+        { id: 'n2', label: 'N-2' },
+      ].map(c => Object.assign({}, c, this.chip(s.seniority === c.id, accent))),
+      relevanceChips: [
+        { id: 'direct', label: 'Direct' },
+        { id: 'adjacent', label: 'Adjacent' },
+        { id: 'inferred', label: 'Inferred' },
+      ].map(c => Object.assign({}, c, this.chip(s.relevance === c.id, accent))),
+      personTags: s.pTags,
+      companyTags: s.cTags,
+      olBg: s.offLimits ? 'var(--red-dim)' : 'var(--panel2)',
+      olBorder: s.offLimits ? 'var(--red)' : 'var(--line-soft)',
+      olBoxBg: s.offLimits ? 'var(--red)' : 'transparent',
+      olBoxBorder: s.offLimits ? 'var(--red)' : 'var(--line)',
+      olTick: s.offLimits ? '#ffffff' : 'transparent',
+      olFg: s.offLimits ? 'var(--red)' : 'var(--text)',
+      receipt: [
+        { label: 'Project', value: 'CFO — GCC F&B' },
+        { label: 'Section', value: 'Candidates' },
+        { label: 'Company link', value: 'Al Rawabi Dairy' },
+        { label: 'Source', value: 'LinkedIn profile' },
+      ],
+      toggles: T.map(t => Object.assign({}, t, on(s.toggles[t.id]))),
+      pickSeniority: (e) => this.setState({ seniority: e.currentTarget.dataset.val }),
+      pickRelevance: (e) => this.setState({ relevance: e.currentTarget.dataset.val }),
+      toggleOffLimits: () => this.setState(p => ({ offLimits: !p.offLimits })),
+      flipToggle: (e) => {
+        const id = e.currentTarget.dataset.id;
+        this.setState(p => ({ toggles: Object.assign({}, p.toggles, { [id]: !p.toggles[id] }) }));
+      },
+      dropTag: (e) => {
+        const id = e.currentTarget.dataset.id;
+        this.setState(p => ({ pTags: p.pTags.filter(t => t.id !== id) }));
+      },
+      addTag: (e) => {
+        if (e.key !== 'Enter' || !e.target.value.trim()) return;
+        const label = e.target.value.trim();
+        e.target.value = '';
+        this.setState(p => ({ pTags: p.pTags.concat([{ id: 'n' + Date.now(), label }]) }));
+      },
+      addCompanyTag: (e) => {
+        if (e.key !== 'Enter' || !e.target.value.trim()) return;
+        const label = e.target.value.trim();
+        e.target.value = '';
+        this.setState(p => ({ cTags: p.cTags.concat([{ id: 'n' + Date.now(), label }]) }));
+      },
+      setTab: () => {},
+      openSettings: () => {},
+      closeSettings: () => {},
+      save: () => {},
+      goLogin: () => { window.location.href = 'Login.dc.html'; },
+      noop: () => {},
+    };
+  }
+}
+
+</script>
+</body>
+</html>
