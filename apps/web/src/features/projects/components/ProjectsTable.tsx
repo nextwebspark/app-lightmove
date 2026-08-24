@@ -23,12 +23,16 @@ export function ProjectsTable({
     "whitespace-nowrap border-b border-line px-3 py-[9px] text-left font-mono text-[10.5px] " +
     "font-semibold uppercase tracking-[0.12em] text-text3";
   const td = "border-b border-line-soft px-3 py-[11px]";
+  // The pinned column paints its own background: a sticky cell is transparent by default and the
+  // scrolled columns would slide underneath it.
+  const pinned = "sticky start-0 z-[1] bg-panel group-hover:bg-panel2";
 
   return (
-    <table className="w-full border-collapse">
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[860px] border-collapse">
       <thead>
         <tr>
-          <th className={`${th} cursor-pointer`} onClick={() => onSort("client")}>
+          <th className={`${th} ${pinned} cursor-pointer`} onClick={() => onSort("client")}>
             Client <span className="text-amber">{arrow("client")}</span>
           </th>
           <th className={th}>Position</th>
@@ -45,8 +49,12 @@ export function ProjectsTable({
       </thead>
       <tbody>
         {projects.map((project) => (
-          <tr key={project.id} className="cursor-pointer hover:bg-panel2" onClick={() => onOpen(project.id)}>
-            <td className={`${td} whitespace-nowrap font-mono text-[12.5px] font-medium text-text2`}>
+          <tr
+            key={project.id}
+            className="group cursor-pointer hover:bg-panel2"
+            onClick={() => onOpen(project.id)}
+          >
+            <td className={`${td} ${pinned} whitespace-nowrap font-mono text-[12.5px] font-medium text-text2`}>
               {project.clientName}
             </td>
             <td className={`${td} whitespace-nowrap`}>
@@ -85,7 +93,8 @@ export function ProjectsTable({
           </tr>
         ))}
       </tbody>
-    </table>
+      </table>
+    </div>
   );
 }
 

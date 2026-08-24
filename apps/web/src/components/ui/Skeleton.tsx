@@ -21,8 +21,8 @@ export function TableSkeleton({ columns, rows = 6 }: { columns: string[]; rows?:
     "font-semibold uppercase tracking-[0.12em] text-text3";
 
   return (
-    <div role="status" aria-label="Loading">
-      <table className="w-full border-collapse">
+    <div role="status" aria-label="Loading" className="overflow-x-auto">
+      <table className="w-full min-w-[820px] border-collapse">
         <thead>
           <tr>
             {columns.map((column) => (
