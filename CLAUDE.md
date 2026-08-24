@@ -25,6 +25,7 @@ mockups: if a screen isn't being built this session, its tables and entities don
 |---|---|
 | `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `workspace`, `project`, `strategy`, `triagecompany` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
+| `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
 | `ops/cloudsql/` | Database bootstrap and hardening scripts |
 
@@ -76,6 +77,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 | `lightmove-domain` | **any** auth / signup / OAuth / workspace / membership / invitation / RBAC / client-representative / verification work |
 | `java-spring-development` | any backend code — architecture, conventions, Boot 4 notes, and the backend traps live there |
 | `react` | any frontend code — real stack, conventions, and the frontend traps live there |
+| `chrome-extension` | any work in `apps/extension`, on `/api/v1/auth/extension`, or on the SPA's `/extension/connect` |
 | `db-ops` | migrations, grants, `harden.sql`, `ops/cloudsql` scripts, the Apollo company universe |
 | `pr-cleanup` | addressing PR review feedback |
 | `verify` | running the app end-to-end |
