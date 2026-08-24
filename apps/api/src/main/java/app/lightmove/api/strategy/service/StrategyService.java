@@ -308,7 +308,7 @@ public class StrategyService {
                 ref.getCompanyCity(), ref.getCompanyCountry(), ref.getLogoUrl());
     }
 
-    /** One argument per line: twenty-seven positional arguments, and a misplaced one still compiles. */
+    /** One argument per line: they are all positional, and a misplaced one still compiles. */
     private static CompanyResultDto toDto(CompanyRow row) {
         return new CompanyResultDto(
                 row.apolloAccountId(),

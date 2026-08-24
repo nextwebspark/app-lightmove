@@ -17,7 +17,6 @@ interface CompanyColumnMeta {
   share: number;
   /** The width the column will not shrink below, in px. */
   min: number;
-  align?: "right";
 }
 
 /** What the Actions column needs, supplied per render rather than baked into the column defs. */
@@ -40,15 +39,14 @@ export const companyTableFeatures = tableFeatures({
 
 const helper = createColumnHelper<typeof companyTableFeatures, CompanyResult>();
 
-/** The Add button's shape, shared with the link icons so the two rows of glyphs match. */
 const ICON_BUTTON =
   "grid size-6 place-items-center rounded-[5px] text-text3 transition hover:bg-panel2 hover:text-text";
 
 /**
  * Each sortable column's id is its wire sort token, the same string `CompanySortField` allowlists,
- * so there is no click-to-field mapping that can drift. The columns below Notes carry no token and
- * are unsortable by construction: they exist so the Columns menu has the rest of the universe to
- * offer, and the server's ORDER BY allowlist stays the eight it was written for.
+ * so there is no click-to-field mapping that can drift. The columns below Notes carry no token, so
+ * they are unsortable by construction and the server's ORDER BY allowlist stays the eight it was
+ * written for.
  */
 export const companyColumns = helper.columns([
   helper.accessor("companyName", {
@@ -68,8 +66,6 @@ export const companyColumns = helper.columns([
     ),
   }),
 
-  // Beside the name rather than pinned to the far edge: the decision belongs next to what it is about,
-  // and a second sticky region costs horizontal room the middle columns need.
   helper.display({
     id: "actions",
     header: "Actions",
@@ -289,11 +285,7 @@ export const companyColumns = helper.columns([
   }),
 ]);
 
-/**
- * What starts off. The visible set is the eight the table was designed around plus Links; everything
- * below Notes in the definitions above is offered by the Columns menu and shown only on request —
- * a table that opened with twenty-two columns would be a spreadsheet, not a triage screen.
- */
+/** Everything below Notes starts hidden: a table that opened with all 24 would be a spreadsheet. */
 export const DEFAULT_COLUMN_VISIBILITY: ColumnVisibilityState = {
   location: false,
   founded: false,
@@ -315,14 +307,12 @@ export const DEFAULT_COLUMN_VISIBILITY: ColumnVisibilityState = {
 /**
  * A scrolled row without its name is a line of anonymous figures, so the name travels with it. v9
  * names the pinned regions logically, so `start` follows the reading direction rather than the CSS.
- * Nothing is pinned to the end: Actions sits beside the name instead.
  */
 export const COLUMN_PINNING: ColumnPinningState = {
   start: ["name"],
   end: [],
 };
 
-/** Absent on most rows for most networks, and a greyed placeholder would be four dead glyphs a row. */
 function CompanyLink({
   url,
   icon,
@@ -358,7 +348,6 @@ function Cell({ value, muted }: { value: string | null; muted?: boolean }) {
   );
 }
 
-/** Empty reads as unknown, not as an empty string — the column is absent on the row, not blank. */
 function joined(values: string[]): string | null {
   return values.length > 0 ? values.join(", ") : null;
 }

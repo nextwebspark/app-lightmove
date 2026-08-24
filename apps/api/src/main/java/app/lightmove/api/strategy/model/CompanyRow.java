@@ -8,9 +8,7 @@ import java.util.List;
  *
  * <p>Wider than the Strategy table's visible columns, because the table lets a user choose which
  * columns to show and a row is a few hundred bytes — cheaper to send every offerable field than to
- * make the query take a field list and the response shape depend on client UI state. That argument
- * now carries twenty-seven fields rather than eleven, and it still holds: the alternative is a query
- * key that changes every time someone ticks a column.
+ * make the query take a field list and the response shape depend on client UI state.
  *
  * <p>{@code numEmployees} and {@code annualRevenue} travel as the raw figures rather than as band
  * labels: the client renders the band, and a caller sorting by size needs the number. {@code

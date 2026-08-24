@@ -86,9 +86,8 @@ export interface Strategy {
  * One row of the results table. `annualRevenue` is null on roughly nine rows in ten — that is the
  * data, and the cell says unknown rather than showing a zero. The funding fields are sparser still.
  *
- * Everything the universe carries that is a fact about the company is here, whether or not the user
- * has that column switched on: the visible set is a local preference, and making the response depend
- * on it would put UI state in the query key. Most of these ship hidden.
+ * Every field arrives whether or not the user has that column switched on: the visible set is a
+ * local preference, and making the response depend on it would put UI state in the query key.
  */
 export interface CompanyResult {
   apolloAccountId: string;
@@ -112,7 +111,7 @@ export interface CompanyResult {
   totalFunding: number | null;
   latestFunding: string | null;
   latestFundingAmount: number | null;
-  /** ISO date, or null — the column is set on roughly three rows in a hundred. */
+  /** `YYYY-MM-DD`, not a timestamp. */
   lastRaisedAt: string | null;
   numberOfRetailLocations: number | null;
   keywords: string[];

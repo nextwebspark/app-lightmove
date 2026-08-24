@@ -470,7 +470,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                 .andReturn()).get("id").asText();
     }
 
-    /** Only the snapshot fields carry here; the rest of the universe's twenty-seven are not the subject. */
+    /** Only the snapshot fields carry here; the rest are not the subject. */
     private static CompanyRow row(String apolloAccountId, String companyName, int employees) {
         return new CompanyRow(apolloAccountId, companyName, "oil & energy", "Saudi Arabia", "Riyadh",
                 employees, null, null, null, null, null, null, null, null, null, null, null, null,

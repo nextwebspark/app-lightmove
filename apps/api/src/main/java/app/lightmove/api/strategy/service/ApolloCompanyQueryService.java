@@ -61,13 +61,8 @@ public class ApolloCompanyQueryService {
     /**
      * Every column the list and the write-path snapshots need, in one place so they cannot drift.
      *
-     * <p>Wider than the eight columns the table shows: the rest ship hidden and exist so the Columns
-     * menu has something to offer. What is left out of the universe's forty-six is left out on
-     * purpose — Apollo's own CRM state ({@code account_stage}, {@code lists}, {@code account_owner}),
-     * its AI-workflow scratch ({@code prereq_*}, {@code qualify_account}, the intent topics and
-     * scores), the loader's bookkeeping ({@code row_hash}, {@code source_file}, the timestamps) and
-     * the ids of other systems. None of those is a fact about the company. {@code company_street} and
-     * {@code company_postal_code} go too, superseded by {@code company_address}.
+     * <p>What the universe's other columns hold is not a fact about the company — Apollo's own CRM
+     * state, its AI-workflow scratch, the loader's bookkeeping and the ids of other systems.
      */
     private static final String ROW_COLUMNS = """
             apollo_account_id, company_name, industry, company_country, company_city,
@@ -473,9 +468,6 @@ public class ApolloCompanyQueryService {
      * {@code smallint}, and {@code getObject} on one returns an {@code Integer} from this driver —
      * a {@code (Short)} cast compiles, reads correctly, and then throws ClassCastException on the
      * first row that actually carries a year, which is a 500 on the list rather than a wrong value.
-     *
-     * <p>{@code last_raised_at} is read as a {@link LocalDate} through {@code getObject} for the same
-     * reason: let the driver map its own {@code date} rather than route it through {@code java.sql}.
      */
     private static final RowMapper<CompanyRow> COMPANY_ROW_MAPPER = ApolloCompanyQueryService::mapRow;
 
