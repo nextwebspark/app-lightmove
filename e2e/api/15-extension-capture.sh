@@ -136,6 +136,17 @@ check_code 15.30 "a company the mandate declined is refused, not quietly revived
 # Guards.
 post_json "$CAPTURES" "$(jq -nc '{status:"inUniverse", companyName:"Nameless Holding"}')" -H "$EXT_AUTH"
 check_status 15.31 "a capture with no domain is refused — there is nothing to key the row on" 400
+
+# A note somebody wrote on the triage screen survives the ordinary "capture it again to shortlist it"
+# gesture, whose note box is empty. Omitting a field is not asking to erase it.
+NOTED_DOMAIN="noted-$(date +%s)$RANDOM.example"
+post_json "$CAPTURES" "$(capture_body inUniverse "$NOTED_DOMAIN")" -H "$EXT_AUTH" >/dev/null
+NOTED_ID=$(json '.id')
+http PATCH "/projects/$PROJECT/triage/$NOTED_ID" -H 'Content-Type: application/json' -H "$EXT_AUTH" \
+  -d '{"note":"CFO retiring Q3."}' >/dev/null
+post_json "$CAPTURES" "$(jq -nc --arg d "$NOTED_DOMAIN" \
+  '{status:"shortlisted", companyName:"Desert Foods LLC", website:("https://www." + $d)}')" -H "$EXT_AUTH"
+check 15.34 "a re-capture leaves an existing note alone" "CFO retiring Q3." "$(json '.note')"
 post_json "$CAPTURES" "$(capture_body declined "$CAPTURED_DOMAIN")" -H "$EXT_AUTH"
 check_status 15.32 "declined is not a destination a capture may name" 400
 post_json "$CAPTURES" "$(capture_body inUniverse "$CAPTURED_DOMAIN")"
@@ -203,6 +214,13 @@ http PUT "/projects/$PROJECT/strategy/off-limits" -H 'Content-Type: application/
 post_json "$CAPTURES" "$(jq -nc --arg w "$BARRED_SITE" \
   '{status:"inUniverse", companyName:"Barred By Another Name", website:$w, sourceUrl:$w}')" -H "$EXT_AUTH"
 check_status 15.51 "an off-limits company cannot be captured, however the page describes it" 400
+
+# The hole this closes: an unresolvable id used to short-circuit the web-identity lookup entirely, so
+# a barred company was filed as a capture under whatever name the request chose.
+post_json "$CAPTURES" "$(jq -nc --arg w "$BARRED_SITE" \
+  '{status:"inUniverse", apolloAccountId:"no-longer-published",
+    companyName:"Barred By Another Name", website:$w, sourceUrl:$w}')" -H "$EXT_AUTH"
+check_status 15.55 "…and a stale Apollo id is not a way round the bar" 400
 
 # --- the seat, not the login -------------------------------------------------
 #

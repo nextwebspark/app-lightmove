@@ -54,3 +54,30 @@ jobs:
       # later as a broken image — the Dockerfile runs this same command.
       - name: Build
         run: npm run build --workspace=apps/web
+
+  extension:
+    name: Extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint --workspace=apps/extension
+
+      # The extractors against saved HTML fixtures under jsdom — no browser, no extension runtime,
+      # which is the whole reason they are pure functions over a Document.
+      - name: Test
+        run: npm run test --workspace=apps/extension
+
+      # Builds the popup, the service worker AND the injected page reader, then emits the manifest.
+      # All of it, deliberately: the manifest names files the separate IIFE pass produces, so a build
+      # that skipped that pass would ship a manifest pointing at nothing and fail silently at runtime.
+      - name: Build
+        run: npm run build --workspace=apps/extension
