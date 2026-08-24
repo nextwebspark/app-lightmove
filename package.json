@@ -2,9 +2,10 @@
   "name": "app-lightmove",
   "private": true,
   "version": "0.1.0",
-  "description": "LightMove — multi-tenant executive search & talent mapping platform",
+  "description": "LightMove \u2014 multi-tenant executive search & talent mapping platform",
   "workspaces": [
-    "apps/web"
+    "apps/web",
+    "apps/extension"
   ],
   "engines": {
     "node": ">=20"
@@ -20,12 +21,14 @@
     "dev:db:apollo": "./ops/dev/db.sh apollo-pull",
     "dev:cloud": "concurrently -n api,web -c yellow,cyan \"npm:dev:api:cloud\" \"npm:dev:web\"",
     "dev:api:cloud": "cd apps/api && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local",
-    "build": "npm run build:api && npm run build:web",
+    "build": "npm run build:api && npm run build:web && npm run build:extension",
     "build:api": "cd apps/api && ./mvnw -q clean package",
     "build:web": "npm run build --workspace=apps/web",
-    "test": "npm run test:api && npm run test:web",
+    "test": "npm run test:api && npm run test:web && npm run test:extension",
     "test:api": "cd apps/api && ./mvnw test",
-    "test:web": "npm run test --workspace=apps/web"
+    "test:web": "npm run test --workspace=apps/web",
+    "build:extension": "npm run build --workspace=apps/extension",
+    "test:extension": "npm run test --workspace=apps/extension"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

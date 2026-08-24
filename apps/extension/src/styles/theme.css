@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+/*
+ * The popup's design tokens.
+ *
+ * The same values as apps/web's tokens.css, which took them from claude-design/*.dc.html — this is a
+ * copy rather than an import, and deliberately: the extension is a separate app with a separate build
+ * and shares no module graph with the web app. A shared package for forty lines of custom properties
+ * would couple the two builds for less than it saves. Only the palette is duplicated; no logic is.
+ *
+ * Dark is the popup's default. A browser toolbar popup is a small panel over whatever the consultant
+ * is reading, and the mockups draw it dark; the light values are here so `prefers-color-scheme: light`
+ * is not a white-on-white surprise.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-bg: #f8f9fb;
+  --color-panel: #ffffff;
+  --color-panel2: #f3f4f6;
+  --color-line: #e2e4e9;
+  --color-line-soft: #edeef2;
+
+  --color-text: #111113;
+  --color-text2: #475569;
+  --color-text3: #64748b;
+
+  /* Amber is the brand: the logo tile and every primary action. */
+  --color-amber: #a67c2e;
+  --color-amber-btn: #e2b65c;
+  --color-amber-dim: rgba(226, 182, 92, 0.14);
+
+  /* Sky is for links and informational states. */
+  --color-sky: #2563eb;
+  --color-sky-dim: rgba(37, 99, 235, 0.1);
+
+  --color-red: #dc2626;
+  --color-red-dim: rgba(220, 38, 38, 0.08);
+  --color-green: #059669;
+  --color-green-dim: rgba(5, 150, 105, 0.1);
+
+  /* The one colour that never inverts: text on an amber button, in either theme. */
+  --color-on-amber: #1a1712;
+
+  --font-sans: "Geist", "Inter", system-ui, sans-serif;
+  --font-mono: "Geist", "Inter", system-ui, sans-serif;
+
+  --shadow-panel: 0 8px 28px rgba(15, 23, 42, 0.1);
+  --radius-panel: 14px;
+}
+
+.dark {
+  --color-bg: #0c0d0e;
+  --color-panel: #16171a;
+  --color-panel2: #131316;
+  --color-line: #2a2a2e;
+  --color-line-soft: #212326;
+
+  --color-text: #f8fafc;
+  --color-text2: #cbd5e1;
+  --color-text3: #94a3b8;
+
+  --color-amber: #e2b65c;
+  --color-amber-dim: rgba(226, 182, 92, 0.16);
+  --color-sky: #60a5fa;
+  --color-sky-dim: rgba(96, 165, 250, 0.16);
+  --color-red: #f87171;
+  --color-red-dim: rgba(248, 113, 113, 0.14);
+  --color-green: #34d399;
+  --color-green-dim: rgba(52, 211, 153, 0.16);
+
+  --shadow-panel: 0 8px 28px rgba(0, 0, 0, 0.5);
+}
+
+/*
+ * The popup is a fixed 400x600 panel, per the handoff. Chrome sizes a popup to its content up to
+ * that maximum, so the body states both — without the fixed height a short screen (signed out) would
+ * render as a stub and the popup would visibly resize between states.
+ */
+html,
+body {
+  width: 400px;
+  height: 600px;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: var(--color-panel);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
