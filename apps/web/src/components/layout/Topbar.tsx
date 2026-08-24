@@ -7,7 +7,7 @@ import { Icon, ICONS } from "./Icon";
 /**
  * The 46px header: the workspace dropdown (settings, members, sign out) on the left, the user's
  * avatar on the right. Settings screens pass a breadcrumb instead of the dropdown. Below `lg` it
- * also carries the button that opens the nav drawer.
+ * also carries the nav drawer's button.
  */
 export function Topbar({
   breadcrumb,

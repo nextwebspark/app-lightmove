@@ -3,12 +3,7 @@ import { formatDate } from "../../../lib/format";
 import type { Project, TeamMember } from "../api/types";
 import type { SortKey } from "../lib/filtering";
 
-/**
- * The mandate list: a sortable table on a wide screen, and a stack of cards below `md`.
- *
- * <p>Seven columns is a table people scan, and scanning sideways is not scanning — so the narrow
- * layout gives each mandate its own card rather than a row to drag around.
- */
+/** The mandate list: a sortable table on a wide screen, a stack of cards below `md`. */
 export function ProjectsList({
   projects,
   sortKey,
@@ -28,8 +23,7 @@ export function ProjectsList({
     "whitespace-nowrap border-b border-line px-3 py-[9px] text-left font-mono text-[10.5px] " +
     "font-semibold uppercase tracking-[0.12em] text-text3";
   const td = "border-b border-line-soft px-3 py-[11px]";
-  // The pinned column paints its own background: a sticky cell is transparent by default and the
-  // scrolled columns would slide underneath it.
+  // A sticky cell is transparent by default, so the scrolled columns would slide under it.
   const pinned = "sticky start-0 z-[1] bg-panel group-hover:bg-panel2";
 
   return (
@@ -111,7 +105,6 @@ export function ProjectsList({
   );
 }
 
-/** One mandate as a card: the same fields the row carries, stacked for a thumb. */
 function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void }) {
   return (
     <button

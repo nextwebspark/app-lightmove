@@ -2,11 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
 
-/**
- * jsdom lays nothing out, so its `matchMedia` answers `false` to every query — which would tell the
- * app it is on a phone and collapse every rail a test then goes looking for. Components render at
- * the desktop width unless a test says otherwise.
- */
+/** jsdom answers `false` to every media query, which would collapse rails a test goes looking for. */
 window.matchMedia = (query: string): MediaQueryList =>
   ({
     matches: /min-width/.test(query),

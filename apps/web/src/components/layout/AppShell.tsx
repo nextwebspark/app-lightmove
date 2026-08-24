@@ -5,12 +5,9 @@ import { Sidebar, type SidebarGroup, type SidebarItem } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
 /**
- * The chrome every signed-in screen shares: topbar, the nav rail, and the panel the routed page
- * renders into.
- *
- * Below `lg` the rail cannot coexist with the content — 240px of a 390px viewport — so it becomes an
- * overlay drawer this component opens and closes. That state lives here rather than in `Sidebar`
- * because closing it on navigation is the shell's job, not the rail's.
+ * The chrome every signed-in screen shares. Below `lg` the rail becomes an overlay drawer this
+ * component opens and closes — the state lives here because closing it on navigation is the shell's
+ * job, not the rail's.
  */
 export function AppShell({
   navGroups,
@@ -22,10 +19,8 @@ export function AppShell({
 }: {
   navGroups: SidebarGroup[];
   navBackLink?: SidebarItem;
-  /** Rendered under the back link — the project shell's stage badge lives here. */
   navHeader?: ReactNode;
   breadcrumb?: ReactNode;
-  /** The routed page's own wrapper, so a full-bleed tab can drop the gutter and the width cap. */
   contentClassName?: string;
   children: ReactNode;
 }) {

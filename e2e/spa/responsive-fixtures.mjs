@@ -1,9 +1,8 @@
 /**
- * Just enough of the API to render every screen.
+ * Just enough of the API to render every screen, so the sweep needs no database.
  *
- * The responsive sweep asks one question — does anything overflow — and that answer must not depend
- * on a database being up. Every payload here is shaped to be *awkward*: long names, many team
- * avatars, wide numbers. A fixture that fits comfortably would let real overflow through.
+ * Payloads are deliberately awkward — long names, full teams, wide numbers. A fixture that fits
+ * comfortably would let real overflow through.
  */
 
 const WORKSPACE = {
@@ -292,7 +291,6 @@ const ROUTES = [
 export function payloadFor(pathname) {
   if (pathname.endsWith("/auth/csrf")) return {};
 
-  // Project-scoped reads, before the bare collection match below.
   if (/\/projects\/[^/]+\/strategy\/companies/.test(pathname))
     return { companies: COMPANIES, totalCount: 71822, page: 0, size: 25 };
   if (/\/projects\/[^/]+\/strategy/.test(pathname)) return STRATEGY;

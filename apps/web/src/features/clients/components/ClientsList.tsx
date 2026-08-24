@@ -1,9 +1,7 @@
 import { initials } from "../../../lib/format";
 import type { Client, ClientRepStatus, ClientType, ViewerSummary } from "../api/types";
 
-/**
- * The client registry: a table on a wide screen, and a stack of cards below `md`.
- */
+/** The client registry: a table on a wide screen, a stack of cards below `md`. */
 export function ClientsList({
   clients,
   onOpen,
@@ -76,7 +74,6 @@ export function ClientsList({
   );
 }
 
-/** One client as a card: the same fields the row carries, stacked for a thumb. */
 function ClientCard({ client, onOpen }: { client: Client; onOpen: () => void }) {
   return (
     <button

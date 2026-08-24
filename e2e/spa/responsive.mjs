@@ -1,9 +1,8 @@
 /**
  * The responsive sweep: every screen at phone, tablet and desktop width.
  *
- * Unlike its siblings in this directory this driver does not need the stack — it stubs `/api/v1`
- * in the browser, so it runs against a bare `npm run dev -w apps/web`. The point is layout, and
- * layout does not depend on where the JSON came from.
+ * Unlike its siblings this driver stubs `/api/v1` rather than needing the stack, so it runs against a
+ * bare `npm run dev -w apps/web`.
  *
  *   node e2e/spa/responsive.mjs [baseUrl]
  */
@@ -56,12 +55,7 @@ const check = (id, what, expected, actual) => {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${id}  ${what}`);
 };
 
-/**
- * Serves every API call from fixtures, so no backend is involved.
- *
- * `signedIn: false` refuses the refresh instead, which is what puts the app on the signed-out
- * screens — with a session restored, /login redirects straight to the project list.
- */
+/** `signedIn: false` refuses the refresh, which is what puts the app on the signed-out screens. */
 async function stubApi(context, { signedIn = true } = {}) {
   await context.route("**/api/v1/**", async (route) => {
     const { pathname } = new URL(route.request().url());
@@ -117,8 +111,7 @@ try {
       await page.goto(`${WEB}${route.path}`, { waitUntil: "networkidle" });
       await page.waitForTimeout(350);
 
-      // A screen that crashed or never rendered cannot overflow, so it would pass the check below
-      // for entirely the wrong reason. Prove there is something on the page first.
+      // A blank screen cannot overflow, so it would pass the check below for the wrong reason.
       check(`${route.name}/${viewport.name}`, `renders without crashing${crash ? ` — ${crash}` : ""}`, null, crash);
       const rendered = (await page.locator("#root").innerText()).trim().length;
       check(`${route.name}/${viewport.name}`, `renders content (${rendered} chars)`, true, rendered > 40);
@@ -156,7 +149,6 @@ try {
     for (const kind of ["anonymous", "authenticated"]) await contexts[kind].close();
   }
 
-  // The drawer is the one piece of behaviour, not just layout, that the breakpoint owns.
   console.log("\n── nav drawer ──");
   for (const viewport of VIEWPORTS) {
     const context = await browser.newContext({
@@ -186,6 +178,27 @@ try {
     }
     await context.close();
   }
+  // The rail carries a z-index for its drawer mode; unreset at `lg` it floats above an open scrim.
+  console.log("\n── drawer scrim ──");
+  {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    await stubApi(context);
+    const page = await context.newPage();
+    await page.goto(`${WEB}/`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(350);
+    await page.locator("table tbody tr").first().click();
+    await page.waitForTimeout(400);
+
+    const dimmed = await page.evaluate(() => {
+      const nav = document.querySelector("#app-nav");
+      const box = nav.getBoundingClientRect();
+      const topmost = document.elementFromPoint(box.x + box.width / 2, box.y + 120);
+      return !nav.contains(topmost) && topmost !== nav;
+    });
+    check("scrim/desktop", "the open drawer dims the nav rail too", true, dimmed);
+    await context.close();
+  }
+
 } finally {
   await browser.close();
 }

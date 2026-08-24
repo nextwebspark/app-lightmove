@@ -101,8 +101,7 @@ export function FilterSidebar({
       aria-label="Filters"
       className={cn(
         "overflow-y-auto border-line-soft bg-panel",
-        // A 300px rail plus a ten-column table does not fit a phone, so below `lg` the rail is an
-        // overlay over the results rather than a column beside them.
+        // A 300px rail beside the table does not fit a phone, so below `lg` it overlays the results.
         "fixed inset-y-0 start-0 z-[95] w-[min(320px,88vw)] border-e shadow-panel",
         "lg:static lg:z-auto lg:w-[22%] lg:min-w-[300px] lg:max-w-[360px] lg:shrink-0 lg:shadow-none",
       )}

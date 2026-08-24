@@ -23,8 +23,8 @@ export interface SidebarGroup {
  * The mockups' left rail: a rounded panel of grouped nav links, theme and collapse rows pinned to
  * the bottom, 240px wide or 56px collapsed (labels, group headers and counts disappear).
  *
- * <p>Below `lg` it slides in over the content as a drawer instead, and ignores the collapsed
- * preference: a 56px icon-only overlay would be all cost and no benefit on a phone.
+ * <p>Below `lg` it slides in over the content as a drawer, ignoring the collapsed preference — a
+ * 56px icon-only overlay would be all cost and no benefit on a phone.
  */
 export function Sidebar({
   groups,
@@ -37,7 +37,6 @@ export function Sidebar({
   backLink?: SidebarItem;
   /** Rendered under the back link when expanded — the project shell's stage badge lives here. */
   header?: ReactNode;
-  /** Drawer state below `lg`; ignored at `lg` and up, where the rail is always in flow. */
   open?: boolean;
   onClose?: () => void;
 }) {
@@ -61,8 +60,6 @@ export function Sidebar({
       extra,
     );
 
-  // Collapsing is a desktop preference, so labels only disappear at `lg` and up — the drawer keeps
-  // them whatever the stored preference says.
   const labelsHidden = collapsed ? "lg:hidden" : "";
 
   return (
@@ -73,9 +70,11 @@ export function Sidebar({
       aria-label="Main"
       className={cn(
         "flex flex-none flex-col overflow-y-auto overflow-x-hidden rounded-[10px] border border-line bg-panel px-2 py-3.5 outline-none",
+        // `lg:z-auto` is load-bearing: a flex item keeps its stacking context while static, so
+        // without the reset the rail floats above an open drawer's scrim instead of dimming.
         "fixed bottom-3.5 left-3.5 top-[52px] z-[95] w-60 shadow-panel transition-transform duration-200",
         open ? "translate-x-0" : "-translate-x-[calc(100%+18px)]",
-        "lg:static lg:translate-x-0 lg:shadow-none lg:transition-[width] lg:duration-150",
+        "lg:static lg:z-auto lg:translate-x-0 lg:shadow-none lg:transition-[width] lg:duration-150",
         collapsed ? "lg:w-14" : "lg:w-60",
       )}
     >

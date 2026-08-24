@@ -12,9 +12,8 @@ export function Skeleton({ className }: { className?: string }) {
 const BAR_WIDTHS = ["w-24", "w-16", "w-28", "w-12", "w-20"];
 
 /**
- * A loading stand-in shaped like the lists: the page's real header row over rows of pulsing bars on
- * ProjectsList/ClientsList's cell metrics, and card-shaped blocks below `md` where those lists render
- * cards. Either way the swap to data does not jump.
+ * A loading stand-in shaped like the lists — the real header row over pulsing bars, and card-shaped
+ * blocks below `md` where those lists render cards, so the swap to data does not jump.
  */
 export function TableSkeleton({ columns, rows = 6 }: { columns: string[]; rows?: number }) {
   const th =
