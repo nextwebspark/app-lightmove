@@ -7,15 +7,19 @@ import { FilterAccordion, type SelectedTag } from "./FilterAccordion";
 import { FilterCheckRow } from "./FilterCheckRow";
 import { FilterChip } from "./FilterChip";
 import { IndustryFilter } from "./IndustryFilter";
+import { KeywordFilter } from "./KeywordFilter";
 import { OffLimitsFilter } from "./OffLimitsFilter";
 import { RangeFilter } from "./RangeFilter";
 
 /** Which accordion keys exist, in the order the rail renders them. */
 type AccordionKey = "location" | "employees" | "revenue" | "industry" | "segments" | "offlimits";
 
+/** Every axis the filter stores as a plain list of wire values. */
+type ListAxis = "industries" | "countries" | "employeeBands" | "revenueBands" | "marketSegments";
+
 /** Pill identities for the two summaries that are not a plain facet value. */
 const RANGE_TAG = "__range__";
-const SECTOR_TAG = "sector:";
+const KEYWORD_TAG = "keyword:";
 
 /**
  * The filter rail: a share of the results row, floored at 300px and capped at 360px. `shrink-0`
@@ -28,8 +32,9 @@ const SECTOR_TAG = "sector:";
  * <p><b>Each axis gets the control its values deserve, which is the wireframe's point.</b> Location
  * is six GCC countries and reads as pills, where the shape of the set is the information. Employees,
  * Revenue and Market Segments are ordered or long, so they are checkbox lists — wrapped pills lose
- * the order of an ordered axis and turn a long one into a wall. Industry is a tree, because 148
- * labels are not a list at all.
+ * the order of an ordered axis and turn a long one into a wall. Industry and its keywords are
+ * vocabularies too long to browse at all, so both are tag boxes — and they share one accordion,
+ * because keywords narrow within the industries rather than standing beside them.
  *
  * <p><b>There is no Ownership accordion.</b> The wireframe has one; the universe carries no ownership
  * column, and nothing derivable from {@code latest_funding} (2,123 rows of 71,822) or
@@ -59,7 +64,7 @@ export function FilterSidebar({
 
   const toggleOpen = (key: AccordionKey) => setOpen((current) => (current === key ? null : key));
 
-  const toggleValue = (axis: "countries" | "employeeBands" | "revenueBands" | "marketSegments", value: string) => {
+  const toggleValue = (axis: ListAxis, value: string) => {
     const current = filter[axis];
     const next = current.includes(value)
       ? current.filter((entry) => entry !== value)
@@ -77,8 +82,9 @@ export function FilterSidebar({
     onChange({ ...filter, [rangeKey]: range, ...(range ? { [bandKey]: [] } : {}) });
   };
 
-  const tagsOf = (axis: "countries" | "employeeBands" | "revenueBands" | "marketSegments") => {
+  const tagsOf = (axis: ListAxis) => {
     const options = {
+      industries: facets?.sectorGroups.flatMap((group) => group.industries),
       countries: facets?.countries,
       employeeBands: facets?.employeeBands,
       revenueBands: facets?.revenueBands,
@@ -101,48 +107,25 @@ export function FilterSidebar({
     return [];
   };
 
+  // One panel, so one pill row. A keyword is prefixed because an industry and a keyword can be the
+  // same word, and the two pills have to remove different things.
+  const industryTags = (): SelectedTag[] => [
+    ...tagsOf("industries"),
+    ...filter.keywords.map((value) => ({ value: `${KEYWORD_TAG}${value}`, label: value })),
+  ];
+
+  const removeIndustryOrKeyword = (value: string) => {
+    if (!value.startsWith(KEYWORD_TAG)) {
+      toggleValue("industries", value);
+      return;
+    }
+    const keyword = value.slice(KEYWORD_TAG.length);
+    onChange({ ...filter, keywords: filter.keywords.filter((entry) => entry !== keyword) });
+  };
+
   const removeBandOrRange = (axis: "employee" | "revenue", value: string) => {
     if (value === RANGE_TAG) setRange(axis, null);
     else toggleValue(axis === "employee" ? "employeeBands" : "revenueBands", value);
-  };
-
-  // A wholly-taken sector collapses to one pill: Technology otherwise summarises as eleven pills of
-  // what was one click, and dropping it would take eleven more.
-  const industryTags = (): SelectedTag[] => {
-    const chosen = new Set(filter.industries);
-    const tags: SelectedTag[] = [];
-    const covered = new Set<string>();
-    for (const group of facets?.sectorGroups ?? []) {
-      const taken = group.industries.filter((industry) => chosen.has(industry.value));
-      if (taken.length === 0) continue;
-      taken.forEach((industry) => covered.add(industry.value));
-      if (taken.length === group.industries.length) {
-        tags.push({ value: `${SECTOR_TAG}${group.name}`, label: group.name });
-      } else {
-        taken.forEach((industry) => tags.push({ value: industry.value, label: industry.label }));
-      }
-    }
-    // An industry the taxonomy no longer groups still has to name itself, and stay removable.
-    filter.industries
-      .filter((value) => !covered.has(value))
-      .forEach((value) => tags.push({ value, label: value }));
-    return tags;
-  };
-
-  const removeIndustry = (value: string) => {
-    const dropped = new Set<string>();
-    if (value.startsWith(SECTOR_TAG)) {
-      const name = value.slice(SECTOR_TAG.length);
-      facets?.sectorGroups
-        .find((group) => group.name === name)
-        ?.industries.forEach((industry) => dropped.add(industry.value));
-    } else {
-      dropped.add(value);
-    }
-    onChange({
-      ...filter,
-      industries: filter.industries.filter((entry) => !dropped.has(entry)),
-    });
   };
 
   return (
@@ -243,21 +226,29 @@ export function FilterSidebar({
       </FilterAccordion>
 
       <FilterAccordion
-        label="Industry"
+        label="Industry & Keywords"
         selected={industryTags()}
-        onRemove={removeIndustry}
+        onRemove={removeIndustryOrKeyword}
         open={open === "industry"}
         onToggleOpen={() => toggleOpen("industry")}
-        onReset={() => onChange({ ...filter, industries: [] })}
+        onReset={() => onChange({ ...filter, industries: [], keywords: [] })}
       >
         {facetsError ? (
           <FacetsUnavailable />
         ) : facets ? (
           <IndustryFilter
             groups={facets.sectorGroups}
+            adjacency={facets.adjacentIndustries}
             selected={filter.industries}
             onChange={(industries) => onChange({ ...filter, industries })}
-          />
+          >
+            <div className="border-t border-line-soft pt-3">
+              <KeywordFilter
+                selected={filter.keywords}
+                onChange={(keywords) => onChange({ ...filter, keywords })}
+              />
+            </div>
+          </IndustryFilter>
         ) : (
           <ChipSkeleton />
         )}

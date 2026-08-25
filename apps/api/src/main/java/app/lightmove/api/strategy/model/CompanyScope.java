@@ -18,6 +18,8 @@ import java.util.List;
  *       {@code "unknown"}), resolved through {@link app.lightmove.api.strategy.constant.EmployeeBand}
  *       / {@link app.lightmove.api.strategy.constant.RevenueBand} into numeric bounds. Apollo ships
  *       raw figures, not pre-bucketed range strings.
+ *   <li><b>{@code keywords} are the universe's own keywords</b>, picked from its vocabulary rather
+ *       than typed, and they OR each other: a company carrying any one of them matches.
  *   <li><b>{@code marketSegments} are segment names</b> ("B2B", "SaaS"), not keywords. The service
  *       resolves each to its keyword aliases through {@code MarketSegments}, because the universe
  *       expresses go-to-market through a free-text {@code keywords} array rather than a column.
@@ -40,7 +42,8 @@ import java.util.List;
  * rather than beside the sort because it changes <i>which</i> companies match, so the count has to
  * apply it too — a total taken without it would advertise thousands of matches over a dozen rows.
  */
-public record CompanyScope(List<String> industries, List<String> marketSegments, List<String> countries,
+public record CompanyScope(List<String> industries, List<String> keywords,
+                           List<String> marketSegments, List<String> countries,
                            List<String> employeeBands, List<String> revenueBands,
                            NumericRange employeeRange, NumericRange revenueRange,
                            List<String> offLimitsAccountIds, String nameQuery) {

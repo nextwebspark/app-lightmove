@@ -74,7 +74,7 @@ const api = async (path, { method = "GET", body, token } = {}) => {
 };
 
 const EMPTY_FILTER = {
-  industries: [], marketSegments: [], countries: [],
+  industries: [], keywords: [], marketSegments: [], countries: [],
   employeeBands: [], revenueBands: [], employeeRange: null, revenueRange: null,
 };
 
@@ -166,6 +166,8 @@ async function freshFilter() {
 }
 
 const TOP_COUNTRY = sql("SELECT company_country FROM app_lm_apollo_companies WHERE company_country IS NOT NULL GROUP BY 1 ORDER BY count(*) DESC LIMIT 1");
+// Assigned in S3.8 and reused by S3.9: `facets` is captured from a live response, not read here.
+let topIndustry = null;
 const SECOND_COUNTRY = sql("SELECT company_country FROM app_lm_apollo_companies WHERE company_country IS NOT NULL GROUP BY 1 ORDER BY count(*) DESC OFFSET 1 LIMIT 1");
 
 try {
@@ -255,26 +257,46 @@ try {
     check("S3.7", "Revenue → Unknown reaches the rows with no figure", want, await waitTotal(want));
     await shot("revenue-unknown");
   });
-  await step("S3.8", "a whole sector takes all of its industries", async () => {
+  await step("S3.8", "an industry is taken from the box by typing it", async () => {
     await freshFilter();
     await openAccordion("Industry");
-    // Sector and industry rows are role=checkbox, not buttons, and the first group is whatever the
-    // taxonomy file lists first — read it from the facets rather than naming it here.
-    const group = facets.sectorGroups[0];
-    const industries = group.industries.map((entry) => `'${entry.value.replace(/'/g, "''")}'`).join(",");
-    await page.getByRole("checkbox", { name: new RegExp(`^${group.name}`) }).first().click();
-    const want = num(`SELECT count(*) FROM app_lm_apollo_companies WHERE lower(industry) IN (${industries})`);
-    check("S3.8", `selecting the ${group.name} sector takes all ${group.industries.length} of its industries`, want, await waitTotal(want));
-    await shot("sector");
+    // The box offers leaves only — a sector is not something to select.
+    topIndustry = facets.sectorGroups
+      .flatMap((group) => group.industries)
+      .sort((a, b) => b.count - a.count)[0];
+    await page.getByLabel("Search industries").fill(topIndustry.label);
+    await page.getByRole("option", { name: new RegExp(`^${topIndustry.label}`) }).first().click();
+    const escaped = topIndustry.value.replace(/'/g, "''");
+    const want = num(`SELECT count(*) FROM app_lm_apollo_companies WHERE lower(industry) = '${escaped}'`);
+    check("S3.8", `taking ${topIndustry.label} from the box filters to it alone`, want, await waitTotal(want));
+    await shot("industry");
   });
   await step("S3.9", "two different axes are AND-ed", async () => {
     await openAccordion("Location");
     await page.getByRole("button", { name: new RegExp(`^${TOP_COUNTRY}`) }).first().click();
-    const group = facets.sectorGroups[0];
-    const industries = group.industries.map((entry) => `'${entry.value.replace(/'/g, "''")}'`).join(",");
-    const want = num(`SELECT count(*) FROM app_lm_apollo_companies WHERE lower(industry) IN (${industries}) AND company_country = '${TOP_COUNTRY.replace(/'/g, "''")}'`);
+    const escaped = topIndustry.value.replace(/'/g, "''");
+    const want = num(`SELECT count(*) FROM app_lm_apollo_companies WHERE lower(industry) = '${escaped}' AND company_country = '${TOP_COUNTRY.replace(/'/g, "''")}'`);
     check("S3.9", "two different axes are AND-ed", want, await waitTotal(want));
     await shot("two-axes");
+  });
+  await step("S3.10", "Include keywords is an opt-in that narrows", async () => {
+    await freshFilter();
+    await openAccordion("Industry");
+    // Unticked is no constraint at all, which is the whole point of the checkbox.
+    check("S3.10a", "the unticked box leaves the universe whole", UNIVERSE, await waitTotal(UNIVERSE));
+
+    // The box only searches from two characters: one groups every keyword the universe holds.
+    // Read from the same vocabulary the box offers, not from the table under it.
+    const keyword = sql(`SELECT keyword FROM app_lm_apollo_keywords
+                         WHERE company_count >= 10 ORDER BY company_count DESC, 1 LIMIT 1`);
+    await page.getByRole("checkbox", { name: "Include keywords" }).click();
+    await page.getByLabel("Search keywords").fill(keyword.slice(0, 4));
+    await page.getByRole("option", { name: new RegExp(`^${keyword}`) }).first().click();
+
+    const want = num(`SELECT count(*) FROM app_lm_apollo_companies
+                      WHERE keywords && ARRAY['${keyword.replace(/'/g, "''")}']::text[]`);
+    check("S3.10", `the keyword ${keyword} narrows to the companies carrying it`, want, await waitTotal(want));
+    await shot("keywords");
   });
 
   // ---------------------------------------------------------------- S4 search

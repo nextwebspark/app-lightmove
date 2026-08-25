@@ -4,7 +4,7 @@ import { cn } from "../../../lib/cn";
 type PillTone = "amber" | "sky" | "red";
 
 const TONES: Record<PillTone, string> = {
-  amber: "bg-amber-dim text-amber shadow-[inset_0_0_0_1px_rgba(226,182,92,.25)]",
+  amber: "bg-amber-dim text-amber shadow-[inset_0_0_0_1px_var(--color-amber-dim)]",
   sky: "bg-sky-dim text-sky",
   red: "bg-red-dim text-red",
 };
@@ -38,7 +38,7 @@ export function SelectionPill({
           }}
           className="flex-none opacity-60 transition hover:opacity-100"
         >
-          <Icon d={ICONS.x} size={9} />
+          <Icon d={ICONS.close} size={9} />
         </button>
       )}
     </span>

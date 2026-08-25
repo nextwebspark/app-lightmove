@@ -156,7 +156,20 @@ apollo_pull() {
         -c "\copy $APOLLO_TABLE ($cols) FROM STDIN WITH (FORMAT csv)"
 
   say "loaded $(apollo_rows) rows"
+  refresh_keyword_vocabulary
   apollo_save
+}
+
+# The keyword box reads a materialised view that does not follow the table under it, so a pull that
+# skipped this would leave the box offering the vocabulary of whatever was loaded before.
+refresh_keyword_vocabulary() {
+  if [ -z "$(q "SELECT to_regclass('public.app_lm_apollo_keywords')")" ]; then
+    say "app_lm_apollo_keywords absent — it arrives with V33, skipping the refresh"
+    return
+  fi
+  say "refreshing the keyword vocabulary"
+  docker exec -i "$PG_CONTAINER" psql -U lm_app -d lightmove -v ON_ERROR_STOP=1 \
+      -c "REFRESH MATERIALIZED VIEW app_lm_apollo_keywords"
 }
 
 up() {

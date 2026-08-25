@@ -1,6 +1,7 @@
 package app.lightmove.api.strategy.dto;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Everything the Strategy filter sidebar renders, in one read.
@@ -17,8 +18,12 @@ import java.util.List;
  * <p>{@code marketSegments} counts overlap by design — a company can be B2B and SaaS at once — so they
  * sum to more than the universe. Every other facet's counts partition it.
  *
+ * <p>{@code adjacentIndustries} is advice rather than a facet: which industries sit beside which,
+ * for the panel's suggestion chips. It carries no counts because it selects nothing on its own.
+ *
  * <p>There is no ownership facet: the universe has no ownership column.
  */
-public record FacetsResponse(List<SectorGroup> sectorGroups, List<FacetCount> marketSegments,
-                             List<FacetCount> countries, List<FacetCount> employeeBands,
-                             List<FacetCount> revenueBands) {}
+public record FacetsResponse(List<SectorGroup> sectorGroups,
+                             Map<String, List<String>> adjacentIndustries,
+                             List<FacetCount> marketSegments, List<FacetCount> countries,
+                             List<FacetCount> employeeBands, List<FacetCount> revenueBands) {}

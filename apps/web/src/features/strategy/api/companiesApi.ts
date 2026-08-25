@@ -1,5 +1,5 @@
 import { request } from "../../../lib/apiClient";
-import type { CompanySuggestion, Facets } from "./types";
+import type { CompanySuggestion, FacetCount, Facets } from "./types";
 
 /**
  * The workspace-level reads over the company universe: what the filter sidebar can offer, and what a
@@ -15,6 +15,8 @@ export const FACETS_KEY = ["companyFacets"] as const;
 
 export const COMPANY_SEARCH_KEY = (query: string) => ["companySearch", query] as const;
 
+export const KEYWORD_SEARCH_KEY = (query: string) => ["companyKeywords", query] as const;
+
 export function getFacets(): Promise<Facets> {
   return request<Facets>("/companies/facets");
 }
@@ -27,4 +29,14 @@ export function searchCompanies(
   const params = new URLSearchParams({ q: query });
   if (limit !== undefined) params.set("limit", String(limit));
   return request<{ companies: CompanySuggestion[] }>(`/companies/search?${params}`, { signal });
+}
+
+export function searchKeywords(
+  query: string,
+  signal?: AbortSignal,
+): Promise<{ keywords: FacetCount[] }> {
+  return request<{ keywords: FacetCount[] }>(
+    `/companies/keywords?${new URLSearchParams({ q: query })}`,
+    { signal },
+  );
 }

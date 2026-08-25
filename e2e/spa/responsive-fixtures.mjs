@@ -148,6 +148,7 @@ const FACETS = {
       ],
     },
   ],
+  adjacentIndustries: {},
   marketSegments: [{ value: "enterprise", label: "Enterprise", count: 3200 }],
   countries: [
     { value: "United Arab Emirates", label: "United Arab Emirates", count: 18240 },
@@ -163,6 +164,7 @@ const FACETS = {
 
 const EMPTY_FILTER = {
   industries: [],
+  keywords: [],
   marketSegments: [],
   countries: [],
   employeeBands: [],

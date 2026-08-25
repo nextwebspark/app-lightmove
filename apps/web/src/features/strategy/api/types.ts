@@ -22,6 +22,11 @@ export interface SectorGroup {
  */
 export interface Facets {
   sectorGroups: SectorGroup[];
+  /**
+   * Which industries sit beside which — the panel's suggestion chips. Advice rather than a facet, so
+   * no counts: a name the taxonomy no longer holds renders no chip rather than one selecting nothing.
+   */
+  adjacentIndustries: Record<string, string[]>;
   /** Overlapping by design — a company can be B2B and SaaS at once. */
   marketSegments: FacetCount[];
   countries: FacetCount[];
@@ -47,6 +52,7 @@ export interface NumericRange {
  */
 export interface StrategyFilter {
   industries: string[];
+  keywords: string[];
   marketSegments: string[];
   countries: string[];
   employeeBands: string[];

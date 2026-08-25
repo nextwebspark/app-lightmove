@@ -32,7 +32,7 @@ class StrategySearchIntegrationTest extends FlowTestSupport {
         String admin = adminOf("Search Capture Firm");
         String projectId = project(admin);
         putFilter(admin, projectId, """
-                {"filter":{"industries":["oil & energy"],"marketSegments":["B2B"],
+                {"filter":{"industries":["oil & energy"],"keywords":[],"marketSegments":["B2B"],
                            "countries":["Qatar"],"employeeBands":["1001-2000"],"revenueBands":[]
                            }}""");
 
@@ -56,12 +56,12 @@ class StrategySearchIntegrationTest extends FlowTestSupport {
         String admin = adminOf("Search Frozen Firm");
         String projectId = project(admin);
         putFilter(admin, projectId, """
-                {"filter":{"industries":["oil & energy"],"marketSegments":[],"countries":[],
+                {"filter":{"industries":["oil & energy"],"keywords":[],"marketSegments":[],"countries":[],
                            "employeeBands":[],"revenueBands":[]}}""");
         save(admin, projectId, "Energy");
 
         putFilter(admin, projectId, """
-                {"filter":{"industries":["retail"],"marketSegments":[],"countries":[],
+                {"filter":{"industries":["retail"],"keywords":[],"marketSegments":[],"countries":[],
                            "employeeBands":[],"revenueBands":[]}}""");
 
         // Holding a reference rather than a copy is exactly what a saved search exists not to do.

@@ -28,7 +28,7 @@ if [ "${UNIVERSE:-0}" -lt 100 ]; then
 fi
 note 14.0 "universe holds $UNIVERSE companies"
 
-EMPTY_FILTER='{"industries":[],"marketSegments":[],"countries":[],"employeeBands":[],"revenueBands":[],"employeeRange":null,"revenueRange":null}'
+EMPTY_FILTER='{"industries":[],"keywords":[],"marketSegments":[],"countries":[],"employeeBands":[],"revenueBands":[],"employeeRange":null,"revenueRange":null}'
 filter_body() { printf '{"filter":%s}' "$1"; }
 
 # --- the cast: one admin, one client, one mandate ----------------------------

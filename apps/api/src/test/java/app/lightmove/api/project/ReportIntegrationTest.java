@@ -36,7 +36,7 @@ import tools.jackson.databind.JsonNode;
 class ReportIntegrationTest extends FlowTestSupport {
 
     private static final String RETAIL_FILTER = """
-            {"filter":{"industries":["retail"],"marketSegments":[],"countries":[],
+            {"filter":{"industries":["retail"],"keywords":[],"marketSegments":[],"countries":[],
                        "employeeBands":[],"revenueBands":[]}}""";
 
     @Autowired JdbcTemplate db;
@@ -241,14 +241,14 @@ class ReportIntegrationTest extends FlowTestSupport {
                 .revenue(2_000_000_000L).insert();
 
         putFilter(admin, projectId, """
-                {"filter":{"industries":["retail"],"marketSegments":[],"countries":[],
+                {"filter":{"industries":["retail"],"keywords":[],"marketSegments":[],"countries":[],
                            "employeeBands":["2001-5000"],"revenueBands":[]}}""");
         mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$.universeCount").value(1))
                 .andExpect(jsonPath("$.caveats.revenueBandExcludesUnknown").value(false));
 
         putFilter(admin, projectId, """
-                {"filter":{"industries":["retail"],"marketSegments":[],"countries":[],
+                {"filter":{"industries":["retail"],"keywords":[],"marketSegments":[],"countries":[],
                            "employeeBands":[],"revenueBands":["1b-5b"]}}""");
         // A revenue-scoped report measures a tenth of the market, and has to say so.
         mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
@@ -267,7 +267,7 @@ class ReportIntegrationTest extends FlowTestSupport {
                 .revenue(2_000_000_000L).insert();
 
         putFilter(admin, projectId, """
-                {"filter":{"industries":["retail"],"marketSegments":[],"countries":[],
+                {"filter":{"industries":["retail"],"keywords":[],"marketSegments":[],"countries":[],
                            "employeeBands":[],"revenueBands":[],
                            "revenueRange":{"min":1000000000,"max":5000000000}}}""");
 
@@ -287,7 +287,7 @@ class ReportIntegrationTest extends FlowTestSupport {
                 .revenue(null).insert();
 
         putFilter(admin, projectId, """
-                {"filter":{"industries":["retail"],"marketSegments":[],"countries":[],
+                {"filter":{"industries":["retail"],"keywords":[],"marketSegments":[],"countries":[],
                            "employeeBands":[],"revenueBands":["1b-5b","unknown"]
                            }}""");
 
@@ -307,7 +307,7 @@ class ReportIntegrationTest extends FlowTestSupport {
         universe.company("a2", "Doha Retail").industry("retail").country("Qatar").employees(10).insert();
 
         putFilter(admin, projectId, """
-                {"filter":{"industries":["retail"],"marketSegments":[],
+                {"filter":{"industries":["retail"],"keywords":[],"marketSegments":[],
                            "countries":["United Arab Emirates"],"employeeBands":[],
                            "revenueBands":[]}}""");
 

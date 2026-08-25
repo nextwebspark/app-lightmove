@@ -95,7 +95,7 @@ check_code C4.7 "they cannot edit the mandate they can read" 403 FORBIDDEN
 # A well-formed payload, deliberately: Bean Validation runs during argument resolution, before method
 # security, so a malformed body answers 400 and never reaches the gate this case is about.
 http PUT "/projects/$PROJECT_ID/strategy/filter" -H 'Content-Type: application/json' \
-  -d '{"filter":{"industries":[],"marketSegments":[],"countries":[],"employeeBands":[],"revenueBands":[]}}' \
+  -d '{"filter":{"industries":[],"keywords":[],"marketSegments":[],"countries":[],"employeeBands":[],"revenueBands":[]}}' \
   -H "$(auth_header "$CLIENT_TOKEN")"
 check_code C4.8 "nor write its strategy" 403 FORBIDDEN
 http PUT "/projects/$PROJECT_ID/members/$(member_id_of "$MEMBER_EMAIL")" \
