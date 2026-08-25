@@ -16,7 +16,7 @@ import {
   type DataGridColumnLayout,
 } from "../../../components/ui/DataGrid";
 import { TruncatedText } from "../../../components/ui/TruncatedText";
-import { formatMoney } from "../../../lib/format";
+import { formatInstantDate, formatMoney } from "../../../lib/format";
 import type { TriageCompany, TriageCompanySource, TriageCompanyStatus, TriageSortField } from "../api/types";
 
 /**
@@ -244,7 +244,7 @@ export const triageCompanyColumns = helper.columns([
     id: "added",
     header: "Added",
     meta: { share: 8, min: 96 },
-    cell: (info) => <DataGridCell value={formatAddedDate(info.getValue())} />,
+    cell: (info) => <DataGridCell value={formatInstantDate(info.getValue())} />,
   }),
 
   helper.accessor("shortDescription", {
@@ -287,10 +287,3 @@ export const TRIAGE_SORT_FIELDS = [
   "founded",
   "added",
 ] as const satisfies readonly TriageSortField[];
-
-/** "15 Sep 2026" — the same date shape the rest of the product uses, from an instant rather than a date. */
-function formatAddedDate(isoInstant: string): string | null {
-  const moment = new Date(isoInstant);
-  if (Number.isNaN(moment.getTime())) return null;
-  return moment.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-}
