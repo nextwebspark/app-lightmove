@@ -3,7 +3,7 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import type { CompanyRef, Facets, NumericRange, StrategyFilter } from "../api/types";
 import { FacetsUnavailable } from "./FacetsUnavailable";
-import { FilterAccordion } from "./FilterAccordion";
+import { FilterAccordion, type SelectedTag } from "./FilterAccordion";
 import { FilterCheckRow } from "./FilterCheckRow";
 import { FilterChip } from "./FilterChip";
 import { IndustryFilter } from "./IndustryFilter";
@@ -12,6 +12,10 @@ import { RangeFilter } from "./RangeFilter";
 
 /** Which accordion keys exist, in the order the rail renders them. */
 type AccordionKey = "location" | "employees" | "revenue" | "industry" | "segments" | "offlimits";
+
+/** Pill identities for the two summaries that are not a plain facet value. */
+const RANGE_TAG = "__range__";
+const SECTOR_TAG = "sector:";
 
 /**
  * The filter rail: a share of the results row, floored at 300px and capped at 360px. `shrink-0`
@@ -73,26 +77,72 @@ export function FilterSidebar({
     onChange({ ...filter, [rangeKey]: range, ...(range ? { [bandKey]: [] } : {}) });
   };
 
-  const labelsOf = (axis: "countries" | "employeeBands" | "revenueBands" | "marketSegments") => {
+  const tagsOf = (axis: "countries" | "employeeBands" | "revenueBands" | "marketSegments") => {
     const options = {
       countries: facets?.countries,
       employeeBands: facets?.employeeBands,
       revenueBands: facets?.revenueBands,
       marketSegments: facets?.marketSegments,
     }[axis];
-    // Fall back to the stored value: a tag whose facet has not loaded still has to name itself.
-    return filter[axis].map(
-      (value) => options?.find((option) => option.value === value)?.label ?? value,
-    );
+    // Fall back to the stored value: a pill whose facet has not loaded still has to name itself.
+    return filter[axis].map((value) => ({
+      value,
+      label: options?.find((option) => option.value === value)?.label ?? value,
+    }));
   };
 
-  /** A custom range summarises as one tag, since its two numbers are one decision. */
-  const rangeTag = (range: NumericRange | null) => {
+  /** A custom range summarises as one pill, since its two numbers are one decision. */
+  const rangeTag = (range: NumericRange | null): SelectedTag[] => {
+    const tag = (label: string) => [{ value: RANGE_TAG, label }];
     if (!range) return [];
-    if (range.min !== null && range.max !== null) return [`${range.min}-${range.max}`];
-    if (range.min !== null) return [`${range.min}+`];
-    if (range.max !== null) return [`≤${range.max}`];
+    if (range.min !== null && range.max !== null) return tag(`${range.min}-${range.max}`);
+    if (range.min !== null) return tag(`${range.min}+`);
+    if (range.max !== null) return tag(`≤${range.max}`);
     return [];
+  };
+
+  const removeBandOrRange = (axis: "employee" | "revenue", value: string) => {
+    if (value === RANGE_TAG) setRange(axis, null);
+    else toggleValue(axis === "employee" ? "employeeBands" : "revenueBands", value);
+  };
+
+  // A wholly-taken sector collapses to one pill: Technology otherwise summarises as eleven pills of
+  // what was one click, and dropping it would take eleven more.
+  const industryTags = (): SelectedTag[] => {
+    const chosen = new Set(filter.industries);
+    const tags: SelectedTag[] = [];
+    const covered = new Set<string>();
+    for (const group of facets?.sectorGroups ?? []) {
+      const taken = group.industries.filter((industry) => chosen.has(industry.value));
+      if (taken.length === 0) continue;
+      taken.forEach((industry) => covered.add(industry.value));
+      if (taken.length === group.industries.length) {
+        tags.push({ value: `${SECTOR_TAG}${group.name}`, label: group.name });
+      } else {
+        taken.forEach((industry) => tags.push({ value: industry.value, label: industry.label }));
+      }
+    }
+    // An industry the taxonomy no longer groups still has to name itself, and stay removable.
+    filter.industries
+      .filter((value) => !covered.has(value))
+      .forEach((value) => tags.push({ value, label: value }));
+    return tags;
+  };
+
+  const removeIndustry = (value: string) => {
+    const dropped = new Set<string>();
+    if (value.startsWith(SECTOR_TAG)) {
+      const name = value.slice(SECTOR_TAG.length);
+      facets?.sectorGroups
+        .find((group) => group.name === name)
+        ?.industries.forEach((industry) => dropped.add(industry.value));
+    } else {
+      dropped.add(value);
+    }
+    onChange({
+      ...filter,
+      industries: filter.industries.filter((entry) => !dropped.has(entry)),
+    });
   };
 
   return (
@@ -121,7 +171,8 @@ export function FilterSidebar({
       </div>
       <FilterAccordion
         label="Location"
-        selectedValues={labelsOf("countries")}
+        selected={tagsOf("countries")}
+        onRemove={(value) => toggleValue("countries", value)}
         open={open === "location"}
         onToggleOpen={() => toggleOpen("location")}
         onReset={() => onChange({ ...filter, countries: [] })}
@@ -147,7 +198,8 @@ export function FilterSidebar({
 
       <FilterAccordion
         label="# Employees"
-        selectedValues={[...rangeTag(filter.employeeRange), ...labelsOf("employeeBands")]}
+        selected={[...rangeTag(filter.employeeRange), ...tagsOf("employeeBands")]}
+        onRemove={(value) => removeBandOrRange("employee", value)}
         open={open === "employees"}
         onToggleOpen={() => toggleOpen("employees")}
         onReset={() => onChange({ ...filter, employeeBands: [], employeeRange: null })}
@@ -164,7 +216,8 @@ export function FilterSidebar({
 
       <FilterAccordion
         label="Revenue"
-        selectedValues={[...rangeTag(filter.revenueRange), ...labelsOf("revenueBands")]}
+        selected={[...rangeTag(filter.revenueRange), ...tagsOf("revenueBands")]}
+        onRemove={(value) => removeBandOrRange("revenue", value)}
         open={open === "revenue"}
         onToggleOpen={() => toggleOpen("revenue")}
         onReset={() => onChange({ ...filter, revenueBands: [], revenueRange: null })}
@@ -191,7 +244,8 @@ export function FilterSidebar({
 
       <FilterAccordion
         label="Industry"
-        selectedValues={filter.industries}
+        selected={industryTags()}
+        onRemove={removeIndustry}
         open={open === "industry"}
         onToggleOpen={() => toggleOpen("industry")}
         onReset={() => onChange({ ...filter, industries: [] })}
@@ -211,7 +265,8 @@ export function FilterSidebar({
 
       <FilterAccordion
         label="Market Segments"
-        selectedValues={labelsOf("marketSegments")}
+        selected={tagsOf("marketSegments")}
+        onRemove={(value) => toggleValue("marketSegments", value)}
         open={open === "segments"}
         onToggleOpen={() => toggleOpen("segments")}
         onReset={() => onChange({ ...filter, marketSegments: [] })}
@@ -237,7 +292,17 @@ export function FilterSidebar({
 
       <FilterAccordion
         label="Off-limits"
-        selectedValues={offLimits.length > 0 ? [String(offLimits.length)] : []}
+        selected={offLimits.map((company) => ({
+          value: company.apolloAccountId,
+          label: company.companyName,
+        }))}
+        onRemove={(value) =>
+          onOffLimitsChange(
+            offLimits
+              .filter((company) => company.apolloAccountId !== value)
+              .map((company) => company.apolloAccountId),
+          )
+        }
         tagTone="red"
         open={open === "offlimits"}
         onToggleOpen={() => toggleOpen("offlimits")}
