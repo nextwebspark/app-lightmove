@@ -25,7 +25,9 @@ public enum ProjectEventType implements AuditEventType {
     STRATEGY_SEARCH_DELETED,
 
     TRIAGE_COMPANY_ADDED,
+    TRIAGE_COMPANY_CAPTURED,
     TRIAGE_COMPANY_MOVED,
+    TRIAGE_COMPANY_REMOVED,
     TRIAGE_BULK_ADDED;
 
     @Override

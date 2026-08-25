@@ -1,6 +1,7 @@
 package app.lightmove.api.triagecompany;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -436,6 +437,203 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(bodyJson))
                 .andExpect(status().isOk());
+    }
+
+    // ── companies the market does not carry ──────────────────────────────────
+
+    @Test
+    @DisplayName("a hand-typed company is stored with no Apollo id and a MANUAL source")
+    void captureStoresAManualCompany() throws Exception {
+        String admin = adminOf("Universe Manual Firm");
+        String projectId = project(admin);
+
+        mvc.perform(post(triageUrl(projectId) + "/capture")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Gulf Industrial Holdings","industry":"industrial manufacturing",
+                                 "companyCountry":"United Arab Emirates","companyCity":"Dubai",
+                                 "numEmployees":2400,"foundedYear":1998,"note":"Met at ADIPEC"}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.companyName").value("Gulf Industrial Holdings"))
+                .andExpect(jsonPath("$.source").value("manual"))
+                .andExpect(jsonPath("$.status").value("inUniverse"))
+                .andExpect(jsonPath("$.apolloAccountId").doesNotExist())
+                .andExpect(jsonPath("$.numEmployees").value(2400))
+                .andExpect(jsonPath("$.foundedYear").value(1998))
+                .andExpect(jsonPath("$.note").value("Met at ADIPEC"));
+
+        mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.counts.inUniverse").value(1));
+    }
+
+    @Test
+    @DisplayName("a capture may land straight in a stage, for the plugin's two destination buttons")
+    void captureHonoursTheLandingStage() throws Exception {
+        String admin = adminOf("Universe Capture Stage Firm");
+        String projectId = project(admin);
+
+        mvc.perform(post(triageUrl(projectId) + "/capture")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Captured Co","source":"extension","status":"shortlisted",
+                                 "sourceUrl":"https://linkedin.com/company/captured"}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.source").value("extension"))
+                .andExpect(jsonPath("$.status").value("shortlisted"))
+                .andExpect(jsonPath("$.sourceUrl").value("https://linkedin.com/company/captured"));
+
+        mvc.perform(get(triageUrl(projectId)).param("status", "shortlisted")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.counts.shortlisted").value(1));
+    }
+
+    @Test
+    @DisplayName("a capture cannot claim to come from the market")
+    void captureRefusesTheStrategySource() throws Exception {
+        String admin = adminOf("Universe Capture Source Firm");
+        String projectId = project(admin);
+
+        // A row keyed on the market must come through the endpoint that reads the market, where the
+        // snapshot is resolved server-side and the account id it is keyed by actually exists.
+        mvc.perform(post(triageUrl(projectId) + "/capture")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Pretender Co","source":"strategy"}"""))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("a capture naming a company the mandate already holds is refused, whatever its source")
+    void captureRefusesADuplicateName() throws Exception {
+        String admin = adminOf("Universe Duplicate Firm");
+        String projectId = project(admin);
+        universe.company("a1", "ACWA Power").industry("oil & energy").employees(3_000).insert();
+        add(admin, projectId, "a1");
+
+        // Wider than V33's partial index, which only sees the manual rows. "Already there" is not a
+        // question about which door the company came through.
+        mvc.perform(post(triageUrl(projectId) + "/capture")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"acwa power"}"""))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TRIAGE_COMPANY_ALREADY_HELD"));
+    }
+
+    // ── removing a company from the mandate ──────────────────────────────────
+
+    @Test
+    @DisplayName("deleting drops the mandate's decision and leaves the company in the universe")
+    void deleteRemovesOnlyTheMapping() throws Exception {
+        String admin = adminOf("Universe Delete Firm");
+        String projectId = project(admin);
+        universe.company("a1", "ACWA Power").industry("oil & energy").employees(3_000).insert();
+        String triageCompanyId = add(admin, projectId, "a1");
+
+        mvc.perform(delete(triageUrl(projectId) + "/" + triageCompanyId)
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.totalCount").value(0))
+                .andExpect(jsonPath("$.counts.inUniverse").value(0));
+
+        // The whole contract of the delete: the Apollo universe is ETL-owned and read-only to this
+        // application, so the company is still there for this mandate and every other one.
+        assertThat(db.queryForObject(
+                "SELECT count(*) FROM app_lm_apollo_companies WHERE apollo_account_id = 'a1'",
+                Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a deleted company can be taken back in, unlike a declined one")
+    void deleteIsNotRemembered() throws Exception {
+        String admin = adminOf("Universe Delete Readd Firm");
+        String projectId = project(admin);
+        universe.company("a1", "ACWA Power").industry("oil & energy").employees(3_000).insert();
+        String triageCompanyId = add(admin, projectId, "a1");
+
+        mvc.perform(delete(triageUrl(projectId) + "/" + triageCompanyId)
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+
+        // The accepted trade for a delete that leaves nothing behind. Declining is how a company is
+        // ruled out durably; this is how it is forgotten.
+        mvc.perform(post(triageUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountId":"a1"}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("inUniverse"));
+    }
+
+    @Test
+    @DisplayName("a company belonging to another mandate cannot be deleted through this one")
+    void deleteIsProjectScoped() throws Exception {
+        String admin = adminOf("Universe Delete Scope Firm");
+        String projectId = project(admin);
+        String otherProjectId = project(admin);
+        universe.company("a1", "ACWA Power").industry("oil & energy").employees(3_000).insert();
+        String triageCompanyId = add(admin, projectId, "a1");
+
+        // The scope is the guard, not a request parameter: the row is found by (id, projectId) or not
+        // at all.
+        mvc.perform(delete(triageUrl(otherProjectId) + "/" + triageCompanyId)
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNotFound());
+    }
+
+    // ── the grid's sort and search ───────────────────────────────────────────
+
+    @Test
+    @DisplayName("the grid can sort by a snapshot column, and refuses a field outside the allowlist")
+    void listSortsOverAnAllowlist() throws Exception {
+        String admin = adminOf("Universe Sort Firm");
+        String projectId = project(admin);
+        writer.insertIgnoringHeld(UUID.fromString(projectId), actorId(),
+                List.of(row("a1", "Zenith Holdings", 100), row("a2", "Alpha Industrial", 900)));
+
+        mvc.perform(get(triageUrl(projectId)).param("sort", "name").param("direction", "asc")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.companies[0].companyName").value("Alpha Industrial"));
+
+        mvc.perform(get(triageUrl(projectId)).param("sort", "employees").param("direction", "desc")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.companies[0].companyName").value("Zenith Holdings"));
+
+        mvc.perform(get(triageUrl(projectId)).param("sort", "; DROP TABLE app_lm_project_triage_company")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("the grid's search narrows by name, case-insensitively and mid-word")
+    void listSearchesByName() throws Exception {
+        String admin = adminOf("Universe Search Firm");
+        String projectId = project(admin);
+        writer.insertIgnoringHeld(UUID.fromString(projectId), actorId(),
+                List.of(row("a1", "Bank of Emirates", 100), row("a2", "Alpha Industrial", 900)));
+
+        mvc.perform(get(triageUrl(projectId)).param("q", "emirates")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(1))
+                .andExpect(jsonPath("$.companies[0].companyName").value("Bank of Emirates"))
+                // The counts describe the stage, not the search: the switcher must not drop to 1
+                // because someone typed in the search box.
+                .andExpect(jsonPath("$.counts.inUniverse").value(2));
+    }
+
+    /** {@code added_by} is a non-null foreign key, so seeding straight at the writer needs a real user. */
+    private UUID actorId() {
+        return db.queryForObject("SELECT id FROM app_lm_user WHERE email = ?", UUID.class,
+                "alok@" + domain);
     }
 
     private static String strategyUrl(String projectId) {

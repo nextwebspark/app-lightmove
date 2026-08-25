@@ -104,6 +104,14 @@ public enum ErrorCode {
     BULK_ADD_SCOPE_TOO_LARGE(HttpStatus.CONFLICT,
             "This filter matches more companies than one bulk add may take"),
 
+    /**
+     * A capture naming a company this mandate already holds. Distinct from CONFLICT so the Companies
+     * screen can say which company, and point at the stage it is already sitting in, rather than
+     * offering "try again" for something retrying will never fix.
+     */
+    TRIAGE_COMPANY_ALREADY_HELD(HttpStatus.CONFLICT,
+            "This mandate already holds a company with that name"),
+
     /** The typed confirmation on workspace deletion did not match. */
     WORKSPACE_NAME_MISMATCH(HttpStatus.BAD_REQUEST,
             "Type the workspace name exactly to confirm deletion"),

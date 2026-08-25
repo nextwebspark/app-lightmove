@@ -188,6 +188,7 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
         ErrorCode code = switch (constraintNameOf(ex)) {
             case "app_lm_client_workspace_name_uk" -> ErrorCode.CLIENT_ALREADY_EXISTS;
+            case "app_lm_project_triage_company_manual_name_uk" -> ErrorCode.TRIAGE_COMPANY_ALREADY_HELD;
             default -> ErrorCode.CONFLICT;
         };
         log.info("[{}] constraint violation at {} {}", code, request.getMethod(), request.getRequestURI());
