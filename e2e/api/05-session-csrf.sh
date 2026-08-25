@@ -63,9 +63,9 @@ http POST /auth/refresh -b "lm_refresh=$ROTATED; XSRF-TOKEN=$XSRF" -H "X-XSRF-TO
 check_status N22.3 "the successor is revoked too — the whole family dies" 401
 note N22.4 "the successor answers $(ecode)"
 
-check N22.5 "the reuse is audited" "true" \
-  "$(test "$(sql "SELECT count(*) FROM app_lm_audit_event a JOIN app_lm_user u ON u.id = a.actor_user_id
-                  WHERE u.email = '$USER' AND a.event_type = 'TOKEN_REUSE_DETECTED'")" -ge 1 && echo true || echo false)"
+check N22.5 "the reuse is audited" "t" \
+  "$(await_sql "SELECT count(*) > 0 FROM app_lm_audit_event a JOIN app_lm_user u ON u.id = a.actor_user_id
+                WHERE u.email = '$USER' AND a.event_type = 'TOKEN_REUSE_DETECTED'" t)"
 
 # Scoped to the compromised family: the token minted at signup belongs to a different family and is
 # expected to survive, which is the point of keying revocation by family rather than by user.
