@@ -37,7 +37,9 @@ const ROUTES = [
   { path: "/settings/members", name: "settings-members" },
   { path: "/projects/proj-1", name: "project-position" },
   { path: "/projects/proj-1/strategy", name: "project-strategy" },
-  { path: "/projects/proj-1/triage", name: "project-triage" },
+  { path: "/projects/proj-1/companies/universe", name: "project-companies-universe" },
+  { path: "/projects/proj-1/companies/shortlisted", name: "project-companies-shortlisted" },
+  { path: "/projects/proj-1/companies/declined", name: "project-companies-declined" },
   { path: "/projects/proj-1/reports", name: "project-reports" },
   { path: "/projects/proj-1/team", name: "project-team" },
 ];

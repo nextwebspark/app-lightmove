@@ -220,8 +220,14 @@ const TRIAGE_COMPANIES = Array.from({ length: 8 }, (_, i) => ({
   companyCity: "Abu Dhabi",
   numEmployees: 1000 + i * 37,
   annualRevenue: null,
-  website: null,
+  website: "https://gulf-industrial.example",
+  companyLinkedinUrl: null,
+  foundedYear: 1998,
+  shortDescription: null,
+  sourceUrl: null,
   logoUrl: null,
+  source: i % 3 === 0 ? "manual" : "strategy",
+  addedAt: "2026-08-01T09:00:00.000Z",
 }));
 
 const POSITION = {
