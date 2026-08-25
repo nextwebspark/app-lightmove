@@ -524,6 +524,56 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.code").value("TRIAGE_COMPANY_ALREADY_HELD"));
     }
 
+    @Test
+    @DisplayName("a duplicate capture answers 409 even when the mandate holds that name twice already")
+    void captureRefusesADuplicateHeldMoreThanOnce() throws Exception {
+        String admin = adminOf("Universe Duplicate Twice Firm");
+        String projectId = project(admin);
+
+        // Nothing stops the Apollo export carrying two accounts under one name, and a bulk add takes
+        // both. A single-result finder over that column threw IncorrectResultSizeDataAccessException
+        // here, turning the 409 this guard exists to raise into a 500.
+        writer.insertIgnoringHeld(UUID.fromString(projectId), actorId(),
+                List.of(row("a1", "Gulf Industrial", 900), row("a2", "Gulf Industrial", 100)));
+
+        mvc.perform(post(triageUrl(projectId) + "/capture")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Gulf Industrial"}"""))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TRIAGE_COMPANY_ALREADY_HELD"));
+    }
+
+    @Test
+    @DisplayName("a captured address is stored only if a browser would follow it")
+    void captureNormalisesTheAddressesItStores() throws Exception {
+        String admin = adminOf("Universe Address Firm");
+        String projectId = project(admin);
+
+        // A bare host is what people type, and as an href it is a *relative* link — it would navigate
+        // inside the SPA rather than to the company. It is promoted rather than refused.
+        mvc.perform(post(triageUrl(projectId) + "/capture")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Bare Host Co","website":"gulfindustrial.com",
+                                 "companyLinkedinUrl":"https://linkedin.com/company/gulf"}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.website").value("https://gulfindustrial.com"))
+                .andExpect(jsonPath("$.companyLinkedinUrl").value("https://linkedin.com/company/gulf"));
+
+        // Anything a browser would not follow is dropped rather than stored. The plugin posts here
+        // directly and never sees the form's validation, so this cannot live in the client.
+        mvc.perform(post(triageUrl(projectId) + "/capture")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Hostile Co","website":"javascript:alert(1)"}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.website").doesNotExist());
+    }
+
     // ── removing a company from the mandate ──────────────────────────────────
 
     @Test
@@ -595,8 +645,11 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
     void listSortsOverAnAllowlist() throws Exception {
         String admin = adminOf("Universe Sort Firm");
         String projectId = project(admin);
+        // The headcounts run opposite to the names on purpose: if the larger one were also the
+        // alphabetically-first, both assertions below would pass on a single ordering and the test
+        // would prove nothing about the sort actually changing.
         writer.insertIgnoringHeld(UUID.fromString(projectId), actorId(),
-                List.of(row("a1", "Zenith Holdings", 100), row("a2", "Alpha Industrial", 900)));
+                List.of(row("a1", "Zenith Holdings", 900), row("a2", "Alpha Industrial", 100)));
 
         mvc.perform(get(triageUrl(projectId)).param("sort", "name").param("direction", "asc")
                         .header("Authorization", "Bearer " + admin))

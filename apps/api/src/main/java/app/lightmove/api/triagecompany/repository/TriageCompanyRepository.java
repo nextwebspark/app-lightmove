@@ -33,6 +33,11 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
      * index can only see the manual rows, so a company typed in under a name the mandate already took
      * out of Apollo would pass it. Matching across every source is also what a consultant means by
      * "already there" — where the row came from is not the question they are asking.
+     *
+     * <p>{@code exists}, not a finder: the name is not unique within a project and cannot be made so.
+     * Nothing stops the Apollo export carrying two accounts under one name, and a bulk add takes both;
+     * a single-result finder over that column throws {@code IncorrectResultSizeDataAccessException}
+     * the moment it meets the second row, turning the 409 this guard exists to raise into a 500.
      */
-    Optional<TriageCompany> findByProjectIdAndCompanyNameIgnoreCase(UUID projectId, String companyName);
+    boolean existsByProjectIdAndCompanyNameIgnoreCase(UUID projectId, String companyName);
 }

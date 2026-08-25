@@ -175,7 +175,7 @@ public class TriageCompanyService {
                 request.website(), request.companyLinkedinUrl(), request.foundedYear(),
                 request.shortDescription(), request.sourceUrl(), request.note());
 
-        if (triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, details.companyName()).isPresent()) {
+        if (triaged.existsByProjectIdAndCompanyNameIgnoreCase(projectId, details.companyName())) {
             throw ApiException.of(ErrorCode.TRIAGE_COMPANY_ALREADY_HELD);
         }
 

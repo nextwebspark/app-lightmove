@@ -257,13 +257,13 @@ export const triageCompanyColumns = helper.columns([
 ]);
 
 /**
- * Everything from Founded on starts hidden, matching Strategy: a grid that opened with every column
- * would be a spreadsheet. Note stays visible — it is the one column here the market cannot supply,
- * and the reason a consultant opens this screen rather than that one.
+ * Founded and Description start hidden, matching Strategy: a grid that opened with every column would
+ * be a spreadsheet. Two stay visible. Note, because it is the one column here the market cannot supply
+ * and the reason a consultant opens this screen rather than that one — and Added, because the grid
+ * opens sorted by it, and a default ordering whose column is hidden shows its sort indicator nowhere.
  */
 export const DEFAULT_TRIAGE_COLUMN_VISIBILITY: ColumnVisibilityState = {
   founded: false,
-  added: false,
   description: false,
 };
 

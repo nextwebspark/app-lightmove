@@ -106,11 +106,6 @@ export function AddCompanyModal({
     defaultValues: EMPTY_FORM,
   });
 
-  // Reopening after a cancel should be a blank form, not the half-typed company that was abandoned.
-  useEffect(() => {
-    if (open) reset(EMPTY_FORM);
-  }, [open, reset]);
-
   const capture = useMutation({
     mutationFn: (parsed: CapturedForm) => {
       const payload: CaptureCompanyPayload = {
@@ -143,6 +138,16 @@ export function AddCompanyModal({
       }
     },
   });
+
+  // Reopening after a cancel should be a blank form, not the half-typed company that was abandoned.
+  // The mutation is reset with it: its error outlives the fields it was about, so a failed capture
+  // left "this mandate already holds a company with that name" sitting above an empty form.
+  useEffect(() => {
+    if (open) {
+      reset(EMPTY_FORM);
+      capture.reset();
+    }
+  }, [open, reset, capture.reset]);
 
   return (
     <Modal open={open} onClose={onClose} title="Add a company" className="md:w-[560px]">
