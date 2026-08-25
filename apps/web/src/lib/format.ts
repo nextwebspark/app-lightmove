@@ -60,3 +60,24 @@ export function formatRelativeTime(isoInstant: string): string {
   const days = Math.floor(hours / 24);
   return days === 1 ? "1 day ago" : `${days} days ago`;
 }
+
+/**
+ * Null is the common case — Apollo publishes a revenue figure on roughly one row in ten — and reads
+ * as unknown, not zero. Shared by both company grids: a revenue that says "$1.2B" on Strategy and
+ * "1200000000" under Companies is the same fact told twice.
+ */
+export function formatMoney(amount: number | null): string {
+  if (amount === null) return "—";
+  if (amount >= 1_000_000_000) return `$${trimAmount(amount / 1_000_000_000)}B`;
+  if (amount >= 1_000_000) return `$${trimAmount(amount / 1_000_000)}M`;
+  return `$${amount.toLocaleString()}`;
+}
+
+/** An empty list is nothing to show, not an empty string in a cell that looks like a blank value. */
+export function joined(values: string[]): string | null {
+  return values.length > 0 ? values.join(", ") : null;
+}
+
+function trimAmount(value: number): string {
+  return value >= 10 ? String(Math.round(value)) : value.toFixed(1).replace(/\.0$/, "");
+}

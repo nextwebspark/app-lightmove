@@ -4,7 +4,7 @@ import { cn } from "../../../lib/cn";
 import type { CompanyRef, Facets, NumericRange, StrategyFilter } from "../api/types";
 import { FacetsUnavailable } from "./FacetsUnavailable";
 import { FilterAccordion } from "./FilterAccordion";
-import { FilterCheckRow } from "./FilterCheckRow";
+import { FilterCheckRow } from "../../../components/ui/FilterCheckRow";
 import { FilterChip } from "./FilterChip";
 import { IndustryFilter } from "./IndustryFilter";
 import { OffLimitsFilter } from "./OffLimitsFilter";

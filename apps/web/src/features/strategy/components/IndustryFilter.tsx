@@ -3,7 +3,7 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import type { SectorGroup } from "../api/types";
 import { adjacentTo } from "../lib/sectorAdjacency";
-import { CheckBox } from "./FilterCheckRow";
+import { CheckBox } from "../../../components/ui/FilterCheckRow";
 
 const SPARKLE =
   "M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z";

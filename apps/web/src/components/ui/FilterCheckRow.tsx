@@ -1,4 +1,4 @@
-import { cn } from "../../../lib/cn";
+import { cn } from "../../lib/cn";
 
 /**
  * One checkbox row in a filter panel — the wireframe's shape for every axis with more than a handful

@@ -1,30 +1,39 @@
 import type { ColumnVisibilityState } from "@tanstack/react-table";
-import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Popover } from "../../../components/ui/Popover";
-import { companyColumns, DEFAULT_COLUMN_VISIBILITY } from "../lib/companyColumns";
+import { Icon, ICONS } from "../layout/Icon";
+import { Popover } from "./Popover";
 import { FilterCheckRow } from "./FilterCheckRow";
 
-/** The columns a user is allowed to turn off, in the order the table lays them out. */
-const HIDEABLE = companyColumns
-  .filter((column) => column.enableHiding !== false)
-  .map((column) => ({ id: column.id as string, label: String(column.header) }));
+/** One column a user may turn off: the table's column id, and the header it is known by. */
+export interface HideableColumn {
+  id: string;
+  label: string;
+}
 
 /**
- * The toolbar's Columns menu. It reads the column definitions rather than the table instance,
- * which lives beside the results. Company and Actions opt out with `enableHiding: false`, so a new
- * column is offered here automatically — and why the list scrolls: there are enough of them to run
- * off the bottom of the screen.
+ * A grid toolbar's Columns menu.
+ *
+ * <p>It takes the hideable columns rather than reading a table instance, because the menu lives in
+ * the toolbar and the table lives beside the results — and because the two grids that use it hold
+ * different columns. Each derives its own list from its column definitions with
+ * {@link hideableColumnsOf}, so a column added there is offered here automatically.
+ *
+ * <p>The list scrolls: there are enough columns to run off the bottom of the screen.
  */
 export function ColumnPicker({
+  columns,
   visibility,
+  defaults,
   onChange,
 }: {
+  columns: HideableColumn[];
   visibility: ColumnVisibilityState;
+  /** What "Reset to default" restores — the grid's own declared default, not an empty object. */
+  defaults: ColumnVisibilityState;
   onChange: (visibility: ColumnVisibilityState) => void;
 }) {
   // Absent means visible: the state records only the exceptions.
   const isVisible = (id: string) => visibility[id] !== false;
-  const hiddenCount = HIDEABLE.filter((column) => !isVisible(column.id)).length;
+  const hiddenCount = columns.filter((column) => !isVisible(column.id)).length;
 
   return (
     <Popover
@@ -45,7 +54,7 @@ export function ColumnPicker({
     >
       {() => (
         <div className="flex max-h-[60vh] flex-col overflow-y-auto">
-          {HIDEABLE.map((column) => (
+          {columns.map((column) => (
             <FilterCheckRow
               key={column.id}
               label={column.label}
@@ -59,7 +68,7 @@ export function ColumnPicker({
 
           <button
             type="button"
-            onClick={() => onChange(DEFAULT_COLUMN_VISIBILITY)}
+            onClick={() => onChange(defaults)}
             className="rounded-[5px] px-1 py-[7px] text-left font-sans text-[12px] font-medium text-text3 transition hover:bg-panel2 hover:text-text"
           >
             Reset to default
@@ -68,4 +77,17 @@ export function ColumnPicker({
       )}
     </Popover>
   );
+}
+
+/**
+ * The columns a grid lets a user turn off, in the order the table lays them out. Columns that opt out
+ * with `enableHiding: false` — the pinned name, the row actions — are never offered, because hiding
+ * them would leave a row with nothing to identify or act on it.
+ */
+export function hideableColumnsOf(
+  columns: readonly { id?: string; header?: unknown; enableHiding?: boolean }[],
+): HideableColumn[] {
+  return columns
+    .filter((column) => column.enableHiding !== false)
+    .map((column) => ({ id: column.id as string, label: String(column.header) }));
 }
