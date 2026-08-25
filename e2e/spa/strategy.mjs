@@ -394,8 +394,10 @@ try {
       String(await page.locator('[aria-label="Search companies"]').last().getAttribute("aria-expanded")));
     await page.keyboard.press("Escape");
     await page.waitForTimeout(300);
-    // Scoped to the rail: "Remove" is a common label elsewhere in the shell.
-    const chip = page.locator('[aria-label="Filters"] [aria-label^="Remove "]').first();
+    // Named, not just scoped to the rail: every collapsed accordion now summarises itself with
+    // "Remove <value>" pills, so the first one in the rail is whichever axis sits highest.
+    const barred = target.slice(0, 14).replace(/"/g, '\\"');
+    const chip = page.locator(`[aria-label="Filters"] [aria-label^="Remove "][aria-label*="${barred}"]`).first();
     if (!(await chip.isVisible().catch(() => false))) await openAccordion("Off-limits");
     await chip.waitFor({ state: "visible", timeout: 15000 });
     await chip.click();

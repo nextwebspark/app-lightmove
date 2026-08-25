@@ -296,6 +296,79 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     );
   });
 
+  it("reopens a taken sector to refine it, rather than dropping it", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
+    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
+    await userEvent.click(within(filters).getByRole("checkbox", { name: /Construction/ }));
+    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include Sub-Industries" }));
+
+    // Taking Construction left it open. The row itself is the checkbox, so without a separate
+    // control the only way back into Energy would be to drop it and take it again.
+    await userEvent.click(within(filters).getByLabelText("Expand Energy & Utilities"));
+    await userEvent.click(within(filters).getByRole("checkbox", { name: /oil & energy/ }));
+
+    await waitFor(
+      () =>
+        expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
+          "oil & energy",
+          "construction",
+        ]),
+      { timeout: 2000 },
+    );
+  });
+
+  it("closes the open sector when the filter is replaced from outside", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
+    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
+    await userEvent.click(within(filters).getByRole("button", { name: "Reset" }));
+
+    // An open sector left over from the pre-Reset picks would render its sub-industries against a
+    // selection that no longer holds it: the row ticks, and the saved filter stays empty.
+    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include Sub-Industries" }));
+    expect(within(filters).queryByRole("checkbox", { name: /oil & energy/ })).not.toBeInTheDocument();
+    expect(within(filters).getByText(/Expand an industry above/)).toBeInTheDocument();
+  });
+
+  it("keeps an industry the taxonomy no longer groups", async () => {
+    // The grouping is editorial and gets re-tuned, so a saved search can hold a label that no
+    // current group claims. Rebuilding the filter from the groups alone would delete it.
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf({ ...EMPTY_FILTER, industries: ["nanotechnology"] }),
+    );
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    // A pre-loaded selection puts the clear badge in the header, so its name is no longer bare.
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
+    await userEvent.click(within(filters).getByRole("checkbox", { name: /Construction/ }));
+
+    await waitFor(
+      () =>
+        expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
+          "construction",
+          "nanotechnology",
+        ]),
+      { timeout: 2000 },
+    );
+  });
+
+  it("does not rewrite the filter when Include Sub-Industries changes nothing", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
+    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
+    await waitFor(() => expect(strategyApi.putFilter).toHaveBeenCalledTimes(1), { timeout: 2000 });
+
+    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include Sub-Industries" }));
+
+    // A write here would reset the results table to page 1 for a click that changed no scope.
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(strategyApi.putFilter).toHaveBeenCalledTimes(1);
+  });
+
   it("summarises a closed panel as pills, each one removable on its own", async () => {
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });

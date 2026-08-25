@@ -14,6 +14,8 @@ const ADJACENT_SHOWN = 6;
 interface Picks {
   sectors: string[];
   subIndustries: string[];
+  /** Industries no group covers, carried verbatim so a taxonomy re-tune cannot delete them. */
+  ungrouped: string[];
   includeSubIndustries: boolean;
 }
 
@@ -33,21 +35,28 @@ function industriesOf(picks: Picks, byName: Map<string, SectorGroup>): string[] 
     const narrowed = picks.includeSubIndustries ? leaves.filter((leaf) => picked.has(leaf)) : [];
     reached.push(...(narrowed.length > 0 ? narrowed : leaves));
   }
-  return [...new Set(reached)];
+  return [...new Set([...reached, ...picks.ungrouped])];
 }
 
 /** A partly-taken sector can only have come from refining, so it is what reopens the panel ticked. */
 function picksFrom(selected: string[], groups: SectorGroup[]): Picks {
   const chosen = new Set(selected);
+  const grouped = new Set<string>();
   const sectors: string[] = [];
   let refined = false;
   for (const group of groups) {
-    const taken = group.industries.filter((industry) => chosen.has(industry.value)).length;
-    if (taken === 0) continue;
+    const taken = group.industries.filter((industry) => chosen.has(industry.value));
+    taken.forEach((industry) => grouped.add(industry.value));
+    if (taken.length === 0) continue;
     sectors.push(group.name);
-    if (taken < group.industries.length) refined = true;
+    if (taken.length < group.industries.length) refined = true;
   }
-  return { sectors, subIndustries: refined ? [...selected] : [], includeSubIndustries: refined };
+  return {
+    sectors,
+    subIndustries: refined ? selected.filter((value) => grouped.has(value)) : [],
+    ungrouped: selected.filter((value) => !grouped.has(value)),
+    includeSubIndustries: refined,
+  };
 }
 
 const sameSet = (a: string[], b: string[]) =>
@@ -82,11 +91,15 @@ export function IndustryFilter({
     if (sameSet(selected, emitted.current)) return;
     emitted.current = selected;
     setPicks(picksFrom(selected, groups));
+    // The open sector belongs to the picks it was opened against; leaving it behind pointed a
+    // visible sub-industry list at a sector the rebuilt picks no longer hold.
+    setOpenGroup(null);
   }, [selected, groups]);
 
   const apply = (next: Picks) => {
     setPicks(next);
     const industries = industriesOf(next, byName);
+    if (sameSet(industries, emitted.current)) return;
     emitted.current = industries;
     onChange(industries);
   };
@@ -133,6 +146,11 @@ export function IndustryFilter({
   };
 
   const takeSector = (name: string) => apply({ ...picks, sectors: [...picks.sectors, name] });
+
+  const toggleOpen = (name: string) => {
+    setOpenGroup((current) => (current === name ? null : name));
+    setIndustryQuery("");
+  };
 
   const toggleSector = (group: SectorGroup) => {
     if (takenSectors.has(group.name)) {
@@ -197,6 +215,12 @@ export function IndustryFilter({
               checked={taken && !narrowed}
               partial={narrowed}
               onClick={() => toggleSector(group)}
+              // Clicking the row is the checkbox and would drop a taken sector, so reopening one to
+              // refine it needs its own control.
+              onExpand={
+                picks.includeSubIndustries && taken ? () => toggleOpen(group.name) : undefined
+              }
+              expanded={openGroup === group.name}
             />
           );
         })}
@@ -251,7 +275,7 @@ export function IndustryFilter({
             </>
           ) : (
             <p className="px-1 pb-1 font-sans text-[12px] text-text3">
-              Pick an industry above to narrow it to sub-industries.
+              Expand an industry above to narrow it to sub-industries.
             </p>
           ))}
       </div>
@@ -376,6 +400,8 @@ function Row({
   partial,
   active,
   onClick,
+  onExpand,
+  expanded,
 }: {
   label: string;
   hint?: string;
@@ -383,27 +409,39 @@ function Row({
   partial?: boolean;
   active?: boolean;
   onClick: () => void;
+  onExpand?: () => void;
+  expanded?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      role="checkbox"
-      aria-checked={checked ? true : partial ? "mixed" : false}
-      onClick={onClick}
-      className={cn(
-        "flex w-full items-center justify-between gap-2 px-3 py-[9px] text-left transition",
-        active ? "bg-panel2" : "hover:bg-panel2",
+    <div className={cn("flex w-full items-center transition", active ? "bg-panel2" : "hover:bg-panel2")}>
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={checked ? true : partial ? "mixed" : false}
+        onClick={onClick}
+        className="flex min-w-0 flex-1 items-center justify-between gap-2 px-3 py-[9px] text-left"
+      >
+        <span className="truncate font-sans text-[13px] font-medium text-text">{label}</span>
+        <span className="flex flex-none items-center gap-2">
+          {hint && <span className="font-sans text-[11px] text-text3">{hint}</span>}
+          {checked ? (
+            <Icon d={ICONS.check} size={13} className="text-amber" />
+          ) : partial ? (
+            <span className="size-[7px] rounded-full bg-amber" />
+          ) : null}
+        </span>
+      </button>
+      {onExpand && (
+        <button
+          type="button"
+          aria-label={`${expanded ? "Collapse" : "Expand"} ${label}`}
+          aria-expanded={expanded}
+          onClick={onExpand}
+          className="flex-none px-2 py-[9px] text-text3 transition hover:text-text"
+        >
+          <Icon d={expanded ? ICONS.chevronDown : ICONS.chevronRight} size={12} />
+        </button>
       )}
-    >
-      <span className="truncate font-sans text-[13px] font-medium text-text">{label}</span>
-      <span className="flex flex-none items-center gap-2">
-        {hint && <span className="font-sans text-[11px] text-text3">{hint}</span>}
-        {checked ? (
-          <Icon d={ICONS.check} size={13} className="text-amber" />
-        ) : partial ? (
-          <span className="size-[7px] rounded-full bg-amber" />
-        ) : null}
-      </span>
-    </button>
+    </div>
   );
 }
