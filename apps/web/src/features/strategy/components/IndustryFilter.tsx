@@ -1,71 +1,62 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
-import type { SectorGroup } from "../api/types";
+import type { FacetCount, SectorGroup } from "../api/types";
 import { adjacentTo } from "../lib/sectorAdjacency";
-import { CheckBox } from "./FilterCheckRow";
 import { SelectionPill } from "./SelectionPill";
 
 const SPARKLE =
   "M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z";
 
 const ADJACENT_SHOWN = 6;
-
-interface Picks {
-  sectors: string[];
-  subIndustries: string[];
-  /** Industries no group covers, carried verbatim so a taxonomy re-tune cannot delete them. */
-  ungrouped: string[];
-  includeSubIndustries: boolean;
-}
+const SUGGESTIONS_SHOWN = 8;
+const LIST_ID = "industry-suggestions";
+/** Distinguishes a sector pill from an industry pill, which are both just strings. */
+const SECTOR_TAG = "sector:";
 
 /**
- * A selected sector with no leaf picked contributes *all* of its leaves. That is what makes Include
- * Sub-Industries safe to tick: refining never empties the results and never asks for anything to be
- * deselected first — a sector stays whole until a leaf under it is chosen, and then only that sector
- * narrows.
+ * A sector is taken whole or not at all; anything else selected is an individual industry. Splitting
+ * it this way means a stored filter reads back one way only — the partial-vs-refined ambiguity the
+ * previous shape carried had no answer.
  */
+interface Picks {
+  sectors: string[];
+  industries: string[];
+}
+
 function industriesOf(picks: Picks, byName: Map<string, SectorGroup>): string[] {
-  const picked = new Set(picks.subIndustries);
   const reached: string[] = [];
   for (const name of picks.sectors) {
     const group = byName.get(name);
-    if (!group) continue;
-    const leaves = group.industries.map((industry) => industry.value);
-    const narrowed = picks.includeSubIndustries ? leaves.filter((leaf) => picked.has(leaf)) : [];
-    reached.push(...(narrowed.length > 0 ? narrowed : leaves));
+    if (group) reached.push(...group.industries.map((industry) => industry.value));
   }
-  return [...new Set([...reached, ...picks.ungrouped])];
+  return [...new Set([...reached, ...picks.industries])];
 }
 
-/** A partly-taken sector can only have come from refining, so it is what reopens the panel ticked. */
 function picksFrom(selected: string[], groups: SectorGroup[]): Picks {
   const chosen = new Set(selected);
-  const grouped = new Set<string>();
   const sectors: string[] = [];
-  let refined = false;
+  const covered = new Set<string>();
   for (const group of groups) {
-    const taken = group.industries.filter((industry) => chosen.has(industry.value));
-    taken.forEach((industry) => grouped.add(industry.value));
-    if (taken.length === 0) continue;
+    const leaves = group.industries.map((industry) => industry.value);
+    if (leaves.length === 0 || !leaves.every((leaf) => chosen.has(leaf))) continue;
     sectors.push(group.name);
-    if (taken.length < group.industries.length) refined = true;
+    leaves.forEach((leaf) => covered.add(leaf));
   }
-  return {
-    sectors,
-    subIndustries: refined ? selected.filter((value) => grouped.has(value)) : [],
-    ungrouped: selected.filter((value) => !grouped.has(value)),
-    includeSubIndustries: refined,
-  };
+  // Whatever a whole sector does not account for stands on its own — including a label the taxonomy
+  // no longer groups, which would otherwise be dropped the first time the panel wrote the filter.
+  return { sectors, industries: selected.filter((value) => !covered.has(value)) };
 }
 
 const sameSet = (a: string[], b: string[]) =>
   a.length === b.length && a.every((entry) => b.includes(entry));
 
 /**
- * The Industry panel: a sector list, the sub-industries of whichever sector is open, and the sectors
- * beside it. Selecting a sector stores its industries, never its name — the grouping is editorial
- * and will be re-tuned, and a saved search must not widen because a label moved.
+ * The Industry panel: the sector list, a type-ahead over every industry, and the sectors beside
+ * whichever one is open.
+ *
+ * <p>Selecting a sector stores its industries, never its name — the grouping is editorial and will
+ * be re-tuned, and a saved search must not widen because a label moved.
  */
 export function IndustryFilter({
   groups,
@@ -77,12 +68,28 @@ export function IndustryFilter({
   onChange: (industries: string[]) => void;
 }) {
   const [openGroup, setOpenGroup] = useState<string | null>(null);
-  const [groupQuery, setGroupQuery] = useState("");
-  const [industryQuery, setIndustryQuery] = useState("");
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState(0);
+  const [listOpen, setListOpen] = useState(false);
   const [showAllAdjacent, setShowAllAdjacent] = useState(false);
   const [picks, setPicks] = useState<Picks>(() => picksFrom(selected, groups));
+  const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (blurTimer.current) clearTimeout(blurTimer.current); }, []);
 
   const byName = useMemo(() => new Map(groups.map((group) => [group.name, group])), [groups]);
+
+  const leaves = useMemo(
+    () =>
+      groups.flatMap((group) =>
+        group.industries.map((industry) => ({ ...industry, group: group.name })),
+      ),
+    [groups],
+  );
+  const labelOf = useMemo(() => {
+    const labels = new Map(leaves.map((leaf) => [leaf.value, leaf.label]));
+    return (value: string) => labels.get(value) ?? value;
+  }, [leaves]);
 
   // Only a filter replaced from outside — Reset, or a saved search applied — has to rebuild the
   // picks; our own writes come back as the value we just emitted.
@@ -91,8 +98,6 @@ export function IndustryFilter({
     if (sameSet(selected, emitted.current)) return;
     emitted.current = selected;
     setPicks(picksFrom(selected, groups));
-    // The open sector belongs to the picks it was opened against; leaving it behind pointed a
-    // visible sub-industry list at a sector the rebuilt picks no longer hold.
     setOpenGroup(null);
   }, [selected, groups]);
 
@@ -105,10 +110,21 @@ export function IndustryFilter({
   };
 
   const takenSectors = useMemo(() => new Set(picks.sectors), [picks.sectors]);
-  const pickedSubs = useMemo(() => new Set(picks.subIndustries), [picks.subIndustries]);
+  const reached = useMemo(
+    () => new Set(industriesOf(picks, byName)),
+    [picks, byName],
+  );
+
+  const needle = query.trim().toLowerCase();
+
+  const suggestions = useMemo(() => {
+    if (!needle) return [];
+    return leaves
+      .filter((leaf) => !reached.has(leaf.value) && leaf.label.toLowerCase().includes(needle))
+      .slice(0, SUGGESTIONS_SHOWN);
+  }, [leaves, needle, reached]);
 
   const visibleGroups = useMemo(() => {
-    const needle = groupQuery.trim().toLowerCase();
     if (!needle) return groups;
     // Matching on the industries inside a sector too, so "aws" finds Technology without the
     // consultant knowing where we filed it.
@@ -117,16 +133,9 @@ export function IndustryFilter({
         group.name.toLowerCase().includes(needle) ||
         group.industries.some((industry) => industry.label.toLowerCase().includes(needle)),
     );
-  }, [groups, groupQuery]);
+  }, [groups, needle]);
 
   const open = openGroup === null ? null : (byName.get(openGroup) ?? null);
-
-  const visibleIndustries = useMemo(() => {
-    if (!open) return [];
-    const needle = industryQuery.trim().toLowerCase();
-    if (!needle) return open.industries;
-    return open.industries.filter((industry) => industry.label.toLowerCase().includes(needle));
-  }, [open, industryQuery]);
 
   /**
    * Anchored to the open sector so the list does not move: deriving it from everything selected made
@@ -135,21 +144,18 @@ export function IndustryFilter({
    */
   const adjacent = useMemo(() => (open ? adjacentTo(open, byName) : []), [open, byName]);
 
-  const dropSector = (name: string) => {
-    const leaves = new Set(byName.get(name)?.industries.map((industry) => industry.value) ?? []);
+  const takeSector = (group: SectorGroup) => {
+    const leafValues = new Set(group.industries.map((industry) => industry.value));
     apply({
-      ...picks,
-      sectors: picks.sectors.filter((entry) => entry !== name),
-      subIndustries: picks.subIndustries.filter((entry) => !leaves.has(entry)),
+      sectors: [...picks.sectors, group.name],
+      // Its leaves are now covered by the sector, and a pill for each would double-count.
+      industries: picks.industries.filter((entry) => !leafValues.has(entry)),
     });
-    if (openGroup === name) setOpenGroup(null);
   };
 
-  const takeSector = (name: string) => apply({ ...picks, sectors: [...picks.sectors, name] });
-
-  const toggleOpen = (name: string) => {
-    setOpenGroup((current) => (current === name ? null : name));
-    setIndustryQuery("");
+  const dropSector = (name: string) => {
+    apply({ ...picks, sectors: picks.sectors.filter((entry) => entry !== name) });
+    if (openGroup === name) setOpenGroup(null);
   };
 
   const toggleSector = (group: SectorGroup) => {
@@ -157,128 +163,163 @@ export function IndustryFilter({
       dropSector(group.name);
       return;
     }
-    takeSector(group.name);
+    takeSector(group);
     setOpenGroup(group.name);
-    setIndustryQuery("");
   };
 
-  const toggleSubIndustry = (value: string) => {
-    apply({
-      ...picks,
-      subIndustries: pickedSubs.has(value)
-        ? picks.subIndustries.filter((entry) => entry !== value)
-        : [...picks.subIndustries, value],
-    });
+  const pickIndustry = (leaf: FacetCount) => {
+    apply({ ...picks, industries: [...picks.industries, leaf.value] });
+    setQuery("");
+    setActive(0);
+    // Left open, the list covers the very pills it just added to.
+    setListOpen(false);
   };
 
-  const toggleIncludeSubIndustries = () => {
-    const including = !picks.includeSubIndustries;
-    apply({
-      ...picks,
-      includeSubIndustries: including,
-      subIndustries: including ? picks.subIndustries : [],
-    });
+  const removePill = (value: string) => {
+    if (value.startsWith(SECTOR_TAG)) {
+      dropSector(value.slice(SECTOR_TAG.length));
+      return;
+    }
+    apply({ ...picks, industries: picks.industries.filter((entry) => entry !== value) });
   };
 
-  // Deliberately does not open the sector: swapping the sub-industry list out mid-click is the
-  // other half of the churn this panel had.
   const toggleAdjacent = (name: string) => {
-    if (!byName.has(name)) return;
+    const group = byName.get(name);
+    if (!group) return;
     if (takenSectors.has(name)) dropSector(name);
-    else takeSector(name);
+    else takeSector(group);
   };
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActive((index) => Math.min(index + 1, suggestions.length - 1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActive((index) => Math.max(index - 1, 0));
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      const choice = suggestions[active];
+      if (choice) pickIndustry(choice);
+    } else if (event.key === "Escape") {
+      setListOpen(false);
+    }
+  };
+
+  const showList = listOpen && suggestions.length > 0;
+  const showEmpty = listOpen && needle.length > 0 && suggestions.length === 0;
+
+  const pills = [
+    ...picks.sectors.map((name) => ({ value: `${SECTOR_TAG}${name}`, label: name })),
+    ...picks.industries.map((value) => ({ value, label: labelOf(value) })),
+  ];
 
   return (
     <div className="flex flex-col gap-3">
-      <PillBox
-        pills={picks.sectors.map((name) => ({ value: name, label: name }))}
-        onRemove={dropSector}
-        query={groupQuery}
-        onQueryChange={setGroupQuery}
-        placeholder="Search industries…"
-        label="Search industries"
-      />
+      <div className="relative">
+        <div className="rounded-md border border-line bg-panel2">
+          {pills.length > 0 && (
+            <div className="flex flex-wrap gap-[5px] px-2 pt-2">
+              {pills.map((pill) => (
+                <SelectionPill
+                  key={pill.value}
+                  label={pill.label}
+                  tone="amber"
+                  onRemove={() => removePill(pill.value)}
+                />
+              ))}
+            </div>
+          )}
+          <label className="flex h-9 items-center gap-2 px-[10px]">
+            <Icon d={ICONS.search} size={13} className="flex-none text-text3" />
+            <input
+              role="combobox"
+              aria-expanded={showList}
+              aria-controls={LIST_ID}
+              aria-autocomplete="list"
+              aria-activedescendant={showList ? `${LIST_ID}-${active}` : undefined}
+              value={query}
+              placeholder="Search industries…"
+              aria-label="Search industries"
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setActive(0);
+                setListOpen(true);
+              }}
+              onFocus={() => setListOpen(true)}
+              onBlur={() => {
+                blurTimer.current = setTimeout(() => setListOpen(false), 120);
+              }}
+              onKeyDown={onKeyDown}
+              className="w-full bg-transparent font-sans text-[12px] font-medium text-text outline-none placeholder:text-text3"
+            />
+          </label>
+        </div>
+
+        {showList && (
+          <ul
+            id={LIST_ID}
+            role="listbox"
+            className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-md border border-line bg-panel py-1 shadow-panel"
+          >
+            {suggestions.map((leaf, index) => (
+              <li
+                key={leaf.value}
+                id={`${LIST_ID}-${index}`}
+                role="option"
+                aria-selected={index === active}
+                // Commit before the input's blur fires and closes the list.
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  if (blurTimer.current) clearTimeout(blurTimer.current);
+                  pickIndustry(leaf);
+                }}
+                onMouseEnter={() => setActive(index)}
+                className={cn(
+                  "flex cursor-pointer items-center gap-2 px-3 py-[7px]",
+                  index === active ? "bg-panel2" : "",
+                )}
+              >
+                <span className="truncate font-sans text-[13px] font-medium text-text">
+                  {leaf.label}
+                </span>
+                <span className="ms-auto flex flex-none items-center gap-2">
+                  <span className="font-sans text-[10.5px] text-text3">{leaf.group}</span>
+                  <span className="font-sans text-[11px] text-text3">
+                    {leaf.count.toLocaleString()}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {showEmpty && (
+          <div
+            aria-live="polite"
+            className="absolute z-10 mt-1 w-full rounded-md border border-line bg-panel px-3 py-2 font-sans text-[12px] text-text3 shadow-panel"
+          >
+            No industry matches that.
+          </div>
+        )}
+      </div>
 
       <ScrollList empty={visibleGroups.length === 0 ? "No sector matches that" : null}>
         {visibleGroups.map((group) => {
           const taken = takenSectors.has(group.name);
-          const picked = group.industries.filter((industry) =>
-            pickedSubs.has(industry.value),
-          ).length;
-          const narrowed =
-            taken && picks.includeSubIndustries && picked > 0 && picked < group.industries.length;
+          const partly =
+            !taken && group.industries.some((industry) => reached.has(industry.value));
           return (
             <Row
               key={group.name}
               label={group.name}
               active={openGroup === group.name}
-              checked={taken && !narrowed}
-              partial={narrowed}
+              checked={taken}
+              partial={partly}
               onClick={() => toggleSector(group)}
-              // Clicking the row is the checkbox and would drop a taken sector, so reopening one to
-              // refine it needs its own control.
-              onExpand={
-                picks.includeSubIndustries && taken ? () => toggleOpen(group.name) : undefined
-              }
-              expanded={openGroup === group.name}
             />
           );
         })}
       </ScrollList>
-
-      <div
-        className={cn(
-          "flex flex-col gap-3 rounded-md border p-2 transition",
-          picks.includeSubIndustries ? "border-line bg-transparent" : "border-transparent bg-panel2",
-        )}
-      >
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={picks.includeSubIndustries}
-          onClick={toggleIncludeSubIndustries}
-          className="flex items-center gap-3 px-1 py-1 text-left"
-        >
-          <CheckBox checked={picks.includeSubIndustries} />
-          <span className="font-sans text-[14px] font-medium text-text">
-            Include Sub-Industries
-          </span>
-        </button>
-
-        {picks.includeSubIndustries &&
-          (open ? (
-            <>
-              <PillBox
-                pills={open.industries
-                  .filter((industry) => pickedSubs.has(industry.value))
-                  .map((industry) => ({ value: industry.value, label: industry.label }))}
-                onRemove={toggleSubIndustry}
-                query={industryQuery}
-                onQueryChange={setIndustryQuery}
-                placeholder={`Search within ${open.name}…`}
-                label={`Search within ${open.name}`}
-              />
-
-              <ScrollList
-                empty={visibleIndustries.length === 0 ? "No industry matches that" : null}
-              >
-                {visibleIndustries.map((industry) => (
-                  <Row
-                    key={industry.value}
-                    label={industry.label}
-                    hint={industry.count.toLocaleString()}
-                    checked={pickedSubs.has(industry.value)}
-                    onClick={() => toggleSubIndustry(industry.value)}
-                  />
-                ))}
-              </ScrollList>
-            </>
-          ) : (
-            <p className="px-1 pb-1 font-sans text-[12px] text-text3">
-              Expand an industry above to narrow it to sub-industries.
-            </p>
-          ))}
-      </div>
 
       {adjacent.length > 0 && (
         <div className="flex flex-col gap-2 border-t border-line-soft pt-3">
@@ -332,50 +373,6 @@ export function IndustryFilter({
   );
 }
 
-/** The search field with what it has already taken sitting inside it, each pill removable. */
-function PillBox({
-  pills,
-  onRemove,
-  query,
-  onQueryChange,
-  placeholder,
-  label,
-}: {
-  pills: { value: string; label: string }[];
-  onRemove: (value: string) => void;
-  query: string;
-  onQueryChange: (value: string) => void;
-  placeholder: string;
-  label: string;
-}) {
-  return (
-    <div className="rounded-md border border-line bg-panel2">
-      {pills.length > 0 && (
-        <div className="flex flex-wrap gap-[5px] px-2 pt-2">
-          {pills.map((pill) => (
-            <SelectionPill
-              key={pill.value}
-              label={pill.label}
-              tone="amber"
-              onRemove={() => onRemove(pill.value)}
-            />
-          ))}
-        </div>
-      )}
-      <label className="flex h-9 items-center gap-2 px-[10px]">
-        <Icon d={ICONS.search} size={13} className="flex-none text-text3" />
-        <input
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder={placeholder}
-          aria-label={label}
-          className="w-full bg-transparent font-sans text-[12px] font-medium text-text outline-none placeholder:text-text3"
-        />
-      </label>
-    </div>
-  );
-}
-
 /** Bounded: the panel must not grow past the rail whatever is inside it. */
 function ScrollList({ children, empty }: { children: React.ReactNode; empty: string | null }) {
   return (
@@ -390,58 +387,41 @@ function ScrollList({ children, empty }: { children: React.ReactNode; empty: str
 }
 
 /**
- * One row of either list. The label never changes weight or colour, so the eye follows one column of
- * marks; `active` is the open sector, a different fact from being selected.
+ * One sector row. The label never changes weight or colour, so the eye follows one column of marks;
+ * `active` is the open sector, a different fact from being selected.
  */
 function Row({
   label,
-  hint,
   checked,
   partial,
   active,
   onClick,
-  onExpand,
-  expanded,
 }: {
   label: string;
-  hint?: string;
   checked?: boolean;
   partial?: boolean;
   active?: boolean;
   onClick: () => void;
-  onExpand?: () => void;
-  expanded?: boolean;
 }) {
   return (
-    <div className={cn("flex w-full items-center transition", active ? "bg-panel2" : "hover:bg-panel2")}>
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={checked ? true : partial ? "mixed" : false}
-        onClick={onClick}
-        className="flex min-w-0 flex-1 items-center justify-between gap-2 px-3 py-[9px] text-left"
-      >
-        <span className="truncate font-sans text-[13px] font-medium text-text">{label}</span>
-        <span className="flex flex-none items-center gap-2">
-          {hint && <span className="font-sans text-[11px] text-text3">{hint}</span>}
-          {checked ? (
-            <Icon d={ICONS.check} size={13} className="text-amber" />
-          ) : partial ? (
-            <span className="size-[7px] rounded-full bg-amber" />
-          ) : null}
-        </span>
-      </button>
-      {onExpand && (
-        <button
-          type="button"
-          aria-label={`${expanded ? "Collapse" : "Expand"} ${label}`}
-          aria-expanded={expanded}
-          onClick={onExpand}
-          className="flex-none px-2 py-[9px] text-text3 transition hover:text-text"
-        >
-          <Icon d={expanded ? ICONS.chevronDown : ICONS.chevronRight} size={12} />
-        </button>
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked ? true : partial ? "mixed" : false}
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center justify-between gap-2 px-3 py-[9px] text-left transition",
+        active ? "bg-panel2" : "hover:bg-panel2",
       )}
-    </div>
+    >
+      <span className="truncate font-sans text-[13px] font-medium text-text">{label}</span>
+      <span className="flex flex-none items-center gap-2">
+        {checked ? (
+          <Icon d={ICONS.check} size={13} className="text-amber" />
+        ) : partial ? (
+          <span className="size-[7px] rounded-full bg-amber" />
+        ) : null}
+      </span>
+    </button>
   );
 }

@@ -215,77 +215,53 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     ]);
   });
 
-  it("hides the sub-industry list until Include Sub-Industries is ticked", async () => {
+  it("offers individual industries only once the consultant types", async () => {
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
     await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
-    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
 
-    // Unticked there is nothing to narrow and nothing to undo: the sector is simply taken whole.
-    expect(within(filters).queryByRole("checkbox", { name: /oil & energy/ })).not.toBeInTheDocument();
+    // A list before a key is pressed suggests those industries were chosen for a reason.
+    expect(within(filters).queryAllByRole("option")).toHaveLength(0);
+
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
+    await userEvent.click(within(filters).getByRole("option", { name: /oil & energy/ }));
+
+    // The leaf alone, not the sector it happens to be filed under.
     await waitFor(
       () =>
         expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
           "oil & energy",
-          "utilities",
         ]),
       { timeout: 2000 },
     );
-
-    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include Sub-Industries" }));
-    expect(within(filters).getByRole("checkbox", { name: /oil & energy/ })).toBeInTheDocument();
+    expect(within(filters).getByLabelText("Remove oil & energy")).toBeInTheDocument();
   });
 
-  it("keeps a sector whole until a sub-industry under it is picked, and narrows only that sector", async () => {
+  it("does not offer an industry a taken sector already covers", async () => {
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
     await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
-    await userEvent.click(within(filters).getByRole("checkbox", { name: /Construction/ }));
     await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
-    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include Sub-Industries" }));
 
-    // Ticking on its own is not a narrowing — the results must not move under the hand.
-    await waitFor(
-      () =>
-        expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
-          "construction",
-          "oil & energy",
-          "utilities",
-        ]),
-      { timeout: 2000 },
-    );
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
 
-    await userEvent.click(within(filters).getByRole("checkbox", { name: /oil & energy/ }));
-
-    // Construction stays whole: a pick narrows the sector it belongs to and no other.
-    await waitFor(
-      () =>
-        expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
-          "construction",
-          "oil & energy",
-        ]),
-      { timeout: 2000 },
-    );
+    // Offering it would let the same industry be added twice and read as two decisions.
+    expect(within(filters).queryByRole("option", { name: /oil & energy/ })).not.toBeInTheDocument();
+    expect(within(filters).getByText("No industry matches that.")).toBeInTheDocument();
   });
 
-  it("gives the whole sector back when Include Sub-Industries is unticked", async () => {
+  it("folds an individually picked industry into its sector when the whole sector is taken", async () => {
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
     await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
+    await userEvent.click(within(filters).getByRole("option", { name: /oil & energy/ }));
+
     await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
-    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include Sub-Industries" }));
-    await userEvent.click(within(filters).getByRole("checkbox", { name: /oil & energy/ }));
 
-    await waitFor(
-      () =>
-        expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
-          "oil & energy",
-        ]),
-      { timeout: 2000 },
-    );
-
-    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include Sub-Industries" }));
-
+    // One pill for the sector, not a sector pill plus a leaf pill that says the same thing twice.
+    expect(within(filters).getByLabelText("Remove Energy & Utilities")).toBeInTheDocument();
+    expect(within(filters).queryByLabelText("Remove oil & energy")).not.toBeInTheDocument();
     await waitFor(
       () =>
         expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
@@ -296,26 +272,30 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     );
   });
 
-  it("reopens a taken sector to refine it, rather than dropping it", async () => {
+  it("drops every industry a sector covered when its pill is removed", async () => {
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
     await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
     await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
-    await userEvent.click(within(filters).getByRole("checkbox", { name: /Construction/ }));
-    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include Sub-Industries" }));
 
-    // Taking Construction left it open. The row itself is the checkbox, so without a separate
-    // control the only way back into Energy would be to drop it and take it again.
-    await userEvent.click(within(filters).getByLabelText("Expand Energy & Utilities"));
-    await userEvent.click(within(filters).getByRole("checkbox", { name: /oil & energy/ }));
+    await userEvent.click(within(filters).getByLabelText("Remove Energy & Utilities"));
 
     await waitFor(
-      () =>
-        expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
-          "oil & energy",
-          "construction",
-        ]),
+      () => expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([]),
       { timeout: 2000 },
+    );
+  });
+
+  it("marks a sector partly taken when only some of its industries are picked", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
+    await userEvent.click(within(filters).getByRole("option", { name: /oil & energy/ }));
+
+    expect(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ })).toHaveAttribute(
+      "aria-checked",
+      "mixed",
     );
   });
 
@@ -324,13 +304,12 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     const filters = await screen.findByRole("region", { name: "Filters" });
     await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
     await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
+    expect(within(filters).getByText("Adjacent Industries")).toBeInTheDocument();
+
     await userEvent.click(within(filters).getByRole("button", { name: "Reset" }));
 
-    // An open sector left over from the pre-Reset picks would render its sub-industries against a
-    // selection that no longer holds it: the row ticks, and the saved filter stays empty.
-    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include Sub-Industries" }));
-    expect(within(filters).queryByRole("checkbox", { name: /oil & energy/ })).not.toBeInTheDocument();
-    expect(within(filters).getByText(/Expand an industry above/)).toBeInTheDocument();
+    // The open sector belongs to the picks it was opened against, and Reset threw those away.
+    expect(within(filters).queryByText("Adjacent Industries")).not.toBeInTheDocument();
   });
 
   it("keeps an industry the taxonomy no longer groups", async () => {
@@ -353,20 +332,6 @@ describe("StrategyPage — the filter sidebar and its results", () => {
         ]),
       { timeout: 2000 },
     );
-  });
-
-  it("does not rewrite the filter when Include Sub-Industries changes nothing", async () => {
-    renderPage();
-    const filters = await screen.findByRole("region", { name: "Filters" });
-    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
-    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
-    await waitFor(() => expect(strategyApi.putFilter).toHaveBeenCalledTimes(1), { timeout: 2000 });
-
-    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include Sub-Industries" }));
-
-    // A write here would reset the results table to page 1 for a click that changed no scope.
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    expect(strategyApi.putFilter).toHaveBeenCalledTimes(1);
   });
 
   it("summarises a closed panel as pills, each one removable on its own", async () => {
