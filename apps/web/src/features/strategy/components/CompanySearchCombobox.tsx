@@ -1,11 +1,9 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import * as companiesApi from "../api/companiesApi";
 import type { CompanySuggestion } from "../api/types";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
-
-/** How long a pause in typing must last before the query fires. */
-const DEBOUNCE_MS = 250;
+import { useComboboxList, useDebouncedValue } from "../lib/useComboboxList";
 
 /**
  * The company picker over the universe — the off-limits list and the client registry both use it.
@@ -24,63 +22,34 @@ export function CompanySearchCombobox({
   onPick: (company: CompanySuggestion) => void;
 }) {
   const [draft, setDraft] = useState("");
-  const [settled, setSettled] = useState("");
-  const [active, setActive] = useState(0);
-  const [open, setOpen] = useState(false);
-  const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setSettled(draft.trim()), DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [draft]);
-
-  useEffect(
-    () => () => {
-      if (blurTimer.current) clearTimeout(blurTimer.current);
-    },
-    [],
-  );
+  const settled = useDebouncedValue(draft.trim());
 
   const { data } = useQuery({
     queryKey: companiesApi.COMPANY_SEARCH_KEY(settled),
     queryFn: ({ signal }) => companiesApi.searchCompanies(settled, undefined, signal),
-    enabled: open && settled.length > 0,
+    enabled: settled.length > 0,
     placeholderData: keepPreviousData,
   });
 
   const matches = (data?.companies ?? []).filter(
     (company) => !excludedIds.has(company.apolloAccountId),
   );
+
+  const list = useComboboxList({
+    optionCount: matches.length,
+    onCommit: (index) => {
+      const choice = matches[index];
+      if (choice) {
+        onPick(choice);
+        setDraft("");
+      }
+    },
+  });
+
   // `settled` and not `matches` alone: keepPreviousData keeps serving the last query's rows after a
   // pick clears the box, so without this the list reopens itself over an empty input.
-  const showList = open && settled.length > 0 && matches.length > 0;
-  const showEmpty = open && settled.length > 0 && data !== undefined && matches.length === 0;
-
-  const pick = (company: CompanySuggestion) => {
-    onPick(company);
-    setDraft("");
-    setSettled("");
-    setActive(0);
-    // Left open, the list covers the very chips it just added to — and the row's onMouseDown
-    // preventDefaults, so the blur that would otherwise close it never fires.
-    setOpen(false);
-  };
-
-  const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setActive((i) => Math.min(i + 1, matches.length - 1));
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setActive((i) => Math.max(i - 1, 0));
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      const choice = matches[active];
-      if (choice) pick(choice);
-    } else if (event.key === "Escape") {
-      setOpen(false);
-    }
-  };
+  const showList = list.open && settled.length > 0 && matches.length > 0;
+  const showEmpty = list.open && settled.length > 0 && data !== undefined && matches.length === 0;
 
   return (
     <div className="relative">
@@ -89,20 +58,16 @@ export function CompanySearchCombobox({
         aria-expanded={showList}
         aria-controls={listId}
         aria-autocomplete="list"
-        aria-activedescendant={showList ? `${listId}-${active}` : undefined}
+        aria-activedescendant={showList ? `${listId}-${list.active}` : undefined}
         value={draft}
         placeholder="Search companies…"
         aria-label="Search companies"
         onChange={(event) => {
           setDraft(event.target.value);
-          setActive(0);
-          setOpen(true);
+          list.setActive(0);
+          list.setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => {
-          blurTimer.current = setTimeout(() => setOpen(false), 120);
-        }}
-        onKeyDown={onKeyDown}
+        {...list.inputHandlers}
         className="w-full rounded-lg border border-line bg-panel px-[11px] py-2 font-mono text-[13px] text-text outline-none focus:border-sky"
       />
 
@@ -117,16 +82,11 @@ export function CompanySearchCombobox({
               key={company.apolloAccountId}
               id={`${listId}-${index}`}
               role="option"
-              aria-selected={index === active}
-              // Commit before the input's blur fires and closes the list.
-              onMouseDown={(event) => {
-                event.preventDefault();
-                if (blurTimer.current) clearTimeout(blurTimer.current);
-                pick(company);
-              }}
-              onMouseEnter={() => setActive(index)}
+              aria-selected={index === list.active}
+              onMouseDown={(event) => list.commitFromPointer(event, index)}
+              onMouseEnter={() => list.setActive(index)}
               className={`flex cursor-pointer items-center gap-2.5 px-3 py-[7px] ${
-                index === active ? "bg-panel2 text-text" : "text-text2"
+                index === list.active ? "bg-panel2 text-text" : "text-text2"
               }`}
             >
               <CompanyLogo name={company.companyName} logo={company.logoUrl} size={16} />

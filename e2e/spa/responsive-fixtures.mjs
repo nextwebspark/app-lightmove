@@ -142,13 +142,13 @@ const FACETS = {
   sectorGroups: [
     {
       name: "Industrials",
-      count: 21400,
       industries: [
         { value: "manufacturing", label: "Manufacturing", count: 6100 },
         { value: "oil & energy", label: "Oil & Energy", count: 4300 },
       ],
     },
   ],
+  adjacentIndustries: {},
   marketSegments: [{ value: "enterprise", label: "Enterprise", count: 3200 }],
   countries: [
     { value: "United Arab Emirates", label: "United Arab Emirates", count: 18240 },
@@ -164,6 +164,7 @@ const FACETS = {
 
 const EMPTY_FILTER = {
   industries: [],
+  keywords: [],
   marketSegments: [],
   countries: [],
   employeeBands: [],

@@ -87,7 +87,7 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
         String projectId = project(admin);
 
         putFilter(admin, projectId, """
-                {"filter":{"industries":["oil & energy","utilities"],"marketSegments":["B2B"],
+                {"filter":{"industries":["oil & energy","utilities"],"keywords":[],"marketSegments":["B2B"],
                            "countries":["Qatar"],"employeeBands":["1001-2000"],
                            "revenueBands":["1b-5b"]}}""")
                 .andExpect(jsonPath("$.filter.industries[0]").value("oil & energy"))
@@ -96,7 +96,7 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.filter.employeeBands[0]").value("1001-2000"));
 
         putFilter(admin, projectId, """
-                {"filter":{"industries":["retail"],"marketSegments":[],"countries":[],
+                {"filter":{"industries":["retail"],"keywords":[],"marketSegments":[],"countries":[],
                            "employeeBands":[],"revenueBands":[]}}""");
 
         mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + admin))
@@ -116,7 +116,7 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
         universe.company("a2", "Small Cap").industry("retail").country("Qatar").employees(20).insert();
 
         putFilter(admin, projectId, """
-                {"filter":{"industries":[],"marketSegments":[],"countries":[],
+                {"filter":{"industries":[],"keywords":[],"marketSegments":[],"countries":[],
                            "employeeBands":[],"revenueBands":[],
                            "employeeRange":{"min":500,"max":1000}}}""");
 
@@ -147,20 +147,20 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
                 .employees(9_000).revenue(800_000_000L).keywords("b2c").insert();
 
         assertCount(admin, projectId, """
-                {"industries":["oil & energy"],"marketSegments":[],"countries":[],
+                {"industries":["oil & energy"],"keywords":[],"marketSegments":[],"countries":[],
                  "employeeBands":[],"revenueBands":[]}""", 2);
         assertCount(admin, projectId, """
-                {"industries":[],"marketSegments":[],"countries":["United Arab Emirates"],
+                {"industries":[],"keywords":[],"marketSegments":[],"countries":["United Arab Emirates"],
                  "employeeBands":[],"revenueBands":[]}""", 2);
         assertCount(admin, projectId, """
-                {"industries":[],"marketSegments":["SaaS"],"countries":[],
+                {"industries":[],"keywords":[],"marketSegments":["SaaS"],"countries":[],
                  "employeeBands":[],"revenueBands":[]}""", 1);
         assertCount(admin, projectId, """
-                {"industries":[],"marketSegments":[],"countries":[],
+                {"industries":[],"keywords":[],"marketSegments":[],"countries":[],
                  "employeeBands":["2001-5000"],"revenueBands":[]}""", 1);
         // Two axes are an AND: UAE alone is two companies, oil & energy alone is two, together one.
         assertCount(admin, projectId, """
-                {"industries":["oil & energy"],"marketSegments":[],"countries":["United Arab Emirates"],
+                {"industries":["oil & energy"],"keywords":[],"marketSegments":[],"countries":["United Arab Emirates"],
                  "employeeBands":[],"revenueBands":[]}""", 1);
     }
 
@@ -174,8 +174,34 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
         universe.company("a3", "Three").industry("banking").employees(10).insert();
 
         assertCount(admin, projectId, """
-                {"industries":["oil & energy","retail"],"marketSegments":[],"countries":[],
+                {"industries":["oil & energy","retail"],"keywords":[],"marketSegments":[],"countries":[],
                  "employeeBands":[],"revenueBands":[]}""", 2);
+    }
+
+    @Test
+    @DisplayName("keywords OR each other, and AND with the other axes")
+    void keywordsNarrowWithinTheOtherAxes() throws Exception {
+        String admin = adminOf("Strategy Keyword Firm");
+        String projectId = project(admin);
+        universe.company("a1", "One").industry("computer software").employees(10)
+                .keywords("saas", "fintech").insert();
+        universe.company("a2", "Two").industry("computer software").employees(10)
+                .keywords("payments").insert();
+        universe.company("a3", "Three").industry("retail").employees(10).keywords("saas").insert();
+
+        // An empty list is the unticked checkbox: no constraint, not "match nothing".
+        assertCount(admin, projectId, """
+                {"industries":[],"keywords":[],"marketSegments":[],"countries":[],
+                 "employeeBands":[],"revenueBands":[]}""", 3);
+        assertCount(admin, projectId, """
+                {"industries":[],"keywords":["saas"],"marketSegments":[],"countries":[],
+                 "employeeBands":[],"revenueBands":[]}""", 2);
+        assertCount(admin, projectId, """
+                {"industries":[],"keywords":["saas","payments"],"marketSegments":[],"countries":[],
+                 "employeeBands":[],"revenueBands":[]}""", 3);
+        assertCount(admin, projectId, """
+                {"industries":["computer software"],"keywords":["saas"],"marketSegments":[],
+                 "countries":[],"employeeBands":[],"revenueBands":[]}""", 1);
     }
 
     @Test
@@ -188,14 +214,14 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
 
         // A numeric band excludes the row with no figure: it cannot be shown to fall in the band.
         assertCount(admin, projectId, """
-                {"industries":[],"marketSegments":[],"countries":[],"employeeBands":[],
+                {"industries":[],"keywords":[],"marketSegments":[],"countries":[],"employeeBands":[],
                  "revenueBands":["1b-5b"]}""", 1);
         // Unknown is the only way to reach it, which is why the band exists at all.
         assertCount(admin, projectId, """
-                {"industries":[],"marketSegments":[],"countries":[],"employeeBands":[],
+                {"industries":[],"keywords":[],"marketSegments":[],"countries":[],"employeeBands":[],
                  "revenueBands":["unknown"]}""", 1);
         assertCount(admin, projectId, """
-                {"industries":[],"marketSegments":[],"countries":[],"employeeBands":[],
+                {"industries":[],"keywords":[],"marketSegments":[],"countries":[],"employeeBands":[],
                  "revenueBands":["1b-5b","unknown"]}""", 2);
     }
 
@@ -389,7 +415,7 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
 
         // Unlike a duplicate on the off-limits list, this one has an obvious right answer.
         putFilter(admin, projectId, """
-                {"filter":{"industries":["retail","retail"],"marketSegments":[],"countries":[],
+                {"filter":{"industries":["retail","retail"],"keywords":[],"marketSegments":[],"countries":[],
                            "employeeBands":[],"revenueBands":[]}}""")
                 .andExpect(jsonPath("$.filter.industries.length()").value(1));
     }
@@ -405,7 +431,7 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"filter":{"industries":[],"marketSegments":[],"countries":[],
+                                {"filter":{"industries":[],"keywords":[],"marketSegments":[],"countries":[],
                                            "employeeBands":["500-600"],"revenueBands":[]
                                            }}"""))
                 .andReturn();
@@ -415,7 +441,7 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
         // An industry comes from the facets response verbatim; one the universe has stopped carrying
         // should narrow to nothing rather than 400 a save the user cannot fix.
         putFilter(admin, projectId, """
-                {"filter":{"industries":["a sector that left the universe"],"marketSegments":[],
+                {"filter":{"industries":["a sector that left the universe"],"keywords":[],"marketSegments":[],
                            "countries":[],"employeeBands":[],"revenueBands":[]
                            }}""");
         mvc.perform(get(companiesUrl(projectId)).header("Authorization", "Bearer " + admin))
@@ -432,7 +458,7 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"filter":{"industries":[],"countries":[],"employeeBands":[],
+                                {"filter":{"industries":[],"keywords":[],"countries":[],"employeeBands":[],
                                            "revenueBands":[]}}"""))
                 .andReturn();
         assertThat(result.getResponse().getStatus()).isEqualTo(400);

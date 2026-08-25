@@ -28,6 +28,8 @@ import org.springframework.test.web.servlet.MvcResult;
 @Import(RecordingEmailSender.Config.class)
 class CompanyFacetIntegrationTest extends FlowTestSupport {
 
+    private static final String KEYWORDS_URL = "/api/v1/companies/keywords";
+
     @Autowired JdbcTemplate db;
 
     private ApolloUniverse universe;
@@ -39,7 +41,7 @@ class CompanyFacetIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("industries arrive grouped by the taxonomy, with rolled-up group counts")
+    @DisplayName("industries arrive grouped by the taxonomy, each with its own count")
     void industriesArriveGrouped() throws Exception {
         String admin = adminOf("Facet Sector Firm");
         universe.company("a1", "One").industry("oil & energy").employees(10).insert();
@@ -52,8 +54,8 @@ class CompanyFacetIntegrationTest extends FlowTestSupport {
                 .andReturn();
 
         var energy = groupNamed(result, "Energy & Utilities");
-        // The group header states the size of the whole slice, so the client never sums the children.
-        assertThat(energy.get("count").asLong()).isEqualTo(3);
+        // The group carries no rolled-up total: the sidebar states a group by what is inside it.
+        assertThat(energy.has("count")).isFalse();
         assertThat(industryCount(energy, "oil & energy")).isEqualTo(2);
         assertThat(industryCount(energy, "utilities")).isEqualTo(1);
     }
@@ -193,6 +195,55 @@ class CompanyFacetIntegrationTest extends FlowTestSupport {
                 .andReturn();
         assertThat(result.getResponse().getStatus()).isEqualTo(400);
         assertThat(codeOf(result)).isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
+    @DisplayName("a prefix match beats a mid-word one, and a one-company keyword is not offered")
+    void keywordSuggestionsRankPrefixAndDropTheTail() throws Exception {
+        String admin = adminOf("Facet Keyword Firm");
+        // Above the floor, and "enterprise saas" is the bigger slice of the two.
+        for (int index = 0; index < 12; index++) {
+            universe.company("big" + index, "Big " + index).industry("retail").employees(10)
+                    .keywords("enterprise saas").insert();
+        }
+        for (int index = 0; index < 11; index++) {
+            universe.company("mid" + index, "Mid " + index).industry("retail").employees(10)
+                    .keywords("saas").insert();
+        }
+        universe.company("solo", "Solo").industry("retail").employees(10)
+                .keywords("saas consultancy for yachts").insert();
+        universe.refreshKeywordVocabulary();
+
+        // Ranked on the prefix first: the bigger slice is the one the consultant did not type.
+        mvc.perform(get(KEYWORDS_URL).param("q", "saas").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.keywords.length()").value(2))
+                .andExpect(jsonPath("$.keywords[0].value").value("saas"))
+                .andExpect(jsonPath("$.keywords[1].value").value("enterprise saas"));
+
+        // The third match reaches one company. Three keywords in four in the real universe look like
+        // that, and they are that company's own marketing copy rather than an axis of the market.
+        mvc.perform(get(KEYWORDS_URL).param("q", "yachts").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.keywords.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("a query too short to narrow the scan is refused rather than answered")
+    void shortKeywordQueryIsNotRun() throws Exception {
+        String admin = adminOf("Facet Keyword Floor Firm");
+        for (int index = 0; index < 12; index++) {
+            universe.company("s" + index, "S " + index).industry("retail").employees(10)
+                    .keywords("saas").insert();
+        }
+        universe.refreshKeywordVocabulary();
+
+        mvc.perform(get(KEYWORDS_URL).param("q", "s").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.keywords.length()").value(0));
+        mvc.perform(get(KEYWORDS_URL).param("q", "sa").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.keywords.length()").value(1));
     }
 
     @Test

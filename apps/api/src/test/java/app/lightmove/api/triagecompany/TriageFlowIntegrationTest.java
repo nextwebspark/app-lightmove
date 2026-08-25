@@ -240,7 +240,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
         universe.company("a2", "Energy Two").industry("oil & energy").employees(90).insert();
         universe.company("a3", "Shop Three").industry("retail").employees(80).insert();
         putFilter(admin, projectId, """
-                {"filter":{"industries":["oil & energy"],"marketSegments":[],"countries":[],
+                {"filter":{"industries":["oil & energy"],"keywords":[],"marketSegments":[],"countries":[],
                            "employeeBands":[],"revenueBands":[]}}""");
 
         mvc.perform(post(triageUrl(projectId) + "/from-filter")
@@ -265,7 +265,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                     .employees(100 - index).insert();
         }
         putFilter(admin, projectId, """
-                {"filter":{"industries":["oil & energy"],"marketSegments":[],"countries":[],
+                {"filter":{"industries":["oil & energy"],"keywords":[],"marketSegments":[],"countries":[],
                            "employeeBands":[],"revenueBands":[]}}""");
 
         MvcResult refused = mvc.perform(post(triageUrl(projectId) + "/from-filter")
@@ -290,7 +290,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
         universe.company("a1", "Energy One").industry("oil & energy").employees(100).insert();
         universe.company("a2", "Energy Two").industry("oil & energy").employees(90).insert();
         putFilter(admin, projectId, """
-                {"filter":{"industries":["oil & energy"],"marketSegments":[],"countries":[],
+                {"filter":{"industries":["oil & energy"],"keywords":[],"marketSegments":[],"countries":[],
                            "employeeBands":[],"revenueBands":[]}}""");
 
         String declinedId = add(admin, projectId, "a1");

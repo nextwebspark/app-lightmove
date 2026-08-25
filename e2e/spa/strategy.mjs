@@ -74,7 +74,7 @@ const api = async (path, { method = "GET", body, token } = {}) => {
 };
 
 const EMPTY_FILTER = {
-  industries: [], marketSegments: [], countries: [],
+  industries: [], keywords: [], marketSegments: [], countries: [],
   employeeBands: [], revenueBands: [], employeeRange: null, revenueRange: null,
 };
 
@@ -166,6 +166,8 @@ async function freshFilter() {
 }
 
 const TOP_COUNTRY = sql("SELECT company_country FROM app_lm_apollo_companies WHERE company_country IS NOT NULL GROUP BY 1 ORDER BY count(*) DESC LIMIT 1");
+// Assigned in S3.8 and reused by S3.9: `facets` is captured from a live response, not read here.
+let topIndustry = null;
 const SECOND_COUNTRY = sql("SELECT company_country FROM app_lm_apollo_companies WHERE company_country IS NOT NULL GROUP BY 1 ORDER BY count(*) DESC OFFSET 1 LIMIT 1");
 
 try {
@@ -195,7 +197,7 @@ try {
     check("S2.3", "the revenue bands, Unknown included, account for every company", UNIVERSE, sum("revenueBands"));
     // Not asserted — see 14.4 and issue #91: companies with no industry fall outside every sector
     // group, so this sum is short by exactly those rows. Printed, not failed.
-    note("S2.4", `sector groups sum to ${facets.sectorGroups.reduce((total, group) => total + group.count, 0).toLocaleString()} of ${UNIVERSE.toLocaleString()} — the rest carry no industry (#91)`);
+    note("S2.4", `sector groups sum to ${facets.sectorGroups.flatMap((group) => group.industries).reduce((total, industry) => total + industry.count, 0).toLocaleString()} of ${UNIVERSE.toLocaleString()} — the rest carry no industry (#91)`);
     check("S2.5", "Unknown revenue is the rows carrying no figure",
       num("SELECT count(*) FROM app_lm_apollo_companies WHERE annual_revenue IS NULL"),
       facets.revenueBands.find((band) => band.value === "unknown")?.count);
@@ -255,26 +257,46 @@ try {
     check("S3.7", "Revenue → Unknown reaches the rows with no figure", want, await waitTotal(want));
     await shot("revenue-unknown");
   });
-  await step("S3.8", "a whole sector takes all of its industries", async () => {
+  await step("S3.8", "an industry is taken from the box by typing it", async () => {
     await freshFilter();
     await openAccordion("Industry");
-    // Sector and industry rows are role=checkbox, not buttons, and the first group is whatever the
-    // taxonomy file lists first — read it from the facets rather than naming it here.
-    const group = facets.sectorGroups[0];
-    const industries = group.industries.map((entry) => `'${entry.value.replace(/'/g, "''")}'`).join(",");
-    await page.getByRole("checkbox", { name: new RegExp(`^${group.name}`) }).first().click();
-    const want = num(`SELECT count(*) FROM app_lm_apollo_companies WHERE lower(industry) IN (${industries})`);
-    check("S3.8", `selecting the ${group.name} sector takes all ${group.industries.length} of its industries`, want, await waitTotal(want));
-    await shot("sector");
+    // The box offers leaves only — a sector is not something to select.
+    topIndustry = facets.sectorGroups
+      .flatMap((group) => group.industries)
+      .sort((a, b) => b.count - a.count)[0];
+    await page.getByLabel("Search industries").fill(topIndustry.label);
+    await page.getByRole("option", { name: new RegExp(`^${topIndustry.label}`) }).first().click();
+    const escaped = topIndustry.value.replace(/'/g, "''");
+    const want = num(`SELECT count(*) FROM app_lm_apollo_companies WHERE lower(industry) = '${escaped}'`);
+    check("S3.8", `taking ${topIndustry.label} from the box filters to it alone`, want, await waitTotal(want));
+    await shot("industry");
   });
   await step("S3.9", "two different axes are AND-ed", async () => {
     await openAccordion("Location");
     await page.getByRole("button", { name: new RegExp(`^${TOP_COUNTRY}`) }).first().click();
-    const group = facets.sectorGroups[0];
-    const industries = group.industries.map((entry) => `'${entry.value.replace(/'/g, "''")}'`).join(",");
-    const want = num(`SELECT count(*) FROM app_lm_apollo_companies WHERE lower(industry) IN (${industries}) AND company_country = '${TOP_COUNTRY.replace(/'/g, "''")}'`);
+    const escaped = topIndustry.value.replace(/'/g, "''");
+    const want = num(`SELECT count(*) FROM app_lm_apollo_companies WHERE lower(industry) = '${escaped}' AND company_country = '${TOP_COUNTRY.replace(/'/g, "''")}'`);
     check("S3.9", "two different axes are AND-ed", want, await waitTotal(want));
     await shot("two-axes");
+  });
+  await step("S3.10", "Include keywords is an opt-in that narrows", async () => {
+    await freshFilter();
+    await openAccordion("Industry");
+    // Unticked is no constraint at all, which is the whole point of the checkbox.
+    check("S3.10a", "the unticked box leaves the universe whole", UNIVERSE, await waitTotal(UNIVERSE));
+
+    // The box only searches from two characters: one groups every keyword the universe holds.
+    // Read from the same vocabulary the box offers, not from the table under it.
+    const keyword = sql(`SELECT keyword FROM app_lm_apollo_keywords
+                         WHERE company_count >= 10 ORDER BY company_count DESC, 1 LIMIT 1`);
+    await page.getByRole("checkbox", { name: "Include keywords" }).click();
+    await page.getByLabel("Search keywords").fill(keyword.slice(0, 4));
+    await page.getByRole("option", { name: new RegExp(`^${keyword}`) }).first().click();
+
+    const want = num(`SELECT count(*) FROM app_lm_apollo_companies
+                      WHERE keywords && ARRAY['${keyword.replace(/'/g, "''")}']::text[]`);
+    check("S3.10", `the keyword ${keyword} narrows to the companies carrying it`, want, await waitTotal(want));
+    await shot("keywords");
   });
 
   // ---------------------------------------------------------------- S4 search
@@ -394,8 +416,10 @@ try {
       String(await page.locator('[aria-label="Search companies"]').last().getAttribute("aria-expanded")));
     await page.keyboard.press("Escape");
     await page.waitForTimeout(300);
-    // Scoped to the rail: "Remove" is a common label elsewhere in the shell.
-    const chip = page.locator('[aria-label="Filters"] [aria-label^="Remove "]').first();
+    // Named, not just scoped to the rail: every collapsed accordion now summarises itself with
+    // "Remove <value>" pills, so the first one in the rail is whichever axis sits highest.
+    const barred = target.slice(0, 14).replace(/"/g, '\\"');
+    const chip = page.locator(`[aria-label="Filters"] [aria-label^="Remove "][aria-label*="${barred}"]`).first();
     if (!(await chip.isVisible().catch(() => false))) await openAccordion("Off-limits");
     await chip.waitFor({ state: "visible", timeout: 15000 });
     await chip.click();

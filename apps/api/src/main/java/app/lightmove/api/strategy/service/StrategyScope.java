@@ -33,6 +33,7 @@ public final class StrategyScope {
         StrategyFilter filter = strategy.getFilter();
         return new CompanyScope(
                 filter.industries(),
+                filter.keywords(),
                 filter.marketSegments(),
                 filter.countries(),
                 filter.employeeBands(),
