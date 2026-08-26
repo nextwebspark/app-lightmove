@@ -1,5 +1,7 @@
 Closes #
 
+<!-- Leave the number off and an issue is filed for this PR and linked here automatically. -->
+
 ## What
 
 <!-- What this change does, and why. -->
