@@ -17,8 +17,12 @@ export interface SectorGroup {
 }
 
 /**
- * Everything the filter sidebar renders, in one read. Counts are over the whole universe rather than
- * the current selection, so this is the same for every mandate and no chip click invalidates it.
+ * The shape of the market: what every accordion can offer, the order it renders in, and how big each
+ * option is across the whole universe. The same for every mandate and stable until the pipeline next
+ * loads, which is why no chip click invalidates it.
+ *
+ * The numbers the sidebar actually shows are `FacetCounts`, which follow the selection. Order stays
+ * here so a row cannot re-rank itself under the hand that just clicked the row above it.
  */
 export interface Facets {
   sectorGroups: SectorGroup[];
@@ -32,6 +36,34 @@ export interface Facets {
   countries: FacetCount[];
   employeeBands: FacetCount[];
   revenueBands: FacetCount[];
+}
+
+/**
+ * A facet row as the sidebar renders it. The count is optional because it is not always knowable: a
+ * refused counts read shows no number rather than the universe total, which would silently answer a
+ * question nobody asked.
+ */
+export interface FacetOption extends Omit<FacetCount, "count"> {
+  count?: number;
+}
+
+/**
+ * How many companies each option still reaches under the current selection, keyed by the token a
+ * saved filter stores.
+ *
+ * Each axis is counted with every criterion applied **except its own** — picking a country recounts
+ * the industries under it and leaves the other countries countable, where applying everything would
+ * read zero for every country but the chosen one.
+ *
+ * **An option absent from a map counts zero.** The vocabulary lives in `Facets`, which the sidebar
+ * already renders from, so repeating it here to carry a zero would only let the two disagree.
+ */
+export interface FacetCounts {
+  industries: Record<string, number>;
+  countries: Record<string, number>;
+  employeeBands: Record<string, number>;
+  revenueBands: Record<string, number>;
+  marketSegments: Record<string, number>;
 }
 
 /**

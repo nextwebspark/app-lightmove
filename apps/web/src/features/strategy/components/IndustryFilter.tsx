@@ -17,6 +17,7 @@ export function IndustryFilter({
   groups,
   adjacency,
   selected,
+  countOf,
   onChange,
   children,
 }: {
@@ -24,6 +25,13 @@ export function IndustryFilter({
   /** Which industries sit beside which, from the facets read. */
   adjacency: Record<string, string[]>;
   selected: string[];
+  /**
+   * How many companies an industry still reaches under the rest of the selection, or undefined
+   * where that could not be read. Display only — the list is ordered by the universe counts in
+   * `groups`, because re-ranking 148 rows on every chip click would move the next one out from
+   * under the cursor.
+   */
+  countOf: (industry: string, universeCount: number) => number | undefined;
   onChange: (industries: string[]) => void;
   /** The keyword half of the panel, which sits between the box and the suggestions it feeds. */
   children?: ReactNode;
@@ -32,6 +40,8 @@ export function IndustryFilter({
   const [showAllAdjacent, setShowAllAdjacent] = useState(false);
   const chosen = new Set(selected);
 
+  // Ordered by the universe count, which is the one number that does not move while the consultant
+  // is choosing. The count each row *shows* comes from countOf and follows the selection.
   const leaves = useMemo(
     () =>
       groups
@@ -47,10 +57,12 @@ export function IndustryFilter({
   const needle = query.trim().toLowerCase();
   const offered = useMemo(
     () =>
-      leaves.filter(
-        (leaf) => !chosen.has(leaf.value) && (!needle || leaf.label.toLowerCase().includes(needle)),
-      ),
-    [leaves, selected, needle],
+      leaves
+        .filter(
+          (leaf) => !chosen.has(leaf.value) && (!needle || leaf.label.toLowerCase().includes(needle)),
+        )
+        .map((leaf) => ({ ...leaf, count: countOf(leaf.value, leaf.count) })),
+    [leaves, selected, needle, countOf],
   );
 
   const addIndustry = (value: string) => onChange([...selected, value]);

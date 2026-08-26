@@ -1,4 +1,4 @@
-import type { FacetCount, NumericRange } from "../api/types";
+import type { FacetOption, NumericRange } from "../api/types";
 import { cn } from "../../../lib/cn";
 import { FacetsUnavailable } from "./FacetsUnavailable";
 import { FilterCheckRow } from "../../../components/ui/FilterCheckRow";
@@ -23,7 +23,7 @@ export function RangeFilter({
   maxPlaceholder = "Max",
   footnote,
 }: {
-  options: FacetCount[] | undefined;
+  options: FacetOption[] | undefined;
   /** The counts were refused, not merely unread — a skeleton here would pulse forever. */
   unavailable?: boolean;
   selectedBands: string[];

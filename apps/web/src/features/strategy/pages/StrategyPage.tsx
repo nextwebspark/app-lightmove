@@ -19,6 +19,7 @@ import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { useGridSort } from "../../../lib/useGridSort";
 import { COMPANY_SORT_FIELDS } from "../lib/companyColumns";
 import { FilterSidebar } from "../components/FilterSidebar";
+import { useDebouncedValue } from "../lib/useComboboxList";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { StrategyToolbar } from "../components/StrategyToolbar";
 
@@ -78,7 +79,8 @@ function StrategyEditor() {
   const [filter, setFilter] = useState<StrategyFilter>(() => strategy.data!.filter);
   const [showFilters, setShowFilters] = useState(hasRoomForRails);
   const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  // A keystroke should narrow the list, not fire a request per character.
+  const debouncedQuery = useDebouncedValue(query, 300);
   const [page, setPage] = useState(0);
   const [sort, setSort] = useGridSort("strategy", project.id, COMPANY_SORT_FIELDS, DEFAULT_SORT);
   const [addingId, setAddingId] = useState<string | null>(null);
@@ -88,15 +90,26 @@ function StrategyEditor() {
     DEFAULT_COLUMN_VISIBILITY,
   );
 
-  // A keystroke should narrow the list, not fire a request per character.
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), 300);
-    return () => clearTimeout(timer);
-  }, [query]);
-
   // Any change to what is being asked returns to the first page. Staying on page 4 of a filter that
   // now matches two companies shows an empty table over a non-empty result.
   useEffect(() => setPage(0), [filter, debouncedQuery, sort]);
+
+  /**
+   * The sidebar's counts, taken against the draft rather than the saved filter.
+   *
+   * <p>Not driven by the autosave: waiting for the debounce, the PUT and the invalidation would
+   * leave every accordion a second behind the chip that was just clicked, and wrong for the whole of
+   * it. A short settle of its own is enough to collapse a run of clicks into one request.
+   *
+   * <p>`keepPreviousData` so a refetch never blanks the numbers — a rail of empty rows between two
+   * clicks reads as the filter having broken.
+   */
+  const countedFilter = useDebouncedValue(filter);
+  const facetCounts = useQuery({
+    queryKey: strategyApi.STRATEGY_FACET_COUNTS_KEY(project.id, countedFilter),
+    queryFn: ({ signal }) => strategyApi.getFacetCounts(project.id, countedFilter, signal),
+    placeholderData: keepPreviousData,
+  });
 
   const refreshScopedReads = async () => {
     const scopedKeys = [
@@ -176,6 +189,12 @@ function StrategyEditor() {
         await strategyApi.putOffLimits(project.id, apolloAccountIds),
       );
       await refreshScopedReads();
+      // The sidebar's counts are keyed on the filter, and barring a company does not change it —
+      // but the server bars it on every axis, so the numbers on screen are now one company out.
+      // This is the one scope change the key cannot see, which is why it is invalidated by hand.
+      void queryClient.invalidateQueries({
+        queryKey: strategyApi.STRATEGY_FACET_COUNTS_KEY_PREFIX(project.id),
+      });
     },
     onError: (error) => toast(messageFor(error)),
   });
@@ -241,6 +260,8 @@ function StrategyEditor() {
             <FilterSidebar
               facets={facets.data}
               facetsError={facets.isError}
+              counts={facetCounts.data}
+              countsError={facetCounts.isError}
               filter={filter}
               offLimits={data?.offLimits ?? []}
               onChange={applyFilter}

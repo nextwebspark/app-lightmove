@@ -10,7 +10,7 @@ import app.lightmove.api.strategy.dto.FacetsResponse;
 import app.lightmove.api.strategy.dto.KeywordSuggestionsResponse;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
-import app.lightmove.api.strategy.service.IndustryAdjacency;
+import app.lightmove.api.strategy.service.CompanyFacetService;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,38 +25,41 @@ import org.springframework.web.bind.annotation.RestController;
  * {@code PROJECT_BROWSE} is the gate — whoever may browse projects may see the shape of the market.
  * Nothing here is writable, and nothing here is scoped to a mandate.
  *
- * <p>A mandate's own filtered list is deliberately <i>not</i> here. It lives under
- * {@code /projects/{projectId}/strategy/companies} behind the project-level {@code WORK_VIEW},
- * because which companies a search is looking at is the search's content, not the market's shape.
+ * <p>A mandate's own filtered list is deliberately <i>not</i> here, and neither are the counts its
+ * filter cuts. Both live under {@code /projects/{projectId}/strategy} behind the project-level
+ * {@code WORK_VIEW}, because which companies a search is looking at — and how many each remaining
+ * chip would still reach — is the search's content, not the market's shape.
  */
 @RestController
 @RequestMapping("/api/v1/companies")
 public class CompanySearchController {
 
     private final ApolloCompanyQueryService companies;
-    private final IndustryAdjacency adjacency;
+    private final CompanyFacetService facets;
     private final CompanySearchSettings searchConfig;
 
     // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
     // properties root rather than taking it, which is the one case the Lombok rule exempts.
-    public CompanySearchController(ApolloCompanyQueryService companies, IndustryAdjacency adjacency,
+    public CompanySearchController(ApolloCompanyQueryService companies, CompanyFacetService facets,
                                    LightMoveProperties properties) {
         this.companies = companies;
-        this.adjacency = adjacency;
+        this.facets = facets;
         this.searchConfig = properties.company().search();
     }
 
-    /** Everything the five filter accordions render, counted over the whole universe. */
+    /**
+     * What the five filter accordions can offer: the vocabulary, the order it renders in, and how big
+     * each option is across the whole universe.
+     *
+     * <p>The same for every mandate and stable until the pipeline next loads, which is what makes it
+     * cacheable. The numbers a sidebar actually shows are the ones its own selection cuts — those
+     * come from the mandate's {@code /strategy/facet-counts}, and the order still comes from here so
+     * a row cannot re-rank itself under the hand that just clicked the row above it.
+     */
     @GetMapping("/facets")
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
     public ResponseEntity<FacetsResponse> facets() {
-        return ResponseEntity.ok(new FacetsResponse(
-                companies.sectorGroups(),
-                adjacency.neighbours(),
-                companies.marketSegmentFacets(),
-                companies.countryFacets(),
-                companies.employeeBandFacets(),
-                companies.revenueBandFacets()));
+        return ResponseEntity.ok(facets.universeFacets());
     }
 
     /**
@@ -90,7 +93,7 @@ public class CompanySearchController {
         if (trimmed.length() < searchConfig.keywordMinQueryLength()) {
             return ResponseEntity.ok(new KeywordSuggestionsResponse(List.of()));
         }
-        return ResponseEntity.ok(new KeywordSuggestionsResponse(companies.keywordSuggestions(
+        return ResponseEntity.ok(new KeywordSuggestionsResponse(facets.keywordSuggestions(
                 trimmed, searchConfig.keywordSuggestionLimit(), searchConfig.keywordMinCompanies())));
     }
 

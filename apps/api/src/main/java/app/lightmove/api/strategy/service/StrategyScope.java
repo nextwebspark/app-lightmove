@@ -3,6 +3,7 @@ package app.lightmove.api.strategy.service;
 import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.model.Strategy;
 import app.lightmove.api.strategy.model.StrategyFilter;
+import java.util.List;
 
 /**
  * Translates a mandate's saved {@link Strategy} into the universe scope it defines.
@@ -30,7 +31,23 @@ public final class StrategyScope {
 
     /** The same scope, narrowed by a caller's name filter. */
     public static CompanyScope of(Strategy strategy, String nameQuery) {
-        StrategyFilter filter = strategy.getFilter();
+        return of(strategy.getFilter(), strategy.offLimitsAccountIds(), nameQuery);
+    }
+
+    /**
+     * The scope a filter the mandate has not saved yet would define, barred companies included.
+     *
+     * <p>The sidebar's facet counts run against the draft rather than the stored document, because
+     * the filter autosaves on a debounce and counts a second behind the chips would be wrong for the
+     * whole of it. The off-limits list stays the strategy's own either way: it is a standing decision
+     * about particular companies, never something a request supplies.
+     */
+    public static CompanyScope of(StrategyFilter filter, List<String> offLimitsAccountIds) {
+        return of(filter, offLimitsAccountIds, null);
+    }
+
+    private static CompanyScope of(StrategyFilter filter, List<String> offLimitsAccountIds,
+                                   String nameQuery) {
         return new CompanyScope(
                 filter.industries(),
                 filter.keywords(),
@@ -40,7 +57,7 @@ public final class StrategyScope {
                 filter.revenueBands(),
                 filter.employeeRange(),
                 filter.revenueRange(),
-                strategy.offLimitsAccountIds(),
+                offLimitsAccountIds,
                 nameQuery);
     }
 }

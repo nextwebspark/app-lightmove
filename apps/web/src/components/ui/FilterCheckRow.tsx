@@ -10,9 +10,9 @@ import { cn } from "../../lib/cn";
  * re-scan to find the checked ones. Leaving the text alone means the checkmarks are the only signal,
  * which is the one you actually want to follow down a column of eleven bands.
  *
- * <p>The count is over the whole universe rather than the current selection, so it answers "how big
- * is this slice of the market" rather than "how many are left", and does not move under the hand as
- * you tick boxes.
+ * <p>The count follows the current selection — every other axis applied, this one left out — so it
+ * answers "how many are left if I tick this". The row's <i>position</i> does not follow it: order
+ * comes from the universe read, so nothing slides out from under the hand mid-click.
  */
 export function FilterCheckRow({
   label,
@@ -22,7 +22,7 @@ export function FilterCheckRow({
   size = "md",
 }: {
   label: string;
-  /** Omitted where the universe cannot count the axis; the row then shows nothing on the right. */
+  /** Omitted where the axis cannot be counted, or the counts read was refused. */
   count?: number;
   checked: boolean;
   onToggle: () => void;

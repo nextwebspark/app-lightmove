@@ -6,10 +6,15 @@ import java.util.Map;
 /**
  * Everything the Strategy filter sidebar renders, in one read.
  *
- * <p>One call rather than five because the sidebar shows five accordions at once and none of the
- * counts depends on the others — splitting it would mean five round trips to draw one panel. The
- * counts are over the whole universe, so this response is the same for every project in the
- * workspace and stays valid until the pipeline next loads.
+ * <p>One call rather than five because the sidebar shows five accordions at once and none of them
+ * depends on the others — splitting it would mean five round trips to draw one panel. Everything
+ * here is the market's own shape, so this response is the same for every project in the workspace
+ * and stays valid until the pipeline next loads, which is what makes it worth caching.
+ *
+ * <p><b>The counts here are the universe's, not the selection's.</b> They order the accordions and
+ * stand in until a mandate's own counts arrive; {@link FacetCountsResponse} carries the numbers a
+ * row settles on. Keeping the order here is the point of the split — a row ranked by a number that
+ * moves would slide out from under the hand that just clicked the row above it.
  *
  * <p>Each entry carries its {@code value} — the token a saved filter stores — beside its display
  * {@code label}, so the client never keeps a mirror of the band vocabulary and never has to guess

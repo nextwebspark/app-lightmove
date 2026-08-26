@@ -51,6 +51,30 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the sidebar's counts are a read: unseated is refused, a seated researcher is not")
+    void facetCountsFollowTheReadGate() throws Exception {
+        Fixture f = fixture("Strategy Counts Gate Firm");
+        String body = "{\"filter\":" + """
+                {"industries":[],"keywords":[],"marketSegments":[],"countries":[],
+                 "employeeBands":[],"revenueBands":[]}""" + "}";
+
+        // POST, but it writes nothing — so it takes the seat that reads the mandate, not the one
+        // that edits it. Gating it as a write would leave a CLIENT seat with a sidebar of blanks.
+        mvc.perform(post(facetCountsUrl(f.projectId))
+                        .header("Authorization", "Bearer " + login(f.saraEmail))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isForbidden());
+
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+        mvc.perform(post(facetCountsUrl(f.projectId))
+                        .header("Authorization", "Bearer " + login(f.saraEmail))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("a seated researcher reads the strategy but cannot write the filter")
     void researcherReadsButCannotWrite() throws Exception {
         Fixture f = fixture("Strategy Researcher Firm");
@@ -149,6 +173,10 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
 
     private static String companiesUrl(String projectId) {
         return strategyUrl(projectId) + "/companies";
+    }
+
+    private static String facetCountsUrl(String projectId) {
+        return strategyUrl(projectId) + "/facet-counts";
     }
 
     private static String searchesUrl(String projectId) {

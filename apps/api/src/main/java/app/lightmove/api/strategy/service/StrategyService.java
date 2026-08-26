@@ -14,6 +14,8 @@ import app.lightmove.api.strategy.constant.RevenueBand;
 import app.lightmove.api.strategy.constant.SortDirection;
 import app.lightmove.api.strategy.dto.CompanyRefDto;
 import app.lightmove.api.strategy.dto.CompanyResultDto;
+import app.lightmove.api.strategy.dto.FacetCountsRequest;
+import app.lightmove.api.strategy.dto.FacetCountsResponse;
 import app.lightmove.api.strategy.dto.PutOffLimitsRequest;
 import app.lightmove.api.strategy.dto.PutStrategyFilterRequest;
 import app.lightmove.api.strategy.dto.StrategyCompaniesResponse;
@@ -73,6 +75,7 @@ public class StrategyService {
     private final StrategySearchService searches;
     private final AuditService audit;
     private final ApolloCompanyQueryService companies;
+    private final CompanyFacetService facets;
     private final CompanyListSettings listConfig;
     private final CompanySearchSettings searchConfig;
 
@@ -80,12 +83,14 @@ public class StrategyService {
     // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public StrategyService(StrategyRepository strategies, ProjectRepository projects,
                            StrategySearchService searches, AuditService audit,
-                           ApolloCompanyQueryService companies, LightMoveProperties properties) {
+                           ApolloCompanyQueryService companies, CompanyFacetService facets,
+                           LightMoveProperties properties) {
         this.strategies = strategies;
         this.projects = projects;
         this.searches = searches;
         this.audit = audit;
         this.companies = companies;
+        this.facets = facets;
         this.listConfig = properties.company().list();
         this.searchConfig = properties.company().search();
     }
@@ -157,6 +162,25 @@ public class StrategyService {
         return new StrategyCompaniesResponse(
                 rows.stream().map(StrategyService::toDto).toList(),
                 companies.count(scope), page, size);
+    }
+
+    /**
+     * How many companies each sidebar option still reaches under the selection on screen.
+     *
+     * <p>The draft filter arrives in the request rather than being read back from the saved row —
+     * see {@link FacetCountsRequest} — and it goes through the same validation as a save, so a band
+     * slug this codebase does not own is a 400 here exactly as it is there. It narrows and nothing
+     * more: the off-limits list is the stored strategy's, and a caller who names an industry cannot
+     * see a company the scope did not already reach.
+     */
+    @Transactional(readOnly = true)
+    public FacetCountsResponse facetCounts(UUID workspaceId, UUID projectId,
+                                           FacetCountsRequest request) {
+        requireProject(projectId, workspaceId);
+        Strategy strategy = strategies.findByProjectId(projectId)
+                .orElseGet(() -> Strategy.forProject(projectId));
+        return facets.countsFor(
+                StrategyScope.of(toFilter(request.filter()), strategy.offLimitsAccountIds()));
     }
 
     /** The scope a mandate's filter currently defines, for the callers that act on it in bulk. */

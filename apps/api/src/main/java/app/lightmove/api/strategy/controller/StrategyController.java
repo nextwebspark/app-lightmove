@@ -1,6 +1,8 @@
 package app.lightmove.api.strategy.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.strategy.dto.FacetCountsRequest;
+import app.lightmove.api.strategy.dto.FacetCountsResponse;
 import app.lightmove.api.strategy.dto.PutOffLimitsRequest;
 import app.lightmove.api.strategy.dto.PutStrategyFilterRequest;
 import app.lightmove.api.strategy.dto.RenameSearchRequest;
@@ -90,6 +92,24 @@ public class StrategyController {
             @RequestParam(required = false) Integer size) {
         return ResponseEntity.ok(strategy.companies(principal.requireWorkspaceId(), projectId, query,
                 sort, direction, page, size));
+    }
+
+    /**
+     * The sidebar's counts for the selection on screen.
+     *
+     * <p>POST because the body is a filter, not because it writes: nothing here changes, and the
+     * accordion's whole selection does not belong in a query string. It sits behind the project seat
+     * rather than beside the workspace-level facets read because a count conditioned on a mandate's
+     * filter is that mandate's thinking, not the market's shape.
+     */
+    @PostMapping("/facet-counts")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
+    public ResponseEntity<FacetCountsResponse> facetCounts(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable UUID projectId,
+            @Valid @RequestBody FacetCountsRequest request) {
+        return ResponseEntity.ok(strategy.facetCounts(principal.requireWorkspaceId(), projectId,
+                request));
     }
 
     /**

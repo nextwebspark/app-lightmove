@@ -2,6 +2,7 @@ import { request } from "../../../lib/apiClient";
 import type {
   CompanyPage,
   CompanySort,
+  FacetCounts,
   SavedSearch,
   Strategy,
   StrategyFilter,
@@ -25,6 +26,21 @@ export const STRATEGY_COMPANIES_KEY = (
   sort: CompanySort,
 ) =>
   [...STRATEGY_COMPANIES_KEY_PREFIX(projectId), page, size, query, sort.field, sort.direction] as const;
+
+/**
+ * Every counts read for one mandate. The off-limits list is part of the scope the server applies but
+ * not part of the key, so barring a company has to invalidate through this rather than be noticed.
+ */
+export const STRATEGY_FACET_COUNTS_KEY_PREFIX = (projectId: string) =>
+  ["strategyFacetCounts", projectId] as const;
+
+/**
+ * Keyed on the filter itself: the counts are a pure function of the selection, so two paths back to
+ * the same chips reuse one cached answer. React Query hashes the object deterministically, so it can
+ * be the key as it stands.
+ */
+export const STRATEGY_FACET_COUNTS_KEY = (projectId: string, filter: StrategyFilter) =>
+  [...STRATEGY_FACET_COUNTS_KEY_PREFIX(projectId), filter] as const;
 
 export function getStrategy(projectId: string): Promise<Strategy> {
   return request<Strategy>(`/projects/${projectId}/strategy`);
@@ -60,6 +76,26 @@ export function getCompanies(
   });
   if (query) params.set("q", query);
   return request<CompanyPage>(`/projects/${projectId}/strategy/companies?${params}`, { signal });
+}
+
+/**
+ * The sidebar's counts for the selection on screen.
+ *
+ * The draft goes in the body rather than being read back from the saved row: the filter autosaves on
+ * a debounce, and counts resolved from the stored document would trail every chip click by the
+ * better part of a second. A POST for a read, because a whole accordion selection does not belong in
+ * a query string.
+ */
+export function getFacetCounts(
+  projectId: string,
+  filter: StrategyFilter,
+  signal?: AbortSignal,
+): Promise<FacetCounts> {
+  return request<FacetCounts>(`/projects/${projectId}/strategy/facet-counts`, {
+    method: "POST",
+    body: { filter },
+    signal,
+  });
 }
 
 export function saveSearch(projectId: string, name: string): Promise<SavedSearch> {

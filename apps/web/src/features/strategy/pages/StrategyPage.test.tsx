@@ -8,7 +8,7 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import type { Project } from "../../projects/api/types";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
-import type { CompanyPage, Facets, Strategy, StrategyFilter } from "../api/types";
+import type { CompanyPage, FacetCounts, Facets, Strategy, StrategyFilter } from "../api/types";
 import * as triageApi from "../../triage/api/triageApi";
 import { StrategyPage } from "./StrategyPage";
 
@@ -20,6 +20,7 @@ vi.mock("../api/strategyApi", async (importOriginal) => ({
   saveSearch: vi.fn(),
   deleteSearch: vi.fn(),
   putOffLimits: vi.fn(),
+  getFacetCounts: vi.fn(),
 }));
 vi.mock("../../triage/api/triageApi", async (importOriginal) => ({
   ...(await importOriginal<typeof triageApi>()),
@@ -78,6 +79,15 @@ const FACETS: Facets = {
     { value: "1b-5b", label: "$1B - $5B", count: 289 },
     { value: "unknown", label: "Unknown", count: 64690 },
   ],
+};
+
+/** The universe's own numbers, which is what an untouched filter cuts. */
+const COUNTS: FacetCounts = {
+  industries: { "oil & energy": 2, utilities: 1, construction: 5 },
+  countries: { "United Arab Emirates": 37154, Qatar: 4609 },
+  employeeBands: { "1001-2000": 2022, "2001-5000": 640 },
+  revenueBands: { "1b-5b": 289, unknown: 64690 },
+  marketSegments: { B2B: 40 },
 };
 
 const strategyOf = (filter: StrategyFilter = EMPTY_FILTER): Strategy => ({
@@ -157,6 +167,7 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     }));
     vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf());
     vi.mocked(strategyApi.putFilter).mockImplementation(async (_id, filter) => strategyOf(filter));
+    vi.mocked(strategyApi.getFacetCounts).mockResolvedValue(COUNTS);
   });
 
   it("opens on the whole universe rather than on nothing", async () => {
@@ -179,6 +190,97 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     const filters = await screen.findByRole("region", { name: "Filters" });
     await waitFor(() =>
       expect(within(filters).getByText(/counts are not available to you/i)).toBeInTheDocument(),
+    );
+  });
+
+  it("recounts every other accordion against the selection, and reads an emptied option as zero", async () => {
+    vi.mocked(strategyApi.getFacetCounts).mockImplementation(async (_projectId, filter) =>
+      filter.countries.includes("Qatar") ? { ...COUNTS, industries: { "oil & energy": 1 } } : COUNTS,
+    );
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+
+    await userEvent.click(await within(filters).findByRole("button", { name: /Qatar/ }));
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
+    await userEvent.click(within(filters).getByLabelText("Search industries"));
+
+    // The order is still the universe's — only the numbers move, because a list that re-ranked
+    // itself would slide the next row out from under the hand that just clicked one. utilities and
+    // construction are absent from the scoped counts, and absent is a zero rather than a lost row.
+    await waitFor(() =>
+      expect(within(filters).getAllByRole("option").map((row) => row.textContent)).toEqual([
+        "construction0",
+        "oil & energy1",
+        "utilities0",
+      ]),
+    );
+  });
+
+  it("counts the draft filter rather than the one the mandate has saved", async () => {
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Qatar/ }));
+
+    // getStrategy still answers with the empty filter, so a request carrying Qatar can only have
+    // come from the draft — which is the point: counts resolved from the stored document would
+    // trail every click by the autosave debounce and be wrong for the whole of it.
+    await waitFor(() =>
+      expect(vi.mocked(strategyApi.getFacetCounts).mock.calls.at(-1)![1]).toEqual({
+        ...EMPTY_FILTER,
+        countries: ["Qatar"],
+      }),
+    );
+  });
+
+  it("stands the universe total in until the scoped counts land", async () => {
+    vi.mocked(strategyApi.getFacetCounts).mockReturnValue(new Promise(() => {}));
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+
+    // A rail that drew its rows without numbers and then resized under the reader is worse than one
+    // that opens with the market's own figures and refines them a moment later.
+    const qatar = await within(filters).findByRole("button", { name: /Qatar/ });
+    expect(qatar).toHaveTextContent("4,609");
+  });
+
+  it("shows no number at all when the scoped counts are refused", async () => {
+    vi.mocked(strategyApi.getFacetCounts).mockRejectedValue(new Error("Forbidden"));
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+
+    const qatar = await within(filters).findByRole("button", { name: /Qatar/ });
+    // The universe still knows Qatar holds 4,609 companies. That is not the number this row is
+    // asking for, and printed here it would be indistinguishable from the one it is.
+    await waitFor(() => expect(qatar).toHaveTextContent(/^Qatar$/));
+  });
+
+  it("recounts after a company is barred, which the filter key cannot see", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue({
+      ...strategyOf(),
+      offLimits: [
+        {
+          apolloAccountId: "x1",
+          companyName: "Acme Corp",
+          industry: null,
+          companyCity: null,
+          companyCountry: null,
+          logoUrl: null,
+        },
+      ],
+    });
+    vi.mocked(strategyApi.putOffLimits).mockResolvedValue(strategyOf());
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await waitFor(() => expect(strategyApi.getFacetCounts).toHaveBeenCalled());
+    const before = vi.mocked(strategyApi.getFacetCounts).mock.calls.length;
+
+    await userEvent.click(within(filters).getByRole("button", { name: /^Off-limits/ }));
+    await userEvent.click(within(filters).getByRole("button", { name: "Remove Acme Corp" }));
+
+    // Barring a company narrows every axis, and the counts are keyed on the filter — which a bar
+    // does not touch. Without the explicit invalidation the rail keeps the pre-bar numbers.
+    await waitFor(() =>
+      expect(vi.mocked(strategyApi.getFacetCounts).mock.calls.length).toBeGreaterThan(before),
     );
   });
 

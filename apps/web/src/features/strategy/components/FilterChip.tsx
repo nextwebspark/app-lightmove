@@ -8,8 +8,9 @@ import { cn } from "../../../lib/cn";
  * is why every other panel is a checkbox list: an ordered axis read as wrapped pills loses the order,
  * and a long list of pills is a wall rather than a filter.
  *
- * <p>The count is over the whole universe rather than the current selection, so it does not move
- * under the hand as chips are toggled.
+ * <p>The count follows the current selection — every other axis applied, this one left out — so it
+ * answers "how many are left if I click this". It is absent only when the counts read was refused,
+ * where a universe total standing in would answer a different question without saying so.
  */
 export function FilterChip({
   label,
@@ -18,7 +19,8 @@ export function FilterChip({
   onToggle,
 }: {
   label: string;
-  count: number;
+  /** Absent when the counts read was refused; the chip then shows no number at all. */
+  count?: number;
   selected: boolean;
   onToggle: () => void;
 }) {
@@ -41,14 +43,16 @@ export function FilterChip({
       >
         {label}
       </span>
-      <span
-        className={cn(
-          "font-sans text-[13px] font-semibold",
-          selected ? "text-amber" : "text-text3",
-        )}
-      >
-        {count.toLocaleString()}
-      </span>
+      {count !== undefined && (
+        <span
+          className={cn(
+            "font-sans text-[13px] font-semibold",
+            selected ? "text-amber" : "text-text3",
+          )}
+        >
+          {count.toLocaleString()}
+        </span>
+      )}
     </button>
   );
 }

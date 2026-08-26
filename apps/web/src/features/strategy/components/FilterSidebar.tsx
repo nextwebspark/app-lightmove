@@ -1,7 +1,14 @@
 import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
-import type { CompanyRef, Facets, NumericRange, StrategyFilter } from "../api/types";
+import type {
+  CompanyRef,
+  FacetCounts,
+  FacetOption,
+  Facets,
+  NumericRange,
+  StrategyFilter,
+} from "../api/types";
 import { FacetsUnavailable } from "./FacetsUnavailable";
 import { FilterAccordion, type SelectedTag } from "./FilterAccordion";
 import { FilterCheckRow } from "../../../components/ui/FilterCheckRow";
@@ -44,6 +51,8 @@ const KEYWORD_TAG = "keyword:";
 export function FilterSidebar({
   facets,
   facetsError,
+  counts,
+  countsError,
   filter,
   offLimits,
   onChange,
@@ -51,8 +60,12 @@ export function FilterSidebar({
   onClose,
 }: {
   facets: Facets | undefined;
-  /** The counts were refused. Absent counts and refused counts look identical without this. */
+  /** The facets were refused. Absent facets and refused facets look identical without this. */
   facetsError: boolean;
+  /** How the current selection cuts the market, or undefined until the first read lands. */
+  counts: FacetCounts | undefined;
+  /** The counts were refused — the rows then show no number rather than a universe total. */
+  countsError: boolean;
   filter: StrategyFilter;
   offLimits: CompanyRef[];
   onChange: (filter: StrategyFilter) => void;
@@ -61,6 +74,32 @@ export function FilterSidebar({
   onClose: () => void;
 }) {
   const [open, setOpen] = useState<AccordionKey | null>("location");
+
+  /**
+   * The number a row shows.
+   *
+   * <p>Three states, and the third is the one worth being careful about. Once the scoped counts land
+   * they are the answer, and an option they do not mention reaches nothing — a zero, not a blank.
+   * Until then the universe count stands in, so the rail draws with numbers rather than resizing
+   * under the reader a moment later. If the scoped read was <i>refused</i>, the row shows nothing at
+   * all: a universe total in a scoped row answers a question nobody asked, and looks identical to
+   * the answer they did ask for.
+   */
+  const countOf = (axis: keyof FacetCounts, value: string, universeCount: number) => {
+    if (countsError) return undefined;
+    if (!counts) return universeCount;
+    return counts[axis][value] ?? 0;
+  };
+
+  /** One axis's rows, ordered by the universe read and numbered by the current selection. */
+  const withCounts = (
+    axis: keyof FacetCounts,
+    options: FacetOption[] | undefined,
+  ): FacetOption[] | undefined =>
+    options?.map((option) => ({
+      ...option,
+      count: countOf(axis, option.value, option.count ?? 0),
+    }));
 
   const toggleOpen = (key: AccordionKey) => setOpen((current) => (current === key ? null : key));
 
@@ -164,7 +203,7 @@ export function FilterSidebar({
           <FacetsUnavailable />
         ) : facets ? (
           <div className="flex flex-wrap gap-2">
-            {facets.countries.map((option) => (
+            {withCounts("countries", facets.countries)?.map((option) => (
               <FilterChip
                 key={option.value}
                 label={option.label}
@@ -188,7 +227,7 @@ export function FilterSidebar({
         onReset={() => onChange({ ...filter, employeeBands: [], employeeRange: null })}
       >
         <RangeFilter
-          options={facets?.employeeBands}
+          options={withCounts("employeeBands", facets?.employeeBands)}
           unavailable={facetsError}
           selectedBands={filter.employeeBands}
           range={filter.employeeRange}
@@ -206,7 +245,7 @@ export function FilterSidebar({
         onReset={() => onChange({ ...filter, revenueBands: [], revenueRange: null })}
       >
         <RangeFilter
-          options={facets?.revenueBands}
+          options={withCounts("revenueBands", facets?.revenueBands)}
           unavailable={facetsError}
           selectedBands={filter.revenueBands}
           range={filter.revenueRange}
@@ -240,6 +279,7 @@ export function FilterSidebar({
             groups={facets.sectorGroups}
             adjacency={facets.adjacentIndustries}
             selected={filter.industries}
+            countOf={(industry, universeCount) => countOf("industries", industry, universeCount)}
             onChange={(industries) => onChange({ ...filter, industries })}
           >
             <div className="border-t border-line-soft pt-3">
@@ -266,7 +306,7 @@ export function FilterSidebar({
           {facetsError ? (
             <FacetsUnavailable />
           ) : facets ? (
-            facets.marketSegments.map((option) => (
+            withCounts("marketSegments", facets.marketSegments)?.map((option) => (
               <FilterCheckRow
                 key={option.value}
                 label={option.label}
