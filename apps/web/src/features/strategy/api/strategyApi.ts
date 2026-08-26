@@ -3,6 +3,7 @@ import type {
   CompanyPage,
   CompanySort,
   SavedSearch,
+  SearchVisibility,
   Strategy,
   StrategyFilter,
 } from "./types";
@@ -62,12 +63,38 @@ export function getCompanies(
   return request<CompanyPage>(`/projects/${projectId}/strategy/companies?${params}`, { signal });
 }
 
-export function saveSearch(projectId: string, name: string): Promise<SavedSearch> {
+export function saveSearch(
+  projectId: string,
+  name: string,
+  visibility: SearchVisibility,
+): Promise<SavedSearch> {
   // No filter in the body: the server saves what the mandate has already autosaved, so what is
   // captured is exactly what is on screen and the two cannot drift.
   return request<SavedSearch>(`/projects/${projectId}/strategy/searches`, {
     method: "POST",
-    body: { name },
+    body: { name, visibility },
+  });
+}
+
+/** The label and the tier. Never the filter — that is `overwriteSearch`. */
+export function patchSearch(
+  projectId: string,
+  searchId: string,
+  patch: { name: string; visibility?: SearchVisibility },
+): Promise<SavedSearch> {
+  return request<SavedSearch>(`/projects/${projectId}/strategy/searches/${searchId}`, {
+    method: "PATCH",
+    body: patch,
+  });
+}
+
+/**
+ * Re-capture the mandate's current filter onto an existing search. Bodyless for the same reason
+ * `saveSearch` is: the server reads the stored filter, so the caller must flush its autosave first.
+ */
+export function overwriteSearch(projectId: string, searchId: string): Promise<SavedSearch> {
+  return request<SavedSearch>(`/projects/${projectId}/strategy/searches/${searchId}/filter`, {
+    method: "PUT",
   });
 }
 

@@ -71,12 +71,26 @@ export interface CompanyRef {
   logoUrl: string | null;
 }
 
-/** A named filter a mandate saved. Frozen at save time — editing the sidebar does not follow it. */
+/** Who a saved search is for: one person's scratch list, or the mandate's. */
+export type SearchVisibility = "PRIVATE" | "SHARED";
+
+/**
+ * A named filter a mandate saved. Frozen at save time — editing the sidebar does not follow it, and
+ * re-capturing the current filter onto it is an explicit act.
+ *
+ * A PRIVATE search never reaches anyone but its author, so `createdById` on a row in this list is
+ * either the viewer or someone who chose to share.
+ */
 export interface SavedSearch {
   id: string;
   name: string;
   filter: StrategyFilter;
+  visibility: SearchVisibility;
+  createdById: string;
+  createdByName: string | null;
   createdAt: string;
+  /** Moves when the search is renamed or re-captured; this is the date the row shows. */
+  updatedAt: string;
 }
 
 /** Everything the screen needs before it draws. */

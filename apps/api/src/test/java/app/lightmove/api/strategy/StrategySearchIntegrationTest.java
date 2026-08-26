@@ -21,6 +21,10 @@ import org.springframework.test.web.servlet.MvcResult;
 /**
  * Saved searches: saving takes the filter the mandate has actually stored, a saved search is frozen
  * against later edits, names are unique within a mandate, and another mandate's search is invisible.
+ *
+ * <p>Also the two tiers. A SHARED search is the mandate's and any PROJECT_EDIT seat may rework it; a
+ * PRIVATE one answers only to its author, and to everyone else it does not exist — which is why the
+ * refusals below are 404 rather than 403.
  */
 @IntegrationTest
 @Import(RecordingEmailSender.Config.class)
@@ -169,14 +173,193 @@ class StrategySearchIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    @DisplayName("a private search reaches its author and nobody else")
+    void privateSearchIsInvisibleToTheTeam() throws Exception {
+        String admin = adminOf("Search Private Firm");
+        String projectId = project(admin);
+        String sara = teammate(admin, projectId);
+
+        save(admin, projectId, "My scratch", "PRIVATE");
+        save(admin, projectId, "Team scope", "SHARED");
+
+        mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.searches.length()").value(2));
+
+        // The exclusion happens in the query, so no later code path can hold a private row and then
+        // forget whose it was.
+        mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + sara))
+                .andExpect(jsonPath("$.searches.length()").value(1))
+                .andExpect(jsonPath("$.searches[0].name").value("Team scope"));
+    }
+
+    @Test
+    @DisplayName("a search says who saved it, and which tier it is in")
+    void searchCarriesItsAuthor() throws Exception {
+        String admin = adminOf("Search Author Firm");
+        String projectId = project(admin);
+        save(admin, projectId, "GCC utilities");
+
+        mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.searches[0].createdByName").value("Alok Kumar"))
+                .andExpect(jsonPath("$.searches[0].visibility").value("SHARED"))
+                .andExpect(jsonPath("$.searches[0].createdById").isNotEmpty())
+                .andExpect(jsonPath("$.searches[0].updatedAt").isNotEmpty());
+    }
+
+    @Test
+    @DisplayName("two people may each keep a private search of the same name")
+    void privateNamesDoNotCollideAcrossPeople() throws Exception {
+        String admin = adminOf("Search Private Name Firm");
+        String projectId = project(admin);
+        String sara = teammate(admin, projectId);
+
+        save(admin, projectId, "Scratch", "PRIVATE");
+
+        // One project-wide index would 409 here — reporting the existence of a row Sara may not see,
+        // which is the one thing the private tier is for.
+        mvc.perform(post(searchesUrl(projectId))
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Scratch","visibility":"PRIVATE"}"""))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("a duplicate shared name says what is wrong with it")
+    void duplicateSharedNameIsNamed() throws Exception {
+        String admin = adminOf("Search Duplicate Firm");
+        String projectId = project(admin);
+        save(admin, projectId, "GCC utilities");
+
+        MvcResult result = mvc.perform(post(searchesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"gcc UTILITIES","visibility":"SHARED"}"""))
+                .andReturn();
+        assertThat(result.getResponse().getStatus()).isEqualTo(409);
+        assertThat(codeOf(result)).isEqualTo("STRATEGY_SEARCH_NAME_TAKEN");
+    }
+
+    @Test
+    @DisplayName("someone else's private search cannot be renamed or deleted, and 404s rather than 403s")
+    void privateSearchIsNotEditableByTheTeam() throws Exception {
+        String admin = adminOf("Search Private Guard Firm");
+        String projectId = project(admin);
+        String sara = teammate(admin, projectId);
+        String searchId = save(admin, projectId, "My scratch", "PRIVATE");
+
+        mvc.perform(patch(searchesUrl(projectId) + "/" + searchId)
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Hijacked"}"""))
+                .andExpect(status().isNotFound());
+
+        mvc.perform(put(searchesUrl(projectId) + "/" + searchId + "/filter")
+                        .header("Authorization", "Bearer " + sara))
+                .andExpect(status().isNotFound());
+
+        mvc.perform(delete(searchesUrl(projectId) + "/" + searchId)
+                        .header("Authorization", "Bearer " + sara))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("a shared search stays the mandate's — a teammate may rework it")
+    void sharedSearchIsTheMandates() throws Exception {
+        String admin = adminOf("Search Shared Edit Firm");
+        String projectId = project(admin);
+        String sara = teammate(admin, projectId);
+        String searchId = save(admin, projectId, "Team scope");
+
+        mvc.perform(patch(searchesUrl(projectId) + "/" + searchId)
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Team scope v2"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Team scope v2"));
+    }
+
+    @Test
+    @DisplayName("only the author moves a search between tiers")
+    void onlyTheAuthorChangesTheTier() throws Exception {
+        String admin = adminOf("Search Tier Firm");
+        String projectId = project(admin);
+        String sara = teammate(admin, projectId);
+        String searchId = save(admin, projectId, "Team scope");
+
+        // Pulling a shared search private would take the mandate's work out of the mandate's hands.
+        mvc.perform(patch(searchesUrl(projectId) + "/" + searchId)
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Team scope","visibility":"PRIVATE"}"""))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(patch(searchesUrl(projectId) + "/" + searchId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Team scope","visibility":"PRIVATE"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.visibility").value("PRIVATE"));
+
+        mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + sara))
+                .andExpect(jsonPath("$.searches.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("re-capturing takes the mandate's current filter and leaves the name alone")
+    void overwriteTakesTheStoredFilter() throws Exception {
+        String admin = adminOf("Search Overwrite Firm");
+        String projectId = project(admin);
+        putFilter(admin, projectId, """
+                {"filter":{"industries":["oil & energy"],"keywords":[],"marketSegments":[],"countries":[],
+                           "employeeBands":[],"revenueBands":[]}}""");
+        String searchId = save(admin, projectId, "Energy");
+
+        putFilter(admin, projectId, """
+                {"filter":{"industries":["retail"],"keywords":[],"marketSegments":[],"countries":[],
+                           "employeeBands":[],"revenueBands":[]}}""");
+
+        // No body: the server reads what the mandate has already autosaved, exactly as saving does.
+        mvc.perform(put(searchesUrl(projectId) + "/" + searchId + "/filter")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Energy"))
+                .andExpect(jsonPath("$.filter.industries[0]").value("retail"));
+    }
+
     private String save(String token, String projectId, String name) throws Exception {
+        return save(token, projectId, name, "SHARED");
+    }
+
+    private String save(String token, String projectId, String name, String visibility)
+            throws Exception {
         return body(mvc.perform(post(searchesUrl(projectId))
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"%s"}""".formatted(name)))
+                                {"name":"%s","visibility":"%s"}""".formatted(name, visibility)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
+    }
+
+    /** Sara, invited into the workspace and seated LEAD on the mandate so she holds PROJECT_EDIT. */
+    private String teammate(String admin, String projectId) throws Exception {
+        String sara = "sara@" + domain;
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+        mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberIdOf(admin, sara))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"LEAD"}"""))
+                .andExpect(status().isOk());
+        return login(sara);
     }
 
     private void putFilter(String token, String projectId, String bodyJson) throws Exception {

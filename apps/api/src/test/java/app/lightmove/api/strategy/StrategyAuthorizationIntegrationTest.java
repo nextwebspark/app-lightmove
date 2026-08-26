@@ -125,6 +125,29 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("re-capturing a filter onto a search is a write too")
+    void overwritingASearchFollowsTheWriteGate() throws Exception {
+        Fixture f = fixture("Strategy Overwrite Gate Firm");
+        String searchId = body(mvc.perform(post(searchesUrl(f.projectId))
+                        .header("Authorization", "Bearer " + f.admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Energy"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+        mvc.perform(put(searchesUrl(f.projectId) + "/" + searchId + "/filter")
+                        .header("Authorization", "Bearer " + login(f.saraEmail)))
+                .andExpect(status().isForbidden());
+
+        seat(f.admin, f.projectId, f.saraId, "LEAD");
+        mvc.perform(put(searchesUrl(f.projectId) + "/" + searchId + "/filter")
+                        .header("Authorization", "Bearer " + login(f.saraEmail)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("a workspace admin reads a mandate they hold no seat on")
     void adminBypassesTheSeat() throws Exception {
         Fixture f = fixture("Strategy Admin Bypass Firm");

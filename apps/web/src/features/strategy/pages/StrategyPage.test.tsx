@@ -8,7 +8,7 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import type { Project } from "../../projects/api/types";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
-import type { CompanyPage, Facets, Strategy, StrategyFilter } from "../api/types";
+import type { CompanyPage, Facets, SavedSearch, Strategy, StrategyFilter } from "../api/types";
 import * as triageApi from "../../triage/api/triageApi";
 import { StrategyPage } from "./StrategyPage";
 
@@ -18,8 +18,15 @@ vi.mock("../api/strategyApi", async (importOriginal) => ({
   putFilter: vi.fn(),
   getCompanies: vi.fn(),
   saveSearch: vi.fn(),
+  patchSearch: vi.fn(),
+  overwriteSearch: vi.fn(),
   deleteSearch: vi.fn(),
   putOffLimits: vi.fn(),
+}));
+// The toolbar splits saved searches into the viewer's own and the mandate's, so the page needs a
+// signed-in user. Mocking the hook keeps that to one line instead of standing up a whole session.
+vi.mock("../../auth/AuthProvider", () => ({
+  useAuth: () => ({ user: { id: "u1", fullName: "Nadia Haddad" } }),
 }));
 vi.mock("../../triage/api/triageApi", async (importOriginal) => ({
   ...(await importOriginal<typeof triageApi>()),
@@ -80,10 +87,22 @@ const FACETS: Facets = {
   ],
 };
 
-const strategyOf = (filter: StrategyFilter = EMPTY_FILTER): Strategy => ({
+const savedSearchOf = (overrides: Partial<SavedSearch> = {}): SavedSearch => ({
+  id: "s1",
+  name: "GCC energy",
+  filter: EMPTY_FILTER,
+  visibility: "SHARED",
+  createdById: "u1",
+  createdByName: "Nadia Haddad",
+  createdAt: "2026-08-20T09:00:00Z",
+  updatedAt: "2026-08-20T09:00:00Z",
+  ...overrides,
+});
+
+const strategyOf = (filter: StrategyFilter = EMPTY_FILTER, searches: SavedSearch[] = []): Strategy => ({
   filter,
   offLimits: [],
-  searches: [],
+  searches,
 });
 
 const pageOf = (overrides: Partial<CompanyPage> = {}): CompanyPage => ({
@@ -616,12 +635,7 @@ describe("StrategyPage — the filter sidebar and its results", () => {
   });
 
   it("flushes the pending filter before saving a search", async () => {
-    vi.mocked(strategyApi.saveSearch).mockResolvedValue({
-      id: "s1",
-      name: "Fast save",
-      filter: EMPTY_FILTER,
-      createdAt: "2026-08-22",
-    });
+    vi.mocked(strategyApi.saveSearch).mockResolvedValue(savedSearchOf({ name: "Fast save" }));
     renderPage();
 
     await userEvent.click(await screen.findByRole("button", { name: /Qatar/ }));
@@ -672,15 +686,149 @@ describe("StrategyPage — the filter sidebar and its results", () => {
   });
 
   it("saves a search under a name and lets it be loaded back", async () => {
-    const saved = { id: "s1", name: "GCC energy", filter: EMPTY_FILTER, createdAt: "2026-08-20" };
-    vi.mocked(strategyApi.saveSearch).mockResolvedValue(saved);
+    vi.mocked(strategyApi.saveSearch).mockResolvedValue(savedSearchOf());
     renderPage();
 
     await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
     await userEvent.type(screen.getByLabelText("Name this search"), "GCC energy");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(strategyApi.saveSearch).toHaveBeenCalledWith("p1", "GCC energy"));
+    await waitFor(() =>
+      expect(strategyApi.saveSearch).toHaveBeenCalledWith("p1", "GCC energy", "SHARED"),
+    );
+  });
+
+  it("saves under the tier the viewer picked", async () => {
+    vi.mocked(strategyApi.saveSearch).mockResolvedValue(savedSearchOf({ visibility: "PRIVATE" }));
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+    await userEvent.type(screen.getByLabelText("Name this search"), "Scratch");
+    await userEvent.click(screen.getByRole("radio", { name: "Only me" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(strategyApi.saveSearch).toHaveBeenCalledWith("p1", "Scratch", "PRIVATE"),
+    );
+  });
+
+  it("splits the dropdown into the viewer's own searches and the mandate's", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf(EMPTY_FILTER, [
+        savedSearchOf({ id: "s1", name: "My scratch", visibility: "PRIVATE" }),
+        savedSearchOf({
+          id: "s2",
+          name: "Team scope",
+          createdById: "u2",
+          createdByName: "Omar Farouk",
+        }),
+      ]),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+
+    // Shared opens first: it is the mandate's list, and a private search is by definition not
+    // something a teammate is looking for here.
+    // The row's accessible name carries its provenance line too, so these match on the prefix.
+    expect(screen.getByRole("button", { name: /^Team scope/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^My scratch/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/Omar Farouk/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: /Mine/ }));
+    expect(screen.getByRole("button", { name: /^My scratch/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Team scope/ })).not.toBeInTheDocument();
+  });
+
+  it("marks the saved search the sidebar is currently showing", async () => {
+    const qatar = { ...EMPTY_FILTER, countries: ["Qatar"] };
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf(qatar, [
+        savedSearchOf({ id: "s1", name: "Qatar only", filter: qatar }),
+        savedSearchOf({ id: "s2", name: "Everything" }),
+      ]),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+
+    // Order is not meaning, so the marker compares the filters as sets rather than as documents —
+    // a search loaded back must not look inactive because its chips were clicked in another order.
+    expect(screen.getByRole("button", { name: /Qatar only.*Active/s })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Everything/s })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Everything.*Active/s })).not.toBeInTheDocument();
+  });
+
+  it("renames a saved search in place", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf(EMPTY_FILTER, [savedSearchOf({ name: "GCC energy" })]),
+    );
+    vi.mocked(strategyApi.patchSearch).mockResolvedValue(savedSearchOf({ name: "GCC utilities" }));
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Rename GCC energy" }));
+    await userEvent.clear(screen.getByLabelText("Rename GCC energy"));
+    await userEvent.type(screen.getByLabelText("Rename GCC energy"), "  GCC utilities  {Enter}");
+
+    await waitFor(() =>
+      expect(strategyApi.patchSearch).toHaveBeenCalledWith("p1", "s1", { name: "GCC utilities" }),
+    );
+  });
+
+  it("moves the viewer's own search between tiers, and offers that on nobody else's", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf(EMPTY_FILTER, [
+        savedSearchOf({ id: "s1", name: "Team scope" }),
+        savedSearchOf({
+          id: "s2",
+          name: "Omar's scope",
+          createdById: "u2",
+          createdByName: "Omar Farouk",
+        }),
+      ]),
+    );
+    vi.mocked(strategyApi.patchSearch).mockResolvedValue(savedSearchOf({ visibility: "PRIVATE" }));
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+
+    // Only the author moves a search between tiers, and the server refuses it for anyone else — so
+    // the affordance is not offered where it would only produce a 403.
+    expect(
+      screen.queryByRole("button", { name: "Make Omar's scope private" }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Make Team scope private" }));
+
+    // The name travels with it: the endpoint takes label and tier together.
+    await waitFor(() =>
+      expect(strategyApi.patchSearch).toHaveBeenCalledWith("p1", "s1", {
+        name: "Team scope",
+        visibility: "PRIVATE",
+      }),
+    );
+  });
+
+  it("flushes the pending filter before re-capturing it onto a saved search", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf(EMPTY_FILTER, [savedSearchOf({ name: "GCC energy" })]),
+    );
+    vi.mocked(strategyApi.overwriteSearch).mockResolvedValue(savedSearchOf());
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Qatar/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Save Search/ }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Update GCC energy to the current filter" }),
+    );
+
+    // Bodyless, like the save: the server re-reads the *stored* filter, so an edit still sitting in
+    // the 700ms debounce would be captured as the scope from before the last chip click.
+    await waitFor(() => expect(strategyApi.overwriteSearch).toHaveBeenCalledWith("p1", "s1"));
+    expect(vi.mocked(strategyApi.putFilter).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(strategyApi.overwriteSearch).mock.invocationCallOrder[0]!,
+    );
   });
 
   it("returns to the first page when the filter changes", async () => {

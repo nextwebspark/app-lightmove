@@ -4,6 +4,7 @@ import { useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Spinner } from "../../../components/ui";
 import { useToast } from "../../../components/ui/Toast";
+import { useAuth } from "../../auth/AuthProvider";
 import { messageFor } from "../../../lib/errorCodes";
 import { hasRoomForRails } from "../../../lib/viewport";
 import { PAGE_SIZE } from "../../../lib/paging";
@@ -12,7 +13,7 @@ import * as reportApi from "../../reports/api/reportApi";
 import * as triageApi from "../../triage/api/triageApi";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
-import type { CompanyResult, CompanySort, StrategyFilter } from "../api/types";
+import type { CompanyResult, CompanySort, SavedSearch, SearchVisibility, StrategyFilter } from "../api/types";
 import { CompanyResultsTable } from "../components/CompanyResultsTable";
 import { DEFAULT_COLUMN_VISIBILITY } from "../lib/companyColumns";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
@@ -62,6 +63,9 @@ function StrategyEditor() {
   const { project } = useOutletContext<ProjectOutletContext>();
   const queryClient = useQueryClient();
   const toast = useToast();
+  // Whose searches are "Mine" in the dropdown. The list already excludes other people's private ones,
+  // so this only splits what arrived, never widens it.
+  const { user } = useAuth();
 
   const strategy = useQuery({
     queryKey: strategyApi.STRATEGY_KEY(project.id),
@@ -140,13 +144,46 @@ function StrategyEditor() {
     // Flush first, for the same reason "Add all" does: the request carries only a name and the server
     // snapshots the *stored* filter, so a save inside the debounce window records the scope as it was
     // before the last chip click — silently, and for every later load of that search.
-    mutationFn: async (name: string) => {
+    mutationFn: async ({ name, visibility }: { name: string; visibility: SearchVisibility }) => {
       await autosave.flush();
-      return strategyApi.saveSearch(project.id, name);
+      return strategyApi.saveSearch(project.id, name, visibility);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: strategyApi.STRATEGY_KEY(project.id) });
       toast("Search saved");
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  // One mutation for both edits the PATCH covers. The name always travels: the endpoint takes the
+  // label and the tier together, so flipping the tier has to say what the search is still called.
+  const editSearch = useMutation({
+    mutationFn: ({
+      searchId,
+      name,
+      visibility,
+    }: {
+      searchId: string;
+      name: string;
+      visibility?: SearchVisibility;
+    }) => strategyApi.patchSearch(project.id, searchId, { name, visibility }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: strategyApi.STRATEGY_KEY(project.id) });
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  const overwriteSearch = useMutation({
+    // The same flush the save needs, and for the same reason: this endpoint carries no body and
+    // re-reads the *stored* filter, so an edit still in the debounce window would be captured as the
+    // scope from before the last chip click.
+    mutationFn: async (searchId: string) => {
+      await autosave.flush();
+      return strategyApi.overwriteSearch(project.id, searchId);
+    },
+    onSuccess: (search) => {
+      void queryClient.invalidateQueries({ queryKey: strategyApi.STRATEGY_KEY(project.id) });
+      toast(`${search.name} updated`);
     },
     onError: (error) => toast(messageFor(error)),
   });
@@ -216,12 +253,18 @@ function StrategyEditor() {
       <StrategyToolbar
         filter={filter}
         searches={data?.searches ?? []}
+        viewerId={user?.id ?? null}
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters((shown) => !shown)}
         query={query}
         onQuery={setQuery}
-        onSaveSearch={(name) => saveSearch.mutate(name)}
+        onSaveSearch={(name, visibility) => saveSearch.mutate({ name, visibility })}
         onLoadSearch={applyFilter}
+        onRenameSearch={(searchId, name) => editSearch.mutate({ searchId, name })}
+        onSetSearchVisibility={(search: SavedSearch, visibility) =>
+          editSearch.mutate({ searchId: search.id, name: search.name, visibility })
+        }
+        onOverwriteSearch={(searchId) => overwriteSearch.mutate(searchId)}
         onDeleteSearch={(searchId) => deleteSearch.mutate(searchId)}
         onAddAll={() => addAll.mutate()}
         onAiResearch={() => toast("AI research is not available yet")}
