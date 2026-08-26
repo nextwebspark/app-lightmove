@@ -1,23 +1,27 @@
 name: PR Issue Link
 
-# Every PR must be mapped to an issue. GitHub has no hook that can refuse a PR at creation time, so
-# the rule is enforced at the only point it can be: a check on the PR, made a merge gate by branch
-# protection on main (Settings -> Branches -> require "Issue link").
+# Every PR must be mapped to an issue, and every merged issue must have someone's name on it. GitHub
+# has no hook that can refuse a PR at creation time, so the first half is enforced at the only point
+# it can be: a check on the PR, made a merge gate by branch protection on main (Settings -> Branches
+# -> require "Issue link").
 #
 # An unmapped PR does not just fail. It gets an issue filed for it, linked back, and `Closes #N`
 # written into its description — the mapping is the point, not the paperwork. It only fails when it
 # cannot do that for the author.
+#
+# On merge the same linked issues are read again, and whoever merged is assigned to any of them that
+# nobody owns. One workflow rather than two because finding a PR's issues is the work both halves do.
 #
 # `edited` is in the trigger list because editing the PR body is how an author maps a PR by hand, and
 # without it the check would stay red on a PR that has since been mapped. The body edit this workflow
 # makes itself does NOT loop: events raised by GITHUB_TOKEN do not start new workflow runs.
 on:
   pull_request:
-    types: [opened, edited, reopened, synchronize]
+    types: [opened, edited, reopened, synchronize, closed]
 
 permissions:
   contents: read
-  issues: write         # files the issue when a PR arrives without one
+  issues: write         # files the issue when a PR arrives without one, and assigns it on merge
   pull-requests: write  # writes `Closes #N` back into the PR description
 
 concurrency:
@@ -54,14 +58,38 @@ jobs:
             for (const number of referenced) {
               try {
                 const { data } = await github.rest.issues.get({ owner, repo, issue_number: number });
-                if (!data.pull_request) linked.push(number);
+                if (!data.pull_request) linked.push(data);
               } catch (error) {
                 if (error.status !== 404) throw error;
               }
             }
 
+            if (context.payload.action === 'closed') {
+              if (!pr.merged) return;
+
+              const merger = pr.merged_by?.login;
+              if (!merger) {
+                core.info('No merging user on the payload; nothing to assign.');
+                return;
+              }
+
+              for (const issue of linked.filter((candidate) => candidate.assignees.length === 0)) {
+                const { data } = await github.rest.issues.addAssignees({
+                  owner, repo, issue_number: issue.number, assignees: [merger],
+                });
+                // GitHub drops an assignee it will not accept — a bot account, or a user without
+                // push access — rather than failing the call, so the result is what says it stuck.
+                if (data.assignees.some((assignee) => assignee.login === merger)) {
+                  core.notice(`Assigned #${issue.number} to @${merger}, who merged this PR.`);
+                } else {
+                  core.warning(`#${issue.number} left unassigned: @${merger} cannot be an assignee here.`);
+                }
+              }
+              return;
+            }
+
             if (linked.length > 0) {
-              core.info(`Mapped to ${linked.map((n) => `#${n}`).join(', ')}.`);
+              core.info(`Mapped to ${linked.map((issue) => `#${issue.number}`).join(', ')}.`);
               return;
             }
 
