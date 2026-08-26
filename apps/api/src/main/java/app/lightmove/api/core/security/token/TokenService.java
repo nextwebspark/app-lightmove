@@ -119,12 +119,10 @@ public class TokenService {
         // plaintext response body: a credential deliberately kept out of script's reach turned into a
         // bearer token, and the victim's browser session silently relabelled as their extension.
         //
-        // Recognised by the session label rather than a column of its own, which is the limitation
-        // worth naming: for a WEB_APP family that column holds the caller's own User-Agent header, so
-        // somebody who can already log in can open a family that looks like an extension's. That buys
-        // them nothing they did not have — they hold the password — and it does not weaken the check
-        // this makes, which is that a genuine browser session cannot be redeemed here. A dedicated
-        // client column would close the cosmetic half too; see the note in ExtensionAuthController.
+        // The fence is **hard in both directions**: an extension token is equally refused at
+        // /auth/refresh. So a family carrying the wrong label is not a wrong icon, it is a session that
+        // can never refresh — which is why sessionLabel() below refuses to write the extension's label
+        // for a web caller, rather than trusting that no real browser sends that User-Agent.
         if (!clientMatches(existing, client)) {
             throw new ApiException(ErrorCode.REFRESH_TOKEN_INVALID,
                     "Refresh token belongs to a different client than " + client);
@@ -263,9 +261,23 @@ public class TokenService {
                 : config.refreshTokenTtl();
     }
 
-    /** A client with a label of its own overrides the caller's User-Agent; see {@link SessionClient}. */
+    /**
+     * What to record as the session's User-Agent: a client's own label where it has one, otherwise the
+     * caller's.
+     *
+     * <p>With one refusal, and it is load-bearing rather than tidy. The client fence in {@code rotate}
+     * recognises an extension family by this exact string, so a web caller sending it as their own
+     * User-Agent would open a family that fence reads as the extension's — and that session could then
+     * never refresh at {@code /auth/refresh}, because the fence is a hard refusal in both directions.
+     * Not exploitable, since no real browser sends it, but a self-inflicted wedged account is a worse
+     * failure than a wrong icon. A caller does not get to claim to be the extension.
+     */
     private static String sessionLabel(SessionClient client, HttpServletRequest request) {
-        return client.sessionLabel() != null ? client.sessionLabel() : userAgent(request);
+        if (client.sessionLabel() != null) {
+            return client.sessionLabel();
+        }
+        String claimed = userAgent(request);
+        return SessionClient.BROWSER_EXTENSION.sessionLabel().equals(claimed) ? null : claimed;
     }
 
     private static String userAgent(HttpServletRequest request) {

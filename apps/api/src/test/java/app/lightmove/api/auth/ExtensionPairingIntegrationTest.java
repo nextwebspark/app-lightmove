@@ -163,6 +163,74 @@ class ExtensionPairingIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    @DisplayName("an extension token is equally refused on the browser's own refresh route")
+    void anExtensionTokenIsRefusedOnTheWebRoute() throws Exception {
+        String workspaceOwner = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", workspaceOwner), "Pairing Reverse Fence Firm");
+        String browserToken = login(workspaceOwner);
+        String extensionRefresh = body(pair(browserToken)).get("refreshToken").asText();
+
+        // The other half of the fence, and it has to hold or the fence is a suggestion: a token issued
+        // for the extension may not be redeemed as a browser session either. Presented as the cookie
+        // /auth/refresh reads, it is refused rather than rotated.
+        mvc.perform(post("/api/v1/auth/refresh")
+                        .cookie(new Cookie("lm_refresh", extensionRefresh))
+                        .with(csrf()))
+                .andExpect(status().isUnauthorized());
+
+        // And it still works on the route it belongs to.
+        mvc.perform(post("/api/v1/auth/extension/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(extensionRefresh)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("a caller may not open a session claiming to be the extension")
+    void aWebCallerCannotClaimTheExtensionsLabel() throws Exception {
+        String workspaceOwner = "alok@" + domain;
+        verifiedUser("Alok Kumar", workspaceOwner);
+
+        // Were the claimed User-Agent stored verbatim, the client fence would read this family as the
+        // extension's — and the session could then never refresh on the route it actually belongs to.
+        // A wedged account is a worse failure than a wrong icon, so the claim is refused at write time.
+        MvcResult signIn = mvc.perform(post("/api/v1/auth/login")
+                        .header("User-Agent", "LightMove Capture (browser extension)")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"%s"}""".formatted(workspaceOwner, PASSWORD)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        mvc.perform(post("/api/v1/auth/refresh")
+                        .cookie(refreshCookieOf(signIn))
+                        .with(csrf()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("pairing is rate limited per account, because it mints a long-lived credential")
+    void pairingIsRateLimitedPerAccount() throws Exception {
+        String workspaceOwner = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", workspaceOwner), "Pairing Budget Firm");
+        String browserToken = login(workspaceOwner);
+
+        // The only thing standing between a stolen in-memory access token and a farm of 14-day
+        // credentials. The e2e profile raises the budget, so this asserts that a budget exists and
+        // eventually refuses rather than pinning the production figure.
+        int refusedAt = -1;
+        for (int attempt = 1; attempt <= 200 && refusedAt < 0; attempt++) {
+            int status = mvc.perform(post("/api/v1/auth/extension/tokens")
+                            .header("Authorization", "Bearer " + browserToken))
+                    .andReturn().getResponse().getStatus();
+            if (status == 429) {
+                refusedAt = attempt;
+            }
+        }
+        assertThat(refusedAt).as("pairing should be refused once the budget is spent").isPositive();
+    }
+
     private MvcResult pair(String bearerToken) throws Exception {
         return mvc.perform(post("/api/v1/auth/extension/tokens")
                         .header("Authorization", "Bearer " + bearerToken))

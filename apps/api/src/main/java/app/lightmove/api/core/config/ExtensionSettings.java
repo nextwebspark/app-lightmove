@@ -2,6 +2,7 @@ package app.lightmove.api.core.config;
 
 import java.time.Duration;
 import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.boot.convert.DurationStyle;
 
 /**
  * The browser extension's session — {@code lightmove.auth.extension.*}.
@@ -26,8 +27,16 @@ public record ExtensionSettings(
     // AuthSettings needs the same value when the whole branch is absent from yml.
     static final String DEFAULT_REFRESH_TOKEN_TTL = "14d";
 
-    /** What binding produces when {@code lightmove.auth.extension} is not in the configuration at all. */
+    /**
+     * What binding produces when {@code lightmove.auth.extension} is not in the configuration at all.
+     *
+     * <p>Parsed with Boot's own {@code DurationStyle.SIMPLE}, which is the parser it uses for the yml
+     * value, so the annotation default and this one agree by construction. Hand-rolling it as
+     * {@code Duration.parse("P" + ttl)} worked only because the unit happened to be days: the first
+     * person to write {@code "12h"} would have got {@code P12H} — invalid ISO-8601, which needs the
+     * {@code T} — and a boot-time failure naming neither this file nor the constant.
+     */
     static ExtensionSettings defaults() {
-        return new ExtensionSettings(Duration.parse("P" + DEFAULT_REFRESH_TOKEN_TTL.toUpperCase()));
+        return new ExtensionSettings(DurationStyle.SIMPLE.parse(DEFAULT_REFRESH_TOKEN_TTL));
     }
 }
