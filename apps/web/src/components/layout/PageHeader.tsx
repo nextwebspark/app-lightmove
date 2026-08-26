@@ -11,12 +11,12 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-[18px] flex items-start gap-4">
+    <div className="mb-[18px] flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
       <div>
         <div className="text-[19px] font-semibold leading-tight">{title}</div>
         {subtitle && <div className="mt-1 font-mono text-xs text-text3">{subtitle}</div>}
       </div>
-      {action && <div className="ml-auto flex gap-2">{action}</div>}
+      {action && <div className="flex flex-wrap gap-2 sm:ml-auto">{action}</div>}
     </div>
   );
 }

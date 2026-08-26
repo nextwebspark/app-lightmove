@@ -1,14 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { askServiceWorker } from "../../background/extensionMessages";
-import type { CompanyMatch } from "../../api/types";
 import type { ExtractedCompany } from "../../content/pageReader/extractedCompany";
 import type { TriageDestination } from "../../domain/triageDestination";
 import { DetectedFieldInput } from "../components/DetectedFieldInput";
 import { DestinationButtons } from "../components/DestinationButtons";
 import { ProjectSelect } from "../components/ProjectSelect";
 import { SectionLabel } from "../components/PopupChrome";
-import { TagChipInput } from "../components/TagChipInput";
 import { useActiveTabCompany } from "../hooks/useActiveTabCompany";
 import { useCaptureCompany, type CaptureRefusal } from "../hooks/useCaptureCompany";
 import { useProjectSelection } from "../hooks/useProjectSelection";
@@ -38,11 +34,14 @@ const EMPTY_DRAFT: CompanyDraft = {
 /**
  * The capture form: what the page said, editable, and where it should go.
  *
- * Three things happen in order — the page is read, the company is looked up in the Apollo universe,
- * and the consultant presses one of the two destination buttons. The lookup is the interesting one:
- * a match means the row is filed under the company's Apollo identity with the snapshot resolved
- * server-side, exactly as the Strategy screen would file it, so the same company captured here and
- * added there is one row and not two.
+ * Two things happen — the page is read, and the consultant presses one of the two destination
+ * buttons. Every field is an editable input rather than a value written straight through, because an
+ * extractor reading an About page is pattern-matching on prose and the consultant is the one who
+ * knows whether it found the trading name or the legal one.
+ *
+ * The row this writes carries `source: "extension"` and no universe id — a captured company is
+ * identified by its name within the mandate, and the Companies screen shows the provenance so a
+ * headcount read off a page is not mistaken for one the Apollo pipeline exported.
  */
 export function CaptureCompanyScreen() {
   const page = useActiveTabCompany();
@@ -50,7 +49,6 @@ export function CaptureCompanyScreen() {
   const capture = useCaptureCompany();
 
   const [draft, setDraft] = useState<CompanyDraft>(EMPTY_DRAFT);
-  const [tags, setTags] = useState<string[]>([]);
   const [note, setNote] = useState("");
   const [attemptedDestination, setAttemptedDestination] = useState<TriageDestination | null>(null);
 
@@ -63,32 +61,14 @@ export function CaptureCompanyScreen() {
     }
   }, [page.company]);
 
-  // Sent raw. The API normalises a website to its registrable domain itself, and it is the same
-  // normalisation that decides the key the row is stored under — so a second implementation here
-  // could only ever disagree with the one that matters. It used to, on underscored and IDN hosts.
+  // A website is not required by the API — a captured company is identified by its name within the
+  // mandate. It is still the field most worth having, so the form nudges for it rather than blocking.
   const website = draft.website.trim() || page.sourceUrl || "";
 
-  const match = useQuery<CompanyMatch>({
-    queryKey: ["extension", "companyMatch", website, draft.linkedinUrl],
-    enabled: Boolean(website || draft.linkedinUrl),
-    queryFn: async () => {
-      const result = await askServiceWorker({
-        kind: "resolveCompany",
-        domain: website || null,
-        linkedinUrl: draft.linkedinUrl || null,
-      });
-      if (!result.ok) {
-        throw new Error(result.message);
-      }
-      return result.value;
-    },
-  });
-
-  // A name, a mandate, and something the API can derive a domain from. Whether it *can* is the API's
-  // to decide — a company it cannot key has no row, and it says so in a sentence the footer renders.
+  // A name and a mandate. That is what the API requires, and the popup should not invent more.
   const canSave = useMemo(
-    () => Boolean(draft.companyName.trim()) && Boolean(projects.selectedProjectId) && Boolean(website),
-    [draft.companyName, projects.selectedProjectId, website],
+    () => Boolean(draft.companyName.trim()) && Boolean(projects.selectedProjectId),
+    [draft.companyName, projects.selectedProjectId],
   );
 
   const handleCapture = (destination: TriageDestination) => {
@@ -100,15 +80,15 @@ export function CaptureCompanyScreen() {
       projectId: projects.selectedProjectId,
       destination,
       capture: {
-        apolloAccountId: match.data?.company?.apolloAccountId ?? null,
+        source: "extension",
         companyName: draft.companyName.trim(),
-        website: draft.website || null,
-        linkedinUrl: draft.linkedinUrl || null,
+        website: website || null,
+        companyLinkedinUrl: draft.linkedinUrl || null,
         industry: draft.industry || null,
         companyCity: draft.companyCity || null,
         companyCountry: draft.companyCountry || null,
         numEmployees: toHeadcount(draft.numEmployees),
-        tags,
+        shortDescription: page.company?.description ?? null,
         note: note.trim() || null,
         sourceUrl: page.sourceUrl,
       },
@@ -118,7 +98,6 @@ export function CaptureCompanyScreen() {
   const handleCaptureAnother = () => {
     capture.reset();
     setAttemptedDestination(null);
-    setTags([]);
     setNote("");
     void page.rescan();
   };
@@ -164,14 +143,6 @@ export function CaptureCompanyScreen() {
           <DetectedFieldInput label="Headcount" value={draft.numEmployees} onChange={update("numEmployees")} inputMode="numeric" />
         </div>
 
-        <UniverseMatchNote
-          match={match.data}
-          isChecking={match.isFetching}
-          hasIdentity={Boolean(website || draft.linkedinUrl)}
-        />
-
-        <SectionLabel className="mb-2 mt-[18px]">Tags</SectionLabel>
-        <TagChipInput tags={tags} onChange={setTags} />
 
         <SectionLabel className="mb-2 mt-[18px]">Notes</SectionLabel>
         <textarea
@@ -186,11 +157,6 @@ export function CaptureCompanyScreen() {
 
       <div className="flex flex-col gap-[9px] border-t border-line-soft px-3.5 py-[11px]">
         {capture.refusal && <RefusalNote refusal={capture.refusal} />}
-        {!website && !page.isReading && (
-          <p className="text-[11px] leading-[1.5] text-text3">
-            A website is needed to file a company that is not in the universe — add one above.
-          </p>
-        )}
         <ProjectSelect
           projects={projects.projects}
           selectedProjectId={projects.selectedProjectId}
@@ -212,44 +178,11 @@ export function CaptureCompanyScreen() {
   }
 }
 
-/**
- * Whether this company is one the universe already knows.
- *
- * Worth saying out loud rather than leaving as a silent difference in behaviour: a matched company
- * gets Apollo's own figures and a captured one keeps whatever the page said, and a consultant reading
- * the mandate later needs to know which of those they are looking at.
- */
-function UniverseMatchNote({
-  match,
-  isChecking,
-  hasIdentity,
-}: {
-  match: CompanyMatch | undefined;
-  isChecking: boolean;
-  hasIdentity: boolean;
-}) {
-  if (!hasIdentity) {
-    return null;
-  }
-  const text = isChecking
-    ? "Checking the company universe…"
-    : match?.matched
-      ? `Matched to ${match.company?.companyName} in the universe — its own figures will be used.`
-      : "Not in the company universe. It will be filed from this page, and marked as captured.";
-
-  return (
-    <div className="mt-[18px] flex items-start gap-[7px] rounded-lg border border-line-soft bg-panel2 px-2.5 py-[9px]">
-      <span className="mt-px text-text3" aria-hidden>ⓘ</span>
-      <span className="font-mono text-[11px] leading-[1.55] text-text3">{text}</span>
-    </div>
-  );
-}
-
 /** A refusal the consultant can act on, rather than a generic apology. */
 function RefusalNote({ refusal }: { refusal: CaptureRefusal }) {
   const explanation =
-    refusal.code === "TRIAGE_COMPANY_DECLINED"
-      ? "This mandate has already declined that company. Move it back from the triage screen if that was not intended."
+    refusal.code === "TRIAGE_COMPANY_ALREADY_HELD"
+      ? "This mandate already holds a company with that name. Open it on the Companies screen instead."
       : refusal.code === "FORBIDDEN"
         ? "You are not seated on that mandate, so you cannot add to it."
         : refusal.message;

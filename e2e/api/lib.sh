@@ -117,6 +117,26 @@ email_count() { grep -c "Subject: .*$1" "$API_LOG" 2>/dev/null || echo 0; }
 sql()     { psql "$PG_URL" -Atc "$1"; }
 sql_run() { psql "$PG_URL" -q -c "$1" >/dev/null; }
 
+# Audit rows are written on another thread: AuditEventWriter is @Async, deliberately, so that
+# recording an event never adds latency to — or fails — the request it observes. The row therefore
+# lands shortly AFTER the response that triggered it, and a query fired the instant curl returns can
+# beat the writer to the database.
+#
+# That race went red on 2026-08-24: N34.3 read the RATE_LIMIT_EXCEEDED table and found nothing, while
+# N34.4 read the very same row 33ms later and passed. Poll for the expected value instead of reading
+# once. Echoes whatever was last read, so a row that never arrives still fails with the real value.
+await_sql() { # await_sql QUERY EXPECTED [ATTEMPTS]   (default 40 x 50ms = 2s ceiling)
+  local attempts=${3:-40} got
+  while :; do
+    got=$(sql "$1")
+    [ "$got" = "$2" ] && break
+    attempts=$((attempts - 1))
+    [ "$attempts" -le 0 ] && break
+    sleep 0.05
+  done
+  printf '%s' "$got"
+}
+
 # --- assertions -------------------------------------------------------------
 
 record() { # record ID RESULT DETAIL

@@ -65,7 +65,7 @@ export function SettingsGeneralPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 md:grid-cols-2">
           <Field label="Workspace name">
             <Input value={name} onChange={(event) => setName(event.target.value)} className="!bg-panel" />
           </Field>

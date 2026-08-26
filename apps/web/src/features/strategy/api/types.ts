@@ -13,8 +13,6 @@ export interface FacetCount {
  */
 export interface SectorGroup {
   name: string;
-  /** Rolled up across `industries`, so the header states the slice without the client summing it. */
-  count: number;
   industries: FacetCount[];
 }
 
@@ -24,6 +22,11 @@ export interface SectorGroup {
  */
 export interface Facets {
   sectorGroups: SectorGroup[];
+  /**
+   * Which industries sit beside which — the panel's suggestion chips. Advice rather than a facet, so
+   * no counts: a name the taxonomy no longer holds renders no chip rather than one selecting nothing.
+   */
+  adjacentIndustries: Record<string, string[]>;
   /** Overlapping by design — a company can be B2B and SaaS at once. */
   marketSegments: FacetCount[];
   countries: FacetCount[];
@@ -49,6 +52,7 @@ export interface NumericRange {
  */
 export interface StrategyFilter {
   industries: string[];
+  keywords: string[];
   marketSegments: string[];
   countries: string[];
   employeeBands: string[];
@@ -67,12 +71,26 @@ export interface CompanyRef {
   logoUrl: string | null;
 }
 
-/** A named filter a mandate saved. Frozen at save time — editing the sidebar does not follow it. */
+/** Who a saved search is for: one person's scratch list, or the mandate's. */
+export type SearchVisibility = "PRIVATE" | "SHARED";
+
+/**
+ * A named filter a mandate saved. Frozen at save time — editing the sidebar does not follow it, and
+ * re-capturing the current filter onto it is an explicit act.
+ *
+ * A PRIVATE search never reaches anyone but its author, so `createdById` on a row in this list is
+ * either the viewer or someone who chose to share.
+ */
 export interface SavedSearch {
   id: string;
   name: string;
   filter: StrategyFilter;
+  visibility: SearchVisibility;
+  createdById: string;
+  createdByName: string | null;
   createdAt: string;
+  /** Moves when the search is renamed or re-captured; this is the date the row shows. */
+  updatedAt: string;
 }
 
 /** Everything the screen needs before it draws. */

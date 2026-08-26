@@ -24,7 +24,7 @@ export function Drawer({
   return (
     <>
       <div className="fixed inset-0 z-[90] bg-[rgba(15,20,30,0.4)]" onClick={onClose} />
-      <aside className="fixed bottom-2.5 right-2.5 top-2.5 z-[95] flex w-[420px] max-w-[92vw] animate-fade-up flex-col rounded-[10px] border border-line bg-panel shadow-panel">
+      <aside className="fixed inset-x-2.5 bottom-2.5 top-14 z-[95] flex animate-fade-up flex-col rounded-[10px] border border-line bg-panel shadow-panel sm:inset-x-auto sm:right-2.5 sm:top-2.5 sm:w-[420px] sm:max-w-[92vw]">
         {children}
       </aside>
     </>

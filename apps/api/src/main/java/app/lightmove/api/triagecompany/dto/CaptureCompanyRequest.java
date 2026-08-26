@@ -1,66 +1,70 @@
 package app.lightmove.api.triagecompany.dto;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
-import java.util.List;
 
 /**
- * A company captured from a web page, on its way into a mandate's triage.
+ * A company the mandate supplies itself — typed in on the Companies screen, or read off a live page by
+ * the browser plugin.
  *
- * <p>Wider than {@link AddTriageCompanyRequest} on purpose, and the difference is the whole point of
- * the two existing separately. That one names an Apollo id and nothing else, because the universe can
- * be asked what the company is. This one describes a company the universe may never have heard of, so
- * the snapshot has to travel.
+ * <p>The mirror image of {@link AddTriageCompanyRequest}, which names a universe id and lets the server
+ * resolve everything else. Here there is no universe row to resolve against, so the caller carries the
+ * fields; the trade is that {@code source} must say so, and {@code strategy} is refused — a company
+ * claiming to come from the market must come through the endpoint that reads the market.
  *
- * <p>{@code apolloAccountId} is still preferred and still wins: when it is present the snapshot fields
- * below are <b>ignored</b> and resolved from the universe instead, so the rule that a client cannot
- * file a known company under a name of its own choosing survives intact. The fields are read only for
- * a company Apollo does not publish, where there is no other source for them.
- *
- * <p>{@code status} takes the {@link app.lightmove.api.triagecompany.constant.TriageCompanyStatus}
- * wire tokens, and the service refuses any but the two a capture may land in.
+ * <p>{@code status} is the landing stage. It exists for the plugin's two destination buttons ("Add to
+ * universe" / "Add to shortlist" in {@code Extension.dc.html}), which are one capture with two
+ * different answers to where it lands. Omitted, it lands in universe like everything else.
  */
 public record CaptureCompanyRequest(
-
-        @NotBlank(message = "A destination is required")
-        @Size(max = 16)
-        String status,
-
-        @Size(max = 64)
-        String apolloAccountId,
-
         @NotBlank(message = "A company name is required")
-        @Size(max = 200)
+        @Size(max = 200, message = "A company name must be 200 characters or fewer")
         String companyName,
 
-        @Size(max = 500)
-        String website,
+        @Size(max = 32)
+        String source,
 
-        @Size(max = 500)
-        String linkedinUrl,
+        @Size(max = 32)
+        String status,
 
         @Size(max = 200)
         String industry,
 
-        @Size(max = 120)
+        @Size(max = 100)
         String companyCountry,
 
-        @Size(max = 120)
+        @Size(max = 100)
         String companyCity,
 
-        @PositiveOrZero(message = "Headcount cannot be negative")
+        // A headcount, not a population: the ceiling is a typo guard, and zero is a legitimate figure
+        // for a holding company or a newly incorporated entity.
+        @PositiveOrZero(message = "Employees cannot be negative")
+        @Max(value = 10_000_000, message = "That headcount looks like a typo")
         Integer numEmployees,
 
         @PositiveOrZero(message = "Revenue cannot be negative")
         Long annualRevenue,
 
-        @Size(max = 20, message = "A company can carry at most 20 tags")
-        List<@NotBlank @Size(max = 40) String> tags,
+        @Min(value = 1800, message = "That founding year looks like a typo")
+        @Max(value = 2100, message = "That founding year looks like a typo")
+        Integer foundedYear,
+
+        @Size(max = 500)
+        String website,
+
+        @Size(max = 500)
+        String companyLinkedinUrl,
 
         @Size(max = 2000)
-        String note,
+        String shortDescription,
 
+        /** Where the plugin captured this from. Ignored for a company typed in by hand. */
         @Size(max = 1000)
-        String sourceUrl
+        String sourceUrl,
+
+        @Size(max = 2000, message = "A note must be 2000 characters or fewer")
+        String note
 ) {}

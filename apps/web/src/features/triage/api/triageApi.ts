@@ -1,13 +1,17 @@
 import { request } from "../../../lib/apiClient";
+import type { GridSort } from "../../../lib/useGridSort";
 import type {
   BulkAddResult,
+  CaptureCompanyPayload,
   TriageCompaniesPage,
   TriageCompany,
   TriageCompanyStatus,
+  TriageSortField,
 } from "./types";
 
 /**
- * A mandate's triaged companies — what Strategy's "Add to Universe" wrote.
+ * A mandate's triaged companies — what Strategy's "Add to Universe" wrote, plus the companies the
+ * mandate supplied itself.
  *
  * <p>This queries no market at all. The screen it replaced ran the mandate's criteria against 54k
  * warehouse rows and presented the matches, which made it a second, slower discovery screen;
@@ -18,20 +22,37 @@ import type {
 export const TRIAGE_KEY_PREFIX = (projectId: string) => ["triage", projectId] as const;
 
 /**
- * The key carries the status and the page: each tab is its own list, and a Strategy save still
- * invalidates every tab at once through the prefix.
+ * The key carries everything the request varies by, so each stage, page, search and ordering is its
+ * own cache entry — and a write still invalidates all of them at once through the prefix.
  */
-export const TRIAGE_KEY = (projectId: string, status: TriageCompanyStatus, page: number, size: number) =>
-  [...TRIAGE_KEY_PREFIX(projectId), status, page, size] as const;
+export const TRIAGE_KEY = (
+  projectId: string,
+  status: TriageCompanyStatus,
+  page: number,
+  size: number,
+  query: string,
+  sort: GridSort<TriageSortField>,
+) => [...TRIAGE_KEY_PREFIX(projectId), status, page, size, query, sort.field, sort.direction] as const;
 
 export function getTriageCompanies(
   projectId: string,
   status: TriageCompanyStatus,
   page: number,
   size: number,
+  query: string,
+  sort: GridSort<TriageSortField>,
   signal?: AbortSignal,
 ): Promise<TriageCompaniesPage> {
-  const params = new URLSearchParams({ status, page: String(page), size: String(size) });
+  const params = new URLSearchParams({
+    status,
+    page: String(page),
+    size: String(size),
+    sort: sort.field,
+    direction: sort.direction,
+  });
+  // Omitted rather than sent empty: the server reads a blank `q` as no search, and leaving it out
+  // keeps the two states from being one request apart in the network log.
+  if (query) params.set("q", query);
   return request<TriageCompaniesPage>(`/projects/${projectId}/triage?${params}`, { signal });
 }
 
@@ -43,6 +64,26 @@ export function updateTriageCompany(
   return request<TriageCompany>(`/projects/${projectId}/triage/${triageCompanyId}`, {
     method: "PATCH",
     body: changes,
+  });
+}
+
+/**
+ * Drops this mandate's decision about a company. The company itself is untouched — the Apollo
+ * universe is read-only to the API — so it stays on Strategy and stays available to every other
+ * mandate.
+ */
+export function deleteTriageCompany(projectId: string, triageCompanyId: string): Promise<void> {
+  return request<void>(`/projects/${projectId}/triage/${triageCompanyId}`, { method: "DELETE" });
+}
+
+/** A company the market does not carry: typed into the Add company form, or sent by the plugin. */
+export function captureCompany(
+  projectId: string,
+  company: CaptureCompanyPayload,
+): Promise<TriageCompany> {
+  return request<TriageCompany>(`/projects/${projectId}/triage/capture`, {
+    method: "POST",
+    body: company,
   });
 }
 

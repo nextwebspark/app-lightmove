@@ -10,11 +10,16 @@ consultant is standing on and writes it into a mandate's triage as **in universe
 `claude-design/Extension.dc.html` and `Extension.handoff.md` are the design source of truth — read the
 relevant state before building a screen, the same rule the web app follows.
 
-It is a **client of the existing API**, not a second backend. It adds no table, no RBAC action, and no
-stage: it calls `GET /api/v1/projects` for its dropdown and
-`POST /api/v1/projects/{id}/triage/captures` for its write, and every authorisation decision is the one
-`@projectAuthorizer` was already making. Before adding an endpoint for the extension, check that the
-web app does not already have one that answers the question.
+It is a **client of the existing API**, not a second backend. It adds no table, no migration, no RBAC
+action and no stage — it calls `GET /api/v1/projects` for its dropdown and
+`POST /api/v1/projects/{id}/triage/capture` for its write, both of which already existed: the capture
+endpoint was built for this plugin (its own doc cites `Extension.dc.html`). Every authorisation
+decision is the one `@projectAuthorizer` was already making.
+
+**Before adding anything server-side for the extension, check whether it is already there.** It very
+likely is — a capture is `source: "extension"` on an endpoint that also serves companies typed in by
+hand, and the provenance is the only difference. The one thing the extension genuinely needed and did
+not have is its own session; that is the pairing flow below.
 
 ## Three contexts, and what may live in each
 

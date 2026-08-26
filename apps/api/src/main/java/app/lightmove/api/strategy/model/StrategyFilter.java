@@ -22,7 +22,9 @@ import java.util.List;
  * the two cannot contradict each other.
  *
  * <p>An empty list means "no constraint on this axis", not "match nothing" — an untouched filter is
- * the whole universe, which is the right opening state for a search screen.
+ * the whole universe, which is the right opening state for a search screen. That is also all the
+ * Include Keywords checkbox is: ticking it reveals the box, and only the keywords it collects are
+ * stored, so there is no flag that could disagree with the list beneath it.
  *
  * <p>{@code @JsonIgnoreProperties} is load-bearing rather than decorative. This record is read back
  * out of a jsonb column that already holds documents written by earlier versions of this type — the
@@ -31,10 +33,10 @@ import java.util.List;
  * what the wireframe's panel says they are.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record StrategyFilter(List<String> industries, List<String> marketSegments,
-                             List<String> countries, List<String> employeeBands,
-                             List<String> revenueBands, NumericRange employeeRange,
-                             NumericRange revenueRange) {
+public record StrategyFilter(List<String> industries, List<String> keywords,
+                             List<String> marketSegments, List<String> countries,
+                             List<String> employeeBands, List<String> revenueBands,
+                             NumericRange employeeRange, NumericRange revenueRange) {
 
     /**
      * Null-tolerant on the way in: a document written before a field existed, or one Jackson filled
@@ -44,6 +46,7 @@ public record StrategyFilter(List<String> industries, List<String> marketSegment
      */
     public StrategyFilter {
         industries = industries == null ? List.of() : List.copyOf(industries);
+        keywords = keywords == null ? List.of() : List.copyOf(keywords);
         marketSegments = marketSegments == null ? List.of() : List.copyOf(marketSegments);
         countries = countries == null ? List.of() : List.copyOf(countries);
         employeeBands = employeeBands == null ? List.of() : List.copyOf(employeeBands);
@@ -54,6 +57,7 @@ public record StrategyFilter(List<String> industries, List<String> marketSegment
 
     /** The whole universe, off-limits barred — what a strategy reads as before its first save. */
     public static StrategyFilter empty() {
-        return new StrategyFilter(List.of(), List.of(), List.of(), List.of(), List.of(), null, null);
+        return new StrategyFilter(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                null, null);
     }
 }

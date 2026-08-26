@@ -100,7 +100,7 @@ export function TeamAccessPage() {
         <ProjectRoleLegend />
 
         <div className="overflow-hidden rounded-[11px] border border-line">
-          <div className="grid grid-cols-[1.5fr_2.4fr_auto] gap-[14px] border-b border-line bg-panel2 px-4 py-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+          <div className="hidden grid-cols-[1.5fr_2.4fr_auto] gap-[14px] border-b border-line bg-panel2 px-4 py-2.5 md:grid font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
             <div>Member</div>
             <div>Roles on this project</div>
             <div className="text-right">{canManage ? "Manage" : ""}</div>
@@ -259,7 +259,7 @@ function TeamRow({
   });
 
   return (
-    <div className="grid grid-cols-[1.5fr_2.4fr_auto] items-center gap-[14px] border-b border-line-soft px-4 py-[13px]">
+    <div className="grid grid-cols-1 gap-[14px] border-b border-line-soft px-4 py-[13px] md:grid-cols-[1.5fr_2.4fr_auto] md:items-center">
       <div className="flex min-w-0 items-center gap-2.5">
         <Avatar
           id={member.memberId}
@@ -287,7 +287,7 @@ function TeamRow({
         {isSoleLead ? (
           <span
             title="A mandate must keep a lead — make someone else lead first"
-            className="p-1.5 text-text3"
+            className="p-2.5 text-text3 lg:p-1.5"
           >
             <Icon d={ICONS.lock} size={15} />
           </span>
@@ -298,7 +298,7 @@ function TeamRow({
             aria-label={`Remove ${member.fullName}`}
             disabled={remove.isPending || changeRole.isPending}
             onClick={() => remove.mutate()}
-            className="rounded-md p-1.5 text-text3 hover:bg-red-dim hover:text-red disabled:opacity-50"
+            className="rounded-md p-2.5 text-text3 hover:bg-red-dim hover:text-red disabled:opacity-50 lg:p-1.5"
           >
             <Icon d={ICONS.trash} size={15} />
           </button>
@@ -346,7 +346,7 @@ function ContactRow({
           aria-label={`Remove ${contact.fullName}`}
           disabled={removing}
           onClick={onRemove}
-          className="rounded-md p-1.5 text-text3 hover:bg-red-dim hover:text-red disabled:opacity-50"
+          className="rounded-md p-2.5 text-text3 hover:bg-red-dim hover:text-red disabled:opacity-50 lg:p-1.5"
         >
           <Icon d={ICONS.trash} size={15} />
         </button>

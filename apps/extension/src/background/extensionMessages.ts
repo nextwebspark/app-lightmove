@@ -1,4 +1,4 @@
-import type { CaptureCompanyRequest, CompanyMatch, ProjectSummary, TriagedCompany, WorkspaceUser } from "../api/types";
+import type { CaptureCompanyRequest, ProjectSummary, TriagedCompany, WorkspaceUser } from "../api/types";
 import type { ExtractedCompany } from "../content/pageReader/extractedCompany";
 
 /**
@@ -19,7 +19,6 @@ export type ExtensionRequest =
   | { kind: "signOut" }
   | { kind: "readActiveTabCompany" }
   | { kind: "listProjects" }
-  | { kind: "resolveCompany"; domain: string | null; linkedinUrl: string | null }
   | { kind: "captureCompany"; projectId: string; capture: CaptureCompanyRequest }
   | { kind: "rememberProject"; projectId: string }
   | { kind: "lastUsedProject" };
@@ -44,7 +43,6 @@ export interface ExtensionReplies {
   signOut: null;
   readActiveTabCompany: ReadPageResult;
   listProjects: ProjectSummary[];
-  resolveCompany: CompanyMatch;
   captureCompany: TriagedCompany;
   rememberProject: null;
   lastUsedProject: string | null;

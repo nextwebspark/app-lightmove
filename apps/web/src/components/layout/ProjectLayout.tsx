@@ -4,9 +4,11 @@ import * as projectsApi from "../../features/projects/api/projectsApi";
 import type { Project } from "../../features/projects/api/types";
 import { cn } from "../../lib/cn";
 import { Spinner, StagePill } from "../ui";
+import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
-import { Sidebar, type SidebarGroup } from "./Sidebar";
-import { ProjectBreadcrumb, Topbar } from "./Topbar";
+import { type SidebarGroup } from "./Sidebar";
+import { TRIAGE_STAGES } from "../../features/triage/lib/triageStages";
+import { ProjectBreadcrumb } from "./Topbar";
 
 /**
  * Tabs whose own content scrolls, so the shell must not. They need a *definite* height to size that
@@ -14,7 +16,7 @@ import { ProjectBreadcrumb, Topbar } from "./Topbar";
  * its content, and the table pushes the page into scrolling instead. `h-full` is opt-in rather than
  * shared because it caps the wrapper — a tab that scrolls normally would have its overflow clipped.
  */
-const VIEWPORT_FILLING_TABS = ["/triage", "/strategy"];
+const VIEWPORT_FILLING_TABS = ["/companies/", "/strategy"];
 
 /**
  * Tabs that own the whole main area: no gutter, and no 1440px cap.
@@ -24,19 +26,23 @@ const VIEWPORT_FILLING_TABS = ["/triage", "/strategy"];
  * the space it needed sitting empty beside it — the columns that got squeezed were the ones carrying
  * the data.
  */
-const FULL_BLEED_TABS = ["/strategy"];
+const FULL_BLEED_TABS = ["/companies/", "/strategy"];
 
 /**
  * The project workspace shell (Project.dc.html): breadcrumb topbar, the mandate sidebar — Position
- * and Strategy under "Mandate", Triage under "Companies", the people tabs — and the routed page.
+ * and Strategy under "Mandate", the three triage stages under "Companies", the people tabs — and the
+ * routed page.
  * The project itself is resolved from the cached list query; a deep link waits for the load and only
  * redirects once the id is confirmed absent.
  */
 export function ProjectLayout() {
   const { projectId } = useParams();
   const { pathname } = useLocation();
-  const fillsViewport = VIEWPORT_FILLING_TABS.some((tab) => pathname.endsWith(tab));
-  const fullBleed = FULL_BLEED_TABS.some((tab) => pathname.endsWith(tab));
+  // `includes`, not `endsWith`: the Companies stages are a path segment deep (/companies/universe),
+  // so matching only the tail would drop all three back to the gutter-and-cap layout that leaves a
+  // wide grid ending in mid-air.
+  const fillsViewport = VIEWPORT_FILLING_TABS.some((tab) => pathname.includes(tab));
+  const fullBleed = FULL_BLEED_TABS.some((tab) => pathname.includes(tab));
 
   const { data: projects, isPending } = useQuery({
     queryKey: projectsApi.PROJECTS_KEY,
@@ -47,7 +53,7 @@ export function ProjectLayout() {
   if (!project) {
     if (isPending) {
       return (
-        <div className="flex min-h-screen items-center justify-center">
+        <div className="flex min-h-dvh items-center justify-center">
           <Spinner />
         </div>
       );
@@ -66,7 +72,13 @@ export function ProjectLayout() {
     },
     {
       label: "Companies",
-      items: [{ to: `${base}/triage`, label: "Triage", icon: ICONS.triage }],
+      // The three triage stages, each its own page: a consultant works one at a time and sends a
+      // colleague the shortlist, not "the Companies screen, then the second tab".
+      items: TRIAGE_STAGES.map((stage) => ({
+        to: `${base}/companies/${stage.slug}`,
+        label: stage.label,
+        icon: stage.icon,
+      })),
     },
     {
       label: "People",
@@ -85,33 +97,21 @@ export function ProjectLayout() {
   ];
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
-      <Topbar
-        breadcrumb={
-          <ProjectBreadcrumb clientName={project.clientName} positionTitle={project.positionTitle} />
-        }
-      />
-
-      <div className="flex min-h-0 flex-1 gap-3.5 px-3.5 pb-3.5">
-        <Sidebar
-          groups={groups}
-          backLink={{ to: "/", label: "All projects", icon: ICONS.back }}
-          header={<StagePill stage={project.stage} />}
-        />
-
-        <main className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-line bg-panel">
-          {/* Wider than the mockups' 1160px on purpose — see WorkspaceLayout for the reasoning. */}
-          <div
-            className={cn(
-              fullBleed ? "w-full" : "mx-auto max-w-[1440px] px-7 pb-[60px] pt-7",
-              fillsViewport && "flex h-full flex-col",
-            )}
-          >
-            <Outlet context={{ project } satisfies ProjectOutletContext} />
-          </div>
-        </main>
-      </div>
-    </div>
+    <AppShell
+      breadcrumb={
+        <ProjectBreadcrumb clientName={project.clientName} positionTitle={project.positionTitle} />
+      }
+      navGroups={groups}
+      navBackLink={{ to: "/", label: "All projects", icon: ICONS.back }}
+      navHeader={<StagePill stage={project.stage} />}
+      /* Wider than the mockups' 1160px on purpose — see WorkspaceLayout for the reasoning. */
+      contentClassName={cn(
+        fullBleed ? "w-full" : "mx-auto max-w-[1440px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7",
+        fillsViewport && "flex h-full flex-col",
+      )}
+    >
+      <Outlet context={{ project } satisfies ProjectOutletContext} />
+    </AppShell>
   );
 }
 

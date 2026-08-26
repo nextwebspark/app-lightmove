@@ -49,8 +49,8 @@ check N41.6 "a verification token was issued even though nothing was delivered" 
           WHERE u.email = '$VICTIM' AND t.purpose = 'EMAIL_VERIFICATION' AND t.consumed_at IS NULL")"
 
 # The audit trail is the record of what happened. Here it says a mail went out that did not.
-AUDITED=$(sql "SELECT count(*) FROM app_lm_audit_event a JOIN app_lm_user u ON u.id = a.actor_user_id
-               WHERE u.email = '$VICTIM' AND a.event_type = 'EMAIL_VERIFICATION_SENT'")
+AUDITED=$(await_sql "SELECT count(*) FROM app_lm_audit_event a JOIN app_lm_user u ON u.id = a.actor_user_id
+                     WHERE u.email = '$VICTIM' AND a.event_type = 'EMAIL_VERIFICATION_SENT'" 1)
 if [ "$AUDITED" = "0" ]; then
   pass N41.7 "no EMAIL_VERIFICATION_SENT event for a mail that never sent"
 else

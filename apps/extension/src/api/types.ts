@@ -37,45 +37,38 @@ export interface ProjectSummary {
   clientName: string | null;
 }
 
-/** A company the Apollo universe publishes, from `GET /companies/resolve`. */
-export interface CompanySuggestion {
-  apolloAccountId: string;
-  companyName: string;
-  industry: string | null;
-  companyCity: string | null;
-  companyCountry: string | null;
-  website: string | null;
-  logoUrl: string | null;
-  numEmployees: number | null;
-}
-
-export interface CompanyMatch {
-  matched: boolean;
-  company: CompanySuggestion | null;
-}
-
-/** The body of `POST /projects/{id}/triage/captures`. */
+/**
+ * The body of `POST /projects/{id}/triage/capture`.
+ *
+ * The API's own `CaptureCompanyRequest`, which already exists for this plugin — the endpoint was built
+ * for the two destination buttons in `Extension.dc.html`. Field names are the server's; nothing here
+ * is invented, and the extension adds no endpoint of its own.
+ */
 export interface CaptureCompanyRequest {
+  /** `extension` — the provenance the Companies screen shows. `strategy` is refused here. */
+  source: "extension";
+  /** The landing stage, from whichever destination button was pressed. */
   status: TriageDestination;
-  apolloAccountId?: string | null;
   companyName: string;
-  website?: string | null;
-  linkedinUrl?: string | null;
   industry?: string | null;
   companyCountry?: string | null;
   companyCity?: string | null;
   numEmployees?: number | null;
   annualRevenue?: number | null;
-  tags?: string[];
-  note?: string | null;
+  foundedYear?: number | null;
+  website?: string | null;
+  companyLinkedinUrl?: string | null;
+  shortDescription?: string | null;
+  /** The page this was read from. */
   sourceUrl?: string | null;
+  note?: string | null;
 }
 
-/** The triage row the capture created or promoted. */
+/** The triage row the capture created. */
 export interface TriagedCompany {
   id: string;
   apolloAccountId: string | null;
+  source: "strategy" | "manual" | "extension";
   status: TriageDestination | "declined";
   companyName: string;
-  origin: "STRATEGY" | "CAPTURE";
 }

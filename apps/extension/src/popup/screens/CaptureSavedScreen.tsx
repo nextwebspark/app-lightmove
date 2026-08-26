@@ -34,12 +34,12 @@ export function CaptureSavedScreen({
       <h2 className="mt-3.5 text-[15px] font-semibold">{saved.companyName} added</h2>
       <p className="mt-2 text-[12.5px] leading-[1.6] text-text2">
         It is in <span className="font-semibold text-text">{landedIn ?? asked}</span> for this mandate.
-        {saved.origin === "CAPTURE" && " Captured from this page — it is not in the Apollo universe."}
+        {saved.source === "extension" && " Captured from this page, and marked as such on the Companies screen."}
       </p>
 
       <div className="mt-4 flex gap-2">
         <a
-          href={`${workspaceOrigin}/projects/${projectId}/triage`}
+          href={`${workspaceOrigin}/projects/${projectId}/companies`}
           target="_blank"
           rel="noreferrer"
           className="rounded-lg border border-line px-3.5 py-2 text-[12.5px] font-semibold text-text2 hover:border-text3 hover:text-text"

@@ -22,18 +22,15 @@ public enum ProjectEventType implements AuditEventType {
     STRATEGY_UPDATED,
     STRATEGY_SEARCH_SAVED,
     STRATEGY_SEARCH_RENAMED,
+    STRATEGY_SEARCH_FILTER_UPDATED,
+    STRATEGY_SEARCH_VISIBILITY_CHANGED,
     STRATEGY_SEARCH_DELETED,
 
     TRIAGE_COMPANY_ADDED,
+    TRIAGE_COMPANY_CAPTURED,
     TRIAGE_COMPANY_MOVED,
-    TRIAGE_BULK_ADDED,
-
-    /**
-     * A company written in from the browser extension rather than taken from the Strategy screen.
-     * Its own type because the provenance is the interesting part: these rows may carry a snapshot
-     * the Apollo pipeline never vouched for.
-     */
-    TRIAGE_COMPANY_CAPTURED;
+    TRIAGE_COMPANY_REMOVED,
+    TRIAGE_BULK_ADDED;
 
     @Override
     public String code() {

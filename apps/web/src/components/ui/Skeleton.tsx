@@ -12,8 +12,8 @@ export function Skeleton({ className }: { className?: string }) {
 const BAR_WIDTHS = ["w-24", "w-16", "w-28", "w-12", "w-20"];
 
 /**
- * A loading stand-in shaped like the list tables: the page's real header row (so the swap to data
- * doesn't jump) over rows of pulsing bars, on the same cell metrics as ProjectsTable/ClientsTable.
+ * A loading stand-in shaped like the lists — the real header row over pulsing bars, and card-shaped
+ * blocks below `md` where those lists render cards, so the swap to data does not jump.
  */
 export function TableSkeleton({ columns, rows = 6 }: { columns: string[]; rows?: number }) {
   const th =
@@ -22,7 +22,18 @@ export function TableSkeleton({ columns, rows = 6 }: { columns: string[]; rows?:
 
   return (
     <div role="status" aria-label="Loading">
-      <table className="w-full border-collapse">
+      <div className="flex flex-col gap-2.5 md:hidden">
+        {Array.from({ length: rows }, (_, rowIndex) => (
+          <div key={rowIndex} className="flex flex-col gap-2.5 rounded-[10px] border border-line p-3.5">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-3.5 w-48" />
+            <Skeleton className="h-3 w-32" />
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto md:block">
+      <table className="w-full min-w-[820px] border-collapse">
         <thead>
           <tr>
             {columns.map((column) => (
@@ -46,6 +57,7 @@ export function TableSkeleton({ columns, rows = 6 }: { columns: string[]; rows?:
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

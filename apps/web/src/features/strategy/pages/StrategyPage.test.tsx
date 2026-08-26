@@ -8,7 +8,7 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import type { Project } from "../../projects/api/types";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
-import type { CompanyPage, Facets, Strategy, StrategyFilter } from "../api/types";
+import type { CompanyPage, Facets, SavedSearch, Strategy, StrategyFilter } from "../api/types";
 import * as triageApi from "../../triage/api/triageApi";
 import { StrategyPage } from "./StrategyPage";
 
@@ -18,8 +18,15 @@ vi.mock("../api/strategyApi", async (importOriginal) => ({
   putFilter: vi.fn(),
   getCompanies: vi.fn(),
   saveSearch: vi.fn(),
+  patchSearch: vi.fn(),
+  overwriteSearch: vi.fn(),
   deleteSearch: vi.fn(),
   putOffLimits: vi.fn(),
+}));
+// The toolbar splits saved searches into the viewer's own and the mandate's, so the page needs a
+// signed-in user. Mocking the hook keeps that to one line instead of standing up a whole session.
+vi.mock("../../auth/AuthProvider", () => ({
+  useAuth: () => ({ user: { id: "u1", fullName: "Nadia Haddad" } }),
 }));
 vi.mock("../../triage/api/triageApi", async (importOriginal) => ({
   ...(await importOriginal<typeof triageApi>()),
@@ -30,12 +37,14 @@ vi.mock("../api/companiesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof companiesApi>()),
   getFacets: vi.fn(),
   searchCompanies: vi.fn(),
+  searchKeywords: vi.fn(),
 }));
 
 const project = { id: "p1", positionTitle: "CFO" } as Project;
 
 const EMPTY_FILTER: StrategyFilter = {
   industries: [],
+  keywords: [],
   marketSegments: [],
   countries: [],
   employeeBands: [],
@@ -48,7 +57,6 @@ const FACETS: Facets = {
   sectorGroups: [
     {
       name: "Energy & Utilities",
-      count: 3,
       industries: [
         { value: "oil & energy", label: "oil & energy", count: 2 },
         { value: "utilities", label: "utilities", count: 1 },
@@ -56,10 +64,14 @@ const FACETS: Facets = {
     },
     {
       name: "Construction",
-      count: 5,
       industries: [{ value: "construction", label: "construction", count: 5 }],
     },
   ],
+  adjacentIndustries: {
+    "oil & energy": ["utilities", "construction"],
+    utilities: ["oil & energy"],
+    construction: ["oil & energy"],
+  },
   marketSegments: [{ value: "B2B", label: "B2B", count: 40 }],
   countries: [
     { value: "United Arab Emirates", label: "United Arab Emirates", count: 37154 },
@@ -75,10 +87,22 @@ const FACETS: Facets = {
   ],
 };
 
-const strategyOf = (filter: StrategyFilter = EMPTY_FILTER): Strategy => ({
+const savedSearchOf = (overrides: Partial<SavedSearch> = {}): SavedSearch => ({
+  id: "s1",
+  name: "GCC energy",
+  filter: EMPTY_FILTER,
+  visibility: "SHARED",
+  createdById: "u1",
+  createdByName: "Nadia Haddad",
+  createdAt: "2026-08-20T09:00:00Z",
+  updatedAt: "2026-08-20T09:00:00Z",
+  ...overrides,
+});
+
+const strategyOf = (filter: StrategyFilter = EMPTY_FILTER, searches: SavedSearch[] = []): Strategy => ({
   filter,
   offLimits: [],
-  searches: [],
+  searches,
 });
 
 const pageOf = (overrides: Partial<CompanyPage> = {}): CompanyPage => ({
@@ -145,6 +169,11 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     vi.mocked(strategyApi.getStrategy).mockResolvedValue(strategyOf());
     vi.mocked(companiesApi.getFacets).mockResolvedValue(FACETS);
     vi.mocked(companiesApi.searchCompanies).mockResolvedValue({ companies: [] });
+    vi.mocked(companiesApi.searchKeywords).mockImplementation(async (query) => ({
+      keywords: [{ value: "saas", label: "saas", count: 12 }].filter((keyword) =>
+        keyword.value.includes(query),
+      ),
+    }));
     vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf());
     vi.mocked(strategyApi.putFilter).mockImplementation(async (_id, filter) => strategyOf(filter));
   });
@@ -201,56 +230,114 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     expect(cancel.mock.invocationCallOrder[0]).toBeLessThan(invalidate.mock.invocationCallOrder[0]!);
   });
 
-  it("selecting a sector stores its industries, never the sector name", async () => {
+  it("offers the whole industry list on a click, and narrows it as the consultant types", async () => {
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
 
-    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
-    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
+    // Closed, the box says nothing about what can be asked for.
+    expect(within(filters).queryAllByRole("option")).toHaveLength(0);
+
+    await userEvent.click(within(filters).getByLabelText("Search industries"));
+    // Biggest slice first, and never the sector it is filed under: a group is not selectable.
+    expect(within(filters).getAllByRole("option").map((row) => row.textContent)).toEqual([
+      "construction5",
+      "oil & energy2",
+      "utilities1",
+    ]);
+
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
+    expect(within(filters).getAllByRole("option")).toHaveLength(1);
+
+    await userEvent.click(within(filters).getByRole("option", { name: /oil & energy/ }));
 
     // No Apply step: the click is the decision, and the filter's own autosave coalesces a burst.
-    await waitFor(() => expect(strategyApi.putFilter).toHaveBeenCalled(), { timeout: 2000 });
-    // Storing the group would silently widen this mandate the day the taxonomy is re-tuned.
-    expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
-      "oil & energy",
-      "utilities",
-    ]);
+    await waitFor(
+      () =>
+        expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
+          "oil & energy",
+        ]),
+      { timeout: 2000 },
+    );
+    expect(within(filters).getByLabelText("Remove oil & energy")).toBeInTheDocument();
   });
 
-  it("browsing a sector takes nothing when sub-industries are not included", async () => {
+  it("does not offer an industry already taken", async () => {
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
-    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
+    await userEvent.click(within(filters).getByRole("option", { name: /oil & energy/ }));
 
-    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include Sub-Industries" }));
-    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
 
-    // Unticked, a sector is a lens rather than a selection — "we're looking at Energy" is not the
-    // same claim as "we want all of Energy", and only the second one belongs in the filter.
-    expect(within(filters).getByRole("checkbox", { name: /oil & energy/ })).toBeInTheDocument();
-    expect(strategyApi.putFilter).not.toHaveBeenCalled();
-
-    await userEvent.click(within(filters).getByRole("checkbox", { name: /oil & energy/ }));
-
-    await waitFor(() => expect(strategyApi.putFilter).toHaveBeenCalled(), { timeout: 2000 });
-    expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
-      "oil & energy",
-    ]);
+    // Offering it again would let one industry be added twice and read as two decisions.
+    expect(within(filters).queryByRole("option", { name: /oil & energy/ })).not.toBeInTheDocument();
+    expect(within(filters).getByText("No industry matches that.")).toBeInTheDocument();
   });
 
-  it("suggests the sectors beside the one chosen, and adds them to what is already selected", async () => {
+  it("keeps an industry the taxonomy no longer groups", async () => {
+    // The grouping is editorial and gets re-tuned, so a saved search can hold a label that no
+    // current group claims. Rebuilding the filter from the groups alone would delete it.
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf({ ...EMPTY_FILTER, industries: ["nanotechnology"] }),
+    );
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
-    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
+    // A pre-loaded selection puts the clear badge in the header, so its name is no longer bare.
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
+    expect(within(filters).getByLabelText("Remove nanotechnology")).toBeInTheDocument();
 
-    // Nothing open yet, so there is nothing to be adjacent *to*.
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "construction");
+    await userEvent.click(within(filters).getByRole("option", { name: /construction/ }));
+
+    await waitFor(
+      () =>
+        expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
+          "nanotechnology",
+          "construction",
+        ]),
+      { timeout: 2000 },
+    );
+  });
+
+  it("summarises a closed panel as pills, each one removable on its own", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    const header = within(filters).getByRole("button", { name: /^Industry/ });
+
+    await userEvent.click(header);
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
+    await userEvent.click(within(filters).getByRole("option", { name: /oil & energy/ }));
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "construction");
+    await userEvent.click(within(filters).getByRole("option", { name: /construction/ }));
+    await userEvent.click(header);
+
+    expect(within(filters).getByLabelText("Remove oil & energy")).toBeInTheDocument();
+    await userEvent.click(within(filters).getByLabelText("Remove construction"));
+
+    await waitFor(
+      () =>
+        expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
+          "oil & energy",
+        ]),
+      { timeout: 2000 },
+    );
+  });
+
+  it("suggests the industries beside the one chosen, and adds them to what is already selected", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
+
+    // Nothing picked yet, so there is nothing to be adjacent *to*.
     expect(within(filters).queryByText("Adjacent Industries")).not.toBeInTheDocument();
 
-    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
+    await userEvent.click(within(filters).getByRole("option", { name: /oil & energy/ }));
     expect(within(filters).getByText("Adjacent Industries")).toBeInTheDocument();
 
-    const chip = within(filters).getByRole("button", { name: /Construction/ });
-    await userEvent.click(chip);
+    await userEvent.click(within(filters).getByRole("button", { name: "construction" }));
 
     // The suggestion adds to the selection rather than replacing it — the results panel has to show
     // the union, which is the whole point of offering a neighbour.
@@ -258,52 +345,116 @@ describe("StrategyPage — the filter sidebar and its results", () => {
       () =>
         expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
           "oil & energy",
-          "utilities",
           "construction",
         ]),
       { timeout: 2000 },
     );
   });
 
-  it("an adjacent chip stays put once taken, so several can be picked in a row", async () => {
+  it("moves a taken suggestion out of the row, and widens it by what that industry is beside", async () => {
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
-    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
-    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
+    await userEvent.click(within(filters).getByRole("option", { name: /oil & energy/ }));
 
-    const chip = within(filters).getByRole("button", { name: /Construction/ });
-    await userEvent.click(chip);
+    // Its own sector's other leaves first, then the leaves of the sectors beside it.
+    const chips = () =>
+      within(within(filters).getByRole("group", { name: "Adjacent Industries" }))
+        .getAllByRole("button")
+        .map((chip) => chip.textContent);
+    expect(chips()).toEqual(["utilities", "construction"]);
 
-    // Dropping a chip the moment it is used answers the click by deleting the thing clicked, and
-    // moves whatever the consultant was about to press second.
-    expect(within(filters).getByRole("button", { name: /Construction/ })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    await userEvent.click(within(filters).getByRole("button", { name: "construction" }));
 
-    // And it is still the way back: a suggestion taken by accident has to be releasable.
-    await userEvent.click(within(filters).getByRole("button", { name: /Construction/ }));
+    // Taken, so it is a selection now and no longer something to suggest.
+    expect(chips()).toEqual(["utilities"]);
     await waitFor(
       () =>
         expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
           "oil & energy",
-          "utilities",
+          "construction",
         ]),
+      { timeout: 2000 },
+    );
+
+    // And it is still the way back: releasing the pill returns it to the suggestions.
+    await userEvent.click(within(filters).getByLabelText("Remove construction"));
+    expect(chips()).toEqual(["utilities", "construction"]);
+  });
+
+  it("constrains nothing until Include keywords is ticked and a keyword is taken", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
+
+    // Unticked, the box is not even there: every company the other axes reach still comes back.
+    expect(within(filters).queryByLabelText("Search keywords")).not.toBeInTheDocument();
+    expect(companiesApi.searchKeywords).not.toHaveBeenCalled();
+
+    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include keywords" }));
+
+    await userEvent.type(within(filters).getByLabelText("Search keywords"), "s");
+    expect(companiesApi.searchKeywords).not.toHaveBeenCalled();
+
+    await userEvent.type(within(filters).getByLabelText("Search keywords"), "a");
+    await userEvent.click(await within(filters).findByRole("option", { name: /saas/ }));
+
+    await waitFor(
+      () =>
+        expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].keywords).toEqual(["saas"]),
       { timeout: 2000 },
     );
   });
 
-  it("searches the sector list by the industries inside it, not only by its name", async () => {
+  it("removes the right pill when an industry and a keyword are the same word", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf({ ...EMPTY_FILTER, industries: ["construction"], keywords: ["construction"] }),
+    );
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
-    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
 
-    // "utilities" is a label filed under Energy & Utilities; a consultant should not have to know
-    // where we filed it to find it.
-    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
+    // One accordion, so one closed-panel summary: two pills reading the same word, removing
+    // different things.
+    const pills = within(filters).getAllByLabelText("Remove construction");
+    expect(pills).toHaveLength(2);
+    await userEvent.click(pills[1]!);
 
-    expect(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ })).toBeInTheDocument();
-    expect(within(filters).queryByRole("checkbox", { name: /Construction/ })).not.toBeInTheDocument();
+    await waitFor(() => {
+      const saved = vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1];
+      expect(saved.keywords).toEqual([]);
+      expect(saved.industries).toEqual(["construction"]);
+    }, { timeout: 2000 });
+  });
+
+  it("clears the keywords it collected when Include keywords is unticked", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf({ ...EMPTY_FILTER, keywords: ["saas"] }),
+    );
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
+
+    // An empty list is the unticked state, so leaving the keywords behind would tick itself back on.
+    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include keywords" }));
+
+    await waitFor(
+      () => expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].keywords).toEqual([]),
+      { timeout: 2000 },
+    );
+  });
+
+  it("never takes a keyword the universe does not offer, however it is typed", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
+    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include keywords" }));
+
+    await userEvent.type(within(filters).getByLabelText("Search keywords"), "nonesuch{Enter}");
+
+    // A keyword the pipeline does not carry narrows to nothing while looking like it narrowed.
+    await waitFor(() => expect(within(filters).getByText("No keyword matches that.")).toBeInTheDocument());
+    expect(within(filters).queryByLabelText("Remove nonesuch")).not.toBeInTheDocument();
   });
 
   it("offers an Unknown revenue row, because most companies publish no figure", async () => {
@@ -442,7 +593,7 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
 
-    await userEvent.click(within(filters).getByRole("button", { name: /Off-limits/ }));
+    await userEvent.click(within(filters).getByRole("button", { name: /^Off-limits/ }));
     expect(within(filters).getByText("EXCLUDED (1)")).toBeInTheDocument();
 
     await userEvent.click(within(filters).getByRole("button", { name: "Remove Acme Corp" }));
@@ -470,7 +621,7 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     vi.mocked(strategyApi.putOffLimits).mockResolvedValue(strategyOf());
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
-    await userEvent.click(within(filters).getByRole("button", { name: /Off-limits/ }));
+    await userEvent.click(within(filters).getByRole("button", { name: /^Off-limits/ }));
 
     await userEvent.type(within(filters).getByLabelText("Search companies"), "Acme");
     await userEvent.click(await within(filters).findByRole("option", { name: /Acme Corp/ }));
@@ -484,12 +635,7 @@ describe("StrategyPage — the filter sidebar and its results", () => {
   });
 
   it("flushes the pending filter before saving a search", async () => {
-    vi.mocked(strategyApi.saveSearch).mockResolvedValue({
-      id: "s1",
-      name: "Fast save",
-      filter: EMPTY_FILTER,
-      createdAt: "2026-08-22",
-    });
+    vi.mocked(strategyApi.saveSearch).mockResolvedValue(savedSearchOf({ name: "Fast save" }));
     renderPage();
 
     await userEvent.click(await screen.findByRole("button", { name: /Qatar/ }));
@@ -540,15 +686,215 @@ describe("StrategyPage — the filter sidebar and its results", () => {
   });
 
   it("saves a search under a name and lets it be loaded back", async () => {
-    const saved = { id: "s1", name: "GCC energy", filter: EMPTY_FILTER, createdAt: "2026-08-20" };
-    vi.mocked(strategyApi.saveSearch).mockResolvedValue(saved);
+    vi.mocked(strategyApi.saveSearch).mockResolvedValue(savedSearchOf());
     renderPage();
 
     await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
     await userEvent.type(screen.getByLabelText("Name this search"), "GCC energy");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(strategyApi.saveSearch).toHaveBeenCalledWith("p1", "GCC energy"));
+    await waitFor(() =>
+      expect(strategyApi.saveSearch).toHaveBeenCalledWith("p1", "GCC energy", "SHARED"),
+    );
+  });
+
+  it("saves under the tier the viewer picked", async () => {
+    vi.mocked(strategyApi.saveSearch).mockResolvedValue(savedSearchOf({ visibility: "PRIVATE" }));
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+    await userEvent.type(screen.getByLabelText("Name this search"), "Scratch");
+    await userEvent.click(screen.getByRole("radio", { name: "Only me" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(strategyApi.saveSearch).toHaveBeenCalledWith("p1", "Scratch", "PRIVATE"),
+    );
+  });
+
+  it("splits the dropdown into the viewer's own searches and the mandate's", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf(EMPTY_FILTER, [
+        savedSearchOf({ id: "s1", name: "My scratch", visibility: "PRIVATE" }),
+        savedSearchOf({
+          id: "s2",
+          name: "Team scope",
+          createdById: "u2",
+          createdByName: "Omar Farouk",
+        }),
+      ]),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+
+    // Shared opens first: it is the mandate's list, and a private search is by definition not
+    // something a teammate is looking for here.
+    // The row's accessible name carries its provenance line too, so these match on the prefix.
+    expect(screen.getByRole("button", { name: /^Team scope/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^My scratch/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/Omar Farouk/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("radio", { name: /^Mine/ }));
+    expect(screen.getByRole("button", { name: /^My scratch/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Team scope/ })).not.toBeInTheDocument();
+  });
+
+  it("marks the saved search the sidebar is currently showing", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf({ ...EMPTY_FILTER, industries: ["utilities", "oil & energy"] }, [
+        // Same two industries, clicked in the other order: the marker compares filters as sets, so a
+        // search loaded back must not look inactive because of the order its chips went on.
+        savedSearchOf({
+          id: "s1",
+          name: "Qatar only",
+          filter: { ...EMPTY_FILTER, industries: ["oil & energy", "utilities"] },
+        }),
+        savedSearchOf({ id: "s2", name: "Everything" }),
+      ]),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+
+    expect(screen.getByRole("button", { name: /Qatar only.*Active/s })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Everything/s })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Everything.*Active/s })).not.toBeInTheDocument();
+  });
+
+  it("renames a saved search in place", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf(EMPTY_FILTER, [savedSearchOf({ name: "GCC energy" })]),
+    );
+    vi.mocked(strategyApi.patchSearch).mockResolvedValue(savedSearchOf({ name: "GCC utilities" }));
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Rename GCC energy" }));
+    await userEvent.clear(screen.getByLabelText("Rename GCC energy"));
+    await userEvent.type(screen.getByLabelText("Rename GCC energy"), "  GCC utilities  {Enter}");
+
+    await waitFor(() =>
+      expect(strategyApi.patchSearch).toHaveBeenCalledWith("p1", "s1", { name: "GCC utilities" }),
+    );
+  });
+
+  it("opens on Mine when every saved search is the viewer's own private one", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf(EMPTY_FILTER, [savedSearchOf({ name: "My scratch", visibility: "PRIVATE" })]),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+
+    // The trigger badge counts every search the viewer can see, so opening on an empty Shared list
+    // under a badge reading 1 told them their own search was missing.
+    expect(screen.getByRole("button", { name: /^My scratch/ })).toBeInTheDocument();
+  });
+
+  it("leaves a half-typed rename behind when the menu closes", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf(EMPTY_FILTER, [savedSearchOf({ name: "GCC energy" })]),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Rename GCC energy" }));
+    await userEvent.type(screen.getByLabelText("Rename GCC energy"), "half typed");
+    // Clicking outside is what closes the Popover — Escape now stops at the rename input.
+    await userEvent.click(document.body);
+    await userEvent.click(screen.getByRole("button", { name: /Save Search/ }));
+
+    // The rename lived on the menu once, which outlives the panel — so reopening dropped the reader
+    // into an autofocused editor for a row they had moved on from, holding text they never saved.
+    expect(screen.queryByRole("textbox", { name: "Rename GCC energy" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^GCC energy/ })).toBeInTheDocument();
+    expect(strategyApi.patchSearch).not.toHaveBeenCalled();
+  });
+
+  it("Escape leaves the rename input without closing the whole menu", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf(EMPTY_FILTER, [savedSearchOf({ name: "GCC energy" })]),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Rename GCC energy" }));
+    await userEvent.keyboard("{Escape}");
+
+    // Popover closes on Escape from the document, so without stopPropagation the innermost cancel
+    // took the dropdown down with it.
+    expect(screen.queryByRole("textbox", { name: "Rename GCC energy" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^GCC energy/ })).toBeInTheDocument();
+  });
+
+  it("moves the viewer's own search between tiers, and offers that on nobody else's", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf(EMPTY_FILTER, [
+        savedSearchOf({ id: "s1", name: "Team scope" }),
+        savedSearchOf({
+          id: "s2",
+          name: "Omar's scope",
+          createdById: "u2",
+          createdByName: "Omar Farouk",
+        }),
+      ]),
+    );
+    vi.mocked(strategyApi.patchSearch).mockResolvedValue(savedSearchOf({ visibility: "PRIVATE" }));
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+
+    // Only the author moves a search between tiers, and the server refuses it for anyone else — so
+    // the affordance is not offered where it would only produce a 403.
+    expect(
+      screen.queryByRole("button", { name: "Make Omar's scope private" }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Make Team scope private" }));
+
+    // No name in the patch. Sending the cached one wrote it back, so a toggle clicked against a row
+    // a teammate had since renamed silently reverted their rename.
+    await waitFor(() =>
+      expect(strategyApi.patchSearch).toHaveBeenCalledWith("p1", "s1", { visibility: "PRIVATE" }),
+    );
+  });
+
+  it("keeps the row's actions reachable by keyboard", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf(EMPTY_FILTER, [savedSearchOf({ name: "GCC energy" })]),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+    const rename = screen.getByRole("button", { name: "Rename GCC energy" });
+    rename.focus();
+
+    // The actions are opacity-0 until the row is hovered, which a keyboard reader never does — so
+    // without a focus escape hatch they tab through four invisible buttons, one of which deletes.
+    expect(rename.className).toContain("group-focus-within:opacity-100");
+    expect(rename).toHaveFocus();
+  });
+
+  it("flushes the pending filter before re-capturing it onto a saved search", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf(EMPTY_FILTER, [savedSearchOf({ name: "GCC energy" })]),
+    );
+    vi.mocked(strategyApi.overwriteSearch).mockResolvedValue(savedSearchOf());
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Qatar/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Save Search/ }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Update GCC energy to the current filter" }),
+    );
+
+    // Bodyless, like the save: the server re-reads the *stored* filter, so an edit still sitting in
+    // the 700ms debounce would be captured as the scope from before the last chip click.
+    await waitFor(() => expect(strategyApi.overwriteSearch).toHaveBeenCalledWith("p1", "s1"));
+    expect(vi.mocked(strategyApi.putFilter).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(strategyApi.overwriteSearch).mock.invocationCallOrder[0]!,
+    );
   });
 
   it("returns to the first page when the filter changes", async () => {

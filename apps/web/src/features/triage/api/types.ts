@@ -2,6 +2,13 @@
 export type TriageCompanyStatus = "inUniverse" | "shortlisted" | "declined";
 
 /**
+ * Which door a company came through. Provenance the grid shows rather than bookkeeping: a headcount
+ * exported by Apollo and one typed off a careers page are not equally trustworthy, and only a
+ * `strategy` company has a universe id to link back to.
+ */
+export type TriageCompanySource = "strategy" | "manual" | "extension";
+
+/**
  * One company in a mandate's universe.
  *
  * <p>Every company field is the snapshot taken when it was added, not a live read of the universe.
@@ -9,16 +16,11 @@ export type TriageCompanyStatus = "inUniverse" | "shortlisted" | "declined";
  * its subject.
  */
 export interface TriageCompany {
-  /** The triage row's id — what a status change addresses. Not the company's. */
+  /** The triage row's id — what a status change, a note and a delete all address. Not the company's. */
   id: string;
-  /** Null for a captured company the Apollo universe does not publish; `origin` says which. */
+  /** Null for a company the mandate supplied itself; there is no universe row to point at. */
   apolloAccountId: string | null;
-  /**
-   * How the row arrived, and therefore how far its fields can be trusted. `STRATEGY` means the
-   * snapshot was resolved from the Apollo universe; `CAPTURE` means the browser extension read it off
-   * a page, and the team should know that before treating a headcount as a fact.
-   */
-  origin: "STRATEGY" | "CAPTURE";
+  source: TriageCompanySource;
   status: TriageCompanyStatus;
   note: string | null;
   companyName: string;
@@ -28,14 +30,16 @@ export interface TriageCompany {
   numEmployees: number | null;
   annualRevenue: number | null;
   website: string | null;
-  linkedinUrl: string | null;
-  logoUrl: string | null;
-  /** The page a capture was read from. Null for a company Strategy took out of the universe. */
+  companyLinkedinUrl: string | null;
+  foundedYear: number | null;
+  shortDescription: string | null;
+  /** The page the plugin captured this from. Null for every other source. */
   sourceUrl: string | null;
-  tags: string[] | null;
+  logoUrl: string | null;
+  addedAt: string;
 }
 
-/** The status sub-nav's badge counts. */
+/** The stage switcher's badge counts. */
 export interface TriageCounts {
   inUniverse: number;
   shortlisted: number;
@@ -47,7 +51,7 @@ export interface TriageCompaniesPage {
   totalCount: number;
   page: number;
   size: number;
-  /** Travels with every page, because the sub-nav is visible on all of them. */
+  /** Travels with every page, because the switcher is visible on all of them. */
   counts: TriageCounts;
 }
 
@@ -56,4 +60,41 @@ export interface BulkAddResult {
   added: number;
   /** Companies the mandate already held, declined ones included. */
   skipped: number;
+}
+
+/** The columns a Companies grid can be sorted by. Mirrors the server's allowlist token for token. */
+export type TriageSortField =
+  | "name"
+  | "sector"
+  | "country"
+  | "location"
+  | "employees"
+  | "revenue"
+  | "founded"
+  | "added";
+
+/**
+ * A company the mandate supplies itself — typed into the Add company form, or read off a live page by
+ * the browser plugin.
+ *
+ * <p>Only the name is required. The plugin reads whatever a page happens to publish and a researcher
+ * may have a name and a country and nothing else; refusing the row until it is complete would push
+ * the consultant back to a spreadsheet, which is what these screens exist to replace.
+ */
+export interface CaptureCompanyPayload {
+  companyName: string;
+  source?: Exclude<TriageCompanySource, "strategy">;
+  /** The landing stage. Omitted, a capture lands in universe like everything else. */
+  status?: TriageCompanyStatus;
+  industry?: string;
+  companyCountry?: string;
+  companyCity?: string;
+  numEmployees?: number;
+  annualRevenue?: number;
+  foundedYear?: number;
+  website?: string;
+  companyLinkedinUrl?: string;
+  shortDescription?: string;
+  sourceUrl?: string;
+  note?: string;
 }

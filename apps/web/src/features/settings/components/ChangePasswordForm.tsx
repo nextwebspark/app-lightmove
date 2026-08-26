@@ -64,7 +64,7 @@ export function ChangePasswordForm({
     <form onSubmit={handleSubmit(submit)} noValidate>
       <FormError message={formError} />
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
+      <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 md:grid-cols-2">
         <div className="col-span-2">
           <Field label="Current password" error={errors.currentPassword?.message}>
             <Input

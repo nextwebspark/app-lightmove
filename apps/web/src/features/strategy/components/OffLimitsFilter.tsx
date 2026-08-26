@@ -1,6 +1,6 @@
 import type { CompanyRef, CompanySuggestion } from "../api/types";
-import { Icon, ICONS } from "../../../components/layout/Icon";
 import { CompanySearchCombobox } from "./CompanySearchCombobox";
+import { SelectionPill } from "./SelectionPill";
 
 /**
  * The Off-limits panel: companies this mandate may not approach, barred by name.
@@ -58,19 +58,12 @@ export function OffLimitsFilter({
         ) : (
           <div className="flex flex-wrap gap-[6px]">
             {companies.map((company) => (
-              <button
+              <SelectionPill
                 key={company.apolloAccountId}
-                type="button"
-                title="Remove"
-                aria-label={`Remove ${company.companyName}`}
-                onClick={() => remove(company.apolloAccountId)}
-                className="inline-flex items-center gap-[6px] rounded-[4px] bg-amber-dim px-2 py-1 shadow-[inset_0_0_0_1px_var(--color-amber-dim)]"
-              >
-                <span className="font-sans text-[11px] font-medium text-amber">
-                  {company.companyName}
-                </span>
-                <Icon d={ICONS.close} size={9} className="text-amber" />
-              </button>
+                label={company.companyName}
+                tone="amber"
+                onRemove={() => remove(company.apolloAccountId)}
+              />
             ))}
           </div>
         )}

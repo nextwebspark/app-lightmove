@@ -4,16 +4,19 @@ import type { CaptureCompanyRequest, TriagedCompany } from "./types";
 /**
  * Writes the company into a mandate's triage, at the stage the footer button named.
  *
- * Idempotent and promotion-only on the server: capturing a company the mandate already holds moves it
- * up to the shortlist or leaves it where it is, and never demotes it. A company the mandate has
- * declined is refused with `TRIAGE_COMPANY_DECLINED` rather than quietly revived.
+ * The API's own capture endpoint, which already existed for this plugin — the extension adds nothing
+ * to the server and must not. `source: "extension"` is the provenance the Companies screen shows, and
+ * it is what separates a page-read headcount from one the Apollo pipeline exported.
+ *
+ * A company the mandate already holds under that name is refused with `TRIAGE_COMPANY_ALREADY_HELD`
+ * rather than merged: the popup says so instead of silently writing a second row.
  */
 export function captureCompany(
   api: LightMoveApiClient,
   projectId: string,
   capture: CaptureCompanyRequest,
 ): Promise<TriagedCompany> {
-  return api.request<TriagedCompany>(`/projects/${projectId}/triage/captures`, {
+  return api.request<TriagedCompany>(`/projects/${projectId}/triage/capture`, {
     method: "POST",
     body: capture,
   });

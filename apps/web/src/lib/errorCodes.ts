@@ -37,6 +37,8 @@ export type ApiErrorCode =
   | "POSITION_LOCKED"
   | "POSITION_NOT_READY"
   | "BULK_ADD_SCOPE_TOO_LARGE"
+  | "TRIAGE_COMPANY_ALREADY_HELD"
+  | "STRATEGY_SEARCH_NAME_TAKEN"
   | "WORKSPACE_NAME_MISMATCH"
   | "CONFLICT"
   | "RATE_LIMITED"
@@ -66,6 +68,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PASSWORD_NOT_SET: "This account signs in with a provider — set a password from the reset link.",
   SESSION_NOT_FOUND: "That session has already ended.",
   CURRENT_SESSION_NOT_REVOCABLE: "Use sign out to end the session you are using.",
+  STRATEGY_SEARCH_NAME_TAKEN: "A search with that name is already saved here.",
 };
 
 /**

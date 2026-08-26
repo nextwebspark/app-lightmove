@@ -196,6 +196,12 @@ lightmove:
       max-result-limit: ${COMPANY_SEARCH_MAX_LIMIT:25}
       # Longest accepted query text; beyond it the request is rejected — a scope, not an attack.
       max-query-length: ${COMPANY_SEARCH_MAX_QUERY_LENGTH:100}
+      # Rows the keyword typeahead returns.
+      keyword-suggestion-limit: ${COMPANY_KEYWORD_SUGGESTION_LIMIT:20}
+      # How much a keyword query must narrow the scan before it is run at all.
+      keyword-min-query-length: ${COMPANY_KEYWORD_MIN_QUERY_LENGTH:2}
+      # How many companies a keyword must reach before it is offered.
+      keyword-min-companies: ${COMPANY_KEYWORD_MIN_COMPANIES:10}
     list:
       # Rows per page when the request names no explicit size.
       default-page-size: ${COMPANY_LIST_DEFAULT_PAGE_SIZE:25}

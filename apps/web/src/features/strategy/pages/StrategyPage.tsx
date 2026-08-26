@@ -4,18 +4,21 @@ import { useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Spinner } from "../../../components/ui";
 import { useToast } from "../../../components/ui/Toast";
+import { useAuth } from "../../auth/AuthProvider";
 import { messageFor } from "../../../lib/errorCodes";
+import { hasRoomForRails } from "../../../lib/viewport";
 import { PAGE_SIZE } from "../../../lib/paging";
 import { useAutosave } from "../../../lib/useAutosave";
 import * as reportApi from "../../reports/api/reportApi";
 import * as triageApi from "../../triage/api/triageApi";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
-import type { CompanyResult, CompanySort, StrategyFilter } from "../api/types";
+import type { CompanyResult, CompanySort, SearchVisibility, StrategyFilter } from "../api/types";
 import { CompanyResultsTable } from "../components/CompanyResultsTable";
 import { DEFAULT_COLUMN_VISIBILITY } from "../lib/companyColumns";
-import { useColumnVisibility } from "../lib/useColumnVisibility";
-import { useCompanySort } from "../lib/useCompanySort";
+import { useColumnVisibility } from "../../../lib/useColumnVisibility";
+import { useGridSort } from "../../../lib/useGridSort";
+import { COMPANY_SORT_FIELDS } from "../lib/companyColumns";
 import { FilterSidebar } from "../components/FilterSidebar";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { StrategyToolbar } from "../components/StrategyToolbar";
@@ -60,6 +63,9 @@ function StrategyEditor() {
   const { project } = useOutletContext<ProjectOutletContext>();
   const queryClient = useQueryClient();
   const toast = useToast();
+  // Whose searches are "Mine" in the dropdown. The list already excludes other people's private ones,
+  // so this only splits what arrived, never widens it.
+  const { user } = useAuth();
 
   const strategy = useQuery({
     queryKey: strategyApi.STRATEGY_KEY(project.id),
@@ -74,13 +80,14 @@ function StrategyEditor() {
   });
 
   const [filter, setFilter] = useState<StrategyFilter>(() => strategy.data!.filter);
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(hasRoomForRails);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [page, setPage] = useState(0);
-  const [sort, setSort] = useCompanySort(project.id, DEFAULT_SORT);
+  const [sort, setSort] = useGridSort("strategy", project.id, COMPANY_SORT_FIELDS, DEFAULT_SORT);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility(
+    "strategy",
     project.id,
     DEFAULT_COLUMN_VISIBILITY,
   );
@@ -137,13 +144,41 @@ function StrategyEditor() {
     // Flush first, for the same reason "Add all" does: the request carries only a name and the server
     // snapshots the *stored* filter, so a save inside the debounce window records the scope as it was
     // before the last chip click — silently, and for every later load of that search.
-    mutationFn: async (name: string) => {
+    mutationFn: async ({ name, visibility }: { name: string; visibility: SearchVisibility }) => {
       await autosave.flush();
-      return strategyApi.saveSearch(project.id, name);
+      return strategyApi.saveSearch(project.id, name, visibility);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: strategyApi.STRATEGY_KEY(project.id) });
       toast("Search saved");
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  const editSearch = useMutation({
+    mutationFn: ({
+      searchId,
+      ...patch
+    }: {
+      searchId: string;
+      name?: string;
+      visibility?: SearchVisibility;
+    }) => strategyApi.patchSearch(project.id, searchId, patch),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: strategyApi.STRATEGY_KEY(project.id) });
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  const overwriteSearch = useMutation({
+    // Flushed first for the same reason saveSearch is — see strategyApi.overwriteSearch.
+    mutationFn: async (searchId: string) => {
+      await autosave.flush();
+      return strategyApi.overwriteSearch(project.id, searchId);
+    },
+    onSuccess: (search) => {
+      void queryClient.invalidateQueries({ queryKey: strategyApi.STRATEGY_KEY(project.id) });
+      toast(`${search.name} updated`);
     },
     onError: (error) => toast(messageFor(error)),
   });
@@ -213,12 +248,16 @@ function StrategyEditor() {
       <StrategyToolbar
         filter={filter}
         searches={data?.searches ?? []}
+        viewerId={user?.id ?? null}
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters((shown) => !shown)}
         query={query}
         onQuery={setQuery}
-        onSaveSearch={(name) => saveSearch.mutate(name)}
+        onSaveSearch={(name, visibility) => saveSearch.mutate({ name, visibility })}
         onLoadSearch={applyFilter}
+        onRenameSearch={(searchId, name) => editSearch.mutate({ searchId, name })}
+        onSetSearchVisibility={(searchId, visibility) => editSearch.mutate({ searchId, visibility })}
+        onOverwriteSearch={(searchId) => overwriteSearch.mutate(searchId)}
         onDeleteSearch={(searchId) => deleteSearch.mutate(searchId)}
         onAddAll={() => addAll.mutate()}
         onAiResearch={() => toast("AI research is not available yet")}
@@ -230,17 +269,24 @@ function StrategyEditor() {
 
       <div className="flex min-h-0 flex-1">
         {showFilters && (
-          <FilterSidebar
-            facets={facets.data}
-            facetsError={facets.isError}
-            filter={filter}
-            offLimits={data?.offLimits ?? []}
-            onChange={applyFilter}
-            onOffLimitsChange={(ids) => offLimitsWrite.mutate(ids)}
-          />
+          <>
+            <div
+              className="fixed inset-0 z-[90] bg-[rgba(15,20,30,0.4)] lg:hidden"
+              onClick={() => setShowFilters(false)}
+            />
+            <FilterSidebar
+              facets={facets.data}
+              facetsError={facets.isError}
+              filter={filter}
+              offLimits={data?.offLimits ?? []}
+              onChange={applyFilter}
+              onOffLimitsChange={(ids) => offLimitsWrite.mutate(ids)}
+              onClose={() => setShowFilters(false)}
+            />
+          </>
         )}
 
-        <div className="flex min-w-0 flex-1 flex-col gap-3 p-5">
+        <div className="flex min-w-0 flex-1 flex-col gap-3 p-3 sm:p-5">
           <CompanyResultsTable
             companies={companies.data?.companies ?? []}
             sort={sort}

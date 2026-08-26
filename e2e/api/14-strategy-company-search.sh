@@ -28,7 +28,7 @@ if [ "${UNIVERSE:-0}" -lt 100 ]; then
 fi
 note 14.0 "universe holds $UNIVERSE companies"
 
-EMPTY_FILTER='{"industries":[],"marketSegments":[],"countries":[],"employeeBands":[],"revenueBands":[],"employeeRange":null,"revenueRange":null}'
+EMPTY_FILTER='{"industries":[],"keywords":[],"marketSegments":[],"countries":[],"employeeBands":[],"revenueBands":[],"employeeRange":null,"revenueRange":null}'
 filter_body() { printf '{"filter":%s}' "$1"; }
 
 # --- the cast: one admin, one client, one mandate ----------------------------
@@ -67,7 +67,7 @@ check 14.3 "the revenue bands, Unknown included, account for every company" \
 # Not asserted: the sector facet is short by the rows carrying no industry at all, because
 # `industry IN (...)` cannot match NULL. Recorded as issue #91 and in the UAT report rather than held
 # as a red case — it is a known gap on one axis, not suite drift. The number is still printed.
-note 14.4 "sector groups sum to $(printf '%s' "$FACETS" | jq '[.sectorGroups[].count] | add') of $UNIVERSE — the rest carry no industry (#91)"
+note 14.4 "sector groups sum to $(printf '%s' "$FACETS" | jq '[.sectorGroups[].industries[].count] | add') of $UNIVERSE — the rest carry no industry (#91)"
 check 14.5 "Unknown revenue is exactly the rows carrying no figure" \
   "$(sql 'SELECT count(*) FROM app_lm_apollo_companies WHERE annual_revenue IS NULL')" \
   "$(printf '%s' "$FACETS" | jq '[.revenueBands[] | select(.value=="unknown")][0].count')"
@@ -194,6 +194,26 @@ post_json "$STRATEGY/searches" '{"name":"   "}' -H "$AUTH"
 check_status 14.42 "a blank name is refused" 400
 http PATCH "$STRATEGY/searches/$SEARCH_ID" -H 'Content-Type: application/json' -H "$AUTH" -d '{"name":"Primary market — revised"}'
 check_status 14.43 "a search renames" 200
+check 14.43a "a search says who saved it" "true" "$(json '.createdByName != null')"
+check 14.43b "…and which tier it is in" "SHARED" "$(json '.visibility')"
+
+# Re-capturing carries no body: the server reads the filter the mandate has already stored, the same
+# source saving reads, so the two can never disagree about what a search stands for.
+http PUT "$STRATEGY/searches/$SEARCH_ID/filter" -H "$AUTH"
+check_status 14.43c "a search re-captures the current filter" 200
+check 14.43d "…keeping its name" "Primary market — revised" "$(json '.name')"
+
+post_json "$STRATEGY/searches" '{"name":"Scratch","visibility":"PRIVATE"}' -H "$AUTH"
+check_status 14.43e "a search saves into the private tier" 201
+PRIVATE_SEARCH_ID=$(json '.id')
+check 14.43f "…and says so" "PRIVATE" "$(json '.visibility')"
+# No name in the body: both fields are optional, so a tier toggle never writes back a stale label.
+http PATCH "$STRATEGY/searches/$PRIVATE_SEARCH_ID" -H 'Content-Type: application/json' -H "$AUTH" -d '{"visibility":"SHARED"}'
+check_status 14.43g "its author moves it into the shared tier, without resending the name" 200
+check 14.43g1 "…and the name is untouched" "Scratch" "$(json '.name')"
+check 14.43h "…and it says so" "SHARED" "$(json '.visibility')"
+http DELETE "$STRATEGY/searches/$PRIVATE_SEARCH_ID" -H "$AUTH"; check_status 14.43i "the second one deletes" 204
+
 http DELETE "$STRATEGY/searches/$SEARCH_ID" -H "$AUTH"; check_status 14.44 "a search deletes" 204
 http DELETE "$STRATEGY/searches/$SEARCH_ID" -H "$AUTH"; check_status 14.45 "deleting it twice 404s rather than 500s" 404
 

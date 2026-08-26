@@ -57,9 +57,9 @@ export function Popover({
 
       {open && (
         <div
-          style={{ width }}
+          style={{ width, maxWidth: "calc(100vw - 24px)" }}
           className={cn(
-            "absolute top-9 z-[80] rounded-[10px] border border-line bg-panel p-2 shadow-panel",
+            "absolute top-9 z-[80] max-h-[70dvh] overflow-y-auto rounded-[10px] border border-line bg-panel p-2 shadow-panel",
             align === "right" ? "right-0" : "left-0",
           )}
         >

@@ -4,9 +4,13 @@ A Chrome extension that reads the company on the page you are looking at and wri
 mandate's triage — as **in universe** or **shortlisted**.
 
 Its own workspace: it imports nothing from `apps/web` and shares no build with it. What it does share
-is the API, and everything it needs already existed there — `GET /projects` for the dropdown,
-`POST /projects/{id}/triage/captures` for the write, and the same `WORK_EXECUTE` gate the Strategy
-screen goes through.
+is the API, and **everything it writes with already existed there** — `GET /projects` for the dropdown
+and `POST /projects/{id}/triage/capture` for the write, behind the same `WORK_EXECUTE` gate the
+Companies screen goes through. That endpoint was built for this plugin; a capture is just
+`source: "extension"` on the path that also takes a company typed in by hand.
+
+This extension adds **no migration and no triage code**. The only thing it needed that did not exist is
+a session of its own, which is the pairing flow below.
 
 Design source of truth: `claude-design/Extension.dc.html` and `Extension.handoff.md`.
 Coding standard: `.claude/skills/chrome-extension/SKILL.md` — read it before changing anything here.

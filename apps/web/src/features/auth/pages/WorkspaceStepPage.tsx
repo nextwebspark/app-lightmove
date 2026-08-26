@@ -33,7 +33,7 @@ export function WorkspaceStepPage() {
   const existing = user?.workspace ?? null;
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-4 sm:p-6">
       <Logo />
       <Stepper steps={SIGNUP_STEPS} current={3} />
 
@@ -112,7 +112,7 @@ function CreateWorkspace({
 
         {/* No bottom margin: each Field already carries mb-4, and stacking the grid's own on top of the
             last row's put a double gap above Continue that the mockup does not have. */}
-        <div className="grid grid-cols-2 gap-x-4">
+        <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
           <Field label="Company size">
             <Select {...register("companySize")}>
               {COMPANY_SIZES.map((size) => (

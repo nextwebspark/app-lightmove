@@ -1,6 +1,5 @@
 import { ApiRequestError, createLightMoveApiClient } from "../api/lightMoveApiClient";
 import { captureCompany } from "../api/captureCompanyApi";
-import { resolveCompany } from "../api/companyResolveApi";
 import { listProjects } from "../api/projectsApi";
 import type { ExtensionSession } from "../api/types";
 import { workspaceOrigin } from "../workspaceOrigin";
@@ -86,8 +85,6 @@ async function handle(message: ExtensionRequest): Promise<unknown> {
       return readActiveTabCompany();
     case "listProjects":
       return listProjects(api);
-    case "resolveCompany":
-      return resolveCompany(api, { domain: message.domain, linkedinUrl: message.linkedinUrl });
     case "captureCompany":
       return captureCompany(api, message.projectId, message.capture);
     case "rememberProject":

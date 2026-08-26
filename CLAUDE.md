@@ -14,8 +14,11 @@ workspace `CLIENT` role grants nothing; access is the project `CLIENT` seat, whi
 **Built so far: auth, workspace management, projects, the RBAC layer, and the search layer.** Signup
 (3 steps), login, OAuth sign-in (Google and LinkedIn), invitations, the roster, the projects/clients
 screens, a project's Team & access tab, the client registry with representative invites and their
-scoped read-only project access, and **Strategy → Triage**: a filter over the company universe, the
-searches saved against it, and the triage of the companies a mandate takes from it. The Project
+scoped read-only project access, and **Strategy → Companies**: a filter over the company universe, the
+searches saved against it, and the three Companies pages (In universe / Shortlisted / Declined) where a
+mandate triages what it took from it. A company reaches those pages three ways — from Strategy, typed in
+by hand, or captured by the browser plugin (`POST /triage/capture`; the extension itself is not built).
+Deleting one drops the project↔company row only: the Apollo universe is read-only to the app. The Project
 screen's people tables (candidates, pipeline, outreach) don't exist yet. Don't build ahead of the
 mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
 
@@ -103,7 +106,9 @@ Cloud SQL Postgres 16, instance `bright-gcc`, database `lightmove`. All tables p
 `apps/api/src/main/resources/db/migration/`. **Never edit an applied migration; add a new one.**
 `app_lm_apollo_companies` is the **company universe** — 71,822 GCC companies, ETL-owned and read-only
 to the application, keyed on `apollo_account_id`. Anything that stores a company stores that id plus a
-**write-time snapshot**, and never a foreign key: the pipeline reloads the table wholesale.
+**write-time snapshot**, and never a foreign key: the pipeline reloads the table wholesale. A company
+the market does not carry has no id to store, so `app_lm_project_triage_company.apollo_account_id` is
+nullable and `source` records which door the row came through (V34).
 `app_lm_companies` is the retired brightdata copy — nothing reads it, nothing refills it, and it is
 left in place rather than dropped. A mandate's whole filter is one `jsonb` column on `app_lm_strategy`
 (V30 explains why). Everything else (roles, hardening, grants) → `db-ops` skill.

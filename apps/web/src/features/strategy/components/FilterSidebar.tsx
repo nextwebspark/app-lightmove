@@ -1,15 +1,25 @@
 import { useState } from "react";
+import { Icon, ICONS } from "../../../components/layout/Icon";
+import { cn } from "../../../lib/cn";
 import type { CompanyRef, Facets, NumericRange, StrategyFilter } from "../api/types";
 import { FacetsUnavailable } from "./FacetsUnavailable";
-import { FilterAccordion } from "./FilterAccordion";
-import { FilterCheckRow } from "./FilterCheckRow";
+import { FilterAccordion, type SelectedTag } from "./FilterAccordion";
+import { FilterCheckRow } from "../../../components/ui/FilterCheckRow";
 import { FilterChip } from "./FilterChip";
 import { IndustryFilter } from "./IndustryFilter";
+import { KeywordFilter } from "./KeywordFilter";
 import { OffLimitsFilter } from "./OffLimitsFilter";
 import { RangeFilter } from "./RangeFilter";
 
 /** Which accordion keys exist, in the order the rail renders them. */
 type AccordionKey = "location" | "employees" | "revenue" | "industry" | "segments" | "offlimits";
+
+/** Every axis the filter stores as a plain list of wire values. */
+type ListAxis = "industries" | "countries" | "employeeBands" | "revenueBands" | "marketSegments";
+
+/** Pill identities for the two summaries that are not a plain facet value. */
+const RANGE_TAG = "__range__";
+const KEYWORD_TAG = "keyword:";
 
 /**
  * The filter rail: a share of the results row, floored at 300px and capped at 360px. `shrink-0`
@@ -22,8 +32,9 @@ type AccordionKey = "location" | "employees" | "revenue" | "industry" | "segment
  * <p><b>Each axis gets the control its values deserve, which is the wireframe's point.</b> Location
  * is six GCC countries and reads as pills, where the shape of the set is the information. Employees,
  * Revenue and Market Segments are ordered or long, so they are checkbox lists — wrapped pills lose
- * the order of an ordered axis and turn a long one into a wall. Industry is a tree, because 148
- * labels are not a list at all.
+ * the order of an ordered axis and turn a long one into a wall. Industry and its keywords are
+ * vocabularies too long to browse at all, so both are tag boxes — and they share one accordion,
+ * because keywords narrow within the industries rather than standing beside them.
  *
  * <p><b>There is no Ownership accordion.</b> The wireframe has one; the universe carries no ownership
  * column, and nothing derivable from {@code latest_funding} (2,123 rows of 71,822) or
@@ -37,6 +48,7 @@ export function FilterSidebar({
   offLimits,
   onChange,
   onOffLimitsChange,
+  onClose,
 }: {
   facets: Facets | undefined;
   /** The counts were refused. Absent counts and refused counts look identical without this. */
@@ -45,12 +57,14 @@ export function FilterSidebar({
   offLimits: CompanyRef[];
   onChange: (filter: StrategyFilter) => void;
   onOffLimitsChange: (apolloAccountIds: string[]) => void;
+  /** Dismisses the rail where it overlays the results, below `lg`. */
+  onClose: () => void;
 }) {
   const [open, setOpen] = useState<AccordionKey | null>("location");
 
   const toggleOpen = (key: AccordionKey) => setOpen((current) => (current === key ? null : key));
 
-  const toggleValue = (axis: "countries" | "employeeBands" | "revenueBands" | "marketSegments", value: string) => {
+  const toggleValue = (axis: ListAxis, value: string) => {
     const current = filter[axis];
     const next = current.includes(value)
       ? current.filter((entry) => entry !== value)
@@ -68,37 +82,80 @@ export function FilterSidebar({
     onChange({ ...filter, [rangeKey]: range, ...(range ? { [bandKey]: [] } : {}) });
   };
 
-  const labelsOf = (axis: "countries" | "employeeBands" | "revenueBands" | "marketSegments") => {
+  const tagsOf = (axis: ListAxis) => {
     const options = {
+      industries: facets?.sectorGroups.flatMap((group) => group.industries),
       countries: facets?.countries,
       employeeBands: facets?.employeeBands,
       revenueBands: facets?.revenueBands,
       marketSegments: facets?.marketSegments,
     }[axis];
-    // Fall back to the stored value: a tag whose facet has not loaded still has to name itself.
-    return filter[axis].map(
-      (value) => options?.find((option) => option.value === value)?.label ?? value,
-    );
+    // Fall back to the stored value: a pill whose facet has not loaded still has to name itself.
+    return filter[axis].map((value) => ({
+      value,
+      label: options?.find((option) => option.value === value)?.label ?? value,
+    }));
   };
 
-  /** A custom range summarises as one tag, since its two numbers are one decision. */
-  const rangeTag = (range: NumericRange | null) => {
+  /** A custom range summarises as one pill, since its two numbers are one decision. */
+  const rangeTag = (range: NumericRange | null): SelectedTag[] => {
+    const tag = (label: string) => [{ value: RANGE_TAG, label }];
     if (!range) return [];
-    if (range.min !== null && range.max !== null) return [`${range.min}-${range.max}`];
-    if (range.min !== null) return [`${range.min}+`];
-    if (range.max !== null) return [`≤${range.max}`];
+    if (range.min !== null && range.max !== null) return tag(`${range.min}-${range.max}`);
+    if (range.min !== null) return tag(`${range.min}+`);
+    if (range.max !== null) return tag(`≤${range.max}`);
     return [];
+  };
+
+  // One panel, so one pill row. A keyword is prefixed because an industry and a keyword can be the
+  // same word, and the two pills have to remove different things.
+  const industryTags = (): SelectedTag[] => [
+    ...tagsOf("industries"),
+    ...filter.keywords.map((value) => ({ value: `${KEYWORD_TAG}${value}`, label: value })),
+  ];
+
+  const removeIndustryOrKeyword = (value: string) => {
+    if (!value.startsWith(KEYWORD_TAG)) {
+      toggleValue("industries", value);
+      return;
+    }
+    const keyword = value.slice(KEYWORD_TAG.length);
+    onChange({ ...filter, keywords: filter.keywords.filter((entry) => entry !== keyword) });
+  };
+
+  const removeBandOrRange = (axis: "employee" | "revenue", value: string) => {
+    if (value === RANGE_TAG) setRange(axis, null);
+    else toggleValue(axis === "employee" ? "employeeBands" : "revenueBands", value);
   };
 
   return (
     <div
       role="region"
       aria-label="Filters"
-      className="w-[22%] min-w-[300px] max-w-[360px] shrink-0 overflow-y-auto border-r border-line-soft"
+      className={cn(
+        "overflow-y-auto border-line-soft bg-panel",
+        // A 300px rail beside the table does not fit a phone, so below `lg` it overlays the results.
+        "fixed inset-y-0 start-0 z-[95] w-[min(320px,88vw)] border-e shadow-panel",
+        "lg:static lg:z-auto lg:w-[22%] lg:min-w-[300px] lg:max-w-[360px] lg:shrink-0 lg:shadow-none",
+      )}
     >
+      <div className="flex items-center justify-between border-b border-line-soft px-4 py-2.5 lg:hidden">
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-text3">
+          Filters
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Hide filters"
+          className="flex size-8 items-center justify-center rounded-[6px] text-text3 transition hover:bg-panel2 hover:text-text"
+        >
+          <Icon d={ICONS.close} size={16} />
+        </button>
+      </div>
       <FilterAccordion
         label="Location"
-        selectedValues={labelsOf("countries")}
+        selected={tagsOf("countries")}
+        onRemove={(value) => toggleValue("countries", value)}
         open={open === "location"}
         onToggleOpen={() => toggleOpen("location")}
         onReset={() => onChange({ ...filter, countries: [] })}
@@ -124,7 +181,8 @@ export function FilterSidebar({
 
       <FilterAccordion
         label="# Employees"
-        selectedValues={[...rangeTag(filter.employeeRange), ...labelsOf("employeeBands")]}
+        selected={[...rangeTag(filter.employeeRange), ...tagsOf("employeeBands")]}
+        onRemove={(value) => removeBandOrRange("employee", value)}
         open={open === "employees"}
         onToggleOpen={() => toggleOpen("employees")}
         onReset={() => onChange({ ...filter, employeeBands: [], employeeRange: null })}
@@ -141,7 +199,8 @@ export function FilterSidebar({
 
       <FilterAccordion
         label="Revenue"
-        selectedValues={[...rangeTag(filter.revenueRange), ...labelsOf("revenueBands")]}
+        selected={[...rangeTag(filter.revenueRange), ...tagsOf("revenueBands")]}
+        onRemove={(value) => removeBandOrRange("revenue", value)}
         open={open === "revenue"}
         onToggleOpen={() => toggleOpen("revenue")}
         onReset={() => onChange({ ...filter, revenueBands: [], revenueRange: null })}
@@ -167,20 +226,29 @@ export function FilterSidebar({
       </FilterAccordion>
 
       <FilterAccordion
-        label="Industry"
-        selectedValues={filter.industries}
+        label="Industry & Keywords"
+        selected={industryTags()}
+        onRemove={removeIndustryOrKeyword}
         open={open === "industry"}
         onToggleOpen={() => toggleOpen("industry")}
-        onReset={() => onChange({ ...filter, industries: [] })}
+        onReset={() => onChange({ ...filter, industries: [], keywords: [] })}
       >
         {facetsError ? (
           <FacetsUnavailable />
         ) : facets ? (
           <IndustryFilter
             groups={facets.sectorGroups}
+            adjacency={facets.adjacentIndustries}
             selected={filter.industries}
             onChange={(industries) => onChange({ ...filter, industries })}
-          />
+          >
+            <div className="border-t border-line-soft pt-3">
+              <KeywordFilter
+                selected={filter.keywords}
+                onChange={(keywords) => onChange({ ...filter, keywords })}
+              />
+            </div>
+          </IndustryFilter>
         ) : (
           <ChipSkeleton />
         )}
@@ -188,7 +256,8 @@ export function FilterSidebar({
 
       <FilterAccordion
         label="Market Segments"
-        selectedValues={labelsOf("marketSegments")}
+        selected={tagsOf("marketSegments")}
+        onRemove={(value) => toggleValue("marketSegments", value)}
         open={open === "segments"}
         onToggleOpen={() => toggleOpen("segments")}
         onReset={() => onChange({ ...filter, marketSegments: [] })}
@@ -214,7 +283,17 @@ export function FilterSidebar({
 
       <FilterAccordion
         label="Off-limits"
-        selectedValues={offLimits.length > 0 ? [String(offLimits.length)] : []}
+        selected={offLimits.map((company) => ({
+          value: company.apolloAccountId,
+          label: company.companyName,
+        }))}
+        onRemove={(value) =>
+          onOffLimitsChange(
+            offLimits
+              .filter((company) => company.apolloAccountId !== value)
+              .map((company) => company.apolloAccountId),
+          )
+        }
         tagTone="red"
         open={open === "offlimits"}
         onToggleOpen={() => toggleOpen("offlimits")}

@@ -33,11 +33,13 @@ check_code N34.1 "the attempt after the per-minute budget" 429 RATE_LIMITED
 login "$VICTIM" "$PASSWORD"
 check_code N34.2 "the correct password while rate limited" 429 RATE_LIMITED
 
-check N34.3 "the rejection is audited" "true" \
-  "$(test "$(sql "SELECT count(*) FROM app_lm_audit_event WHERE event_type = 'RATE_LIMIT_EXCEEDED'")" -ge 1 && echo true || echo false)"
+check N34.3 "the rejection is audited" "t" \
+  "$(await_sql "SELECT count(*) > 0 FROM app_lm_audit_event WHERE event_type = 'RATE_LIMIT_EXCEEDED'" t)"
+
+EXHAUSTED=$(sql "SELECT metadata->>'exhausted' FROM app_lm_audit_event WHERE event_type = 'RATE_LIMIT_EXCEEDED' ORDER BY occurred_at DESC LIMIT 1")
 check N34.4 "the audit row names which bucket was exhausted" "true" \
-  "$(test -n "$(sql "SELECT metadata->>'exhausted' FROM app_lm_audit_event WHERE event_type = 'RATE_LIMIT_EXCEEDED' ORDER BY occurred_at DESC LIMIT 1")" && echo true || echo false)"
-note N34.5 "exhausted bucket recorded as: $(sql "SELECT metadata->>'exhausted' FROM app_lm_audit_event WHERE event_type = 'RATE_LIMIT_EXCEEDED' ORDER BY occurred_at DESC LIMIT 1")"
+  "$(test -n "$EXHAUSTED" && echo true || echo false)"
+note N34.5 "exhausted bucket recorded as: $EXHAUSTED"
 
 check N34.6 "the throttled attempts did NOT count toward account lockout" "true" \
   "$(test "$(sql "SELECT failed_login_attempts FROM app_lm_user WHERE email = '$VICTIM'")" -le "$LOGIN_LIMIT" && echo true || echo false)"

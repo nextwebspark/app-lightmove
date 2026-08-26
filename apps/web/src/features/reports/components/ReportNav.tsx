@@ -41,7 +41,7 @@ export function ReportNav({ items }: { items: ReportNavItem[] }) {
   }, [items]);
 
   return (
-    <nav className="sticky top-0 w-[200px] flex-none pt-0.5">
+    <nav className="sticky top-0 hidden w-[200px] flex-none pt-0.5 lg:block">
       <div className="px-2.5 pb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-text3">
         On this page
       </div>

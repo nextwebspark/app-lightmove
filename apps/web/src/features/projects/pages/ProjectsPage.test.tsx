@@ -104,7 +104,8 @@ describe("ProjectsPage — pure client", () => {
 
     renderPage();
 
-    expect(await screen.findByText("CFO Search")).toBeInTheDocument();
+    // Twice, not once: the list renders a card stack and a table, and CSS shows one per breakpoint.
+    expect(await screen.findAllByText("CFO Search")).not.toHaveLength(0);
     expect(screen.queryByText("New project")).not.toBeInTheDocument();
     // The registry and roster are staff surfaces — a pure client must never request them.
     expect(clientsApi.clients).not.toHaveBeenCalled();

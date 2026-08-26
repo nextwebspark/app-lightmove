@@ -1,4 +1,10 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import type {
+  ButtonHTMLAttributes,
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from "react";
 import { cn } from "../../lib/cn";
 
 export { Avatar } from "./Avatar";
@@ -151,6 +157,21 @@ export function Input({ invalid, className, ...rest }: InputHTMLAttributes<HTMLI
   );
 }
 
+/** Vertical resize only: a textarea dragged wider than its modal is a broken layout, not a feature. */
+export function TextArea({
+  invalid,
+  className,
+  ...rest
+}: TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }) {
+  return (
+    <textarea
+      {...rest}
+      aria-invalid={invalid}
+      className={cn(CONTROL, "resize-y", invalid ? "border-red" : "border-line", className)}
+    />
+  );
+}
+
 export function Select({
   invalid,
   className,
@@ -172,7 +193,7 @@ export function Select({
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("animate-fade-up rounded-panel border border-line bg-panel p-8 shadow-panel", className)}>
+    <div className={cn("animate-fade-up rounded-panel border border-line bg-panel p-6 shadow-panel sm:p-8", className)}>
       {children}
     </div>
   );

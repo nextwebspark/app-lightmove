@@ -7,17 +7,13 @@ import {
   type ColumnPinningState,
   type ColumnVisibilityState,
 } from "@tanstack/react-table";
+import { CompanyLink } from "../../../components/ui/CompanyLink";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
+import { DataGridCell, GRID_ICON_BUTTON, type DataGridColumnLayout } from "../../../components/ui/DataGrid";
 import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import type { CompanyResult } from "../api/types";
-
-interface CompanyColumnMeta {
-  /** Percentage of the table's flexible width. 0 pins the column at {@code min}. */
-  share: number;
-  /** The width the column will not shrink below, in px. */
-  min: number;
-}
+import { formatMoney, joined } from "../../../lib/format";
+import type { CompanyResult, CompanySortField } from "../api/types";
 
 /** What the Actions column needs, supplied per render rather than baked into the column defs. */
 interface CompanyTableMeta {
@@ -33,14 +29,11 @@ export const companyTableFeatures = tableFeatures({
   columnPinningFeature,
   columnVisibilityFeature,
   rowSortingFeature,
-  columnMeta: {} as CompanyColumnMeta,
+  columnMeta: {} as DataGridColumnLayout,
   tableMeta: {} as CompanyTableMeta,
 });
 
 const helper = createColumnHelper<typeof companyTableFeatures, CompanyResult>();
-
-const ICON_BUTTON =
-  "grid size-6 place-items-center rounded-[5px] text-text3 transition hover:bg-panel2 hover:text-text";
 
 /**
  * Each sortable column's id is its wire sort token, the same string `CompanySortField` allowlists,
@@ -71,7 +64,7 @@ export const companyColumns = helper.columns([
     header: "Actions",
     enableSorting: false,
     enableHiding: false,
-    meta: { share: 0, min: 72 },
+    meta: { share: 0, min: 64 },
     cell: (info) => {
       const company = info.row.original;
       const meta = info.table.options.meta;
@@ -83,7 +76,7 @@ export const companyColumns = helper.columns([
             aria-label={`Add ${company.companyName} to universe`}
             onClick={() => meta?.onAddToUniverse(company)}
             disabled={meta?.addingId === company.apolloAccountId}
-            className={`${ICON_BUTTON} disabled:opacity-40`}
+            className={`${GRID_ICON_BUTTON} disabled:opacity-40`}
           >
             <Icon d={ICONS.plus} size={14} />
           </button>
@@ -96,25 +89,25 @@ export const companyColumns = helper.columns([
     id: "links",
     header: "Links",
     enableSorting: false,
-    meta: { share: 0, min: 108 },
+    meta: { share: 0, min: 84 },
     cell: (info) => {
       const company = info.row.original;
       return (
         <span className="flex justify-start gap-1">
-          <CompanyLink url={company.website} icon={ICONS.globe} label="website" company={company} />
+          <CompanyLink url={company.website} icon={ICONS.globe} label="website" companyName={company.companyName} />
           <CompanyLink
             url={company.companyLinkedinUrl}
             icon={ICONS.linkedin}
             label="LinkedIn"
-            company={company}
+            companyName={company.companyName}
           />
           <CompanyLink
             url={company.facebookUrl}
             icon={ICONS.facebook}
             label="Facebook"
-            company={company}
+            companyName={company.companyName}
           />
-          <CompanyLink url={company.twitterUrl} icon={ICONS.x} label="X" company={company} />
+          <CompanyLink url={company.twitterUrl} icon={ICONS.x} label="X" companyName={company.companyName} />
         </span>
       );
     },
@@ -132,43 +125,43 @@ export const companyColumns = helper.columns([
   helper.accessor("companyCountry", {
     id: "country",
     header: "Country",
-    meta: { share: 12, min: 96 },
-    cell: (info) => <Cell value={info.getValue()} />,
+    meta: { share: 12, min: 82 },
+    cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
   helper.accessor("industry", {
     id: "sector",
     header: "Sector",
-    meta: { share: 18, min: 120 },
-    cell: (info) => <Cell value={info.getValue()} />,
+    meta: { share: 18, min: 100 },
+    cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
   helper.accessor("companyCity", {
     id: "location",
     header: "City",
-    meta: { share: 11, min: 96 },
-    cell: (info) => <Cell value={info.getValue()} />,
+    meta: { share: 11, min: 82 },
+    cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
   helper.accessor("annualRevenue", {
     id: "revenue",
     header: "Revenue",
-    meta: { share: 11, min: 96 },
-    cell: (info) => <Cell value={formatMoney(info.getValue())} />,
+    meta: { share: 11, min: 82 },
+    cell: (info) => <DataGridCell value={formatMoney(info.getValue())} />,
   }),
 
   helper.accessor("numEmployees", {
     id: "employees",
     header: "Employees",
-    meta: { share: 9, min: 84 },
-    cell: (info) => <Cell value={info.getValue()?.toLocaleString() ?? null} />,
+    meta: { share: 9, min: 74 },
+    cell: (info) => <DataGridCell value={info.getValue()?.toLocaleString() ?? null} />,
   }),
 
   helper.accessor("foundedYear", {
     id: "founded",
     header: "Founded",
     meta: { share: 5, min: 84 },
-    cell: (info) => <Cell value={info.getValue()?.toString() ?? null} />,
+    cell: (info) => <DataGridCell value={info.getValue()?.toString() ?? null} />,
   }),
 
   helper.accessor("shortDescription", {
@@ -176,8 +169,8 @@ export const companyColumns = helper.columns([
     header: "Notes",
     // Not in the server's sort allowlist: alphabetising a description answers no question.
     enableSorting: false,
-    meta: { share: 12, min: 130 },
-    cell: (info) => <Cell value={info.getValue()} muted />,
+    meta: { share: 12, min: 108 },
+    cell: (info) => <DataGridCell value={info.getValue()} muted />,
   }),
 
   helper.accessor("companyPhone", {
@@ -185,7 +178,7 @@ export const companyColumns = helper.columns([
     header: "Phone",
     enableSorting: false,
     meta: { share: 10, min: 120 },
-    cell: (info) => <Cell value={info.getValue()} />,
+    cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
   helper.accessor("companyState", {
@@ -193,7 +186,7 @@ export const companyColumns = helper.columns([
     header: "State",
     enableSorting: false,
     meta: { share: 10, min: 96 },
-    cell: (info) => <Cell value={info.getValue()} />,
+    cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
   helper.accessor("companyAddress", {
@@ -201,15 +194,15 @@ export const companyColumns = helper.columns([
     header: "Address",
     enableSorting: false,
     meta: { share: 16, min: 160 },
-    cell: (info) => <Cell value={info.getValue()} muted />,
+    cell: (info) => <DataGridCell value={info.getValue()} muted />,
   }),
 
   helper.accessor("parentCompany", {
     id: "parent",
     header: "Parent company",
     enableSorting: false,
-    meta: { share: 12, min: 130 },
-    cell: (info) => <Cell value={info.getValue()} />,
+    meta: { share: 12, min: 108 },
+    cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
   helper.accessor("totalFunding", {
@@ -217,7 +210,7 @@ export const companyColumns = helper.columns([
     header: "Total funding",
     enableSorting: false,
     meta: { share: 10, min: 110 },
-    cell: (info) => <Cell value={formatMoney(info.getValue())} />,
+    cell: (info) => <DataGridCell value={formatMoney(info.getValue())} />,
   }),
 
   helper.accessor("latestFunding", {
@@ -225,7 +218,7 @@ export const companyColumns = helper.columns([
     header: "Latest funding",
     enableSorting: false,
     meta: { share: 11, min: 120 },
-    cell: (info) => <Cell value={info.getValue()} />,
+    cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
   helper.accessor("latestFundingAmount", {
@@ -233,7 +226,7 @@ export const companyColumns = helper.columns([
     header: "Latest round",
     enableSorting: false,
     meta: { share: 10, min: 110 },
-    cell: (info) => <Cell value={formatMoney(info.getValue())} />,
+    cell: (info) => <DataGridCell value={formatMoney(info.getValue())} />,
   }),
 
   helper.accessor("lastRaisedAt", {
@@ -241,7 +234,7 @@ export const companyColumns = helper.columns([
     header: "Last raised",
     enableSorting: false,
     meta: { share: 9, min: 104 },
-    cell: (info) => <Cell value={info.getValue()} />,
+    cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
   helper.accessor("numberOfRetailLocations", {
@@ -249,7 +242,7 @@ export const companyColumns = helper.columns([
     header: "Retail locations",
     enableSorting: false,
     meta: { share: 9, min: 120 },
-    cell: (info) => <Cell value={info.getValue()?.toLocaleString() ?? null} />,
+    cell: (info) => <DataGridCell value={info.getValue()?.toLocaleString() ?? null} />,
   }),
 
   helper.accessor("keywords", {
@@ -257,7 +250,7 @@ export const companyColumns = helper.columns([
     header: "Keywords",
     enableSorting: false,
     meta: { share: 18, min: 160 },
-    cell: (info) => <Cell value={joined(info.getValue())} muted />,
+    cell: (info) => <DataGridCell value={joined(info.getValue())} muted />,
   }),
 
   helper.accessor("technologies", {
@@ -265,7 +258,7 @@ export const companyColumns = helper.columns([
     header: "Technologies",
     enableSorting: false,
     meta: { share: 18, min: 160 },
-    cell: (info) => <Cell value={joined(info.getValue())} muted />,
+    cell: (info) => <DataGridCell value={joined(info.getValue())} muted />,
   }),
 
   helper.accessor("sicCodes", {
@@ -273,7 +266,7 @@ export const companyColumns = helper.columns([
     header: "SIC codes",
     enableSorting: false,
     meta: { share: 10, min: 110 },
-    cell: (info) => <Cell value={joined(info.getValue())} />,
+    cell: (info) => <DataGridCell value={joined(info.getValue())} />,
   }),
 
   helper.accessor("naicsCodes", {
@@ -281,9 +274,24 @@ export const companyColumns = helper.columns([
     header: "NAICS codes",
     enableSorting: false,
     meta: { share: 10, min: 120 },
-    cell: (info) => <Cell value={joined(info.getValue())} />,
+    cell: (info) => <DataGridCell value={joined(info.getValue())} />,
   }),
 ]);
+
+/**
+ * The sortable columns, in the order the table lays them out. Each token is a column id above and the
+ * server's sort token — one string, so there is no click-to-field mapping that can drift — and this
+ * list is what `useGridSort` checks a remembered preference against.
+ */
+export const COMPANY_SORT_FIELDS = [
+  "name",
+  "sector",
+  "country",
+  "location",
+  "employees",
+  "revenue",
+  "founded",
+] as const satisfies readonly CompanySortField[];
 
 /** Everything below Notes starts hidden: a table that opened with all 24 would be a spreadsheet. */
 export const DEFAULT_COLUMN_VISIBILITY: ColumnVisibilityState = {
@@ -312,54 +320,3 @@ export const COLUMN_PINNING: ColumnPinningState = {
   start: ["name"],
   end: [],
 };
-
-function CompanyLink({
-  url,
-  icon,
-  label,
-  company,
-}: {
-  url: string | null;
-  icon: string;
-  label: string;
-  company: CompanyResult;
-}) {
-  if (!url) return null;
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      title={label}
-      aria-label={`${company.companyName} on ${label}`}
-      className={ICON_BUTTON}
-    >
-      <Icon d={icon} size={13} />
-    </a>
-  );
-}
-
-function Cell({ value, muted }: { value: string | null; muted?: boolean }) {
-  return (
-    <TruncatedText
-      value={value}
-      className={muted ? "font-sans text-[13px] text-text3" : "font-sans text-[13px] text-text2"}
-    />
-  );
-}
-
-function joined(values: string[]): string | null {
-  return values.length > 0 ? values.join(", ") : null;
-}
-
-/** Null is the common case — nine rows in ten publish no figure — and reads as unknown, not zero. */
-function formatMoney(amount: number | null): string {
-  if (amount === null) return "—";
-  if (amount >= 1_000_000_000) return `$${trim(amount / 1_000_000_000)}B`;
-  if (amount >= 1_000_000) return `$${trim(amount / 1_000_000)}M`;
-  return `$${amount.toLocaleString()}`;
-}
-
-function trim(value: number): string {
-  return value >= 10 ? String(Math.round(value)) : value.toFixed(1).replace(/\.0$/, "");
-}

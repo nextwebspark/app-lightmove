@@ -105,13 +105,20 @@ public enum ErrorCode {
             "This filter matches more companies than one bulk add may take"),
 
     /**
-     * A capture named a company this mandate has already declined. Refused rather than quietly
-     * re-filed: V32 keeps declined rows precisely so a later add cannot resurrect a decision the team
-     * already took, and a capture is a later add like any other. The caller is told which company, and
-     * moves it back from the triage screen if that is genuinely what they meant.
+     * A capture naming a company this mandate already holds. Distinct from CONFLICT so the Companies
+     * screen can say which company, and point at the stage it is already sitting in, rather than
+     * offering "try again" for something retrying will never fix.
      */
-    TRIAGE_COMPANY_DECLINED(HttpStatus.CONFLICT,
-            "This mandate has already declined that company"),
+    TRIAGE_COMPANY_ALREADY_HELD(HttpStatus.CONFLICT,
+            "This mandate already holds a company with that name"),
+
+    /**
+     * A saved search reusing a name already taken in the same list. Distinct from CONFLICT so the
+     * Strategy dropdown can say what is wrong with the name rather than offering "try again" for
+     * something retrying will never fix.
+     */
+    STRATEGY_SEARCH_NAME_TAKEN(HttpStatus.CONFLICT,
+            "A search with that name is already saved here"),
 
     /** The typed confirmation on workspace deletion did not match. */
     WORKSPACE_NAME_MISMATCH(HttpStatus.BAD_REQUEST,

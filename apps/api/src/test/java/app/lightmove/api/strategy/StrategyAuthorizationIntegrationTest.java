@@ -26,7 +26,7 @@ import org.springframework.http.MediaType;
 class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
 
     private static final String FILTER_BODY = """
-            {"filter":{"industries":["retail"],"marketSegments":[],"countries":[],
+            {"filter":{"industries":["retail"],"keywords":[],"marketSegments":[],"countries":[],
                        "employeeBands":[],"revenueBands":[]}}""";
 
     @Test
@@ -122,6 +122,29 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("re-capturing a filter onto a search is a write too")
+    void overwritingASearchFollowsTheWriteGate() throws Exception {
+        Fixture f = fixture("Strategy Overwrite Gate Firm");
+        String searchId = body(mvc.perform(post(searchesUrl(f.projectId))
+                        .header("Authorization", "Bearer " + f.admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Energy"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+        mvc.perform(put(searchesUrl(f.projectId) + "/" + searchId + "/filter")
+                        .header("Authorization", "Bearer " + login(f.saraEmail)))
+                .andExpect(status().isForbidden());
+
+        seat(f.admin, f.projectId, f.saraId, "LEAD");
+        mvc.perform(put(searchesUrl(f.projectId) + "/" + searchId + "/filter")
+                        .header("Authorization", "Bearer " + login(f.saraEmail)))
+                .andExpect(status().isOk());
     }
 
     @Test

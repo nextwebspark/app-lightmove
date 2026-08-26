@@ -28,7 +28,7 @@ import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralP
 import { SettingsMembersPage } from "../features/settings/pages/SettingsMembersPage";
 import { SettingsProfilePage } from "../features/settings/pages/SettingsProfilePage";
 import { SettingsSecurityPage } from "../features/settings/pages/SettingsSecurityPage";
-import { TriagePage } from "../features/triage/pages/TriagePage";
+import { TriageStagePage } from "../features/triage/pages/TriageStagePage";
 import { StrategyPage } from "../features/strategy/pages/StrategyPage";
 import { TeamPage } from "../features/workspace/pages/TeamPage";
 
@@ -96,7 +96,20 @@ export function AppRoutes() {
       <Route element={<RequireWorkspace><ProjectLayout /></RequireWorkspace>}>
         <Route path="/projects/:projectId" element={<PositionPage />} />
         <Route path="/projects/:projectId/strategy" element={<StrategyPage />} />
-        <Route path="/projects/:projectId/triage" element={<TriagePage />} />
+        {/* The Companies section: one route pattern, three stages, each its own URL so a shortlist
+            can be sent to a colleague. An unknown stage redirects rather than rendering an empty grid
+            for something that does not exist. */}
+        <Route path="/projects/:projectId/companies/:stage" element={<TriageStagePage />} />
+        <Route
+          path="/projects/:projectId/companies"
+          element={<Navigate to="universe" replace />}
+        />
+        {/* The section used to be one screen at /triage. Redirected rather than dropped: the path is
+            in existing deep links and in the copy on Strategy. */}
+        <Route
+          path="/projects/:projectId/triage"
+          element={<Navigate to="../companies/universe" replace relative="path" />}
+        />
         <Route path="/projects/:projectId/candidates" element={<ProjectPlaceholderPage title="Candidates" icon="candidates" />} />
         <Route path="/projects/:projectId/outreach" element={<ProjectPlaceholderPage title="Outreach" icon="outreach" />} />
         <Route path="/projects/:projectId/reports" element={<ReportsPage />} />

@@ -82,9 +82,9 @@ check N10.10 "the owner is told by email that the account locked" "1" "$(email_c
 login "$VICTIM" "WrongPassword9" >/dev/null
 login "$VICTIM" "WrongPassword9" >/dev/null
 check N10.11 "and only once, not once per guess an attacker makes" "1" "$(email_count "temporarily locked")"
-check N10.12 "the lockout is still recorded in the audit trail" "true" \
-  "$(test "$(sql "SELECT count(*) FROM app_lm_audit_event a JOIN app_lm_user u ON u.id = a.actor_user_id
-                  WHERE u.email = '$VICTIM' AND a.event_type = 'ACCOUNT_LOCKED'")" -ge 1 && echo true || echo false)"
+check N10.12 "the lockout is still recorded in the audit trail" "t" \
+  "$(await_sql "SELECT count(*) > 0 FROM app_lm_audit_event a JOIN app_lm_user u ON u.id = a.actor_user_id
+                WHERE u.email = '$VICTIM' AND a.event_type = 'ACCOUNT_LOCKED'" t)"
 
 section "N11  the lock expires but the counter does not"
 
@@ -121,8 +121,8 @@ login "$VICTIM" "$PASSWORD"
 check_code N12.3 "DELETED account" 401 INVALID_CREDENTIALS
 
 check N12.4 "the real reason is still recorded in the audit trail" "status_DELETED" \
-  "$(sql "SELECT metadata->>'reason' FROM app_lm_audit_event a JOIN app_lm_user u ON u.id = a.actor_user_id
-          WHERE u.email = '$VICTIM' AND a.event_type = 'LOGIN_FAILED' ORDER BY a.occurred_at DESC LIMIT 1")"
+  "$(await_sql "SELECT metadata->>'reason' FROM app_lm_audit_event a JOIN app_lm_user u ON u.id = a.actor_user_id
+                WHERE u.email = '$VICTIM' AND a.event_type = 'LOGIN_FAILED' ORDER BY a.occurred_at DESC LIMIT 1" status_DELETED)"
 
 # An access token minted before suspension outlives it, because access tokens are stateless with a
 # 15-minute TTL. Recorded rather than asserted: there is no suspension feature to hang a fix on, and
@@ -145,7 +145,7 @@ sql_run "UPDATE app_lm_user SET password_hash = NULL WHERE email = '$OAUTHY'"
 login "$OAUTHY" "$PASSWORD"
 check_code N13.1 "password login against a Google-only account" 401 INVALID_CREDENTIALS
 check N13.2 "audited with a reason that names the cause" "no_local_password" \
-  "$(sql "SELECT metadata->>'reason' FROM app_lm_audit_event WHERE event_type = 'LOGIN_FAILED' ORDER BY occurred_at DESC LIMIT 1")"
+  "$(await_sql "SELECT metadata->>'reason' FROM app_lm_audit_event WHERE event_type = 'LOGIN_FAILED' ORDER BY occurred_at DESC LIMIT 1" no_local_password)"
 check N13.3 "the failure still counts toward lockout" "1" \
   "$(sql "SELECT failed_login_attempts FROM app_lm_user WHERE email = '$OAUTHY'")"
 
