@@ -98,13 +98,12 @@ export function SavedSearchRow({
           <span className="truncate font-sans text-[13px] text-text2 group-hover:text-text">
             {search.name}
           </span>
-          {isActive && (
-            <span className="flex-none rounded-[4px] bg-amber-dim px-[5px] py-[1px] font-sans text-[10px] font-bold text-amber">
-              Active
-            </span>
-          )}
         </span>
+        {/* "Active" rides the provenance line rather than the name's. Four action slots are reserved
+            on the first line whether or not they are visible, and a badge on top of them left the
+            name — the only thing identifying the row — truncated to about a dozen characters. */}
         <span className="mt-[1px] block truncate font-sans text-[11px] text-text3">
+          {isActive && <span className="font-semibold text-amber">Active · </span>}
           {provenance} · {formatInstantDate(search.updatedAt)}
         </span>
       </button>

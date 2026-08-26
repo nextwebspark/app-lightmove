@@ -69,7 +69,7 @@ export function SaveSearchMenu({
 
   return (
     <Popover
-      width={320}
+      width={360}
       triggerClassName="inline-flex items-center gap-1.5 whitespace-nowrap py-1 font-sans text-[13px] text-text3 transition hover:text-text"
       trigger={() => (
         <>
