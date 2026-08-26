@@ -75,8 +75,8 @@ class CompanyFacetIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the countries are the ones the universe actually holds, largest first")
-    void countriesRankedBySize() throws Exception {
+    @DisplayName("the countries are the ones the universe actually holds, largest first and uncounted")
+    void countriesRankedBySizeAndUncounted() throws Exception {
         String admin = adminOf("Facet Country Firm");
         universe.company("a1", "One").country("United Arab Emirates").employees(10).insert();
         universe.company("a2", "Two").country("United Arab Emirates").employees(10).insert();
@@ -85,8 +85,11 @@ class CompanyFacetIntegrationTest extends FlowTestSupport {
         mvc.perform(get("/api/v1/companies/facets").header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$.countries.length()").value(2))
                 .andExpect(jsonPath("$.countries[0].value").value("United Arab Emirates"))
-                .andExpect(jsonPath("$.countries[0].count").value(2))
-                .andExpect(jsonPath("$.countries[1].value").value("Qatar"));
+                .andExpect(jsonPath("$.countries[1].value").value("Qatar"))
+                // The size still decides the order — it is what puts the UAE first — but it is settled
+                // in SQL and never reaches the pill, which carries a name and nothing else.
+                .andExpect(jsonPath("$.countries[0].label").value("United Arab Emirates"))
+                .andExpect(jsonPath("$.countries[0].count").doesNotExist());
     }
 
     @Test

@@ -37,7 +37,8 @@ const KEYWORD_TAG = "keyword:";
  * 148 labels, so two open panels would put the second below the fold.
  *
  * <p><b>Each axis gets the control its values deserve, which is the wireframe's point.</b> Location
- * is six GCC countries and reads as pills, where the shape of the set is the information. Employees,
+ * is six GCC countries and reads as unnumbered pills, where the shape of the set is the information
+ * and a count on each would be noise. Employees,
  * Revenue and Market Segments are ordered or long, so they are checkbox lists — wrapped pills lose
  * the order of an ordered axis and turn a long one into a wall. Industry and its keywords are
  * vocabularies too long to browse at all, so both are tag boxes — and they share one accordion,
@@ -203,11 +204,10 @@ export function FilterSidebar({
           <FacetsUnavailable />
         ) : facets ? (
           <div className="flex flex-wrap gap-2">
-            {withCounts("countries", facets.countries)?.map((option) => (
+            {facets.countries.map((option) => (
               <FilterChip
                 key={option.value}
                 label={option.label}
-                count={option.count}
                 selected={filter.countries.includes(option.value)}
                 onToggle={() => toggleValue("countries", option.value)}
               />

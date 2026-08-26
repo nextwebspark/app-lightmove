@@ -68,8 +68,8 @@ const FACETS: Facets = {
   },
   marketSegments: [{ value: "B2B", label: "B2B", count: 40 }],
   countries: [
-    { value: "United Arab Emirates", label: "United Arab Emirates", count: 37154 },
-    { value: "Qatar", label: "Qatar", count: 4609 },
+    { value: "United Arab Emirates", label: "United Arab Emirates" },
+    { value: "Qatar", label: "Qatar" },
   ],
   employeeBands: [
     { value: "1001-2000", label: "1001-2000", count: 2022 },
@@ -84,7 +84,6 @@ const FACETS: Facets = {
 /** The universe's own numbers, which is what an untouched filter cuts. */
 const COUNTS: FacetCounts = {
   industries: { "oil & energy": 2, utilities: 1, construction: 5 },
-  countries: { "United Arab Emirates": 37154, Qatar: 4609 },
   employeeBands: { "1001-2000": 2022, "2001-5000": 640 },
   revenueBands: { "1b-5b": 289, unknown: 64690 },
   marketSegments: { B2B: 40 },
@@ -236,22 +235,35 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     vi.mocked(strategyApi.getFacetCounts).mockReturnValue(new Promise(() => {}));
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "# Employees" }));
 
     // A rail that drew its rows without numbers and then resized under the reader is worse than one
     // that opens with the market's own figures and refines them a moment later.
-    const qatar = await within(filters).findByRole("button", { name: /Qatar/ });
-    expect(qatar).toHaveTextContent("4,609");
+    const band = within(filters).getByRole("checkbox", { name: /1001-2000/ });
+    expect(band).toHaveTextContent("2,022");
   });
 
   it("shows no number at all when the scoped counts are refused", async () => {
     vi.mocked(strategyApi.getFacetCounts).mockRejectedValue(new Error("Forbidden"));
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "# Employees" }));
 
-    const qatar = await within(filters).findByRole("button", { name: /Qatar/ });
-    // The universe still knows Qatar holds 4,609 companies. That is not the number this row is
+    // The universe still knows 2,022 companies sit in that band. That is not the number this row is
     // asking for, and printed here it would be indistinguishable from the one it is.
-    await waitFor(() => expect(qatar).toHaveTextContent(/^Qatar$/));
+    const band = within(filters).getByRole("checkbox", { name: /1001-2000/ });
+    await waitFor(() => expect(band).toHaveTextContent(/^1001-2000$/));
+  });
+
+  it("offers the Location pills as names alone, with no company count", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+
+    // Six GCC pills are a set whose shape is the information; a number on each turned the one
+    // accordion that reads as shape into one that reads as arithmetic.
+    const qatar = await within(filters).findByRole("button", { name: /Qatar/ });
+    await waitFor(() => expect(strategyApi.getFacetCounts).toHaveBeenCalled());
+    expect(qatar).toHaveTextContent(/^Qatar$/);
   });
 
   it("recounts after a company is barred, which the filter key cannot see", async () => {
@@ -555,7 +567,7 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
 
-    // Location is six countries and reads as pills; the count lives on the pill itself.
+    // Location is six countries and reads as pills — names only, no count.
     expect(within(filters).getByRole("button", { name: /Qatar/ })).toBeInTheDocument();
     expect(within(filters).queryByRole("checkbox", { name: /Qatar/ })).not.toBeInTheDocument();
 

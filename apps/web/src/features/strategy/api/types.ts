@@ -8,6 +8,18 @@ export interface FacetCount {
 }
 
 /**
+ * A selectable value the sidebar offers without counting it.
+ *
+ * Location is the only axis shaped this way: six GCC pills whose *shape* is the information, where a
+ * number on each was noise on the one accordion that reads as chips. They still arrive largest-market
+ * first — the count decides that ordering server-side and never leaves the database.
+ */
+export interface FacetValue {
+  value: string;
+  label: string;
+}
+
+/**
  * One sector group with its industries. The universe's `industry` column is 148 flat labels; the
  * grouping is the API's, and clicking a group selects every leaf under it.
  */
@@ -33,7 +45,8 @@ export interface Facets {
   adjacentIndustries: Record<string, string[]>;
   /** Overlapping by design — a company can be B2B and SaaS at once. */
   marketSegments: FacetCount[];
-  countries: FacetCount[];
+  /** Uncounted, and ordered by size — see `FacetValue`. */
+  countries: FacetValue[];
   employeeBands: FacetCount[];
   revenueBands: FacetCount[];
 }
@@ -51,16 +64,18 @@ export interface FacetOption extends Omit<FacetCount, "count"> {
  * How many companies each option still reaches under the current selection, keyed by the token a
  * saved filter stores.
  *
- * Each axis is counted with every criterion applied **except its own** — picking a country recounts
- * the industries under it and leaves the other countries countable, where applying everything would
- * read zero for every country but the chosen one.
+ * Each axis is counted with every criterion applied **except its own** — picking an industry recounts
+ * the bands and segments under it and leaves the other industries countable, where applying
+ * everything would read zero for every industry but the chosen one.
+ *
+ * Location has no entry: its pills carry no number, so a country narrows every axis here and is
+ * answered by none of them.
  *
  * **An option absent from a map counts zero.** The vocabulary lives in `Facets`, which the sidebar
  * already renders from, so repeating it here to carry a zero would only let the two disagree.
  */
 export interface FacetCounts {
   industries: Record<string, number>;
-  countries: Record<string, number>;
   employeeBands: Record<string, number>;
   revenueBands: Record<string, number>;
   marketSegments: Record<string, number>;

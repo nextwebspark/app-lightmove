@@ -11,6 +11,7 @@ import app.lightmove.api.strategy.constant.FacetAxis;
 import app.lightmove.api.strategy.constant.RevenueBand;
 import app.lightmove.api.strategy.dto.FacetCount;
 import app.lightmove.api.strategy.dto.FacetCountsResponse;
+import app.lightmove.api.strategy.dto.FacetValue;
 import app.lightmove.api.strategy.dto.FacetsResponse;
 import app.lightmove.api.strategy.dto.SectorGroup;
 import app.lightmove.api.strategy.model.CompanyScope;
@@ -36,8 +37,11 @@ import org.springframework.stereotype.Service;
  *
  * <p>{@link #countsFor(CompanyScope)} is <b>how one selection cuts that market</b>, and it is the
  * only number the sidebar actually shows once it has loaded. Each axis is counted with every
- * criterion applied except its own (see {@link FacetAxis}), so picking a country recounts the
- * industries under it while leaving the other countries countable.
+ * criterion applied except its own (see {@link FacetAxis}), so picking an industry recounts the bands
+ * and segments under it while leaving the other industries countable.
+ *
+ * <p>Location is counted by neither. Its pills carry no number at all, and the country criterion
+ * simply narrows every other axis.
  *
  * <p><b>Order comes from the universe read, never from the live counts.</b> Re-ranking a row by a
  * number that moves would slide the next chip out from under the hand that just clicked one — so the
@@ -79,11 +83,6 @@ public class CompanyFacetService {
                  WHERE %s AND industry IS NOT NULL AND industry <> ''
                  GROUP BY 2
                 UNION ALL
-                SELECT '%s', company_country, count(*)
-                  FROM app_lm_apollo_companies
-                 WHERE %s AND company_country IS NOT NULL AND company_country <> ''
-                 GROUP BY 2
-                UNION ALL
                 SELECT '%s', %s, count(*)
                   FROM app_lm_apollo_companies
                  WHERE %s
@@ -98,7 +97,6 @@ public class CompanyFacetService {
                   FROM %s
                 """.formatted(
                 FacetAxis.INDUSTRY.wireName(), predicate.excluding(FacetAxis.INDUSTRY).sql(),
-                FacetAxis.COUNTRY.wireName(), predicate.excluding(FacetAxis.COUNTRY).sql(),
                 FacetAxis.EMPLOYEE_SIZE.wireName(), employeeBandCase(params),
                 predicate.excluding(FacetAxis.EMPLOYEE_SIZE).sql(),
                 FacetAxis.REVENUE.wireName(), revenueBandCase(params),
@@ -121,7 +119,6 @@ public class CompanyFacetService {
         }
         return new FacetCountsResponse(
                 countsOf(countsByAxis, FacetAxis.INDUSTRY),
-                countsOf(countsByAxis, FacetAxis.COUNTRY),
                 countsOf(countsByAxis, FacetAxis.EMPLOYEE_SIZE),
                 countsOf(countsByAxis, FacetAxis.REVENUE),
                 countsOf(countsByAxis, FacetAxis.MARKET_SEGMENT));
@@ -219,21 +216,28 @@ public class CompanyFacetService {
     }
 
     /**
-     * The Location accordion. Ranked by size, and the live vocabulary is the six GCC countries — which
-     * is why the mockup's six fixed chips turned out to be the whole list rather than a sample.
+     * The Location accordion — the only axis that offers its values without counting them.
+     *
+     * <p>The live vocabulary is the six GCC countries, which is why the mockup's six fixed chips
+     * turned out to be the whole list rather than a sample. Six pills are a set whose shape is the
+     * information, and a number on each was noise on the one accordion that reads as chips.
+     *
+     * <p><b>The count still decides the order and never leaves the database.</b> Largest market first
+     * keeps the rail scannable, and unlike the counts themselves that ordering is stable — it does
+     * not move when the consultant selects something.
      */
-    private List<FacetCount> countryFacets() {
+    private List<FacetValue> countryFacets() {
         return jdbc.sql("""
-                        SELECT company_country AS label, count(*) AS count
+                        SELECT company_country
                         FROM app_lm_apollo_companies
                         WHERE company_country IS NOT NULL AND company_country <> ''
                         GROUP BY 1
                         ORDER BY count(*) DESC, 1
                         """)
-                .query(ScopeBreakdown.class)
+                .query(String.class)
                 .list()
                 .stream()
-                .map(row -> new FacetCount(row.label(), row.label(), row.count()))
+                .map(country -> new FacetValue(country, country))
                 .toList();
     }
 

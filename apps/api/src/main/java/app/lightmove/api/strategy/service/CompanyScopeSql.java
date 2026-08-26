@@ -19,13 +19,13 @@ import org.springframework.jdbc.core.simple.JdbcClient;
  *
  * <p>The reason this is a type rather than a private method on the query service is
  * {@link #excluding(FacetAxis)}. A facet count is taken with everything applied <b>but the axis being
- * counted</b>, so the same scope has to render six different WHERE clauses that agree with each other
+ * counted</b>, so the same scope has to render five different WHERE clauses that agree with each other
  * in every respect except one. Keeping each criterion under the axis it belongs to makes that one
- * lookup instead of five hand-maintained variants of {@code buildWhere}.
+ * lookup instead of four hand-maintained variants of {@code buildWhere}.
  *
- * <p>Criteria that belong to no accordion — company keywords, the off-limits list, the results
- * table's name filter — are unconditional and survive every exclusion. Off-limits especially: a
- * barred company must not be counted into a chip the consultant is about to click.
+ * <p>Criteria no accordion counts — the countries, the company keywords, the off-limits list, the
+ * results table's name filter — are unconditional and survive every exclusion. Off-limits especially:
+ * a barred company must not be counted into a chip the consultant is about to click.
  *
  * <p><b>Every rendering shares one parameter map, deliberately.</b> Dropping an axis leaves its bound
  * values behind, and that is harmless: named-parameter binding resolves only the placeholders the
@@ -60,10 +60,6 @@ final class CompanyScopeSql {
             clauseByAxis.put(FacetAxis.INDUSTRY, "lower(industry) IN (:industries)");
             params.put("industries", lowered(scope.industries()));
         }
-        if (!scope.countries().isEmpty()) {
-            clauseByAxis.put(FacetAxis.COUNTRY, "company_country IN (:countries)");
-            params.put("countries", scope.countries());
-        }
         List<String> segmentKeywords = marketSegments.keywordsOfAll(scope.marketSegments());
         if (!segmentKeywords.isEmpty()) {
             clauseByAxis.put(FacetAxis.MARKET_SEGMENT,
@@ -86,6 +82,12 @@ final class CompanyScopeSql {
 
         if (!scope.keywords().isEmpty()) {
             unconditional.add("keywords && " + arrayLiteral(lowered(scope.keywords()), "kw", params));
+        }
+        // Unconditional rather than an axis: no accordion counts Location, so nothing ever excludes
+        // the country criterion and it belongs beside the keywords and the off-limits list.
+        if (!scope.countries().isEmpty()) {
+            unconditional.add("company_country IN (:countries)");
+            params.put("countries", scope.countries());
         }
         if (!scope.offLimitsAccountIds().isEmpty()) {
             unconditional.add("apollo_account_id NOT IN (:offLimitsIds)");

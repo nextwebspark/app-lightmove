@@ -201,9 +201,11 @@ try {
     check("S2.5", "Unknown revenue is the rows carrying no figure",
       num("SELECT count(*) FROM app_lm_apollo_companies WHERE annual_revenue IS NULL"),
       facets.revenueBands.find((band) => band.value === "unknown")?.count);
-    check("S2.6", `the ${TOP_COUNTRY} chip counts what the database holds`,
-      num(`SELECT count(*) FROM app_lm_apollo_companies WHERE company_country = '${TOP_COUNTRY.replace(/'/g, "''")}'`),
-      facets.countries.find((country) => country.value === TOP_COUNTRY)?.count);
+    // Location is the one axis the sidebar offers without counting — six GCC pills carry a name and
+    // nothing else — so there is no chip count to reconcile here. The vocabulary itself still is.
+    check("S2.6", "Location offers exactly the countries the universe carries",
+      num("SELECT count(distinct company_country) FROM app_lm_apollo_companies WHERE company_country IS NOT NULL AND company_country <> ''"),
+      facets.countries.length);
     note("S2.7", `market segments overlap and sum to ${sum("marketSegments").toLocaleString()} over ${UNIVERSE.toLocaleString()} rows`);
   }
 

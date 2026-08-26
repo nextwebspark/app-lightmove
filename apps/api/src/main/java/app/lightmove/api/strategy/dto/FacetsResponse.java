@@ -20,6 +20,9 @@ import java.util.Map;
  * {@code label}, so the client never keeps a mirror of the band vocabulary and never has to guess
  * which of the two a filter should hold.
  *
+ * <p>{@code countries} is the one axis that arrives uncounted, as {@link FacetValue}: six GCC pills
+ * whose shape is the information, ordered by size but carrying no number. See {@code FacetValue}.
+ *
  * <p>{@code marketSegments} counts overlap by design — a company can be B2B and SaaS at once — so they
  * sum to more than the universe. Every other facet's counts partition it.
  *
@@ -30,5 +33,5 @@ import java.util.Map;
  */
 public record FacetsResponse(List<SectorGroup> sectorGroups,
                              Map<String, List<String>> adjacentIndustries,
-                             List<FacetCount> marketSegments, List<FacetCount> countries,
+                             List<FacetCount> marketSegments, List<FacetValue> countries,
                              List<FacetCount> employeeBands, List<FacetCount> revenueBands) {}

@@ -22,10 +22,14 @@ import org.springframework.test.web.servlet.ResultActions;
  * The sidebar's counts as one selection cuts them.
  *
  * <p>The rule every case here is really about: <b>an axis is counted with everything applied except
- * its own criterion</b>. Picking a country has to recount the industries under it and leave the
- * other countries countable — apply the country to its own accordion and every row but the chosen
- * one reads zero, which makes Location useless the moment it is used. That is the failure this file
- * exists to prevent, and it is invisible to any test that only checks the axis it selected on.
+ * its own criterion</b>. Picking an industry has to recount the bands and segments under it and leave
+ * the other industries countable — apply the industry to its own accordion and every row but the
+ * chosen one reads zero, which makes Industry useless the moment it is used. That is the failure this
+ * file exists to prevent, and it is invisible to any test that only checks the axis it selected on.
+ *
+ * <p>Location is the axis that is <b>not</b> counted: its pills carry no number, so a country narrows
+ * every axis here and is answered by none of them. That has its own failure mode — a criterion no
+ * accordion counts is easy to drop from the query altogether — and its own case below.
  *
  * <p>The universe is seeded per test — it is ETL reference data, empty in a fresh schema — and read
  * through the real HTTP endpoint.
@@ -73,34 +77,58 @@ class StrategyFacetCountsIntegrationTest extends FlowTestSupport {
         seedTwoCountries();
 
         facetCounts(admin, projectId, NO_FILTER)
-                .andExpect(jsonPath("$.countries['United Arab Emirates']").value(3))
-                .andExpect(jsonPath("$.countries['Saudi Arabia']").value(2))
                 .andExpect(jsonPath("$.industries['oil & energy']").value(2))
                 .andExpect(jsonPath("$.employeeBands['101-200']").value(1))
                 .andExpect(jsonPath("$.revenueBands.unknown").value(2))
-                .andExpect(jsonPath("$.marketSegments.B2B").value(4));
+                .andExpect(jsonPath("$.marketSegments.B2B").value(4))
+                // Location is offered by the facets read and counted by neither.
+                .andExpect(jsonPath("$.countries").doesNotExist());
     }
 
     @Test
-    @DisplayName("picking a country recounts every other axis under it, and leaves Location countable")
-    void countryNarrowsTheOtherAxesOnly() throws Exception {
-        String admin = adminOf("Counts Country Firm");
+    @DisplayName("picking an industry recounts every other axis under it, and leaves Industry countable")
+    void industryNarrowsTheOtherAxesOnly() throws Exception {
+        String admin = adminOf("Counts Industry Firm");
         String projectId = project(admin);
         seedTwoCountries();
 
         facetCounts(admin, projectId, """
+                {"industries":["oil & energy"],"keywords":[],"marketSegments":[],"countries":[],
+                 "employeeBands":[],"revenueBands":[]}""")
+                // Narrowed: only the two oil & energy rows are counted.
+                .andExpect(jsonPath("$.employeeBands['101-200']").value(1))
+                .andExpect(jsonPath("$.employeeBands['201-500']").value(1))
+                .andExpect(jsonPath("$.employeeBands['21-50']").doesNotExist())
+                .andExpect(jsonPath("$.revenueBands.unknown").value(1))
+                .andExpect(jsonPath("$.marketSegments.B2B").value(2))
+                // Untouched: Industry is counted without its own criterion, so banking still says how
+                // many companies clicking it would reach rather than zero.
+                .andExpect(jsonPath("$.industries['oil & energy']").value(2))
+                .andExpect(jsonPath("$.industries.banking").value(1))
+                .andExpect(jsonPath("$.industries.utilities").value(1))
+                .andExpect(jsonPath("$.industries.retail").value(1));
+    }
+
+    @Test
+    @DisplayName("a country narrows every counted axis, and is answered by none of them")
+    void countryNarrowsEveryAxisAndIsAnsweredByNone() throws Exception {
+        String admin = adminOf("Counts Country Firm");
+        String projectId = project(admin);
+        seedTwoCountries();
+
+        // No accordion counts Location, so nothing ever excludes the country criterion — which makes
+        // it easy to drop from the query altogether and never notice. Every axis below is the check.
+        facetCounts(admin, projectId, """
                 {"industries":[],"keywords":[],"marketSegments":[],
                  "countries":["United Arab Emirates"],"employeeBands":[],"revenueBands":[]}""")
-                // Narrowed: only the UAE rows are counted.
                 .andExpect(jsonPath("$.industries['oil & energy']").value(1))
                 .andExpect(jsonPath("$.industries.utilities").value(1))
+                .andExpect(jsonPath("$.industries.retail").doesNotExist())
                 .andExpect(jsonPath("$.employeeBands['21-50']").value(1))
+                .andExpect(jsonPath("$.employeeBands['11-20']").doesNotExist())
                 .andExpect(jsonPath("$.revenueBands.unknown").value(1))
                 .andExpect(jsonPath("$.marketSegments.B2B").value(3))
-                // Untouched: Location is counted without its own criterion, so Saudi Arabia still
-                // says how many companies clicking it would reach rather than zero.
-                .andExpect(jsonPath("$.countries['United Arab Emirates']").value(3))
-                .andExpect(jsonPath("$.countries['Saudi Arabia']").value(2));
+                .andExpect(jsonPath("$.countries").doesNotExist());
     }
 
     @Test
@@ -131,13 +159,13 @@ class StrategyFacetCountsIntegrationTest extends FlowTestSupport {
         facetCounts(admin, projectId, """
                 {"industries":["oil & energy"],"keywords":[],"marketSegments":[],
                  "countries":["United Arab Emirates"],"employeeBands":[],"revenueBands":[]}""")
-                // Location drops the country but keeps the industry: oil & energy is in both markets.
-                .andExpect(jsonPath("$.countries['United Arab Emirates']").value(1))
-                .andExpect(jsonPath("$.countries['Saudi Arabia']").value(1))
                 // Industry drops the industry but keeps the country: all three UAE rows are counted.
                 .andExpect(jsonPath("$.industries['oil & energy']").value(1))
                 .andExpect(jsonPath("$.industries.banking").value(1))
-                .andExpect(jsonPath("$.industries.utilities").value(1));
+                .andExpect(jsonPath("$.industries.utilities").value(1))
+                // The bands drop neither, so only the one company in both is left.
+                .andExpect(jsonPath("$.employeeBands['101-200']").value(1))
+                .andExpect(jsonPath("$.employeeBands['201-500']").doesNotExist());
     }
 
     @Test
@@ -176,8 +204,9 @@ class StrategyFacetCountsIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
 
         facetCounts(admin, projectId, NO_FILTER)
-                .andExpect(jsonPath("$.countries['United Arab Emirates']").value(2))
                 .andExpect(jsonPath("$.industries.utilities").doesNotExist())
+                .andExpect(jsonPath("$.revenueBands['10b-plus']").doesNotExist())
+                .andExpect(jsonPath("$.employeeBands['5001-10000']").doesNotExist())
                 .andExpect(jsonPath("$.marketSegments.B2B").value(3));
     }
 
@@ -189,7 +218,7 @@ class StrategyFacetCountsIntegrationTest extends FlowTestSupport {
 
         facetCounts(admin, projectId, NO_FILTER)
                 .andExpect(jsonPath("$.industries.length()").value(0))
-                .andExpect(jsonPath("$.countries.length()").value(0))
+                .andExpect(jsonPath("$.employeeBands.length()").value(0))
                 // Segments are tallied in one pass over the rows, so every one comes back — at zero.
                 .andExpect(jsonPath("$.marketSegments.B2B").value(0));
     }
