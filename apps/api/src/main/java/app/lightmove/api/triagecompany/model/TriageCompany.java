@@ -27,11 +27,11 @@ import lombok.NoArgsConstructor;
  * different thing from Apollo's {@code short_description}, the same sentence for every mandate.
  *
  * <p>{@code apolloAccountId} is null for the two sources that have no universe id to carry — a company
- * typed in by hand, or captured off a live page by the plugin. {@code source} says which, and V33's
+ * typed in by hand, or captured off a live page by the plugin. {@code source} says which, and V34's
  * CHECK keeps the pair honest: a {@code STRATEGY} row without an id cannot exist.
  *
  * <p>{@code status} and {@code source} are stored as their enum names rather than their wire tokens,
- * matching the CHECK constraints in V32 and V33. The wire token is the client's vocabulary and is free
+ * matching the CHECK constraints in V32 and V34. The wire token is the client's vocabulary and is free
  * to change; the stored name is the schema's.
  */
 @Entity

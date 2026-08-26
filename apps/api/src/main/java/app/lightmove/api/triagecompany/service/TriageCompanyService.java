@@ -158,7 +158,7 @@ public class TriageCompanyService {
      * entire reason this path exists.
      *
      * <p>Refused if the mandate already holds that name under <i>any</i> source. That is wider than the
-     * partial unique index V33 adds, which can only see the manual rows, and it is the question a
+     * partial unique index V34 adds, which can only see the manual rows, and it is the question a
      * consultant is actually asking — a company already taken from Apollo is "already there" whether or
      * not it arrived the same way.
      */
@@ -345,7 +345,7 @@ public class TriageCompanyService {
     /**
      * Defaults to a hand-typed company, and refuses {@code strategy} outright. A row claiming to come
      * from the market must come through {@link #add}, where the snapshot is resolved from the market
-     * and the account id it is keyed by actually exists — V33's CHECK refuses the alternative anyway,
+     * and the account id it is keyed by actually exists — V34's CHECK refuses the alternative anyway,
      * and a constraint violation is a worse way to learn it.
      */
     private static TriageCompanySource resolveCapturableSource(String token) {

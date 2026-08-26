@@ -177,8 +177,7 @@ public class ApolloCompanyQueryService {
                     .sorted(Comparator.comparingLong(FacetCount::count).reversed()
                             .thenComparing(FacetCount::label))
                     .toList();
-            groups.add(new SectorGroup(groupName,
-                    counted.stream().mapToLong(FacetCount::count).sum(), counted));
+            groups.add(new SectorGroup(groupName, counted));
         });
         return groups;
     }
@@ -208,6 +207,38 @@ public class ApolloCompanyQueryService {
             facets.add(new FacetCount(segment, segment, count));
         });
         return facets;
+    }
+
+    /**
+     * The Company Keywords box. Ranked like {@link #typeahead}: a prefix match beats one buried
+     * mid-word, then the biggest slice of the market first.
+     *
+     * <p>Reads {@code app_lm_apollo_keywords}, which V33 materialises because the same question asked
+     * of the universe directly cannot be made cheap by any parameter the caller sends. It follows the
+     * universe only when the pipeline refreshes it.
+     *
+     * <p>{@code LIKE} rather than {@code ILIKE} for the reason {@code arrayLiteral} gives: every
+     * keyword in the table is already lower-case.
+     */
+    public List<FacetCount> keywordSuggestions(String query, int limit, int minCompanies) {
+        String pattern = escapeLikePattern(query.toLowerCase(Locale.ROOT));
+        return jdbc.sql("""
+                        SELECT keyword AS label, company_count AS count
+                        FROM app_lm_apollo_keywords
+                        WHERE keyword LIKE :contains ESCAPE '\\'
+                          AND company_count >= :minCompanies
+                        ORDER BY (keyword LIKE :prefix ESCAPE '\\') DESC, company_count DESC, 1
+                        LIMIT :limit
+                        """)
+                .param("contains", "%" + pattern + "%")
+                .param("prefix", pattern + "%")
+                .param("minCompanies", minCompanies)
+                .param("limit", limit)
+                .query(ScopeBreakdown.class)
+                .list()
+                .stream()
+                .map(row -> new FacetCount(row.label(), row.label(), row.count()))
+                .toList();
     }
 
     /**
@@ -309,6 +340,9 @@ public class ApolloCompanyQueryService {
             // filter saved from a facet response should not depend on that staying true.
             clauses.add("lower(industry) IN (:industries)");
             params.put("industries", lowered(scope.industries()));
+        }
+        if (!scope.keywords().isEmpty()) {
+            clauses.add("keywords && " + arrayLiteral(lowered(scope.keywords()), "kw", params));
         }
         List<String> segmentKeywords = marketSegments.keywordsOfAll(scope.marketSegments());
         if (!segmentKeywords.isEmpty()) {

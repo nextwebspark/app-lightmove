@@ -27,6 +27,17 @@ public final class ApolloUniverse {
     /** Empty the universe. Call from {@code @BeforeEach} in any test that reads it. */
     public void reset() {
         db.execute("DELETE FROM app_lm_apollo_companies");
+        // Otherwise the previous test's keywords are still in the view when this one asks.
+        refreshKeywordVocabulary();
+    }
+
+    /**
+     * Rebuilds the keyword vocabulary from whatever this fixture has seeded. The view does not follow
+     * the table under it — that is the point of it — so a test reading keyword suggestions has to ask
+     * for the refresh the pipeline would have run.
+     */
+    public void refreshKeywordVocabulary() {
+        db.execute("REFRESH MATERIALIZED VIEW app_lm_apollo_keywords");
     }
 
     /** A company to be filled in and inserted. */

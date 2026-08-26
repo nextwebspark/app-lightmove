@@ -26,7 +26,7 @@ export function FilterCheckRow({
   count?: number;
   checked: boolean;
   onToggle: () => void;
-  /** `sm` is the nested industry leaf; `md` is a top-level band row. */
+  /** `sm` is the column picker's list; `md` is a band row on the filter rail. */
   size?: "sm" | "md";
 }) {
   return (
@@ -67,23 +67,19 @@ export function FilterCheckRow({
 export function CheckBox({
   checked,
   size = "md",
-  indeterminate = false,
 }: {
   checked: boolean;
   size?: "sm" | "md";
-  /** A group whose leaves are only partly selected: a bar, not a tick. */
-  indeterminate?: boolean;
 }) {
   const box = size === "md" ? "h-[18px] w-[18px]" : "h-[15px] w-[15px]";
   const glyph = size === "md" ? 10 : 9;
-  const on = checked || indeterminate;
 
   return (
     <span
       className={cn(
         "grid flex-none place-items-center rounded-[4px] shadow-[inset_0_0_0_1.5px_currentColor]",
         box,
-        on ? "bg-amber-dim text-amber" : "text-line",
+        checked ? "bg-amber-dim text-amber" : "text-line",
       )}
     >
       <svg
@@ -93,9 +89,9 @@ export function CheckBox({
         fill="none"
         stroke="currentColor"
         strokeWidth={3.2}
-        className={cn("text-amber", on ? "opacity-100" : "opacity-0")}
+        className={cn("text-amber", checked ? "opacity-100" : "opacity-0")}
       >
-        <path d={indeterminate && !checked ? "M5 12h14" : "M20 6 9 17l-5-5"} />
+        <path d="M20 6 9 17l-5-5" />
       </svg>
     </span>
   );

@@ -231,8 +231,9 @@ public class StrategyService {
                 throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown revenue band: " + band);
             }
         }
-        return new StrategyFilter(distinct(dto.industries()), distinct(dto.marketSegments()),
-                distinct(dto.countries()), distinct(dto.employeeBands()), distinct(dto.revenueBands()),
+        return new StrategyFilter(distinct(dto.industries()), distinct(dto.keywords()),
+                distinct(dto.marketSegments()), distinct(dto.countries()),
+                distinct(dto.employeeBands()), distinct(dto.revenueBands()),
                 toRange(dto.employeeRange()), toRange(dto.revenueRange()));
     }
 

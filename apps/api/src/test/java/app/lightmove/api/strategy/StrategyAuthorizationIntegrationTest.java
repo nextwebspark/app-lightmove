@@ -26,7 +26,7 @@ import org.springframework.http.MediaType;
 class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
 
     private static final String FILTER_BODY = """
-            {"filter":{"industries":["retail"],"marketSegments":[],"countries":[],
+            {"filter":{"industries":["retail"],"keywords":[],"marketSegments":[],"countries":[],
                        "employeeBands":[],"revenueBands":[]}}""";
 
     @Test

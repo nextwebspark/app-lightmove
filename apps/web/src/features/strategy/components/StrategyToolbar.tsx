@@ -25,7 +25,7 @@ function constrains(range: NumericRange | null): boolean {
  */
 function activeAxisCount(filter: StrategyFilter): number {
   return [
-    filter.industries.length > 0,
+    filter.industries.length > 0 || filter.keywords.length > 0,
     filter.marketSegments.length > 0,
     filter.countries.length > 0,
     filter.employeeBands.length > 0 || constrains(filter.employeeRange),

@@ -106,7 +106,7 @@ Cloud SQL Postgres 16, instance `bright-gcc`, database `lightmove`. All tables p
 to the application, keyed on `apollo_account_id`. Anything that stores a company stores that id plus a
 **write-time snapshot**, and never a foreign key: the pipeline reloads the table wholesale. A company
 the market does not carry has no id to store, so `app_lm_project_triage_company.apollo_account_id` is
-nullable and `source` records which door the row came through (V33).
+nullable and `source` records which door the row came through (V34).
 `app_lm_companies` is the retired brightdata copy — nothing reads it, nothing refills it, and it is
 left in place rather than dropped. A mandate's whole filter is one `jsonb` column on `app_lm_strategy`
 (V30 explains why). Everything else (roles, hardening, grants) → `db-ops` skill.

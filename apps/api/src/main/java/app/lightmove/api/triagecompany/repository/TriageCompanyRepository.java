@@ -29,7 +29,7 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
     Optional<TriageCompany> findByProjectIdAndApolloAccountId(UUID projectId, String apolloAccountId);
 
     /**
-     * The duplicate guard behind a capture, and wider than the partial unique index V33 adds: that
+     * The duplicate guard behind a capture, and wider than the partial unique index V34 adds: that
      * index can only see the manual rows, so a company typed in under a name the mandate already took
      * out of Apollo would pass it. Matching across every source is also what a consultant means by
      * "already there" — where the row came from is not the question they are asking.

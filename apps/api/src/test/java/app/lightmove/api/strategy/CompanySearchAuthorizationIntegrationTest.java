@@ -35,6 +35,7 @@ class CompanySearchAuthorizationIntegrationTest extends FlowTestSupport {
 
     private static final String FACETS_URL = "/api/v1/companies/facets";
     private static final String SEARCH_URL = "/api/v1/companies/search";
+    private static final String KEYWORDS_URL = "/api/v1/companies/keywords";
 
     @Test
     @DisplayName("a pure client representative reads neither the facets nor the company search")
@@ -47,6 +48,9 @@ class CompanySearchAuthorizationIntegrationTest extends FlowTestSupport {
 
         // And the picker would answer "which companies do you know of called…" one query at a time.
         mvc.perform(get(SEARCH_URL).param("q", "power").header("Authorization", "Bearer " + rep))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(get(KEYWORDS_URL).param("q", "saas").header("Authorization", "Bearer " + rep))
                 .andExpect(status().isForbidden());
     }
 
@@ -65,6 +69,8 @@ class CompanySearchAuthorizationIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
         mvc.perform(get(SEARCH_URL).param("q", "power").header("Authorization", "Bearer " + member))
                 .andExpect(status().isOk());
+        mvc.perform(get(KEYWORDS_URL).param("q", "saas").header("Authorization", "Bearer " + member))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -72,6 +78,7 @@ class CompanySearchAuthorizationIntegrationTest extends FlowTestSupport {
     void anonymousIsRefused() throws Exception {
         mvc.perform(get(FACETS_URL)).andExpect(status().isUnauthorized());
         mvc.perform(get(SEARCH_URL).param("q", "power")).andExpect(status().isUnauthorized());
+        mvc.perform(get(KEYWORDS_URL).param("q", "saas")).andExpect(status().isUnauthorized());
     }
 
     /**

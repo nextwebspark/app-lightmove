@@ -241,7 +241,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
         universe.company("a2", "Energy Two").industry("oil & energy").employees(90).insert();
         universe.company("a3", "Shop Three").industry("retail").employees(80).insert();
         putFilter(admin, projectId, """
-                {"filter":{"industries":["oil & energy"],"marketSegments":[],"countries":[],
+                {"filter":{"industries":["oil & energy"],"keywords":[],"marketSegments":[],"countries":[],
                            "employeeBands":[],"revenueBands":[]}}""");
 
         mvc.perform(post(triageUrl(projectId) + "/from-filter")
@@ -266,7 +266,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                     .employees(100 - index).insert();
         }
         putFilter(admin, projectId, """
-                {"filter":{"industries":["oil & energy"],"marketSegments":[],"countries":[],
+                {"filter":{"industries":["oil & energy"],"keywords":[],"marketSegments":[],"countries":[],
                            "employeeBands":[],"revenueBands":[]}}""");
 
         MvcResult refused = mvc.perform(post(triageUrl(projectId) + "/from-filter")
@@ -291,7 +291,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
         universe.company("a1", "Energy One").industry("oil & energy").employees(100).insert();
         universe.company("a2", "Energy Two").industry("oil & energy").employees(90).insert();
         putFilter(admin, projectId, """
-                {"filter":{"industries":["oil & energy"],"marketSegments":[],"countries":[],
+                {"filter":{"industries":["oil & energy"],"keywords":[],"marketSegments":[],"countries":[],
                            "employeeBands":[],"revenueBands":[]}}""");
 
         String declinedId = add(admin, projectId, "a1");
@@ -513,7 +513,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
         universe.company("a1", "ACWA Power").industry("oil & energy").employees(3_000).insert();
         add(admin, projectId, "a1");
 
-        // Wider than V33's partial index, which only sees the manual rows. "Already there" is not a
+        // Wider than V34's partial index, which only sees the manual rows. "Already there" is not a
         // question about which door the company came through.
         mvc.perform(post(triageUrl(projectId) + "/capture")
                         .header("Authorization", "Bearer " + admin)

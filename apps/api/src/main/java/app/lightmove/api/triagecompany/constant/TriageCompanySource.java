@@ -8,7 +8,7 @@ package app.lightmove.api.triagecompany.constant;
  * reading a row should be able to tell which they are looking at before acting on it.
  *
  * <p>The distinction is also a write rule: only {@link #STRATEGY} rows carry an
- * {@code apolloAccountId}, because only they were taken out of a universe that has ids. V33's
+ * {@code apolloAccountId}, because only they were taken out of a universe that has ids. V34's
  * {@code app_lm_project_triage_company_apollo_source_chk} enforces that half in the schema.
  */
 public enum TriageCompanySource {

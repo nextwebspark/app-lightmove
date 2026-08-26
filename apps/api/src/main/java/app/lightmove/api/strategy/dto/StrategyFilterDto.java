@@ -24,6 +24,10 @@ public record StrategyFilterDto(
         @Size(max = 200, message = "Too many industries selected")
         List<@Size(max = 160) String> industries,
 
+        @NotNull(message = "keywords must be present, even if empty")
+        @Size(max = 50, message = "Too many keywords selected")
+        List<@Size(max = 64) String> keywords,
+
         @NotNull(message = "marketSegments must be present, even if empty")
         @Size(max = 50, message = "Too many market segments selected")
         List<@Size(max = 64) String> marketSegments,
@@ -51,8 +55,8 @@ public record StrategyFilterDto(
 ) {
 
     public static StrategyFilterDto of(StrategyFilter filter) {
-        return new StrategyFilterDto(filter.industries(), filter.marketSegments(), filter.countries(),
-                filter.employeeBands(), filter.revenueBands(),
+        return new StrategyFilterDto(filter.industries(), filter.keywords(), filter.marketSegments(),
+                filter.countries(), filter.employeeBands(), filter.revenueBands(),
                 NumericRangeDto.of(filter.employeeRange()), NumericRangeDto.of(filter.revenueRange()));
     }
 }

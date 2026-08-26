@@ -30,12 +30,14 @@ vi.mock("../api/companiesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof companiesApi>()),
   getFacets: vi.fn(),
   searchCompanies: vi.fn(),
+  searchKeywords: vi.fn(),
 }));
 
 const project = { id: "p1", positionTitle: "CFO" } as Project;
 
 const EMPTY_FILTER: StrategyFilter = {
   industries: [],
+  keywords: [],
   marketSegments: [],
   countries: [],
   employeeBands: [],
@@ -48,7 +50,6 @@ const FACETS: Facets = {
   sectorGroups: [
     {
       name: "Energy & Utilities",
-      count: 3,
       industries: [
         { value: "oil & energy", label: "oil & energy", count: 2 },
         { value: "utilities", label: "utilities", count: 1 },
@@ -56,10 +57,14 @@ const FACETS: Facets = {
     },
     {
       name: "Construction",
-      count: 5,
       industries: [{ value: "construction", label: "construction", count: 5 }],
     },
   ],
+  adjacentIndustries: {
+    "oil & energy": ["utilities", "construction"],
+    utilities: ["oil & energy"],
+    construction: ["oil & energy"],
+  },
   marketSegments: [{ value: "B2B", label: "B2B", count: 40 }],
   countries: [
     { value: "United Arab Emirates", label: "United Arab Emirates", count: 37154 },
@@ -145,6 +150,11 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     vi.mocked(strategyApi.getStrategy).mockResolvedValue(strategyOf());
     vi.mocked(companiesApi.getFacets).mockResolvedValue(FACETS);
     vi.mocked(companiesApi.searchCompanies).mockResolvedValue({ companies: [] });
+    vi.mocked(companiesApi.searchKeywords).mockImplementation(async (query) => ({
+      keywords: [{ value: "saas", label: "saas", count: 12 }].filter((keyword) =>
+        keyword.value.includes(query),
+      ),
+    }));
     vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf());
     vi.mocked(strategyApi.putFilter).mockImplementation(async (_id, filter) => strategyOf(filter));
   });
@@ -201,56 +211,114 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     expect(cancel.mock.invocationCallOrder[0]).toBeLessThan(invalidate.mock.invocationCallOrder[0]!);
   });
 
-  it("selecting a sector stores its industries, never the sector name", async () => {
+  it("offers the whole industry list on a click, and narrows it as the consultant types", async () => {
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
 
-    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
-    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
+    // Closed, the box says nothing about what can be asked for.
+    expect(within(filters).queryAllByRole("option")).toHaveLength(0);
+
+    await userEvent.click(within(filters).getByLabelText("Search industries"));
+    // Biggest slice first, and never the sector it is filed under: a group is not selectable.
+    expect(within(filters).getAllByRole("option").map((row) => row.textContent)).toEqual([
+      "construction5",
+      "oil & energy2",
+      "utilities1",
+    ]);
+
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
+    expect(within(filters).getAllByRole("option")).toHaveLength(1);
+
+    await userEvent.click(within(filters).getByRole("option", { name: /oil & energy/ }));
 
     // No Apply step: the click is the decision, and the filter's own autosave coalesces a burst.
-    await waitFor(() => expect(strategyApi.putFilter).toHaveBeenCalled(), { timeout: 2000 });
-    // Storing the group would silently widen this mandate the day the taxonomy is re-tuned.
-    expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
-      "oil & energy",
-      "utilities",
-    ]);
+    await waitFor(
+      () =>
+        expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
+          "oil & energy",
+        ]),
+      { timeout: 2000 },
+    );
+    expect(within(filters).getByLabelText("Remove oil & energy")).toBeInTheDocument();
   });
 
-  it("browsing a sector takes nothing when sub-industries are not included", async () => {
+  it("does not offer an industry already taken", async () => {
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
-    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
+    await userEvent.click(within(filters).getByRole("option", { name: /oil & energy/ }));
 
-    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include Sub-Industries" }));
-    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
 
-    // Unticked, a sector is a lens rather than a selection — "we're looking at Energy" is not the
-    // same claim as "we want all of Energy", and only the second one belongs in the filter.
-    expect(within(filters).getByRole("checkbox", { name: /oil & energy/ })).toBeInTheDocument();
-    expect(strategyApi.putFilter).not.toHaveBeenCalled();
-
-    await userEvent.click(within(filters).getByRole("checkbox", { name: /oil & energy/ }));
-
-    await waitFor(() => expect(strategyApi.putFilter).toHaveBeenCalled(), { timeout: 2000 });
-    expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
-      "oil & energy",
-    ]);
+    // Offering it again would let one industry be added twice and read as two decisions.
+    expect(within(filters).queryByRole("option", { name: /oil & energy/ })).not.toBeInTheDocument();
+    expect(within(filters).getByText("No industry matches that.")).toBeInTheDocument();
   });
 
-  it("suggests the sectors beside the one chosen, and adds them to what is already selected", async () => {
+  it("keeps an industry the taxonomy no longer groups", async () => {
+    // The grouping is editorial and gets re-tuned, so a saved search can hold a label that no
+    // current group claims. Rebuilding the filter from the groups alone would delete it.
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf({ ...EMPTY_FILTER, industries: ["nanotechnology"] }),
+    );
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
-    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
+    // A pre-loaded selection puts the clear badge in the header, so its name is no longer bare.
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
+    expect(within(filters).getByLabelText("Remove nanotechnology")).toBeInTheDocument();
 
-    // Nothing open yet, so there is nothing to be adjacent *to*.
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "construction");
+    await userEvent.click(within(filters).getByRole("option", { name: /construction/ }));
+
+    await waitFor(
+      () =>
+        expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
+          "nanotechnology",
+          "construction",
+        ]),
+      { timeout: 2000 },
+    );
+  });
+
+  it("summarises a closed panel as pills, each one removable on its own", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    const header = within(filters).getByRole("button", { name: /^Industry/ });
+
+    await userEvent.click(header);
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
+    await userEvent.click(within(filters).getByRole("option", { name: /oil & energy/ }));
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "construction");
+    await userEvent.click(within(filters).getByRole("option", { name: /construction/ }));
+    await userEvent.click(header);
+
+    expect(within(filters).getByLabelText("Remove oil & energy")).toBeInTheDocument();
+    await userEvent.click(within(filters).getByLabelText("Remove construction"));
+
+    await waitFor(
+      () =>
+        expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
+          "oil & energy",
+        ]),
+      { timeout: 2000 },
+    );
+  });
+
+  it("suggests the industries beside the one chosen, and adds them to what is already selected", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
+
+    // Nothing picked yet, so there is nothing to be adjacent *to*.
     expect(within(filters).queryByText("Adjacent Industries")).not.toBeInTheDocument();
 
-    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
+    await userEvent.click(within(filters).getByRole("option", { name: /oil & energy/ }));
     expect(within(filters).getByText("Adjacent Industries")).toBeInTheDocument();
 
-    const chip = within(filters).getByRole("button", { name: /Construction/ });
-    await userEvent.click(chip);
+    await userEvent.click(within(filters).getByRole("button", { name: "construction" }));
 
     // The suggestion adds to the selection rather than replacing it — the results panel has to show
     // the union, which is the whole point of offering a neighbour.
@@ -258,52 +326,116 @@ describe("StrategyPage — the filter sidebar and its results", () => {
       () =>
         expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
           "oil & energy",
-          "utilities",
           "construction",
         ]),
       { timeout: 2000 },
     );
   });
 
-  it("an adjacent chip stays put once taken, so several can be picked in a row", async () => {
+  it("moves a taken suggestion out of the row, and widens it by what that industry is beside", async () => {
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
-    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
-    await userEvent.click(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ }));
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
+    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
+    await userEvent.click(within(filters).getByRole("option", { name: /oil & energy/ }));
 
-    const chip = within(filters).getByRole("button", { name: /Construction/ });
-    await userEvent.click(chip);
+    // Its own sector's other leaves first, then the leaves of the sectors beside it.
+    const chips = () =>
+      within(within(filters).getByRole("group", { name: "Adjacent Industries" }))
+        .getAllByRole("button")
+        .map((chip) => chip.textContent);
+    expect(chips()).toEqual(["utilities", "construction"]);
 
-    // Dropping a chip the moment it is used answers the click by deleting the thing clicked, and
-    // moves whatever the consultant was about to press second.
-    expect(within(filters).getByRole("button", { name: /Construction/ })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    await userEvent.click(within(filters).getByRole("button", { name: "construction" }));
 
-    // And it is still the way back: a suggestion taken by accident has to be releasable.
-    await userEvent.click(within(filters).getByRole("button", { name: /Construction/ }));
+    // Taken, so it is a selection now and no longer something to suggest.
+    expect(chips()).toEqual(["utilities"]);
     await waitFor(
       () =>
         expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].industries).toEqual([
           "oil & energy",
-          "utilities",
+          "construction",
         ]),
+      { timeout: 2000 },
+    );
+
+    // And it is still the way back: releasing the pill returns it to the suggestions.
+    await userEvent.click(within(filters).getByLabelText("Remove construction"));
+    expect(chips()).toEqual(["utilities", "construction"]);
+  });
+
+  it("constrains nothing until Include keywords is ticked and a keyword is taken", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
+
+    // Unticked, the box is not even there: every company the other axes reach still comes back.
+    expect(within(filters).queryByLabelText("Search keywords")).not.toBeInTheDocument();
+    expect(companiesApi.searchKeywords).not.toHaveBeenCalled();
+
+    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include keywords" }));
+
+    await userEvent.type(within(filters).getByLabelText("Search keywords"), "s");
+    expect(companiesApi.searchKeywords).not.toHaveBeenCalled();
+
+    await userEvent.type(within(filters).getByLabelText("Search keywords"), "a");
+    await userEvent.click(await within(filters).findByRole("option", { name: /saas/ }));
+
+    await waitFor(
+      () =>
+        expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].keywords).toEqual(["saas"]),
       { timeout: 2000 },
     );
   });
 
-  it("searches the sector list by the industries inside it, not only by its name", async () => {
+  it("removes the right pill when an industry and a keyword are the same word", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf({ ...EMPTY_FILTER, industries: ["construction"], keywords: ["construction"] }),
+    );
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
-    await userEvent.click(within(filters).getByRole("button", { name: "Industry" }));
 
-    // "utilities" is a label filed under Energy & Utilities; a consultant should not have to know
-    // where we filed it to find it.
-    await userEvent.type(within(filters).getByLabelText("Search industries"), "oil");
+    // One accordion, so one closed-panel summary: two pills reading the same word, removing
+    // different things.
+    const pills = within(filters).getAllByLabelText("Remove construction");
+    expect(pills).toHaveLength(2);
+    await userEvent.click(pills[1]!);
 
-    expect(within(filters).getByRole("checkbox", { name: /Energy & Utilities/ })).toBeInTheDocument();
-    expect(within(filters).queryByRole("checkbox", { name: /Construction/ })).not.toBeInTheDocument();
+    await waitFor(() => {
+      const saved = vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1];
+      expect(saved.keywords).toEqual([]);
+      expect(saved.industries).toEqual(["construction"]);
+    }, { timeout: 2000 });
+  });
+
+  it("clears the keywords it collected when Include keywords is unticked", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf({ ...EMPTY_FILTER, keywords: ["saas"] }),
+    );
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
+
+    // An empty list is the unticked state, so leaving the keywords behind would tick itself back on.
+    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include keywords" }));
+
+    await waitFor(
+      () => expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].keywords).toEqual([]),
+      { timeout: 2000 },
+    );
+  });
+
+  it("never takes a keyword the universe does not offer, however it is typed", async () => {
+    renderPage();
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
+    await userEvent.click(within(filters).getByRole("checkbox", { name: "Include keywords" }));
+
+    await userEvent.type(within(filters).getByLabelText("Search keywords"), "nonesuch{Enter}");
+
+    // A keyword the pipeline does not carry narrows to nothing while looking like it narrowed.
+    await waitFor(() => expect(within(filters).getByText("No keyword matches that.")).toBeInTheDocument());
+    expect(within(filters).queryByLabelText("Remove nonesuch")).not.toBeInTheDocument();
   });
 
   it("offers an Unknown revenue row, because most companies publish no figure", async () => {
@@ -442,7 +574,7 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
 
-    await userEvent.click(within(filters).getByRole("button", { name: /Off-limits/ }));
+    await userEvent.click(within(filters).getByRole("button", { name: /^Off-limits/ }));
     expect(within(filters).getByText("EXCLUDED (1)")).toBeInTheDocument();
 
     await userEvent.click(within(filters).getByRole("button", { name: "Remove Acme Corp" }));
@@ -470,7 +602,7 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     vi.mocked(strategyApi.putOffLimits).mockResolvedValue(strategyOf());
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
-    await userEvent.click(within(filters).getByRole("button", { name: /Off-limits/ }));
+    await userEvent.click(within(filters).getByRole("button", { name: /^Off-limits/ }));
 
     await userEvent.type(within(filters).getByLabelText("Search companies"), "Acme");
     await userEvent.click(await within(filters).findByRole("option", { name: /Acme Corp/ }));
