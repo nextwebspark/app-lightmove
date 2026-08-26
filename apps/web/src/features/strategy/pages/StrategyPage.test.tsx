@@ -735,16 +735,21 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     expect(screen.queryByRole("button", { name: /^My scratch/ })).not.toBeInTheDocument();
     expect(screen.getByText(/Omar Farouk/)).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("tab", { name: /Mine/ }));
+    await userEvent.click(screen.getByRole("radio", { name: /^Mine/ }));
     expect(screen.getByRole("button", { name: /^My scratch/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Team scope/ })).not.toBeInTheDocument();
   });
 
   it("marks the saved search the sidebar is currently showing", async () => {
-    const qatar = { ...EMPTY_FILTER, countries: ["Qatar"] };
     vi.mocked(strategyApi.getStrategy).mockResolvedValue(
-      strategyOf(qatar, [
-        savedSearchOf({ id: "s1", name: "Qatar only", filter: qatar }),
+      strategyOf({ ...EMPTY_FILTER, industries: ["utilities", "oil & energy"] }, [
+        // Same two industries, clicked in the other order: the marker compares filters as sets, so a
+        // search loaded back must not look inactive because of the order its chips went on.
+        savedSearchOf({
+          id: "s1",
+          name: "Qatar only",
+          filter: { ...EMPTY_FILTER, industries: ["oil & energy", "utilities"] },
+        }),
         savedSearchOf({ id: "s2", name: "Everything" }),
       ]),
     );
@@ -752,8 +757,6 @@ describe("StrategyPage — the filter sidebar and its results", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
 
-    // Order is not meaning, so the marker compares the filters as sets rather than as documents —
-    // a search loaded back must not look inactive because its chips were clicked in another order.
     expect(screen.getByRole("button", { name: /Qatar only.*Active/s })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Everything/s })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Everything.*Active/s })).not.toBeInTheDocument();
@@ -774,6 +777,55 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     await waitFor(() =>
       expect(strategyApi.patchSearch).toHaveBeenCalledWith("p1", "s1", { name: "GCC utilities" }),
     );
+  });
+
+  it("opens on Mine when every saved search is the viewer's own private one", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf(EMPTY_FILTER, [savedSearchOf({ name: "My scratch", visibility: "PRIVATE" })]),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+
+    // The trigger badge counts every search the viewer can see, so opening on an empty Shared list
+    // under a badge reading 1 told them their own search was missing.
+    expect(screen.getByRole("button", { name: /^My scratch/ })).toBeInTheDocument();
+  });
+
+  it("leaves a half-typed rename behind when the menu closes", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf(EMPTY_FILTER, [savedSearchOf({ name: "GCC energy" })]),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Rename GCC energy" }));
+    await userEvent.type(screen.getByLabelText("Rename GCC energy"), "half typed");
+    // Clicking outside is what closes the Popover — Escape now stops at the rename input.
+    await userEvent.click(document.body);
+    await userEvent.click(screen.getByRole("button", { name: /Save Search/ }));
+
+    // The rename lived on the menu once, which outlives the panel — so reopening dropped the reader
+    // into an autofocused editor for a row they had moved on from, holding text they never saved.
+    expect(screen.queryByRole("textbox", { name: "Rename GCC energy" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^GCC energy/ })).toBeInTheDocument();
+    expect(strategyApi.patchSearch).not.toHaveBeenCalled();
+  });
+
+  it("Escape leaves the rename input without closing the whole menu", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf(EMPTY_FILTER, [savedSearchOf({ name: "GCC energy" })]),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Rename GCC energy" }));
+    await userEvent.keyboard("{Escape}");
+
+    // Popover closes on Escape from the document, so without stopPropagation the innermost cancel
+    // took the dropdown down with it.
+    expect(screen.queryByRole("textbox", { name: "Rename GCC energy" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^GCC energy/ })).toBeInTheDocument();
   });
 
   it("moves the viewer's own search between tiers, and offers that on nobody else's", async () => {

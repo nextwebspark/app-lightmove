@@ -18,7 +18,7 @@ public record SaveSearchRequest(
 
         SearchVisibility visibility
 ) {
-    public SearchVisibility visibilityOrShared() {
-        return visibility == null ? SearchVisibility.SHARED : visibility;
+    public SaveSearchRequest {
+        visibility = visibility == null ? SearchVisibility.SHARED : visibility;
     }
 }

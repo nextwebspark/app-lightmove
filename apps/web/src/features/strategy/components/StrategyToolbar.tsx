@@ -64,7 +64,7 @@ export function StrategyToolbar({
   onSaveSearch: (name: string, visibility: SearchVisibility) => void;
   onLoadSearch: (filter: StrategyFilter) => void;
   onRenameSearch: (searchId: string, name: string) => void;
-  onSetSearchVisibility: (search: SavedSearch, visibility: SearchVisibility) => void;
+  onSetSearchVisibility: (searchId: string, name: string, visibility: SearchVisibility) => void;
   onOverwriteSearch: (searchId: string) => void;
   onDeleteSearch: (searchId: string) => void;
   onAddAll: () => void;

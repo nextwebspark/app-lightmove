@@ -40,10 +40,6 @@ public interface StrategySearchRepository extends JpaRepository<StrategySearch, 
     long countByProjectIdAndCreatedByAndVisibility(UUID projectId, UUID createdBy,
                                                    SearchVisibility visibility);
 
-    /**
-     * Deliberately unfiltered by visibility: the caller's right to touch this row is the service's
-     * decision, and it answers the same 404 for someone else's private search as for one that was
-     * never there.
-     */
+    /** Deliberately unfiltered by visibility — whose row this is, is the service's decision. */
     Optional<StrategySearch> findByIdAndProjectId(UUID id, UUID projectId);
 }

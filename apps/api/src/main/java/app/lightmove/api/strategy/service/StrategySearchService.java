@@ -18,10 +18,10 @@ import app.lightmove.api.strategy.model.StrategySearch;
 import app.lightmove.api.strategy.repository.StrategyRepository;
 import app.lightmove.api.strategy.repository.StrategySearchRepository;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,10 +52,7 @@ public class StrategySearchService {
     /** A working ceiling on the team's list. Past this a dropdown stops being a way to find anything. */
     private static final int MAX_SHARED_SEARCHES_PER_PROJECT = 50;
 
-    /**
-     * The same ceiling on one person's scratch list. Counted separately so that filling your own list
-     * cannot lock the mandate out of saving a shared search, or the reverse.
-     */
+    /** Counted separately, so filling your own list cannot lock the mandate out of saving, or the reverse. */
     private static final int MAX_PRIVATE_SEARCHES_PER_USER = 50;
 
     private final StrategySearchRepository searches;
@@ -77,7 +74,7 @@ public class StrategySearchService {
     public SavedSearchResponse save(UUID userId, UUID workspaceId, UUID projectId,
                                     SaveSearchRequest request, HttpServletRequest httpRequest) {
         requireProject(projectId, workspaceId);
-        SearchVisibility visibility = request.visibilityOrShared();
+        SearchVisibility visibility = request.visibility();
         requireRoomFor(projectId, userId, visibility);
 
         StrategyFilter filter = strategies.findByProjectId(projectId)
@@ -95,7 +92,7 @@ public class StrategySearchService {
                 .detail("searchId", saved.getId().toString())
                 .detail("visibility", visibility.name())
                 .record();
-        return toDto(saved, authorNames(List.of(saved)));
+        return toDto(saved);
     }
 
     @Transactional
@@ -103,29 +100,36 @@ public class StrategySearchService {
                                       UpdateSearchRequest request, HttpServletRequest httpRequest) {
         requireProject(projectId, workspaceId);
         StrategySearch search = requireEditable(searchId, projectId, userId);
-        search.rename(request.name().trim());
-
         SearchVisibility target = request.visibility();
-        if (target != null && target != search.getVisibility()) {
-            // Only the author moves a search between tiers. A teammate pulling a shared search private
-            // would take the mandate's work out of the mandate's hands, which is not collaboration.
+        boolean movesTier = target != null && target != search.getVisibility();
+
+        // Decide first, mutate after: a refusal that has already renamed the row is correct only for
+        // as long as nobody moves this out from under the transaction.
+        if (movesTier) {
+            // A teammate pulling a shared search private would take the mandate's work out of the
+            // mandate's hands, which is not the collaboration the shared tier is for.
             if (!search.getCreatedBy().equals(userId)) {
                 throw ApiException.userFacing(ErrorCode.FORBIDDEN,
                         "Only the person who saved a search can change who it is shared with.");
             }
             requireRoomFor(projectId, userId, target);
+        }
+
+        search.rename(request.name().trim());
+        if (movesTier) {
             search.changeVisibility(target);
         }
 
-        audit.event(ProjectEventType.STRATEGY_SEARCH_RENAMED)
+        audit.event(movesTier
+                        ? ProjectEventType.STRATEGY_SEARCH_VISIBILITY_CHANGED
+                        : ProjectEventType.STRATEGY_SEARCH_RENAMED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .detail("searchId", searchId.toString())
                 .detail("visibility", search.getVisibility().name())
                 .record();
-        return toDto(search, authorNames(List.of(search)));
+        return toDto(flushed(search));
     }
 
-    /** Re-capture the mandate's current filter onto a search that already has a name. */
     @Transactional
     public SavedSearchResponse updateFilter(UUID userId, UUID workspaceId, UUID projectId, UUID searchId,
                                             HttpServletRequest httpRequest) {
@@ -139,7 +143,7 @@ public class StrategySearchService {
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .detail("searchId", searchId.toString())
                 .record();
-        return toDto(search, authorNames(List.of(search)));
+        return toDto(flushed(search));
     }
 
     @Transactional
@@ -154,6 +158,7 @@ public class StrategySearchService {
                 .record();
     }
 
+    /** The tenant-isolation choke point: a project outside the caller's workspace 404s before any read. */
     private void requireProject(UUID projectId, UUID workspaceId) {
         projects.findByIdAndWorkspaceId(projectId, workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
@@ -162,35 +167,45 @@ public class StrategySearchService {
     private StrategySearch requireEditable(UUID searchId, UUID projectId, UUID userId) {
         StrategySearch search = searches.findByIdAndProjectId(searchId, projectId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-        if (search.isPrivateTo(userId)) {
+        if (search.isHiddenFrom(userId)) {
             throw ApiException.of(ErrorCode.NOT_FOUND);
         }
         return search;
     }
 
     private void requireRoomFor(UUID projectId, UUID userId, SearchVisibility visibility) {
-        long held = visibility == SearchVisibility.SHARED
-                ? searches.countByProjectIdAndVisibility(projectId, SearchVisibility.SHARED)
-                : searches.countByProjectIdAndCreatedByAndVisibility(projectId, userId,
-                        SearchVisibility.PRIVATE);
-        int ceiling = visibility == SearchVisibility.SHARED
-                ? MAX_SHARED_SEARCHES_PER_PROJECT
-                : MAX_PRIVATE_SEARCHES_PER_USER;
-        if (held >= ceiling) {
+        if (visibility == SearchVisibility.SHARED) {
+            if (searches.countByProjectIdAndVisibility(projectId, SearchVisibility.SHARED)
+                    >= MAX_SHARED_SEARCHES_PER_PROJECT) {
+                throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
+                        "This mandate already has the maximum number of shared searches.");
+            }
+        } else if (searches.countByProjectIdAndCreatedByAndVisibility(projectId, userId,
+                SearchVisibility.PRIVATE) >= MAX_PRIVATE_SEARCHES_PER_USER) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                    visibility == SearchVisibility.SHARED
-                            ? "This mandate already has the maximum number of shared searches."
-                            : "You already have the maximum number of private searches on this mandate.");
+                    "You already have the maximum number of private searches on this mandate.");
         }
     }
 
+    /**
+     * {@code updated_at} is written by {@code @UpdateTimestamp} at flush, and the audit write is
+     * {@code @Async} in its own transaction — so without this the response carries the timestamp from
+     * before the edit it is reporting.
+     */
+    private StrategySearch flushed(StrategySearch search) {
+        searches.flush();
+        return search;
+    }
+
     private Map<UUID, String> authorNames(List<StrategySearch> visible) {
-        Map<UUID, String> byId = new HashMap<>();
-        // Not Collectors.toMap: a federated account can reach us without a name, and a null value
-        // there throws rather than leaving the row unattributed.
-        users.findAllById(visible.stream().map(StrategySearch::getCreatedBy).distinct().toList())
-                .forEach(user -> byId.put(user.getId(), user.getFullName()));
-        return byId;
+        return users
+                .findAllById(visible.stream().map(StrategySearch::getCreatedBy).distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(User::getId, User::getFullName));
+    }
+
+    private SavedSearchResponse toDto(StrategySearch search) {
+        return toDto(search, authorNames(List.of(search)));
     }
 
     private static SavedSearchResponse toDto(StrategySearch search, Map<UUID, String> authors) {

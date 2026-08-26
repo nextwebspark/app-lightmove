@@ -1,6 +1,7 @@
 package app.lightmove.api.strategy;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -89,7 +90,7 @@ class StrategySearchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a name that differs only by case collides, so one dropdown cannot hold both")
+    @DisplayName("a name that differs only by case collides, and says which name is taken")
     void namesAreUniqueCaseInsensitively() throws Exception {
         String admin = adminOf("Search Name Firm");
         String projectId = project(admin);
@@ -102,6 +103,9 @@ class StrategySearchIntegrationTest extends FlowTestSupport {
                                 {"name":"gcc UTILITIES"}"""))
                 .andReturn();
         assertThat(result.getResponse().getStatus()).isEqualTo(409);
+        // Not the generic CONFLICT: retrying will never fix a name that is already taken, so the
+        // dropdown has to be able to say what is wrong with it.
+        assertThat(codeOf(result)).isEqualTo("STRATEGY_SEARCH_NAME_TAKEN");
     }
 
     @Test
@@ -198,13 +202,23 @@ class StrategySearchIntegrationTest extends FlowTestSupport {
     void searchCarriesItsAuthor() throws Exception {
         String admin = adminOf("Search Author Firm");
         String projectId = project(admin);
-        save(admin, projectId, "GCC utilities");
+        String searchId = save(admin, projectId, "GCC utilities");
 
-        mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + admin))
+        String createdAt = body(mvc.perform(get(strategyUrl(projectId))
+                        .header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$.searches[0].createdByName").value("Alok Kumar"))
                 .andExpect(jsonPath("$.searches[0].visibility").value("SHARED"))
-                .andExpect(jsonPath("$.searches[0].createdById").isNotEmpty())
-                .andExpect(jsonPath("$.searches[0].updatedAt").isNotEmpty());
+                .andReturn()).get("searches").get(0).get("createdAt").asText();
+
+        // updatedAt is written by @UpdateTimestamp at flush, so an edit that builds its response from
+        // the still-dirty entity answers with the timestamp from before the edit it is reporting.
+        mvc.perform(patch(searchesUrl(projectId) + "/" + searchId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"GCC utilities II"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.updatedAt").value(not(createdAt)));
     }
 
     @Test
@@ -224,23 +238,6 @@ class StrategySearchIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"name":"Scratch","visibility":"PRIVATE"}"""))
                 .andExpect(status().isCreated());
-    }
-
-    @Test
-    @DisplayName("a duplicate shared name says what is wrong with it")
-    void duplicateSharedNameIsNamed() throws Exception {
-        String admin = adminOf("Search Duplicate Firm");
-        String projectId = project(admin);
-        save(admin, projectId, "GCC utilities");
-
-        MvcResult result = mvc.perform(post(searchesUrl(projectId))
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name":"gcc UTILITIES","visibility":"SHARED"}"""))
-                .andReturn();
-        assertThat(result.getResponse().getStatus()).isEqualTo(409);
-        assertThat(codeOf(result)).isEqualTo("STRATEGY_SEARCH_NAME_TAKEN");
     }
 
     @Test
@@ -310,6 +307,47 @@ class StrategySearchIntegrationTest extends FlowTestSupport {
 
         mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + sara))
                 .andExpect(jsonPath("$.searches.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("a private search promotes into the shared list, and the team then sees it")
+    void privateSearchPromotesToShared() throws Exception {
+        String admin = adminOf("Search Promote Firm");
+        String projectId = project(admin);
+        String sara = teammate(admin, projectId);
+        String searchId = save(admin, projectId, "My scratch", "PRIVATE");
+
+        mvc.perform(patch(searchesUrl(projectId) + "/" + searchId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Team scope","visibility":"SHARED"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.visibility").value("SHARED"));
+
+        mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + sara))
+                .andExpect(jsonPath("$.searches.length()").value(1))
+                .andExpect(jsonPath("$.searches[0].name").value("Team scope"));
+    }
+
+    @Test
+    @DisplayName("promotion cannot smuggle a name the shared list already holds")
+    void promotionRespectsTheSharedNamespace() throws Exception {
+        String admin = adminOf("Search Promote Clash Firm");
+        String projectId = project(admin);
+        save(admin, projectId, "Team scope", "SHARED");
+        String searchId = save(admin, projectId, "My scratch", "PRIVATE");
+
+        // The two namespaces are separate only while the row stays in its own tier — crossing over
+        // has to meet the index on the far side.
+        MvcResult result = mvc.perform(patch(searchesUrl(projectId) + "/" + searchId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Team scope","visibility":"SHARED"}"""))
+                .andReturn();
+        assertThat(result.getResponse().getStatus()).isEqualTo(409);
+        assertThat(codeOf(result)).isEqualTo("STRATEGY_SEARCH_NAME_TAKEN");
     }
 
     @Test

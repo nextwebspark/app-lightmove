@@ -480,13 +480,15 @@ try {
     await shot("save-race");
   });
 
-  await step("S8.3", "a private search, renamed and re-captured", async () => {
+  await step("S8.3", "a private search, renamed, re-captured and shared", async () => {
     await freshFilter();
     await openAccordion("Location");
     await page.getByRole("button", { name: new RegExp(`^${TOP_COUNTRY}`) }).first().click();
     const scope = num(`SELECT count(*) FROM app_lm_apollo_companies WHERE company_country = '${TOP_COUNTRY.replace(/'/g, "''")}'`);
     await waitTotal(scope);
 
+    // The trigger toggles, and only loading a search closes the panel — so every step after a Save,
+    // Update or Share works inside the menu that is still open rather than re-opening it.
     await page.getByRole("button", { name: /Save Search/ }).click();
     await page.getByLabel("Name this search").fill("My scratch");
     await page.getByRole("radio", { name: "Only me" }).click();
@@ -496,11 +498,9 @@ try {
     check("S8.3a", "it is stored in the private tier", "PRIVATE", mine?.visibility);
     check("S8.3b", "and it says who saved it", true, Boolean(mine?.createdByName));
 
-    await page.getByRole("button", { name: /Save Search/ }).click();
-    await page.waitForTimeout(400);
-    await page.getByRole("tab", { name: /Mine/ }).click();
+    // Saving private switches the list to Mine, which is where the row is.
     await page.getByRole("button", { name: "Rename My scratch" }).click();
-    await page.getByLabel("Rename My scratch").fill("My market");
+    await page.getByRole("textbox", { name: "Rename My scratch" }).fill("My market");
     await page.keyboard.press("Enter");
     await page.waitForTimeout(1500);
     check("S8.3c", "renaming keeps the same row", mine?.id,
@@ -514,23 +514,18 @@ try {
     await waitTotal(UNIVERSE);
     await page.getByRole("button", { name: /Save Search/ }).click();
     await page.waitForTimeout(400);
-    await page.getByRole("tab", { name: /Mine/ }).click();
+    // A fresh load opens on Shared; the row is private, so switch back to Mine once.
+    await page.getByRole("radio", { name: /^Mine/ }).click();
     await page.getByRole("button", { name: "Update My market to the current filter" }).click();
     await page.waitForTimeout(1500);
     const recaptured = (await api(`/projects/${PROJECT}/strategy`, { token })).body.searches.find((entry) => entry.name === "My market");
     check("S8.3d", "re-capturing replaces its filter with what is on screen", 0, recaptured?.filter.countries.length);
 
-    await page.getByRole("button", { name: /Save Search/ }).click();
-    await page.waitForTimeout(400);
-    await page.getByRole("tab", { name: /Mine/ }).click();
     await page.getByRole("button", { name: "Share My market with the team" }).click();
     await page.waitForTimeout(1500);
     check("S8.3e", "its author can move it into the shared tier", "SHARED",
       (await api(`/projects/${PROJECT}/strategy`, { token })).body.searches.find((entry) => entry.name === "My market")?.visibility);
 
-    await page.getByRole("button", { name: /Save Search/ }).click();
-    await page.waitForTimeout(400);
-    await page.getByRole("tab", { name: /Mine/ }).click();
     await page.getByRole("button", { name: "Delete My market" }).click();
     await page.waitForTimeout(1500);
     check("S8.3f", "deleting removes it", 0,

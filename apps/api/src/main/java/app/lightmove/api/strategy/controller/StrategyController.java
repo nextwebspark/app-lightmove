@@ -37,7 +37,10 @@ import org.springframework.web.bind.annotation.RestController;
  * with the workspace-admin bypass so an admin sees every project. A mandate's scope is team content,
  * not browsable to the whole workspace — which is the line between this controller and
  * {@code CompanySearchController}, where the market's own shape is a workspace-level read. Writing
- * is PROJECT_EDIT on the seat. The workspace comes from the principal, never the path.
+ * is PROJECT_EDIT on the seat, saved searches included — a CLIENT seat may read one but not leave one
+ * behind. Whether a <em>private</em> saved search is the caller's to touch is a second question, and
+ * the service answers it with a 404, so that a refusal never reports that someone else's search
+ * exists. The workspace comes from the principal, never the path.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/strategy")
@@ -94,12 +97,7 @@ public class StrategyController {
     }
 
     /**
-     * Save the mandate's current filter under a name. Saving is an edit to the mandate's own working
-     * set, so it takes PROJECT_EDIT — a CLIENT seat may read a search but not leave one behind.
-     *
-     * <p>PROJECT_EDIT is the gate on all four search routes. Whether a <em>private</em> search is the
-     * caller's to touch is a second question, and the service answers it — with a 404, so that a
-     * refusal never reports that someone else's search exists.
+     * Save the mandate's current filter under a name.
      */
     @PostMapping("/searches")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
@@ -112,7 +110,6 @@ public class StrategyController {
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
-    /** The search's label and tier. Its filter is left alone — see {@link #overwriteSearch}. */
     @PatchMapping("/searches/{searchId}")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
     public ResponseEntity<SavedSearchResponse> updateSearch(@AuthenticationPrincipal AuthPrincipal principal,
@@ -124,13 +121,10 @@ public class StrategyController {
                 projectId, searchId, request, httpRequest));
     }
 
-    /**
-     * Re-capture the mandate's current filter onto an existing search. No body, for the same reason
-     * saving has no filter in its own: the server reads what the mandate has already autosaved.
-     */
+    /** No body, for the same reason saving carries no filter: the server reads the stored one. */
     @PutMapping("/searches/{searchId}/filter")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<SavedSearchResponse> overwriteSearch(@AuthenticationPrincipal AuthPrincipal principal,
+    public ResponseEntity<SavedSearchResponse> putSearchFilter(@AuthenticationPrincipal AuthPrincipal principal,
                                                                @PathVariable UUID projectId,
                                                                @PathVariable UUID searchId,
                                                                HttpServletRequest httpRequest) {

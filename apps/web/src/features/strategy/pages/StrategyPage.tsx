@@ -13,7 +13,7 @@ import * as reportApi from "../../reports/api/reportApi";
 import * as triageApi from "../../triage/api/triageApi";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
-import type { CompanyResult, CompanySort, SavedSearch, SearchVisibility, StrategyFilter } from "../api/types";
+import type { CompanyResult, CompanySort, SearchVisibility, StrategyFilter } from "../api/types";
 import { CompanyResultsTable } from "../components/CompanyResultsTable";
 import { DEFAULT_COLUMN_VISIBILITY } from "../lib/companyColumns";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
@@ -155,8 +155,8 @@ function StrategyEditor() {
     onError: (error) => toast(messageFor(error)),
   });
 
-  // One mutation for both edits the PATCH covers. The name always travels: the endpoint takes the
-  // label and the tier together, so flipping the tier has to say what the search is still called.
+  // The name always travels: the endpoint takes label and tier together, so flipping the tier has to
+  // say what the search is still called.
   const editSearch = useMutation({
     mutationFn: ({
       searchId,
@@ -174,9 +174,7 @@ function StrategyEditor() {
   });
 
   const overwriteSearch = useMutation({
-    // The same flush the save needs, and for the same reason: this endpoint carries no body and
-    // re-reads the *stored* filter, so an edit still in the debounce window would be captured as the
-    // scope from before the last chip click.
+    // Flushed first for the same reason saveSearch is — see strategyApi.overwriteSearch.
     mutationFn: async (searchId: string) => {
       await autosave.flush();
       return strategyApi.overwriteSearch(project.id, searchId);
@@ -261,8 +259,8 @@ function StrategyEditor() {
         onSaveSearch={(name, visibility) => saveSearch.mutate({ name, visibility })}
         onLoadSearch={applyFilter}
         onRenameSearch={(searchId, name) => editSearch.mutate({ searchId, name })}
-        onSetSearchVisibility={(search: SavedSearch, visibility) =>
-          editSearch.mutate({ searchId: search.id, name: search.name, visibility })
+        onSetSearchVisibility={(searchId, name, visibility) =>
+          editSearch.mutate({ searchId, name, visibility })
         }
         onOverwriteSearch={(searchId) => overwriteSearch.mutate(searchId)}
         onDeleteSearch={(searchId) => deleteSearch.mutate(searchId)}

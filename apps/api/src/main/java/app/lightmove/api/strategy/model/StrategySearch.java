@@ -74,7 +74,8 @@ public class StrategySearch extends BaseEntity {
         this.visibility = newVisibility;
     }
 
-    public boolean isPrivateTo(UUID userId) {
+    /** A private search does not exist as far as anyone but its author is concerned. */
+    public boolean isHiddenFrom(UUID userId) {
         return visibility == SearchVisibility.PRIVATE && !createdBy.equals(userId);
     }
 }
