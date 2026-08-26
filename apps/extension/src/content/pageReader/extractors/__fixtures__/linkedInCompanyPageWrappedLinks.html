@@ -1,0 +1,38 @@
+<!--
+  The same LinkedIn company page, with the outbound website link in the shape LinkedIn actually
+  renders it: wrapped in its own /redir/redirect interstitial, with the real URL percent-encoded in a
+  `url` parameter and the visible text truncated.
+
+  Kept beside linkedInCompanyPage.html rather than replacing it. That one is a reduction of the page
+  and stays useful; this one exists because the reduction quietly dropped the wrapper, which is why a
+  test over it was green while the extractor captured linkedin.com as the company's website.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="canonical" href="https://www.linkedin.com/company/al-rawabi-dairy/" />
+    <meta property="og:url" content="https://www.linkedin.com/company/al-rawabi-dairy/" />
+  </head>
+  <body>
+    <main>
+      <h1 class="org-top-card-summary__title">Al Rawabi Dairy Company</h1>
+      <dl>
+        <dt>Website</dt>
+        <dd>
+          <a
+            href="https://www.linkedin.com/redir/redirect?url=https%3A%2F%2Falrawabidairy%2Eae&amp;urlhash=8Kq2&amp;trk=about_website"
+            rel="nofollow noreferrer noopener"
+            target="_blank"
+            >https://www.alrawabidair&hellip;</a
+          >
+        </dd>
+        <dt>Industry</dt>
+        <dd>Food and Beverage Manufacturing</dd>
+        <dt>Company size</dt>
+        <dd>1,001-5,000 employees</dd>
+        <dt>Headquarters</dt>
+        <dd>Dubai, Dubai, United Arab Emirates</dd>
+      </dl>
+    </main>
+  </body>
+</html>

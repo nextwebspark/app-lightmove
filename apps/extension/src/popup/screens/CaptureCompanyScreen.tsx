@@ -88,7 +88,7 @@ export function CaptureCompanyScreen() {
         companyCity: draft.companyCity || null,
         companyCountry: draft.companyCountry || null,
         numEmployees: toHeadcount(draft.numEmployees),
-        shortDescription: page.company?.description ?? null,
+        shortDescription: truncateDescription(page.company?.description),
         note: note.trim() || null,
         sourceUrl: page.sourceUrl,
       },
@@ -205,6 +205,22 @@ function toDraft(company: ExtractedCompany): CompanyDraft {
     numEmployees: company.numEmployees ? String(company.numEmployees) : "",
   };
 }
+
+/**
+ * The API caps a description at 2000 characters, and this is the one extracted field with no input on
+ * the form — it goes from the page to the wire untouched. A fat JSON-LD or OpenGraph description over
+ * the cap would 400 the whole capture, and the consultant would see a validation message about a field
+ * they cannot see, edit, or clear, with no way out of it but abandoning the page.
+ */
+function truncateDescription(description: string | null | undefined): string | null {
+  if (!description) {
+    return null;
+  }
+  return description.length <= MAX_DESCRIPTION ? description : `${description.slice(0, MAX_DESCRIPTION - 1)}…`;
+}
+
+/** Matches `CaptureCompanyRequest.shortDescription`'s `@Size(max = 2000)`. */
+const MAX_DESCRIPTION = 2000;
 
 /** A blank or nonsense headcount is sent as absent, never as zero — zero is a claim, absence is not. */
 function toHeadcount(value: string): number | null {

@@ -39,7 +39,11 @@ export default defineConfig(({ mode }) => {
       // `writeBundle`, not `generateBundle`: the manifest is not part of the bundle graph and has no
       // business being hashed, watched, or transformed alongside the code.
       writeBundle() {
-        writeFileSync(resolve("dist/manifest.json"),
+        // Resolved against this file, not the process's cwd. `build.outDir` below is relative to
+        // Vite's root, so a `vite build --config apps/extension/vite.config.ts` from the repo root
+        // would have written the manifest to /dist and the bundle somewhere else — agreeing today only
+        // because every documented invocation happens to run from apps/extension.
+        writeFileSync(resolve(import.meta.dirname, "dist/manifest.json"),
           JSON.stringify(buildManifest(workspaceOrigin), null, 2));
       },
     },
@@ -55,10 +59,15 @@ export default defineConfig(({ mode }) => {
     outDir: "dist",
     emptyOutDir: true,
     minify: true,
-    // Minified but never obfuscated, and shipped with maps. A popup is opened and thrown away dozens
-    // of times a day, so parse time is felt; the maps are what keep the bundle reviewable, by Chrome's
-    // reviewers and ours, without paying 700 kB of unminified React for it.
-    sourcemap: true,
+    // Minified but never obfuscated. A popup is opened and thrown away dozens of times a day, so parse
+    // time is felt, and 700 kB of unminified React is a real cost for it.
+    //
+    // "hidden" emits the maps without the //# sourceMappingURL comment, which is the shape that suits
+    // how these are actually used: packageRelease.mjs strips every map from the uploaded archive —
+    // they carry the full original sources — so the store never sees one and the maps are for
+    // debugging our own dist/. Plain `true` would leave the comment behind in the shipped JS and make
+    // devtools 404 on every file in the published build.
+    sourcemap: "hidden",
     rollupOptions: {
       input: {
         popup: resolve("popup.html"),

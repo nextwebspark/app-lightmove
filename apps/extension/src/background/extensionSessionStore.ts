@@ -112,8 +112,17 @@ export function renewAccessToken(): Promise<string | null> {
         credentials: "omit",
         body: JSON.stringify({ refreshToken: session.refreshToken }),
       });
-      if (!response.ok) {
+      // 401 only, and the narrowness is the point. That is the answer meaning the token is dead —
+      // revoked, rotated away, logged out — and clearing is right. Every other non-2xx is the server
+      // having a bad moment: a Cloud Run cold-start 503, a proxy 502, a 500. The token was never
+      // spent in those cases, because the server never got far enough to rotate it, so wiping the
+      // pairing would discard a live credential over a blip and send the consultant back through
+      // /extension/connect. Returning null leaves the session alone and the next open retries.
+      if (response.status === 401) {
         await clear();
+        return null;
+      }
+      if (!response.ok) {
         return null;
       }
       const renewed = (await response.json()) as ExtensionSession;

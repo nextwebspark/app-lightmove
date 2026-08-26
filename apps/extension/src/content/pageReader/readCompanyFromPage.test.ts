@@ -57,6 +57,28 @@ describe("the LinkedIn company page", () => {
     expect(readCompanyFromPage(document).website).toBe("https://alrawabidairy.ae");
   });
 
+  it("unwraps LinkedIn's outbound redirect rather than capturing linkedin.com as the website", () => {
+    // The failure this pins: LinkedIn wraps the site link in /redir/redirect?url=…, so the raw href is
+    // a linkedin.com URL. Filed through, every company captured from LinkedIn would share one website
+    // — the exact collapse isAggregatorHost prevents on the address-bar path, routed around here.
+    const wrapped = documentAt(
+      "linkedInCompanyPageWrappedLinks.html",
+      "https://www.linkedin.com/company/al-rawabi-dairy/",
+    );
+    expect(linkedInCompanyExtractor(wrapped).website).toBe("https://alrawabidairy.ae");
+    expect(readCompanyFromPage(wrapped).website).not.toContain("linkedin.com");
+  });
+
+  it("prefers nothing over a truncated domain when the wrapper carries no url", () => {
+    // The visible text is "https://www.alrawabidair…" — a different company as far as the capture key
+    // is concerned. Yielding null lets the merge fall through to the structured-data reader.
+    const noUrlParam = new JSDOM(
+      `<dl><dt>Website</dt><dd><a href="https://www.linkedin.com/redir/redirect?trk=about">acme…</a></dd></dl>`,
+      { url: "https://www.linkedin.com/company/acme/" },
+    ).window.document as unknown as Document;
+    expect(linkedInCompanyExtractor(noUrlParam).website).toBeUndefined();
+  });
+
   it("says nothing about a page that is not a company page", () => {
     const elsewhere = documentAt("corporateSite.html", "https://alrawabidairy.ae/");
     expect(linkedInCompanyExtractor(elsewhere)).toEqual({});

@@ -35,12 +35,8 @@ export const linkedInCompanyExtractor: CompanyExtractor = (document) => {
         ?? textOf(document, "h1"),
     ),
     linkedinUrl: canonicalCompanyUrl(document),
-    // The href before the text: LinkedIn truncates a long URL in the visible label
-    // ("https://www.alrawabidair…"), and a truncated domain is a different company as far as the
-    // capture key is concerned.
-    website: detailLinks.get("website")
-      ?? details.get("website")
-      ?? hrefOf(document, 'a[data-tracking-control-name*="website"]'),
+    // The href before the text, and unwrapped before either: see companyWebsiteFrom.
+    website: companyWebsiteFrom(detailLinks.get("website") ?? hrefOf(document, WEBSITE_LINK_SELECTOR)),
     industry: details.get("industry"),
     numEmployees: parseHeadcount(details.get("company size") ?? companySizeFromSummary(document)),
     companyCity: cityOf(details.get("headquarters")),
@@ -85,6 +81,40 @@ function readDefinitionList(document: Document): Map<string, string> {
     }
   }
   return details;
+}
+
+const WEBSITE_LINK_SELECTOR = 'a[data-tracking-control-name*="website"]';
+
+/**
+ * The company's own site, out of whatever LinkedIn put in the link.
+ *
+ * LinkedIn wraps outbound links in its own interstitial —
+ * `linkedin.com/redir/redirect?url=https%3A%2F%2Falrawabidairy%2Eae&urlhash=…` — so the raw `href` is a
+ * linkedin.com URL. Writing that through would file every company captured from LinkedIn under a
+ * linkedin.com website, which is exactly what `isAggregatorHost` in `readCompanyFromPage` exists to
+ * prevent; that guard only covers the address-bar fallback, so an extracted value routes around it.
+ *
+ * A LinkedIn URL with no `url` parameter yields nothing rather than itself, so the merge falls through
+ * to the structured-data reader instead of recording a wrong answer. The visible link text is
+ * deliberately not a fallback: LinkedIn truncates it ("https://www.alrawabidair…"), and a truncated
+ * domain is a different company.
+ */
+function companyWebsiteFrom(href: string | null | undefined): string | null {
+  if (!href) {
+    return null;
+  }
+  const absolute = href.startsWith("//") ? `https:${href}` : href;
+  let parsed: URL;
+  try {
+    parsed = new URL(absolute, "https://www.linkedin.com");
+  } catch {
+    return null;
+  }
+  if (!/(^|\.)linkedin\.com$/i.test(parsed.hostname)) {
+    return absolute;
+  }
+  const wrapped = parsed.searchParams.get("url");
+  return wrapped ? wrapped : null;
 }
 
 /** The href of the first link in each `<dd>`, for the labels whose value is a URL. */

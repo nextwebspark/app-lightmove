@@ -92,6 +92,12 @@ async function handle(message: ExtensionRequest): Promise<unknown> {
       return null;
     case "lastUsedProject":
       return (await chrome.storage.local.get(LAST_PROJECT_KEY))[LAST_PROJECT_KEY] ?? null;
+    default:
+      // Reachable in one real state: an extension update restarts the worker while an open popup keeps
+      // running against the older contract. Without this the switch falls through to `undefined` and
+      // the caller reads `{ ok: true, value: undefined }` — a successful empty reply, rendering a blank
+      // project list rather than reporting anything.
+      throw new Error(`This version of LightMove Capture cannot handle "${(message as { kind: string }).kind}".`);
   }
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Button, Card, Logo, Spinner } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import * as extensionApi from "../api/extensionApi";
@@ -20,6 +20,13 @@ import * as extensionApi from "../api/extensionApi";
  * Naming the id here costs nothing. It is not a secret, it is pinned by the extension's manifest key,
  * and `application.yml` already names the same id in the CORS allow-list — so it was never the
  * "hardcoded id" the postMessage version claimed to avoid.
+ *
+ * **Minting waits for a click.** It used to happen on mount, which made "is Capture installed" the
+ * entire gate on issuing a 14-day credential — so any site could navigate a signed-in consultant here
+ * and silently mint one, orphaning whatever token the extension held and spending a pairing from the
+ * hourly budget. Nothing leaks (the handover is addressed, and the page never reads the token back),
+ * so it was nuisance rather than compromise; but a credential-minting side effect of a GET navigation
+ * is the shape that belongs behind a button.
  */
 
 /**
@@ -40,7 +47,7 @@ const EXTENSION_ID = import.meta.env.VITE_EXTENSION_ID || DEVELOPMENT_EXTENSION_
 /** Shared verbatim with the extension's service worker — the one contract between them. */
 const STORE_PAIRED_SESSION = "storePairedSession";
 
-type ConnectState = "pairing" | "paired" | "notInstalled" | "failed";
+type ConnectState = "ready" | "pairing" | "paired" | "notInstalled" | "failed";
 
 /** What `chrome.runtime` looks like from a web page: present only when an extension exposes it. */
 interface PageAccessibleChromeRuntime {
@@ -58,16 +65,24 @@ function extensionChannel(): PageAccessibleChromeRuntime | null {
 }
 
 export function ExtensionConnectPage() {
-  const [state, setState] = useState<ConnectState>("pairing");
+  const [state, setState] = useState<ConnectState>("ready");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const hasStarted = useRef(false);
+  const isPairing = useRef(false);
 
   const pair = useCallback(async () => {
+    // Guards a double-click as well as a re-render: each run mints a token and abandons whatever the
+    // extension held, and an abandoned one stays live in Settings → Active sessions for its full TTL.
+    if (isPairing.current) {
+      return;
+    }
+    isPairing.current = true;
+
     const runtime = extensionChannel();
     if (!runtime) {
       // Checked before minting, deliberately: opening this URL without the extension installed must
       // not leave a live refresh token in a page that has nothing to collect it.
       setState("notInstalled");
+      isPairing.current = false;
       return;
     }
 
@@ -77,6 +92,7 @@ export function ExtensionConnectPage() {
       runtime.sendMessage(EXTENSION_ID, { kind: STORE_PAIRED_SESSION, session }, (response) => {
         // `lastError` has to be read or Chrome logs an unchecked-error warning; it is also the only
         // signal that the id named above resolves to nothing installed.
+        isPairing.current = false;
         if (runtime.lastError || !response?.ok) {
           setState("notInstalled");
           return;
@@ -84,6 +100,7 @@ export function ExtensionConnectPage() {
         setState("paired");
       });
     } catch (error) {
+      isPairing.current = false;
       setState("failed");
       setErrorMessage(
         error instanceof ApiRequestError
@@ -93,20 +110,6 @@ export function ExtensionConnectPage() {
     }
   }, []);
 
-  useEffect(() => {
-    // Once per mount. A second run would mint a second token and abandon the first as a live
-    // credential nobody holds.
-    if (hasStarted.current) {
-      return;
-    }
-    hasStarted.current = true;
-    void pair();
-  }, [pair]);
-
-  const retry = () => {
-    hasStarted.current = false;
-    void pair();
-  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg p-6">
@@ -114,7 +117,7 @@ export function ExtensionConnectPage() {
         <div className="flex justify-center">
           <Logo />
         </div>
-        <ConnectStatus state={state} errorMessage={errorMessage} onRetry={retry} />
+        <ConnectStatus state={state} errorMessage={errorMessage} onConnect={() => void pair()} />
       </Card>
     </div>
   );
@@ -123,12 +126,27 @@ export function ExtensionConnectPage() {
 function ConnectStatus({
   state,
   errorMessage,
-  onRetry,
+  onConnect,
 }: {
   state: ConnectState;
   errorMessage: string | null;
-  onRetry: () => void;
+  onConnect: () => void;
 }) {
+  if (state === "ready") {
+    return (
+      <>
+        <h1 className="mt-6 text-lg font-semibold text-text">Connect LightMove Capture</h1>
+        <p className="mt-2 text-sm leading-relaxed text-text2">
+          This links the browser extension to your account so it can add companies to your mandates.
+          You will not need to sign in again inside the extension.
+        </p>
+        <Button className="mt-5" onClick={onConnect}>
+          Connect the extension
+        </Button>
+      </>
+    );
+  }
+
   if (state === "paired") {
     return (
       <>
@@ -153,7 +171,7 @@ function ConnectStatus({
           This page could not reach LightMove Capture. Install it, make sure it is enabled at
           <span className="font-mono"> chrome://extensions</span>, then try again.
         </p>
-        <Button className="mt-5" onClick={onRetry}>
+        <Button className="mt-5" onClick={onConnect}>
           Try again
         </Button>
       </>
@@ -167,7 +185,7 @@ function ConnectStatus({
         <p role="alert" className="mt-2 text-sm leading-relaxed text-red">
           {errorMessage}
         </p>
-        <Button className="mt-5" onClick={onRetry}>
+        <Button className="mt-5" onClick={onConnect}>
           Try again
         </Button>
       </>

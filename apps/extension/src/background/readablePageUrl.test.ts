@@ -12,6 +12,8 @@ describe("isReadablePageUrl", () => {
     expect(isReadablePageUrl("about:blank")).toBe(false);
     expect(isReadablePageUrl("file:///Users/someone/notes.html")).toBe(false);
     expect(isReadablePageUrl("https://chrome.google.com/webstore/detail/x")).toBe(false);
+    // Where the store actually lives since 2023; the legacy host only redirects here.
+    expect(isReadablePageUrl("https://chromewebstore.google.com/detail/x")).toBe(false);
   });
 
   it("treats a missing url as unreadable rather than throwing", () => {
