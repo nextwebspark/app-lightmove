@@ -1,6 +1,6 @@
 import type { ColumnVisibilityState } from "@tanstack/react-table";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import type { NumericRange, SavedSearch, StrategyFilter } from "../api/types";
+import type { NumericRange, SavedSearch, SearchVisibility, StrategyFilter } from "../api/types";
 import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
 import { SaveSearchMenu } from "./SaveSearchMenu";
 import { companyColumns, DEFAULT_COLUMN_VISIBILITY } from "../lib/companyColumns";
@@ -36,12 +36,16 @@ function activeAxisCount(filter: StrategyFilter): number {
 export function StrategyToolbar({
   filter,
   searches,
+  viewerId,
   showFilters,
   onToggleFilters,
   query,
   onQuery,
   onSaveSearch,
   onLoadSearch,
+  onRenameSearch,
+  onSetSearchVisibility,
+  onOverwriteSearch,
   onDeleteSearch,
   onAddAll,
   onAiResearch,
@@ -52,12 +56,16 @@ export function StrategyToolbar({
 }: {
   filter: StrategyFilter;
   searches: SavedSearch[];
+  viewerId: string | null;
   showFilters: boolean;
   onToggleFilters: () => void;
   query: string;
   onQuery: (query: string) => void;
-  onSaveSearch: (name: string) => void;
+  onSaveSearch: (name: string, visibility: SearchVisibility) => void;
   onLoadSearch: (filter: StrategyFilter) => void;
+  onRenameSearch: (searchId: string, name: string) => void;
+  onSetSearchVisibility: (searchId: string, visibility: SearchVisibility) => void;
+  onOverwriteSearch: (searchId: string) => void;
   onDeleteSearch: (searchId: string) => void;
   onAddAll: () => void;
   onAiResearch: () => void;
@@ -70,8 +78,13 @@ export function StrategyToolbar({
     <div className="flex min-h-[44px] flex-none flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-line-soft bg-panel2 px-3 py-2 sm:px-5 sm:py-1.5">
       <SaveSearchMenu
         searches={searches}
+        currentFilter={filter}
+        viewerId={viewerId}
         onSave={onSaveSearch}
         onLoad={onLoadSearch}
+        onRename={onRenameSearch}
+        onSetVisibility={onSetSearchVisibility}
+        onOverwrite={onOverwriteSearch}
         onDelete={onDeleteSearch}
         saving={savingSearch}
       />

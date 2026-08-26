@@ -96,10 +96,10 @@ public class StrategyService {
      * mandate answers from a transient row and only the write paths persist one.
      */
     @Transactional(readOnly = true)
-    public StrategyResponse get(UUID workspaceId, UUID projectId) {
+    public StrategyResponse get(UUID userId, UUID workspaceId, UUID projectId) {
         requireProject(projectId, workspaceId);
         return toResponse(strategies.findByProjectId(projectId)
-                .orElseGet(() -> Strategy.forProject(projectId)), workspaceId, projectId);
+                .orElseGet(() -> Strategy.forProject(projectId)), userId, workspaceId, projectId);
     }
 
     @Transactional
@@ -114,7 +114,7 @@ public class StrategyService {
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .detail("section", "filter")
                 .record();
-        return toResponse(strategy, workspaceId, projectId);
+        return toResponse(strategy, userId, workspaceId, projectId);
     }
 
     @Transactional
@@ -128,7 +128,7 @@ public class StrategyService {
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .detail("section", "offLimits")
                 .record();
-        return toResponse(strategy, workspaceId, projectId);
+        return toResponse(strategy, userId, workspaceId, projectId);
     }
 
     /** One page of the universe as the mandate's filter narrows it. */
@@ -297,11 +297,13 @@ public class StrategyService {
         return dto == null ? null : new NumericRange(dto.min(), dto.max());
     }
 
-    private StrategyResponse toResponse(Strategy strategy, UUID workspaceId, UUID projectId) {
+    /** The caller is needed for the searches: the list hides other people's private ones. */
+    private StrategyResponse toResponse(Strategy strategy, UUID userId, UUID workspaceId,
+                                        UUID projectId) {
         return new StrategyResponse(
                 StrategyFilterDto.of(strategy.getFilter()),
                 strategy.getOffLimitsCompanies().stream().map(StrategyService::toDto).toList(),
-                searches.list(workspaceId, projectId));
+                searches.list(userId, workspaceId, projectId));
     }
 
     private static CompanyRefDto toDto(StrategyCompanyRef ref) {

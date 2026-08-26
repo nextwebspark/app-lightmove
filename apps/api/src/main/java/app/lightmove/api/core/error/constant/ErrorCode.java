@@ -112,6 +112,14 @@ public enum ErrorCode {
     TRIAGE_COMPANY_ALREADY_HELD(HttpStatus.CONFLICT,
             "This mandate already holds a company with that name"),
 
+    /**
+     * A saved search reusing a name already taken in the same list. Distinct from CONFLICT so the
+     * Strategy dropdown can say what is wrong with the name rather than offering "try again" for
+     * something retrying will never fix.
+     */
+    STRATEGY_SEARCH_NAME_TAKEN(HttpStatus.CONFLICT,
+            "A search with that name is already saved here"),
+
     /** The typed confirmation on workspace deletion did not match. */
     WORKSPACE_NAME_MISMATCH(HttpStatus.BAD_REQUEST,
             "Type the workspace name exactly to confirm deletion"),

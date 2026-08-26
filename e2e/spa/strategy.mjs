@@ -447,7 +447,8 @@ try {
     await waitTotal(UNIVERSE);
     await page.getByRole("button", { name: /Save Search/ }).click();
     await page.waitForTimeout(400);
-    await page.locator("button").filter({ hasText: /^Primary market$/ }).first().click();
+    // The row's accessible name now carries its provenance line too, so this matches on the prefix.
+    await page.getByRole("button", { name: /^Primary market/ }).first().click();
     check("S8.1b", "loading it re-applies its filter", scope, await waitTotal(scope));
     await shot("saved-search");
 
@@ -477,6 +478,58 @@ try {
     check("S8.2", "a search saved that fast still captures the chip",
       JSON.stringify([TOP_COUNTRY]), JSON.stringify(saved?.filter.countries ?? null));
     await shot("save-race");
+  });
+
+  await step("S8.3", "a private search, renamed, re-captured and shared", async () => {
+    await freshFilter();
+    await openAccordion("Location");
+    await page.getByRole("button", { name: new RegExp(`^${TOP_COUNTRY}`) }).first().click();
+    const scope = num(`SELECT count(*) FROM app_lm_apollo_companies WHERE company_country = '${TOP_COUNTRY.replace(/'/g, "''")}'`);
+    await waitTotal(scope);
+
+    // The trigger toggles, and only loading a search closes the panel — so every step after a Save,
+    // Update or Share works inside the menu that is still open rather than re-opening it.
+    await page.getByRole("button", { name: /Save Search/ }).click();
+    await page.getByLabel("Name this search").fill("My scratch");
+    await page.getByRole("radio", { name: "Only me" }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.waitForTimeout(1500);
+    const mine = (await api(`/projects/${PROJECT}/strategy`, { token })).body.searches.find((entry) => entry.name === "My scratch");
+    check("S8.3a", "it is stored in the private tier", "PRIVATE", mine?.visibility);
+    check("S8.3b", "and it says who saved it", true, Boolean(mine?.createdByName));
+
+    // Saving private switches the list to Mine, which is where the row is.
+    await page.getByRole("button", { name: "Rename My scratch" }).click();
+    await page.getByRole("textbox", { name: "Rename My scratch" }).fill("My market");
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(1500);
+    check("S8.3c", "renaming keeps the same row", mine?.id,
+      (await api(`/projects/${PROJECT}/strategy`, { token })).body.searches.find((entry) => entry.name === "My market")?.id);
+
+    // Re-capture: widen the filter, then update the search to what is now on screen. The endpoint
+    // carries no body and reads the *stored* filter, so the client has to flush its autosave first.
+    await api(`/projects/${PROJECT}/strategy/filter`, { method: "PUT", token, body: { filter: EMPTY_FILTER } });
+    await page.goto(STRATEGY_URL);
+    await page.waitForSelector('[role="table"]');
+    await waitTotal(UNIVERSE);
+    await page.getByRole("button", { name: /Save Search/ }).click();
+    await page.waitForTimeout(400);
+    // A fresh load opens on Shared; the row is private, so switch back to Mine once.
+    await page.getByRole("radio", { name: /^Mine/ }).click();
+    await page.getByRole("button", { name: "Update My market to the current filter" }).click();
+    await page.waitForTimeout(1500);
+    const recaptured = (await api(`/projects/${PROJECT}/strategy`, { token })).body.searches.find((entry) => entry.name === "My market");
+    check("S8.3d", "re-capturing replaces its filter with what is on screen", 0, recaptured?.filter.countries.length);
+
+    await page.getByRole("button", { name: "Share My market with the team" }).click();
+    await page.waitForTimeout(1500);
+    check("S8.3e", "its author can move it into the shared tier", "SHARED",
+      (await api(`/projects/${PROJECT}/strategy`, { token })).body.searches.find((entry) => entry.name === "My market")?.visibility);
+
+    await page.getByRole("button", { name: "Delete My market" }).click();
+    await page.waitForTimeout(1500);
+    check("S8.3f", "deleting removes it", 0,
+      (await api(`/projects/${PROJECT}/strategy`, { token })).body.searches.filter((entry) => entry.name === "My market").length);
   });
 
   // ---------------------------------------------------------------- S9 triage hand-off
