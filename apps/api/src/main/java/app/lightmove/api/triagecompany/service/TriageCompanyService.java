@@ -18,6 +18,7 @@ import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.AddTriageCompanyRequest;
 import app.lightmove.api.triagecompany.dto.CaptureCompanyRequest;
+import app.lightmove.api.triagecompany.dto.EditTriageCompanyRequest;
 import app.lightmove.api.triagecompany.dto.TriageBulkAddResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompanyListCriteria;
@@ -273,6 +274,53 @@ public class TriageCompanyService {
         }
 
         audit.event(ProjectEventType.TRIAGE_COMPANY_MOVED)
+                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                .detail("triageCompanyId", triageCompanyId.toString())
+                .record();
+        return toDto(company);
+    }
+
+    /**
+     * Replaces a company's own facts. Only for a company the mandate supplied itself: a row taken from
+     * the market carries the export's snapshot, and letting a mandate rewrite it would make the Source
+     * badge a claim about provenance the figures no longer support.
+     *
+     * <p><b>The rule lives here, not in the button.</b> The Companies panel hides Edit on a market row,
+     * but the endpoint is the thing that has to hold — the plugin posts here directly and a hidden
+     * button is not an access control.
+     *
+     * <p>A rename re-runs the capture guard, excluding the row being renamed so that saving a company
+     * without touching its name cannot collide with itself.
+     */
+    @Transactional
+    public TriageCompanyResponse edit(UUID userId, UUID workspaceId, UUID projectId,
+                                      UUID triageCompanyId, EditTriageCompanyRequest request,
+                                      HttpServletRequest httpRequest) {
+        requireProject(projectId, workspaceId);
+        TriageCompany company = triaged.findByIdAndProjectId(triageCompanyId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+
+        if (!company.isSuppliedByTheMandate()) {
+            throw ApiException.of(ErrorCode.TRIAGE_COMPANY_NOT_EDITABLE);
+        }
+
+        CapturedCompanyDetails details = new CapturedCompanyDetails(
+                request.companyName(), request.industry(), request.companyCountry(),
+                request.companyCity(), request.numEmployees(), request.annualRevenue(),
+                request.website(), request.companyLinkedinUrl(), request.foundedYear(),
+                request.shortDescription(), null, null);
+
+        boolean nameTaken = triaged
+                .findByProjectIdAndCompanyNameIgnoreCase(projectId, details.companyName())
+                .stream()
+                .anyMatch(other -> !other.getId().equals(triageCompanyId));
+        if (nameTaken) {
+            throw ApiException.of(ErrorCode.TRIAGE_COMPANY_ALREADY_HELD);
+        }
+
+        company.describe(details);
+
+        audit.event(ProjectEventType.TRIAGE_COMPANY_EDITED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .detail("triageCompanyId", triageCompanyId.toString())
                 .record();

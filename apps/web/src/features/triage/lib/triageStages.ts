@@ -62,3 +62,12 @@ export const TRIAGE_STAGES: TriageStage[] = [
 export function stageBySlug(slug: string): TriageStage | undefined {
   return TRIAGE_STAGES.find((stage) => stage.slug === slug);
 }
+
+/**
+ * The stage a stored status belongs to. Total rather than optional: every status the API can answer
+ * with has a row above, and a panel that had to handle "no such stage" for a value the server just
+ * sent would be guarding against its own type.
+ */
+export function stageByStatus(status: TriageCompanyStatus): TriageStage {
+  return TRIAGE_STAGES.find((stage) => stage.status === status) ?? TRIAGE_STAGES[0];
+}

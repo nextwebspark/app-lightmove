@@ -126,6 +126,33 @@ public class TriageCompany extends BaseEntity {
         return company;
     }
 
+    /**
+     * Replaces the company's own facts — what the Companies panel's Edit form submits. Only ever
+     * reached for a company the mandate supplied itself; the service refuses a market row before this
+     * is called, and {@code apolloAccountId}, {@code source} and {@code sourceUrl} are
+     * {@code updatable = false} so provenance cannot travel through here even by mistake.
+     *
+     * <p>{@code note} is deliberately not touched. It is the mandate's remark rather than a fact about
+     * the company, it is editable on companies this path refuses, and it has its own write.
+     */
+    public void describe(CapturedCompanyDetails details) {
+        this.companyName = details.companyName();
+        this.industry = details.industry();
+        this.companyCountry = details.companyCountry();
+        this.companyCity = details.companyCity();
+        this.numEmployees = details.numEmployees();
+        this.annualRevenue = details.annualRevenue();
+        this.website = details.website();
+        this.companyLinkedinUrl = details.companyLinkedinUrl();
+        this.foundedYear = details.foundedYear();
+        this.shortDescription = details.shortDescription();
+    }
+
+    /** True for a company the mandate supplied itself, which is the only kind it may rewrite. */
+    public boolean isSuppliedByTheMandate() {
+        return source != TriageCompanySource.STRATEGY;
+    }
+
     public void moveTo(TriageCompanyStatus newStatus) {
         this.status = newStatus;
     }

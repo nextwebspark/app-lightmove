@@ -409,6 +409,129 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
         assertThat(tooBig.getResponse().getStatus()).isEqualTo(400);
     }
 
+    @Test
+    @DisplayName("editing a hand-typed company replaces its facts")
+    void editReplacesAHandTypedCompany() throws Exception {
+        String admin = adminOf("Universe Edit Firm");
+        String projectId = project(admin);
+        String id = body(mvc.perform(post(triageUrl(projectId) + "/capture")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Gulf Industrial","industry":"manufacturing",
+                                 "companyCity":"Sharjah","numEmployees":400,"note":"Worth a look"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+
+        mvc.perform(put(triageUrl(projectId) + "/" + id)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Gulf Industrial Holdings","industry":"industrial manufacturing",
+                                 "companyCountry":"United Arab Emirates","numEmployees":2400,
+                                 "website":"gulfindustrial.com"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.companyName").value("Gulf Industrial Holdings"))
+                .andExpect(jsonPath("$.numEmployees").value(2400))
+                // A bare host is promoted, the same gate a capture goes through.
+                .andExpect(jsonPath("$.website").value("https://gulfindustrial.com"))
+                // The form holds every field, so a field it omitted is a field it cleared.
+                .andExpect(jsonPath("$.companyCity").doesNotExist())
+                // The note is not this endpoint's to touch — it has its own write, and its own reason.
+                .andExpect(jsonPath("$.note").value("Worth a look"))
+                .andExpect(jsonPath("$.source").value("manual"));
+    }
+
+    @Test
+    @DisplayName("a company taken from the market cannot be edited")
+    void aMarketCompanyCannotBeEdited() throws Exception {
+        String admin = adminOf("Universe Not Editable Firm");
+        String projectId = project(admin);
+        universe.company("a1", "ACWA Power").industry("oil & energy").employees(3_000).insert();
+        String id = add(admin, projectId, "a1");
+
+        // The Companies panel hides Edit on a market row, but the rule has to hold here: the snapshot
+        // is the export's fact, and a mandate rewriting it would make the Source badge a lie.
+        mvc.perform(put(triageUrl(projectId) + "/" + id)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Definitely Not ACWA","numEmployees":1}"""))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TRIAGE_COMPANY_NOT_EDITABLE"));
+
+        mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.companies[0].companyName").value("ACWA Power"))
+                .andExpect(jsonPath("$.companies[0].numEmployees").value(3000));
+    }
+
+    @Test
+    @DisplayName("a note can still be written on a company taken from the market")
+    void aMarketCompanyStillTakesANote() throws Exception {
+        String admin = adminOf("Universe Market Note Firm");
+        String projectId = project(admin);
+        universe.company("a1", "ACWA Power").industry("oil & energy").employees(10).insert();
+        String id = add(admin, projectId, "a1");
+
+        // The note is the mandate's remark, not the market's data, so refusing the edit above must not
+        // take it with it.
+        patchUniverse(admin, projectId, id, """
+                {"note":"Adjacent — worth watching"}""")
+                .andExpect(jsonPath("$.note").value("Adjacent — worth watching"));
+    }
+
+    @Test
+    @DisplayName("renaming onto a name the mandate already holds is refused, renaming to its own is not")
+    void renameRunsTheDuplicateGuardWithoutColliding() throws Exception {
+        String admin = adminOf("Universe Rename Firm");
+        String projectId = project(admin);
+        String first = capture(admin, projectId, "Gulf Industrial");
+        capture(admin, projectId, "Delta Logistics");
+
+        mvc.perform(put(triageUrl(projectId) + "/" + first)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"delta logistics"}"""))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TRIAGE_COMPANY_ALREADY_HELD"));
+
+        // Saving without renaming must not collide with the row being saved.
+        mvc.perform(put(triageUrl(projectId) + "/" + first)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Gulf Industrial","companyCountry":"Oman"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.companyCountry").value("Oman"));
+    }
+
+    @Test
+    @DisplayName("another mandate's company cannot be edited from this one")
+    void editIsProjectScoped() throws Exception {
+        String admin = adminOf("Universe Edit Scope Firm");
+        String theirs = project(admin);
+        String id = capture(admin, theirs, "Gulf Industrial");
+        String ours = project(admin);
+
+        mvc.perform(put(triageUrl(ours) + "/" + id)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Gulf Industrial"}"""))
+                .andExpect(status().isNotFound());
+    }
+
+    private String capture(String token, String projectId, String companyName) throws Exception {
+        return body(mvc.perform(post(triageUrl(projectId) + "/capture")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"%s"}""".formatted(companyName)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
     private String add(String token, String projectId, String accountId) throws Exception {
         return body(mvc.perform(post(triageUrl(projectId))
                         .header("Authorization", "Bearer " + token)

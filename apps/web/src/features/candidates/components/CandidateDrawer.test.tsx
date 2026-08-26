@@ -11,6 +11,7 @@ vi.mock("../api/candidatesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof candidatesApi>()),
   createCandidate: vi.fn(),
   updateCandidate: vi.fn(),
+  changeCandidateStatus: vi.fn(),
 }));
 
 const yasmin: Candidate = {
@@ -54,6 +55,7 @@ const renderDrawer = (props: Partial<Parameters<typeof CandidateDrawer>[0]> = {}
           projectId="p1"
           candidate={null}
           company={{ triageCompanyId: "co1", companyName: "Al Rawabi Dairy" }}
+          canWrite
           onClose={() => {}}
           onSaved={() => {}}
           {...props}
@@ -63,7 +65,8 @@ const renderDrawer = (props: Partial<Parameters<typeof CandidateDrawer>[0]> = {}
   );
 
 /**
- * The profile form. Two things are worth holding onto here: only the name is required, and an edit is
+ * The profile panel and the form behind it. Three things are worth holding onto: a name opens a
+ * profile rather than a form, status is the one control that stays live while reading, and an edit is
  * a full replace — every field the drawer shows is a field the next save decides the value of.
  */
 describe("CandidateDrawer", () => {
@@ -146,6 +149,8 @@ describe("CandidateDrawer", () => {
     vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
     renderDrawer({ candidate: yasmin, company: null });
 
+    await userEvent.click(screen.getByRole("button", { name: /^Edit$/i }));
+
     expect(screen.getByLabelText(/Full name/i)).toHaveValue("Yasmin El-Sayed");
     expect(screen.getByLabelText(/Languages/i)).toHaveValue("English, Arabic");
     expect(screen.getByLabelText(/Career 1 company/i)).toHaveValue("Regional Foods Co.");
@@ -161,5 +166,57 @@ describe("CandidateDrawer", () => {
     expect(payload.compensation?.baseSalary).toBeNull();
     // Editing someone from their own row must not quietly unmap them.
     expect(payload.triageCompanyId).toBe("co1");
+  });
+
+  it("opens an existing executive as a profile, not as a form", async () => {
+    renderDrawer({ candidate: yasmin, company: null });
+
+    // A consultant clicking a name is reading. A form that opens on every click is one you dismiss
+    // without looking at.
+    expect(screen.getByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
+    expect(screen.getByText("Regional Foods Co.")).toBeInTheDocument();
+    expect(screen.getByText("3 months")).toBeInTheDocument();
+    expect(screen.getByText("English, Arabic")).toBeInTheDocument();
+    // Twice: the Base tile and the section's total, which for a package with only a base are equal.
+    expect(screen.getAllByText(/AED 420,000/)).toHaveLength(2);
+    expect(screen.queryByLabelText(/Full name/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps status live while reading, without replacing the profile", async () => {
+    vi.mocked(candidatesApi.changeCandidateStatus).mockResolvedValue({
+      ...yasmin,
+      status: "contacted",
+    });
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await userEvent.selectOptions(screen.getByLabelText(/^Status$/i), "contacted");
+
+    await waitFor(() =>
+      expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "c1", "contacted"),
+    );
+    // The point of the separate write: a pill flicked while reading must not re-submit a profile that
+    // has been on screen for a while.
+    expect(candidatesApi.updateCandidate).not.toHaveBeenCalled();
+  });
+
+  it("gives a reader who cannot write the profile and neither control", async () => {
+    renderDrawer({ candidate: yasmin, company: null, canWrite: false });
+
+    expect(screen.getByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Edit$/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Status$/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Remove from mandate/i })).not.toBeInTheDocument();
+  });
+
+  it("returns to the profile when an edit is cancelled, rather than to the grid", async () => {
+    const onClose = vi.fn();
+    renderDrawer({ candidate: yasmin, company: null, onClose });
+
+    await userEvent.click(screen.getByRole("button", { name: /^Edit$/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^Cancel$/i }));
+
+    // The reader had not finished reading.
+    expect(screen.getByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

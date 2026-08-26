@@ -1,5 +1,10 @@
 import { request } from "../../../lib/apiClient";
-import type { Candidate, CandidatesPage, SaveCandidatePayload } from "./types";
+import type {
+  Candidate,
+  CandidatesPage,
+  CandidateStatus,
+  SaveCandidatePayload,
+} from "./types";
 
 /**
  * A mandate's mapped executives — the people half of a talent map.
@@ -63,6 +68,24 @@ export function updateCandidate(
   return request<Candidate>(`/projects/${projectId}/candidates/${candidateId}`, {
     method: "PUT",
     body: candidate,
+  });
+}
+
+/**
+ * Moves someone along the line and touches nothing else — the status pill on the read-only profile
+ * panel, which a researcher flicks while reading.
+ *
+ * <p>Deliberately not an `updateCandidate` with one field changed: a panel that has been open for a
+ * while would re-submit a stale profile and quietly undo whatever was edited since.
+ */
+export function changeCandidateStatus(
+  projectId: string,
+  candidateId: string,
+  status: CandidateStatus,
+): Promise<Candidate> {
+  return request<Candidate>(`/projects/${projectId}/candidates/${candidateId}`, {
+    method: "PATCH",
+    body: { status },
   });
 }
 

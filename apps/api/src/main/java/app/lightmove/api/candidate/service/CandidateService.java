@@ -9,6 +9,7 @@ import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
+import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateCompensation;
@@ -151,6 +152,32 @@ public class CandidateService {
         audit.event(ProjectEventType.CANDIDATE_UPDATED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .detail("candidateId", candidateId.toString())
+                .record();
+        return toDto(candidate);
+    }
+
+    /**
+     * Moves someone along the line and touches nothing else — the status pill on the read-only profile
+     * panel, which a researcher flicks while reading rather than while editing.
+     *
+     * <p>Deliberately not a {@link #replace} with one field changed: the panel may have been open for
+     * a while, and re-submitting a stale profile to change one value would quietly undo whatever was
+     * edited in the meantime.
+     */
+    @Transactional
+    public CandidateResponse changeStatus(UUID userId, UUID workspaceId, UUID projectId,
+                                          UUID candidateId, UpdateCandidateStatusRequest request,
+                                          HttpServletRequest httpRequest) {
+        requireProject(projectId, workspaceId);
+        Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+
+        candidate.moveTo(resolveStatus(request.status()));
+
+        audit.event(ProjectEventType.CANDIDATE_UPDATED)
+                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                .detail("candidateId", candidateId.toString())
+                .detail("status", request.status())
                 .record();
         return toDto(candidate);
     }

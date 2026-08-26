@@ -210,9 +210,13 @@ const REPORT = {
 
 const TRIAGE_COUNTS = { inUniverse: 128, shortlisted: 24, declined: 61 };
 
+// Every third one is hand-typed, and a hand-typed company has no universe id to carry — which is
+// also what decides whether its panel offers an Edit button.
+const isManual = (i) => i % 3 === 0;
+
 const TRIAGE_COMPANIES = Array.from({ length: 8 }, (_, i) => ({
   id: `triage-${i + 1}`,
-  apolloAccountId: `apollo-${i + 1}`,
+  apolloAccountId: isManual(i) ? null : `apollo-${i + 1}`,
   status: "inUniverse",
   note: null,
   companyName: `Gulf Industrial Holdings Company ${i + 1}`,
@@ -227,7 +231,7 @@ const TRIAGE_COMPANIES = Array.from({ length: 8 }, (_, i) => ({
   shortDescription: null,
   sourceUrl: null,
   logoUrl: null,
-  source: i % 3 === 0 ? "manual" : "strategy",
+  source: isManual(i) ? "manual" : "strategy",
   addedAt: "2026-08-01T09:00:00.000Z",
 }));
 

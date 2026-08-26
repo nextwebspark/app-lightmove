@@ -19,7 +19,8 @@ import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { formatInstantDate, formatMoney } from "../../../lib/format";
 import type { Candidate } from "../../candidates/api/types";
 import { candidateStatusStyle } from "../../candidates/lib/candidateVocabulary";
-import type { TriageCompany, TriageCompanySource, TriageCompanyStatus, TriageSortField } from "../api/types";
+import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
+import { MOVES, SOURCE_STYLES } from "./triageVocabulary";
 import type { TriageCompanyRow } from "./triageRows";
 
 /**
@@ -33,6 +34,8 @@ interface TriageTableMeta {
   onAddExecutive: (company: TriageCompany) => void;
   /** Opens the drawer on an executive already mapped. */
   onEditCandidate: (candidate: Candidate) => void;
+  /** Opens the company's own panel — read-only, whatever the reader is allowed to do to it. */
+  onOpenCompany: (company: TriageCompany) => void;
   /** The row with a write in flight, so its actions can be disabled without freezing the grid. */
   busyId: string | null;
   /** False for a client representative, who reads these grids but moves nothing. */
@@ -54,32 +57,6 @@ export const triageTableFeatures = tableFeatures({
 
 const helper = createColumnHelper<typeof triageTableFeatures, TriageCompanyRow>();
 
-/**
- * The move a stage offers, keyed by where the row currently is. A company is never offered the stage
- * it is already in, so every button on a row does something.
- */
-const MOVES: Record<TriageCompanyStatus, { status: TriageCompanyStatus; label: string; icon: string }[]> = {
-  inUniverse: [
-    { status: "shortlisted", label: "Shortlist", icon: ICONS.star },
-    { status: "declined", label: "Decline", icon: ICONS.close },
-  ],
-  shortlisted: [
-    { status: "inUniverse", label: "Back to universe", icon: ICONS.globe },
-    { status: "declined", label: "Decline", icon: ICONS.close },
-  ],
-  declined: [
-    { status: "inUniverse", label: "Back to universe", icon: ICONS.globe },
-    { status: "shortlisted", label: "Shortlist", icon: ICONS.star },
-  ],
-};
-
-/** How each source reads in the grid. "Plugin" rather than "Extension" — that is what people call it. */
-const SOURCE_STYLES: Record<TriageCompanySource, { label: string; className: string }> = {
-  strategy: { label: "Strategy", className: "text-sky bg-sky-dim" },
-  manual: { label: "Manual", className: "text-amber bg-amber-dim" },
-  extension: { label: "Plugin", className: "text-green bg-green-dim" },
-};
-
 const PILL =
   "inline-flex items-center rounded-[4px] px-[6px] py-[2px] font-mono text-[10px] font-bold uppercase tracking-[0.04em]";
 
@@ -96,9 +73,9 @@ const PILL =
  * grid is paged by company, so ordering by a person would order a page rather than a result.
  *
  * <p>Two columns Strategy has are deliberately absent: `Fit`, which has no score to show, and the
- * Facebook and X links, which the snapshot does not carry. One is added — `Source`, because a
- * headcount from Apollo and one typed in by hand are not equally trustworthy and the reader should be
- * able to tell which they are looking at.
+ * Facebook and X links, which the snapshot does not carry. One is added — `Source`, last in the order
+ * and off by default, because a headcount from Apollo and one typed in by hand are not equally
+ * trustworthy and a reader questioning a figure should be able to tell which they are looking at.
  */
 export const triageCompanyColumns = helper.columns([
   helper.accessor((row) => row.company?.companyName ?? row.candidate?.companyName ?? null, {
@@ -127,21 +104,38 @@ export const triageCompanyColumns = helper.columns([
         );
       }
 
+      const open = () => info.table.options.meta?.onOpenCompany(company);
+
       // The second and third executive at one company: the company is repeated because each person
       // is their own row, but repeating the logo as well reads as three separate companies.
       if (position > 1) {
         return (
-          <span className="flex min-w-0 items-center gap-2.5 ps-[38px]">
+          <button
+            type="button"
+            onClick={open}
+            title={`Open ${company.companyName}`}
+            aria-label={`Open ${company.companyName}`}
+            className="flex min-w-0 items-center gap-2.5 ps-[38px] text-start transition hover:text-sky"
+          >
             <TruncatedText value={name} className="font-sans text-[13px] text-text3" />
-          </span>
+          </button>
         );
       }
 
       return (
-        <span className="flex min-w-0 items-center gap-2.5">
+        <button
+          type="button"
+          onClick={open}
+          title={`Open ${company.companyName}`}
+          aria-label={`Open ${company.companyName}`}
+          className="flex min-w-0 items-center gap-2.5 text-start"
+        >
           <CompanyLogo name={company.companyName} logo={company.logoUrl} size={28} />
-          <TruncatedText value={name} className="font-sans text-[13px] font-medium text-text" />
-        </span>
+          <TruncatedText
+            value={name}
+            className="font-sans text-[13px] font-medium text-text transition group-hover:text-sky"
+          />
+        </button>
       );
     },
   }),
@@ -222,19 +216,6 @@ export const triageCompanyColumns = helper.columns([
           />
         </span>
       );
-    },
-  }),
-
-  helper.accessor((row) => row.company?.source ?? null, {
-    id: "source",
-    header: "Source",
-    enableSorting: false,
-    meta: { share: 0, min: 84 },
-    cell: (info) => {
-      const source = info.getValue();
-      if (!source) return <DataGridCell value={null} />;
-      const { label, className } = SOURCE_STYLES[source];
-      return <span className={`${PILL} ${className}`}>{label}</span>;
     },
   }),
 
@@ -364,6 +345,19 @@ export const triageCompanyColumns = helper.columns([
     meta: { share: 18, min: 160 },
     cell: (info) => <DataGridCell value={info.getValue()} muted />,
   }),
+
+  helper.accessor((row) => row.company?.source ?? null, {
+    id: "source",
+    header: "Source",
+    enableSorting: false,
+    meta: { share: 0, min: 84 },
+    cell: (info) => {
+      const source = info.getValue();
+      if (!source) return <DataGridCell value={null} />;
+      const { label, className } = SOURCE_STYLES[source];
+      return <span className={`${PILL} ${className}`}>{label}</span>;
+    },
+  }),
 ]);
 
 /**
@@ -376,6 +370,7 @@ export const triageCompanyColumns = helper.columns([
 export const DEFAULT_TRIAGE_COLUMN_VISIBILITY: ColumnVisibilityState = {
   founded: false,
   description: false,
+  source: false,
 };
 
 /**

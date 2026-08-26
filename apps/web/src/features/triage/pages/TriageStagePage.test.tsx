@@ -28,6 +28,7 @@ vi.mock("../api/triageApi", async (importOriginal) => ({
   updateTriageCompany: vi.fn(),
   deleteTriageCompany: vi.fn(),
   captureCompany: vi.fn(),
+  editTriageCompany: vi.fn(),
 }));
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
@@ -186,14 +187,17 @@ describe("TriageStagePage", () => {
     expect(vi.mocked(triageApi.getTriageCompanies).mock.calls[0][1]).toBe("shortlisted");
   });
 
-  it("renders the companies in the shared grid, with their source", async () => {
+  it("renders the companies in the shared grid", async () => {
     renderStage();
 
     // The same role structure Strategy's table produces — that is the point of the shared DataGrid.
     const grid = await screen.findByRole("table", { name: /In universe companies/i });
     expect(within(grid).getByText("ACWA Power")).toBeInTheDocument();
     expect(within(grid).getByText("Saudi Arabia")).toBeInTheDocument();
-    expect(within(grid).getByText("Strategy")).toBeInTheDocument();
+    // Source is off by default: it is provenance for a reader questioning a figure, not a column to
+    // carry on every scan. The Columns picker still has it, and the panel always shows it.
+    expect(within(grid).queryByText("Strategy")).not.toBeInTheDocument();
+    expect(within(grid).queryByRole("columnheader", { name: /Source/i })).not.toBeInTheDocument();
   });
 
   it("shows the three stage counts, so a move is visibly reflected", async () => {
@@ -394,7 +398,7 @@ describe("TriageStagePage", () => {
     );
   });
 
-  it("opens an existing executive for editing from their name", async () => {
+  it("opens an existing executive as a profile, and edits behind a second step", async () => {
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
       peopleOf(scope.unmapped ? [] : [yasmin]),
     );
@@ -402,7 +406,11 @@ describe("TriageStagePage", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: /Yasmin El-Sayed/i }));
 
-    const drawer = await screen.findByRole("dialog", { name: /Edit executive/i });
+    const drawer = await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i });
+    expect(within(drawer).getByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
+    expect(within(drawer).queryByLabelText(/Full name/i)).not.toBeInTheDocument();
+
+    await userEvent.click(within(drawer).getByRole("button", { name: /^Edit$/i }));
     expect(within(drawer).getByLabelText(/Full name/i)).toHaveValue("Yasmin El-Sayed");
     expect(within(drawer).getByLabelText(/^Title$/i)).toHaveValue("VP Finance");
   });
@@ -421,6 +429,79 @@ describe("TriageStagePage", () => {
     // The row says where they work and that it is not a company this screen can act on.
     expect(screen.getByText("An Unlisted Holding")).toBeInTheDocument();
     expect(screen.getByText(/Not in universe/i)).toBeInTheDocument();
+  });
+
+  it("opens a company as a read-only panel from its name", async () => {
+    renderStage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Open ACWA Power/i }));
+
+    const panel = await screen.findByRole("dialog", { name: /ACWA Power/i });
+    expect(within(panel).getByRole("heading", { name: "ACWA Power" })).toBeInTheDocument();
+    // The header's meta line: sector, city and country, as the mockup's panel carries them.
+    expect(within(panel).getByText(/oil & energy · Riyadh · Saudi Arabia/)).toBeInTheDocument();
+    expect(within(panel).queryByLabelText(/Company name/i)).not.toBeInTheDocument();
+  });
+
+  it("offers no Edit on a company taken from the market, but still takes a note", async () => {
+    vi.mocked(triageApi.updateTriageCompany).mockResolvedValue(acwa);
+    renderStage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Open ACWA Power/i }));
+    const panel = await screen.findByRole("dialog", { name: /ACWA Power/i });
+
+    // Its fields are the export's snapshot, refreshed by the export — rewriting them would make the
+    // Source badge a claim the figures no longer support.
+    expect(within(panel).queryByRole("button", { name: /^Edit$/i })).not.toBeInTheDocument();
+    expect(within(panel).getByText(/come from the market export/i)).toBeInTheDocument();
+
+    // The note is the mandate's own remark, so it is editable on every company including this one.
+    await userEvent.type(within(panel).getByLabelText(/Note on this company/i), "Adjacent");
+    await userEvent.click(within(panel).getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() =>
+      expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", { note: "Adjacent" }),
+    );
+  });
+
+  it("edits a hand-typed company behind the Edit button", async () => {
+    const gulf = { ...acwa, id: "u2", apolloAccountId: null, source: "manual" as const,
+      companyName: "Gulf Industrial" };
+    vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(pageOf({ companies: [gulf] }));
+    vi.mocked(triageApi.editTriageCompany).mockResolvedValue({ ...gulf, numEmployees: 2400 });
+    renderStage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Open Gulf Industrial/i }));
+    const panel = await screen.findByRole("dialog", { name: /Gulf Industrial/i });
+    await userEvent.click(within(panel).getByRole("button", { name: /^Edit$/i }));
+
+    await userEvent.clear(within(panel).getByLabelText(/^Employees$/i));
+    await userEvent.type(within(panel).getByLabelText(/^Employees$/i), "2400");
+    await userEvent.click(within(panel).getByRole("button", { name: /Save changes/i }));
+
+    await waitFor(() =>
+      expect(triageApi.editTriageCompany).toHaveBeenCalledWith(
+        "p1",
+        "u2",
+        expect.objectContaining({ companyName: "Gulf Industrial", numEmployees: 2400 }),
+      ),
+    );
+  });
+
+  it("gives a client representative the company panel and none of its controls", async () => {
+    const authApi = await import("../../auth/api/authApi");
+    vi.mocked(authApi.me).mockResolvedValue(representative);
+    const gulf = { ...acwa, apolloAccountId: null, source: "manual" as const };
+    vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(pageOf({ companies: [gulf] }));
+    renderStage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Open ACWA Power/i }));
+    const panel = await screen.findByRole("dialog", { name: /ACWA Power/i });
+
+    // Hand-typed, so a colleague would get Edit here — WORK_VIEW does not.
+    expect(within(panel).queryByRole("button", { name: /^Edit$/i })).not.toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: /^Save$/i })).not.toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: /^Remove$/i })).not.toBeInTheDocument();
   });
 
   it("gives a client representative the executive columns and none of the writes", async () => {

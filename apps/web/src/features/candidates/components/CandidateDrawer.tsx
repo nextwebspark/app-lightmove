@@ -5,6 +5,12 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Field, FormError, Input, Select, TextArea, useToast } from "../../../components/ui";
+import {
+  DetailGrid,
+  DetailPill,
+  DetailTile,
+  DrawerSection,
+} from "../../../components/ui/DetailList";
 import { Drawer } from "../../../components/ui/Drawer";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { optionalNumber, optionalWebAddress } from "../../../lib/formFields";
@@ -15,7 +21,11 @@ import type {
   CandidateStatus,
   SaveCandidatePayload,
 } from "../api/types";
-import { CANDIDATE_SENIORITIES, CANDIDATE_STATUSES } from "../lib/candidateVocabulary";
+import {
+  candidateStatusStyle,
+  CANDIDATE_SENIORITIES,
+  CANDIDATE_STATUSES,
+} from "../lib/candidateVocabulary";
 
 /**
  * Only the name is required, matching the server. Research arrives in pieces — a name, a company and
@@ -99,10 +109,15 @@ export interface CandidateCompanyContext {
 }
 
 /**
- * Adds or edits one executive.
+ * One executive: read, then edited.
  *
- * <p>A slide-over rather than a modal, deliberately: this is the widest form in the product and the
- * grid behind it is the context — a researcher checks which company's row they opened while typing.
+ * <p><b>Clicking a name opens a profile, not a form.</b> A consultant looking someone up is reading,
+ * and a form that opens over the grid on every click is a form you dismiss without looking at. Edit is
+ * a deliberate second step — and it has to be, because the save is a full replace.
+ *
+ * <p><b>Status is the exception and stays live in view mode.</b> It is the field that changes most
+ * often, it is what the researcher came to change while reading, and it has a write of its own so the
+ * pill does not have to re-submit a profile that may have been on screen for a while.
  *
  * <p><b>Editing is a full replace</b>, which is why every field is on screen at once rather than
  * behind progressive disclosure. The server takes what this submits as the whole profile, so a field
@@ -118,6 +133,7 @@ export function CandidateDrawer({
   projectId,
   candidate,
   company,
+  canWrite,
   onClose,
   onSaved,
   onDelete,
@@ -128,12 +144,15 @@ export function CandidateDrawer({
   candidate: Candidate | null;
   /** The company this executive sits at, when the drawer was opened from that company's row. */
   company: CandidateCompanyContext | null;
+  /** False for a client representative, who reads a mandate's people and changes nothing about them. */
+  canWrite: boolean;
   onClose: () => void;
   onSaved: () => void;
   /** Opens the confirmation. Absent while adding — there is nothing to remove yet. */
   onDelete?: (candidate: Candidate) => void;
 }) {
   const toast = useToast();
+  const [editing, setEditing] = useState(false);
   // State rather than a read of `save.isError`, which outlives the thing it described: a duplicate
   // name marks the name field, and the moment the user edits that name the field error clears while
   // the mutation stays failed — so the same sentence reappeared over a form already corrected.
@@ -178,18 +197,32 @@ export function CandidateDrawer({
     },
   });
 
+  const changeStatus = useMutation({
+    mutationFn: (status: CandidateStatus) =>
+      candidatesApi.changeCandidateStatus(projectId, candidate!.id, status),
+    onSuccess: (saved) => {
+      onSaved();
+      toast(`${saved.fullName} is now ${candidateStatusStyle(saved.status).label.toLowerCase()}`);
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
   // Reopening should show the executive being edited, or a blank form — never the half-typed profile
   // that was abandoned, and never the last attempt's error above fields it was not about.
   useEffect(() => {
     if (!open) return;
     reset(candidate ? formOf(candidate) : { ...EMPTY_FORM, employerName: company?.companyName ?? "" });
+    // A name that was clicked opens as a profile; the toolbar's Add opens as a form, because there is
+    // nothing to read yet.
+    setEditing(candidate === null);
     setSubmitError(null);
   }, [open, candidate, company, reset]);
 
-  const employerLabel = company ? company.companyName : undefined;
+  const employerLabel = company?.companyName ?? candidate?.companyName ?? undefined;
+  const label = candidate ? candidate.fullName : "Add executive";
 
   return (
-    <Drawer open={open} onClose={onClose} wide label={candidate ? "Edit executive" : "Add executive"}>
+    <Drawer open={open} onClose={onClose} wide label={editing && candidate ? "Edit executive" : label}>
       <div className="relative flex-none border-b border-line-soft px-5 py-4">
         <button
           type="button"
@@ -199,16 +232,74 @@ export function CandidateDrawer({
         >
           <Icon d={ICONS.close} size={16} />
         </button>
-        <h2 className="font-sans text-base font-semibold">
-          {candidate ? "Edit executive" : "Add executive"}
-        </h2>
-        <p className="mt-1 pe-8 font-mono text-[11.5px] text-text3">
-          {employerLabel
-            ? `At ${employerLabel}`
-            : "Not tied to a company in this mandate's universe — name their employer below."}
-        </p>
+
+        {candidate && !editing ? (
+          <div className="flex items-start gap-3 pe-8">
+            <span className="flex size-[44px] flex-none items-center justify-center rounded-[10px] border border-line bg-panel2 font-mono text-sm font-semibold text-text2">
+              {initialsOf(candidate.fullName)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <h2 className="font-sans text-base font-semibold">{candidate.fullName}</h2>
+              <p className="mt-0.5 font-mono text-[12.5px] text-text2">{candidate.title ?? "—"}</p>
+              <p className="mt-1 font-mono text-[11.5px] text-text3">
+                {[employerLabel, candidate.locationCity, candidate.locationCountry]
+                  .filter(Boolean)
+                  .join(" · ") || "No employer or location recorded"}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {candidate.seniority && <DetailPill label={candidate.seniority} />}
+                {/* Live in view mode: the status is what a researcher came here to change while
+                    reading, and it has a write of its own so the pill need not replace the profile. */}
+                {canWrite ? (
+                  <Select
+                    value={candidate.status}
+                    aria-label="Status"
+                    disabled={changeStatus.isPending}
+                    onChange={(event) =>
+                      changeStatus.mutate(event.target.value as CandidateStatus)
+                    }
+                    className="w-auto px-2 py-1 text-[12px]"
+                  >
+                    {CANDIDATE_STATUSES.map((status) => (
+                      <option key={status.value} value={status.value}>
+                        {status.label}
+                      </option>
+                    ))}
+                  </Select>
+                ) : (
+                  <DetailPill
+                    label={candidateStatusStyle(candidate.status).label}
+                    className={candidateStatusStyle(candidate.status).className}
+                  />
+                )}
+              </div>
+            </div>
+            {canWrite && (
+              <Button type="button" variant="secondary" onClick={() => setEditing(true)}>
+                <Icon d={ICONS.pencil} size={14} />
+                Edit
+              </Button>
+            )}
+          </div>
+        ) : (
+          <>
+            <h2 className="font-sans text-base font-semibold">
+              {candidate ? "Edit executive" : "Add executive"}
+            </h2>
+            <p className="mt-1 pe-8 font-mono text-[11.5px] text-text3">
+              {employerLabel
+                ? `At ${employerLabel}`
+                : "Not tied to a company in this mandate's universe — name their employer below."}
+            </p>
+          </>
+        )}
       </div>
 
+      {candidate && !editing && (
+        <CandidateProfile candidate={candidate} onRemove={canWrite ? onDelete : undefined} />
+      )}
+
+      {editing && (
       <form
         onSubmit={handleSubmit((parsed) => {
           // Last attempt's banner clears on the next one, so it never outlives what it described.
@@ -413,29 +504,167 @@ export function CandidateDrawer({
           </Section>
         </div>
 
-        <div className="flex flex-none items-center gap-2 border-t border-line-soft px-5 py-3">
-          {candidate && onDelete && (
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => onDelete(candidate)}
-              className="text-red"
-            >
-              Remove
-            </Button>
-          )}
-          <div className="ms-auto flex gap-2">
-            <Button type="button" variant="secondary" onClick={onClose} disabled={save.isPending}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" loading={save.isPending}>
-              {candidate ? "Save changes" : "Add executive"}
-            </Button>
-          </div>
+        <div className="flex flex-none justify-end gap-2 border-t border-line-soft px-5 py-3">
+          <Button
+            type="button"
+            variant="secondary"
+            // Cancelling an edit returns to the profile it was opened from, not to the grid: the
+            // reader had not finished reading.
+            onClick={() => (candidate ? setEditing(false) : onClose())}
+            disabled={save.isPending}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" loading={save.isPending}>
+            {candidate ? "Save changes" : "Add executive"}
+          </Button>
         </div>
       </form>
+      )}
     </Drawer>
   );
+}
+
+/**
+ * The read-only half: everything the mandate knows about a person, in the mockup's sections and its
+ * order. The note stays an inline textarea there and stays one here — but it is saved by the Edit
+ * form rather than on its own, because unlike a company's note it sits among fields that are edited
+ * together.
+ */
+function CandidateProfile({
+  candidate,
+  onRemove,
+}: {
+  candidate: Candidate;
+  /** Absent for a reader who may not write, which is also who gets no Edit button. */
+  onRemove?: (candidate: Candidate) => void;
+}) {
+  const { compensation } = candidate;
+  const total =
+    (compensation.baseSalary ?? 0) +
+    (compensation.bonus ?? 0) +
+    (compensation.allowances ?? 0) +
+    (compensation.longTermIncentive ?? 0);
+  const currency = compensation.currency ?? "";
+
+  return (
+    <>
+      <div className="min-h-0 flex-1 overflow-y-auto px-5">
+        <DrawerSection title="Summary">
+          <p className="text-[13px]/[1.6] text-text2">
+            {candidate.summary ?? "No summary written yet."}
+          </p>
+        </DrawerSection>
+
+        <DrawerSection title="Career history">
+          {candidate.career.length === 0 ? (
+            <p className="font-mono text-[12.5px] text-text3">No history captured yet.</p>
+          ) : (
+            candidate.career.map((post, index) => (
+              <div
+                key={`${post.company}-${post.title}-${index}`}
+                className="flex items-baseline gap-2 py-1 font-mono text-[12.5px]"
+              >
+                <span className="font-medium text-text">{post.company ?? "—"}</span>
+                <span className="min-w-0 truncate text-text2">{post.title ?? ""}</span>
+                <span className="ms-auto flex-none text-text3">{post.period ?? ""}</span>
+              </div>
+            ))
+          )}
+        </DrawerSection>
+
+        <DrawerSection
+          title="Compensation"
+          action={
+            total > 0 && (
+              <span className="font-mono text-[12px] font-semibold text-text">
+                {currency} {total.toLocaleString()}
+              </span>
+            )
+          }
+        >
+          <DetailGrid>
+            <DetailTile label="Base" value={formatAmount(currency, compensation.baseSalary)} />
+            <DetailTile label="Bonus" value={formatAmount(currency, compensation.bonus)} />
+            <DetailTile label="Allowances" value={formatAmount(currency, compensation.allowances)} />
+            <DetailTile label="LTIP" value={formatAmount(currency, compensation.longTermIncentive)} />
+            <DetailTile label="Notice period" value={compensation.noticePeriod} full />
+          </DetailGrid>
+        </DrawerSection>
+
+        <DrawerSection title="Contact &amp; background">
+          <DetailGrid>
+            <DetailTile label="Email" value={candidate.email} />
+            <DetailTile label="Phone" value={candidate.phone} />
+            <DetailTile
+              label="LinkedIn"
+              full
+              value={
+                candidate.linkedinUrl ? (
+                  <a
+                    href={candidate.linkedinUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="text-sky hover:underline"
+                  >
+                    {candidate.linkedinUrl}
+                  </a>
+                ) : null
+              }
+            />
+            <DetailTile label="Nationality" value={candidate.nationality} />
+            <DetailTile
+              label="Experience"
+              value={candidate.yearsExperience ? `${candidate.yearsExperience} years` : null}
+            />
+            <DetailTile
+              label="Languages"
+              full
+              value={candidate.languages.length > 0 ? candidate.languages.join(", ") : null}
+            />
+          </DetailGrid>
+        </DrawerSection>
+
+        <DrawerSection title="Note">
+          <p className="whitespace-pre-wrap text-[13px]/[1.6] text-text2">
+            {candidate.note ?? "No note on this person for this mandate."}
+          </p>
+        </DrawerSection>
+      </div>
+
+      {onRemove && (
+        <div className="flex flex-none border-t border-line-soft px-5 py-3">
+          <Button
+            type="button"
+            variant="secondary"
+            className="text-red"
+            onClick={() => onRemove(candidate)}
+          >
+            Remove from mandate
+          </Button>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Two initials, which is what the mockup's identity tile carries when there is no photograph. */
+function initialsOf(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  const first = parts[0][0];
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  return (first + last).toUpperCase();
+}
+
+/**
+ * A figure in the currency it was quoted in, or null when nobody established it. Zero is kept rather
+ * than blanked: "no bonus" is a fact about the package and "bonus not established" is a fact about
+ * the research, and the drawer must not turn the second into the first.
+ */
+function formatAmount(currency: string, amount: number | null): string | null {
+  if (amount === null || amount === undefined) return null;
+  return `${currency} ${amount.toLocaleString()}`.trim();
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {

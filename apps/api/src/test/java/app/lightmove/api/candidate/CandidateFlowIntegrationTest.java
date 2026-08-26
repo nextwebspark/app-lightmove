@@ -3,6 +3,7 @@ package app.lightmove.api.candidate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -386,6 +387,73 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"fullName":"  ","title":"CFO"}"""))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("a status change touches the status and nothing else")
+    void statusChangeTouchesOnlyTheStatus() throws Exception {
+        String projectId = mandate("Status Patch Firm");
+        String candidateId = body(mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Omar Haddad","title":"CFO","note":"Worth a call.",
+                                 "compensation":{"currency":"USD","baseSalary":300000},
+                                 "languages":["English"]}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+
+        JsonNode moved = body(mvc.perform(patch(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"status":"contacted"}"""))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        assertThat(moved.get("status").asText()).isEqualTo("contacted");
+        // The whole point of the PATCH beside the PUT: a pill flicked while reading must not
+        // re-submit a profile that has been on screen for a while.
+        assertThat(moved.get("title").asText()).isEqualTo("CFO");
+        assertThat(moved.get("note").asText()).isEqualTo("Worth a call.");
+        assertThat(moved.at("/compensation/baseSalary").asLong()).isEqualTo(300_000L);
+        assertThat(moved.get("languages")).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("a status change refuses an unknown token and an empty one")
+    void statusChangeRefusesRubbish() throws Exception {
+        String projectId = mandate("Status Patch Refusal Firm");
+        String candidateId = mapTo(projectId, null, "Omar Haddad");
+
+        mvc.perform(patch(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"status":"keen"}"""))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(patch(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"status":"  "}"""))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("another mandate's candidate cannot have their status changed from this one")
+    void statusChangeIsProjectScoped() throws Exception {
+        String theirs = mandate("Status Patch Scope Firm");
+        String theirCandidateId = mapTo(theirs, null, "Omar Haddad");
+        String ours = secondMandate(theirs);
+
+        mvc.perform(patch(candidatesUrl(ours) + "/" + theirCandidateId)
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"status":"contacted"}"""))
+                .andExpect(status().isNotFound());
     }
 
     @Test

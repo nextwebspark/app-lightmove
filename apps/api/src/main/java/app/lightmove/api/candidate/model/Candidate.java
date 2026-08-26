@@ -167,6 +167,11 @@ public class Candidate extends BaseEntity {
         this.profile = details.profile();
     }
 
+    /** Moves the person along the line, leaving the rest of the profile as it was. */
+    public void moveTo(CandidateStatus newStatus) {
+        this.status = newStatus;
+    }
+
     /** Moves the person to another of the mandate's companies, or off the universe altogether. */
     public void remapTo(UUID newTriageCompanyId) {
         this.triageCompanyId = newTriageCompanyId;

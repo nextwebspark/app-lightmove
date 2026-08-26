@@ -19,7 +19,7 @@ import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandida
 import { canExecuteProjectWork } from "../../projects/lib/access";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
-import { AddCompanyModal } from "../components/AddCompanyModal";
+import { CompanyDrawer } from "../components/CompanyDrawer";
 import { RemoveCompanyDialog } from "../components/RemoveCompanyDialog";
 import { TriageCompanyTable } from "../components/TriageCompanyTable";
 import { TriageStageSwitcher } from "../components/TriageStageSwitcher";
@@ -80,13 +80,18 @@ function TriageStage() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
+  const [openCompany, setOpenCompany] = useState<OpenCompany | null>(null);
   const [pendingRemoval, setPendingRemoval] = useState<TriageCompany | null>(null);
   const [profile, setProfile] = useState<OpenProfile | null>(null);
   const [pendingCandidateRemoval, setPendingCandidateRemoval] = useState<Candidate | null>(null);
   const [sort, setSort] = useGridSort("companies", project.id, TRIAGE_SORT_FIELDS, DEFAULT_SORT);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility(
-    "companies",
+    // Bumped from "companies" when Source became hidden-by-default. `useColumnVisibility` merges a
+    // stored map *over* the defaults — deliberately, so a column added later takes its declared
+    // default — which means everyone who had opened this grid already had `source: true` written down
+    // and would never have seen the new default. A new namespace resets this grid's remembered layout
+    // once, which is the price of a default that otherwise could not take effect.
+    "companies.v2",
     project.id,
     DEFAULT_TRIAGE_COLUMN_VISIBILITY,
   );
@@ -233,7 +238,7 @@ function TriageStage() {
         onQuery={setQuery}
         columnVisibility={columnVisibility}
         onColumnVisibilityChange={setColumnVisibility}
-        onAddCompany={() => setAddOpen(true)}
+        onAddCompany={() => setOpenCompany({ company: null })}
         onAddExecutive={() => setProfile({ candidate: null, company: null })}
         canWrite={canWrite}
         totalLabel={
@@ -285,6 +290,7 @@ function TriageStage() {
             })
           }
           onEditCandidate={(candidate) => setProfile({ candidate, company: null })}
+          onOpenCompany={(company) => setOpenCompany({ company })}
           busyId={busyId}
           canWrite={canWrite}
         />
@@ -292,12 +298,23 @@ function TriageStage() {
         <PaginationBar page={page} size={PAGE_SIZE} totalCount={totalCount} onPage={setPage} />
       </div>
 
-      <AddCompanyModal
-        open={addOpen}
+      <CompanyDrawer
+        open={openCompany !== null}
         projectId={project.id}
+        company={openCompany?.company ?? null}
         landingStatus={stage.status}
-        onClose={() => setAddOpen(false)}
-        onAdded={refreshEverything}
+        canWrite={canWrite}
+        onClose={() => setOpenCompany(null)}
+        onSaved={refreshEverything}
+        onMove={(company, status) => {
+          setBusyId(company.id);
+          setOpenCompany(null);
+          move.mutate({ company, status });
+        }}
+        onDelete={(company) => {
+          setOpenCompany(null);
+          setPendingRemoval(company);
+        }}
       />
 
       <CandidateDrawer
@@ -305,6 +322,7 @@ function TriageStage() {
         projectId={project.id}
         candidate={profile?.candidate ?? null}
         company={profile?.company ?? null}
+        canWrite={canWrite}
         onClose={() => setProfile(null)}
         onSaved={refreshEverything}
         onDelete={canWrite ? setPendingCandidateRemoval : undefined}
@@ -337,4 +355,13 @@ function TriageStage() {
 interface OpenProfile {
   candidate: Candidate | null;
   company: CandidateCompanyContext | null;
+}
+
+/**
+ * What the company panel is open on. A wrapper rather than a bare `TriageCompany | null`, because
+ * "closed" and "open on a new company" are both null on their own and the panel has to tell them
+ * apart — one shows nothing, the other shows the Add form.
+ */
+interface OpenCompany {
+  company: TriageCompany | null;
 }

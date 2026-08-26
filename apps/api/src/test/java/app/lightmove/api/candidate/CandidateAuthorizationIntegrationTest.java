@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -81,6 +82,37 @@ class CandidateAuthorizationIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"fullName":"Yasmin El-Sayed"}"""))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("the status pill is a write: a seated researcher may flick it, an unseated member may not")
+    void statusChangeIsAWrite() throws Exception {
+        Fixture f = fixture("Candidate Status Matrix Firm");
+
+        // Unseated first, before the seat exists: the pill is the one control on an otherwise
+        // read-only panel, so it is exactly the one that must not reach a viewer.
+        mvc.perform(patch(candidatesUrl(f.projectId) + "/" + java.util.UUID.randomUUID())
+                        .header("Authorization", "Bearer " + login(f.saraEmail))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"status":"contacted"}"""))
+                .andExpect(status().isForbidden());
+
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+        String candidateId = body(mvc.perform(post(candidatesUrl(f.projectId))
+                        .header("Authorization", "Bearer " + f.admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Omar Haddad"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+
+        mvc.perform(patch(candidatesUrl(f.projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + login(f.saraEmail))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"status":"contacted"}"""))
+                .andExpect(status().isOk());
     }
 
     @Test

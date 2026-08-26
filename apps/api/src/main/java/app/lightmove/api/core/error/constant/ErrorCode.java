@@ -113,6 +113,14 @@ public enum ErrorCode {
             "This mandate already holds a company with that name"),
 
     /**
+     * An edit aimed at a company taken from the market. Its fields are the export's snapshot, not the
+     * mandate's, so rewriting them would make the Source badge a lie about where the figures came
+     * from. Distinct from FORBIDDEN because nothing about the caller is wrong — the company is.
+     */
+    TRIAGE_COMPANY_NOT_EDITABLE(HttpStatus.CONFLICT,
+            "A company taken from the market cannot be edited"),
+
+    /**
      * An executive already mapped under that name — at the same company, or, for someone whose
      * employer is not in the universe, anywhere in the mandate. Distinct from CONFLICT so the drawer
      * can mark the name field rather than offering "try again" for something retrying will never fix.
