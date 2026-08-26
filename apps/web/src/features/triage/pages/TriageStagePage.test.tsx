@@ -5,12 +5,22 @@ import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
 import { AuthProvider } from "../../auth/AuthProvider";
+import * as candidatesApi from "../../candidates/api/candidatesApi";
+import type { Candidate, CandidatesPage } from "../../candidates/api/types";
 import type { Project } from "../../projects/api/types";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompaniesPage, TriageCompany } from "../api/types";
 import { TriageStagePage } from "./TriageStagePage";
 
 vi.mock("../../auth/api/authApi");
+vi.mock("../../candidates/api/candidatesApi", async (importOriginal) => ({
+  // Keys are real; only the calls are mocked.
+  ...(await importOriginal<typeof candidatesApi>()),
+  getCandidates: vi.fn(),
+  createCandidate: vi.fn(),
+  updateCandidate: vi.fn(),
+  deleteCandidate: vi.fn(),
+}));
 vi.mock("../api/triageApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
   ...(await importOriginal<typeof triageApi>()),
@@ -89,6 +99,41 @@ const acwa: TriageCompany = {
   addedAt: "2026-08-01T09:00:00Z",
 };
 
+const yasmin: Candidate = {
+  id: "c1",
+  triageCompanyId: "u1",
+  companyName: "ACWA Power",
+  fullName: "Yasmin El-Sayed",
+  title: "VP Finance",
+  seniority: "N-1",
+  status: "engaged",
+  email: null,
+  phone: null,
+  linkedinUrl: null,
+  locationCountry: null,
+  locationCity: null,
+  nationality: null,
+  yearsExperience: null,
+  summary: null,
+  note: null,
+  compensation: {
+    currency: null, baseSalary: null, bonus: null, allowances: null,
+    longTermIncentive: null, noticePeriod: null,
+  },
+  career: [],
+  languages: [],
+  source: "manual",
+  sourceUrl: null,
+  addedAt: "2026-08-02T09:00:00Z",
+};
+
+const peopleOf = (candidates: Candidate[]): CandidatesPage => ({
+  candidates,
+  totalCount: candidates.length,
+  page: 0,
+  size: 25,
+});
+
 const pageOf = (overrides: Partial<TriageCompaniesPage> = {}): TriageCompaniesPage => ({
   companies: [acwa],
   totalCount: 1,
@@ -128,6 +173,7 @@ describe("TriageStagePage", () => {
     const authApi = await import("../../auth/api/authApi");
     vi.mocked(authApi.me).mockResolvedValue(lead);
     vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(pageOf());
+    vi.mocked(candidatesApi.getCandidates).mockResolvedValue(peopleOf([]));
   });
 
   it("reads the stage from the URL and asks the API for that status", async () => {
@@ -283,5 +329,114 @@ describe("TriageStagePage", () => {
     renderStage("nonsense");
 
     expect(await screen.findByRole("table", { name: /In universe companies/i })).toBeInTheDocument();
+  });
+
+  it("offers the empty slot on a company with nobody mapped", async () => {
+    renderStage();
+
+    await screen.findByText("ACWA Power");
+    // A company nobody has looked at yet is the most useful thing this grid shows, so its executive
+    // cell is the invitation rather than a dash.
+    expect(screen.getByRole("button", { name: /\+ Add executive/i })).toBeInTheDocument();
+  });
+
+  it("gives every executive at a company its own row, with the company repeated", async () => {
+    // Scope-aware: the page runs two reads — the people at this page's companies, and the ones
+    // mapped to no company at all — and answering both with the same list would not be a mapping.
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(
+        scope.unmapped ? [] : [yasmin, { ...yasmin, id: "c2", fullName: "Omar Haddad", title: "CFO" }],
+      ),
+    );
+    renderStage();
+
+    expect(await screen.findByText("Yasmin El-Sayed")).toBeInTheDocument();
+    expect(screen.getByText("Omar Haddad")).toBeInTheDocument();
+    // Two people at one company is two lines, and the company is on both of them.
+    expect(screen.getAllByText("ACWA Power")).toHaveLength(2);
+    // With somebody mapped there is no empty slot left on that company.
+    expect(screen.queryByRole("button", { name: /\+ Add executive/i })).not.toBeInTheDocument();
+  });
+
+  it("asks only for the people at the companies on this page", async () => {
+    renderStage();
+
+    await screen.findByText("ACWA Power");
+    await waitFor(() =>
+      expect(candidatesApi.getCandidates).toHaveBeenCalledWith(
+        "p1",
+        { triageCompanyIds: ["u1"] },
+        expect.any(Number),
+        expect.anything(),
+      ),
+    );
+  });
+
+  it("maps a new executive at the company whose row was used", async () => {
+    vi.mocked(candidatesApi.createCandidate).mockResolvedValue({ ...yasmin, id: "c3" });
+    renderStage();
+
+    await screen.findByText("ACWA Power");
+    await userEvent.click(screen.getByRole("button", { name: /\+ Add executive/i }));
+
+    const drawer = await screen.findByRole("dialog", { name: /Add executive/i });
+    // The employer comes from the row, not from typing: the mapping and the name must not disagree.
+    expect(within(drawer).getByLabelText(/^Employer$/i)).toHaveValue("ACWA Power");
+
+    await userEvent.type(within(drawer).getByLabelText(/Full name/i), "Yasmin El-Sayed");
+    await userEvent.click(within(drawer).getByRole("button", { name: /^Add executive$/i }));
+
+    await waitFor(() =>
+      expect(candidatesApi.createCandidate).toHaveBeenCalledWith(
+        "p1",
+        expect.objectContaining({ fullName: "Yasmin El-Sayed", triageCompanyId: "u1" }),
+      ),
+    );
+  });
+
+  it("opens an existing executive for editing from their name", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin]),
+    );
+    renderStage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Yasmin El-Sayed/i }));
+
+    const drawer = await screen.findByRole("dialog", { name: /Edit executive/i });
+    expect(within(drawer).getByLabelText(/Full name/i)).toHaveValue("Yasmin El-Sayed");
+    expect(within(drawer).getByLabelText(/^Title$/i)).toHaveValue("VP Finance");
+  });
+
+  it("shows executives whose employer is not in the universe after the companies", async () => {
+    const unmapped = {
+      ...yasmin, id: "c9", triageCompanyId: null, companyName: "An Unlisted Holding",
+      fullName: "Wei Ling Tan",
+    };
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [unmapped] : []),
+    );
+    renderStage();
+
+    expect(await screen.findByText("Wei Ling Tan")).toBeInTheDocument();
+    // The row says where they work and that it is not a company this screen can act on.
+    expect(screen.getByText("An Unlisted Holding")).toBeInTheDocument();
+    expect(screen.getByText(/Not in universe/i)).toBeInTheDocument();
+  });
+
+  it("gives a client representative the executive columns and none of the writes", async () => {
+    const authApi = await import("../../auth/api/authApi");
+    vi.mocked(authApi.me).mockResolvedValue(representative);
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin]),
+    );
+    renderStage();
+
+    // WORK_VIEW covers the people as well as the companies — a mandate a client can follow.
+    expect(await screen.findByText("Yasmin El-Sayed")).toBeInTheDocument();
+    expect(screen.getByText("Engaged")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: /Add an executive at ACWA Power/i })).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("button", { name: /^Add executive$/i })).not.toBeInTheDocument();
   });
 });

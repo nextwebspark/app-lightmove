@@ -113,6 +113,14 @@ public enum ErrorCode {
             "This mandate already holds a company with that name"),
 
     /**
+     * An executive already mapped under that name — at the same company, or, for someone whose
+     * employer is not in the universe, anywhere in the mandate. Distinct from CONFLICT so the drawer
+     * can mark the name field rather than offering "try again" for something retrying will never fix.
+     */
+    CANDIDATE_ALREADY_MAPPED(HttpStatus.CONFLICT,
+            "This mandate already maps someone with that name"),
+
+    /**
      * A saved search reusing a name already taken in the same list. Distinct from CONFLICT so the
      * Strategy dropdown can say what is wrong with the name rather than offering "try again" for
      * something retrying will never fix.

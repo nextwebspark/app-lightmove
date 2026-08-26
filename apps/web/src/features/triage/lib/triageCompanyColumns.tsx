@@ -17,15 +17,22 @@ import {
 } from "../../../components/ui/DataGrid";
 import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { formatInstantDate, formatMoney } from "../../../lib/format";
+import type { Candidate } from "../../candidates/api/types";
+import { candidateStatusStyle } from "../../candidates/lib/candidateVocabulary";
 import type { TriageCompany, TriageCompanySource, TriageCompanyStatus, TriageSortField } from "../api/types";
+import type { TriageCompanyRow } from "./triageRows";
 
 /**
- * What the Actions column needs, supplied per render rather than baked into the column defs — the
- * page owns the mutations, the columns only say which moves exist.
+ * What the Actions and Executive columns need, supplied per render rather than baked into the column
+ * defs — the page owns the mutations, the columns only say which moves exist.
  */
 interface TriageTableMeta {
   onMove: (company: TriageCompany, status: TriageCompanyStatus) => void;
   onDelete: (company: TriageCompany) => void;
+  /** Opens the drawer to map someone new at this company. */
+  onAddExecutive: (company: TriageCompany) => void;
+  /** Opens the drawer on an executive already mapped. */
+  onEditCandidate: (candidate: Candidate) => void;
   /** The row with a write in flight, so its actions can be disabled without freezing the grid. */
   busyId: string | null;
   /** False for a client representative, who reads these grids but moves nothing. */
@@ -45,7 +52,7 @@ export const triageTableFeatures = tableFeatures({
   tableMeta: {} as TriageTableMeta,
 });
 
-const helper = createColumnHelper<typeof triageTableFeatures, TriageCompany>();
+const helper = createColumnHelper<typeof triageTableFeatures, TriageCompanyRow>();
 
 /**
  * The move a stage offers, keyed by where the row currently is. A company is never offered the stage
@@ -73,6 +80,9 @@ const SOURCE_STYLES: Record<TriageCompanySource, { label: string; className: str
   extension: { label: "Plugin", className: "text-green bg-green-dim" },
 };
 
+const PILL =
+  "inline-flex items-center rounded-[4px] px-[6px] py-[2px] font-mono text-[10px] font-bold uppercase tracking-[0.04em]";
+
 /**
  * The Companies grid's columns — the same widths, shapes and sort tokens as Strategy's, so moving
  * between the market and what a mandate took from it does not feel like moving between two products.
@@ -80,27 +90,60 @@ const SOURCE_STYLES: Record<TriageCompanySource, { label: string; className: str
  * <p>Each sortable column's id is its wire sort token, the same string `TriageSortField` allowlists,
  * so there is no click-to-field mapping that can drift.
  *
+ * <p><b>A row is a person at a company, not a company.</b> Executive, Title and Status are the mandate's
+ * mapping of who sits there, and a company with three of them is three lines with the company
+ * repeated. None of the three sorts: they are not in the server's allowlist, and could not be — the
+ * grid is paged by company, so ordering by a person would order a page rather than a result.
+ *
  * <p>Two columns Strategy has are deliberately absent: `Fit`, which has no score to show, and the
  * Facebook and X links, which the snapshot does not carry. One is added — `Source`, because a
  * headcount from Apollo and one typed in by hand are not equally trustworthy and the reader should be
  * able to tell which they are looking at.
  */
 export const triageCompanyColumns = helper.columns([
-  helper.accessor("companyName", {
+  helper.accessor((row) => row.company?.companyName ?? row.candidate?.companyName ?? null, {
     id: "name",
     header: "Company",
     enableHiding: false,
     // The floor covers a twenty-odd-character name: logo and gutters eat 54px before a letter draws.
     meta: { share: 22, min: 230 },
-    cell: (info) => (
-      <span className="flex min-w-0 items-center gap-2.5">
-        <CompanyLogo name={info.getValue()} logo={info.row.original.logoUrl} size={28} />
-        <TruncatedText
-          value={info.getValue()}
-          className="font-sans text-[13px] font-medium text-text"
-        />
-      </span>
-    ),
+    cell: (info) => {
+      const { company, position } = info.row.original;
+      const name = info.getValue();
+
+      // An executive whose employer is not in this mandate's universe. The name is what the
+      // researcher typed rather than a company this screen can act on, so it reads as a caption.
+      if (!company) {
+        return (
+          <span className="flex min-w-0 flex-col justify-center">
+            <TruncatedText
+              value={name ?? "No employer named"}
+              className="font-sans text-[13px] text-text2"
+            />
+            <span className="font-mono text-[10px] uppercase tracking-[0.04em] text-text3">
+              Not in universe
+            </span>
+          </span>
+        );
+      }
+
+      // The second and third executive at one company: the company is repeated because each person
+      // is their own row, but repeating the logo as well reads as three separate companies.
+      if (position > 1) {
+        return (
+          <span className="flex min-w-0 items-center gap-2.5 ps-[38px]">
+            <TruncatedText value={name} className="font-sans text-[13px] text-text3" />
+          </span>
+        );
+      }
+
+      return (
+        <span className="flex min-w-0 items-center gap-2.5">
+          <CompanyLogo name={company.companyName} logo={company.logoUrl} size={28} />
+          <TruncatedText value={name} className="font-sans text-[13px] font-medium text-text" />
+        </span>
+      );
+    },
   }),
 
   helper.display({
@@ -108,16 +151,25 @@ export const triageCompanyColumns = helper.columns([
     header: "Actions",
     enableSorting: false,
     enableHiding: false,
-    meta: { share: 0, min: 104 },
+    meta: { share: 0, min: 134 },
     cell: (info) => {
-      const company = info.row.original;
+      const { company } = info.row.original;
       const meta = info.table.options.meta;
-      if (!meta?.canWrite) {
+      if (!meta?.canWrite || !company) {
         return <span className="font-sans text-[13px] text-text3">—</span>;
       }
       const busy = meta.busyId === company.id;
       return (
         <span className="flex justify-start gap-1.5">
+          <button
+            type="button"
+            title="Add an executive here"
+            aria-label={`Add an executive at ${company.companyName}`}
+            onClick={() => meta.onAddExecutive(company)}
+            className={GRID_ICON_BUTTON}
+          >
+            <Icon d={ICONS.userPlus} size={14} />
+          </button>
           {MOVES[company.status].map((move) => (
             <button
               key={move.status}
@@ -152,7 +204,8 @@ export const triageCompanyColumns = helper.columns([
     enableSorting: false,
     meta: { share: 0, min: 56 },
     cell: (info) => {
-      const company = info.row.original;
+      const { company } = info.row.original;
+      if (!company) return <span className="font-sans text-[13px] text-text3">—</span>;
       return (
         <span className="flex justify-start gap-1">
           <CompanyLink
@@ -172,59 +225,116 @@ export const triageCompanyColumns = helper.columns([
     },
   }),
 
-  helper.accessor("source", {
+  helper.accessor((row) => row.company?.source ?? null, {
     id: "source",
     header: "Source",
     enableSorting: false,
     meta: { share: 0, min: 84 },
     cell: (info) => {
-      const { label, className } = SOURCE_STYLES[info.getValue()];
-      return (
-        <span
-          className={`inline-flex items-center rounded-[4px] px-[6px] py-[2px] font-mono text-[10px] font-bold uppercase tracking-[0.04em] ${className}`}
-        >
-          {label}
-        </span>
-      );
+      const source = info.getValue();
+      if (!source) return <DataGridCell value={null} />;
+      const { label, className } = SOURCE_STYLES[source];
+      return <span className={`${PILL} ${className}`}>{label}</span>;
     },
   }),
 
-  helper.accessor("companyCountry", {
+  helper.accessor((row) => row.company?.companyCountry ?? null, {
     id: "country",
     header: "Country",
     meta: { share: 12, min: 82 },
     cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
-  helper.accessor("industry", {
+  helper.accessor((row) => row.candidate?.fullName ?? null, {
+    id: "executive",
+    header: "Executive",
+    // Not in the server's sort allowlist, and could not be: the grid is paged by company, so sorting
+    // by a person would order one page rather than the mandate.
+    enableSorting: false,
+    meta: { share: 14, min: 150 },
+    cell: (info) => {
+      const { company, candidate } = info.row.original;
+      const meta = info.table.options.meta;
+
+      if (candidate) {
+        return (
+          <button
+            type="button"
+            onClick={() => meta?.onEditCandidate(candidate)}
+            title={meta?.canWrite ? "Open this profile" : "View this profile"}
+            className="flex min-w-0 items-center rounded-[4px] text-start font-sans text-[13px] font-medium text-text transition hover:text-sky"
+          >
+            <TruncatedText value={candidate.fullName} />
+          </button>
+        );
+      }
+      // A company with nobody mapped is the most useful thing this grid shows, so the empty cell is
+      // the invitation rather than a dash.
+      if (company && meta?.canWrite) {
+        return (
+          <button
+            type="button"
+            onClick={() => meta.onAddExecutive(company)}
+            className="rounded-[4px] font-sans text-[13px] text-amber transition hover:underline"
+          >
+            + Add executive
+          </button>
+        );
+      }
+      return <DataGridCell value={null} />;
+    },
+  }),
+
+  helper.accessor((row) => row.candidate?.title ?? null, {
+    id: "executiveTitle",
+    header: "Title",
+    enableSorting: false,
+    meta: { share: 14, min: 130 },
+    cell: (info) => <DataGridCell value={info.getValue()} />,
+  }),
+
+  helper.accessor((row) => row.candidate?.status ?? null, {
+    id: "executiveStatus",
+    header: "Status",
+    enableSorting: false,
+    meta: { share: 0, min: 104 },
+    cell: (info) => {
+      const status = info.getValue();
+      if (!status) return <DataGridCell value={null} />;
+      const { label, className } = candidateStatusStyle(status);
+      return <span className={`${PILL} ${className}`}>{label}</span>;
+    },
+  }),
+
+  helper.accessor((row) => row.company?.industry ?? null, {
     id: "sector",
     header: "Sector",
     meta: { share: 18, min: 100 },
     cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
-  helper.accessor("companyCity", {
+  helper.accessor((row) => row.company?.companyCity ?? null, {
     id: "location",
     header: "City",
     meta: { share: 11, min: 82 },
     cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
-  helper.accessor("annualRevenue", {
+  helper.accessor((row) => row.company?.annualRevenue ?? null, {
     id: "revenue",
     header: "Revenue",
     meta: { share: 11, min: 82 },
     cell: (info) => <DataGridCell value={formatMoney(info.getValue())} />,
   }),
 
-  helper.accessor("numEmployees", {
+  helper.accessor((row) => row.company?.numEmployees ?? null, {
     id: "employees",
     header: "Employees",
     meta: { share: 9, min: 74 },
     cell: (info) => <DataGridCell value={info.getValue()?.toLocaleString() ?? null} />,
   }),
 
-  helper.accessor("note", {
+  helper.accessor((row) => row.company?.note ?? null, {
     id: "note",
     header: "Note",
     // Not in the server's sort allowlist: alphabetising a remark answers no question.
@@ -233,21 +343,21 @@ export const triageCompanyColumns = helper.columns([
     cell: (info) => <DataGridCell value={info.getValue()} muted />,
   }),
 
-  helper.accessor("foundedYear", {
+  helper.accessor((row) => row.company?.foundedYear ?? null, {
     id: "founded",
     header: "Founded",
     meta: { share: 5, min: 84 },
     cell: (info) => <DataGridCell value={info.getValue()?.toString() ?? null} />,
   }),
 
-  helper.accessor("addedAt", {
+  helper.accessor((row) => row.company?.addedAt ?? row.candidate?.addedAt ?? null, {
     id: "added",
     header: "Added",
     meta: { share: 8, min: 96 },
     cell: (info) => <DataGridCell value={formatInstantDate(info.getValue())} />,
   }),
 
-  helper.accessor("shortDescription", {
+  helper.accessor((row) => row.company?.shortDescription ?? null, {
     id: "description",
     header: "Description",
     enableSorting: false,
@@ -258,9 +368,10 @@ export const triageCompanyColumns = helper.columns([
 
 /**
  * Founded and Description start hidden, matching Strategy: a grid that opened with every column would
- * be a spreadsheet. Two stay visible. Note, because it is the one column here the market cannot supply
- * and the reason a consultant opens this screen rather than that one — and Added, because the grid
- * opens sorted by it, and a default ordering whose column is hidden shows its sort indicator nowhere.
+ * be a spreadsheet. The rest stay visible. Note, because it is the one column here the market cannot
+ * supply and the reason a consultant opens this screen rather than that one; Added, because the grid
+ * opens sorted by it, and a default ordering whose column is hidden shows its sort indicator nowhere;
+ * and the three executive columns, because who sits in the seat is what a talent map is for.
  */
 export const DEFAULT_TRIAGE_COLUMN_VISIBILITY: ColumnVisibilityState = {
   founded: false,

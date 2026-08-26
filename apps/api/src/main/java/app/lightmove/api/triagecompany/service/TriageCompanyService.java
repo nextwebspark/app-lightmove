@@ -113,6 +113,23 @@ public class TriageCompanyService {
                 found.getTotalElements(), page, size, countsFor(projectId));
     }
 
+    /**
+     * One of this mandate's own company rows, by id. The seam the {@code candidate} feature maps an
+     * executive to a company through: it is one method wide and answers in this package's public DTO,
+     * so the people side never learns how a triage row is stored, scoped or snapshotted — and this
+     * package never learns that people exist.
+     *
+     * <p>The project is resolved against the workspace by the caller, as everywhere else here; what
+     * this adds is that the company belongs to <i>that</i> project, so a candidate cannot be filed
+     * against another mandate's company by id.
+     */
+    @Transactional(readOnly = true)
+    public TriageCompanyResponse requireCompanyOfProject(UUID projectId, UUID triageCompanyId) {
+        return triaged.findByIdAndProjectId(triageCompanyId, projectId)
+                .map(TriageCompanyService::toDto)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
+
     @Transactional
     public TriageCompanyResponse add(UUID userId, UUID workspaceId, UUID projectId,
                                      AddTriageCompanyRequest request, HttpServletRequest httpRequest) {

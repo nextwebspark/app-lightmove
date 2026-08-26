@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useOutletContext, useParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
@@ -9,6 +9,13 @@ import { PAGE_SIZE } from "../../../lib/paging";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { useGridSort, type GridSort } from "../../../lib/useGridSort";
 import { useAuth } from "../../auth/AuthProvider";
+import * as candidatesApi from "../../candidates/api/candidatesApi";
+import type { Candidate } from "../../candidates/api/types";
+import {
+  CandidateDrawer,
+  type CandidateCompanyContext,
+} from "../../candidates/components/CandidateDrawer";
+import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandidateDialog";
 import { canExecuteProjectWork } from "../../projects/lib/access";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
@@ -21,6 +28,7 @@ import {
   DEFAULT_TRIAGE_COLUMN_VISIBILITY,
   TRIAGE_SORT_FIELDS,
 } from "../lib/triageCompanyColumns";
+import { toTriageRows } from "../lib/triageRows";
 import { stageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
 
 /** Newest first, matching the server's default, so the first paint is not a re-sort. */
@@ -74,6 +82,8 @@ function TriageStage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [pendingRemoval, setPendingRemoval] = useState<TriageCompany | null>(null);
+  const [profile, setProfile] = useState<OpenProfile | null>(null);
+  const [pendingCandidateRemoval, setPendingCandidateRemoval] = useState<Candidate | null>(null);
   const [sort, setSort] = useGridSort("companies", project.id, TRIAGE_SORT_FIELDS, DEFAULT_SORT);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility(
     "companies",
@@ -107,6 +117,53 @@ function TriageStage() {
     placeholderData: keepPreviousData,
   });
 
+  const companyIds = useMemo(
+    () => (companies.data?.companies ?? []).map((company) => company.id),
+    [companies.data],
+  );
+
+  /**
+   * The people at the companies on this page, asked for separately rather than embedded in the list
+   * above. `triagecompany` knows nothing about candidates by design — the dependency runs one way —
+   * so the grid composes the two sides here instead of either feature learning the other's storage.
+   *
+   * <p>Disabled until the companies land: firing with no ids would either ask for the whole mandate
+   * or answer nothing, and both are wrong for a page that does not exist yet.
+   */
+  const mappedPeople = useQuery({
+    queryKey: candidatesApi.CANDIDATES_KEY(project.id, { triageCompanyIds: companyIds }),
+    queryFn: ({ signal }) =>
+      candidatesApi.getCandidates(project.id, { triageCompanyIds: companyIds }, PAGE_SIZE * 4, signal),
+    enabled: companyIds.length > 0,
+    placeholderData: keepPreviousData,
+  });
+
+  const totalCount = companies.data?.totalCount;
+  const lastPage = Math.max(0, Math.ceil((totalCount ?? 0) / PAGE_SIZE) - 1);
+
+  /**
+   * Executives whose employer is not in the mandate's universe at all. They belong to the mandate
+   * rather than to any company, so they sit after the companies on the universe's last page — the one
+   * place a reader reaches by scrolling to the end of the mapping. Grouping the grid by company is
+   * where they eventually get a heading of their own; until then, invisible would be worse.
+   */
+  const unmappedPeople = useQuery({
+    queryKey: candidatesApi.CANDIDATES_KEY(project.id, { unmapped: true }),
+    queryFn: ({ signal }) =>
+      candidatesApi.getCandidates(project.id, { unmapped: true }, PAGE_SIZE, signal),
+    enabled: stage.status === "inUniverse" && !debouncedQuery && page === lastPage,
+  });
+
+  const rows = useMemo(
+    () =>
+      toTriageRows(
+        companies.data?.companies ?? [],
+        mappedPeople.data?.candidates ?? [],
+        unmappedPeople.data?.candidates ?? [],
+      ),
+    [companies.data, mappedPeople.data, unmappedPeople.data],
+  );
+
   /**
    * Every write invalidates the whole prefix rather than this stage's key. A move changes two stages
    * and all three counts, and a page that refreshed only the list it was looking at would show the
@@ -114,6 +171,17 @@ function TriageStage() {
    */
   const refreshEveryStage = () =>
     void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
+
+  /**
+   * Removing a company unmaps its people rather than deleting them, and adding one changes which
+   * people the grid should be asking about — so the two caches move together on every write.
+   */
+  const refreshEverything = () => {
+    refreshEveryStage();
+    void queryClient.invalidateQueries({
+      queryKey: candidatesApi.CANDIDATES_KEY_PREFIX(project.id),
+    });
+  };
 
   const move = useMutation({
     mutationFn: ({ company, status }: { company: TriageCompany; status: TriageCompanyStatus }) =>
@@ -129,7 +197,7 @@ function TriageStage() {
   const remove = useMutation({
     mutationFn: (company: TriageCompany) => triageApi.deleteTriageCompany(project.id, company.id),
     onSuccess: (_result, company) => {
-      refreshEveryStage();
+      refreshEverything();
       setPendingRemoval(null);
       toast(`${company.companyName} removed from this mandate`);
     },
@@ -137,8 +205,17 @@ function TriageStage() {
     onSettled: () => setBusyId(null),
   });
 
-  const totalCount = companies.data?.totalCount;
-  const lastPage = Math.max(0, Math.ceil((totalCount ?? 0) / PAGE_SIZE) - 1);
+  const removeCandidate = useMutation({
+    mutationFn: (candidate: Candidate) =>
+      candidatesApi.deleteCandidate(project.id, candidate.id),
+    onSuccess: (_result, candidate) => {
+      refreshEverything();
+      setPendingCandidateRemoval(null);
+      setProfile(null);
+      toast(`${candidate.fullName} removed from this mandate`);
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
 
   // A page that outlives its rows — the last company on page 3 was moved away — would otherwise sit
   // on an empty grid with no way back but the pager.
@@ -157,6 +234,7 @@ function TriageStage() {
         columnVisibility={columnVisibility}
         onColumnVisibilityChange={setColumnVisibility}
         onAddCompany={() => setAddOpen(true)}
+        onAddExecutive={() => setProfile({ candidate: null, company: null })}
         canWrite={canWrite}
         totalLabel={
           // Undefined while unknown: "0 companies" beside a loading grid states as fact a number
@@ -186,7 +264,7 @@ function TriageStage() {
         </div>
 
         <TriageCompanyTable
-          companies={companies.data?.companies ?? []}
+          rows={rows}
           label={`${stage.label} companies`}
           sort={sort}
           onSortChange={setSort}
@@ -200,6 +278,13 @@ function TriageStage() {
             move.mutate({ company, status });
           }}
           onDelete={setPendingRemoval}
+          onAddExecutive={(company) =>
+            setProfile({
+              candidate: null,
+              company: { triageCompanyId: company.id, companyName: company.companyName },
+            })
+          }
+          onEditCandidate={(candidate) => setProfile({ candidate, company: null })}
           busyId={busyId}
           canWrite={canWrite}
         />
@@ -212,7 +297,17 @@ function TriageStage() {
         projectId={project.id}
         landingStatus={stage.status}
         onClose={() => setAddOpen(false)}
-        onAdded={refreshEveryStage}
+        onAdded={refreshEverything}
+      />
+
+      <CandidateDrawer
+        open={profile !== null}
+        projectId={project.id}
+        candidate={profile?.candidate ?? null}
+        company={profile?.company ?? null}
+        onClose={() => setProfile(null)}
+        onSaved={refreshEverything}
+        onDelete={canWrite ? setPendingCandidateRemoval : undefined}
       />
 
       <RemoveCompanyDialog
@@ -224,6 +319,22 @@ function TriageStage() {
           remove.mutate(company);
         }}
       />
+
+      <RemoveCandidateDialog
+        candidate={pendingCandidateRemoval}
+        removing={removeCandidate.isPending}
+        onCancel={() => setPendingCandidateRemoval(null)}
+        onConfirm={(candidate) => removeCandidate.mutate(candidate)}
+      />
     </div>
   );
+}
+
+/**
+ * What the profile drawer is open on: an existing executive, or a blank one at a known company. Both
+ * null is the toolbar's "Add executive", which maps someone with no company at all.
+ */
+interface OpenProfile {
+  candidate: Candidate | null;
+  company: CandidateCompanyContext | null;
 }

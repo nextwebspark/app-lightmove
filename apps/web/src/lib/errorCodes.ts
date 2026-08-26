@@ -38,6 +38,7 @@ export type ApiErrorCode =
   | "POSITION_NOT_READY"
   | "BULK_ADD_SCOPE_TOO_LARGE"
   | "TRIAGE_COMPANY_ALREADY_HELD"
+  | "CANDIDATE_ALREADY_MAPPED"
   | "STRATEGY_SEARCH_NAME_TAKEN"
   | "WORKSPACE_NAME_MISMATCH"
   | "CONFLICT"
@@ -69,6 +70,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   SESSION_NOT_FOUND: "That session has already ended.",
   CURRENT_SESSION_NOT_REVOCABLE: "Use sign out to end the session you are using.",
   STRATEGY_SEARCH_NAME_TAKEN: "A search with that name is already saved here.",
+  CANDIDATE_ALREADY_MAPPED: "Someone with that name is already mapped here.",
 };
 
 /**
