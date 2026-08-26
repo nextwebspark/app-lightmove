@@ -5,7 +5,8 @@ import { formatInstantDate } from "../../../lib/format";
 import type { SavedSearch, SearchVisibility, StrategyFilter } from "../api/types";
 
 const ROW_ACTION =
-  "grid size-6 flex-none place-items-center rounded-[5px] text-text3 opacity-0 transition group-hover:opacity-100";
+  "grid size-6 flex-none place-items-center rounded-[5px] text-text3 opacity-0 transition " +
+  "group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100";
 
 const ROW_INPUT =
   "w-full rounded-[7px] border border-line bg-panel2 px-2.5 py-[7px] font-sans text-[13px] text-text outline-none focus:border-text3";
@@ -37,7 +38,7 @@ export function SavedSearchRow({
   isActive: boolean;
   onLoad: (filter: StrategyFilter) => void;
   onRename: (searchId: string, name: string) => void;
-  onSetVisibility: (searchId: string, name: string, visibility: SearchVisibility) => void;
+  onSetVisibility: (searchId: string, visibility: SearchVisibility) => void;
   onOverwrite: (searchId: string) => void;
   onDelete: (searchId: string) => void;
 }) {
@@ -112,8 +113,14 @@ export function SavedSearchRow({
         type="button"
         aria-label={`Update ${search.name} to the current filter`}
         disabled={isActive}
+        title={isActive ? "Already the filter on screen" : undefined}
         onClick={() => onOverwrite(search.id)}
-        className={cn(ROW_ACTION, "hover:text-text disabled:opacity-0")}
+        // twMerge resolves the later group-hover against ROW_ACTION's, so the dimming does not
+        // depend on which variant Tailwind happens to emit first.
+        className={cn(
+          ROW_ACTION,
+          isActive ? "cursor-default group-hover:opacity-30" : "hover:text-text",
+        )}
       >
         <Icon d={ICONS.recapture} size={13} />
       </button>
@@ -126,11 +133,7 @@ export function SavedSearchRow({
               : `Make ${search.name} private`
           }
           onClick={() =>
-            onSetVisibility(
-              search.id,
-              search.name,
-              search.visibility === "PRIVATE" ? "SHARED" : "PRIVATE",
-            )
+            onSetVisibility(search.id, search.visibility === "PRIVATE" ? "SHARED" : "PRIVATE")
           }
           className={cn(ROW_ACTION, "hover:text-text")}
         >

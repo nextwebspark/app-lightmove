@@ -853,13 +853,27 @@ describe("StrategyPage — the filter sidebar and its results", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Make Team scope private" }));
 
-    // The name travels with it: the endpoint takes label and tier together.
+    // No name in the patch. Sending the cached one wrote it back, so a toggle clicked against a row
+    // a teammate had since renamed silently reverted their rename.
     await waitFor(() =>
-      expect(strategyApi.patchSearch).toHaveBeenCalledWith("p1", "s1", {
-        name: "Team scope",
-        visibility: "PRIVATE",
-      }),
+      expect(strategyApi.patchSearch).toHaveBeenCalledWith("p1", "s1", { visibility: "PRIVATE" }),
     );
+  });
+
+  it("keeps the row's actions reachable by keyboard", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(
+      strategyOf(EMPTY_FILTER, [savedSearchOf({ name: "GCC energy" })]),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Save Search/ }));
+    const rename = screen.getByRole("button", { name: "Rename GCC energy" });
+    rename.focus();
+
+    // The actions are opacity-0 until the row is hovered, which a keyboard reader never does — so
+    // without a focus escape hatch they tab through four invisible buttons, one of which deletes.
+    expect(rename.className).toContain("group-focus-within:opacity-100");
+    expect(rename).toHaveFocus();
   });
 
   it("flushes the pending filter before re-capturing it onto a saved search", async () => {

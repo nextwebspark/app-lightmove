@@ -155,18 +155,15 @@ function StrategyEditor() {
     onError: (error) => toast(messageFor(error)),
   });
 
-  // The name always travels: the endpoint takes label and tier together, so flipping the tier has to
-  // say what the search is still called.
   const editSearch = useMutation({
     mutationFn: ({
       searchId,
-      name,
-      visibility,
+      ...patch
     }: {
       searchId: string;
-      name: string;
+      name?: string;
       visibility?: SearchVisibility;
-    }) => strategyApi.patchSearch(project.id, searchId, { name, visibility }),
+    }) => strategyApi.patchSearch(project.id, searchId, patch),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: strategyApi.STRATEGY_KEY(project.id) });
     },
@@ -259,9 +256,7 @@ function StrategyEditor() {
         onSaveSearch={(name, visibility) => saveSearch.mutate({ name, visibility })}
         onLoadSearch={applyFilter}
         onRenameSearch={(searchId, name) => editSearch.mutate({ searchId, name })}
-        onSetSearchVisibility={(searchId, name, visibility) =>
-          editSearch.mutate({ searchId, name, visibility })
-        }
+        onSetSearchVisibility={(searchId, visibility) => editSearch.mutate({ searchId, visibility })}
         onOverwriteSearch={(searchId) => overwriteSearch.mutate(searchId)}
         onDeleteSearch={(searchId) => deleteSearch.mutate(searchId)}
         onAddAll={() => addAll.mutate()}

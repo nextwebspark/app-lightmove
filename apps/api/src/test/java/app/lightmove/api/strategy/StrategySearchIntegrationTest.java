@@ -348,6 +348,49 @@ class StrategySearchIntegrationTest extends FlowTestSupport {
                 .andReturn();
         assertThat(result.getResponse().getStatus()).isEqualTo(409);
         assertThat(codeOf(result)).isEqualTo("STRATEGY_SEARCH_NAME_TAKEN");
+
+        // The whole edit rolls back, name included — the audit row for it is written only once the
+        // write is durable, so a refused promotion leaves no trace of having happened.
+        mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.searches[?(@.name == 'My scratch')].visibility")
+                        .value("PRIVATE"));
+    }
+
+    @Test
+    @DisplayName("a tier change on its own leaves the name alone")
+    void tierChangeNeedsNoName() throws Exception {
+        String admin = adminOf("Search Tier Only Firm");
+        String projectId = project(admin);
+        String searchId = save(admin, projectId, "Team scope");
+
+        // Both fields are optional. Requiring a name here meant the toggle had to resend whatever its
+        // client last cached, which on a shared search is how one person's rename reverts another's.
+        mvc.perform(patch(searchesUrl(projectId) + "/" + searchId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"visibility":"PRIVATE"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.visibility").value("PRIVATE"))
+                .andExpect(jsonPath("$.name").value("Team scope"));
+    }
+
+    @Test
+    @DisplayName("a name that is present but blank is still refused")
+    void blankNameOnPatchRejected() throws Exception {
+        String admin = adminOf("Search Patch Blank Firm");
+        String projectId = project(admin);
+        String searchId = save(admin, projectId, "Team scope");
+
+        // Absent means "leave it alone"; blank never does, and @NotBlank can no longer say so.
+        MvcResult result = mvc.perform(patch(searchesUrl(projectId) + "/" + searchId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"   "}"""))
+                .andReturn();
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+        assertThat(codeOf(result)).isEqualTo("VALIDATION_FAILED");
     }
 
     @Test

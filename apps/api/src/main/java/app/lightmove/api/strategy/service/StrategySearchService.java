@@ -86,6 +86,7 @@ public class StrategySearchService {
         // STRATEGY_SEARCH_NAME_TAKEN, so a race and the ordinary case answer the same way.
         StrategySearch saved = searches.save(
                 StrategySearch.of(projectId, request.name().trim(), filter, visibility, userId));
+        durable();
 
         audit.event(ProjectEventType.STRATEGY_SEARCH_SAVED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
@@ -102,6 +103,7 @@ public class StrategySearchService {
         StrategySearch search = requireEditable(searchId, projectId, userId);
         SearchVisibility target = request.visibility();
         boolean movesTier = target != null && target != search.getVisibility();
+        String newName = trimmedName(request);
 
         // Decide first, mutate after: a refusal that has already renamed the row is correct only for
         // as long as nobody moves this out from under the transaction.
@@ -115,19 +117,32 @@ public class StrategySearchService {
             requireRoomFor(projectId, userId, target);
         }
 
-        search.rename(request.name().trim());
+        boolean renames = newName != null && !newName.equals(search.getName());
+        if (renames) {
+            search.rename(newName);
+        }
         if (movesTier) {
             search.changeVisibility(target);
         }
+        durable();
 
-        audit.event(movesTier
-                        ? ProjectEventType.STRATEGY_SEARCH_VISIBILITY_CHANGED
-                        : ProjectEventType.STRATEGY_SEARCH_RENAMED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
-                .detail("searchId", searchId.toString())
-                .detail("visibility", search.getVisibility().name())
-                .record();
-        return toDto(flushed(search));
+        // Two edits, two events. Folding them into one lost whichever half was not chosen, and a
+        // rename that leaves no trace of the name it produced is not a trail.
+        if (renames) {
+            audit.event(ProjectEventType.STRATEGY_SEARCH_RENAMED)
+                    .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                    .detail("searchId", searchId.toString())
+                    .detail("name", search.getName())
+                    .record();
+        }
+        if (movesTier) {
+            audit.event(ProjectEventType.STRATEGY_SEARCH_VISIBILITY_CHANGED)
+                    .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                    .detail("searchId", searchId.toString())
+                    .detail("visibility", search.getVisibility().name())
+                    .record();
+        }
+        return toDto(search);
     }
 
     @Transactional
@@ -139,11 +154,13 @@ public class StrategySearchService {
                 .map(Strategy::getFilter)
                 .orElseGet(StrategyFilter::empty));
 
+        durable();
+
         audit.event(ProjectEventType.STRATEGY_SEARCH_FILTER_UPDATED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .detail("searchId", searchId.toString())
                 .record();
-        return toDto(flushed(search));
+        return toDto(search);
     }
 
     @Transactional
@@ -188,13 +205,28 @@ public class StrategySearchService {
     }
 
     /**
-     * {@code updated_at} is written by {@code @UpdateTimestamp} at flush, and the audit write is
-     * {@code @Async} in its own transaction — so without this the response carries the timestamp from
-     * before the edit it is reporting.
+     * Forces the pending write out to the database, and must be called <b>before</b> the audit event.
+     * Two reasons, and both bite: the audit write is {@code @Async} in a {@code REQUIRES_NEW}
+     * transaction, so it survives a rollback and would otherwise report a name collision as a
+     * successful edit; and {@code updated_at} is written by {@code @UpdateTimestamp} at flush, so a
+     * response built before it carries the timestamp from before the edit it is reporting.
+     *
+     * <p>{@code delete} needs none of this — there is no constraint left for it to violate.
      */
-    private StrategySearch flushed(StrategySearch search) {
+    private void durable() {
         searches.flush();
-        return search;
+    }
+
+    /** Absent means "leave the label alone", mirroring an absent visibility. Blank never means that. */
+    private static String trimmedName(UpdateSearchRequest request) {
+        if (request.name() == null) {
+            return null;
+        }
+        String trimmed = request.name().trim();
+        if (trimmed.isEmpty()) {
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "A name is required");
+        }
+        return trimmed;
     }
 
     private Map<UUID, String> authorNames(List<StrategySearch> visible) {

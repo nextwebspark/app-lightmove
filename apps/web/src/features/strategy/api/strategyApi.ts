@@ -76,11 +76,16 @@ export function saveSearch(
   });
 }
 
-/** The label and the tier. Never the filter — that is `overwriteSearch`. */
+/**
+ * The label and the tier, either or both. Never the filter — that is `overwriteSearch`.
+ *
+ * An omitted field means "leave this alone", so a tier toggle does not write back a name it never
+ * touched — which on a shared search is how one person's rename reverts another's.
+ */
 export function patchSearch(
   projectId: string,
   searchId: string,
-  patch: { name: string; visibility?: SearchVisibility },
+  patch: { name?: string; visibility?: SearchVisibility },
 ): Promise<SavedSearch> {
   return request<SavedSearch>(`/projects/${projectId}/strategy/searches/${searchId}`, {
     method: "PATCH",

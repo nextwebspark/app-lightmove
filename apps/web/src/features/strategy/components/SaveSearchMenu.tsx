@@ -42,7 +42,7 @@ export function SaveSearchMenu({
   onSave: (name: string, visibility: SearchVisibility) => void;
   onLoad: (filter: StrategyFilter) => void;
   onRename: (searchId: string, name: string) => void;
-  onSetVisibility: (searchId: string, name: string, visibility: SearchVisibility) => void;
+  onSetVisibility: (searchId: string, visibility: SearchVisibility) => void;
   onOverwrite: (searchId: string) => void;
   onDelete: (searchId: string) => void;
   saving: boolean;

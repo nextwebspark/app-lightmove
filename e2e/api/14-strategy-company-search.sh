@@ -207,8 +207,10 @@ post_json "$STRATEGY/searches" '{"name":"Scratch","visibility":"PRIVATE"}' -H "$
 check_status 14.43e "a search saves into the private tier" 201
 PRIVATE_SEARCH_ID=$(json '.id')
 check 14.43f "…and says so" "PRIVATE" "$(json '.visibility')"
-http PATCH "$STRATEGY/searches/$PRIVATE_SEARCH_ID" -H 'Content-Type: application/json' -H "$AUTH" -d '{"name":"Scratch","visibility":"SHARED"}'
-check_status 14.43g "its author moves it into the shared tier" 200
+# No name in the body: both fields are optional, so a tier toggle never writes back a stale label.
+http PATCH "$STRATEGY/searches/$PRIVATE_SEARCH_ID" -H 'Content-Type: application/json' -H "$AUTH" -d '{"visibility":"SHARED"}'
+check_status 14.43g "its author moves it into the shared tier, without resending the name" 200
+check 14.43g1 "…and the name is untouched" "Scratch" "$(json '.name')"
 check 14.43h "…and it says so" "SHARED" "$(json '.visibility')"
 http DELETE "$STRATEGY/searches/$PRIVATE_SEARCH_ID" -H "$AUTH"; check_status 14.43i "the second one deletes" 204
 
