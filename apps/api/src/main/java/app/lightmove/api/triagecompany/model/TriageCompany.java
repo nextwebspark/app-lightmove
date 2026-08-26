@@ -1,5 +1,6 @@
 package app.lightmove.api.triagecompany.model;
 
+import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import jakarta.persistence.Column;
@@ -13,8 +14,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * A company a mandate has taken a position on — the row "Add to Universe" writes and the triage
- * screen moves between stages.
+ * A company a mandate has taken a position on — the row "Add to Universe" writes, the Companies
+ * screens move between stages, and Delete removes.
  *
  * <p>Strategy searches a universe of 71,822 companies that belongs to no project; this table is the
  * handful a mandate has actually decided something about, and the decision is the row. There is no
@@ -25,9 +26,13 @@ import lombok.NoArgsConstructor;
  * {@code note} is the consultant's own remark about this company <i>for this mandate</i>, which is a
  * different thing from Apollo's {@code short_description}, the same sentence for every mandate.
  *
- * <p>{@code status} is stored as its enum name rather than its wire token, matching the CHECK
- * constraint in V32. The wire token is the client's vocabulary and is free to change; the stored name
- * is the schema's.
+ * <p>{@code apolloAccountId} is null for the two sources that have no universe id to carry — a company
+ * typed in by hand, or captured off a live page by the plugin. {@code source} says which, and V34's
+ * CHECK keeps the pair honest: a {@code STRATEGY} row without an id cannot exist.
+ *
+ * <p>{@code status} and {@code source} are stored as their enum names rather than their wire tokens,
+ * matching the CHECK constraints in V32 and V34. The wire token is the client's vocabulary and is free
+ * to change; the stored name is the schema's.
  */
 @Entity
 @Table(name = "app_lm_project_triage_company")
@@ -38,8 +43,13 @@ public class TriageCompany extends BaseEntity {
     @Column(name = "project_id", nullable = false, updatable = false)
     private UUID projectId;
 
-    @Column(name = "apollo_account_id", nullable = false, updatable = false)
+    /** Null unless {@link #source} is {@link TriageCompanySource#STRATEGY}. */
+    @Column(name = "apollo_account_id", updatable = false)
     private String apolloAccountId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false, length = 16, updatable = false)
+    private TriageCompanySource source;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 16)
@@ -69,12 +79,52 @@ public class TriageCompany extends BaseEntity {
     @Column(name = "website")
     private String website;
 
+    @Column(name = "company_linkedin_url")
+    private String companyLinkedinUrl;
+
+    @Column(name = "founded_year")
+    private Integer foundedYear;
+
+    @Column(name = "short_description")
+    private String shortDescription;
+
+    /** The page the plugin captured this from. Null for every other source. */
+    @Column(name = "source_url", updatable = false)
+    private String sourceUrl;
+
     @Column(name = "logo_url")
     private String logoUrl;
 
     @Column(name = "added_by", nullable = false, updatable = false)
     private UUID addedBy;
 
+    /**
+     * A company the mandate supplied itself, by hand or through the plugin. Not a constructor for
+     * {@link TriageCompanySource#STRATEGY} rows: those are written by {@code TriageCompanyWriter} in
+     * one multi-row statement, so that the bulk add can ignore the companies a mandate already holds
+     * rather than racing a read against them.
+     */
+    public static TriageCompany captured(UUID projectId, UUID addedBy, TriageCompanySource source,
+                                         TriageCompanyStatus status, CapturedCompanyDetails details) {
+        TriageCompany company = new TriageCompany();
+        company.projectId = projectId;
+        company.addedBy = addedBy;
+        company.source = source;
+        company.status = status;
+        company.companyName = details.companyName();
+        company.industry = details.industry();
+        company.companyCountry = details.companyCountry();
+        company.companyCity = details.companyCity();
+        company.numEmployees = details.numEmployees();
+        company.annualRevenue = details.annualRevenue();
+        company.website = details.website();
+        company.companyLinkedinUrl = details.companyLinkedinUrl();
+        company.foundedYear = details.foundedYear();
+        company.shortDescription = details.shortDescription();
+        company.sourceUrl = details.sourceUrl();
+        company.annotate(details.note());
+        return company;
+    }
 
     public void moveTo(TriageCompanyStatus newStatus) {
         this.status = newStatus;

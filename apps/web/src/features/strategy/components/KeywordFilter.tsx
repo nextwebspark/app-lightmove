@@ -2,7 +2,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import * as companiesApi from "../api/companiesApi";
 import { useDebouncedValue } from "../lib/useComboboxList";
-import { FilterCheckRow } from "./FilterCheckRow";
+import { FilterCheckRow } from "../../../components/ui/FilterCheckRow";
 import { TagCombobox } from "./TagCombobox";
 
 const LIST_ID = "keyword-suggestions";

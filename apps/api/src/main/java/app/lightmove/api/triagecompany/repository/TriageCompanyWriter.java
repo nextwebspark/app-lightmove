@@ -1,6 +1,7 @@
 package app.lightmove.api.triagecompany.repository;
 
 import app.lightmove.api.strategy.model.CompanyRow;
+import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.util.HashMap;
 import java.util.List;
@@ -24,8 +25,9 @@ public class TriageCompanyWriter {
 
     private static final String INSERT_HEAD = """
             INSERT INTO app_lm_project_triage_company (
-                project_id, apollo_account_id, status, company_name, industry, company_country,
-                company_city, num_employees, annual_revenue, website, logo_url, added_by)
+                project_id, apollo_account_id, source, status, company_name, industry, company_country,
+                company_city, num_employees, annual_revenue, website, company_linkedin_url,
+                founded_year, short_description, logo_url, added_by)
             VALUES
             """;
 
@@ -52,6 +54,7 @@ public class TriageCompanyWriter {
         params.put("projectId", projectId);
         params.put("addedBy", addedBy);
         params.put("status", TriageCompanyStatus.IN_UNIVERSE.name());
+        params.put("source", TriageCompanySource.STRATEGY.name());
 
         StringBuilder sql = new StringBuilder(INSERT_HEAD);
         for (int index = 0; index < rows.size(); index++) {
@@ -64,9 +67,10 @@ public class TriageCompanyWriter {
     }
 
     private static final String ROW_PLACEHOLDERS =
-            "(:projectId, :accountId%1$d, :status, :companyName%1$d, :industry%1$d, "
+            "(:projectId, :accountId%1$d, :source, :status, :companyName%1$d, :industry%1$d, "
                     + ":companyCountry%1$d, :companyCity%1$d, :numEmployees%1$d, :annualRevenue%1$d, "
-                    + ":website%1$d, :logoUrl%1$d, :addedBy)";
+                    + ":website%1$d, :companyLinkedinUrl%1$d, :foundedYear%1$d, "
+                    + ":shortDescription%1$d, :logoUrl%1$d, :addedBy)";
 
     private static String rowPlaceholders(int index, CompanyRow row, Map<String, Object> params) {
         params.put("accountId" + index, row.apolloAccountId());
@@ -77,6 +81,9 @@ public class TriageCompanyWriter {
         params.put("numEmployees" + index, row.numEmployees());
         params.put("annualRevenue" + index, row.annualRevenue());
         params.put("website" + index, row.website());
+        params.put("companyLinkedinUrl" + index, row.companyLinkedinUrl());
+        params.put("foundedYear" + index, row.foundedYear());
+        params.put("shortDescription" + index, row.shortDescription());
         params.put("logoUrl" + index, row.logoUrl());
         return ROW_PLACEHOLDERS.formatted(index);
     }

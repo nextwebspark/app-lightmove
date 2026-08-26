@@ -26,6 +26,18 @@ export function formatMonthYear(isoInstant: string | null | undefined): string |
   return moment.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
 }
 
+/**
+ * An instant → "15 Sep 2026". The same shape {@link formatDate} produces, for the case where the
+ * server sent a moment rather than a calendar date — a row's `addedAt`, where the time of day is
+ * recorded but is not what the reader is being told.
+ */
+export function formatInstantDate(isoInstant: string | null | undefined): string | null {
+  if (!isoInstant) return null;
+  const moment = new Date(isoInstant);
+  if (Number.isNaN(moment.getTime())) return null;
+  return moment.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
 /** 450000 → "450K", the compact money shape the hero and the report band both show. */
 export function abbreviateAmount(value: number): string {
   return value >= 1000 ? `${Math.round(value / 1000)}K` : String(value);
@@ -59,4 +71,25 @@ export function formatRelativeTime(isoInstant: string): string {
 
   const days = Math.floor(hours / 24);
   return days === 1 ? "1 day ago" : `${days} days ago`;
+}
+
+/**
+ * Null is the common case — Apollo publishes a revenue figure on roughly one row in ten — and reads
+ * as unknown, not zero. Shared by both company grids: a revenue that says "$1.2B" on Strategy and
+ * "1200000000" under Companies is the same fact told twice.
+ */
+export function formatMoney(amount: number | null): string {
+  if (amount === null) return "—";
+  if (amount >= 1_000_000_000) return `$${trimAmount(amount / 1_000_000_000)}B`;
+  if (amount >= 1_000_000) return `$${trimAmount(amount / 1_000_000)}M`;
+  return `$${amount.toLocaleString()}`;
+}
+
+/** An empty list is nothing to show, not an empty string in a cell that looks like a blank value. */
+export function joined(values: string[]): string | null {
+  return values.length > 0 ? values.join(", ") : null;
+}
+
+function trimAmount(value: number): string {
+  return value >= 10 ? String(Math.round(value)) : value.toFixed(1).replace(/\.0$/, "");
 }

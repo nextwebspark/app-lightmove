@@ -1,7 +1,7 @@
 import type { FacetCount, NumericRange } from "../api/types";
 import { cn } from "../../../lib/cn";
 import { FacetsUnavailable } from "./FacetsUnavailable";
-import { FilterCheckRow } from "./FilterCheckRow";
+import { FilterCheckRow } from "../../../components/ui/FilterCheckRow";
 
 /**
  * The Employees and Revenue panels, which share one shape: a mode pair at the top, then either the

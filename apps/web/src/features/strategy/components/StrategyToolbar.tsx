@@ -1,8 +1,12 @@
 import type { ColumnVisibilityState } from "@tanstack/react-table";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import type { NumericRange, SavedSearch, StrategyFilter } from "../api/types";
-import { ColumnPicker } from "./ColumnPicker";
+import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
 import { SaveSearchMenu } from "./SaveSearchMenu";
+import { companyColumns, DEFAULT_COLUMN_VISIBILITY } from "../lib/companyColumns";
+
+/** Derived once: the column definitions are a module constant, not per-render state. */
+const HIDEABLE_COMPANY_COLUMNS = hideableColumnsOf(companyColumns);
 
 /**
  * A range narrows the scope only once a bound is typed. Entering Custom Range emits an empty one —
@@ -112,7 +116,12 @@ export function StrategyToolbar({
       </div>
 
       <div className="flex items-center gap-3 sm:ml-auto">
-        <ColumnPicker visibility={columnVisibility} onChange={onColumnVisibilityChange} />
+        <ColumnPicker
+          columns={HIDEABLE_COMPANY_COLUMNS}
+          visibility={columnVisibility}
+          defaults={DEFAULT_COLUMN_VISIBILITY}
+          onChange={onColumnVisibilityChange}
+        />
 
         <button
           type="button"

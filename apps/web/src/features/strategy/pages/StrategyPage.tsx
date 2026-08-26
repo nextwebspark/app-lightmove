@@ -15,8 +15,9 @@ import * as strategyApi from "../api/strategyApi";
 import type { CompanyResult, CompanySort, StrategyFilter } from "../api/types";
 import { CompanyResultsTable } from "../components/CompanyResultsTable";
 import { DEFAULT_COLUMN_VISIBILITY } from "../lib/companyColumns";
-import { useColumnVisibility } from "../lib/useColumnVisibility";
-import { useCompanySort } from "../lib/useCompanySort";
+import { useColumnVisibility } from "../../../lib/useColumnVisibility";
+import { useGridSort } from "../../../lib/useGridSort";
+import { COMPANY_SORT_FIELDS } from "../lib/companyColumns";
 import { FilterSidebar } from "../components/FilterSidebar";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { StrategyToolbar } from "../components/StrategyToolbar";
@@ -79,9 +80,10 @@ function StrategyEditor() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [page, setPage] = useState(0);
-  const [sort, setSort] = useCompanySort(project.id, DEFAULT_SORT);
+  const [sort, setSort] = useGridSort("strategy", project.id, COMPANY_SORT_FIELDS, DEFAULT_SORT);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility(
+    "strategy",
     project.id,
     DEFAULT_COLUMN_VISIBILITY,
   );

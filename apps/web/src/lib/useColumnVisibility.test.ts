@@ -2,6 +2,8 @@ import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { useColumnVisibility } from "./useColumnVisibility";
 
+// The key the Strategy grid has always written. Namespacing the hook must not change it: a user
+// who hid six columns before this refactor still wants them hidden after it.
 const KEY = "lm.strategy.columns.p1";
 
 describe("remembered column visibility", () => {
@@ -13,7 +15,7 @@ describe("remembered column visibility", () => {
     localStorage.setItem(KEY, JSON.stringify({ founded: false }));
 
     const { result } = renderHook(() =>
-      useColumnVisibility("p1", { founded: false, keywords: false }),
+      useColumnVisibility("strategy", "p1", { founded: false, keywords: false }),
     );
 
     expect(result.current[0]).toEqual({ founded: false, keywords: false });
@@ -22,7 +24,7 @@ describe("remembered column visibility", () => {
   it("lets a stored tick override the default", () => {
     localStorage.setItem(KEY, JSON.stringify({ keywords: true }));
 
-    const { result } = renderHook(() => useColumnVisibility("p1", { keywords: false }));
+    const { result } = renderHook(() => useColumnVisibility("strategy", "p1", { keywords: false }));
 
     expect(result.current[0].keywords).toBe(true);
   });
