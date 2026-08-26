@@ -165,3 +165,9 @@ unpacked loading only; the Web Store assigns its own when the item is created. T
 configuration and both default to the development id: `EXTENSION_ID` for the API's CORS allow-list
 (deploy) and `VITE_EXTENSION_ID` for the pairing page (`apps/web` build). Get either wrong after
 publishing and the extension is refused with nothing useful in the response. Never re-hardcode either.
+
+**The allow-listed origin is a browser convenience, not a gate.** The development key is committed, so
+anyone can build an extension carrying it and speak from that origin — and the entry applies to the
+whole `/api/v1` surface, not just the extension's own routes, because CORS is configured once for the
+API. Nothing may be authorised by the caller having reached us: every route still demands the bearer
+token and re-reads the roles. Never move a decision onto the origin.

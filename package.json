@@ -2,7 +2,7 @@
   "name": "app-lightmove",
   "private": true,
   "version": "0.1.0",
-  "description": "LightMove \u2014 multi-tenant executive search & talent mapping platform",
+  "description": "LightMove — multi-tenant executive search & talent mapping platform",
   "workspaces": [
     "apps/web",
     "apps/extension"

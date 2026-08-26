@@ -59,20 +59,17 @@ Boot takes ~40 s: the Cloud SQL connector is bypassed but Flyway still applies t
 an empty schema. `up.sh` waits for the API to answer and refuses to continue unless the email provider
 is what the caller declared.
 
-**The Apollo universe.** `api/14-strategy-company-search.sh`, `spa/strategy.mjs` and the second half
-of `api/15-extension-capture.sh` read `app_lm_apollo_companies`, which is ETL-owned and pulled with
-gcloud. `stack/up.sh` builds an empty database, so on a runner those cases **skip themselves and exit
-0** rather than reporting a few hundred vacuous passes or one red case about the environment. (15's
-first half — pairing the extension, and capturing a company the universe does not publish — needs no
-universe and runs everywhere; that is most of the script.) To make them do real work, point them at a
-database that has the universe:
+**The Apollo universe.** `api/14-strategy-company-search.sh` and `spa/strategy.mjs` read
+`app_lm_apollo_companies`, which is ETL-owned and pulled with gcloud. `stack/up.sh` builds an empty
+database, so on a runner those cases **skip themselves and exit 0** rather than reporting a few
+hundred vacuous passes or one red case about the environment. To make them do real work, point them
+at a database that has the universe:
 
 ```bash
 npm run dev:db:apollo                                       # once, needs gcloud
 npm run dev                                                 # api + web + postgres on :55433
 cd e2e
 PG_URL=postgresql://lm_app:lm@localhost:55433/lightmove bash api/14-strategy-company-search.sh
-PG_URL=postgresql://lm_app:lm@localhost:55433/lightmove bash api/15-extension-capture.sh
 PG_URL=postgresql://lm_app:lm@localhost:55433/lightmove node spa/strategy.mjs
 ```
 

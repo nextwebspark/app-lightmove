@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "LightMove Capture \u2014 the Chrome extension that writes a company from the open page into a mandate's triage",
+  "description": "LightMove Capture — the Chrome extension that writes a company from the open page into a mandate's triage",
   "scripts": {
     "dev": "vite build --watch --mode development & npm run build:parts -- --watch",
     "build": "tsc --noEmit && vite build && npm run build:parts",

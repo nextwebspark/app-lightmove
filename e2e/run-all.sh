@@ -94,9 +94,8 @@ step api/13-client-access-tiers.sh
 # so they cost a second here and do real work on a laptop that has run `npm run dev:db:apollo`.
 step api/14-strategy-company-search.sh
 
-# 15 is two halves. Pairing the extension needs nothing but an account and runs everywhere; the cases
-# that assert a match against the Apollo universe skip themselves when the table is empty, exactly as
-# 14 does. So it does real work on a runner and more of it on a laptop.
+# 15 needs no Apollo universe — an extension capture files a company by name, never by universe id —
+# so it does its full work on a runner.
 step api/15-extension-capture.sh
 
 step_node spa/run.mjs
