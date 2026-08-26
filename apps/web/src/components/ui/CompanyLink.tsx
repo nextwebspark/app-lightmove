@@ -1,4 +1,5 @@
 import { Icon } from "../layout/Icon";
+import { toBrowsableUrl } from "../../lib/url";
 import { GRID_ICON_BUTTON } from "./DataGrid";
 
 /**
@@ -10,10 +11,10 @@ import { GRID_ICON_BUTTON } from "./DataGrid";
  * four identical "open link" buttons in a row tell a screen-reader user nothing about which company
  * they belong to.
  *
- * <p>Anything that is not an absolute http(s) URL renders as nothing. Captured URLs are normalised
- * server-side, so this is the second line rather than the first — but it is the line that covers rows
- * written before that normalisation existed, and a bare host is the common case: as an `href` it is a
- * *relative* link, so `acme.com` would navigate inside the SPA rather than to the company.
+ * <p>The URL goes through {@link toBrowsableUrl}, which is the client mirror of the server's capture
+ * normalisation: a bare host gains `https://` and anything a browser should not follow renders as
+ * nothing. Promoting rather than dropping matters here — plenty of Apollo rows publish a bare host,
+ * and refusing those would lose the icon on a company whose site is perfectly real.
  */
 export function CompanyLink({
   url,
@@ -26,10 +27,11 @@ export function CompanyLink({
   label: string;
   companyName: string;
 }) {
-  if (!isBrowsable(url)) return null;
+  const href = toBrowsableUrl(url);
+  if (!href) return null;
   return (
     <a
-      href={url}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
       title={label}
@@ -39,16 +41,4 @@ export function CompanyLink({
       <Icon d={icon} size={13} />
     </a>
   );
-}
-
-/** Absolute, and a scheme a browser will follow — which `javascript:` is not. */
-function isBrowsable(url: string | null): url is string {
-  if (!url) return false;
-  try {
-    const { protocol } = new URL(url);
-    return protocol === "http:" || protocol === "https:";
-  } catch {
-    // Not absolute, so not resolvable without borrowing the SPA's own origin.
-    return false;
-  }
 }

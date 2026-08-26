@@ -572,6 +572,18 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                                 {"companyName":"Hostile Co","website":"javascript:alert(1)"}"""))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.website").doesNotExist());
+
+        // sourceUrl goes through the same gate. Nothing renders it yet, which is exactly why it is
+        // worth closing now: it is the plugin's least trustworthy field, and the first screen to show
+        // "captured from …" as a link would otherwise inherit whatever was stored before it existed.
+        mvc.perform(post(triageUrl(projectId) + "/capture")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Hostile Source Co","source":"extension",
+                                 "sourceUrl":"javascript:alert(1)"}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.sourceUrl").doesNotExist());
     }
 
     // ── removing a company from the mandate ──────────────────────────────────
@@ -663,6 +675,30 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
         mvc.perform(get(triageUrl(projectId)).param("sort", "; DROP TABLE app_lm_project_triage_company")
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("a direction is validated and honoured whether or not a sort field came with it")
+    void listValidatesDirectionOnItsOwn() throws Exception {
+        String admin = adminOf("Universe Direction Firm");
+        String projectId = project(admin);
+        writer.insertIgnoringHeld(UUID.fromString(projectId), actorId(),
+                List.of(row("a1", "First In", 100)));
+        writer.insertIgnoringHeld(UUID.fromString(projectId), actorId(),
+                List.of(row("a2", "Last In", 200)));
+
+        // Nonsense is a 400 even with no sort field beside it. Resolving the field first and returning
+        // the default early let this through with a 200 — and Strategy rejects the same token.
+        mvc.perform(get(triageUrl(projectId)).param("direction", "sideways")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
+
+        // And a well-formed direction on its own reverses the default ordering rather than being ignored.
+        mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.companies[0].companyName").value("Last In"));
+        mvc.perform(get(triageUrl(projectId)).param("direction", "asc")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.companies[0].companyName").value("First In"));
     }
 
     @Test

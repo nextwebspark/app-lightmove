@@ -161,6 +161,14 @@ public class TriageCompanyService {
      * partial unique index V34 adds, which can only see the manual rows, and it is the question a
      * consultant is actually asking — a company already taken from Apollo is "already there" whether or
      * not it arrived the same way.
+     *
+     * <p><b>The guard is deliberately one-directional</b>, and that is a product decision rather than an
+     * oversight: a capture will not duplicate a name the mandate holds, but a later bulk add from
+     * Strategy still will, because the alternatives are worse. Skipping the Apollo row would leave the
+     * mandate with the thin hand-typed one and silently withhold the richer market record it matched;
+     * merging the two is a real feature with a real UI, not something a bulk insert should decide. So
+     * two same-named rows from different doors are possible, they are distinguishable by their Source
+     * badge, and either can be removed.
      */
     @Transactional
     public TriageCompanyResponse capture(UUID userId, UUID workspaceId, UUID projectId,
@@ -303,14 +311,15 @@ public class TriageCompanyService {
      * per query, which shuffles rows across page boundaries.
      */
     private static Sort resolveSort(TriageCompanyListCriteria criteria) {
-        if (criteria.sort() == null || criteria.sort().isBlank()) {
-            return NEWEST_FIRST;
-        }
-        TriageCompanySortField field = TriageCompanySortField.fromValue(criteria.sort());
-        if (field == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown sort field: " + criteria.sort());
-        }
+        // Both tokens are resolved before either is used, so a bad direction is a 400 whether or not a
+        // field came with it. Returning the default early instead would have let ?direction=sideways
+        // through with a 200 — and silently ignored a well-formed ?direction=asc on its own.
         SortDirection direction = resolveDirection(criteria.direction());
+        TriageCompanySortField field = resolveSortField(criteria.sort());
+        if (field == null) {
+            // No field named: the default ordering, which the caller may still have reversed.
+            return newestFirstIn(direction == SortDirection.ASC ? Sort.Direction.ASC : Sort.Direction.DESC);
+        }
         Sort.Order order = Sort.Order
                 .by(field.property())
                 .with(direction == SortDirection.ASC ? Sort.Direction.ASC : Sort.Direction.DESC)
@@ -319,9 +328,26 @@ public class TriageCompanyService {
         return field == TriageCompanySortField.ADDED ? Sort.by(order) : Sort.by(order).and(NEWEST_FIRST);
     }
 
+    /** Null when the caller named no field, which is not the same as naming an unknown one. */
+    private static TriageCompanySortField resolveSortField(String token) {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        TriageCompanySortField field = TriageCompanySortField.fromValue(token);
+        if (field == null) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown sort field: " + token);
+        }
+        return field;
+    }
+
+    private static Sort newestFirstIn(Sort.Direction direction) {
+        return direction == Sort.Direction.DESC ? NEWEST_FIRST : Sort.by(Sort.Direction.ASC, "createdAt");
+    }
+
+    /** Omitted means DESC: the grid opens newest-first, and an absent direction must not reverse it. */
     private static SortDirection resolveDirection(String token) {
         if (token == null || token.isBlank()) {
-            return SortDirection.ASC;
+            return SortDirection.DESC;
         }
         SortDirection direction = SortDirection.fromValue(token);
         if (direction == null) {

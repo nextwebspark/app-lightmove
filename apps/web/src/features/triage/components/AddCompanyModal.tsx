@@ -1,10 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button, Field, FormError, Input, Modal, TextArea, useToast } from "../../../components/ui";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
+import { toBrowsableUrl } from "../../../lib/url";
 import * as triageApi from "../api/triageApi";
 import type { CaptureCompanyPayload, TriageCompanyStatus } from "../api/types";
 
@@ -30,10 +31,25 @@ const optionalNumber = (label: string, max: number) =>
  * researcher may have a name and a country and nothing else; demanding a complete record would send
  * the consultant back to the spreadsheet these screens exist to replace.
  */
+/**
+ * The server drops an address it cannot parse rather than refusing the whole capture, which is right
+ * for the plugin — a bad URL should not cost the company — and wrong for a form, where it means a typo
+ * posts, toasts success, and vanishes. So the form holds itself to the stricter rule: what the server
+ * would keep, it accepts; what the server would drop, it refuses while the field is still on screen.
+ */
+const optionalWebAddress = (label: string) =>
+  z
+    .string()
+    .trim()
+    .max(500)
+    .refine((value) => value === "" || toBrowsableUrl(value) !== null, {
+      message: `That ${label} does not look like a web address`,
+    });
+
 const captureSchema = z.object({
   companyName: z.string().trim().min(1, "A company name is required").max(200),
-  website: z.string().trim().max(500),
-  companyLinkedinUrl: z.string().trim().max(500),
+  website: optionalWebAddress("website"),
+  companyLinkedinUrl: optionalWebAddress("LinkedIn URL"),
   industry: z.string().trim().max(200),
   companyCountry: z.string().trim().max(100),
   companyCity: z.string().trim().max(100),
@@ -93,6 +109,11 @@ export function AddCompanyModal({
   onAdded: () => void;
 }) {
   const toast = useToast();
+  // The banner is state rather than a read of `capture.isError`, which outlives the thing it described:
+  // a duplicate-name 409 marks the name field, and the moment the user edits that name the field error
+  // clears while the mutation stays failed — so the same sentence reappeared as a banner over a form
+  // the user had already corrected.
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -135,7 +156,9 @@ export function AddCompanyModal({
       // marking it there would send the user editing a company name that was never the problem.
       if (codeOf(error) === "TRIAGE_COMPANY_ALREADY_HELD") {
         setError("companyName", { message: messageFor(error) });
+        return;
       }
+      setSubmitError(messageFor(error));
     },
   });
 
@@ -145,9 +168,9 @@ export function AddCompanyModal({
   useEffect(() => {
     if (open) {
       reset(EMPTY_FORM);
-      capture.reset();
+      setSubmitError(null);
     }
-  }, [open, reset, capture.reset]);
+  }, [open, reset]);
 
   return (
     <Modal open={open} onClose={onClose} title="Add a company" className="md:w-[560px]">
@@ -156,11 +179,16 @@ export function AddCompanyModal({
         you have.
       </p>
 
-      <FormError
-        message={capture.isError && !errors.companyName ? messageFor(capture.error) : null}
-      />
+      <FormError message={submitError} />
 
-      <form onSubmit={handleSubmit((parsed) => capture.mutate(parsed))} noValidate>
+      <form
+        onSubmit={handleSubmit((parsed) => {
+          // Last attempt's banner clears on the next one, so it never outlives what it described.
+          setSubmitError(null);
+          capture.mutate(parsed);
+        })}
+        noValidate
+      >
         <Field label="Company name" error={errors.companyName?.message}>
           <Input
             {...register("companyName")}

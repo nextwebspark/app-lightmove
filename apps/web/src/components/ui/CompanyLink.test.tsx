@@ -20,12 +20,15 @@ describe("CompanyLink", () => {
     );
   });
 
-  it("renders nothing for a bare host", () => {
+  it("promotes a bare host rather than dropping it", () => {
     render1("acwapower.com");
 
-    // As an href a bare host is a *relative* link: it would navigate inside the SPA rather than to
-    // the company, landing the user on a route that does not exist.
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    // Plenty of Apollo rows publish a bare host. Left alone it would be a *relative* href and navigate
+    // inside the SPA, so it is promoted — dropping it would lose the icon on a real company site.
+    expect(screen.getByRole("link", { name: /ACWA Power on website/i })).toHaveAttribute(
+      "href",
+      "https://acwapower.com",
+    );
   });
 
   it("renders nothing for a scheme a browser should not follow", () => {

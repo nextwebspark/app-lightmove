@@ -21,6 +21,11 @@ import java.net.URI;
  * inside the SPA instead of to the company, so a bare host gains {@code https://}. Anything that is not
  * then http(s) is dropped rather than stored — {@code javascript:} in an href is the interesting case,
  * and a link the grid refuses to render is better than one it must remember to sanitise at every use.
+ *
+ * <p>{@code sourceUrl} goes through the same gate even though nothing renders it yet. It is the field
+ * the plugin fills from the page it was invoked on, so it is the least trustworthy of the three, and
+ * the first screen to show "captured from …" as a link would otherwise inherit a stored XSS from rows
+ * written long before it existed.
  */
 public record CapturedCompanyDetails(String companyName, String industry, String companyCountry,
                                      String companyCity, Integer numEmployees, Long annualRevenue,
@@ -35,7 +40,7 @@ public record CapturedCompanyDetails(String companyName, String industry, String
         website = webAddressOrNull(website);
         companyLinkedinUrl = webAddressOrNull(companyLinkedinUrl);
         shortDescription = blankToNull(shortDescription);
-        sourceUrl = blankToNull(sourceUrl);
+        sourceUrl = webAddressOrNull(sourceUrl);
     }
 
     /**
