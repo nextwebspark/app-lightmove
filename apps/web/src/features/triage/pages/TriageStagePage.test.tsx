@@ -8,6 +8,8 @@ import { AuthProvider } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate, CandidatesPage } from "../../candidates/api/types";
 import type { Project } from "../../projects/api/types";
+import * as companiesApi from "../../strategy/api/companiesApi";
+import type { Facets } from "../../strategy/api/types";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompaniesPage, TriageCompany } from "../api/types";
 import { TriageStagePage } from "./TriageStagePage";
@@ -28,7 +30,15 @@ vi.mock("../api/triageApi", async (importOriginal) => ({
   updateTriageCompany: vi.fn(),
   deleteTriageCompany: vi.fn(),
   captureCompany: vi.fn(),
+  addMarketCompany: vi.fn(),
   editTriageCompany: vi.fn(),
+}));
+vi.mock("../../strategy/api/companiesApi", async (importOriginal) => ({
+  // The Add form reads the market: its picker searches the universe and its Sector and Country
+  // fields offer the same vocabulary the Strategy filter is expressed in.
+  ...(await importOriginal<typeof companiesApi>()),
+  searchCompanies: vi.fn(),
+  getFacets: vi.fn(),
 }));
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
@@ -128,6 +138,21 @@ const yasmin: Candidate = {
   addedAt: "2026-08-02T09:00:00Z",
 };
 
+/** One sector group and one country — enough for the two dropdowns to have something to offer. */
+const FACETS: Facets = {
+  sectorGroups: [
+    {
+      name: "Energy & Resources",
+      industries: [{ value: "oil & energy", label: "Oil & Energy", count: 240 }],
+    },
+  ],
+  adjacentIndustries: {},
+  marketSegments: [],
+  countries: [{ value: "Saudi Arabia", label: "Saudi Arabia", count: 900 }],
+  employeeBands: [],
+  revenueBands: [],
+};
+
 const peopleOf = (candidates: Candidate[]): CandidatesPage => ({
   candidates,
   totalCount: candidates.length,
@@ -175,6 +200,8 @@ describe("TriageStagePage", () => {
     vi.mocked(authApi.me).mockResolvedValue(lead);
     vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(pageOf());
     vi.mocked(candidatesApi.getCandidates).mockResolvedValue(peopleOf([]));
+    vi.mocked(companiesApi.getFacets).mockResolvedValue(FACETS);
+    vi.mocked(companiesApi.searchCompanies).mockResolvedValue({ companies: [] });
   });
 
   it("reads the stage from the URL and asks the API for that status", async () => {
@@ -253,6 +280,37 @@ describe("TriageStagePage", () => {
     await waitFor(() => expect(triageApi.deleteTriageCompany).toHaveBeenCalledWith("p1", "u1"));
   });
 
+  it("takes a company the market already carries by its universe id", async () => {
+    vi.mocked(companiesApi.searchCompanies).mockResolvedValue({
+      companies: [
+        { apolloAccountId: "a7", companyName: "ACWA Power", industry: "oil & energy",
+          companyCity: "Riyadh", companyCountry: "Saudi Arabia", website: null, logoUrl: null,
+          numEmployees: 3000 },
+      ],
+    });
+    vi.mocked(triageApi.addMarketCompany).mockResolvedValue({ ...acwa, status: "shortlisted" });
+    renderStage("shortlisted");
+
+    await screen.findByRole("table", { name: /Shortlisted companies/i });
+    await userEvent.click(screen.getByRole("button", { name: /Add company/i }));
+
+    const dialog = await screen.findByRole("dialog", { name: /Add a company/i });
+    await userEvent.type(within(dialog).getByLabelText(/Company name/i), "acwa");
+    await userEvent.click(await within(dialog).findByRole("button", { name: /ACWA Power/i }));
+    await userEvent.type(within(dialog).getByLabelText(/^Note/i), "Met their CFO");
+    await userEvent.click(within(dialog).getByRole("button", { name: /^Add company$/i }));
+
+    // A company the market holds is taken by id and never re-typed: the server resolves the snapshot,
+    // so the row keeps the export's figures and a Source badge that means what it says.
+    await waitFor(() =>
+      expect(triageApi.addMarketCompany).toHaveBeenCalledWith("p1", "a7", {
+        status: "shortlisted",
+        note: "Met their CFO",
+      }),
+    );
+    expect(triageApi.captureCompany).not.toHaveBeenCalled();
+  });
+
   it("captures a hand-typed company into the stage being viewed", async () => {
     vi.mocked(triageApi.captureCompany).mockResolvedValue({
       ...acwa, id: "u2", apolloAccountId: null, source: "manual", status: "shortlisted",
@@ -265,7 +323,14 @@ describe("TriageStagePage", () => {
 
     const dialog = await screen.findByRole("dialog", { name: /Add a company/i });
     await userEvent.type(within(dialog).getByLabelText(/Company name/i), "Gulf Industrial");
+    // The market answers nothing, so the escape hatch is the only way on — and it carries the name
+    // that was already typed rather than asking for it twice.
+    await userEvent.click(await within(dialog).findByRole("button", { name: /as a new company/i }));
+
+    expect(within(dialog).getByLabelText(/Company name/i)).toHaveValue("Gulf Industrial");
     await userEvent.type(within(dialog).getByLabelText(/^Employees$/i), "2400");
+    await userEvent.selectOptions(within(dialog).getByLabelText(/^Sector$/i), "oil & energy");
+    await userEvent.selectOptions(within(dialog).getByLabelText(/^Country$/i), "Saudi Arabia");
     await userEvent.click(within(dialog).getByRole("button", { name: /^Add company$/i }));
 
     await waitFor(() =>
@@ -275,6 +340,10 @@ describe("TriageStagePage", () => {
         // Added while looking at the shortlist means shortlisted — not bounced to the universe.
         status: "shortlisted",
         numEmployees: 2400,
+        // Picked from the market's own vocabulary, so a hand-typed company files under the names the
+        // Strategy filter searches by rather than one reader's wording of them.
+        industry: "oil & energy",
+        companyCountry: "Saudi Arabia",
       })),
     );
   });
@@ -288,6 +357,7 @@ describe("TriageStagePage", () => {
 
     const dialog = await screen.findByRole("dialog", { name: /Add a company/i });
     await userEvent.type(within(dialog).getByLabelText(/Company name/i), "Quiet Holdings");
+    await userEvent.click(await within(dialog).findByRole("button", { name: /as a new company/i }));
     await userEvent.click(within(dialog).getByRole("button", { name: /^Add company$/i }));
 
     // "No published headcount" and "a headcount of zero" are different claims about a company.
@@ -295,6 +365,30 @@ describe("TriageStagePage", () => {
     const payload = vi.mocked(triageApi.captureCompany).mock.calls[0][1];
     expect(payload.numEmployees).toBeUndefined();
     expect(payload.annualRevenue).toBeUndefined();
+  });
+
+  it("keeps a sector the taxonomy does not carry rather than clearing it on save", async () => {
+    const captured: TriageCompany = {
+      ...acwa, source: "extension", apolloAccountId: null, industry: "widget assembly",
+    };
+    vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(pageOf({ companies: [captured] }));
+    vi.mocked(triageApi.editTriageCompany).mockResolvedValue(captured);
+    renderStage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Open ACWA Power/i }));
+    const dialog = await screen.findByRole("dialog", { name: /ACWA Power/i });
+    await userEvent.click(within(dialog).getByRole("button", { name: /^Edit$/i }));
+
+    // The plugin reads whatever a page publishes, so a captured sector need not be one of Apollo's.
+    // A select that silently dropped it would clear a field the consultant never touched.
+    expect(within(dialog).getByLabelText(/^Sector$/i)).toHaveValue("widget assembly");
+    await userEvent.click(within(dialog).getByRole("button", { name: /Save changes/i }));
+
+    await waitFor(() =>
+      expect(triageApi.editTriageCompany).toHaveBeenCalledWith("p1", "u1", expect.objectContaining({
+        industry: "widget assembly",
+      })),
+    );
   });
 
   it("shows a refused read as a failure, not as an empty stage", async () => {

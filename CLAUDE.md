@@ -16,8 +16,10 @@ workspace `CLIENT` role grants nothing; access is the project `CLIENT` seat, whi
 screens, a project's Team & access tab, the client registry with representative invites and their
 scoped read-only project access, and **Strategy → Companies**: a filter over the company universe, the
 searches saved against it, and the three Companies pages (In universe / Shortlisted / Declined) where a
-mandate triages what it took from it. A company reaches those pages three ways — from Strategy, typed in
-by hand, or captured by the browser plugin (`POST /triage/capture`; the extension itself is not built).
+mandate triages what it took from it. A company reaches those pages three ways — out of the market
+(Strategy's per-row add, or the Companies screen's own picker over the same universe, both `POST
+/triage` with an id the server resolves), typed in by hand, or captured by the browser plugin
+(`POST /triage/capture`; the extension itself is not built).
 Deleting one drops the project↔company row only: the Apollo universe is read-only to the app. On top of
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
