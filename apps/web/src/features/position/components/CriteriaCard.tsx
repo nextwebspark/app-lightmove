@@ -17,10 +17,10 @@ export function CriteriaCard({
     onChange(criteria.map((c, i) => (i === index ? { ...c, ...changes } : c)));
 
   return (
-    <div className="mb-[22px]">
+    <div>
       <SectionHeading
-        title="Candidate Criteria"
-        aside="Required narrows the field · Preferred breaks ties"
+        title="Screening criteria"
+        aside="required narrows the field · preferred breaks ties"
       />
       <div className="rounded-[10px] border border-line-soft bg-panel2 p-4">
         {criteria.map((criterion, index) => (

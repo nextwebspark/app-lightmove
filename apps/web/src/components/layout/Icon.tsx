@@ -35,6 +35,12 @@ export const ICONS = {
   collapse: "m11 17-5-5 5-5M18 17l-5-5 5-5",
   expand: "m13 17 5-5-5-5M6 17l5-5-5-5",
   plus: "M12 5v14M5 12h14",
+  arrowRight: "M5 12h14M13 6l6 6-6 6",
+  /** A check inside a circle — the Position wizard's "this field now holds something" affordance. */
+  checkCircle: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M8.5 12.2l2.3 2.3 4.7-4.7",
+  uploadCloud: "M12 13v8m0-8-3 3m3-3 3 3M20 16.7A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9",
+  /** A page with its corner turned — the attached position description. */
+  file: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6",
   lock: "M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 10 0v4",
   info: "M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z",
   laptop: "M2 4h20v12H2zM8 20h8M12 16v4",

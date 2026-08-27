@@ -1,31 +1,39 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Spinner, useToast } from "../../../components/ui";
+import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
+import { useAutosave } from "../../../lib/useAutosave";
 import * as projectsApi from "../../projects/api/projectsApi";
-import type { Project } from "../../projects/api/types";
 import * as reportApi from "../../reports/api/reportApi";
 import * as positionApi from "../api/positionApi";
-import type { Competency, Criterion, Position, PositionDetails } from "../api/types";
-import { CompetencyPanel } from "../components/CompetencyPanel";
-import { CriteriaCard } from "../components/CriteriaCard";
-import { IdealProfileCard } from "../components/IdealProfileCard";
-import { MandateContextCard } from "../components/MandateContextCard";
-import { PackageCard } from "../components/PackageCard";
-import { PositionHero } from "../components/PositionHero";
-import { ReportingStructureCard } from "../components/ReportingStructureCard";
-import { SectionHeading } from "../components/fields";
-import { useAutosave } from "../../../lib/useAutosave";
-import { completion } from "../lib/completion";
+import type {
+  Compensation,
+  Competency,
+  Criterion,
+  MandateContext,
+  Position,
+  PositionDetails,
+  ReportingStructure,
+} from "../api/types";
+import { StepNavigation } from "../components/StepNavigation";
+import { StepRail } from "../components/StepRail";
+import { AssessmentStep } from "../components/steps/AssessmentStep";
+import { CompensationStep } from "../components/steps/CompensationStep";
+import { MandateContextStep } from "../components/steps/MandateContextStep";
+import { PositionDetailsStep } from "../components/steps/PositionDetailsStep";
+import { ReportingStructureStep } from "../components/steps/ReportingStructureStep";
+import { ReviewStep } from "../components/steps/ReviewStep";
+import { POSITION_STEPS, stepIndexOf, type StepKey } from "../lib/steps";
 
-/** The Position tab: loads the brief, then hands the editor a snapshot to draft against. */
+/** The Position tab: loads the brief, then hands the wizard a snapshot to draft against. */
 export function PositionPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
   const { data: position } = useQuery({
     queryKey: positionApi.POSITION_KEY(project.id),
-    queryFn: () => positionApi.getPosition(project.id),
+    queryFn: ({ signal }) => positionApi.getPosition(project.id, signal),
   });
 
   if (!position) {
@@ -36,23 +44,33 @@ export function PositionPage() {
     );
   }
 
-  return <PositionEditor key={project.id} project={project} position={position} />;
+  return <PositionWizard key={project.id} projectId={project.id} position={position} />;
 }
 
 /**
- * The brief editor (Project.dc.html, Position page). There is no Save button: each section's draft
- * autosaves as a snapshot PUT — scalars, criteria and competencies independently — and the hero
- * shows the collective Saving…/Saved state.
+ * The brief editor (Position.dc.html): six steps, a summary rail and a Back/Next footer.
+ *
+ * There is no Save button. Each step's draft autosaves as a snapshot PUT of that step alone, and the
+ * write answers with the whole brief, so the cache always holds a complete document rather than
+ * something stitched together client-side. "Save draft" flushes whatever is pending — it is a way to
+ * stop waiting out the debounce, not a second way to save.
+ *
+ * The step in view is local state rather than a route: the mockup has no per-step URL, and a step is
+ * a place in a form rather than a resource anyone would link to.
  */
-function PositionEditor({ project, position }: { project: Project; position: Position }) {
+function PositionWizard({ projectId, position }: { projectId: string; position: Position }) {
   const queryClient = useQueryClient();
   const toast = useToast();
-  const key = positionApi.POSITION_KEY(project.id);
+  const key = positionApi.POSITION_KEY(projectId);
 
-  const [details, setDetails] = useState<PositionDetails>(() => detailsOf(position));
-  const [criteria, setCriteria] = useState<Criterion[]>(position.criteria);
-  const [technical, setTechnical] = useState<Competency[]>(position.technical);
-  const [behavioural, setBehavioural] = useState<Competency[]>(position.behavioural);
+  const [currentStep, setCurrentStep] = useState<StepKey>("details");
+  const [details, setDetails] = useState<PositionDetails>(position.details);
+  const [context, setContext] = useState<MandateContext>(position.context);
+  const [reporting, setReporting] = useState<ReportingStructure>(position.reporting);
+  const [compensation, setCompensation] = useState<Compensation>(position.compensation);
+  const [criteria, setCriteria] = useState<Criterion[]>(position.assessment.criteria);
+  const [technical, setTechnical] = useState<Competency[]>(position.assessment.technical);
+  const [behavioural, setBehavioural] = useState<Competency[]>(position.assessment.behavioural);
 
   /** Shared persistence shape: cache the returned snapshot and toast failures. */
   const persist =
@@ -68,25 +86,75 @@ function PositionEditor({ project, position }: { project: Project; position: Pos
     };
 
   const detailsSave = useAutosave(
-    // The scalar save writes the project's target date too, so refresh the list's Target column — and
-    // the salary band, which the report restates as the mandate's band.
-    persist((d: PositionDetails) => positionApi.putPosition(project.id, d), () => {
+    // Step one writes the mandate's own role title, so the projects list's Role column goes stale.
+    persist((next: PositionDetails) => positionApi.putDetails(projectId, next), () => {
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
-      void queryClient.invalidateQueries({ queryKey: reportApi.REPORT_KEY(project.id) });
     }),
   );
-  const criteriaSave = useAutosave(persist((c: Criterion[]) => positionApi.putCriteria(project.id, c)));
+  const contextSave = useAutosave(
+    persist((next: MandateContext) => positionApi.putContext(projectId, next)),
+  );
+  const reportingSave = useAutosave(
+    // Step three writes the mandate's one target date, which the list's Target column shows.
+    persist((next: ReportingStructure) => positionApi.putReporting(projectId, next), () => {
+      void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
+    }),
+  );
+  const compensationSave = useAutosave(
+    // The report restates this band as the mandate's, so it goes stale with every package edit.
+    persist((next: Compensation) => positionApi.putCompensation(projectId, next), () => {
+      void queryClient.invalidateQueries({ queryKey: reportApi.REPORT_KEY(projectId) });
+    }),
+  );
+  const criteriaSave = useAutosave(
+    persist((next: Criterion[]) => positionApi.putCriteria(projectId, next)),
+  );
   const competenciesSave = useAutosave(
     persist((panels: { technical: Competency[]; behavioural: Competency[] }) =>
-      positionApi.putCompetencies(project.id, panels.technical, panels.behavioural),
+      positionApi.putCompetencies(projectId, panels.technical, panels.behavioural),
     ),
   );
+
+  const channels = [
+    detailsSave,
+    contextSave,
+    reportingSave,
+    compensationSave,
+    criteriaSave,
+    competenciesSave,
+  ];
+  const statuses = channels.map((channel) => channel.status);
+  const saveStatus = statuses.includes("saving")
+    ? "saving"
+    : statuses.includes("saved")
+      ? "saved"
+      : "idle";
 
   const changeDetails = (patch: Partial<PositionDetails>, immediate = false) => {
     const next = { ...details, ...patch };
     setDetails(next);
+    // The mandate cannot be untitled, so a blank title is held back rather than sent and refused.
+    if (!next.roleTitle.trim()) return;
     detailsSave.schedule(next);
     if (immediate) void detailsSave.flush();
+  };
+  const changeContext = (patch: Partial<MandateContext>, immediate = false) => {
+    const next = { ...context, ...patch };
+    setContext(next);
+    contextSave.schedule(next);
+    if (immediate) void contextSave.flush();
+  };
+  const changeReporting = (patch: Partial<ReportingStructure>, immediate = false) => {
+    const next = { ...reporting, ...patch };
+    setReporting(next);
+    reportingSave.schedule(next);
+    if (immediate) void reportingSave.flush();
+  };
+  const changeCompensation = (patch: Partial<Compensation>, immediate = false) => {
+    const next = { ...compensation, ...patch };
+    setCompensation(next);
+    compensationSave.schedule(next);
+    if (immediate) void compensationSave.flush();
   };
   const changeCriteria = (next: Criterion[]) => {
     setCriteria(next);
@@ -102,70 +170,138 @@ function PositionEditor({ project, position }: { project: Project; position: Pos
     competenciesSave.schedule(next);
   };
 
-  const statuses = [detailsSave.status, criteriaSave.status, competenciesSave.status];
-  const saveStatus = statuses.includes("saving")
-    ? "saving"
-    : statuses.includes("saved")
-      ? "saved"
-      : "idle";
+  const publish = useMutation({
+    mutationFn: () =>
+      position.publication.publishedAt
+        ? positionApi.withdrawPublication(projectId)
+        : positionApi.publish(projectId),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(key, saved);
+      toast(saved.publication.publishedAt ? "Position profile published" : "Publication withdrawn");
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  const attachDocument = useMutation({
+    mutationFn: (file: File) => positionApi.attachDocument(projectId, file),
+    onSuccess: (saved) => queryClient.setQueryData(key, saved),
+    onError: (error) => toast(messageFor(error)),
+  });
+  const removeDocument = useMutation({
+    mutationFn: () => positionApi.removeDocument(projectId),
+    onSuccess: (saved) => queryClient.setQueryData(key, saved),
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  const saveDraft = async () => {
+    await Promise.allSettled(channels.map((channel) => channel.flush()));
+    toast("Draft saved");
+  };
+
+  // The rail and the review cards read a brief, not six drafts, so the edits in flight are folded
+  // over the last saved snapshot — otherwise a step reads as untouched until its debounce fires.
+  const drafted: Position = {
+    ...position,
+    details,
+    context,
+    reporting,
+    compensation,
+    assessment: { criteria, technical, behavioural },
+  };
+  const step = POSITION_STEPS[stepIndexOf(currentStep)];
 
   return (
     <div className="animate-fade-up">
-      <PositionHero
-        project={project}
-        details={details}
-        completionPct={completion({ ...position, ...details, criteria, technical, behavioural })}
-        saveStatus={saveStatus}
-        onToggleConfidential={() => changeDetails({ confidential: !details.confidential }, true)}
-      />
+      <div className="mb-[18px] flex items-center justify-end gap-2">
+        <button
+          type="button"
+          title="Click to toggle confidentiality"
+          onClick={() => changeContext({ confidential: !context.confidential }, true)}
+          className={cn(
+            "rounded-md border px-[11px] py-[5px] font-mono text-[10.5px] font-semibold uppercase tracking-[0.05em] transition",
+            context.confidential
+              ? "border-red bg-red-dim text-red"
+              : "border-line bg-panel text-text3 hover:border-text3",
+          )}
+        >
+          {context.confidential ? "Confidential" : "Standard"}
+        </button>
+        <span
+          className={cn(
+            "rounded-md border px-[11px] py-[5px] font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em]",
+            drafted.publication.publishedAt
+              ? "border-transparent bg-green-dim text-green"
+              : "border-line bg-panel text-text2",
+          )}
+        >
+          {drafted.publication.publishedAt ? "✓ Published" : "Draft"}
+        </span>
+        <span aria-live="polite" className="w-14 text-end font-mono text-[11px] text-text3">
+          {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved" : ""}
+        </span>
+      </div>
 
-      <MandateContextCard
-        reason={details.mandateReason}
-        internalContext={details.internalContext}
-        onReason={(mandateReason) => changeDetails({ mandateReason })}
-        onContext={(internalContext) => changeDetails({ internalContext: internalContext || null })}
-      />
+      <div className="flex flex-wrap items-start gap-[22px]">
+        <div className="order-2 min-w-0 flex-[2_1_460px] md:order-1">
+          <div className="mb-[22px]">
+            <h2 className="text-[19px] font-bold tracking-[-0.01em] text-text">{step.heading}</h2>
+            <p className="mt-[5px] max-w-[62ch] text-[13px] text-text3">{step.subheading}</p>
+          </div>
 
-      <IdealProfileCard
-        narrative={details.narrative}
-        onChange={(narrative) => changeDetails({ narrative: narrative || null })}
-      />
+          {currentStep === "details" && (
+            <PositionDetailsStep
+              details={details}
+              document={drafted.document}
+              uploading={attachDocument.isPending || removeDocument.isPending}
+              downloadUrl={positionApi.documentUrl(projectId)}
+              onChange={changeDetails}
+              onAttachDocument={(file) => attachDocument.mutate(file)}
+              onRemoveDocument={() => removeDocument.mutate()}
+            />
+          )}
+          {currentStep === "context" && (
+            <MandateContextStep context={context} onChange={changeContext} />
+          )}
+          {currentStep === "reporting" && (
+            <ReportingStructureStep
+              roleTitle={details.roleTitle}
+              seniority={details.seniority}
+              reporting={reporting}
+              onChange={changeReporting}
+            />
+          )}
+          {currentStep === "compensation" && (
+            <CompensationStep compensation={compensation} onChange={changeCompensation} />
+          )}
+          {currentStep === "assessment" && (
+            <AssessmentStep
+              assessment={drafted.assessment}
+              onCriteria={changeCriteria}
+              onPanel={changePanel}
+            />
+          )}
+          {currentStep === "review" && (
+            <ReviewStep position={drafted} onEditStep={setCurrentStep} />
+          )}
 
-      <ReportingStructureCard
-        positionTitle={project.positionTitle}
-        details={details}
-        onChange={(patch) => changeDetails(patch)}
-      />
-
-      <PackageCard details={details} onChange={(patch) => changeDetails(patch)} />
-
-      <CriteriaCard criteria={criteria} onChange={changeCriteria} />
-
-      <div className="mb-[22px]">
-        <SectionHeading
-          title="Competency Weighting"
-          aside="drag to rebalance · type a number to set exactly"
-        />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <CompetencyPanel
-            title="Technical Competencies"
-            accent="sky"
-            rows={technical}
-            onChange={changePanel("technical")}
-          />
-          <CompetencyPanel
-            title="Behavioural Competencies"
-            accent="amber"
-            rows={behavioural}
-            onChange={changePanel("behavioural")}
+          <StepNavigation
+            currentStep={currentStep}
+            onSelectStep={setCurrentStep}
+            onPublish={() => publish.mutate()}
+            publishing={publish.isPending}
+            published={Boolean(drafted.publication.publishedAt)}
           />
         </div>
+
+        <StepRail
+          position={drafted}
+          currentStep={currentStep}
+          onSelectStep={setCurrentStep}
+          onPublish={() => publish.mutate()}
+          onSaveDraft={() => void saveDraft()}
+          publishing={publish.isPending}
+        />
       </div>
     </div>
   );
-}
-
-function detailsOf(position: Position): PositionDetails {
-  const { criteria: _c, technical: _t, behavioural: _b, ...details } = position;
-  return details;
 }

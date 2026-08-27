@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -16,9 +16,13 @@ vi.mock("../api/positionApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
   ...(await importOriginal<typeof import("../api/positionApi")>()),
   getPosition: vi.fn(),
-  putPosition: vi.fn(),
+  putDetails: vi.fn(),
+  putContext: vi.fn(),
+  putReporting: vi.fn(),
+  putCompensation: vi.fn(),
   putCriteria: vi.fn(),
   putCompetencies: vi.fn(),
+  publish: vi.fn(),
 }));
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
@@ -37,7 +41,7 @@ const workspace = {
   joinedAt: null,
 };
 
-const userOf = (roles: ("ADMIN" | "MEMBER")[]) => ({
+const user = {
   id: "u1",
   email: "alok@nextwebspark.com",
   fullName: "Alok Kumar",
@@ -48,8 +52,8 @@ const userOf = (roles: ("ADMIN" | "MEMBER")[]) => ({
   timezone: "Asia/Dubai",
   locale: "en",
   pendingInvitation: null,
-  workspace: { ...workspace, roles },
-});
+  workspace: { ...workspace, roles: ["ADMIN"] as ("ADMIN" | "MEMBER")[] },
+};
 
 const project: Project = {
   id: "p1",
@@ -67,39 +71,59 @@ const project: Project = {
 };
 
 const seeded: Position = {
-  mandateReason: "NEW_ROLE",
-  internalContext: null,
-  narrative: "The CFO will sit on the executive committee.",
-  reportsTo: "Group CEO",
-  directReports: null,
-  teamSize: null,
-  location: "UAE",
-  employmentType: "FULL_TIME_PERMANENT",
-  startTarget: null,
-  salaryMin: null,
-  salaryMax: null,
-  currency: "USD",
-  noticeValue: null,
-  noticeUnit: null,
-  bonusTargetPct: null,
-  ltip: null,
-  benefits: [],
-  confidential: false,
-  criteria: [
-    { text: "Experience reporting to a board", mode: "REQUIRED", fromBrief: true },
-    { text: "Arabic language skills", mode: "PREFERRED", fromBrief: false },
-  ],
-  technical: [
-    { name: "Financial Reporting & Controls", weight: 60 },
-    { name: "Treasury", weight: 40 },
-  ],
-  behavioural: [{ name: "Strategic Leadership", weight: 100 }],
+  details: {
+    roleTitle: "Chief Financial Officer",
+    department: "Group Finance",
+    location: "Abu Dhabi, UAE",
+    employmentType: "FULL_TIME_PERMANENT",
+    seniority: "C_SUITE",
+    responsibilities: ["Group P&L stewardship"],
+    narrative: "A hands-on CFO.",
+  },
+  context: {
+    mandateReason: "NEW_ROLE",
+    businessDriver: null,
+    strategicPriorities: [],
+    hiringUrgency: "STANDARD",
+    confidential: false,
+    internalContext: null,
+  },
+  reporting: {
+    reportsToName: null,
+    reportsTo: "Group CEO",
+    directReports: [],
+    teamSize: null,
+    targetStart: null,
+    noticeValue: null,
+    noticeUnit: null,
+  },
+  compensation: {
+    currency: "USD",
+    salaryMin: null,
+    salaryMax: null,
+    baseSalaryMode: "ANNUAL",
+    bonusValue: null,
+    bonusBasis: null,
+    incentiveType: null,
+    incentiveAmount: null,
+    incentiveVesting: null,
+    benefits: [],
+  },
+  assessment: {
+    criteria: [{ text: "Board reporting experience", mode: "REQUIRED", fromBrief: true }],
+    technical: [{ name: "Treasury", description: "Debt and liquidity", weight: 100 }],
+    behavioural: [{ name: "Strategic Leadership", description: null, weight: 100 }],
+  },
+  publication: { publishedAt: null, publishedBy: null },
+  document: null,
 };
 
 const renderPage = () =>
   render(
     <MemoryRouter>
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
         <AuthProvider>
           <ToastProvider>
             <Routes>
@@ -113,50 +137,82 @@ const renderPage = () =>
     </MemoryRouter>,
   );
 
-describe("PositionPage — the brief editor", () => {
+describe("PositionPage", () => {
   beforeEach(() => {
-    vi.resetAllMocks();
-    vi.mocked(restoreSession).mockResolvedValue("token");
-    vi.mocked(authApi.me).mockResolvedValue(userOf(["MEMBER"]));
+    vi.mocked(restoreSession).mockResolvedValue(null);
+    vi.mocked(authApi.me).mockResolvedValue(user);
     vi.mocked(positionApi.getPosition).mockResolvedValue(seeded);
   });
 
-  it("renders the seeded brief: hero, template criteria and the from-brief tag", async () => {
+  it("opens on step one and reads the brief back in the summary rail", async () => {
     renderPage();
 
-    // The title shows twice: the hero and the org row's "This role" box.
-    expect(await screen.findAllByText("Chief Financial Officer")).toHaveLength(2);
-    expect(screen.getByDisplayValue("The CFO will sit on the executive committee.")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Experience reporting to a board")).toBeInTheDocument();
-    expect(screen.getByText("From brief")).toBeInTheDocument();
-    // Employment type is a fixed-set select showing the seeded value's label.
-    expect(screen.getByDisplayValue("Full-time, permanent").tagName).toBe("SELECT");
+    expect(await screen.findByRole("heading", { name: "Position details" })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Chief Financial Officer")).toBeInTheDocument();
+
+    const rail = screen.getByRole("complementary");
+    expect(within(rail).getByText("Reports to Group CEO")).toBeInTheDocument();
+    // Two of six steps are done: details is complete, and both panels total 100.
+    expect(within(rail).getByText("33% Done")).toBeInTheDocument();
   });
 
-  it("autosaves a criterion mode change after the debounce", async () => {
-    vi.mocked(positionApi.putCriteria).mockResolvedValue({ ...seeded });
+  it("walks forward with Next and jumps from the rail", async () => {
     renderPage();
-    await screen.findAllByText("Chief Financial Officer");
+    const user = userEvent.setup();
 
-    // Flip "Arabic language skills" from Preferred to Required.
-    await userEvent.click(screen.getAllByRole("button", { name: "Required" })[1]);
+    await user.click(await screen.findByRole("button", { name: /Next: Mandate context/ }));
+    expect(screen.getByRole("heading", { name: "Mandate context" })).toBeInTheDocument();
 
-    await waitFor(() => expect(positionApi.putCriteria).toHaveBeenCalledTimes(1), { timeout: 2000 });
-    const [, sent] = vi.mocked(positionApi.putCriteria).mock.calls[0];
-    expect(sent[1].mode).toBe("REQUIRED");
+    const rail = screen.getByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Compensation/ }));
+    expect(screen.getByRole("heading", { name: "Compensation package" })).toBeInTheDocument();
   });
 
-  it("commits a benefit on blur (no Enter) — the dropped-benefit fix", async () => {
-    vi.mocked(positionApi.putPosition).mockResolvedValue({ ...seeded });
+  it("autosaves the step being edited, and only that step", async () => {
+    const saved: Position = { ...seeded, details: { ...seeded.details, department: "Finance" } };
+    vi.mocked(positionApi.putDetails).mockResolvedValue(saved);
     renderPage();
-    await screen.findAllByText("Chief Financial Officer");
+    const user = userEvent.setup();
 
-    const field = screen.getByLabelText("Add a benefit");
-    await userEvent.type(field, "Car allowance");
-    await userEvent.tab(); // blur without pressing Enter
+    const department = await screen.findByDisplayValue("Group Finance");
+    await user.clear(department);
+    await user.type(department, "Finance");
 
-    await waitFor(() => expect(positionApi.putPosition).toHaveBeenCalled(), { timeout: 2000 });
-    const lastCall = vi.mocked(positionApi.putPosition).mock.calls.at(-1)!;
-    expect(lastCall[1].benefits).toContain("Car allowance");
+    await waitFor(() => expect(positionApi.putDetails).toHaveBeenCalled());
+    expect(positionApi.putContext).not.toHaveBeenCalled();
+    expect(vi.mocked(positionApi.putDetails).mock.calls.at(-1)?.[1].department).toBe("Finance");
+  });
+
+  it("publishes from the rail and shows the brief as published, still editable", async () => {
+    const published: Position = {
+      ...seeded,
+      publication: { publishedAt: "2026-08-27T10:00:00Z", publishedBy: "Alok Kumar" },
+    };
+    vi.mocked(positionApi.publish).mockResolvedValue(published);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: "Publish position profile" }));
+
+    expect(await screen.findByText("✓ Published")).toBeInTheDocument();
+    // Publishing is a stamp, not a lock: step one's fields keep accepting input.
+    expect(screen.getByDisplayValue("Chief Financial Officer")).toBeEnabled();
+  });
+
+  it("shows the attached position description rather than promising an auto-fill", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    renderPage();
+
+    expect(await screen.findByText("CFO Position Description.pdf")).toBeInTheDocument();
+    expect(screen.queryByText(/auto-fill/i)).not.toBeInTheDocument();
   });
 });

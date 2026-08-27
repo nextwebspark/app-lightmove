@@ -276,39 +276,76 @@ const CANDIDATES = [
 }));
 
 const POSITION = {
-  mandateReason: "GROWTH",
-  internalContext: "Succession for a retiring incumbent, confidential until Q4.",
-  narrative: "The group is consolidating four downstream plants under one operating leader.",
-  reportsTo: "Group Chief Executive Officer",
-  directReports: 7,
-  teamSize: 1400,
-  location: "Abu Dhabi, United Arab Emirates",
-  employmentType: "FULL_TIME",
-  startTarget: "2026-11-30",
-  salaryMin: 1200000,
-  salaryMax: 1800000,
-  currency: "AED",
-  noticeValue: 3,
-  noticeUnit: "MONTHS",
-  bonusTargetPct: 35,
-  ltip: "Three-year performance share plan",
-  benefits: ["Housing allowance", "Schooling", "Annual flights home", "Private medical"],
-  confidential: true,
-  criteria: [
-    { text: "Ran a multi-site downstream manufacturing P&L above USD 500m", mode: "MUST", fromBrief: true },
-    { text: "GCC operating experience", mode: "SHOULD", fromBrief: true },
-  ],
-  technical: [
-    { name: "Operational excellence", weight: 40 },
-    { name: "Capital projects", weight: 35 },
-    { name: "Commercial acumen", weight: 25 },
-  ],
-  behavioural: [
-    { name: "Executive presence", weight: 50 },
-    { name: "Change leadership", weight: 50 },
-  ],
-  locked: false,
-  lockedAt: null,
+  details: {
+    roleTitle: "Chief Operating Officer, Downstream Manufacturing",
+    department: "Group Operations",
+    location: "Abu Dhabi, United Arab Emirates",
+    employmentType: "FULL_TIME_PERMANENT",
+    seniority: "N_MINUS_1",
+    responsibilities: [
+      "Multi-site operational delivery",
+      "Performance and productivity",
+      "Operating-model design",
+    ],
+    narrative: "The group is consolidating four downstream plants under one operating leader.",
+  },
+  context: {
+    mandateReason: "GROWTH_EXPANSION",
+    businessDriver: "Consolidate four plants under one operating leader before the next capital phase.",
+    strategicPriorities: ["OPERATIONAL_EXCELLENCE", "CAPITAL_DISCIPLINE"],
+    hiringUrgency: "PRIORITY",
+    confidential: true,
+    internalContext: "Succession for a retiring incumbent, confidential until Q4.",
+  },
+  reporting: {
+    reportsToName: "Hassan Al Marri",
+    reportsTo: "Group Chief Executive Officer",
+    directReports: [
+      { title: "Plant Director, Ruwais", name: "Layla Nasser" },
+      { title: "Head of Supply Chain", name: null },
+    ],
+    teamSize: "1,400 across the four plants",
+    targetStart: "2026-11-30",
+    noticeValue: 3,
+    noticeUnit: "MONTHS",
+  },
+  compensation: {
+    currency: "AED",
+    salaryMin: 1200000,
+    salaryMax: 1800000,
+    baseSalaryMode: "ANNUAL",
+    bonusValue: 35,
+    bonusBasis: "PERCENT_OF_BASE",
+    incentiveType: "LTIP_CASH",
+    incentiveAmount: 900000,
+    incentiveVesting: "Three-year performance share plan",
+    benefits: [
+      { name: "Housing allowance", amount: 30000, frequency: "MONTHLY" },
+      { name: "Schooling", amount: 90000, frequency: "YEARLY" },
+      { name: "Annual flights home", amount: null, frequency: "YEARLY" },
+    ],
+  },
+  assessment: {
+    criteria: [
+      {
+        text: "Ran a multi-site downstream manufacturing P&L above USD 500m",
+        mode: "REQUIRED",
+        fromBrief: true,
+      },
+      { text: "GCC operating experience", mode: "PREFERRED", fromBrief: true },
+    ],
+    technical: [
+      { name: "Operational excellence", description: "Runs the operation on measures", weight: 40 },
+      { name: "Capital projects", description: null, weight: 35 },
+      { name: "Commercial acumen", description: null, weight: 25 },
+    ],
+    behavioural: [
+      { name: "Executive presence", description: null, weight: 50 },
+      { name: "Change leadership", description: null, weight: 50 },
+    ],
+  },
+  publication: { publishedAt: null, publishedBy: null },
+  document: null,
 };
 
 /** Path suffix -> payload, matched against the pathname. */

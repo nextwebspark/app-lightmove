@@ -3,7 +3,7 @@ import type { Competency } from "../api/types";
 import { rebalance } from "./rebalance";
 
 const panel = (...weights: number[]): Competency[] =>
-  weights.map((weight, i) => ({ name: `C${i}`, weight }));
+  weights.map((weight, i) => ({ name: `C${i}`, description: null, weight }));
 
 const total = (rows: Competency[]) => rows.reduce((sum, row) => sum + row.weight, 0);
 

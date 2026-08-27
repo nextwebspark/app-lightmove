@@ -1,9 +1,13 @@
 import type { Competency } from "../api/types";
 import { rebalance } from "../lib/rebalance";
+import { AddRowButton, RemoveRowButton } from "./fields";
 
 /**
  * One weighting panel (technical = sky, behavioural = amber). Sliders rebalance the other rows so
  * the total holds; the number input sets a weight exactly. The total badge goes green only at 100.
+ *
+ * The description beside each name is what the competency measures for this mandate — a weight on
+ * its own is a number the next reader has to interpret.
  */
 export function CompetencyPanel({
   title,
@@ -67,16 +71,38 @@ export function CompetencyPanel({
             <span className="font-mono text-xs font-medium text-text3">%</span>
           </div>
           <input
-            type="range"
-            min={0}
-            max={100}
-            value={row.weight}
-            aria-label={`${row.name} slider`}
-            onChange={(e) => onChange(rebalance(rows, index, Number(e.target.value)))}
-            className={`w-full ${slider}`}
+            value={row.description ?? ""}
+            aria-label={`${row.name} description`}
+            placeholder="What this measures…"
+            onChange={(e) => patch(index, { description: e.target.value || null })}
+            className="mb-1.5 w-full bg-transparent font-mono text-[11.5px] text-text3 outline-none placeholder:text-text3/60"
           />
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={row.weight}
+              aria-label={`${row.name} slider`}
+              onChange={(e) => onChange(rebalance(rows, index, Number(e.target.value)))}
+              className={`min-w-0 flex-1 ${slider}`}
+            />
+            {rows.length > 1 && (
+              <RemoveRowButton
+                label={`Remove ${row.name}`}
+                onClick={() => onChange(rows.filter((_, i) => i !== index))}
+              />
+            )}
+          </div>
         </div>
       ))}
+
+      <AddRowButton
+        className="w-full"
+        onClick={() => onChange([...rows, { name: "New competency", description: null, weight: 0 }])}
+      >
+        + Add competency
+      </AddRowButton>
     </div>
   );
 }

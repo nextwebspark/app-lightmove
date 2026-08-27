@@ -161,6 +161,11 @@ function readCookie(name: string): string | null {
 
 interface RequestOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  /**
+   * Serialised as JSON, unless it is a `FormData` — a file upload is sent as-is, and the browser
+   * writes the multipart `Content-Type` itself. Setting that header by hand omits the boundary the
+   * body was built with, and the server then reads the whole part as one unparseable blob.
+   */
   body?: unknown;
   /** Set for endpoints that must not attempt a refresh — login and signup have no session yet. */
   anonymous?: boolean;
@@ -173,8 +178,9 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const { method = "GET", body, anonymous = false, withCsrf = false, signal } = options;
 
   const send = async (token: string | null): Promise<Response> => {
+    const isMultipart = body instanceof FormData;
     const headers: Record<string, string> = {};
-    if (body !== undefined) {
+    if (body !== undefined && !isMultipart) {
       headers["Content-Type"] = "application/json";
     }
     if (token) {
@@ -193,7 +199,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       // Always: the refresh cookie must ride along on the auth routes, and sending it elsewhere is
       // harmless because the cookie is path-scoped and the browser will not attach it anyway.
       credentials: "include",
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isMultipart ? body : JSON.stringify(body),
       signal,
     });
   };
