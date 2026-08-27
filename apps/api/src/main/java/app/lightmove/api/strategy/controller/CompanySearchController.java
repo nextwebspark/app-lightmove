@@ -82,6 +82,21 @@ public class CompanySearchController {
     }
 
     /**
+     * The Company Keywords box, on the same rule as the company picker: too short a query answers
+     * nothing rather than the head of the universe.
+     */
+    @GetMapping("/keywords")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
+    public ResponseEntity<KeywordSuggestionsResponse> keywords(@RequestParam(name = "q") String query) {
+        String trimmed = accepted(query);
+        if (trimmed.length() < searchConfig.keywordMinQueryLength()) {
+            return ResponseEntity.ok(new KeywordSuggestionsResponse(List.of()));
+        }
+        return ResponseEntity.ok(new KeywordSuggestionsResponse(companies.keywordSuggestions(
+                trimmed, searchConfig.keywordSuggestionLimit(), searchConfig.keywordMinCompanies())));
+    }
+
+    /**
      * One company of the universe, by the id every stored reference keys on — the record behind a
      * picked suggestion, so a consultant sees what they are about to take before they take it.
      *
@@ -103,21 +118,6 @@ public class CompanySearchController {
                 .findFirst()
                 .map(CompanyResultDto::of)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND)));
-    }
-
-    /**
-     * The Company Keywords box, on the same rule as the company picker: too short a query answers
-     * nothing rather than the head of the universe.
-     */
-    @GetMapping("/keywords")
-    @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
-    public ResponseEntity<KeywordSuggestionsResponse> keywords(@RequestParam(name = "q") String query) {
-        String trimmed = accepted(query);
-        if (trimmed.length() < searchConfig.keywordMinQueryLength()) {
-            return ResponseEntity.ok(new KeywordSuggestionsResponse(List.of()));
-        }
-        return ResponseEntity.ok(new KeywordSuggestionsResponse(companies.keywordSuggestions(
-                trimmed, searchConfig.keywordSuggestionLimit(), searchConfig.keywordMinCompanies())));
     }
 
     private String accepted(String query) {
