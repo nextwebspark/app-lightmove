@@ -25,17 +25,28 @@ that sits the **people half**: an executive mapped for a mandate, optionally aga
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
 with three of them is three lines and one with none keeps its "Add executive" slot. The standalone
 Candidates screen, the pipeline and outreach tables don't exist yet, and neither does the CSV import or
-the plugin's profile capture (the columns and `CandidateSource` are there for them). Don't build ahead of
+the plugin's profile capture (the columns and `CandidateSource` are there for them). The **Position**
+screen is the mandate's brief, edited as a six-step wizard (details, mandate context, reporting,
+compensation, assessment, review) that autosaves one step at a time; step one attaches the position
+description, which is *stored and never read* — no extraction, no auto-fill. Publishing stamps who
+called the brief ready and **freezes nothing** (V38 retired the lock deliberately). Don't build ahead of
 the mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
 
 ## Layout
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `workspace`, `project`, `strategy`, `triagecompany`, `candidate` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
 | `ops/cloudsql/` | Database bootstrap and hardening scripts |
+
+`position` is the mandate's **brief** — what the role is, why it exists, what it pays and what a
+candidate is scored against. It owns `app_lm_position` and its owned lists, and it depends on `project`
+because the mandate keeps two of the fields the screen edits: the role title and the one target date
+(V8). Nothing else depends on it, except `project`'s `ReportService`, which still reads the position
+repository directly for the report's salary band — a known reverse edge left standing rather than
+disguised as a seam, and the reason to lift the report into its own package.
 
 `strategy` and `triagecompany` split one story in two, in the order a consultant works: **`strategy`
 is the market side** — the saved filter, the saved searches, the reads over the Apollo universe, and
@@ -122,7 +133,11 @@ left in place rather than dropped. A mandate's whole filter is one `jsonb` colum
 (V30 explains why). `app_lm_project_candidate` (V36) is the people half: `project_id` is the mapping and
 `triage_company_id` is nullable with **ON DELETE SET NULL** beside a snapshotted `company_name`, so
 removing a company from a mandate unmaps its executives rather than deleting them; career history and
-languages are one `profile` jsonb column for V30's reasons. Everything else (roles, hardening, grants) →
+languages are one `profile` jsonb column for V30's reasons. `app_lm_position` and its five owned-list
+tables are the brief (V7, grown by V39): every list a step edits is a child table replaced wholesale by
+its step's write, so the aggregate keeps one idiom rather than mixing rows and jsonb.
+`app_lm_position_document` holds the attached position description inline (`bytea`) — one small file per
+mandate, read back only by its own download endpoint. Everything else (roles, hardening, grants) →
 `db-ops` skill.
 
 ## Conventions (the short form)
