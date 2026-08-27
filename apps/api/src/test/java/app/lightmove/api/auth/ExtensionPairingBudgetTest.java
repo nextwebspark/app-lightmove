@@ -50,15 +50,15 @@ class ExtensionPairingBudgetTest extends FlowTestSupport {
     @DisplayName("one account's budget does not spend a colleague's")
     void oneAccountsBudgetDoesNotSpendAnothers() throws Exception {
         String firstColleague = "alok@" + domain;
-        String adminToken = createWorkspace(verifiedUser("Alok Kumar", firstColleague), "Shared Office Firm");
+        createWorkspace(verifiedUser("Alok Kumar", firstColleague), "Shared Office Firm");
+        String firstToken = login(firstColleague);
 
         String secondColleague = "priya@" + domain;
-        inviteAndAccept(adminToken, "Priya Nair", secondColleague, "MEMBER");
+        inviteAndAccept(firstToken, "Priya Nair", secondColleague, "MEMBER");
 
         // Both reach MockMvc from the same address, so were the two budgets still one figure the
         // second consultant would inherit an exhausted one — the office-NAT failure the separate
         // per-IP ceiling exists to avoid.
-        String firstToken = login(firstColleague);
         mintExtensionToken(firstToken).andExpect(status().isCreated());
         mintExtensionToken(firstToken).andExpect(status().isCreated());
         mintExtensionToken(firstToken).andExpect(status().isTooManyRequests());
