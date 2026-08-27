@@ -10,7 +10,7 @@ import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { useGridSort, type GridSort } from "../../../lib/useGridSort";
 import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
-import type { Candidate } from "../../candidates/api/types";
+import type { Candidate, CandidatesPage } from "../../candidates/api/types";
 import {
   CandidateDrawer,
   type CandidateCompanyContext,
@@ -134,11 +134,14 @@ function TriageStage() {
    *
    * <p>Disabled until the companies land: firing with no ids would either ask for the whole mandate
    * or answer nothing, and both are wrong for a page that does not exist yet.
+   *
+   * <p>No size is named. The server sizes a company-filtered read at its own ceiling, which is a
+   * number this side must not try to guess — see {@link candidatesApi.getCandidates}.
    */
   const mappedPeople = useQuery({
     queryKey: candidatesApi.CANDIDATES_KEY(project.id, { triageCompanyIds: companyIds }),
     queryFn: ({ signal }) =>
-      candidatesApi.getCandidates(project.id, { triageCompanyIds: companyIds }, PAGE_SIZE * 4, signal),
+      candidatesApi.getCandidates(project.id, { triageCompanyIds: companyIds }, signal),
     enabled: companyIds.length > 0,
     placeholderData: keepPreviousData,
   });
@@ -155,7 +158,7 @@ function TriageStage() {
   const unmappedPeople = useQuery({
     queryKey: candidatesApi.CANDIDATES_KEY(project.id, { unmapped: true }),
     queryFn: ({ signal }) =>
-      candidatesApi.getCandidates(project.id, { unmapped: true }, PAGE_SIZE, signal),
+      candidatesApi.getCandidates(project.id, { unmapped: true }, signal),
     enabled: stage.status === "inUniverse" && !debouncedQuery && page === lastPage,
   });
 
@@ -168,6 +171,19 @@ function TriageStage() {
       ),
     [companies.data, mappedPeople.data, unmappedPeople.data],
   );
+
+  /**
+   * What the two people reads could not fit. Both are capped by the server, and a mapping that ran
+   * past the cap would otherwise render fewer lines per company with nothing saying so — a talent map
+   * that looks complete and is not, on the screen whose whole job is showing what has been mapped.
+   *
+   * <p>Stated rather than hidden, for the same reason `totalLabel` below refuses to print a count it
+   * has not read yet.
+   */
+  const unlisted = [
+    peopleNotShown(mappedPeople.data, "at these companies"),
+    peopleNotShown(unmappedPeople.data, "with no company in this mandate"),
+  ].filter((line): line is string => line !== null);
 
   /**
    * Every write invalidates the whole prefix rather than this stage's key. A move changes two stages
@@ -295,6 +311,12 @@ function TriageStage() {
           canWrite={canWrite}
         />
 
+        {unlisted.map((line) => (
+          <p key={line} role="status" className="flex-none font-mono text-[11.5px] text-text3">
+            {line}
+          </p>
+        ))}
+
         <PaginationBar page={page} size={PAGE_SIZE} totalCount={totalCount} onPage={setPage} />
       </div>
 
@@ -346,6 +368,16 @@ function TriageStage() {
       />
     </div>
   );
+}
+
+/**
+ * One line naming what a capped read left out, or null when it left nothing out. `totalCount` is the
+ * server's count of everything matching, so the gap between it and what arrived is exactly the number
+ * of people this page cannot show.
+ */
+function peopleNotShown(page: CandidatesPage | undefined, where: string): string | null {
+  if (!page || page.totalCount <= page.candidates.length) return null;
+  return `Showing ${page.candidates.length} of ${page.totalCount} executives ${where}.`;
 }
 
 /**

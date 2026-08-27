@@ -148,8 +148,12 @@ public class TriageCompany extends BaseEntity {
         this.shortDescription = details.shortDescription();
     }
 
-    /** True for a company the mandate supplied itself, which is the only kind it may rewrite. */
-    public boolean isSuppliedByTheMandate() {
+    /**
+     * True for a company the mandate supplied itself, which is the only kind it may rewrite. The SPA's
+     * Companies panel names this predicate identically and derives its Edit button from it — one
+     * invariant, one name, on both sides of the wire.
+     */
+    public boolean isMandateSupplied() {
         return source != TriageCompanySource.STRATEGY;
     }
 

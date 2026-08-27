@@ -34,13 +34,21 @@ export const CANDIDATES_KEY = (projectId: string, scope: CandidateQuery) =>
     scope.query ?? "",
   ] as const;
 
+/**
+ * `size` is deliberately optional, and the Companies grid names none.
+ *
+ * <p>A client that computes its own size has to know the server's ceiling to stay under it, and the
+ * grid's first attempt at that — a multiple of its own page size — landed exactly on
+ * `company.list.max-page-size`. Lowering that deployment knob would have made every Companies page
+ * 400 on this read. Omitted, the server sizes a company-filtered read at its own maximum and says in
+ * `totalCount` whether that was enough.
+ */
 export function getCandidates(
   projectId: string,
   scope: CandidateQuery,
-  size: number,
   signal?: AbortSignal,
 ): Promise<CandidatesPage> {
-  const params = new URLSearchParams({ size: String(size) });
+  const params = new URLSearchParams();
   // Repeated rather than comma-joined: Spring binds a repeated parameter to a List without anyone
   // having to agree on a separator that a UUID could never contain but a future id might.
   scope.triageCompanyIds?.forEach((id) => params.append("triageCompanyId", id));

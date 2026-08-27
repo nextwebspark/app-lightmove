@@ -40,12 +40,18 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
      * different things on either side of the mapping — V36's two partial unique indexes draw the same
      * line in the schema.
      *
+     * <p>The company-scoped one carries the project id too, even though a company already belongs to
+     * exactly one project. Without it the guard is scoped only by whatever proved the company first,
+     * which is a property of the calling order rather than of this query — and the class doc above
+     * promises a reader something stronger than that.
+     *
      * <p>Lists rather than {@code exists}, so an edit can exclude the row being edited: renaming
      * someone must not collide with themselves. A list rather than {@code Optional} for the reason the
      * triage repository spells out — nothing stops two rows sharing a name if an index was added after
      * the data, and a single-result finder would turn the 409 this guard exists to raise into a 500.
      */
-    List<Candidate> findByTriageCompanyIdAndFullNameIgnoreCase(UUID triageCompanyId, String fullName);
+    List<Candidate> findByProjectIdAndTriageCompanyIdAndFullNameIgnoreCase(
+            UUID projectId, UUID triageCompanyId, String fullName);
 
     List<Candidate> findByProjectIdAndTriageCompanyIdIsNullAndFullNameIgnoreCase(
             UUID projectId, String fullName);

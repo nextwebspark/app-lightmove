@@ -179,7 +179,13 @@ export function CompanyDrawer({
   // A company the mandate supplied itself is the mandate's to rewrite; one taken from the market is
   // the export's. Keyed on `source` and not on `apolloAccountId`, because that is the test the server
   // applies — and the two can disagree, which would put an Edit button on a row the API then refuses.
-  const isEditable = company !== null && company.source !== "strategy";
+  //
+  // Named for the invariant rather than for what this screen concludes from it, and named identically
+  // to `TriageCompany.isMandateSupplied` on the server: one rule with two names across the wire is how
+  // the apolloAccountId/source split above happened in the first place. Editing is that rule plus a
+  // permission, which is what `canEdit` says.
+  const isMandateSupplied = company !== null && company.source !== "strategy";
+  const canEdit = isMandateSupplied && canWrite;
   const label = company ? company.companyName : "Add a company";
 
   return (
@@ -212,7 +218,7 @@ export function CompanyDrawer({
                   .join(" · ") || "Nothing recorded about where it sits"}
               </p>
             </div>
-            {isEditable && canWrite && !editing && (
+            {canEdit && !editing && (
               <Button type="button" variant="secondary" onClick={() => setEditing(true)}>
                 <Icon d={ICONS.pencil} size={14} />
                 Edit
@@ -294,7 +300,7 @@ export function CompanyDrawer({
                   <DetailTile label="Added" value={formatInstantDate(company.addedAt)} />
                   <DetailTile label="Country" value={company.companyCountry} />
                 </DetailGrid>
-                {!isEditable && (
+                {!isMandateSupplied && (
                   <p className="mt-3 font-mono text-[11px]/[1.6] text-text3">
                     These fields come from the market export and are refreshed by it, so they are not
                     editable here. Your note below is yours.

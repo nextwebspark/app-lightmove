@@ -316,6 +316,48 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a company-filtered read with no size named is sized at the ceiling, not the default")
+    void aCompanyFilteredReadIsSizedAtTheCeiling() throws Exception {
+        String projectId = mandate("Read Sizing Firm");
+        String companyId = captureCompany(projectId, "Almarai");
+        mapTo(projectId, companyId, "Omar Haddad");
+
+        // The grid asks "who is at these companies?" and has no pager behind it, so naming no size
+        // means everything this endpoint will return. The SPA used to compute the number itself and
+        // landed exactly on the ceiling, which made lowering the deployment knob a 400 on every page.
+        JsonNode filtered = body(mvc.perform(get(candidatesUrl(projectId) + "?triageCompanyId=" + companyId)
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(filtered.get("size").asInt()).isEqualTo(100);
+
+        JsonNode unmapped = body(mvc.perform(get(candidatesUrl(projectId) + "?unmapped=true")
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(unmapped.get("size").asInt()).isEqualTo(100);
+
+        // No filter is a plain list and keeps the ordinary page.
+        JsonNode everyone = body(mvc.perform(get(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(everyone.get("size").asInt()).isEqualTo(25);
+    }
+
+    @Test
+    @DisplayName("an explicitly oversized page is still refused")
+    void anExplicitOversizedPageIsRefused() throws Exception {
+        String projectId = mandate("Read Sizing Refusal Firm");
+
+        // A caller that names a number is a caller that can be told the number is wrong — the same
+        // contract the companies list keeps. Only the omission is interpreted generously.
+        mvc.perform(get(candidatesUrl(projectId) + "?size=101")
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("the search box matches the person's name")
     void searchMatchesTheName() throws Exception {
         String projectId = mandate("Candidate Search Firm");

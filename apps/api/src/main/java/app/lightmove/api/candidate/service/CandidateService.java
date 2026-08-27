@@ -79,11 +79,22 @@ public class CandidateService {
      * asks for the people at exactly those, rather than for the mandate's whole roster, which grows
      * without bound as a mapping fills in. An empty list is answered without a query — it is a page
      * with no companies on it, not a request for everyone.
+     *
+     * <p><b>A caller that names no size and does name a company filter gets the ceiling, not the
+     * default.</b> Those two filters have no pager behind them: the grid is asking "who is at these
+     * companies?", and the answer's natural size is as many as this endpoint will return. The
+     * alternative had the SPA naming a size of its own, which it had computed as a multiple of its
+     * page size — and that landed exactly on {@code maxPageSize}, so lowering the deployment knob under
+     * it would have 400'd the people read on every Companies page. The client no longer names one, so
+     * it can no longer be refused for guessing this number wrong.
+     *
+     * <p>An <i>explicit</i> oversized size is still refused, which is the same contract the companies
+     * list keeps: a caller that names a number is a caller that can be told the number is wrong.
      */
     @Transactional(readOnly = true)
     public CandidatesResponse list(UUID workspaceId, UUID projectId, CandidateListCriteria criteria) {
         int page = criteria.page() == null ? 0 : criteria.page();
-        int size = criteria.size() == null ? listConfig.defaultPageSize() : criteria.size();
+        int size = criteria.size() == null ? unpagedSizeFor(criteria) : criteria.size();
         if (page < 0) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "page must not be negative");
         }
@@ -200,6 +211,16 @@ public class CandidateService {
                 .record();
     }
 
+    /**
+     * What a caller that named no size gets. A company filter means the read has no pager and wants
+     * everything it is entitled to; anything else is a plain list and takes the ordinary page.
+     */
+    private int unpagedSizeFor(CandidateListCriteria criteria) {
+        boolean filteredByCompany =
+                criteria.triageCompanyIds() != null || Boolean.TRUE.equals(criteria.unmapped());
+        return filteredByCompany ? listConfig.maxPageSize() : listConfig.defaultPageSize();
+    }
+
     private Page<Candidate> findPage(UUID projectId, CandidateListCriteria criteria,
                                      List<UUID> companyIds, String nameQuery, PageRequest pageRequest) {
         if (companyIds != null) {
@@ -244,11 +265,17 @@ public class CandidateService {
      *
      * <p>{@code selfId} is the row being edited, excluded so that saving someone without renaming them
      * does not collide with themselves.
+     *
+     * <p>Both finders carry the project id, including the one that already names a company. Scoping it
+     * by the company alone would be safe only by the order of the statements above — {@code detailsOf}
+     * proves the company belongs to the mandate before this runs — and a reorder would turn this 409
+     * into an oracle confirming another workspace's company id and a name mapped at it.
      */
     private void refuseDuplicate(UUID projectId, UUID triageCompanyId, String fullName, UUID selfId) {
         List<Candidate> sameName = triageCompanyId == null
                 ? candidates.findByProjectIdAndTriageCompanyIdIsNullAndFullNameIgnoreCase(projectId, fullName)
-                : candidates.findByTriageCompanyIdAndFullNameIgnoreCase(triageCompanyId, fullName);
+                : candidates.findByProjectIdAndTriageCompanyIdAndFullNameIgnoreCase(
+                        projectId, triageCompanyId, fullName);
 
         boolean held = sameName.stream().anyMatch(other -> !other.getId().equals(selfId));
         if (held) {

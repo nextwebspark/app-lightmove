@@ -370,7 +370,6 @@ describe("TriageStagePage", () => {
       expect(candidatesApi.getCandidates).toHaveBeenCalledWith(
         "p1",
         { triageCompanyIds: ["u1"] },
-        expect.any(Number),
         expect.anything(),
       ),
     );
@@ -429,6 +428,46 @@ describe("TriageStagePage", () => {
     // The row says where they work and that it is not a company this screen can act on.
     expect(screen.getByText("An Unlisted Holding")).toBeInTheDocument();
     expect(screen.getByText(/Not in universe/i)).toBeInTheDocument();
+  });
+
+  it("says so when the server could not fit every executive on the page", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      scope.unmapped
+        ? peopleOf([])
+        : { ...peopleOf([yasmin]), totalCount: 137 },
+    );
+    renderStage();
+
+    // A mapping that ran past the server's cap would otherwise render fewer lines with nothing saying
+    // so — a talent map that looks complete and is not.
+    expect(
+      await screen.findByText(/Showing 1 of 137 executives at these companies/i),
+    ).toBeInTheDocument();
+  });
+
+  it("says nothing when everything fitted", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin]),
+    );
+    renderStage();
+
+    await screen.findByText("Yasmin El-Sayed");
+    expect(screen.queryByText(/Showing .* of .* executives/i)).not.toBeInTheDocument();
+  });
+
+  it("names no page size of its own — the server sizes the people read", async () => {
+    renderStage();
+
+    await screen.findByText("ACWA Power");
+    // A client that computes its own size has to know the server's ceiling to stay under it, and the
+    // first attempt at that landed exactly on it.
+    await waitFor(() =>
+      expect(candidatesApi.getCandidates).toHaveBeenCalledWith(
+        "p1",
+        { triageCompanyIds: ["u1"] },
+        expect.anything(),
+      ),
+    );
   });
 
   it("opens a company as a read-only panel from its name", async () => {

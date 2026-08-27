@@ -300,7 +300,7 @@ public class TriageCompanyService {
         TriageCompany company = triaged.findByIdAndProjectId(triageCompanyId, projectId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
 
-        if (!company.isSuppliedByTheMandate()) {
+        if (!company.isMandateSupplied()) {
             throw ApiException.of(ErrorCode.TRIAGE_COMPANY_NOT_EDITABLE);
         }
 

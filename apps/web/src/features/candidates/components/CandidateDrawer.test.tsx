@@ -182,6 +182,31 @@ describe("CandidateDrawer", () => {
     expect(screen.queryByLabelText(/Full name/i)).not.toBeInTheDocument();
   });
 
+  it("will not render a stored profile URL a browser should not follow", async () => {
+    // The write-side gate is covered by `aHostileProfileUrlIsDropped` on the server. This is the other
+    // half: a value stored before that gate existed — or posted by the plugin — must not reach an href
+    // just because the render side trusted the writer.
+    renderDrawer({
+      candidate: { ...yasmin, linkedinUrl: "javascript:alert(1)" },
+      company: null,
+    });
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByText("javascript:alert(1)")).not.toBeInTheDocument();
+  });
+
+  it("renders a real profile URL as a link", async () => {
+    renderDrawer({
+      candidate: { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin" },
+      company: null,
+    });
+
+    expect(screen.getByRole("link", { name: /linkedin.com\/in\/yasmin/i })).toHaveAttribute(
+      "href",
+      "https://linkedin.com/in/yasmin",
+    );
+  });
+
   it("keeps status live while reading, without replacing the profile", async () => {
     vi.mocked(candidatesApi.changeCandidateStatus).mockResolvedValue({
       ...yasmin,

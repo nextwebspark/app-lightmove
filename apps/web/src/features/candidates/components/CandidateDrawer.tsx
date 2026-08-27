@@ -14,6 +14,7 @@ import {
 import { Drawer } from "../../../components/ui/Drawer";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { optionalNumber, optionalWebAddress } from "../../../lib/formFields";
+import { toBrowsableUrl } from "../../../lib/url";
 import * as candidatesApi from "../api/candidatesApi";
 import type {
   Candidate,
@@ -540,6 +541,7 @@ function CandidateProfile({
   onRemove?: (candidate: Candidate) => void;
 }) {
   const { compensation } = candidate;
+  const profileUrl = toBrowsableUrl(candidate.linkedinUrl);
   const total =
     (compensation.baseSalary ?? 0) +
     (compensation.bonus ?? 0) +
@@ -596,18 +598,24 @@ function CandidateProfile({
           <DetailGrid>
             <DetailTile label="Email" value={candidate.email} />
             <DetailTile label="Phone" value={candidate.phone} />
+            {/* Through `toBrowsableUrl` rather than straight into the href. Every write is already
+                gated by SuppliedText, but trusting that from the render side makes this tile the one
+                place a value stored before the gate — or posted by the browser plugin, whose
+                CandidateSource is already in the schema — could reach a browser as something it
+                should not follow. `lib/url.ts` states the rule; the grids and the company panel
+                already keep it. */}
             <DetailTile
               label="LinkedIn"
               full
               value={
-                candidate.linkedinUrl ? (
+                profileUrl ? (
                   <a
-                    href={candidate.linkedinUrl}
+                    href={profileUrl}
                     target="_blank"
                     rel="noreferrer noopener"
                     className="text-sky hover:underline"
                   >
-                    {candidate.linkedinUrl}
+                    {profileUrl}
                   </a>
                 ) : null
               }
