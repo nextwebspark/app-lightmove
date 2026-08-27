@@ -1,4 +1,4 @@
-package app.lightmove.api.project.dto;
+package app.lightmove.api.position.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;

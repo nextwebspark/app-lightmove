@@ -1,26 +1,26 @@
-package app.lightmove.api.project.service;
+package app.lightmove.api.position.service;
 
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.project.constant.CompetencyPanel;
-import app.lightmove.api.project.constant.EmploymentType;
-import app.lightmove.api.project.dto.CompetencyDto;
-import app.lightmove.api.project.dto.CriterionResponse;
-import app.lightmove.api.project.dto.PositionResponse;
-import app.lightmove.api.project.dto.PutCompetenciesRequest;
-import app.lightmove.api.project.dto.PutCriteriaRequest;
-import app.lightmove.api.project.dto.UpdatePositionRequest;
-import app.lightmove.api.project.model.CompetencyRow;
-import app.lightmove.api.project.model.Position;
-import app.lightmove.api.project.model.PositionCriterion;
-import app.lightmove.api.project.model.PositionDetails;
+import app.lightmove.api.position.constant.CompetencyPanel;
+import app.lightmove.api.position.constant.EmploymentType;
+import app.lightmove.api.position.dto.CompetencyDto;
+import app.lightmove.api.position.dto.CriterionResponse;
+import app.lightmove.api.position.dto.PositionResponse;
+import app.lightmove.api.position.dto.PutCompetenciesRequest;
+import app.lightmove.api.position.dto.PutCriteriaRequest;
+import app.lightmove.api.position.dto.UpdatePositionRequest;
+import app.lightmove.api.position.model.PositionCompetency;
+import app.lightmove.api.position.model.Position;
+import app.lightmove.api.position.model.PositionCriterion;
+import app.lightmove.api.position.model.PositionDetails;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ClientRepository;
-import app.lightmove.api.project.repository.PositionRepository;
+import app.lightmove.api.position.repository.PositionRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
-import app.lightmove.api.project.service.PositionTemplates.TemplateSeed;
+import app.lightmove.api.position.service.PositionTemplates.TemplateSeed;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.UUID;
@@ -86,9 +86,9 @@ public class PositionService {
         Brief brief = loadBrief(projectId, workspaceId);
         brief.position().replaceCompetencies(Stream.concat(
                         request.technical().stream()
-                                .map(c -> CompetencyRow.of(CompetencyPanel.TECHNICAL, c.name(), c.weight())),
+                                .map(c -> PositionCompetency.of(CompetencyPanel.TECHNICAL, c.name(), c.weight())),
                         request.behavioural().stream()
-                                .map(c -> CompetencyRow.of(CompetencyPanel.BEHAVIOURAL, c.name(), c.weight())))
+                                .map(c -> PositionCompetency.of(CompetencyPanel.BEHAVIOURAL, c.name(), c.weight())))
                 .toList());
         auditPositionChange(userId, workspaceId, projectId, "competencies", httpRequest);
         return toResponse(brief);

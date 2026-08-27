@@ -1,9 +1,9 @@
-package app.lightmove.api.project.model;
+package app.lightmove.api.position.model;
 
 import app.lightmove.api.core.persistence.model.BaseEntity;
-import app.lightmove.api.project.constant.EmploymentType;
-import app.lightmove.api.project.constant.MandateReason;
-import app.lightmove.api.project.constant.NoticeUnit;
+import app.lightmove.api.position.constant.EmploymentType;
+import app.lightmove.api.position.constant.MandateReason;
+import app.lightmove.api.position.constant.NoticeUnit;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -104,7 +104,7 @@ public class Position extends BaseEntity {
     @CollectionTable(name = "app_lm_position_competency",
             joinColumns = @JoinColumn(name = "position_id"))
     @OrderColumn(name = "sort_order")
-    private List<CompetencyRow> competencies = new ArrayList<>();
+    private List<PositionCompetency> competencies = new ArrayList<>();
 
     public static Position forProject(UUID projectId) {
         Position position = new Position();
@@ -139,7 +139,7 @@ public class Position extends BaseEntity {
         this.criteria.addAll(newCriteria);
     }
 
-    public void replaceCompetencies(List<CompetencyRow> newCompetencies) {
+    public void replaceCompetencies(List<PositionCompetency> newCompetencies) {
         this.competencies.clear();
         this.competencies.addAll(newCompetencies);
     }

@@ -1,6 +1,6 @@
-package app.lightmove.api.project.repository;
+package app.lightmove.api.position.repository;
 
-import app.lightmove.api.project.model.Position;
+import app.lightmove.api.position.model.Position;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;

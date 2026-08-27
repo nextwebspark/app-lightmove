@@ -1,6 +1,6 @@
-package app.lightmove.api.project.model;
+package app.lightmove.api.position.model;
 
-import app.lightmove.api.project.constant.CompetencyPanel;
+import app.lightmove.api.position.constant.CompetencyPanel;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.EnumType;
@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 @Embeddable
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class CompetencyRow {
+public class PositionCompetency {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "panel", nullable = false, length = 16)
@@ -28,8 +28,8 @@ public class CompetencyRow {
     @Column(name = "weight", nullable = false)
     private int weight;
 
-    public static CompetencyRow of(CompetencyPanel panel, String name, int weight) {
-        CompetencyRow row = new CompetencyRow();
+    public static PositionCompetency of(CompetencyPanel panel, String name, int weight) {
+        PositionCompetency row = new PositionCompetency();
         row.panel = panel;
         row.name = name.trim();
         row.weight = weight;

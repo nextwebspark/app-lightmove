@@ -1,11 +1,11 @@
-package app.lightmove.api.project.controller;
+package app.lightmove.api.position.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
-import app.lightmove.api.project.dto.PositionResponse;
-import app.lightmove.api.project.dto.PutCompetenciesRequest;
-import app.lightmove.api.project.dto.PutCriteriaRequest;
-import app.lightmove.api.project.dto.UpdatePositionRequest;
-import app.lightmove.api.project.service.PositionService;
+import app.lightmove.api.position.dto.PositionResponse;
+import app.lightmove.api.position.dto.PutCompetenciesRequest;
+import app.lightmove.api.position.dto.PutCriteriaRequest;
+import app.lightmove.api.position.dto.UpdatePositionRequest;
+import app.lightmove.api.position.service.PositionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;

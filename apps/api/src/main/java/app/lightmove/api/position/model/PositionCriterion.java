@@ -1,6 +1,6 @@
-package app.lightmove.api.project.model;
+package app.lightmove.api.position.model;
 
-import app.lightmove.api.project.constant.CriterionMode;
+import app.lightmove.api.position.constant.CriterionMode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.EnumType;

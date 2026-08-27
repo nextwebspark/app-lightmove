@@ -1,4 +1,4 @@
-package app.lightmove.api.project;
+package app.lightmove.api.position;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -10,7 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
-import app.lightmove.api.project.repository.PositionRepository;
+import app.lightmove.api.position.repository.PositionRepository;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

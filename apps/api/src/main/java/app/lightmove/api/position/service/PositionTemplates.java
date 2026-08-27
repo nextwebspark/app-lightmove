@@ -1,9 +1,9 @@
-package app.lightmove.api.project.service;
+package app.lightmove.api.position.service;
 
-import app.lightmove.api.project.constant.CompetencyPanel;
-import app.lightmove.api.project.constant.CriterionMode;
-import app.lightmove.api.project.model.CompetencyRow;
-import app.lightmove.api.project.model.PositionCriterion;
+import app.lightmove.api.position.constant.CompetencyPanel;
+import app.lightmove.api.position.constant.CriterionMode;
+import app.lightmove.api.position.model.PositionCompetency;
+import app.lightmove.api.position.model.PositionCriterion;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
@@ -29,7 +29,7 @@ final class PositionTemplates {
             String reportsTo,
             String narrative,
             List<PositionCriterion> criteria,
-            List<CompetencyRow> competencies
+            List<PositionCompetency> competencies
     ) {
     }
 
@@ -54,20 +54,20 @@ final class PositionTemplates {
         return PositionCriterion.of(text, CriterionMode.PREFERRED, true);
     }
 
-    private static List<CompetencyRow> panels(List<CompetencyRow> technical, List<CompetencyRow> behavioural) {
+    private static List<PositionCompetency> panels(List<PositionCompetency> technical, List<PositionCompetency> behavioural) {
         return Stream.concat(technical.stream(), behavioural.stream()).toList();
     }
 
-    private static CompetencyRow tech(String name, int weight) {
-        return CompetencyRow.of(CompetencyPanel.TECHNICAL, name, weight);
+    private static PositionCompetency tech(String name, int weight) {
+        return PositionCompetency.of(CompetencyPanel.TECHNICAL, name, weight);
     }
 
-    private static CompetencyRow beh(String name, int weight) {
-        return CompetencyRow.of(CompetencyPanel.BEHAVIOURAL, name, weight);
+    private static PositionCompetency beh(String name, int weight) {
+        return PositionCompetency.of(CompetencyPanel.BEHAVIOURAL, name, weight);
     }
 
     /** The shared behavioural backbone — executive searches weight leadership traits similarly. */
-    private static List<CompetencyRow> executiveBehaviours() {
+    private static List<PositionCompetency> executiveBehaviours() {
         return List.of(
                 beh("Strategic Leadership", 30),
                 beh("Stakeholder Influence", 25),

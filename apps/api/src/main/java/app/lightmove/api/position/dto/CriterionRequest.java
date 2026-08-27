@@ -1,6 +1,6 @@
-package app.lightmove.api.project.dto;
+package app.lightmove.api.position.dto;
 
-import app.lightmove.api.project.constant.CriterionMode;
+import app.lightmove.api.position.constant.CriterionMode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;

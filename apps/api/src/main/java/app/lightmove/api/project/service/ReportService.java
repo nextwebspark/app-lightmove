@@ -6,8 +6,8 @@ import app.lightmove.api.project.dto.BreakdownDto;
 import app.lightmove.api.project.dto.CompensationBandDto;
 import app.lightmove.api.project.dto.ReportResponse;
 import app.lightmove.api.project.dto.ScopeCaveatsDto;
-import app.lightmove.api.project.model.Position;
-import app.lightmove.api.project.repository.PositionRepository;
+import app.lightmove.api.position.model.Position;
+import app.lightmove.api.position.repository.PositionRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.strategy.constant.RevenueBand;
 import app.lightmove.api.strategy.model.CompanyScope;
@@ -44,6 +44,12 @@ import org.springframework.transaction.annotation.Transactional;
  * wide: {@link StrategyService#scopeOf} hands back the resolved scope, so the report never learns how
  * a filter is stored, validated or translated. The universe read beside it crosses into the same
  * feature, and is the same shape of seam: one public method over {@code strategy}'s own records.
+ *
+ * <p>The band beside them is not that shape yet. This class reads {@code position}'s repository and
+ * entity directly, which is a feature reaching into another feature's internals in the one direction
+ * {@code position} already depends on back. It is left standing rather than papered over: the report
+ * composes three features and belongs to none of them, so the fix is to lift it out of {@code project}
+ * into its own package, not to add a seam method that makes the cycle look intentional.
  */
 @Service
 @RequiredArgsConstructor
@@ -58,6 +64,7 @@ public class ReportService {
     // The one thing this feature needs from strategy: the scope a mandate's saved filter defines.
     // A single public method, so the report never learns how a filter is stored or resolved.
     private final StrategyService strategy;
+    // Reached into directly rather than through a seam — see the class doc.
     private final PositionRepository positions;
     private final ApolloCompanyQueryService companies;
 

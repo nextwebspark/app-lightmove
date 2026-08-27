@@ -13,6 +13,7 @@ import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.position.service.PositionService;
 import app.lightmove.api.project.constant.ProjectHealth;
 import app.lightmove.api.project.dto.AttachedRepresentativeResponse;
 import app.lightmove.api.project.dto.CreateProjectRequest;

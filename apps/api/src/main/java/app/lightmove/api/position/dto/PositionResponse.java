@@ -1,8 +1,8 @@
-package app.lightmove.api.project.dto;
+package app.lightmove.api.position.dto;
 
-import app.lightmove.api.project.constant.EmploymentType;
-import app.lightmove.api.project.constant.MandateReason;
-import app.lightmove.api.project.constant.NoticeUnit;
+import app.lightmove.api.position.constant.EmploymentType;
+import app.lightmove.api.position.constant.MandateReason;
+import app.lightmove.api.position.constant.NoticeUnit;
 import java.time.LocalDate;
 import java.util.List;
 

@@ -1,4 +1,4 @@
-package app.lightmove.api.project.dto;
+package app.lightmove.api.position.dto;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

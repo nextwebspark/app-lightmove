@@ -1,4 +1,4 @@
-package app.lightmove.api.project.constant;
+package app.lightmove.api.position.constant;
 
 /** The employment arrangement of a mandate — a closed set, mirrored by the Position screen's select. */
 public enum EmploymentType {
