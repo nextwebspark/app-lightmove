@@ -39,8 +39,12 @@ export function KeywordFilter({
   const taken = new Set(selected);
   // `settled` and not `data` alone: keepPreviousData keeps serving the last query's rows after the
   // box is cleared, so without this the list reopens itself over an empty input.
+  // The server picks *which* keywords answer the query, by how much of the universe each reaches;
+  // the box shows that page A to Z, so the eye can find a word in it rather than read all of it.
   const offered = isSearchable
-    ? (data?.keywords ?? []).filter((keyword) => !taken.has(keyword.value))
+    ? (data?.keywords ?? [])
+        .filter((keyword) => !taken.has(keyword.value))
+        .sort((first, second) => first.label.localeCompare(second.label))
     : [];
 
   const toggleIncludingKeywords = () => {
