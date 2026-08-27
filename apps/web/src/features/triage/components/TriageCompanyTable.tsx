@@ -1,11 +1,14 @@
 import {
   useTable,
+  type ColumnOrderState,
   type ColumnVisibilityState,
   type OnChangeFn,
   type SortingState,
+  type Updater,
 } from "@tanstack/react-table";
 import { useMemo } from "react";
 import { DataGrid } from "../../../components/ui/DataGrid";
+import type { GridLayout } from "../../../lib/useGridLayout";
 import type { GridSort } from "../../../lib/useGridSort";
 import type { Candidate } from "../../candidates/api/types";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
@@ -38,6 +41,8 @@ export function TriageCompanyTable({
   onSortChange,
   columnVisibility,
   onColumnVisibilityChange,
+  layout,
+  onLayoutChange,
   loading,
   error,
   emptyMessage,
@@ -55,6 +60,8 @@ export function TriageCompanyTable({
   onSortChange: (sort: GridSort<TriageSortField>) => void;
   columnVisibility: ColumnVisibilityState;
   onColumnVisibilityChange: OnChangeFn<ColumnVisibilityState>;
+  layout: GridLayout;
+  onLayoutChange: (layout: GridLayout) => void;
   loading: boolean;
   error: boolean;
   emptyMessage: string;
@@ -81,7 +88,7 @@ export function TriageCompanyTable({
     manualSorting: true,
     enableMultiSort: false,
     enableSortingRemoval: false,
-    state: { sorting, columnVisibility },
+    state: { sorting, columnVisibility, columnOrder: layout.order },
     onSortingChange: (updater) => {
       const next = typeof updater === "function" ? updater(sorting) : updater;
       const [first] = next;
@@ -92,6 +99,10 @@ export function TriageCompanyTable({
       });
     },
     onColumnVisibilityChange,
+    onColumnOrderChange: (updater: Updater<ColumnOrderState>) => {
+      const order = typeof updater === "function" ? updater(layout.order) : updater;
+      onLayoutChange({ ...layout, order });
+    },
     meta: { onMove, onDelete, onAddExecutive, onEditCandidate, onOpenCompany, busyId, canWrite },
   });
 
@@ -99,6 +110,8 @@ export function TriageCompanyTable({
     <DataGrid
       table={table}
       label={label}
+      layout={layout}
+      onLayoutChange={onLayoutChange}
       loading={loading}
       error={error}
       errorMessage="That list could not be loaded. Refresh, or check you still have access to this mandate."

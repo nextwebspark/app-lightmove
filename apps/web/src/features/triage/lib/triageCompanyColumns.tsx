@@ -1,4 +1,5 @@
 import {
+  columnOrderingFeature,
   columnPinningFeature,
   columnVisibilityFeature,
   createColumnHelper,
@@ -48,6 +49,7 @@ interface TriageTableMeta {
  * three features Strategy registers, because it is the same grid.
  */
 export const triageTableFeatures = tableFeatures({
+  columnOrderingFeature,
   columnPinningFeature,
   columnVisibilityFeature,
   rowSortingFeature,
