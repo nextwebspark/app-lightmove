@@ -2,27 +2,29 @@ package app.lightmove.api.position.service;
 
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
-import app.lightmove.api.core.error.constant.ErrorCode;
-import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.position.constant.CompetencyPanel;
-import app.lightmove.api.position.constant.EmploymentType;
-import app.lightmove.api.position.dto.CompetencyDto;
-import app.lightmove.api.position.dto.CriterionResponse;
 import app.lightmove.api.position.dto.PositionResponse;
+import app.lightmove.api.position.dto.PutCompensationRequest;
 import app.lightmove.api.position.dto.PutCompetenciesRequest;
 import app.lightmove.api.position.dto.PutCriteriaRequest;
-import app.lightmove.api.position.dto.UpdatePositionRequest;
-import app.lightmove.api.position.model.PositionCompetency;
+import app.lightmove.api.position.dto.PutMandateContextRequest;
+import app.lightmove.api.position.dto.PutPositionDetailsRequest;
+import app.lightmove.api.position.dto.PutReportingStructureRequest;
+import app.lightmove.api.position.model.CompensationPackage;
+import app.lightmove.api.position.model.MandateContext;
 import app.lightmove.api.position.model.Position;
+import app.lightmove.api.position.model.PositionBenefit;
+import app.lightmove.api.position.model.PositionCompetency;
 import app.lightmove.api.position.model.PositionCriterion;
 import app.lightmove.api.position.model.PositionDetails;
-import app.lightmove.api.project.model.Project;
-import app.lightmove.api.project.repository.ClientRepository;
-import app.lightmove.api.position.repository.PositionRepository;
-import app.lightmove.api.project.repository.ProjectRepository;
-import app.lightmove.api.position.service.PositionTemplates.TemplateSeed;
+import app.lightmove.api.position.model.PositionDirectReport;
+import app.lightmove.api.position.model.ReportingStructure;
+import app.lightmove.api.position.constant.StrategicPriority;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
@@ -30,141 +32,174 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The position brief behind a project. Seeded from {@link PositionTemplates} when the project is
- * created (and lazily on first read, for projects that predate the position tables). Every load is
- * scoped through the project's {@code (id, workspaceId)} lookup — the workspace id comes from the
- * principal, so a foreign project 404s before any position row is touched.
+ * The position brief behind a mandate: one read, one write per wizard step, and the publication stamp.
  *
- * <p>Writes are deliberately lenient — autosave must be free to persist a half-balanced panel.
+ * <p><b>A step is the write unit because a step is the edit unit.</b> The screen has no Save button —
+ * it autosaves whatever section is in front of the consultant — so a single whole-document write would
+ * resend five untouched steps on every keystroke, and one slip in serialising any of them would blank
+ * a section nobody was editing.
+ *
+ * <p><b>Writes are deliberately lenient.</b> Autosave must be free to persist a half-typed step, so
+ * nothing here refuses a band whose minimum exceeds its maximum or a panel that does not total 100.
+ * Those are readings the screen offers, not conditions of storing what somebody wrote down.
+ *
+ * <p>Two of the fields the screen edits are the mandate's, not the brief's — the role title and the one
+ * target date (V8) — so those two steps write through to the project row they are loaded with.
  */
 @Service
 @RequiredArgsConstructor
 public class PositionService {
 
-    private final PositionRepository positions;
-    private final ProjectRepository projects;
-    private final ClientRepository clients;
+    private final PositionBriefLoader briefs;
+    private final PositionResponseAssembler assembler;
     private final AuditService audit;
 
     @Transactional
     public PositionResponse get(UUID workspaceId, UUID projectId) {
-        return toResponse(loadBrief(projectId, workspaceId));
+        return assembler.assemble(briefs.require(workspaceId, projectId));
     }
 
     @Transactional
-    public PositionResponse update(UUID userId, UUID workspaceId, UUID projectId,
-                                   UpdatePositionRequest request, HttpServletRequest httpRequest) {
-        Brief brief = loadBrief(projectId, workspaceId);
-        brief.position().apply(new PositionDetails(
-                request.mandateReason(), request.internalContext(), request.narrative(),
-                request.reportsTo(), request.directReports(), request.teamSize(),
-                request.location(), request.employmentType(),
-                request.salaryMin(), request.salaryMax(), request.currency(),
-                request.noticeValue(), request.noticeUnit(), request.bonusTargetPct(), request.ltip(),
-                request.benefits() == null ? List.of() : request.benefits(),
-                request.confidential()));
-        // The mandate's one target date lives on the project — the screen's "Target start" writes here.
-        brief.project().setTargetDate(request.startTarget());
-        auditPositionChange(userId, workspaceId, projectId, "details", httpRequest);
-        return toResponse(brief);
+    public PositionResponse putDetails(UUID userId, UUID workspaceId, UUID projectId,
+                                       PutPositionDetailsRequest request, HttpServletRequest httpRequest) {
+        PositionBrief brief = briefs.require(workspaceId, projectId);
+        brief.position().applyDetails(new PositionDetails(
+                request.department(), request.location(), request.employmentType(),
+                request.seniority(), orEmpty(request.responsibilities()), request.narrative()));
+        // The mandate keeps one role title, on the project — the step's "Role title" writes it there.
+        brief.project().rename(request.roleTitle());
+        return saved(brief, userId, workspaceId, projectId, "details", httpRequest);
+    }
+
+    @Transactional
+    public PositionResponse putContext(UUID userId, UUID workspaceId, UUID projectId,
+                                       PutMandateContextRequest request, HttpServletRequest httpRequest) {
+        PositionBrief brief = briefs.require(workspaceId, projectId);
+        brief.position().applyContext(new MandateContext(
+                request.mandateReason(), request.businessDriver(),
+                prioritiesOf(request.strategicPriorities()), request.hiringUrgency(),
+                request.confidential(), request.internalContext()));
+        return saved(brief, userId, workspaceId, projectId, "context", httpRequest);
+    }
+
+    @Transactional
+    public PositionResponse putReporting(UUID userId, UUID workspaceId, UUID projectId,
+                                         PutReportingStructureRequest request, HttpServletRequest httpRequest) {
+        PositionBrief brief = briefs.require(workspaceId, projectId);
+        brief.position().applyReporting(new ReportingStructure(
+                request.reportsToName(), request.reportsTo(),
+                orEmpty(request.directReports()).stream()
+                        .map(report -> PositionDirectReport.of(report.title(), report.name()))
+                        .toList(),
+                request.teamSize(), request.noticeValue(), request.noticeUnit()));
+        // The mandate keeps one target date, on the project — the step's "Target start" writes it there.
+        brief.project().setTargetDate(request.targetStart());
+        return saved(brief, userId, workspaceId, projectId, "reporting", httpRequest);
+    }
+
+    @Transactional
+    public PositionResponse putCompensation(UUID userId, UUID workspaceId, UUID projectId,
+                                            PutCompensationRequest request, HttpServletRequest httpRequest) {
+        PositionBrief brief = briefs.require(workspaceId, projectId);
+        brief.position().applyCompensation(new CompensationPackage(
+                request.currency(), request.salaryMin(), request.salaryMax(), request.baseSalaryMode(),
+                request.bonusValue(), request.bonusBasis(),
+                request.incentiveType(), request.incentiveAmount(), request.incentiveVesting(),
+                orEmpty(request.benefits()).stream()
+                        .map(benefit -> PositionBenefit.of(
+                                benefit.name(), benefit.amount(), benefit.frequency()))
+                        .toList()));
+        return saved(brief, userId, workspaceId, projectId, "compensation", httpRequest);
     }
 
     @Transactional
     public PositionResponse putCriteria(UUID userId, UUID workspaceId, UUID projectId,
                                         PutCriteriaRequest request, HttpServletRequest httpRequest) {
-        Brief brief = loadBrief(projectId, workspaceId);
+        PositionBrief brief = briefs.require(workspaceId, projectId);
         brief.position().replaceCriteria(request.criteria().stream()
-                .map(c -> PositionCriterion.of(c.text(), c.mode(), c.fromBrief()))
+                .map(criterion -> PositionCriterion.of(
+                        criterion.text(), criterion.mode(), criterion.fromBrief()))
                 .toList());
-        auditPositionChange(userId, workspaceId, projectId, "criteria", httpRequest);
-        return toResponse(brief);
+        return saved(brief, userId, workspaceId, projectId, "criteria", httpRequest);
     }
 
     @Transactional
     public PositionResponse putCompetencies(UUID userId, UUID workspaceId, UUID projectId,
                                             PutCompetenciesRequest request, HttpServletRequest httpRequest) {
-        Brief brief = loadBrief(projectId, workspaceId);
+        PositionBrief brief = briefs.require(workspaceId, projectId);
         brief.position().replaceCompetencies(Stream.concat(
                         request.technical().stream()
-                                .map(c -> PositionCompetency.of(CompetencyPanel.TECHNICAL, c.name(), c.weight())),
+                                .map(competency -> PositionCompetency.of(CompetencyPanel.TECHNICAL,
+                                        competency.name(), competency.description(), competency.weight())),
                         request.behavioural().stream()
-                                .map(c -> PositionCompetency.of(CompetencyPanel.BEHAVIOURAL, c.name(), c.weight())))
+                                .map(competency -> PositionCompetency.of(CompetencyPanel.BEHAVIOURAL,
+                                        competency.name(), competency.description(), competency.weight())))
                 .toList());
-        auditPositionChange(userId, workspaceId, projectId, "competencies", httpRequest);
-        return toResponse(brief);
+        return saved(brief, userId, workspaceId, projectId, "competencies", httpRequest);
     }
 
     /**
-     * Seeds the brief from the template matched on the project's position title, prefilled with the
-     * client's HQ country as the location. Called by {@code ProjectService.create} and by the lazy
-     * path in {@link #get} for pre-V7 projects.
+     * Records that somebody declared the brief ready. Not a lock — V38 retired that — so every step
+     * above stays writable afterwards, and republishing keeps the original stamp rather than moving it.
      */
     @Transactional
-    public Position seedFor(Project project) {
-        TemplateSeed seed = PositionTemplates.forTitle(project.getPositionTitle());
-        String location = clients.findByIdAndWorkspaceId(project.getClientId(), project.getWorkspaceId())
-                .map(client -> client.getHqCountry())
-                .orElse(null);
-
-        Position position = Position.forProject(project.getId());
-        position.apply(new PositionDetails(
-                position.getMandateReason(), null, seed.narrative(),
-                seed.reportsTo(), null, null,
-                location, EmploymentType.FULL_TIME_PERMANENT,
-                null, null, "USD",
-                null, null, null, null,
-                List.of(), false));
-        position.replaceCriteria(seed.criteria());
-        position.replaceCompetencies(seed.competencies());
-        return positions.save(position);
+    public PositionResponse publish(UUID userId, UUID workspaceId, UUID projectId,
+                                    HttpServletRequest httpRequest) {
+        PositionBrief brief = briefs.require(workspaceId, projectId);
+        boolean wasAlreadyPublished = brief.position().isPublished();
+        brief.position().publish(userId);
+        if (!wasAlreadyPublished) {
+            auditChange(ProjectEventType.POSITION_PUBLISHED, userId, workspaceId, projectId, null, httpRequest);
+        }
+        return assembler.assemble(brief);
     }
 
-    /** The project and its brief together — the target date lives on the project, so both are loaded. */
-    private Brief loadBrief(UUID projectId, UUID workspaceId) {
-        Project project = requireProject(projectId, workspaceId);
-        Position position = positions.findByProjectId(project.getId())
-                .orElseGet(() -> seedFor(project));
-        return new Brief(project, position);
+    @Transactional
+    public PositionResponse withdrawPublication(UUID userId, UUID workspaceId, UUID projectId,
+                                                HttpServletRequest httpRequest) {
+        PositionBrief brief = briefs.require(workspaceId, projectId);
+        if (brief.position().isPublished()) {
+            brief.position().withdrawPublication();
+            auditChange(ProjectEventType.POSITION_PUBLICATION_WITHDRAWN,
+                    userId, workspaceId, projectId, null, httpRequest);
+        }
+        return assembler.assemble(brief);
     }
 
-    private Project requireProject(UUID projectId, UUID workspaceId) {
-        return projects.findByIdAndWorkspaceId(projectId, workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    /**
+     * Drafts the brief for a mandate that has just been created, from the template matched on its role
+     * title. Takes primitives rather than the {@code Project} it belongs to: the mandate is
+     * {@code project}'s to own, and a brief only needs three facts about it.
+     */
+    @Transactional
+    public Position seedFor(UUID projectId, String positionTitle, String location) {
+        return briefs.draft(projectId, positionTitle, location);
     }
 
-    private record Brief(Project project, Position position) {
+    private PositionResponse saved(PositionBrief brief, UUID userId, UUID workspaceId, UUID projectId,
+                                   String section, HttpServletRequest httpRequest) {
+        auditChange(ProjectEventType.POSITION_UPDATED, userId, workspaceId, projectId, section, httpRequest);
+        return assembler.assemble(brief);
     }
 
-    private void auditPositionChange(UUID userId, UUID workspaceId, UUID projectId,
-                                     String section, HttpServletRequest httpRequest) {
-        audit.event(ProjectEventType.POSITION_UPDATED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
-                .detail("section", section)
-                .record();
+    private void auditChange(ProjectEventType event, UUID userId, UUID workspaceId, UUID projectId,
+                             String section, HttpServletRequest httpRequest) {
+        AuditService.Builder entry = audit.event(event)
+                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest);
+        if (section != null) {
+            entry.detail("section", section);
+        }
+        entry.record();
     }
 
-    private PositionResponse toResponse(Brief brief) {
-        Position position = brief.position();
-        return new PositionResponse(
-                position.getMandateReason(), position.getInternalContext(), position.getNarrative(),
-                position.getReportsTo(), position.getDirectReports(), position.getTeamSize(),
-                position.getLocation(), position.getEmploymentType(), brief.project().getTargetDate(),
-                position.getSalaryMin(), position.getSalaryMax(), position.getCurrency(),
-                position.getNoticeValue(), position.getNoticeUnit(), position.getBonusTargetPct(),
-                position.getLtip(),
-                List.copyOf(position.getBenefits()),
-                position.isConfidential(),
-                position.getCriteria().stream()
-                        .map(c -> new CriterionResponse(c.getText(), c.getMode(), c.isFromBrief()))
-                        .toList(),
-                panelDtos(position, CompetencyPanel.TECHNICAL),
-                panelDtos(position, CompetencyPanel.BEHAVIOURAL));
+    /** An absent set and an empty one mean the same thing here: nothing selected. */
+    private static Set<StrategicPriority> prioritiesOf(Collection<StrategicPriority> selected) {
+        return selected == null || selected.isEmpty()
+                ? EnumSet.noneOf(StrategicPriority.class)
+                : EnumSet.copyOf(selected);
     }
 
-    private static List<CompetencyDto> panelDtos(Position position, CompetencyPanel panel) {
-        return position.getCompetencies().stream()
-                .filter(row -> row.getPanel() == panel)
-                .map(row -> new CompetencyDto(row.getName(), row.getWeight()))
-                .toList();
+    private static <T> List<T> orEmpty(List<T> values) {
+        return values == null ? List.of() : values;
     }
 }

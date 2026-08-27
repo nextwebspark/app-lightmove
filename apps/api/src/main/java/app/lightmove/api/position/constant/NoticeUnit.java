@@ -2,6 +2,7 @@ package app.lightmove.api.position.constant;
 
 /** The unit a notice period is stated in — paired with a count on the position brief. */
 public enum NoticeUnit {
+    DAYS,
     WEEKS,
     MONTHS
 }

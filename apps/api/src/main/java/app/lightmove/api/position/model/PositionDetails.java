@@ -1,33 +1,21 @@
 package app.lightmove.api.position.model;
 
 import app.lightmove.api.position.constant.EmploymentType;
-import app.lightmove.api.position.constant.MandateReason;
-import app.lightmove.api.position.constant.NoticeUnit;
+import app.lightmove.api.position.constant.PositionSeniority;
 import java.util.List;
 
 /**
- * The scalar snapshot of a position brief — everything outside the criteria and competency lists.
- * Built from the update request on the autosave path, and by {@code PositionTemplates} when a new
- * project's brief is seeded. The target date is deliberately absent: the mandate keeps one target
- * date, on the project, and the position write path sets it there.
+ * Step one of the brief: what the role is. The role <i>title</i> is deliberately absent — the mandate
+ * keeps one title, on the project, and the write path sets it there for the same reason V8 gave the
+ * target date: two copies of one fact drift, and the one typed at project creation stops reaching the
+ * screen.
  */
 public record PositionDetails(
-        MandateReason mandateReason,
-        String internalContext,
-        String narrative,
-        String reportsTo,
-        Integer directReports,
-        Integer teamSize,
+        String department,
         String location,
         EmploymentType employmentType,
-        Long salaryMin,
-        Long salaryMax,
-        String currency,
-        Integer noticeValue,
-        NoticeUnit noticeUnit,
-        Integer bonusTargetPct,
-        String ltip,
-        List<String> benefits,
-        boolean confidential
+        PositionSeniority seniority,
+        List<String> responsibilities,
+        String narrative
 ) {
 }

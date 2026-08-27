@@ -5,5 +5,6 @@ public enum MandateReason {
     NEW_ROLE,
     BACKFILL,
     SUCCESSION,
-    RESTRUCTURING
+    RESTRUCTURING,
+    GROWTH_EXPANSION
 }

@@ -1,9 +1,15 @@
 package app.lightmove.api.position.model;
 
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.position.constant.BaseSalaryMode;
+import app.lightmove.api.position.constant.BonusBasis;
 import app.lightmove.api.position.constant.EmploymentType;
+import app.lightmove.api.position.constant.HiringUrgency;
+import app.lightmove.api.position.constant.IncentiveType;
 import app.lightmove.api.position.constant.MandateReason;
 import app.lightmove.api.position.constant.NoticeUnit;
+import app.lightmove.api.position.constant.PositionSeniority;
+import app.lightmove.api.position.constant.StrategicPriority;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -14,18 +20,29 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * The position brief — the mandate's role definition, 1:1 with its project. Seeded from the
- * template library at project creation and edited by the Position screen's autosave.
+ * The position brief — the mandate's role definition, 1:1 with its project. Seeded from the template
+ * library when the project is created, then edited a wizard step at a time.
  *
- * <p>The three lists are owned ordered values (replace-list writes), not entities.
+ * <p>One apply method per step, rather than one taking the whole document. That is not tidiness: the
+ * brief holds six adjacent {@code Long} salary and incentive figures, two {@code Integer} counts and
+ * several same-typed strings, and a single positional constructor over all of them is a transposition
+ * the compiler cannot see. A step-shaped record can only be filled from its own step.
+ *
+ * <p>Publishing stamps who declared the brief ready and when. It is not a lock — V38 retired that —
+ * so every write above stays available afterwards.
  */
 @Entity
 @Table(name = "app_lm_position")
@@ -36,24 +53,10 @@ public class Position extends BaseEntity {
     @Column(name = "project_id", nullable = false, updatable = false)
     private UUID projectId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "mandate_reason", nullable = false, length = 32)
-    private MandateReason mandateReason = MandateReason.NEW_ROLE;
+    // ── Step 1 · Position details ───────────────────────────────────────────
 
-    @Column(name = "internal_context")
-    private String internalContext;
-
-    @Column(name = "narrative")
-    private String narrative;
-
-    @Column(name = "reports_to", length = 160)
-    private String reportsTo;
-
-    @Column(name = "direct_reports")
-    private Integer directReports;
-
-    @Column(name = "team_size")
-    private Integer teamSize;
+    @Column(name = "department", length = 160)
+    private String department;
 
     @Column(name = "location", length = 120)
     private String location;
@@ -62,14 +65,62 @@ public class Position extends BaseEntity {
     @Column(name = "employment_type", length = 80)
     private EmploymentType employmentType;
 
-    @Column(name = "salary_min")
-    private Long salaryMin;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "seniority", length = 16)
+    private PositionSeniority seniority;
 
-    @Column(name = "salary_max")
-    private Long salaryMax;
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "app_lm_position_responsibility",
+            joinColumns = @JoinColumn(name = "position_id"))
+    @OrderColumn(name = "sort_order")
+    @Column(name = "text", nullable = false, length = 200)
+    private List<String> responsibilities = new ArrayList<>();
 
-    @Column(name = "currency", nullable = false, length = 3)
-    private String currency = "USD";
+    @Column(name = "narrative")
+    private String narrative;
+
+    // ── Step 2 · Mandate context ────────────────────────────────────────────
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mandate_reason", nullable = false, length = 32)
+    private MandateReason mandateReason = MandateReason.NEW_ROLE;
+
+    @Column(name = "business_driver")
+    private String businessDriver;
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "app_lm_position_priority",
+            joinColumns = @JoinColumn(name = "position_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "priority", nullable = false, length = 32)
+    private Set<StrategicPriority> strategicPriorities = EnumSet.noneOf(StrategicPriority.class);
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "hiring_urgency", nullable = false, length = 16)
+    private HiringUrgency hiringUrgency = HiringUrgency.STANDARD;
+
+    @Column(name = "confidential", nullable = false)
+    private boolean confidential;
+
+    @Column(name = "internal_context")
+    private String internalContext;
+
+    // ── Step 3 · Reporting structure ────────────────────────────────────────
+
+    @Column(name = "reports_to_name", length = 160)
+    private String reportsToName;
+
+    @Column(name = "reports_to", length = 160)
+    private String reportsTo;
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "app_lm_position_direct_report",
+            joinColumns = @JoinColumn(name = "position_id"))
+    @OrderColumn(name = "sort_order")
+    private List<PositionDirectReport> directReports = new ArrayList<>();
+
+    @Column(name = "team_size", length = 160)
+    private String teamSize;
 
     @Column(name = "notice_value")
     private Integer noticeValue;
@@ -78,21 +129,45 @@ public class Position extends BaseEntity {
     @Column(name = "notice_unit", length = 8)
     private NoticeUnit noticeUnit;
 
-    @Column(name = "bonus_target_pct")
-    private Integer bonusTargetPct;
+    // ── Step 4 · Compensation package ───────────────────────────────────────
 
-    @Column(name = "ltip", length = 160)
-    private String ltip;
+    @Column(name = "currency", nullable = false, length = 3)
+    private String currency = "USD";
 
-    @Column(name = "confidential", nullable = false)
-    private boolean confidential;
+    @Column(name = "salary_min")
+    private Long salaryMin;
+
+    @Column(name = "salary_max")
+    private Long salaryMax;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "base_salary_mode", nullable = false, length = 16)
+    private BaseSalaryMode baseSalaryMode = BaseSalaryMode.ANNUAL;
+
+    @Column(name = "bonus_value", precision = 6, scale = 2)
+    private BigDecimal bonusValue;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "bonus_basis", length = 24)
+    private BonusBasis bonusBasis;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "incentive_type", length = 24)
+    private IncentiveType incentiveType;
+
+    @Column(name = "incentive_amount")
+    private Long incentiveAmount;
+
+    @Column(name = "incentive_vesting", length = 200)
+    private String incentiveVesting;
 
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "app_lm_position_benefit",
             joinColumns = @JoinColumn(name = "position_id"))
     @OrderColumn(name = "sort_order")
-    @Column(name = "label", nullable = false, length = 80)
-    private List<String> benefits = new ArrayList<>();
+    private List<PositionBenefit> benefits = new ArrayList<>();
+
+    // ── Step 5 · Assessment criteria ────────────────────────────────────────
 
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "app_lm_position_criterion",
@@ -106,41 +181,100 @@ public class Position extends BaseEntity {
     @OrderColumn(name = "sort_order")
     private List<PositionCompetency> competencies = new ArrayList<>();
 
+    // ── Step 6 · Publication ────────────────────────────────────────────────
+
+    @Column(name = "published_at")
+    private Instant publishedAt;
+
+    @Column(name = "published_by")
+    private UUID publishedBy;
+
     public static Position forProject(UUID projectId) {
         Position position = new Position();
         position.projectId = projectId;
         return position;
     }
 
-    /** Full scalar snapshot — the autosave PUT and the template seed both land here. */
-    public void apply(PositionDetails details) {
-        this.mandateReason = details.mandateReason();
-        this.internalContext = details.internalContext();
-        this.narrative = details.narrative();
-        this.reportsTo = details.reportsTo();
-        this.directReports = details.directReports();
-        this.teamSize = details.teamSize();
+    public void applyDetails(PositionDetails details) {
+        this.department = details.department();
         this.location = details.location();
         this.employmentType = details.employmentType();
-        this.salaryMin = details.salaryMin();
-        this.salaryMax = details.salaryMax();
-        this.currency = details.currency();
-        this.noticeValue = details.noticeValue();
-        this.noticeUnit = details.noticeUnit();
-        this.bonusTargetPct = details.bonusTargetPct();
-        this.ltip = details.ltip();
-        this.confidential = details.confidential();
-        this.benefits.clear();
-        this.benefits.addAll(details.benefits());
+        this.seniority = details.seniority();
+        this.narrative = details.narrative();
+        replace(this.responsibilities, details.responsibilities());
+    }
+
+    public void applyContext(MandateContext context) {
+        this.mandateReason = context.mandateReason();
+        this.businessDriver = context.businessDriver();
+        this.hiringUrgency = context.hiringUrgency();
+        this.confidential = context.confidential();
+        this.internalContext = context.internalContext();
+        this.strategicPriorities.clear();
+        this.strategicPriorities.addAll(context.strategicPriorities());
+    }
+
+    public void applyReporting(ReportingStructure reporting) {
+        this.reportsToName = reporting.reportsToName();
+        this.reportsTo = reporting.reportsTo();
+        this.teamSize = reporting.teamSize();
+        this.noticeValue = reporting.noticeValue();
+        this.noticeUnit = reporting.noticeUnit();
+        // A seat with neither a title nor a name is a placeholder the screen has not filled in — most
+        // often one of the empties V39 created from the old count. Saving the step clears them.
+        replace(this.directReports, reporting.directReports().stream()
+                .filter(report -> !report.isBlank())
+                .toList());
+    }
+
+    public void applyCompensation(CompensationPackage compensation) {
+        this.currency = compensation.currency();
+        this.salaryMin = compensation.salaryMin();
+        this.salaryMax = compensation.salaryMax();
+        this.baseSalaryMode = compensation.baseSalaryMode();
+        this.bonusValue = compensation.bonusValue();
+        this.bonusBasis = compensation.bonusBasis();
+        this.incentiveType = compensation.incentiveType();
+        this.incentiveAmount = compensation.incentiveAmount();
+        this.incentiveVesting = compensation.incentiveVesting();
+        replace(this.benefits, compensation.benefits());
     }
 
     public void replaceCriteria(List<PositionCriterion> newCriteria) {
-        this.criteria.clear();
-        this.criteria.addAll(newCriteria);
+        replace(this.criteria, newCriteria);
     }
 
     public void replaceCompetencies(List<PositionCompetency> newCompetencies) {
-        this.competencies.clear();
-        this.competencies.addAll(newCompetencies);
+        replace(this.competencies, newCompetencies);
+    }
+
+    /**
+     * Records that somebody declared the brief ready, once. A repeat publish keeps the first stamp:
+     * the date can end up on a client-facing document, and a stray second click must not rewrite it.
+     * When the brief last changed is {@code updatedAt}, which is a different question.
+     */
+    public void publish(UUID actorId) {
+        if (publishedAt != null) {
+            return;
+        }
+        // Truncated to what Postgres stores: timestamptz keeps microseconds, and an untruncated
+        // Instant makes the response to this call disagree with every read of the same row afterwards.
+        this.publishedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        this.publishedBy = actorId;
+    }
+
+    public void withdrawPublication() {
+        this.publishedAt = null;
+        this.publishedBy = null;
+    }
+
+    public boolean isPublished() {
+        return publishedAt != null;
+    }
+
+    /** Owned lists are replaced in place — Hibernate tracks the collection, not the reference. */
+    private static <T> void replace(List<T> owned, List<T> replacement) {
+        owned.clear();
+        owned.addAll(replacement);
     }
 }

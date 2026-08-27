@@ -1,36 +1,18 @@
 package app.lightmove.api.position.dto;
 
-import app.lightmove.api.position.constant.EmploymentType;
-import app.lightmove.api.position.constant.MandateReason;
-import app.lightmove.api.position.constant.NoticeUnit;
-import java.time.LocalDate;
-import java.util.List;
-
 /**
- * The whole position brief. Writes are snapshot PUTs — the screen always holds the whole document
- * and autosaves whole sections — so the write requests stay lenient (no min≤max cross-checks).
+ * The whole position brief, grouped the way the screen walks it. Every write answers with this same
+ * shape, so a step that saved never has to be merged into what the screen was already holding.
+ *
+ * <p>{@code document} is null until one is attached; {@code publication.publishedAt} is null until
+ * somebody publishes.
  */
 public record PositionResponse(
-        MandateReason mandateReason,
-        String internalContext,
-        String narrative,
-        String reportsTo,
-        Integer directReports,
-        Integer teamSize,
-        String location,
-        EmploymentType employmentType,
-        /** The mandate's one target date — sourced from the project, not a position field. */
-        LocalDate startTarget,
-        Long salaryMin,
-        Long salaryMax,
-        String currency,
-        Integer noticeValue,
-        NoticeUnit noticeUnit,
-        Integer bonusTargetPct,
-        String ltip,
-        List<String> benefits,
-        boolean confidential,
-        List<CriterionResponse> criteria,
-        List<CompetencyDto> technical,
-        List<CompetencyDto> behavioural
+        PositionDetailsDto details,
+        MandateContextDto context,
+        ReportingStructureDto reporting,
+        CompensationDto compensation,
+        AssessmentDto assessment,
+        PublicationDto publication,
+        PositionDocumentDto document
 ) {}

@@ -157,6 +157,12 @@ public enum ErrorCode {
     /** The caller's Accept header asks for a format we do not produce. */
     NOT_ACCEPTABLE(HttpStatus.NOT_ACCEPTABLE, "No representation matches what you asked to accept"),
 
+    /** An upload exceeded the ceiling — the caller is told the limit, so the message names it. */
+    FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "That file is too large"),
+
+    /** An upload arrived as a document type this endpoint does not accept. */
+    UNSUPPORTED_FILE_TYPE(HttpStatus.BAD_REQUEST, "That file type is not supported"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

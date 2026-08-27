@@ -194,14 +194,14 @@ class ReportIntegrationTest extends FlowTestSupport {
         mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$.mandateBand").doesNotExist());
 
-        mvc.perform(put("/api/v1/projects/" + projectId + "/position")
+        mvc.perform(put("/api/v1/projects/" + projectId + "/position/compensation")
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"mandateReason":"SUCCESSION","narrative":"A hands-on CFO.",
-                                 "location":"Abu Dhabi, UAE","employmentType":"FULL_TIME_PERMANENT",
-                                 "salaryMin":500000,"salaryMax":750000,"currency":"AED",
-                                 "confidential":false}"""))
+                                {"currency":"AED","salaryMin":500000,"salaryMax":750000,
+                                 "baseSalaryMode":"ANNUAL","bonusValue":null,"bonusBasis":null,
+                                 "incentiveType":null,"incentiveAmount":null,"incentiveVesting":null,
+                                 "benefits":[]}"""))
                 .andExpect(status().isOk());
 
         mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
