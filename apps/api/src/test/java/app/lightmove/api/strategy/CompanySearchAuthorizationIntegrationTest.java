@@ -36,6 +36,8 @@ class CompanySearchAuthorizationIntegrationTest extends FlowTestSupport {
     private static final String FACETS_URL = "/api/v1/companies/facets";
     private static final String SEARCH_URL = "/api/v1/companies/search";
     private static final String KEYWORDS_URL = "/api/v1/companies/keywords";
+    /** A company that need not exist: the gate is refused before anything is looked up. */
+    private static final String ONE_COMPANY_URL = "/api/v1/companies/a1";
 
     @Test
     @DisplayName("a pure client representative reads neither the facets nor the company search")
@@ -51,6 +53,10 @@ class CompanySearchAuthorizationIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isForbidden());
 
         mvc.perform(get(KEYWORDS_URL).param("q", "saas").header("Authorization", "Bearer " + rep))
+                .andExpect(status().isForbidden());
+
+        // And this one would answer the whole record for any company they could name.
+        mvc.perform(get(ONE_COMPANY_URL).header("Authorization", "Bearer " + rep))
                 .andExpect(status().isForbidden());
     }
 
@@ -79,6 +85,7 @@ class CompanySearchAuthorizationIntegrationTest extends FlowTestSupport {
         mvc.perform(get(FACETS_URL)).andExpect(status().isUnauthorized());
         mvc.perform(get(SEARCH_URL).param("q", "power")).andExpect(status().isUnauthorized());
         mvc.perform(get(KEYWORDS_URL).param("q", "saas")).andExpect(status().isUnauthorized());
+        mvc.perform(get(ONE_COMPANY_URL)).andExpect(status().isUnauthorized());
     }
 
     /**

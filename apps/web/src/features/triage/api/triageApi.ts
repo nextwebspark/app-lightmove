@@ -129,11 +129,25 @@ export function captureCompany(
   });
 }
 
-/** Strategy's per-row "Add to Universe". Already held answers with the existing row, not an error. */
-export function addToUniverse(projectId: string, apolloAccountId: string): Promise<TriageCompany> {
+/**
+ * Takes one company out of the market into this mandate — Strategy's per-row "Add to Universe", and
+ * the Companies screen's own picker over the same universe.
+ *
+ * <p>Only the identity travels: the server resolves the snapshot from the market, so the row carries
+ * the export's figures and its Source badge means what it says. What the caller may add is where the
+ * company lands and the first note about it, neither of which the market can answer.
+ *
+ * <p>Already held answers with the existing row rather than an error — and with <i>its</i> stage, not
+ * the one asked for, so re-adding never walks a declined company back into the universe.
+ */
+export function addMarketCompany(
+  projectId: string,
+  apolloAccountId: string,
+  landing?: { status?: TriageCompanyStatus; note?: string },
+): Promise<TriageCompany> {
   return request<TriageCompany>(`/projects/${projectId}/triage`, {
     method: "POST",
-    body: { apolloAccountId },
+    body: { apolloAccountId, ...landing },
   });
 }
 

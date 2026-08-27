@@ -30,7 +30,7 @@ vi.mock("../../auth/AuthProvider", () => ({
 }));
 vi.mock("../../triage/api/triageApi", async (importOriginal) => ({
   ...(await importOriginal<typeof triageApi>()),
-  addToUniverse: vi.fn(),
+  addMarketCompany: vi.fn(),
   addAllInScope: vi.fn(),
 }));
 vi.mock("../api/companiesApi", async (importOriginal) => ({
