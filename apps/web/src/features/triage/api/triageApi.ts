@@ -3,9 +3,11 @@ import type { GridSort } from "../../../lib/useGridSort";
 import type {
   BulkAddResult,
   CaptureCompanyPayload,
+  EditCompanyPayload,
   TriageCompaniesPage,
   TriageCompany,
   TriageCompanyStatus,
+  TriageCounts,
   TriageSortField,
 } from "./types";
 
@@ -56,6 +58,29 @@ export function getTriageCompanies(
   return request<TriageCompaniesPage>(`/projects/${projectId}/triage?${params}`, { signal });
 }
 
+export const TRIAGE_COUNTS_KEY = (projectId: string) =>
+  [...TRIAGE_KEY_PREFIX(projectId), "counts"] as const;
+
+/**
+ * The three stage counts on their own, for the sidebar — which carries them on every tab of a
+ * mandate, not just the Companies grids.
+ *
+ * <p>It asks the list endpoint for a single row rather than a counts route of its own: the counts
+ * already travel with every page because the switcher is always on screen, and the key sits under
+ * {@link TRIAGE_KEY_PREFIX} so a move invalidates the rail's numbers with the grid's.
+ */
+export function getTriageCounts(projectId: string, signal?: AbortSignal): Promise<TriageCounts> {
+  return getTriageCompanies(
+    projectId,
+    "inUniverse",
+    0,
+    1,
+    "",
+    { field: "added", direction: "desc" },
+    signal,
+  ).then((page) => page.counts);
+}
+
 export function updateTriageCompany(
   projectId: string,
   triageCompanyId: string,
@@ -74,6 +99,23 @@ export function updateTriageCompany(
  */
 export function deleteTriageCompany(projectId: string, triageCompanyId: string): Promise<void> {
   return request<void>(`/projects/${projectId}/triage/${triageCompanyId}`, { method: "DELETE" });
+}
+
+/**
+ * Replaces a hand-typed company's own facts. A PUT beside the PATCH above because the two are
+ * different acts: that one is a triage change where an omitted half is left alone, this is the panel's
+ * whole form where an omitted field is a cleared one. Refused by the server for a company taken from
+ * the market — the panel hides Edit on those, but the endpoint is what actually holds the rule.
+ */
+export function editTriageCompany(
+  projectId: string,
+  triageCompanyId: string,
+  company: EditCompanyPayload,
+): Promise<TriageCompany> {
+  return request<TriageCompany>(`/projects/${projectId}/triage/${triageCompanyId}`, {
+    method: "PUT",
+    body: company,
+  });
 }
 
 /** A company the market does not carry: typed into the Add company form, or sent by the plugin. */

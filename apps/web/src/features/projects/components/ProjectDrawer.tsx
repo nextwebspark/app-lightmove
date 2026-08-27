@@ -78,7 +78,7 @@ export function ProjectDrawer({
   const busy = toggle.isPending || changeRole.isPending;
 
   return (
-    <Drawer open onClose={onClose}>
+    <Drawer open onClose={onClose} label={`${project.positionTitle} — ${project.clientName}`}>
       <div className="relative border-b border-line-soft px-5 pb-3.5 pt-[18px]">
         <button
           type="button"

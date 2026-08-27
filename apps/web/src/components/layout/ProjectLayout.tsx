@@ -7,6 +7,7 @@ import { Spinner, StagePill } from "../ui";
 import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
 import { type SidebarGroup } from "./Sidebar";
+import * as triageApi from "../../features/triage/api/triageApi";
 import { TRIAGE_STAGES } from "../../features/triage/lib/triageStages";
 import { ProjectBreadcrumb } from "./Topbar";
 
@@ -50,6 +51,14 @@ export function ProjectLayout() {
   });
   const project = projects?.find((p) => p.id === projectId);
 
+  // Undefined on a refused or still-loading read, which is what the rail wants: no badge at all
+  // rather than a zero nobody has read.
+  const { data: triageCounts } = useQuery({
+    queryKey: triageApi.TRIAGE_COUNTS_KEY(projectId ?? ""),
+    queryFn: ({ signal }) => triageApi.getTriageCounts(projectId!, signal),
+    enabled: Boolean(projectId),
+  });
+
   if (!project) {
     if (isPending) {
       return (
@@ -78,6 +87,7 @@ export function ProjectLayout() {
         to: `${base}/companies/${stage.slug}`,
         label: stage.label,
         icon: stage.icon,
+        count: triageCounts?.[stage.status],
       })),
     },
     {

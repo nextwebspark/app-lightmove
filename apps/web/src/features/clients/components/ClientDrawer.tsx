@@ -48,7 +48,7 @@ export function ClientDrawer({
   const mandate = client?.mandates.find((m) => m.id === mandateId) ?? null;
 
   return (
-    <Drawer open={clientId !== null} onClose={onClose}>
+    <Drawer open={clientId !== null} onClose={onClose} label={client?.name ?? "Client"}>
       {!client ? (
         <div className="grid flex-1 place-items-center font-mono text-[12px] text-text3">Loading…</div>
       ) : mandate ? (

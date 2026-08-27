@@ -25,7 +25,6 @@ export interface TriageStage {
    * be wrong on two of the three.
    */
   emptyMessage: string;
-  description: string;
 }
 
 export const TRIAGE_STAGES: TriageStage[] = [
@@ -36,7 +35,6 @@ export const TRIAGE_STAGES: TriageStage[] = [
     icon: ICONS.globe,
     emptyMessage:
       "No companies in the universe yet. Filter the market on Strategy and add the ones worth a closer look, or add a company here.",
-    description: "The working set — every company this mandate has taken in but not yet ruled on.",
   },
   {
     slug: "shortlisted",
@@ -45,7 +43,6 @@ export const TRIAGE_STAGES: TriageStage[] = [
     icon: ICONS.star,
     emptyMessage:
       "Nothing shortlisted yet. Promote a company from In universe once it is worth mapping people at.",
-    description: "Promoted: the companies worth mapping people at.",
   },
   {
     slug: "declined",
@@ -54,11 +51,18 @@ export const TRIAGE_STAGES: TriageStage[] = [
     icon: ICONS.close,
     emptyMessage:
       "Nothing declined. Companies you rule out land here, and stay ruled out the next time someone adds in bulk.",
-    description:
-      "Ruled out, and kept that way — a bulk add from Strategy will not quietly bring these back.",
   },
 ];
 
 export function stageBySlug(slug: string): TriageStage | undefined {
   return TRIAGE_STAGES.find((stage) => stage.slug === slug);
+}
+
+/**
+ * The stage a stored status belongs to. Total rather than optional: every status the API can answer
+ * with has a row above, and a panel that had to handle "no such stage" for a value the server just
+ * sent would be guarding against its own type.
+ */
+export function stageByStatus(status: TriageCompanyStatus): TriageStage {
+  return TRIAGE_STAGES.find((stage) => stage.status === status) ?? TRIAGE_STAGES[0];
 }

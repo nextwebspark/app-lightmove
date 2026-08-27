@@ -81,6 +81,29 @@ export type TriageSortField =
  * may have a name and a country and nothing else; refusing the row until it is complete would push
  * the consultant back to a spreadsheet, which is what these screens exist to replace.
  */
+/**
+ * A company's own facts, replaced whole — what the Companies panel's Edit form submits.
+ *
+ * <p>Only for a company the mandate supplied itself. A row taken from Strategy carries the market
+ * export's snapshot and the server refuses to rewrite it, which is why `apolloAccountId === null` is
+ * also what decides whether the panel offers an Edit button at all.
+ *
+ * <p>No `note`: that is the mandate's remark rather than a fact about the company, it stays editable
+ * on the very companies this refuses, and it has its own write.
+ */
+export interface EditCompanyPayload {
+  companyName: string;
+  industry?: string;
+  companyCountry?: string;
+  companyCity?: string;
+  numEmployees?: number;
+  annualRevenue?: number;
+  foundedYear?: number;
+  website?: string;
+  companyLinkedinUrl?: string;
+  shortDescription?: string;
+}
+
 export interface CaptureCompanyPayload {
   companyName: string;
   source?: Exclude<TriageCompanySource, "strategy">;

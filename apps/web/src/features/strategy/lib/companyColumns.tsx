@@ -1,4 +1,5 @@
 import {
+  columnOrderingFeature,
   columnPinningFeature,
   columnVisibilityFeature,
   createColumnHelper,
@@ -26,6 +27,7 @@ interface CompanyTableMeta {
  * row model would re-sort the 25 rows this page holds as though they were the whole result.
  */
 export const companyTableFeatures = tableFeatures({
+  columnOrderingFeature,
   columnPinningFeature,
   columnVisibilityFeature,
   rowSortingFeature,

@@ -24,12 +24,15 @@ export function ColumnPicker({
   visibility,
   defaults,
   onChange,
+  onResetLayout,
 }: {
   columns: HideableColumn[];
   visibility: ColumnVisibilityState;
   /** What "Reset to default" restores — the grid's own declared default, not an empty object. */
   defaults: ColumnVisibilityState;
   onChange: (visibility: ColumnVisibilityState) => void;
+  /** Also puts back the widths and order the user dragged, so one button undoes every column change. */
+  onResetLayout?: () => void;
 }) {
   // Absent means visible: the state records only the exceptions.
   const isVisible = (id: string) => visibility[id] !== false;
@@ -68,7 +71,10 @@ export function ColumnPicker({
 
           <button
             type="button"
-            onClick={() => onChange(defaults)}
+            onClick={() => {
+              onChange(defaults);
+              onResetLayout?.();
+            }}
             className="rounded-[5px] px-1 py-[7px] text-left font-sans text-[12px] font-medium text-text3 transition hover:bg-panel2 hover:text-text"
           >
             Reset to default

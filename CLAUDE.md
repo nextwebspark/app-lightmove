@@ -18,15 +18,19 @@ scoped read-only project access, and **Strategy → Companies**: a filter over t
 searches saved against it, and the three Companies pages (In universe / Shortlisted / Declined) where a
 mandate triages what it took from it. A company reaches those pages three ways — from Strategy, typed in
 by hand, or captured by the browser plugin (`POST /triage/capture`; the extension itself is not built).
-Deleting one drops the project↔company row only: the Apollo universe is read-only to the app. The Project
-screen's people tables (candidates, pipeline, outreach) don't exist yet. Don't build ahead of the
-mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
+Deleting one drops the project↔company row only: the Apollo universe is read-only to the app. On top of
+that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
+companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
+with three of them is three lines and one with none keeps its "Add executive" slot. The standalone
+Candidates screen, the pipeline and outreach tables don't exist yet, and neither does the CSV import or
+the plugin's profile capture (the columns and `CandidateSource` are there for them). Don't build ahead of
+the mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
 
 ## Layout
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `workspace`, `project`, `strategy`, `triagecompany` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `workspace`, `project`, `strategy`, `triagecompany`, `candidate` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -38,7 +42,11 @@ every band/facet/taxonomy the search is expressed in. A *strategy company* is a 
 belongs to nobody. **`triagecompany` is the mapping side** — one project↔company row per decision,
 carrying a triage stage (in universe / shortlisted / declined) and a write-time snapshot. A *triage
 company* is a decision. Searching goes in `strategy` however company-shaped its name; `triagecompany`
-holds only what a mandate *did* about a company. Details in `java-spring-development`.
+holds only what a mandate *did* about a company. **`candidate` is the people side** — one row per
+executive a mandate has mapped, belonging to the *project* and only optionally to one of its triaged
+companies, because a researcher meets people at companies the universe does not carry. It depends on
+`triagecompany` through one public method and `triagecompany` never depends back. Details in
+`java-spring-development`.
 
 ## Commands
 
@@ -111,7 +119,11 @@ the market does not carry has no id to store, so `app_lm_project_triage_company.
 nullable and `source` records which door the row came through (V34).
 `app_lm_companies` is the retired brightdata copy — nothing reads it, nothing refills it, and it is
 left in place rather than dropped. A mandate's whole filter is one `jsonb` column on `app_lm_strategy`
-(V30 explains why). Everything else (roles, hardening, grants) → `db-ops` skill.
+(V30 explains why). `app_lm_project_candidate` (V36) is the people half: `project_id` is the mapping and
+`triage_company_id` is nullable with **ON DELETE SET NULL** beside a snapshotted `company_name`, so
+removing a company from a mandate unmaps its executives rather than deleting them; career history and
+languages are one `profile` jsonb column for V30's reasons. Everything else (roles, hardening, grants) →
+`db-ops` skill.
 
 ## Conventions (the short form)
 
