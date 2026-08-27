@@ -4,7 +4,7 @@ import { formatDate } from "../../../lib/format";
 
 const INLINE =
   "w-full border-b border-transparent bg-transparent py-1 font-mono text-[13.5px] font-medium text-text outline-none transition " +
-  "hover:border-line focus:border-sky disabled:hover:border-transparent";
+  "hover:border-line focus:border-sky";
 
 /** The section heading pattern the Position mockup repeats: 15px title + a quiet mono aside. */
 export function SectionHeading({ title, aside }: { title: string; aside?: string }) {
@@ -94,18 +94,15 @@ export function NumberInput({
 export function FormattedDateField({
   value,
   onChange,
-  disabled,
 }: {
   value: string | null;
   onChange: (value: string | null) => void;
-  disabled?: boolean;
 }) {
   return (
     <div className="relative">
       <span
         className={cn(
-          "block border-b border-transparent py-1 font-mono text-[13.5px] font-medium transition",
-          disabled ? "text-text" : "cursor-pointer hover:border-line",
+          "block cursor-pointer border-b border-transparent py-1 font-mono text-[13.5px] font-medium transition hover:border-line",
           value ? "text-text" : "text-text3",
         )}
       >
@@ -113,7 +110,6 @@ export function FormattedDateField({
       </span>
       <input
         type="date"
-        disabled={disabled}
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value || null)}
         // A native date input only opens its calendar from the (here invisible) picker icon; opening it
@@ -126,7 +122,7 @@ export function FormattedDateField({
           }
         }}
         aria-label="Target start date"
-        className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
       />
     </div>
   );

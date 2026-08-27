@@ -1,40 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Position } from "../api/types";
-import { completion, readiness } from "./readiness";
+import { completion } from "./completion";
 
 const criteria = (mode: "REQUIRED" | "PREFERRED") => [{ text: "x", mode, fromBrief: false }];
 const rows = (...weights: number[]) => weights.map((weight, i) => ({ name: `C${i}`, weight }));
-
-describe("readiness", () => {
-  it("is ready when both panels total 100 and a required criterion exists", () => {
-    const r = readiness({
-      technical: rows(60, 40),
-      behavioural: rows(100),
-      criteria: criteria("REQUIRED"),
-    });
-    expect(r).toEqual({ technicalTotal: 100, behaviouralTotal: 100, hasRequired: true, ready: true });
-  });
-
-  it("an unbalanced panel blocks the lock and reports its live total", () => {
-    const r = readiness({
-      technical: rows(60, 30),
-      behavioural: rows(100),
-      criteria: criteria("REQUIRED"),
-    });
-    expect(r.technicalTotal).toBe(90);
-    expect(r.ready).toBe(false);
-  });
-
-  it("preferred-only criteria are not enough", () => {
-    const r = readiness({
-      technical: rows(100),
-      behavioural: rows(100),
-      criteria: criteria("PREFERRED"),
-    });
-    expect(r.hasRequired).toBe(false);
-    expect(r.ready).toBe(false);
-  });
-});
 
 describe("completion", () => {
   const seeded: Position = {
@@ -59,8 +28,6 @@ describe("completion", () => {
     criteria: criteria("REQUIRED"),
     technical: rows(100),
     behavioural: rows(100),
-    locked: false,
-    lockedAt: null,
   };
 
   it("scores a freshly seeded brief part-done, not zero and not complete", () => {

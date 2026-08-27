@@ -44,8 +44,7 @@ Key facts that shape everything:
 So: workspace has ADMIN/MEMBER (plus CLIENT, which grants nothing); anyone with `PROJECT_CREATE`
 (ADMIN or MEMBER) can create a project, becoming its LEAD; inside a project there are LEAD/RESEARCHER
 for staff and CLIENT for a hiring-company contact; both staff roles do the day-to-day work
-(`WORK_EXECUTE`) while CLIENT reads only (`WORK_VIEW`); locking/unlocking the position brief
-("locking the universe") is the lead's call via `POSITION_UNLOCK`.
+(`WORK_EXECUTE`) while CLIENT reads only (`WORK_VIEW`).
 
 ---
 
@@ -63,7 +62,7 @@ for staff and CLIENT for a hiring-company contact; both staff roles do the day-t
 
 | Role | Actions granted (the union) | Meaning |
 |---|---|---|
-| **LEAD** | `PROJECT_EDIT`, `TEAM_MANAGE`, `WORK_VIEW`, `WORK_EXECUTE`, `POSITION_UNLOCK` | Owns the mandate: runs the search, seats the team, decides client access, unlocks the brief. Creator holds it from the start, and a project keeps at least one. Several is legal, none is not. |
+| **LEAD** | `PROJECT_EDIT`, `TEAM_MANAGE`, `WORK_VIEW`, `WORK_EXECUTE`, `CLIENT_ACCESS_MANAGE` | Owns the mandate: runs the search, seats the team, decides client access. Creator holds it from the start, and a project keeps at least one. Several is legal, none is not. |
 | **RESEARCHER** | `WORK_VIEW`, `WORK_EXECUTE` | Executes: sourcing, triage, candidates, notes. |
 | **CLIENT** | `WORK_VIEW` | The hiring-company contact's seat: reads this one mandate, edits nothing. Granted by attaching a representative, never by the team table. |
 
@@ -75,14 +74,14 @@ distinction nobody made on the screen and nobody could explain.
 **Workspace-scope** (`WorkspaceAction`): `WORKSPACE_MANAGE`, `MEMBER_MANAGE`, `MEMBER_INVITE`,
 `PROJECT_CREATE`, `PROJECT_BROWSE`, `CLIENT_RECORD_MANAGE`.
 
-**Project-scope** (`ProjectAction`): `PROJECT_EDIT`, `TEAM_MANAGE`, `WORK_VIEW`, `WORK_EXECUTE`,
-`POSITION_UNLOCK`.
+**Project-scope** (`ProjectAction`): `PROJECT_EDIT`, `TEAM_MANAGE`, `CLIENT_ACCESS_MANAGE`,
+`WORK_VIEW`, `WORK_EXECUTE`.
 
 `WORK_VIEW` is held by **every** seated role including CLIENT — it is the gate for reading team-only
 project content (strategy, position brief, sourcing). `WORK_EXECUTE` is its write half, held by the
-staff roles and never CLIENT, so read and write can be granted apart. `POSITION_UNLOCK` is
-deliberately *not* folded into `PROJECT_EDIT`: reopening a locked brief is the lead's decision alone,
-because the locked brief is the scoring benchmark.
+staff roles and never CLIENT, so read and write can be granted apart. `CLIENT_ACCESS_MANAGE` is
+deliberately *not* folded into `PROJECT_EDIT`: admitting an outsider to a search is a different
+decision from moving its target date.
 
 ---
 
@@ -230,14 +229,12 @@ Every method reads the workspace from the **principal**, never the path.
 | `StrategyController` | `PUT .../sectors`, `/company-size`, `/geography`, `/ownership` | `can(principal, #projectId, 'PROJECT_EDIT')` |
 | `TriageCompanyController` | `GET /projects/{projectId}/triage` | `can(principal, #projectId, 'WORK_VIEW')` |
 | `TriageCompanyController` | `POST /triage`, `/triage/from-filter`, `PATCH /triage/{triageCompanyId}` | `can(principal, #projectId, 'WORK_EXECUTE')` |
-| `PositionController` | `GET /projects/{projectId}/position` | `can(principal, #projectId, 'WORK_EXECUTE')` |
-| `PositionController` | `PUT /position`, `/criteria`, `/competencies`, `POST /lock` | `can(principal, #projectId, 'PROJECT_EDIT')` |
-| `PositionController` | `POST /unlock` | `can(principal, #projectId, 'POSITION_UNLOCK')` |
+| `PositionController` | `GET /projects/{projectId}/position` | `can(principal, #projectId, 'WORK_VIEW')` |
+| `PositionController` | `PUT /position`, `/criteria`, `/competencies` | `can(principal, #projectId, 'PROJECT_EDIT')` |
 
 **Read vs write pattern:** project *content reads* (`GET strategy/triage/position`) gate on
-`WORK_VIEW` (every seated role, including CLIENT); *writes* gate on `PROJECT_EDIT` (LEAD); the
-*unlock* gates on `POSITION_UNLOCK` (LEAD too, since V19). This is the "everyone seated can see it,
-staff can work it, only the lead locks the universe" rule, expressed as actions.
+`WORK_VIEW` (every seated role, including CLIENT); *writes* gate on `PROJECT_EDIT` (LEAD). This is
+the "everyone seated can see it, staff can work it" rule, expressed as actions.
 
 ---
 

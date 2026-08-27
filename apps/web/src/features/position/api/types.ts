@@ -49,9 +49,7 @@ export interface Position {
   criteria: Criterion[];
   technical: Competency[];
   behavioural: Competency[];
-  locked: boolean;
-  lockedAt: string | null;
 }
 
-/** The scalar snapshot the autosave PUTs — Position minus the two lists and the lock state. */
-export type PositionDetails = Omit<Position, "criteria" | "technical" | "behavioural" | "locked" | "lockedAt">;
+/** The scalar snapshot the autosave PUTs — Position minus the three lists. */
+export type PositionDetails = Omit<Position, "criteria" | "technical" | "behavioural">;

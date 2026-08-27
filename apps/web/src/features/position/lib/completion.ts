@@ -1,32 +1,4 @@
-import type { Competency, Criterion, Position } from "../api/types";
-
-/** The live state of the lock gate — what the checklist renders and the Lock button switches on. */
-export interface Readiness {
-  technicalTotal: number;
-  behaviouralTotal: number;
-  hasRequired: boolean;
-  ready: boolean;
-}
-
-export function readiness(input: {
-  technical: Competency[];
-  behavioural: Competency[];
-  criteria: Criterion[];
-}): Readiness {
-  const technicalTotal = total(input.technical);
-  const behaviouralTotal = total(input.behavioural);
-  const hasRequired = input.criteria.some((c) => c.mode === "REQUIRED");
-  return {
-    technicalTotal,
-    behaviouralTotal,
-    hasRequired,
-    ready: technicalTotal === 100 && behaviouralTotal === 100 && hasRequired,
-  };
-}
-
-function total(rows: Competency[]): number {
-  return rows.reduce((sum, row) => sum + row.weight, 0);
-}
+import type { Position } from "../api/types";
 
 /**
  * How complete the brief is, as a whole percentage — the hero's completion chip. Counts the fields

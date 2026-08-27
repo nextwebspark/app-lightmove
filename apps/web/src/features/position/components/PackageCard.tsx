@@ -14,11 +14,9 @@ const NOTICE_UNITS: { value: NoticeUnit; label: string }[] = [
 /** Package details (comp fields on the left, benefits chips on the right), per the mockup's 2-col grid. */
 export function PackageCard({
   details,
-  disabled,
   onChange,
 }: {
   details: PositionDetails;
-  disabled: boolean;
   onChange: (patch: Partial<PositionDetails>) => void;
 }) {
   return (
@@ -108,12 +106,10 @@ export function PackageCard({
                 </button>
               </span>
             ))}
-            {!disabled && (
-              <BenefitsField
-                existing={details.benefits}
-                onAdd={(label) => onChange({ benefits: [...details.benefits, label] })}
-              />
-            )}
+            <BenefitsField
+              existing={details.benefits}
+              onAdd={(label) => onChange({ benefits: [...details.benefits, label] })}
+            />
           </div>
         </div>
       </div>

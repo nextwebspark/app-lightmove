@@ -38,11 +38,5 @@ public enum ProjectAction {
      * Work the mandate: the writes — sourcing, triage, candidates, notes. Held by the staff roles
      * (ADMIN/LEAD/RESEARCHER), never a CLIENT, so read access and write access can be granted apart.
      */
-    WORK_EXECUTE,
-
-    /**
-     * Unlock a locked position brief. Deliberately not part of PROJECT_EDIT: a locked brief is the
-     * benchmark downstream scoring rests on, so reopening it is an ADMIN-only decision.
-     */
-    POSITION_UNLOCK
+    WORK_EXECUTE
 }

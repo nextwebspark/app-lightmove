@@ -6,11 +6,9 @@ import { SectionHeading } from "./fields";
 /** The candidate criteria list: inline edit, Required/Preferred segmented toggle, add and remove. */
 export function CriteriaCard({
   criteria,
-  disabled,
   onChange,
 }: {
   criteria: Criterion[];
-  disabled: boolean;
   onChange: (criteria: Criterion[]) => void;
 }) {
   const [draft, setDraft] = useState("");
@@ -34,7 +32,7 @@ export function CriteriaCard({
               value={criterion.text}
               aria-label={`Criterion ${index + 1}`}
               onChange={(e) => patch(index, { text: e.target.value })}
-              className="min-w-0 flex-1 border-b border-transparent bg-transparent py-1 text-[13px] font-medium text-text outline-none transition hover:border-line focus:border-sky disabled:hover:border-transparent"
+              className="min-w-0 flex-1 border-b border-transparent bg-transparent py-1 text-[13px] font-medium text-text outline-none transition hover:border-line focus:border-sky"
             />
             {criterion.fromBrief && (
               <span className="flex-none rounded-[5px] border border-line px-[7px] py-0.5 font-mono text-[9.5px] font-medium uppercase tracking-[0.04em] text-text3">
@@ -66,22 +64,20 @@ export function CriteriaCard({
           </div>
         ))}
 
-        {!disabled && (
-          <div className="mt-3 flex gap-2">
-            <Input
-              value={draft}
-              placeholder="Add a criterion…"
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") add();
-              }}
-              className="bg-panel"
-            />
-            <Button variant="secondary" onClick={add} className="flex-none">
-              Add
-            </Button>
-          </div>
-        )}
+        <div className="mt-3 flex gap-2">
+          <Input
+            value={draft}
+            placeholder="Add a criterion…"
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") add();
+            }}
+            className="bg-panel"
+          />
+          <Button variant="secondary" onClick={add} className="flex-none">
+            Add
+          </Button>
+        </div>
       </div>
     </div>
   );
