@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useOutletContext, useParams } from "react-router-dom";
+import { Navigate, useOutletContext, useParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { useToast } from "../../../components/ui/Toast";
@@ -22,7 +22,6 @@ import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api
 import { CompanyDrawer } from "../components/CompanyDrawer";
 import { RemoveCompanyDialog } from "../components/RemoveCompanyDialog";
 import { TriageCompanyTable } from "../components/TriageCompanyTable";
-import { TriageStageSwitcher } from "../components/TriageStageSwitcher";
 import { TriageToolbar } from "../components/TriageToolbar";
 import {
   DEFAULT_TRIAGE_COLUMN_VISIBILITY,
@@ -250,6 +249,8 @@ function TriageStage() {
        than guessed from a hard-coded amount of chrome that any topbar change would falsify. */
     <div className="flex min-h-0 flex-1 flex-col">
       <TriageToolbar
+        projectId={project.id}
+        counts={companies.data?.counts}
         query={query}
         onQuery={setQuery}
         columnVisibility={columnVisibility}
@@ -257,33 +258,9 @@ function TriageStage() {
         onAddCompany={() => setOpenCompany({ company: null })}
         onAddExecutive={() => setProfile({ candidate: null, company: null })}
         canWrite={canWrite}
-        totalLabel={
-          // Undefined while unknown: "0 companies" beside a loading grid states as fact a number
-          // nobody has read yet.
-          totalCount === undefined
-            ? undefined
-            : `${totalCount.toLocaleString()} ${totalCount === 1 ? "company" : "companies"}`
-        }
       />
 
       <div className="flex min-w-0 flex-1 flex-col gap-3 p-3 sm:p-5">
-        <div className="flex flex-none flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="font-sans text-[19px]/[1.2] font-semibold">{stage.label}</h1>
-            <p className="mt-1 max-w-[640px] text-[13px] text-text2">
-              {stage.description}{" "}
-              <Link
-                to={`/projects/${project.id}/strategy`}
-                className="text-amber hover:underline"
-              >
-                Search the market
-              </Link>{" "}
-              to add more.
-            </p>
-          </div>
-          <TriageStageSwitcher projectId={project.id} counts={companies.data?.counts} />
-        </div>
-
         <TriageCompanyTable
           rows={rows}
           label={`${stage.label} companies`}
