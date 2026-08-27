@@ -14,7 +14,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -26,10 +25,7 @@ import lombok.NoArgsConstructor;
  * The position brief — the mandate's role definition, 1:1 with its project. Seeded from the
  * template library at project creation and edited by the Position screen's autosave.
  *
- * <p>The three lists are owned ordered values (replace-list writes), not entities. Locking freezes
- * the <i>whole</i> brief — every write path checks {@link #isLocked()} in the service — because a
- * locked brief is the benchmark candidate fit is scored against downstream. Only a project LEAD
- * may unlock (the {@code POSITION_UNLOCK} action).
+ * <p>The three lists are owned ordered values (replace-list writes), not entities.
  */
 @Entity
 @Table(name = "app_lm_position")
@@ -91,12 +87,6 @@ public class Position extends BaseEntity {
     @Column(name = "confidential", nullable = false)
     private boolean confidential;
 
-    @Column(name = "locked_at")
-    private Instant lockedAt;
-
-    @Column(name = "locked_by")
-    private UUID lockedBy;
-
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "app_lm_position_benefit",
             joinColumns = @JoinColumn(name = "position_id"))
@@ -152,19 +142,5 @@ public class Position extends BaseEntity {
     public void replaceCompetencies(List<CompetencyRow> newCompetencies) {
         this.competencies.clear();
         this.competencies.addAll(newCompetencies);
-    }
-
-    public void lock(UUID userId, Instant at) {
-        this.lockedAt = at;
-        this.lockedBy = userId;
-    }
-
-    public void unlock() {
-        this.lockedAt = null;
-        this.lockedBy = null;
-    }
-
-    public boolean isLocked() {
-        return lockedAt != null;
     }
 }

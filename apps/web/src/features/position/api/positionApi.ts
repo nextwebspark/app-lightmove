@@ -30,11 +30,3 @@ export function putCompetencies(
     body: { technical, behavioural },
   });
 }
-
-export function lockPosition(projectId: string): Promise<Position> {
-  return request<Position>(`/projects/${projectId}/position/lock`, { method: "POST" });
-}
-
-export function unlockPosition(projectId: string): Promise<Position> {
-  return request<Position>(`/projects/${projectId}/position/unlock`, { method: "POST" });
-}

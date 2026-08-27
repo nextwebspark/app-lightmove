@@ -6,19 +6,17 @@ import type { SaveStatus } from "../../../lib/useAutosave";
 
 /**
  * The header card: title and client from the project, the at-a-glance chips, the confidentiality
- * toggle, the Draft/Locked badge, the live save indicator and the completion meter.
+ * toggle, the live save indicator and the completion meter.
  */
 export function PositionHero({
   project,
   details,
-  locked,
   completionPct,
   saveStatus,
   onToggleConfidential,
 }: {
   project: Project;
   details: PositionDetails;
-  locked: boolean;
   completionPct: number;
   saveStatus: SaveStatus;
   onToggleConfidential: () => void;
@@ -60,9 +58,8 @@ export function PositionHero({
         <button
           type="button"
           onClick={onToggleConfidential}
-          disabled={locked}
           title="Click to toggle confidentiality"
-          className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border px-[11px] py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.05em] transition disabled:cursor-not-allowed ${
+          className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border px-[11px] py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.05em] transition ${
             details.confidential
               ? "border-red bg-red-dim text-red"
               : "border-line bg-panel text-text3"
@@ -70,14 +67,6 @@ export function PositionHero({
         >
           {details.confidential ? "Confidential" : "Standard"}
         </button>
-
-        <span
-          className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border px-[11px] py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] ${
-            locked ? "border-transparent bg-green-dim text-green" : "border-line bg-panel text-text2"
-          }`}
-        >
-          {locked ? "✓ Locked" : "Draft"}
-        </span>
 
         <span aria-live="polite" className="font-mono text-[11px] text-text3">
           {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved" : " "}
