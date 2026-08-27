@@ -3,7 +3,9 @@ package app.lightmove.api.candidate.constant;
 /**
  * How far an executive sits from the chief executive, which is the axis a search brief is written in:
  * a mandate asks for an N-1 in a market, not for a job title, because the same title means different
- * things in a family holding and in a listed multinational.
+ * things in a family holding and in a listed multinational. The two tiers above the line are named
+ * rather than numbered — a board seat and an executive-committee seat are different kinds of role,
+ * not two distances from the same point.
  *
  * <p>Nullable on the row. A researcher who has a name and a title has not necessarily worked out the
  * reporting line yet, and guessing one would put a fabricated fact in front of a client.
@@ -14,10 +16,13 @@ package app.lightmove.api.candidate.constant;
  */
 public enum CandidateSeniority {
 
-    /** The chief executive of the business or the region. */
-    N("N"),
+    /** A non-executive seat: chair, board member, advisor to the board. */
+    BOARD("Board"),
 
-    /** Reports to N — the functional heads a mandate most often targets. */
+    /** The executive committee — the chief executive of the business or the region, and their peers. */
+    C_SUITE("C-Suite"),
+
+    /** Reports to the C-suite — the functional heads a mandate most often targets. */
     N_MINUS_1("N-1"),
 
     N_MINUS_2("N-2"),

@@ -14,9 +14,11 @@ export type CandidateStatus =
 
 /**
  * Distance from the chief executive, the axis a search brief is written in. The same job title means
- * different things in a family holding and a listed multinational; this does not.
+ * different things in a family holding and a listed multinational; this does not. The two tiers above
+ * the executive line are named rather than numbered, because a board seat is a different kind of role
+ * and not a distance from the CEO.
  */
-export type CandidateSeniority = "N" | "N-1" | "N-2" | "N-3";
+export type CandidateSeniority = "Board" | "C-Suite" | "N-1" | "N-2" | "N-3";
 
 /** Which door a profile came through. Only `manual` is reachable today. */
 export type CandidateSource = "manual" | "csv" | "extension";

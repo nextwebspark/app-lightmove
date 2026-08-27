@@ -419,6 +419,16 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the two named tiers above the executive line round-trip")
+    void boardAndCSuiteRoundTrip() throws Exception {
+        String projectId = mandate("Named Tier Firm");
+
+        // A name apiece: the mandate refuses a name it already maps, whatever the seniority.
+        assertThat(mapWithSeniority(projectId, "Layla Mansour", "Board")).isEqualTo("Board");
+        assertThat(mapWithSeniority(projectId, "Karim Nassar", "C-Suite")).isEqualTo("C-Suite");
+    }
+
+    @Test
     @DisplayName("a nameless candidate is refused")
     void anExecutiveNeedsAName() throws Exception {
         String projectId = mandate("Nameless Firm");
@@ -574,5 +584,16 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
                         .content("{%s\"fullName\":\"%s\"}".formatted(companyClause, fullName)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
+    }
+
+    /** Maps an executive at that seniority and hands back the token the API gives it back as. */
+    private String mapWithSeniority(String projectId, String fullName, String tier) throws Exception {
+        return body(mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"%s","seniority":"%s"}""".formatted(fullName, tier)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("seniority").asText();
     }
 }
