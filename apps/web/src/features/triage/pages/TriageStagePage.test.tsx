@@ -9,7 +9,7 @@ import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate, CandidatesPage } from "../../candidates/api/types";
 import type { Project } from "../../projects/api/types";
 import * as companiesApi from "../../strategy/api/companiesApi";
-import type { Facets } from "../../strategy/api/types";
+import type { CompanyResult, Facets } from "../../strategy/api/types";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompaniesPage, TriageCompany } from "../api/types";
 import { TriageStagePage } from "./TriageStagePage";
@@ -38,6 +38,7 @@ vi.mock("../../strategy/api/companiesApi", async (importOriginal) => ({
   // fields offer the same vocabulary the Strategy filter is expressed in.
   ...(await importOriginal<typeof companiesApi>()),
   searchCompanies: vi.fn(),
+  getCompany: vi.fn(),
   getFacets: vi.fn(),
 }));
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
@@ -153,6 +154,26 @@ const FACETS: Facets = {
   revenueBands: [],
 };
 
+/** The market's own record of a company, as the picker reads it back once one is chosen. */
+const marketAcwa = {
+  apolloAccountId: "a7",
+  companyName: "ACWA Power",
+  industry: "oil & energy",
+  companyCountry: "Saudi Arabia",
+  companyCity: "Riyadh",
+  numEmployees: 3000,
+  annualRevenue: 6_000_000_000,
+  website: "https://acwapower.example",
+  logoUrl: null,
+  shortDescription: "Develops and operates power and desalination plants.",
+  foundedYear: 2004,
+  companyLinkedinUrl: null,
+  keywords: [],
+  technologies: [],
+  sicCodes: [],
+  naicsCodes: [],
+} as unknown as CompanyResult;
+
 const peopleOf = (candidates: Candidate[]): CandidatesPage => ({
   candidates,
   totalCount: candidates.length,
@@ -202,6 +223,7 @@ describe("TriageStagePage", () => {
     vi.mocked(candidatesApi.getCandidates).mockResolvedValue(peopleOf([]));
     vi.mocked(companiesApi.getFacets).mockResolvedValue(FACETS);
     vi.mocked(companiesApi.searchCompanies).mockResolvedValue({ companies: [] });
+    vi.mocked(companiesApi.getCompany).mockResolvedValue(marketAcwa);
   });
 
   it("reads the stage from the URL and asks the API for that status", async () => {
@@ -297,6 +319,16 @@ describe("TriageStagePage", () => {
     const dialog = await screen.findByRole("dialog", { name: /Add a company/i });
     await userEvent.type(within(dialog).getByLabelText(/Company name/i), "acwa");
     await userEvent.click(await within(dialog).findByRole("button", { name: /ACWA Power/i }));
+
+    // The record is shown before it is taken — and shown, not offered for editing: these fields
+    // belong to the export, and the server resolves them from the universe whatever this screen has.
+    expect(await within(dialog).findByText("$6B")).toBeInTheDocument();
+    expect(within(dialog).getByText("3,000")).toBeInTheDocument();
+    expect(within(dialog).getByText("2004")).toBeInTheDocument();
+    expect(within(dialog).getByText(/desalination plants/i)).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/^Employees$/i)).not.toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/^Sector$/i)).not.toBeInTheDocument();
+
     await userEvent.type(within(dialog).getByLabelText(/^Note/i), "Met their CFO");
     await userEvent.click(within(dialog).getByRole("button", { name: /^Add company$/i }));
 

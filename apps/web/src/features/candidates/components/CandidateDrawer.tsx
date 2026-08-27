@@ -11,7 +11,7 @@ import {
   DetailTile,
   DrawerSection,
 } from "../../../components/ui/DetailList";
-import { Drawer } from "../../../components/ui/Drawer";
+import { Drawer, DrawerCloseButton } from "../../../components/ui/Drawer";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { optionalNumber, optionalWebAddress } from "../../../lib/formFields";
 import { toBrowsableUrl } from "../../../lib/url";
@@ -225,14 +225,7 @@ export function CandidateDrawer({
   return (
     <Drawer open={open} onClose={onClose} wide label={editing && candidate ? "Edit executive" : label}>
       <div className="relative flex-none border-b border-line-soft px-5 py-4">
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute end-3.5 top-3.5 rounded-md p-1.5 text-text3 transition hover:bg-panel2 hover:text-text"
-        >
-          <Icon d={ICONS.close} size={16} />
-        </button>
+        <DrawerCloseButton onClose={onClose} />
 
         {candidate && !editing ? (
           <div className="flex items-start gap-3 pe-8">

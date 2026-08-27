@@ -172,6 +172,48 @@ class CompanyFacetIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("one company reads back whole, by the id every stored reference keys on")
+    void readsOneCompanyByAccountId() throws Exception {
+        String admin = adminOf("Facet One Company Firm");
+        universe.company("a1", "Gulf Power").industry("oil & energy").country("Saudi Arabia")
+                .city("Riyadh").employees(3_000).revenue(6_000_000_000L)
+                .website("https://gulfpower.example").insert();
+
+        // What a picker shows once a suggestion is chosen: the fields the typeahead leaves out, so
+        // the consultant sees the record before taking it into a mandate.
+        mvc.perform(get("/api/v1/companies/a1").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.companyName").value("Gulf Power"))
+                .andExpect(jsonPath("$.numEmployees").value(3000))
+                .andExpect(jsonPath("$.annualRevenue").value(6000000000L))
+                .andExpect(jsonPath("$.website").value("https://gulfpower.example"));
+    }
+
+    @Test
+    @DisplayName("a company the universe does not hold is a 404, not an empty record")
+    void unknownCompanyIsNotFound() throws Exception {
+        String admin = adminOf("Facet Unknown Company Firm");
+
+        MvcResult result = mvc.perform(get("/api/v1/companies/nope")
+                        .header("Authorization", "Bearer " + admin))
+                .andReturn();
+        assertThat(result.getResponse().getStatus()).isEqualTo(404);
+    }
+
+    @Test
+    @DisplayName("the facets route still wins over the company-by-id route it looks like")
+    void facetsRouteIsNotReadAsACompanyId() throws Exception {
+        String admin = adminOf("Facet Route Clash Firm");
+        universe.company("a1", "Gulf Power").industry("oil & energy").employees(10).insert();
+
+        // Spring matches a literal segment before a template, but /companies/{id} now sits beside
+        // three literal routes and a regression here would 404 the whole filter rail.
+        mvc.perform(get("/api/v1/companies/facets").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sectorGroups").isArray());
+    }
+
+    @Test
     @DisplayName("a blank query returns nothing rather than the head of the universe")
     void blankQueryReturnsNothing() throws Exception {
         String admin = adminOf("Facet Blank Query Firm");

@@ -4,6 +4,7 @@ import app.lightmove.api.core.config.CompanySearchSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.strategy.dto.CompanyResultDto;
 import app.lightmove.api.strategy.dto.CompanySuggestion;
 import app.lightmove.api.strategy.dto.CompanySuggestionsResponse;
 import app.lightmove.api.strategy.dto.FacetsResponse;
@@ -15,6 +16,7 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -77,6 +79,30 @@ public class CompanySearchController {
                 companies.typeahead(trimmed, resolvedLimit(limit, searchConfig.defaultResultLimit())).stream()
                         .map(CompanySearchController::toSuggestion)
                         .toList()));
+    }
+
+    /**
+     * One company of the universe, by the id every stored reference keys on — the record behind a
+     * picked suggestion, so a consultant sees what they are about to take before they take it.
+     *
+     * <p>Separate from the typeahead rather than fattening it: that endpoint answers six rows a
+     * keystroke and a whole record each is a payload nobody reads. This is the one that was chosen.
+     *
+     * <p>Read-only, like everything else here. A company is <b>taken</b> into a mandate through
+     * {@code POST /projects/{projectId}/triage}, which resolves this same row server-side rather than
+     * trusting whatever the client saw.
+     *
+     * <p>The literal routes above still win over this path variable — Spring matches an exact segment
+     * before a template — so {@code /companies/facets} is the facets read, not a company called
+     * "facets".
+     */
+    @GetMapping("/{apolloAccountId}")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
+    public ResponseEntity<CompanyResultDto> byAccountId(@PathVariable String apolloAccountId) {
+        return ResponseEntity.ok(companies.byAccountIds(List.of(apolloAccountId)).stream()
+                .findFirst()
+                .map(CompanyResultDto::of)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND)));
     }
 
     /**
