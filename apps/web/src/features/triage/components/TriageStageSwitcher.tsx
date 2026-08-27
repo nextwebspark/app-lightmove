@@ -8,8 +8,8 @@ import type { TriageCounts } from "../api/types";
  *
  * <p>They are links because each stage is its own page and its own URL — a consultant sends a
  * colleague the shortlist, not "the Companies screen, then click the second tab". The sidebar carries
- * the same three destinations; this repeats them beside the grid because that is where a move is
- * made, and the count changing is the confirmation the move happened.
+ * the same three destinations; this repeats them in the grid's toolbar because that is where a move
+ * is made, and the count changing is the confirmation the move happened.
  */
 export function TriageStageSwitcher({
   projectId,
