@@ -51,6 +51,7 @@ export function StrategyToolbar({
   onAiResearch,
   columnVisibility,
   onColumnVisibilityChange,
+  onResetLayout,
   savingSearch,
   addingAll,
 }: {
@@ -71,6 +72,7 @@ export function StrategyToolbar({
   onAiResearch: () => void;
   columnVisibility: ColumnVisibilityState;
   onColumnVisibilityChange: (visibility: ColumnVisibilityState) => void;
+  onResetLayout: () => void;
   savingSearch: boolean;
   addingAll: boolean;
 }) {
@@ -134,6 +136,7 @@ export function StrategyToolbar({
           visibility={columnVisibility}
           defaults={DEFAULT_COLUMN_VISIBILITY}
           onChange={onColumnVisibilityChange}
+          onResetLayout={onResetLayout}
         />
 
         <button

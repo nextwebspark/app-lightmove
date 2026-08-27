@@ -15,13 +15,16 @@ import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
 import type { CompanyResult, CompanySort, SearchVisibility, StrategyFilter } from "../api/types";
 import { CompanyResultsTable } from "../components/CompanyResultsTable";
-import { DEFAULT_COLUMN_VISIBILITY } from "../lib/companyColumns";
+import { DEFAULT_COLUMN_VISIBILITY, companyColumns } from "../lib/companyColumns";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
+import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
 import { useGridSort } from "../../../lib/useGridSort";
 import { COMPANY_SORT_FIELDS } from "../lib/companyColumns";
 import { FilterSidebar } from "../components/FilterSidebar";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { StrategyToolbar } from "../components/StrategyToolbar";
+
+const COMPANY_LAYOUT_COLUMNS = layoutColumnsOf(companyColumns);
 
 const DEFAULT_SORT: CompanySort = { field: "employees", direction: "desc" };
 
@@ -91,6 +94,7 @@ function StrategyEditor() {
     project.id,
     DEFAULT_COLUMN_VISIBILITY,
   );
+  const [layout, setLayout] = useGridLayout("strategy", COMPANY_LAYOUT_COLUMNS);
 
   // A keystroke should narrow the list, not fire a request per character.
   useEffect(() => {
@@ -263,6 +267,7 @@ function StrategyEditor() {
         onAiResearch={() => toast("AI research is not available yet")}
         columnVisibility={columnVisibility}
         onColumnVisibilityChange={setColumnVisibility}
+        onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}
         savingSearch={saveSearch.isPending}
         addingAll={addAll.isPending}
       />
@@ -293,6 +298,8 @@ function StrategyEditor() {
             onSortChange={setSort}
             columnVisibility={columnVisibility}
             onColumnVisibilityChange={setColumnVisibility}
+            layout={layout}
+            onLayoutChange={setLayout}
             loading={companies.isFetching}
             error={companies.isError}
             onAddToUniverse={(company) => {

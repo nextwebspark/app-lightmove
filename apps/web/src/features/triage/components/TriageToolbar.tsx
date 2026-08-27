@@ -34,6 +34,7 @@ export function TriageToolbar({
   onQuery,
   columnVisibility,
   onColumnVisibilityChange,
+  onResetLayout,
   onAddCompany,
   onAddExecutive,
   canWrite,
@@ -45,6 +46,7 @@ export function TriageToolbar({
   onQuery: (query: string) => void;
   columnVisibility: ColumnVisibilityState;
   onColumnVisibilityChange: (visibility: ColumnVisibilityState) => void;
+  onResetLayout: () => void;
   onAddCompany: () => void;
   onAddExecutive: () => void;
   /** False for a client representative, who reads these grids and writes nothing. */
@@ -71,6 +73,7 @@ export function TriageToolbar({
           visibility={columnVisibility}
           defaults={DEFAULT_TRIAGE_COLUMN_VISIBILITY}
           onChange={onColumnVisibilityChange}
+          onResetLayout={onResetLayout}
         />
 
         {canWrite && (

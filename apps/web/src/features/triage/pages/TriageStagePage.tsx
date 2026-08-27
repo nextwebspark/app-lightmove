@@ -7,6 +7,7 @@ import { useToast } from "../../../components/ui/Toast";
 import { messageFor } from "../../../lib/errorCodes";
 import { PAGE_SIZE } from "../../../lib/paging";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
+import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
 import { useGridSort, type GridSort } from "../../../lib/useGridSort";
 import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
@@ -26,9 +27,12 @@ import { TriageToolbar } from "../components/TriageToolbar";
 import {
   DEFAULT_TRIAGE_COLUMN_VISIBILITY,
   TRIAGE_SORT_FIELDS,
+  triageCompanyColumns,
 } from "../lib/triageCompanyColumns";
 import { toTriageRows } from "../lib/triageRows";
 import { stageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
+
+const TRIAGE_LAYOUT_COLUMNS = layoutColumnsOf(triageCompanyColumns);
 
 /** Newest first, matching the server's default, so the first paint is not a re-sort. */
 const DEFAULT_SORT: GridSort<TriageSortField> = { field: "added", direction: "desc" };
@@ -94,6 +98,7 @@ function TriageStage() {
     project.id,
     DEFAULT_TRIAGE_COLUMN_VISIBILITY,
   );
+  const [layout, setLayout] = useGridLayout("companies", TRIAGE_LAYOUT_COLUMNS);
 
   // A keystroke should narrow the list, not fire a request per character.
   useEffect(() => {
@@ -255,6 +260,7 @@ function TriageStage() {
         onQuery={setQuery}
         columnVisibility={columnVisibility}
         onColumnVisibilityChange={setColumnVisibility}
+        onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}
         onAddCompany={() => setOpenCompany({ company: null })}
         onAddExecutive={() => setProfile({ candidate: null, company: null })}
         canWrite={canWrite}
@@ -268,6 +274,8 @@ function TriageStage() {
           onSortChange={setSort}
           columnVisibility={columnVisibility}
           onColumnVisibilityChange={setColumnVisibility}
+          layout={layout}
+          onLayoutChange={setLayout}
           loading={companies.isFetching}
           error={companies.isError}
           emptyMessage={debouncedQuery ? "No companies match that search." : stage.emptyMessage}

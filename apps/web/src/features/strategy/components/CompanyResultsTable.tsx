@@ -1,11 +1,14 @@
 import {
   useTable,
+  type ColumnOrderState,
   type ColumnVisibilityState,
   type OnChangeFn,
   type SortingState,
+  type Updater,
 } from "@tanstack/react-table";
 import { useMemo } from "react";
 import { DataGrid } from "../../../components/ui/DataGrid";
+import type { GridLayout } from "../../../lib/useGridLayout";
 import type { CompanyResult, CompanySort, CompanySortField } from "../api/types";
 import { COLUMN_PINNING, companyColumns, companyTableFeatures } from "../lib/companyColumns";
 
@@ -28,6 +31,8 @@ export function CompanyResultsTable({
   onSortChange,
   columnVisibility,
   onColumnVisibilityChange,
+  layout,
+  onLayoutChange,
   loading,
   error,
   onAddToUniverse,
@@ -38,6 +43,8 @@ export function CompanyResultsTable({
   onSortChange: (sort: CompanySort) => void;
   columnVisibility: ColumnVisibilityState;
   onColumnVisibilityChange: OnChangeFn<ColumnVisibilityState>;
+  layout: GridLayout;
+  onLayoutChange: (layout: GridLayout) => void;
   loading: boolean;
   error: boolean;
   onAddToUniverse: (company: CompanyResult) => void;
@@ -58,7 +65,7 @@ export function CompanyResultsTable({
     manualSorting: true,
     enableMultiSort: false,
     enableSortingRemoval: false,
-    state: { sorting, columnVisibility },
+    state: { sorting, columnVisibility, columnOrder: layout.order },
     onSortingChange: (updater) => {
       const next = typeof updater === "function" ? updater(sorting) : updater;
       const [first] = next;
@@ -69,6 +76,10 @@ export function CompanyResultsTable({
       });
     },
     onColumnVisibilityChange,
+    onColumnOrderChange: (updater: Updater<ColumnOrderState>) => {
+      const order = typeof updater === "function" ? updater(layout.order) : updater;
+      onLayoutChange({ ...layout, order });
+    },
     meta: { onAddToUniverse, addingId },
   });
 
@@ -76,6 +87,8 @@ export function CompanyResultsTable({
     <DataGrid
       table={table}
       label="Companies"
+      layout={layout}
+      onLayoutChange={onLayoutChange}
       loading={loading}
       error={error}
       errorMessage="That list could not be loaded. Refresh, or check you still have access."
