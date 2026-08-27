@@ -343,6 +343,26 @@ describe("TriageStagePage", () => {
     expect(triageApi.captureCompany).not.toHaveBeenCalled();
   });
 
+  it("keeps the by-hand door open when the market cannot be searched", async () => {
+    vi.mocked(companiesApi.searchCompanies).mockRejectedValue(new Error("500"));
+    vi.mocked(triageApi.captureCompany).mockResolvedValue({ ...acwa, source: "manual" });
+    renderStage();
+
+    await screen.findByRole("table", { name: /In universe companies/i });
+    await userEvent.click(screen.getByRole("button", { name: /Add company/i }));
+
+    const dialog = await screen.findByRole("dialog", { name: /Add a company/i });
+    await userEvent.type(within(dialog).getByLabelText(/Company name/i), "A Quiet Family Holding");
+
+    // A company the export does not carry is the case this door exists for, so a universe that
+    // cannot be reached must not be what closes it. The label says what is uncertain instead.
+    const byHand = await within(dialog).findByRole("button", { name: /could not be searched/i });
+    expect(within(dialog).getByText(/Try again in a moment/i)).toBeInTheDocument();
+
+    await userEvent.click(byHand);
+    expect(within(dialog).getByLabelText(/Company name/i)).toHaveValue("A Quiet Family Holding");
+  });
+
   it("captures a hand-typed company into the stage being viewed", async () => {
     vi.mocked(triageApi.captureCompany).mockResolvedValue({
       ...acwa, id: "u2", apolloAccountId: null, source: "manual", status: "shortlisted",

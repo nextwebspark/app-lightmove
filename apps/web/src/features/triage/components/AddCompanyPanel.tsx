@@ -85,12 +85,14 @@ export function AddCompanyPanel({
       }),
     onSuccess: (saved) => {
       onSaved();
-      // The endpoint answers with the row the mandate already had when it had one, at whatever stage
-      // it had reached. Saying "added" over a company that was declined months ago would be a lie the
-      // grid then confirms by not showing it.
+      // The endpoint is idempotent and its answer cannot say whether this call inserted anything: a
+      // company the mandate already held comes back unchanged, at its own stage. So this states where
+      // the company now stands rather than claiming an act — true either way, including the likeliest
+      // duplicate on this screen, which is re-adding at the very stage being viewed. A stage other
+      // than that one is called out, because it is why the grid will not show what was just added.
       toast(
         saved.status === landingStatus
-          ? `${saved.companyName} added`
+          ? `${saved.companyName} is in this mandate — ${stageByStatus(saved.status).label}`
           : `${saved.companyName} is already in this mandate — ${stageByStatus(saved.status).label}`,
       );
       onClose();
@@ -142,8 +144,7 @@ export function AddCompanyPanel({
 
             {settled.length < MIN_SEARCH_LENGTH ? (
               <p className="font-mono text-[11.5px] text-text3">
-                Type at least {MIN_SEARCH_LENGTH} characters to search the company universe, or add
-                a company it does not carry.
+                Type at least {MIN_SEARCH_LENGTH} characters to search the company universe.
               </p>
             ) : (
               <ul
@@ -173,8 +174,6 @@ export function AddCompanyPanel({
                     </button>
                   </li>
                 ))}
-                {/* A read that failed is not a market with nothing in it — offering "add it by hand"
-                    over a 500 would file a company the universe holds as one it does not. */}
                 {matches.isError && (
                   <li className="px-3 py-3 font-mono text-[11.5px] text-red">
                     The company universe could not be searched. Try again in a moment.
@@ -188,20 +187,26 @@ export function AddCompanyPanel({
                     Nothing in the market matches “{settled}”.
                   </li>
                 )}
-                {/* Seeded from what is typed rather than from what was last searched: the two differ
+                {/* Offered whatever the market answered, a failed read included. A company the
+                    export does not carry is the case this door exists for, so closing it when the
+                    universe cannot be reached refuses the very company that needs it — the risk of
+                    filing a company the market does have is stated in the label instead, to the
+                    person who can judge it.
+
+                    Seeded from what is typed rather than from what was last searched: the two differ
                     for a quarter of a second, and the name shown is the one that was typed. */}
-                {!matches.isError && (
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => setDraft({ step: "byHand", name: query.trim() })}
-                      className="flex w-full items-center gap-1.5 px-3 py-2.5 text-left font-mono text-[11.5px] text-amber transition hover:bg-panel2"
-                    >
-                      <Icon d={ICONS.plus} size={12} className="flex-none" />
-                      Not here — add “{query.trim()}” as a new company
-                    </button>
-                  </li>
-                )}
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setDraft({ step: "byHand", name: query.trim() })}
+                    className="flex w-full items-center gap-1.5 px-3 py-2.5 text-left font-mono text-[11.5px] text-amber transition hover:bg-panel2"
+                  >
+                    <Icon d={ICONS.plus} size={12} className="flex-none" />
+                    {matches.isError
+                      ? `The market could not be searched — add “${query.trim()}” as a new company anyway`
+                      : `Not here — add “${query.trim()}” as a new company`}
+                  </button>
+                </li>
               </ul>
             )}
           </div>
