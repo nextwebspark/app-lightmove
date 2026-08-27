@@ -249,12 +249,6 @@ export function AddCompanyPanel({
               </button>
             </div>
 
-            <p className="mt-3 font-mono text-[11px]/[1.6] text-text3">
-              These figures are the market export's, refreshed by it and never edited here — the
-              server reads them from the universe rather than from this screen. Adding files it under{" "}
-              {stageByStatus(landingStatus).label}; the note below is yours.
-            </p>
-
             {/* A record that would not load never blocks the add: the server resolves the company
                 from its id either way, so this is a preview failing, not the company. */}
             {picked.isError ? (

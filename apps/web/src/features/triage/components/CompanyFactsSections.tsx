@@ -1,7 +1,6 @@
-import { ICONS } from "../../../components/layout/Icon";
-import { CompanyLink } from "../../../components/ui/CompanyLink";
 import { DetailGrid, DetailTile, DrawerSection } from "../../../components/ui/DetailList";
 import { formatMoney } from "../../../lib/format";
+import { toBrowsableUrl } from "../../../lib/url";
 
 /**
  * The facts about a company itself, as opposed to what a mandate has decided about it. Structural
@@ -49,30 +48,28 @@ export function CompanyFactsSections({
           <DetailTile label="Employees" value={company.numEmployees?.toLocaleString() ?? null} />
           <DetailTile label="Founded" value={company.foundedYear?.toString() ?? null} />
           <DetailTile label="Sector" value={company.industry} />
-          <DetailTile
-            label="Links"
-            full
-            value={
-              company.website || company.companyLinkedinUrl ? (
-                <span className="flex gap-1">
-                  <CompanyLink
-                    url={company.website}
-                    icon={ICONS.globe}
-                    label="website"
-                    companyName={company.companyName}
-                  />
-                  <CompanyLink
-                    url={company.companyLinkedinUrl}
-                    icon={ICONS.linkedin}
-                    label="LinkedIn"
-                    companyName={company.companyName}
-                  />
-                </span>
-              ) : null
-            }
-          />
+          {/* The address itself rather than an icon, matching the executive panel beside this one: a
+              row of small glyphs says a link exists without saying where it goes, and on a research
+              screen the domain is the fact — two companies are told apart by it.
+
+              Through `toBrowsableUrl` rather than straight into the href, as everywhere else: a value
+              stored before that rule existed, or posted by the plugin, must not reach a browser as
+              something it should not follow. `lib/url.ts` states it. */}
+          <DetailTile label="Website" full value={addressLink(company.website)} />
+          <DetailTile label="LinkedIn" full value={addressLink(company.companyLinkedinUrl)} />
         </DetailGrid>
       </DrawerSection>
     </>
+  );
+}
+
+/** The address as a link a reader can read, or null so the tile says nothing is recorded. */
+function addressLink(url: string | null) {
+  const href = toBrowsableUrl(url);
+  if (!href) return null;
+  return (
+    <a href={href} target="_blank" rel="noreferrer noopener" className="text-sky hover:underline">
+      {href.replace(/^https?:\/\//, "")}
+    </a>
   );
 }

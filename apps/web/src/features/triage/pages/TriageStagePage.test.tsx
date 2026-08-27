@@ -139,17 +139,24 @@ const yasmin: Candidate = {
   addedAt: "2026-08-02T09:00:00Z",
 };
 
-/** One sector group and one country — enough for the two dropdowns to have something to offer. */
+/** Two of each, so a filtered list can be shown to have left something out. */
 const FACETS: Facets = {
   sectorGroups: [
     {
       name: "Energy & Resources",
       industries: [{ value: "oil & energy", label: "Oil & Energy", count: 240 }],
     },
+    {
+      name: "Industrials",
+      industries: [{ value: "manufacturing", label: "Manufacturing", count: 610 }],
+    },
   ],
   adjacentIndustries: {},
   marketSegments: [],
-  countries: [{ value: "Saudi Arabia", label: "Saudi Arabia", count: 900 }],
+  countries: [
+    { value: "Saudi Arabia", label: "Saudi Arabia", count: 900 },
+    { value: "United Arab Emirates", label: "United Arab Emirates", count: 1800 },
+  ],
   employeeBands: [],
   revenueBands: [],
 };
@@ -381,8 +388,16 @@ describe("TriageStagePage", () => {
 
     expect(within(dialog).getByLabelText(/Company name/i)).toHaveValue("Gulf Industrial");
     await userEvent.type(within(dialog).getByLabelText(/^Employees$/i), "2400");
-    await userEvent.selectOptions(within(dialog).getByLabelText(/^Sector$/i), "oil & energy");
-    await userEvent.selectOptions(within(dialog).getByLabelText(/^Country$/i), "Saudi Arabia");
+
+    // Typed, then picked — the taxonomy runs to 148 industries, so the box is searched rather than
+    // scrolled, the way the Strategy filter offers the same values.
+    await userEvent.type(within(dialog).getByLabelText(/^Sector$/i), "oil");
+    expect(within(dialog).queryByRole("option", { name: /Manufacturing/i })).not.toBeInTheDocument();
+    await userEvent.click(await within(dialog).findByRole("option", { name: /Oil & Energy/i }));
+
+    await userEvent.type(within(dialog).getByLabelText(/^Country$/i), "saudi");
+    await userEvent.click(await within(dialog).findByRole("option", { name: /Saudi Arabia/i }));
+
     await userEvent.click(within(dialog).getByRole("button", { name: /^Add company$/i }));
 
     await waitFor(() =>

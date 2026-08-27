@@ -1,13 +1,14 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useForm, type UseFormRegisterReturn } from "react-hook-form";
+import { Controller, useForm, type Control } from "react-hook-form";
 import { z } from "zod";
-import { Button, Field, FormError, Input, Select, TextArea } from "../../../components/ui";
+import { Button, Field, FormError, Input, TextArea } from "../../../components/ui";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { optionalNumber, optionalWebAddress } from "../../../lib/formFields";
 import * as companiesApi from "../../strategy/api/companiesApi";
 import type { FacetCount } from "../../strategy/api/types";
+import { FacetCombobox } from "../../strategy/components/FacetCombobox";
 import type { CaptureCompanyPayload, EditCompanyPayload, TriageCompany } from "../api/types";
 
 /**
@@ -98,7 +99,7 @@ export function CompanyFactsForm({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setError,
     formState: { errors },
     // Three parameters, not one: the fields hold strings and the schema hands back numbers, so the
@@ -115,13 +116,13 @@ export function CompanyFactsForm({
     staleTime: FACETS_STALE_MS,
   });
 
-  // The sector taxonomy as the Strategy filter groups it — a sector heading over its own industries —
-  // and the countries as one ungrouped list, which is how that filter offers them too.
-  const sectorGroups: VocabularyGroup[] =
-    facets.data?.sectorGroups.map((group) => ({ name: group.name, entries: group.industries })) ?? [];
-  const countryGroup: VocabularyGroup[] = facets.data
-    ? [{ name: null, entries: facets.data.countries }]
-    : [];
+  // Flattened and ordered exactly as the Strategy filter offers them — commonest first, ties by name.
+  // The sector groups are the API's way of laying the taxonomy out, not a thing anyone picks, and a
+  // box you search does not need the headings a box you scroll does.
+  const industries: FacetCount[] = (facets.data?.sectorGroups ?? [])
+    .flatMap((group) => group.industries)
+    .sort((first, second) => second.count - first.count || first.label.localeCompare(second.label));
+  const countries: FacetCount[] = facets.data?.countries ?? [];
 
   const saving = useMutation({
     mutationFn: save,
@@ -168,21 +169,23 @@ export function CompanyFactsForm({
           </Field>
 
           <Field label="Sector" error={errors.industry?.message}>
-            <VocabularySelect
-              registration={register("industry")}
-              value={watch("industry")}
-              groups={sectorGroups}
-              loading={facets.isPending}
+            <VocabularyField
+              name="industry"
+              control={control}
+              listId="company-sector"
+              noun="sectors"
+              options={industries}
               unavailable={facets.isError}
               placeholder="industrial manufacturing"
             />
           </Field>
           <Field label="Country" error={errors.companyCountry?.message}>
-            <VocabularySelect
-              registration={register("companyCountry")}
-              value={watch("companyCountry")}
-              groups={countryGroup}
-              loading={facets.isPending}
+            <VocabularyField
+              name="companyCountry"
+              control={control}
+              listId="company-country"
+              noun="countries"
+              options={countries}
               unavailable={facets.isError}
               placeholder="United Arab Emirates"
             />
@@ -233,68 +236,51 @@ export function CompanyFactsForm({
   );
 }
 
-/** One group of options; a null name is a list with no grouping to show. */
-interface VocabularyGroup {
-  name: string | null;
-  entries: FacetCount[];
-}
-
 /**
- * A field the market's vocabulary answers for. Controlled rather than left to the DOM, because the
- * options arrive a round trip after the form does: an uncontrolled select renders blank until then,
- * and a value the browser could not select is a field the consultant sees as empty and the form still
- * submits.
+ * One field the market's vocabulary answers for, bound to the form.
  *
- * <p>A stored value the taxonomy does not carry keeps an option of its own. Without it, correcting the
- * headcount of a company the plugin captured under some page's own wording would silently clear the
- * sector nobody touched.
+ * <p>A `Controller` rather than a `register`, because the picker is not a control the DOM hands a
+ * value back from — and because the fallback when the facets read failed is a plain input, so both
+ * shapes live behind one field name instead of two registrations that could disagree.
  *
- * <p>Falls back to a plain input when the facets read failed. Both fields are optional, and refusing
- * to take a company at all because a reference list would not load helps nobody.
+ * <p>That fallback is deliberate: both fields are optional, and refusing to take a company at all
+ * because a reference list would not load helps nobody.
  */
-function VocabularySelect({
-  registration,
-  value,
-  groups,
-  loading,
+function VocabularyField({
+  name,
+  control,
+  listId,
+  noun,
+  options,
   unavailable,
   placeholder,
 }: {
-  registration: UseFormRegisterReturn;
-  value: string;
-  groups: VocabularyGroup[];
-  loading: boolean;
+  name: "industry" | "companyCountry";
+  control: Control<CompanyFactsValues, unknown, ParsedCompanyFacts>;
+  listId: string;
+  noun: string;
+  options: FacetCount[];
   unavailable: boolean;
   placeholder: string;
 }) {
-  if (unavailable) {
-    return <Input {...registration} placeholder={placeholder} />;
-  }
-
-  const listed = groups.some((group) => group.entries.some((entry) => entry.value === value));
-
   return (
-    <Select {...registration} value={value}>
-      <option value="">{loading ? "Loading…" : "Not recorded"}</option>
-      {value !== "" && !listed && <option value={value}>{value}</option>}
-      {groups.map((group) =>
-        group.name === null ? (
-          group.entries.map((entry) => (
-            <option key={entry.value} value={entry.value}>
-              {entry.label}
-            </option>
-          ))
+    <Controller
+      name={name}
+      control={control}
+      render={({ field }) =>
+        unavailable ? (
+          <Input {...field} placeholder={placeholder} />
         ) : (
-          <optgroup key={group.name} label={group.name}>
-            {group.entries.map((entry) => (
-              <option key={entry.value} value={entry.value}>
-                {entry.label}
-              </option>
-            ))}
-          </optgroup>
-        ),
-      )}
-    </Select>
+          <FacetCombobox
+            listId={listId}
+            noun={noun}
+            value={field.value}
+            options={options}
+            onChange={field.onChange}
+          />
+        )
+      }
+    />
   );
 }
 
