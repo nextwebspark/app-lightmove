@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Field, FormError, Input, TextArea, useToast } from "../../../components/ui";
+import { CompanyLinks } from "../../../components/ui/CompanyLink";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { DrawerCloseButton } from "../../../components/ui/Drawer";
 import { messageFor } from "../../../lib/errorCodes";
@@ -76,6 +77,10 @@ export function AddCompanyPanel({
     queryFn: ({ signal }) => companiesApi.getCompany(pickedId!, signal),
     enabled: pickedId !== null,
   });
+
+  // The record once it lands, and until then whatever the suggestion already answered. A function of
+  // the chosen company rather than a value, because "chosen" is a state this component can be out of.
+  const factsOf = (chosen: CompanySuggestion) => picked.data ?? factsPendingFor(chosen);
 
   const take = useMutation({
     mutationFn: (chosen: CompanySuggestion) =>
@@ -230,9 +235,19 @@ export function AddCompanyPanel({
                 logo={draft.company.logoUrl}
                 size={28}
               />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-sans text-[13px] font-semibold text-text">
-                  {draft.company.companyName}
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="flex min-w-0 items-center gap-1">
+                  <span className="truncate font-sans text-[13px] font-semibold text-text">
+                    {draft.company.companyName}
+                  </span>
+                  {/* Off the record once it arrives, not off the suggestion: the typeahead carries a
+                      website and no LinkedIn, so reading the pair from it would show one icon and
+                      then quietly grow a second. */}
+                  <CompanyLinks
+                    companyName={draft.company.companyName}
+                    website={factsOf(draft.company).website}
+                    linkedinUrl={factsOf(draft.company).companyLinkedinUrl}
+                  />
                 </span>
                 <span className="block truncate font-mono text-[11px] text-text3">
                   {[marketMetaOf(draft.company), "from the market export"]
@@ -259,7 +274,7 @@ export function AddCompanyPanel({
             ) : (
               <div aria-busy={picked.isPending}>
                 <CompanyFactsSections
-                  company={picked.data ?? factsPendingFor(draft.company)}
+                  company={factsOf(draft.company)}
                   emptyDescription={
                     picked.isPending
                       ? "Reading the rest of its record…"

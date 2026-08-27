@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, TextArea, useToast } from "../../../components/ui";
+import { CompanyLinks } from "../../../components/ui/CompanyLink";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { DetailGrid, DetailPill, DetailTile, DrawerSection } from "../../../components/ui/DetailList";
 import { Drawer, DrawerCloseButton } from "../../../components/ui/Drawer";
@@ -109,7 +110,16 @@ export function CompanyDrawer({
           <CompanyLogo name={company.companyName} logo={company.logoUrl} size={44} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="font-sans text-base font-semibold">{company.companyName}</h2>
+              {/* Name and links are one wrapping item: a long name pushed them onto the pill row,
+                  where a bare globe reads as another badge rather than as this company's site. */}
+              <span className="flex items-center gap-1.5">
+                <h2 className="font-sans text-base font-semibold">{company.companyName}</h2>
+                <CompanyLinks
+                  companyName={company.companyName}
+                  website={company.website}
+                  linkedinUrl={company.companyLinkedinUrl}
+                />
+              </span>
               <DetailPill
                 label={SOURCE_STYLES[company.source].label}
                 className={SOURCE_STYLES[company.source].className}
