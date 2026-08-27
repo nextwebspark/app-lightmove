@@ -7,6 +7,7 @@ import type {
   TriageCompaniesPage,
   TriageCompany,
   TriageCompanyStatus,
+  TriageCounts,
   TriageSortField,
 } from "./types";
 
@@ -55,6 +56,29 @@ export function getTriageCompanies(
   // keeps the two states from being one request apart in the network log.
   if (query) params.set("q", query);
   return request<TriageCompaniesPage>(`/projects/${projectId}/triage?${params}`, { signal });
+}
+
+export const TRIAGE_COUNTS_KEY = (projectId: string) =>
+  [...TRIAGE_KEY_PREFIX(projectId), "counts"] as const;
+
+/**
+ * The three stage counts on their own, for the sidebar — which carries them on every tab of a
+ * mandate, not just the Companies grids.
+ *
+ * <p>It asks the list endpoint for a single row rather than a counts route of its own: the counts
+ * already travel with every page because the switcher is always on screen, and the key sits under
+ * {@link TRIAGE_KEY_PREFIX} so a move invalidates the rail's numbers with the grid's.
+ */
+export function getTriageCounts(projectId: string, signal?: AbortSignal): Promise<TriageCounts> {
+  return getTriageCompanies(
+    projectId,
+    "inUniverse",
+    0,
+    1,
+    "",
+    { field: "added", direction: "desc" },
+    signal,
+  ).then((page) => page.counts);
 }
 
 export function updateTriageCompany(
