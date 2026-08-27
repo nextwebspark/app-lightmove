@@ -419,6 +419,24 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the two named tiers above the executive line round-trip")
+    void boardAndCSuiteRoundTrip() throws Exception {
+        String projectId = mandate("Named Tier Firm");
+
+        for (String tier : new String[] {"Board", "C-Suite"}) {
+            JsonNode mapped = body(mvc.perform(post(candidatesUrl(projectId))
+                            .header("Authorization", "Bearer " + admin())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"fullName":"Layla Mansour","seniority":"%s"}""".formatted(tier)))
+                    .andExpect(status().isCreated())
+                    .andReturn());
+
+            assertThat(mapped.get("seniority").asText()).isEqualTo(tier);
+        }
+    }
+
+    @Test
     @DisplayName("a nameless candidate is refused")
     void anExecutiveNeedsAName() throws Exception {
         String projectId = mandate("Nameless Firm");

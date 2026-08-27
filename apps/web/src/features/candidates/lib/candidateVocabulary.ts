@@ -30,4 +30,10 @@ export function candidateStatusStyle(status: CandidateStatus) {
 }
 
 /** The wire tokens are what a consultant writes, so they are also the labels. */
-export const CANDIDATE_SENIORITIES: CandidateSeniority[] = ["N", "N-1", "N-2", "N-3"];
+export const CANDIDATE_SENIORITIES: CandidateSeniority[] = [
+  "Board",
+  "C-Suite",
+  "N-1",
+  "N-2",
+  "N-3",
+];

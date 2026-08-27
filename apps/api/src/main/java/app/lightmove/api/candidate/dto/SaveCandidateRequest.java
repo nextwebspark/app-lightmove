@@ -35,7 +35,7 @@ public record SaveCandidateRequest(
         @Size(max = 200)
         String title,
 
-        /** A {@code CandidateSeniority} wire token — "N", "N-1", … Omitted means not established. */
+        /** A {@code CandidateSeniority} wire token — "Board", "N-1", … Omitted means not established. */
         @Size(max = 16)
         String seniority,
 
