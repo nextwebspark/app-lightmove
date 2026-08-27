@@ -217,7 +217,8 @@ function StrategyEditor() {
   });
 
   const addOne = useMutation({
-    mutationFn: (company: CompanyResult) => triageApi.addToUniverse(project.id, company.apolloAccountId),
+    mutationFn: (company: CompanyResult) =>
+      triageApi.addMarketCompany(project.id, company.apolloAccountId),
     onSuccess: (_result, company) => {
       void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
       toast(`${company.companyName} added to universe`);

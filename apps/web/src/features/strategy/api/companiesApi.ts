@@ -1,5 +1,5 @@
 import { request } from "../../../lib/apiClient";
-import type { CompanySuggestion, FacetCount, Facets } from "./types";
+import type { CompanyResult, CompanySuggestion, FacetCount, Facets } from "./types";
 
 /**
  * The workspace-level reads over the company universe: what the filter sidebar can offer, and what a
@@ -29,6 +29,17 @@ export function searchCompanies(
   const params = new URLSearchParams({ q: query });
   if (limit !== undefined) params.set("limit", String(limit));
   return request<{ companies: CompanySuggestion[] }>(`/companies/search?${params}`, { signal });
+}
+
+export const COMPANY_KEY = (apolloAccountId: string) => ["company", apolloAccountId] as const;
+
+/**
+ * One company of the universe, whole — what a picker shows once a suggestion is chosen. The
+ * typeahead answers a name and a line of context on purpose; this is the record behind the one that
+ * was picked, so a consultant can read it before taking it into a mandate.
+ */
+export function getCompany(apolloAccountId: string, signal?: AbortSignal): Promise<CompanyResult> {
+  return request<CompanyResult>(`/companies/${encodeURIComponent(apolloAccountId)}`, { signal });
 }
 
 export function searchKeywords(

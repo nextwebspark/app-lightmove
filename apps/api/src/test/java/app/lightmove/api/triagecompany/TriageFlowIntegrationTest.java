@@ -14,6 +14,7 @@ import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.strategy.model.CompanyRow;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
 import java.util.List;
 import java.util.UUID;
@@ -105,6 +106,73 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
         assertThat(second).isEqualTo(first);
         mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$.totalCount").value(1));
+    }
+
+    @Test
+    @DisplayName("a market company lands in the stage the screen was showing, with its first note")
+    void addLandsInTheStageAsked() throws Exception {
+        String admin = adminOf("Universe Landing Firm");
+        String projectId = project(admin);
+        universe.company("a1", "ACWA Power").industry("oil & energy").employees(10).insert();
+
+        // Picking a company while looking at the shortlist means shortlisting it. Landing it in the
+        // universe would drop it off the screen it was added from.
+        mvc.perform(post(triageUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountId":"a1","status":"shortlisted","note":"Met their CFO"}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("shortlisted"))
+                .andExpect(jsonPath("$.source").value("strategy"))
+                .andExpect(jsonPath("$.note").value("Met their CFO"))
+                // The snapshot is still the market's, whatever the caller sent alongside the stage.
+                .andExpect(jsonPath("$.companyName").value("ACWA Power"));
+
+        mvc.perform(get(triageUrl(projectId)).param("status", "shortlisted")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.totalCount").value(1))
+                .andExpect(jsonPath("$.counts.inUniverse").value(0));
+    }
+
+    @Test
+    @DisplayName("re-adding a declined company leaves its stage and its note alone")
+    void addDoesNotResurrectADeclinedCompany() throws Exception {
+        String admin = adminOf("Universe Re-add Firm");
+        String projectId = project(admin);
+        universe.company("a1", "ACWA Power").industry("oil & energy").employees(10).insert();
+        String triageId = add(admin, projectId, "a1");
+        patchUniverse(admin, projectId, triageId, """
+                {"status":"declined","note":"Ruled out on ownership"}""");
+
+        // Idempotent means the row that is already there, not the row the second caller asked for:
+        // a company the team ruled out must not be walked back by adding it again.
+        mvc.perform(post(triageUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountId":"a1","status":"shortlisted","note":"Worth a look"}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("declined"))
+                .andExpect(jsonPath("$.note").value("Ruled out on ownership"));
+    }
+
+    @Test
+    @DisplayName("an unknown landing stage is refused even for a company already held")
+    void addRefusesAnUnknownStage() throws Exception {
+        String admin = adminOf("Universe Bad Stage Firm");
+        String projectId = project(admin);
+        universe.company("a1", "ACWA Power").industry("oil & energy").employees(10).insert();
+        add(admin, projectId, "a1");
+
+        MvcResult result = mvc.perform(post(triageUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountId":"a1","status":"maybe"}"""))
+                .andReturn();
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+        assertThat(codeOf(result)).isEqualTo("VALIDATION_FAILED");
     }
 
     @Test
@@ -225,8 +293,8 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
         // Straight at the writer, past the service's read-first fast path — which is what a second
         // "Add all" click racing the first gets past too. Without ON CONFLICT the second call fails
         // the whole batch on app_lm_project_triage_company_uk.
-        assertThat(writer.insertIgnoringHeld(project, actor, rows)).isEqualTo(2);
-        assertThat(writer.insertIgnoringHeld(project, actor, rows)).isZero();
+        assertThat(seedUniverse(project, actor, rows)).isEqualTo(2);
+        assertThat(seedUniverse(project, actor, rows)).isZero();
 
         mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$.totalCount").value(2));
@@ -656,7 +724,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
         // Nothing stops the Apollo export carrying two accounts under one name, and a bulk add takes
         // both. A single-result finder over that column threw IncorrectResultSizeDataAccessException
         // here, turning the 409 this guard exists to raise into a 500.
-        writer.insertIgnoringHeld(UUID.fromString(projectId), actorId(),
+        seedUniverse(UUID.fromString(projectId), actorId(),
                 List.of(row("a1", "Gulf Industrial", 900), row("a2", "Gulf Industrial", 100)));
 
         mvc.perform(post(triageUrl(projectId) + "/capture")
@@ -783,7 +851,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
         // The headcounts run opposite to the names on purpose: if the larger one were also the
         // alphabetically-first, both assertions below would pass on a single ordering and the test
         // would prove nothing about the sort actually changing.
-        writer.insertIgnoringHeld(UUID.fromString(projectId), actorId(),
+        seedUniverse(UUID.fromString(projectId), actorId(),
                 List.of(row("a1", "Zenith Holdings", 900), row("a2", "Alpha Industrial", 100)));
 
         mvc.perform(get(triageUrl(projectId)).param("sort", "name").param("direction", "asc")
@@ -805,9 +873,9 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
     void listValidatesDirectionOnItsOwn() throws Exception {
         String admin = adminOf("Universe Direction Firm");
         String projectId = project(admin);
-        writer.insertIgnoringHeld(UUID.fromString(projectId), actorId(),
+        seedUniverse(UUID.fromString(projectId), actorId(),
                 List.of(row("a1", "First In", 100)));
-        writer.insertIgnoringHeld(UUID.fromString(projectId), actorId(),
+        seedUniverse(UUID.fromString(projectId), actorId(),
                 List.of(row("a2", "Last In", 200)));
 
         // Nonsense is a 400 even with no sort field beside it. Resolving the field first and returning
@@ -829,7 +897,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
     void listSearchesByName() throws Exception {
         String admin = adminOf("Universe Search Firm");
         String projectId = project(admin);
-        writer.insertIgnoringHeld(UUID.fromString(projectId), actorId(),
+        seedUniverse(UUID.fromString(projectId), actorId(),
                 List.of(row("a1", "Bank of Emirates", 100), row("a2", "Alpha Industrial", 900)));
 
         mvc.perform(get(triageUrl(projectId)).param("q", "emirates")
@@ -878,6 +946,11 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                                 """.formatted(clientId)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
+    }
+
+    /** Market rows straight into the mandate's universe, the stage and note a bulk add carries. */
+    private int seedUniverse(UUID projectId, UUID actor, List<CompanyRow> rows) {
+        return writer.insertIgnoringHeld(projectId, actor, rows, TriageCompanyStatus.IN_UNIVERSE, null);
     }
 
     /** Only the snapshot fields carry here; the rest are not the subject. */

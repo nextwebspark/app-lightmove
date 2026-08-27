@@ -136,9 +136,14 @@ public class TriageCompanyService {
                                      AddTriageCompanyRequest request, HttpServletRequest httpRequest) {
         requireProject(projectId, workspaceId);
         String accountId = request.apolloAccountId();
+        // Resolved before the held check, so an unknown stage is a 400 whether or not the mandate
+        // already holds the company — the same reason resolveSort settles both its tokens up front.
+        TriageCompanyStatus landingStatus = resolveStatus(request.status());
 
         // Already held is not an error: the button is on every row and a second click means the same
-        // thing as the first. Returning the existing row makes the response idempotent.
+        // thing as the first. Returning the existing row makes the response idempotent — and leaves
+        // its stage and its note untouched, so re-adding cannot walk a declined company back into the
+        // universe or overwrite the remark that says why it was ruled out.
         Optional<TriageCompany> held = triaged.findByProjectIdAndApolloAccountId(projectId, accountId);
         if (held.isPresent()) {
             return toDto(held.get());
@@ -157,7 +162,8 @@ public class TriageCompanyService {
         // The check above is a fast path, not the guard: a second click racing this one passes it too.
         // The insert ignores the conflict and the row is read back either way, so both callers get the
         // company and only the one that actually wrote it records an event.
-        int inserted = writer.insertIgnoringHeld(projectId, userId, List.of(row));
+        int inserted = writer.insertIgnoringHeld(projectId, userId, List.of(row), landingStatus,
+                request.note());
         TriageCompany taken = triaged.findByProjectIdAndApolloAccountId(projectId, accountId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
 
@@ -243,7 +249,8 @@ public class TriageCompanyService {
         // No read-then-filter: the insert ignores the companies the mandate already holds, so the
         // count it answers with is the number that were new. A row already declined stays declined —
         // re-running after widening the filter must not resurrect a ruled-out company.
-        int added = writer.insertIgnoringHeld(projectId, userId, rows);
+        int added = writer.insertIgnoringHeld(projectId, userId, rows,
+                TriageCompanyStatus.IN_UNIVERSE, null);
 
         audit.event(ProjectEventType.TRIAGE_BULK_ADDED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)

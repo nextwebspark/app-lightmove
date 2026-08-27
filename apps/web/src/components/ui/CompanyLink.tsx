@@ -1,4 +1,4 @@
-import { Icon } from "../layout/Icon";
+import { Icon, ICONS } from "../layout/Icon";
 import { toBrowsableUrl } from "../../lib/url";
 import { GRID_ICON_BUTTON } from "./DataGrid";
 
@@ -40,5 +40,31 @@ export function CompanyLink({
     >
       <Icon d={icon} size={13} />
     </a>
+  );
+}
+
+/**
+ * The pair a company panel shows beside its name: its site and its LinkedIn, as icons.
+ *
+ * <p>Beside the name rather than in a tile of its own. An address is a way out to the company, not a
+ * figure about it — and a tile is a frame around a figure, so framing two glyphs leaves an empty box
+ * on every company that publishes neither. Here, that company takes no room at all: the pair renders
+ * nothing when neither address survives {@link toBrowsableUrl}.
+ */
+export function CompanyLinks({
+  companyName,
+  website,
+  linkedinUrl,
+}: {
+  companyName: string;
+  website: string | null;
+  linkedinUrl: string | null;
+}) {
+  if (!toBrowsableUrl(website) && !toBrowsableUrl(linkedinUrl)) return null;
+  return (
+    <span className="flex flex-none items-center">
+      <CompanyLink url={website} icon={ICONS.globe} label="website" companyName={companyName} />
+      <CompanyLink url={linkedinUrl} icon={ICONS.linkedin} label="LinkedIn" companyName={companyName} />
+    </span>
   );
 }
