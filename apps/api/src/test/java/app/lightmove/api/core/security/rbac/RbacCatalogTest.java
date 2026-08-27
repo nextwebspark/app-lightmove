@@ -65,7 +65,7 @@ class RbacCatalogTest {
         grantsAre(RoleScope.WORKSPACE, "MEMBER", "PROJECT_CREATE", "PROJECT_BROWSE", "CLIENT_RECORD_MANAGE");
         grantsAre(RoleScope.WORKSPACE, "CLIENT");
         grantsAre(RoleScope.PROJECT, "LEAD", "PROJECT_EDIT", "TEAM_MANAGE", "WORK_VIEW", "WORK_EXECUTE",
-                "POSITION_UNLOCK", "CLIENT_ACCESS_MANAGE");
+                "CLIENT_ACCESS_MANAGE");
         grantsAre(RoleScope.PROJECT, "RESEARCHER", "WORK_VIEW", "WORK_EXECUTE");
         grantsAre(RoleScope.PROJECT, "CLIENT", "WORK_VIEW");
     }

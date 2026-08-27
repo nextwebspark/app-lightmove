@@ -90,13 +90,6 @@ public enum ErrorCode {
     /** A project must always keep someone who can run it — the mirror of {@link #LAST_ADMIN}. */
     PROJECT_LAST_LEAD(HttpStatus.CONFLICT, "A project must keep at least one lead"),
 
-    /** Every write to a locked position lands here; only a project lead can unlock. */
-    POSITION_LOCKED(HttpStatus.CONFLICT, "This position is locked"),
-
-    /** The lock gate: both competency panels at exactly 100% and at least one required criterion. */
-    POSITION_NOT_READY(HttpStatus.CONFLICT,
-            "Balance both competency panels to exactly 100% and keep at least one required criterion"),
-
     /**
      * "Add all to Universe" against a filter matching more companies than one bulk add may take.
      * Nothing is written: the caller narrows the filter and tries again.

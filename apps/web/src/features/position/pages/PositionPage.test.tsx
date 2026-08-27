@@ -19,8 +19,6 @@ vi.mock("../api/positionApi", async (importOriginal) => ({
   putPosition: vi.fn(),
   putCriteria: vi.fn(),
   putCompetencies: vi.fn(),
-  lockPosition: vi.fn(),
-  unlockPosition: vi.fn(),
 }));
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
@@ -96,8 +94,6 @@ const seeded: Position = {
     { name: "Treasury", weight: 40 },
   ],
   behavioural: [{ name: "Strategic Leadership", weight: 100 }],
-  locked: false,
-  lockedAt: null,
 };
 
 const renderPage = () =>
@@ -162,45 +158,5 @@ describe("PositionPage — the brief editor", () => {
     await waitFor(() => expect(positionApi.putPosition).toHaveBeenCalled(), { timeout: 2000 });
     const lastCall = vi.mocked(positionApi.putPosition).mock.calls.at(-1)!;
     expect(lastCall[1].benefits).toContain("Car allowance");
-  });
-
-  it("keeps Lock disabled while a panel is off 100%, with the checklist saying which", async () => {
-    vi.mocked(positionApi.getPosition).mockResolvedValue({
-      ...seeded,
-      technical: [{ name: "Treasury", weight: 90 }],
-    });
-    renderPage();
-    await screen.findAllByText("Chief Financial Officer");
-
-    expect(screen.getByRole("button", { name: "Lock position" })).toBeDisabled();
-    expect(screen.getByText("Technical weights total 100% (currently 90%)")).toBeInTheDocument();
-  });
-
-  it("locks a ready brief and reports the new benchmark", async () => {
-    vi.mocked(positionApi.lockPosition).mockResolvedValue({ ...seeded, locked: true, lockedAt: "2026-07-17T00:00:00Z" });
-    renderPage();
-    await screen.findAllByText("Chief Financial Officer");
-
-    await userEvent.click(screen.getByRole("button", { name: "Lock position" }));
-
-    expect(await screen.findByText("Position locked")).toBeInTheDocument();
-    expect(positionApi.lockPosition).toHaveBeenCalledWith("p1");
-  });
-
-  it("a locked brief is read-only, and Unlock is not offered to a plain member", async () => {
-    vi.mocked(positionApi.getPosition).mockResolvedValue({ ...seeded, locked: true, lockedAt: "2026-07-17T00:00:00Z" });
-    renderPage();
-    await screen.findByText("Position locked");
-
-    expect(screen.getByDisplayValue("Experience reporting to a board")).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "Unlock" })).not.toBeInTheDocument();
-  });
-
-  it("offers Unlock to a workspace admin", async () => {
-    vi.mocked(authApi.me).mockResolvedValue(userOf(["ADMIN"]));
-    vi.mocked(positionApi.getPosition).mockResolvedValue({ ...seeded, locked: true, lockedAt: "2026-07-17T00:00:00Z" });
-    renderPage();
-
-    expect(await screen.findByRole("button", { name: "Unlock" })).toBeInTheDocument();
   });
 });

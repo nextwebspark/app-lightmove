@@ -5,7 +5,6 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.project.constant.CompetencyPanel;
-import app.lightmove.api.project.constant.CriterionMode;
 import app.lightmove.api.project.constant.EmploymentType;
 import app.lightmove.api.project.dto.CompetencyDto;
 import app.lightmove.api.project.dto.CriterionResponse;
@@ -23,7 +22,6 @@ import app.lightmove.api.project.repository.PositionRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.project.service.PositionTemplates.TemplateSeed;
 import jakarta.servlet.http.HttpServletRequest;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -37,9 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
  * scoped through the project's {@code (id, workspaceId)} lookup — the workspace id comes from the
  * principal, so a foreign project 404s before any position row is touched.
  *
- * <p>Locking freezes the whole brief: every write rejects with {@code POSITION_LOCKED} until a
- * project lead unlocks. Readiness (both panels exactly 100%, at least one required criterion) is
- * validated only at lock time — autosave must be free to persist half-balanced panels.
+ * <p>Writes are deliberately lenient — autosave must be free to persist a half-balanced panel.
  */
 @Service
 @RequiredArgsConstructor
@@ -58,7 +54,7 @@ public class PositionService {
     @Transactional
     public PositionResponse update(UUID userId, UUID workspaceId, UUID projectId,
                                    UpdatePositionRequest request, HttpServletRequest httpRequest) {
-        Brief brief = loadUnlockedBrief(projectId, workspaceId);
+        Brief brief = loadBrief(projectId, workspaceId);
         brief.position().apply(new PositionDetails(
                 request.mandateReason(), request.internalContext(), request.narrative(),
                 request.reportsTo(), request.directReports(), request.teamSize(),
@@ -76,7 +72,7 @@ public class PositionService {
     @Transactional
     public PositionResponse putCriteria(UUID userId, UUID workspaceId, UUID projectId,
                                         PutCriteriaRequest request, HttpServletRequest httpRequest) {
-        Brief brief = loadUnlockedBrief(projectId, workspaceId);
+        Brief brief = loadBrief(projectId, workspaceId);
         brief.position().replaceCriteria(request.criteria().stream()
                 .map(c -> PositionCriterion.of(c.text(), c.mode(), c.fromBrief()))
                 .toList());
@@ -87,7 +83,7 @@ public class PositionService {
     @Transactional
     public PositionResponse putCompetencies(UUID userId, UUID workspaceId, UUID projectId,
                                             PutCompetenciesRequest request, HttpServletRequest httpRequest) {
-        Brief brief = loadUnlockedBrief(projectId, workspaceId);
+        Brief brief = loadBrief(projectId, workspaceId);
         brief.position().replaceCompetencies(Stream.concat(
                         request.technical().stream()
                                 .map(c -> CompetencyRow.of(CompetencyPanel.TECHNICAL, c.name(), c.weight())),
@@ -95,35 +91,6 @@ public class PositionService {
                                 .map(c -> CompetencyRow.of(CompetencyPanel.BEHAVIOURAL, c.name(), c.weight())))
                 .toList());
         auditPositionChange(userId, workspaceId, projectId, "competencies", httpRequest);
-        return toResponse(brief);
-    }
-
-    @Transactional
-    public PositionResponse lock(UUID userId, UUID workspaceId, UUID projectId,
-                                 HttpServletRequest httpRequest) {
-        Brief brief = loadBrief(projectId, workspaceId);
-        if (brief.position().isLocked()) {
-            throw ApiException.of(ErrorCode.POSITION_LOCKED);
-        }
-        requireReady(brief.position());
-        brief.position().lock(userId, Instant.now());
-        audit.event(ProjectEventType.POSITION_LOCKED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
-                .record();
-        return toResponse(brief);
-    }
-
-    @Transactional
-    public PositionResponse unlock(UUID userId, UUID workspaceId, UUID projectId,
-                                   HttpServletRequest httpRequest) {
-        Brief brief = loadBrief(projectId, workspaceId);
-        if (!brief.position().isLocked()) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "This position is not locked");
-        }
-        brief.position().unlock();
-        audit.event(ProjectEventType.POSITION_UNLOCKED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
-                .record();
         return toResponse(brief);
     }
 
@@ -150,32 +117,6 @@ public class PositionService {
         position.replaceCriteria(seed.criteria());
         position.replaceCompetencies(seed.competencies());
         return positions.save(position);
-    }
-
-    /** The lock gate — the only place totals are enforced, so autosave stays permissive. */
-    private void requireReady(Position position) {
-        boolean technicalBalanced = panelTotal(position, CompetencyPanel.TECHNICAL) == 100;
-        boolean behaviouralBalanced = panelTotal(position, CompetencyPanel.BEHAVIOURAL) == 100;
-        boolean hasRequired = position.getCriteria().stream()
-                .anyMatch(criterion -> criterion.getMode() == CriterionMode.REQUIRED);
-        if (!technicalBalanced || !behaviouralBalanced || !hasRequired) {
-            throw ApiException.of(ErrorCode.POSITION_NOT_READY);
-        }
-    }
-
-    private static int panelTotal(Position position, CompetencyPanel panel) {
-        return position.getCompetencies().stream()
-                .filter(row -> row.getPanel() == panel)
-                .mapToInt(CompetencyRow::getWeight)
-                .sum();
-    }
-
-    private Brief loadUnlockedBrief(UUID projectId, UUID workspaceId) {
-        Brief brief = loadBrief(projectId, workspaceId);
-        if (brief.position().isLocked()) {
-            throw ApiException.of(ErrorCode.POSITION_LOCKED);
-        }
-        return brief;
     }
 
     /** The project and its brief together — the target date lives on the project, so both are loaded. */
@@ -217,8 +158,7 @@ public class PositionService {
                         .map(c -> new CriterionResponse(c.getText(), c.getMode(), c.isFromBrief()))
                         .toList(),
                 panelDtos(position, CompetencyPanel.TECHNICAL),
-                panelDtos(position, CompetencyPanel.BEHAVIOURAL),
-                position.isLocked(), position.getLockedAt());
+                panelDtos(position, CompetencyPanel.BEHAVIOURAL));
     }
 
     private static List<CompetencyDto> panelDtos(Position position, CompetencyPanel panel) {

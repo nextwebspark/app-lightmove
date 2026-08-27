@@ -17,12 +17,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
 /**
- * The position brief end to end: template seeding at creation, snapshot writes, the lock gate,
- * whole-brief freezing, admin unlock, and the lazy seed for pre-V7 projects.
+ * The position brief end to end: template seeding at creation, snapshot writes, and the lazy seed
+ * for pre-V7 projects.
  */
 @IntegrationTest
 @Import(RecordingEmailSender.Config.class)
@@ -39,7 +38,6 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
 
         mvc.perform(get(positionUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.locked").value(false))
                 .andExpect(jsonPath("$.location").value("UAE"))
                 .andExpect(jsonPath("$.reportsTo").value("Group CEO"))
                 .andExpect(jsonPath("$.employmentType").value("FULL_TIME_PERMANENT"))
@@ -50,7 +48,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("an unrecognised title falls back to the generic executive template, still lockable")
+    @DisplayName("an unrecognised title falls back to the generic executive template")
     void unknownTitleSeedsTheGenericTemplate() throws Exception {
         String admin = adminOf("Generic Firm");
         String projectId = createProject(admin, createClient(admin, "Al Rabie", null),
@@ -134,85 +132,6 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.technical[0].name").value("Treasury"))
                 .andExpect(jsonPath("$.technical[1].weight").value(30))
                 .andExpect(jsonPath("$.behavioural.length()").value(1));
-    }
-
-    @Test
-    @DisplayName("locking demands balanced panels and a required criterion — then freezes the whole brief")
-    void lockGateThenWholeBriefFreezes() throws Exception {
-        String admin = adminOf("Lock Firm");
-        String projectId = createProject(admin, createClient(admin, "ADQ", "UAE"), "CFO");
-
-        // Unbalance one panel: the gate refuses.
-        mvc.perform(put(positionUrl(projectId) + "/competencies")
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"technical":[{"name":"Treasury","weight":90}],
-                                 "behavioural":[{"name":"Leadership","weight":100}]}"""))
-                .andExpect(status().isOk());
-        MvcResult notReady = mvc.perform(post(positionUrl(projectId) + "/lock")
-                        .header("Authorization", "Bearer " + admin))
-                .andReturn();
-        assertThat(notReady.getResponse().getStatus()).isEqualTo(409);
-        assertThat(codeOf(notReady)).isEqualTo("POSITION_NOT_READY");
-
-        // No required criterion: still refused.
-        mvc.perform(put(positionUrl(projectId) + "/competencies")
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"technical":[{"name":"Treasury","weight":100}],
-                                 "behavioural":[{"name":"Leadership","weight":100}]}"""))
-                .andExpect(status().isOk());
-        mvc.perform(put(positionUrl(projectId) + "/criteria")
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"criteria":[{"text":"Nice to have","mode":"PREFERRED","fromBrief":false}]}"""))
-                .andExpect(status().isOk());
-        assertThat(codeOf(mvc.perform(post(positionUrl(projectId) + "/lock")
-                .header("Authorization", "Bearer " + admin)).andReturn()))
-                .isEqualTo("POSITION_NOT_READY");
-
-        // Ready: lock succeeds, and every write is now refused.
-        mvc.perform(put(positionUrl(projectId) + "/criteria")
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"criteria":[{"text":"Board experience","mode":"REQUIRED","fromBrief":false}]}"""))
-                .andExpect(status().isOk());
-        mvc.perform(post(positionUrl(projectId) + "/lock")
-                        .header("Authorization", "Bearer " + admin))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.locked").value(true));
-
-        assertThat(codeOf(mvc.perform(put(positionUrl(projectId))
-                .header("Authorization", "Bearer " + admin)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {"mandateReason":"NEW_ROLE","currency":"USD","confidential":false}"""))
-                .andReturn())).isEqualTo("POSITION_LOCKED");
-        assertThat(codeOf(mvc.perform(put(positionUrl(projectId) + "/criteria")
-                .header("Authorization", "Bearer " + admin)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {"criteria":[]}"""))
-                .andReturn())).isEqualTo("POSITION_LOCKED");
-        assertThat(codeOf(mvc.perform(post(positionUrl(projectId) + "/lock")
-                .header("Authorization", "Bearer " + admin))
-                .andReturn())).isEqualTo("POSITION_LOCKED");
-
-        // Unlock reopens the brief for editing.
-        mvc.perform(post(positionUrl(projectId) + "/unlock")
-                        .header("Authorization", "Bearer " + admin))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.locked").value(false));
-        mvc.perform(put(positionUrl(projectId))
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"mandateReason":"NEW_ROLE","currency":"USD","confidential":false}"""))
-                .andExpect(status().isOk());
     }
 
     @Test
