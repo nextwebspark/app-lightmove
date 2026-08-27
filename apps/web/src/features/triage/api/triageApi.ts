@@ -3,6 +3,7 @@ import type { GridSort } from "../../../lib/useGridSort";
 import type {
   BulkAddResult,
   CaptureCompanyPayload,
+  EditCompanyPayload,
   TriageCompaniesPage,
   TriageCompany,
   TriageCompanyStatus,
@@ -74,6 +75,23 @@ export function updateTriageCompany(
  */
 export function deleteTriageCompany(projectId: string, triageCompanyId: string): Promise<void> {
   return request<void>(`/projects/${projectId}/triage/${triageCompanyId}`, { method: "DELETE" });
+}
+
+/**
+ * Replaces a hand-typed company's own facts. A PUT beside the PATCH above because the two are
+ * different acts: that one is a triage change where an omitted half is left alone, this is the panel's
+ * whole form where an omitted field is a cleared one. Refused by the server for a company taken from
+ * the market — the panel hides Edit on those, but the endpoint is what actually holds the rule.
+ */
+export function editTriageCompany(
+  projectId: string,
+  triageCompanyId: string,
+  company: EditCompanyPayload,
+): Promise<TriageCompany> {
+  return request<TriageCompany>(`/projects/${projectId}/triage/${triageCompanyId}`, {
+    method: "PUT",
+    body: company,
+  });
 }
 
 /** A company the market does not carry: typed into the Add company form, or sent by the plugin. */

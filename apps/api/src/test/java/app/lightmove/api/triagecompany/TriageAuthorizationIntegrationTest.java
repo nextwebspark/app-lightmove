@@ -84,6 +84,19 @@ class TriageAuthorizationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an unseated member cannot edit a company's facts")
+    void unseatedMemberCannotEdit() throws Exception {
+        Fixture f = fixture("Universe Unseated Edit Firm");
+
+        mvc.perform(put(triageUrl(f.projectId) + "/" + java.util.UUID.randomUUID())
+                        .header("Authorization", "Bearer " + login(f.saraEmail))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Gulf Industrial"}"""))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("an unseated member cannot add to the universe or bulk-add")
     void unseatedMemberCannotWrite() throws Exception {
         Fixture f = fixture("Universe Unseated Write Firm");

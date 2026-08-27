@@ -210,9 +210,13 @@ const REPORT = {
 
 const TRIAGE_COUNTS = { inUniverse: 128, shortlisted: 24, declined: 61 };
 
+// Every third one is hand-typed, and a hand-typed company has no universe id to carry — which is
+// also what decides whether its panel offers an Edit button.
+const isManual = (i) => i % 3 === 0;
+
 const TRIAGE_COMPANIES = Array.from({ length: 8 }, (_, i) => ({
   id: `triage-${i + 1}`,
-  apolloAccountId: `apollo-${i + 1}`,
+  apolloAccountId: isManual(i) ? null : `apollo-${i + 1}`,
   status: "inUniverse",
   note: null,
   companyName: `Gulf Industrial Holdings Company ${i + 1}`,
@@ -227,8 +231,48 @@ const TRIAGE_COMPANIES = Array.from({ length: 8 }, (_, i) => ({
   shortDescription: null,
   sourceUrl: null,
   logoUrl: null,
-  source: i % 3 === 0 ? "manual" : "strategy",
+  source: isManual(i) ? "manual" : "strategy",
   addedAt: "2026-08-01T09:00:00.000Z",
+}));
+
+/**
+ * Executives at the first three companies, so the grid's Executive/Title/Status columns are exercised
+ * and the "same company, two rows" case is on screen. Company 1 carries two of them; companies 4-8
+ * carry none, which is the "+ Add executive" slot.
+ */
+const CANDIDATES = [
+  ["cand-1", "triage-1", "Yasmin El-Sayed", "VP Finance", "engaged"],
+  ["cand-2", "triage-1", "Omar Haddad", "Chief Financial Officer", "interested"],
+  ["cand-3", "triage-2", "Wei Ling Tan", "Group Chief Executive Officer", "contacted"],
+  ["cand-4", "triage-3", "Stefan Lindqvist", "Managing Director", "identified"],
+  // Nobody's employer in the universe: the row the In-universe stage appends after the companies.
+  ["cand-5", null, "Nadia Rahman", "Group CFO", "identified"],
+].map(([id, triageCompanyId, fullName, title, status]) => ({
+  id,
+  triageCompanyId,
+  companyName: triageCompanyId ? "Gulf Industrial Holdings Company 1" : "An Unlisted Family Holding",
+  fullName,
+  title,
+  seniority: "N-1",
+  status,
+  email: null,
+  phone: null,
+  linkedinUrl: null,
+  locationCountry: "United Arab Emirates",
+  locationCity: "Dubai",
+  nationality: null,
+  yearsExperience: 18,
+  summary: null,
+  note: null,
+  compensation: {
+    currency: null, baseSalary: null, bonus: null, allowances: null,
+    longTermIncentive: null, noticePeriod: null,
+  },
+  career: [],
+  languages: [],
+  source: "manual",
+  sourceUrl: null,
+  addedAt: "2026-08-02T09:00:00.000Z",
 }));
 
 const POSITION = {
@@ -295,12 +339,22 @@ const ROUTES = [
   ["/projects", PROJECTS],
 ];
 
-export function payloadFor(pathname) {
+/**
+ * @param pathname the request path
+ * @param search   the query string, because two reads of the candidates endpoint differ only by it —
+ *                 the people at this page's companies, and the ones mapped to no company at all.
+ */
+export function payloadFor(pathname, search = "") {
   if (pathname.endsWith("/auth/csrf")) return {};
 
   if (/\/projects\/[^/]+\/strategy\/companies/.test(pathname))
     return { companies: COMPANIES, totalCount: 71822, page: 0, size: 25 };
   if (/\/projects\/[^/]+\/strategy/.test(pathname)) return STRATEGY;
+  if (/\/projects\/[^/]+\/candidates/.test(pathname)) {
+    const unmapped = new URLSearchParams(search).get("unmapped") === "true";
+    const answer = CANDIDATES.filter((c) => (c.triageCompanyId === null) === unmapped);
+    return { candidates: answer, totalCount: answer.length, page: 0, size: 25 };
+  }
   if (/\/projects\/[^/]+\/triage/.test(pathname))
     return {
       companies: TRIAGE_COMPANIES,

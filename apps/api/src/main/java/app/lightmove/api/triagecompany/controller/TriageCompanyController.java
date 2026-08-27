@@ -3,6 +3,7 @@ package app.lightmove.api.triagecompany.controller;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.triagecompany.dto.AddTriageCompanyRequest;
 import app.lightmove.api.triagecompany.dto.CaptureCompanyRequest;
+import app.lightmove.api.triagecompany.dto.EditTriageCompanyRequest;
 import app.lightmove.api.triagecompany.dto.TriageBulkAddResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompanyListCriteria;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -107,6 +109,26 @@ public class TriageCompanyController {
             @Valid @RequestBody UpdateTriageCompanyRequest request,
             HttpServletRequest httpRequest) {
         return ResponseEntity.ok(triage.update(principal.userId(), principal.requireWorkspaceId(),
+                projectId, triageCompanyId, request, httpRequest));
+    }
+
+    /**
+     * Replaces a company's own facts — the Companies panel's Edit form.
+     *
+     * <p>A PUT beside the PATCH above rather than more fields on it, because the two mean different
+     * things: the PATCH is a triage change where a null leaves the other half alone, and this is a
+     * whole form where an omitted field is a cleared one. Refused outright for a company taken from
+     * the market, whose fields belong to the export rather than to the mandate.
+     */
+    @PutMapping("/{triageCompanyId}")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
+    public ResponseEntity<TriageCompanyResponse> edit(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable UUID projectId,
+            @PathVariable UUID triageCompanyId,
+            @Valid @RequestBody EditTriageCompanyRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(triage.edit(principal.userId(), principal.requireWorkspaceId(),
                 projectId, triageCompanyId, request, httpRequest));
     }
 

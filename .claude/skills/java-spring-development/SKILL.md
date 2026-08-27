@@ -231,8 +231,8 @@ reads workspace repositories to build the `/me` response (the auth `UserResponse
 the workspace `WorkspaceSummary` is the same seam), and the `rbac/` access services, which read the
 workspace/project repositories because authorisation is answered from membership rows.
 
-**`strategy` and `triagecompany` are two tiers of one story, and the line between them is
-load-bearing.**
+**`strategy`, `triagecompany` and `candidate` are three tiers of one story, and the lines between them
+are load-bearing.**
 `strategy` is the *market* side: finding companies. It owns the mandate's saved filter, the searches
 saved beside it, the reads over `app_lm_apollo_companies`, and the whole vocabulary a search is
 expressed in — `EmployeeBand`, `RevenueBand`, the sector taxonomy, the market segments, the facet
@@ -240,8 +240,17 @@ counts, the sort allowlist. A band is a way of asking the market a question, not
 mandate, so none of it belongs to a project. `triagecompany` is the *mapping* side and holds one
 thing: the project↔company row and its stage (`IN_UNIVERSE` / `SHORTLISTED` / `DECLINED`), stored as a
 write-time snapshot rather than a foreign key because the Apollo pipeline reloads its table wholesale.
+`candidate` is the *people* side: one row per executive a mandate has mapped, with the profile a
+consultant works from. **The project is the mapping and the company is optional** — a candidate belongs
+to the mandate they were researched for (the note, the status and the compensation reading are all
+mandate-specific), and carries a triage company only when their employer happens to be in the universe.
+The employer name is snapshotted beside the link so V36's `ON DELETE SET NULL` can unmap without
+deleting: removing a company from a mandate drops the mandate's decision about the company, never the
+people mapped at it.
+
 Strategy answers "which companies match?"; triagecompany answers "what did this mandate do about that
-one?" If a new type is about *searching*, it goes in `strategy` however company-shaped its name is.
+one?"; candidate answers "who sits there, and where has this mandate got to with them?" If a new type is
+about *searching*, it goes in `strategy` however company-shaped its name is.
 
 The package is named for the row it holds rather than for a screen. **There is no Sourcing** — the
 screen of that name ran its own search against the warehouse, and when discovery moved into Strategy
@@ -254,6 +263,11 @@ method plus the records it returns — never another feature's internals:
 - `triagecompany`'s `TriageCompanyService` calls `strategy`'s `ApolloCompanyQueryService` to resolve
   a company snapshot at write time, and `StrategyService.scopeOf` to resolve the saved filter behind
   "Add all to Universe". `strategy` never looks back at a mandate's triaged companies.
+- `candidate`'s `CandidateService` calls `TriageCompanyService.requireCompanyOfProject` — one method
+  wide, answering in triagecompany's own DTO — to resolve and scope-check the company an executive is
+  being mapped to. **`triagecompany` never learns that people exist**, which is why the Companies grid
+  composes the two sides in the SPA (one read for the page's companies, one for the people at them)
+  rather than embedding candidates in the company list.
 - `project`'s `ReportService` calls `StrategyService.scopeOf` — one method wide, so the report never
   learns how a mandate's filter is stored, validated or translated — and `ApolloCompanyQueryService`
   for the universe counts beside it. `project`'s `ClientService` uses the same service to resolve the

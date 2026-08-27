@@ -29,8 +29,13 @@ public enum ProjectEventType implements AuditEventType {
     TRIAGE_COMPANY_ADDED,
     TRIAGE_COMPANY_CAPTURED,
     TRIAGE_COMPANY_MOVED,
+    TRIAGE_COMPANY_EDITED,
     TRIAGE_COMPANY_REMOVED,
-    TRIAGE_BULK_ADDED;
+    TRIAGE_BULK_ADDED,
+
+    CANDIDATE_ADDED,
+    CANDIDATE_UPDATED,
+    CANDIDATE_REMOVED;
 
     @Override
     public String code() {

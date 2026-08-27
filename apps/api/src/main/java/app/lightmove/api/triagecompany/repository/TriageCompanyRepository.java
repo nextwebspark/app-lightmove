@@ -2,6 +2,7 @@ package app.lightmove.api.triagecompany.repository;
 
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.model.TriageCompany;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -40,4 +41,15 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
      * the moment it meets the second row, turning the 409 this guard exists to raise into a 500.
      */
     boolean existsByProjectIdAndCompanyNameIgnoreCase(UUID projectId, String companyName);
+
+    /**
+     * The same guard for a <i>rename</i>, which has to exclude the row being renamed — saving a company
+     * without changing its name must not collide with itself.
+     *
+     * <p>A list for the reason the finder above is an {@code exists}: the name is not unique within a
+     * project and cannot be made so, because nothing stops the Apollo export carrying two accounts
+     * under one name and a bulk add taking both. A single-result finder would throw
+     * {@code IncorrectResultSizeDataAccessException} on the second row and turn this 409 into a 500.
+     */
+    List<TriageCompany> findByProjectIdAndCompanyNameIgnoreCase(UUID projectId, String companyName);
 }

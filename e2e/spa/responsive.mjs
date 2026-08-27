@@ -60,7 +60,7 @@ const check = (id, what, expected, actual) => {
 /** `signedIn: false` refuses the refresh, which is what puts the app on the signed-out screens. */
 async function stubApi(context, { signedIn = true } = {}) {
   await context.route("**/api/v1/**", async (route) => {
-    const { pathname } = new URL(route.request().url());
+    const { pathname, search } = new URL(route.request().url());
 
     if (!signedIn && pathname.endsWith("/auth/refresh")) {
       await route.fulfill({
@@ -74,7 +74,7 @@ async function stubApi(context, { signedIn = true } = {}) {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(payloadFor(pathname)),
+      body: JSON.stringify(payloadFor(pathname, search)),
     });
   });
 }
