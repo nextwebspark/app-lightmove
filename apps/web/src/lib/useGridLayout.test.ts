@@ -26,21 +26,41 @@ describe("remembered column layout", () => {
   });
 
   it("drops an order entry for a column the grid no longer declares", () => {
-    localStorage.setItem(KEY, JSON.stringify({ order: ["revenue", "keywords"], widths: {} }));
+    // A drop persists every column, so a real record names them all — plus, here, one since retired.
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({ order: ["revenue", "keywords", "name", "employees"], widths: {} }),
+    );
 
     const { result } = renderHook(() => useGridLayout("strategy", COLUMNS));
 
-    expect(result.current[0].order).toEqual(["revenue"]);
+    expect(result.current[0].order).toEqual(["revenue", "name", "employees"]);
   });
 
-  it("leaves a column the record predates out of the order, so it keeps its declared place", () => {
-    // TanStack appends unlisted columns in definition order — the column belongs where its author
-    // put it, not on the end, which is what naming every column in the record would have meant.
+  it("splices a column the record predates back where it was declared", () => {
+    // TanStack appends what it is not told about to the end, and a drop persists the whole list —
+    // so leaving the new column out would put it off the right edge for everyone who ever dragged.
     localStorage.setItem(KEY, JSON.stringify({ order: ["revenue", "name"], widths: {} }));
 
     const { result } = renderHook(() => useGridLayout("strategy", COLUMNS));
 
-    expect(result.current[0].order).not.toContain("employees");
+    expect(result.current[0].order).toEqual(["revenue", "name", "employees"]);
+  });
+
+  it("leaves an order it was given none of alone, so a fresh grid keeps its declared one", () => {
+    localStorage.setItem(KEY, JSON.stringify({ order: [], widths: { revenue: 200 } }));
+
+    const { result } = renderHook(() => useGridLayout("strategy", COLUMNS));
+
+    expect(result.current[0].order).toEqual([]);
+  });
+
+  it("does not write on mount, so a record it could not parse survives for a later release", () => {
+    localStorage.setItem(KEY, "{ truncated");
+
+    renderHook(() => useGridLayout("strategy", COLUMNS));
+
+    expect(localStorage.getItem(KEY)).toBe("{ truncated");
   });
 
   it("drops a width for a column that no longer exists", () => {

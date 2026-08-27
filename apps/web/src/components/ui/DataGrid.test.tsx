@@ -9,7 +9,7 @@ import {
   type ColumnOrderState,
   type Updater,
 } from "@tanstack/react-table";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -35,7 +35,13 @@ const helper = createColumnHelper<typeof features, Row>();
 const columns = helper.columns([
   helper.accessor("name", { id: "name", header: "Company", meta: { share: 22, min: 230 } }),
   helper.accessor("sector", { id: "sector", header: "Sector", meta: { share: 14, min: 140 } }),
-  helper.accessor("revenue", { id: "revenue", header: "Revenue", meta: { share: 11, min: 120 } }),
+  // Unsortable on purpose: 17 of the Strategy grid's 24 columns are, and they render no button.
+  helper.accessor("revenue", {
+    id: "revenue",
+    header: "Revenue",
+    enableSorting: false,
+    meta: { share: 11, min: 120 },
+  }),
 ]);
 
 const DATA: Row[] = [{ name: "Aramco", sector: "Energy", revenue: "$1bn" }];
@@ -76,6 +82,9 @@ function Harness({ onLayout }: { onLayout?: (layout: GridLayout) => void }) {
 }
 
 const headers = () => screen.getAllByRole("columnheader").map((cell) => cell.textContent);
+
+const cellFor = (id: string) =>
+  screen.getAllByRole("columnheader").find((cell) => cell.dataset.columnId === id)!;
 
 const rect = (left: number, width: number) =>
   ({
@@ -217,6 +226,53 @@ describe("DataGrid columns", () => {
       { target: header, keys: "[/MouseLeft]", coords: { x: 450, y: 10 } },
     ]);
     expect(capture).toHaveBeenCalled();
+  });
+
+  it("does not eat the pinned column's sort after some other column was dragged", async () => {
+    // The pinned column starts no reorder of its own, so a suppression flag only a movable header
+    // could clear left Company needing two clicks to sort once anything had been moved.
+    stubLayout();
+    render(<Harness />);
+    const sector = cellFor("sector");
+
+    // Raw events, no click: a captured pointer retargets the drag's own click away from the button,
+    // which is the case that stranded the flag. user-event always fires one, so it cannot show this.
+    fireEvent.pointerDown(sector, { clientX: 312, pointerId: 1, buttons: 1 });
+    fireEvent.pointerMove(sector, { clientX: 450, pointerId: 1, buttons: 1 });
+    fireEvent.pointerUp(sector, { clientX: 450, pointerId: 1 });
+    await userEvent.click(screen.getByRole("button", { name: "Company" }));
+
+    expect(onSort).toHaveBeenCalled();
+  });
+
+  it("drops a press that ended before the threshold, rather than arming the next hover", async () => {
+    // Until the threshold no pointer is captured, so the release lands wherever the cursor is —
+    // over the pinned header it reported nothing, and the next hover became a button-less drag.
+    stubLayout();
+    render(<Harness />);
+    const sector = cellFor("sector");
+
+    fireEvent.pointerDown(sector, { clientX: 312, pointerId: 1, buttons: 1 });
+    // Released over the pinned header, which starts no reorder and so reported nothing.
+    fireEvent.pointerUp(cellFor("name"), { clientX: 310, pointerId: 1 });
+    // A hover, no button held. The stale session used to pass the threshold and take the column.
+    fireEvent.pointerMove(sector, { clientX: 450, pointerId: 1, buttons: 0 });
+
+    expect(sector.style.opacity).toBe("");
+    expect(headers()).toEqual(["Company", "Sector", "Revenue"]);
+  });
+
+  it("moves a column that has no sort button to hang the shortcut on", async () => {
+    // 17 of the Strategy grid's 24 columns are unsortable; the shortcut lived on the sort button,
+    // so those were mouse-only.
+    render(<Harness />);
+    const revenue = screen
+      .getAllByRole("columnheader")
+      .find((cell) => cell.dataset.columnId === "revenue");
+    revenue?.focus();
+    await userEvent.keyboard("{Alt>}{ArrowLeft}{/Alt}");
+
+    expect(headers()).toEqual(["Company", "Revenue", "Sector"]);
   });
 
   it("still sorts on an ordinary click", async () => {

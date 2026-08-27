@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /** A column as this hook needs to know it: its id, and the width it may not be dragged below. */
 export interface GridLayoutColumn {
@@ -37,14 +37,22 @@ const storageKey = (namespace: string) => `lm.${namespace}.layout`;
  * still separates the grids — Strategy is looking at the market and Companies at what the mandate
  * took from it, and they do not hold the same columns.
  *
- * <p>Only the order a user actually chose is stored. A column missing from the record keeps its
- * declared position, because TanStack appends unlisted columns in definition order — so a column
- * shipped after the record was written appears where its author put it rather than at the end.
+ * <p>A column missing from a stored order is spliced back at the index its author declared it at.
+ * TanStack appends what it is not told about to the *end*, and a drop persists the whole column
+ * list — so without this a column shipped in a later release would land off the right edge of the
+ * grid for every user who had ever moved one.
  */
 export function useGridLayout(namespace: string, columns: readonly GridLayoutColumn[]) {
   const [layout, setLayout] = useState<GridLayout>(() => read(namespace, columns));
+  const stored = useRef(true);
 
   useEffect(() => {
+    // Not on mount: the first render would write back whatever `read` returned, and a record it
+    // could not parse would be overwritten with an empty layout instead of left for a later release.
+    if (stored.current) {
+      stored.current = false;
+      return;
+    }
     try {
       localStorage.setItem(storageKey(namespace), JSON.stringify(layout));
     } catch {
@@ -66,20 +74,30 @@ function read(namespace: string, columns: readonly GridLayoutColumn[]): GridLayo
     }
     const record = parsed as { order?: unknown; widths?: unknown };
     const floors = new Map(columns.map((column) => [column.id, column.min]));
-    return { order: readOrder(record.order, floors), widths: readWidths(record.widths, floors) };
+    return { order: readOrder(record.order, columns), widths: readWidths(record.widths, floors) };
   } catch {
     return EMPTY_GRID_LAYOUT;
   }
 }
 
-/** Ids the grid no longer declares are dropped: a stale one would order a column that cannot render. */
-function readOrder(stored: unknown, floors: Map<string, number>): string[] {
+/**
+ * The stored order, with ids the grid no longer declares dropped — a stale one would order a column
+ * that cannot render — and ids it does not carry yet spliced in where they were declared.
+ */
+function readOrder(stored: unknown, columns: readonly GridLayoutColumn[]): string[] {
   if (!Array.isArray(stored)) return [];
+  const declared = new Set(columns.map((column) => column.id));
   const seen = new Set<string>();
-  return stored.filter(
+  const order = stored.filter(
     (id): id is string =>
-      typeof id === "string" && floors.has(id) && !seen.has(id) && (seen.add(id), true),
+      typeof id === "string" && declared.has(id) && !seen.has(id) && (seen.add(id), true),
   );
+  if (order.length === 0) return order;
+  columns.forEach((column, index) => {
+    if (seen.has(column.id)) return;
+    order.splice(Math.min(index, order.length), 0, column.id);
+  });
+  return order;
 }
 
 /** A width below the column's floor would break the layout's `minmax`, so it is raised rather than kept. */

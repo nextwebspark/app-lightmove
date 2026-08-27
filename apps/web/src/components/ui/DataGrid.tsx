@@ -121,7 +121,9 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   const resizeRef = useRef<ResizeSession<TData> | null>(null);
   const reorderRef = useRef<ReorderSession<TData> | null>(null);
   // The pointerup that ends a drag is followed by a click on the sort button, and the session is
-  // gone by then — so the fact that a drag happened has to outlive it.
+  // gone by then — so the fact that a drag happened has to outlive it. Cleared by the next press
+  // anywhere in the grid rather than by the next reorder: the pinned column starts no reorder, and
+  // a flag only a movable header could clear ate its next sort.
   const draggedRef = useRef(false);
   const [announcement, setAnnouncement] = useState("");
 
@@ -183,13 +185,18 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   const startReorder = (event: PointerEvent<HTMLElement>, column: GridColumn<TData>) => {
     // Touch would have to choose between moving a column and scrolling the grid, and scrolling wins.
     if (event.pointerType === "touch" || !isMovable(column)) return;
-    draggedRef.current = false;
     reorderRef.current = { column, startX: event.clientX, dragging: false, target: null };
   };
 
   const moveReorder = (event: PointerEvent<HTMLElement>) => {
     const session = reorderRef.current;
     if (!session) return;
+    // Nothing is held, so the press ended somewhere that could not report it — a release over the
+    // pinned header used to leave the session live and turn the next hover into a button-less drag.
+    if (event.buttons === 0) {
+      endReorder();
+      return;
+    }
     if (!session.dragging) {
       if (Math.abs(event.clientX - session.startX) < DRAG_THRESHOLD) return;
       session.dragging = true;
@@ -260,6 +267,15 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
         role="table"
         aria-label={label}
         aria-busy={loading}
+        // The gesture is tracked here rather than on the header it began on: until it passes the
+        // threshold no pointer is captured, so its pointerup lands on whatever sits under the
+        // cursor — a neighbouring header, or the pinned one, which starts no reorder of its own.
+        onPointerDown={() => {
+          draggedRef.current = false;
+        }}
+        onPointerMove={moveReorder}
+        onPointerUp={endReorder}
+        onPointerCancel={endReorder}
         style={{ "--dg-cols": cols, "--dg-min": `${min}px` } as CSSProperties}
         className="flex min-h-0 flex-1 flex-col overflow-auto"
       >
@@ -295,9 +311,10 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                   data-column-id={column.id}
                   aria-sort={sorted ? (sorted === "asc" ? "ascending" : "descending") : undefined}
                   onPointerDown={movable ? (event) => startReorder(event, column) : undefined}
-                  onPointerMove={movable ? moveReorder : undefined}
-                  onPointerUp={movable ? endReorder : undefined}
-                  onPointerCancel={movable ? endReorder : undefined}
+                  onKeyDown={(event) => onHeaderKeyDown(event, column)}
+                  aria-keyshortcuts={movable ? "Alt+ArrowLeft Alt+ArrowRight" : undefined}
+                  // The sort button is the tab stop where there is one; without it the cell is.
+                  tabIndex={movable && !sortable ? 0 : undefined}
                   className={cn(
                     "relative min-w-0",
                     movable && "cursor-grab",
@@ -317,8 +334,6 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                         }
                         column.getToggleSortingHandler()?.(event);
                       }}
-                      onKeyDown={(event) => onHeaderKeyDown(event, column)}
-                      aria-keyshortcuts={movable ? "Alt+ArrowLeft Alt+ArrowRight" : undefined}
                       className="block w-full text-left transition hover:opacity-80"
                     >
                       {label}
