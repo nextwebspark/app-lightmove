@@ -7,6 +7,7 @@ const DEVICE_ICONS: Record<DeviceKind, string> = {
   DESKTOP: ICONS.laptop,
   MOBILE: ICONS.phone,
   TABLET: ICONS.phone,
+  EXTENSION: ICONS.puzzle,
   UNKNOWN: ICONS.laptop,
 };
 
