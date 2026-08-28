@@ -32,11 +32,13 @@ export function IndustryFilter({
   const [showAllAdjacent, setShowAllAdjacent] = useState(false);
   const chosen = new Set(selected);
 
+  // A to Z, because this box is read by someone who already knows the industry they want: an
+  // alphabetical list tells them where to look, where a size ranking makes them scan the whole of it.
   const leaves = useMemo(
     () =>
       groups
         .flatMap((group) => group.industries)
-        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
+        .sort((a, b) => a.label.localeCompare(b.label)),
     [groups],
   );
   const leafOf = useMemo(() => {
