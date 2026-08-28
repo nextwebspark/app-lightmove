@@ -1,19 +1,17 @@
 import { Input, Select } from "../../../../components/ui";
-import { Avatar } from "../../../../components/ui";
-import type { DirectReport, ReportingStructure } from "../../api/types";
+import type { PositionSeniority, ReportingStructure } from "../../api/types";
 import { NOTICE_UNIT_LABELS, SENIORITY_LABELS } from "../../lib/labels";
-import {
-  AddRowButton,
-  ColumnLabel,
-  FormattedDateField,
-  NumberInput,
-  RemoveRowButton,
-  StepField,
-  SubCard,
-} from "../fields";
-import type { PositionSeniority } from "../../api/types";
+import { directReportsOf, labelOfNode, managerOf } from "../../lib/orgChart";
+import { OrgChartCanvas } from "../OrgChartCanvas";
+import { ColumnLabel, FormattedDateField, NumberInput, StepField } from "../fields";
 
-/** Step three: the shape of the org around the seat. */
+/**
+ * Step three: the shape of the org around the seat.
+ *
+ * The chart is the editor. There are no separate "reports to" or "direct report" fields, because both
+ * are readings of the chart — the manager is the mandate seat's parent, the reports are its children —
+ * and a second set of inputs over the same structure is a second place for them to disagree.
+ */
 export function ReportingStructureStep({
   roleTitle,
   seniority,
@@ -25,88 +23,29 @@ export function ReportingStructureStep({
   reporting: ReportingStructure;
   onChange: (patch: Partial<ReportingStructure>, immediate?: boolean) => void;
 }) {
-  const patchReport = (index: number, changes: Partial<DirectReport>) =>
-    onChange({
-      directReports: reporting.directReports.map((report, i) =>
-        i === index ? { ...report, ...changes } : report,
-      ),
-    });
+  const manager = labelOfNode(managerOf(reporting.orgChart));
+  const reports = directReportsOf(reporting.orgChart);
 
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.02em] text-text2">
-          Reports to
-        </span>
-        <SubCard className="flex flex-wrap items-center gap-3">
-          <Avatar id="reports-to" name={reporting.reportsToName ?? "?"} size="lg" />
-          <Input
-            value={reporting.reportsToName ?? ""}
-            aria-label="Reports to name"
-            placeholder="Name"
-            onChange={(event) => onChange({ reportsToName: event.target.value || null })}
-            className="min-w-[140px] flex-1 bg-panel"
-          />
-          <Input
-            value={reporting.reportsTo ?? ""}
-            aria-label="Reports to title"
-            placeholder="Title — e.g. Group CEO"
-            onChange={(event) => onChange({ reportsTo: event.target.value || null })}
-            className="min-w-[140px] flex-1 bg-panel"
-          />
-        </SubCard>
-      </div>
-
-      <OrgChart
-        roleTitle={roleTitle}
-        reportsTo={reporting.reportsTo}
-        directReports={reporting.directReports}
-      />
-
-      <div>
-        <div className="mb-1.5 flex items-baseline justify-between gap-2">
+        <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2">
           <span className="text-xs font-semibold uppercase tracking-[0.02em] text-text2">
-            Direct reports
+            Org chart
           </span>
-          <ColumnLabel>{reporting.directReports.length} seats</ColumnLabel>
+          <ColumnLabel>
+            drag to arrange · hover a seat to add or remove · drag a handle to re-parent
+          </ColumnLabel>
         </div>
-        <div className="flex flex-col gap-2">
-          {reporting.directReports.map((report, index) => (
-            <SubCard key={index} className="flex flex-wrap items-center gap-3 py-3">
-              <Input
-                value={report.title ?? ""}
-                aria-label={`Direct report ${index + 1} title`}
-                placeholder="Title"
-                onChange={(event) => patchReport(index, { title: event.target.value || null })}
-                className="min-w-[140px] flex-1 bg-panel"
-              />
-              <Input
-                value={report.name ?? ""}
-                aria-label={`Direct report ${index + 1} name`}
-                placeholder="Direct report"
-                onChange={(event) => patchReport(index, { name: event.target.value || null })}
-                className="min-w-[140px] flex-1 bg-panel"
-              />
-              <RemoveRowButton
-                label={`Remove direct report ${index + 1}`}
-                onClick={() =>
-                  onChange(
-                    { directReports: reporting.directReports.filter((_, i) => i !== index) },
-                    true,
-                  )
-                }
-              />
-            </SubCard>
-          ))}
-          <AddRowButton
-            className="self-start"
-            onClick={() =>
-              onChange({ directReports: [...reporting.directReports, { title: null, name: null }] })
-            }
-          >
-            + Add direct report
-          </AddRowButton>
-        </div>
+        <OrgChartCanvas
+          chart={reporting.orgChart}
+          roleTitle={roleTitle}
+          onChange={(orgChart, immediate) => onChange({ orgChart }, immediate)}
+        />
+        <p className="mt-2 font-mono text-[11.5px] text-text3">
+          {manager ? `Reports to ${manager}` : "No manager named yet"} ·{" "}
+          {reports.length} direct report{reports.length === 1 ? "" : "s"}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-x-[18px]">
@@ -161,69 +100,6 @@ export function ReportingStructureStep({
           </div>
         </StepField>
       </div>
-    </div>
-  );
-}
-
-/** The three-tier sketch the mockup draws: who this seat answers to, the seat, and what it leads. */
-function OrgChart({
-  roleTitle,
-  reportsTo,
-  directReports,
-}: {
-  roleTitle: string;
-  reportsTo: string | null;
-  directReports: DirectReport[];
-}) {
-  return (
-    <SubCard>
-      <ColumnLabel>Visual org chart</ColumnLabel>
-      <div className="mt-3 flex flex-col items-center gap-2">
-        <OrgNode label={reportsTo ?? "—"} caption="Reports to" />
-        <span className="h-4 w-px bg-line" aria-hidden="true" />
-        <OrgNode label={roleTitle || "Untitled role"} caption="This position" accent />
-        {directReports.length > 0 && (
-          <>
-            <span className="h-4 w-px bg-line" aria-hidden="true" />
-            <div className="flex w-full flex-wrap justify-center gap-2 overflow-x-auto">
-              {directReports.map((report, index) => (
-                <OrgNode
-                  key={index}
-                  label={report.title ?? report.name ?? "Unnamed seat"}
-                  caption={report.title && report.name ? report.name : undefined}
-                />
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-    </SubCard>
-  );
-}
-
-function OrgNode({
-  label,
-  caption,
-  accent = false,
-}: {
-  label: string;
-  caption?: string;
-  accent?: boolean;
-}) {
-  return (
-    <div
-      className={`min-w-0 max-w-full rounded-lg border px-3.5 py-2 text-center ${
-        accent ? "border-sky bg-sky-dim" : "border-line bg-panel"
-      }`}
-    >
-      <span
-        className={`block truncate text-[13px] font-semibold ${accent ? "text-sky" : "text-text"}`}
-      >
-        {label}
-      </span>
-      {caption && (
-        <span className="mt-px block truncate font-mono text-[10.5px] text-text3">{caption}</span>
-      )}
     </div>
   );
 }

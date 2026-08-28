@@ -89,9 +89,10 @@ const seeded: Position = {
     internalContext: null,
   },
   reporting: {
-    reportsToName: null,
-    reportsTo: "Group CEO",
-    directReports: [],
+    orgChart: [
+      { nodeId: "n-manager", parentNodeId: null, title: "Group CEO", name: null, mandateSeat: false, canvasX: null, canvasY: null },
+      { nodeId: "n-seat", parentNodeId: "n-manager", title: null, name: null, mandateSeat: true, canvasX: null, canvasY: null },
+    ],
     teamSize: null,
     targetStart: null,
     noticeValue: null,

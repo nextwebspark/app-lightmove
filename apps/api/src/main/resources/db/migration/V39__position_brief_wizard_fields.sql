@@ -75,26 +75,73 @@ COMMENT ON TABLE app_lm_position_priority IS
 
 -- ── Step 3 · Reporting ───────────────────────────────────────────────────────
 
-CREATE TABLE app_lm_position_direct_report (
-    position_id uuid         NOT NULL REFERENCES app_lm_position (id) ON DELETE CASCADE,
-    sort_order  integer      NOT NULL,
-    title       varchar(160),
-    name        varchar(160),
+-- The org chart is a tree of seats, and exactly one of them is the mandate's own. That single flag is
+-- what makes the rest fall out: "reports to" is the parent of the mandate seat, "direct reports" are
+-- its children, and a chart that wants a skip-level, a second-line manager or a grandchild just adds
+-- nodes rather than needing a fourth concept. It replaces two columns (reports_to, reports_to_name)
+-- and the fixed tier they described.
+--
+-- parent_node_id carries no foreign key on purpose. The whole chart is replaced by one write of its
+-- step, so a self-referencing key would force delete-then-insert into a dependency order that buys
+-- nothing here: the service validates that every parent resolves inside the same position and that
+-- the result is a tree, which is the rule an FK could not have expressed anyway.
+--
+-- canvas_x/canvas_y are where the consultant dragged the box. Nullable, because a node that has never
+-- been arranged is laid out from the tree instead — presentation the screen can always recompute, not
+-- a fact about the role.
+CREATE TABLE app_lm_position_org_node (
+    position_id    uuid         NOT NULL REFERENCES app_lm_position (id) ON DELETE CASCADE,
+    sort_order     integer      NOT NULL,
+    node_id        uuid         NOT NULL,
+    parent_node_id uuid,
+    title          varchar(160),
+    name           varchar(160),
+    mandate_seat   boolean      NOT NULL DEFAULT false,
+    canvas_x       real,
+    canvas_y       real,
     PRIMARY KEY (position_id, sort_order)
 );
 
-COMMENT ON TABLE app_lm_position_direct_report IS
-    'The seats reporting into this one. Either field may be blank: a mandate often knows the seat long before the person.';
+COMMENT ON TABLE app_lm_position_org_node IS
+    'The org chart around the mandate. One row per seat; exactly one carries mandate_seat. Either name field may be blank: a mandate knows the seat long before the person.';
 
--- The count becomes that many unfilled seats, so nothing anyone typed is lost.
-INSERT INTO app_lm_position_direct_report (position_id, sort_order)
-SELECT p.id, seat.ordinal - 1
+CREATE UNIQUE INDEX app_lm_position_org_node_uk
+    ON app_lm_position_org_node (position_id, node_id);
+
+-- Exactly one mandate seat per chart, enforced where it cannot be forgotten — the same shape as
+-- V5's one-lead-per-project index.
+CREATE UNIQUE INDEX app_lm_position_org_node_seat_uk
+    ON app_lm_position_org_node (position_id) WHERE mandate_seat;
+
+-- Every existing brief becomes a chart: the manager it named, the mandate's own seat beneath, and one
+-- unfilled seat under that for each direct report it counted. Nothing anyone typed is dropped, and a
+-- seat with neither a title nor a name clears itself the next time the step is saved.
+INSERT INTO app_lm_position_org_node
+    (position_id, sort_order, node_id, parent_node_id, title, name, mandate_seat)
+SELECT p.id, 0, seat.manager_id, NULL, p.reports_to, p.reports_to_name, false
 FROM app_lm_position p
-CROSS JOIN LATERAL generate_series(1, p.direct_reports) AS seat(ordinal)
+CROSS JOIN LATERAL (SELECT gen_random_uuid() AS manager_id) AS seat;
+
+INSERT INTO app_lm_position_org_node
+    (position_id, sort_order, node_id, parent_node_id, title, name, mandate_seat)
+SELECT p.id, 1, gen_random_uuid(), manager.node_id, NULL, NULL, true
+FROM app_lm_position p
+JOIN app_lm_position_org_node manager
+  ON manager.position_id = p.id AND manager.sort_order = 0;
+
+INSERT INTO app_lm_position_org_node
+    (position_id, sort_order, node_id, parent_node_id, title, name, mandate_seat)
+SELECT p.id, 1 + report.ordinal, gen_random_uuid(), seat.node_id, NULL, NULL, false
+FROM app_lm_position p
+JOIN app_lm_position_org_node seat
+  ON seat.position_id = p.id AND seat.mandate_seat
+CROSS JOIN LATERAL generate_series(1, p.direct_reports) AS report(ordinal)
 WHERE p.direct_reports IS NOT NULL
   AND p.direct_reports > 0;
 
 ALTER TABLE app_lm_position DROP COLUMN direct_reports;
+ALTER TABLE app_lm_position DROP COLUMN reports_to;
+ALTER TABLE app_lm_position DROP COLUMN reports_to_name;
 
 ALTER TABLE app_lm_position
     ALTER COLUMN team_size TYPE varchar(160) USING team_size::text;

@@ -1,6 +1,7 @@
 import { formatDate, formatInstantDate } from "../../../lib/format";
 import type { Position } from "../api/types";
 import { packageTotal } from "./compensation";
+import { directReportsOf, labelOfNode, managerOf } from "./orgChart";
 import {
   HIRING_URGENCY_LABELS,
   MANDATE_REASON_LABELS,
@@ -70,16 +71,18 @@ export const POSITION_STEPS: PositionStep[] = [
     name: "Reporting",
     heading: "Reporting structure",
     subheading: "Define who this role reports to and the team it will lead.",
-    summary: (p) => `Reports to ${dash(p.reporting.reportsToName ?? p.reporting.reportsTo)}`,
+    summary: (p) => `Reports to ${dash(labelOfNode(managerOf(p.reporting.orgChart)))}`,
     detail: (p) => {
-      const seats = p.reporting.directReports.length;
+      const seats = directReportsOf(p.reporting.orgChart).length;
       const seniority = labelOf(SENIORITY_LABELS, p.details.seniority);
       const start = p.reporting.targetStart ? formatDate(p.reporting.targetStart) : null;
       return [`${seats} direct report${seats === 1 ? "" : "s"}`, seniority, start]
         .filter(Boolean)
         .join(" · ");
     },
-    isDone: (p) => Boolean(p.reporting.reportsTo?.trim()) && p.reporting.directReports.length > 0,
+    isDone: (p) =>
+      Boolean(labelOfNode(managerOf(p.reporting.orgChart))) &&
+      directReportsOf(p.reporting.orgChart).length > 0,
   },
   {
     key: "compensation",

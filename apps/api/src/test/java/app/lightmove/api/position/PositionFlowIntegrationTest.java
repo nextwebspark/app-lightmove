@@ -47,7 +47,10 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.details.seniority").value("C_SUITE"))
                 .andExpect(jsonPath("$.details.employmentType").value("FULL_TIME_PERMANENT"))
                 .andExpect(jsonPath("$.details.responsibilities[0]").value("Group P&L stewardship"))
-                .andExpect(jsonPath("$.reporting.reportsTo").value("Group CEO"))
+                .andExpect(jsonPath("$.reporting.orgChart.length()").value(2))
+                .andExpect(jsonPath("$.reporting.orgChart[0].title").value("Group CEO"))
+                .andExpect(jsonPath("$.reporting.orgChart[0].mandateSeat").value(false))
+                .andExpect(jsonPath("$.reporting.orgChart[1].mandateSeat").value(true))
                 .andExpect(jsonPath("$.compensation.currency").value("USD"))
                 .andExpect(jsonPath("$.compensation.baseSalaryMode").value("ANNUAL"))
                 .andExpect(jsonPath("$.context.hiringUrgency").value("STANDARD"))
@@ -107,17 +110,25 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.context.strategicPriorities.length()").value(2))
                 .andExpect(jsonPath("$.context.confidential").value(true));
 
+        String managerId = "11111111-1111-4111-8111-111111111111";
+        String seatId = "22222222-2222-4222-8222-222222222222";
+        String controllerId = "33333333-3333-4333-8333-333333333333";
         putStep(admin, projectId, "reporting", """
-                {"reportsToName":"Hassan Al Marri","reportsTo":"Group CEO",
-                 "directReports":[{"title":"Financial Controller","name":"Layla Nasser"},
-                                  {"title":"Group Treasurer","name":null},
-                                  {"title":null,"name":null}],
+                {"orgChart":[
+                   {"nodeId":"%s","parentNodeId":null,"title":"Group CEO","name":"Hassan Al Marri",
+                    "mandateSeat":false,"canvasX":null,"canvasY":null},
+                   {"nodeId":"%s","parentNodeId":"%s","title":null,"name":null,
+                    "mandateSeat":true,"canvasX":120.5,"canvasY":80.0},
+                   {"nodeId":"%s","parentNodeId":"%s","title":"Financial Controller","name":"Layla Nasser",
+                    "mandateSeat":false,"canvasX":null,"canvasY":null}],
                  "teamSize":"38 across the finance function","targetStart":"2026-09-15",
-                 "noticeValue":90,"noticeUnit":"DAYS"}""")
-                .andExpect(jsonPath("$.reporting.reportsToName").value("Hassan Al Marri"))
-                // The seat with neither half filled in is a placeholder, and saving the step clears it.
-                .andExpect(jsonPath("$.reporting.directReports.length()").value(2))
-                .andExpect(jsonPath("$.reporting.directReports[1].name").isEmpty())
+                 "noticeValue":90,"noticeUnit":"DAYS"}"""
+                .formatted(managerId, seatId, managerId, controllerId, seatId))
+                .andExpect(jsonPath("$.reporting.orgChart.length()").value(3))
+                .andExpect(jsonPath("$.reporting.orgChart[0].name").value("Hassan Al Marri"))
+                // The dragged seat keeps where it was put; the others are laid out by the screen.
+                .andExpect(jsonPath("$.reporting.orgChart[1].canvasX").value(120.5))
+                .andExpect(jsonPath("$.reporting.orgChart[2].parentNodeId").value(seatId))
                 .andExpect(jsonPath("$.reporting.teamSize").value("38 across the finance function"))
                 .andExpect(jsonPath("$.reporting.noticeUnit").value("DAYS"));
 
@@ -139,6 +150,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
         assertThat(brief.get("context").get("hiringUrgency").asString()).isEqualTo("URGENT");
         assertThat(brief.get("reporting").get("teamSize").asString())
                 .isEqualTo("38 across the finance function");
+        assertThat(brief.get("reporting").get("orgChart").size()).isEqualTo(3);
         assertThat(brief.get("compensation").get("currency").asString()).isEqualTo("AED");
 
         // "Target start" is the mandate's one target date, not a second field on the brief.
@@ -167,6 +179,39 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
         assertThat(brief.get("compensation").get("currency").asString()).isEqualTo("SAR");
         // The template's own seeding survived both writes — neither step owns the assessment lists.
         assertThat(brief.get("assessment").get("criteria").size()).isGreaterThan(0);
+    }
+
+    @Test
+    @DisplayName("a chart that is not a chart is refused rather than stored and drawn")
+    void malformedChartsAreRefused() throws Exception {
+        String admin = adminOf("Chart Firm");
+        String projectId = createProject(admin, createClient(admin, "Aldar", "UAE"), "CFO");
+        String first = "11111111-1111-4111-8111-111111111111";
+        String second = "22222222-2222-4222-8222-222222222222";
+
+        // Two seats claiming to be the role, so nothing can answer "who does this report to".
+        rejectChart(admin, projectId, """
+                [{"nodeId":"%s","parentNodeId":null,"mandateSeat":true},
+                 {"nodeId":"%s","parentNodeId":null,"mandateSeat":true}]"""
+                .formatted(first, second));
+
+        // No seat for the role at all.
+        rejectChart(admin, projectId, """
+                [{"nodeId":"%s","parentNodeId":null,"mandateSeat":false}]""".formatted(first));
+
+        // A seat reporting to one that is not on the chart.
+        rejectChart(admin, projectId, """
+                [{"nodeId":"%s","parentNodeId":"%s","mandateSeat":true}]"""
+                .formatted(first, second));
+
+        // A loop, which would make every traversal of the chart run forever.
+        rejectChart(admin, projectId, """
+                [{"nodeId":"%s","parentNodeId":"%s","mandateSeat":true},
+                 {"nodeId":"%s","parentNodeId":"%s","mandateSeat":false}]"""
+                .formatted(first, second, second, first));
+
+        // The seeded chart survived every refusal.
+        assertThat(readBrief(admin, projectId).get("reporting").get("orgChart").size()).isEqualTo(2);
     }
 
     @Test
@@ -310,6 +355,17 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .file(new MockMultipartFile("file", fileName, contentType,
                         content.getBytes(StandardCharsets.UTF_8)))
                 .header("Authorization", "Bearer " + token));
+    }
+
+    private void rejectChart(String token, String projectId, String chartJson) throws Exception {
+        mvc.perform(put(positionUrl(projectId) + "/reporting")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"orgChart":%s,"teamSize":null,"targetStart":null,
+                                 "noticeValue":null,"noticeUnit":null}""".formatted(chartJson)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
     }
 
     private JsonNode readBrief(String token, String projectId) throws Exception {

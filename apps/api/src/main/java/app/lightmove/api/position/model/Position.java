@@ -26,6 +26,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -107,17 +108,11 @@ public class Position extends BaseEntity {
 
     // ── Step 3 · Reporting structure ────────────────────────────────────────
 
-    @Column(name = "reports_to_name", length = 160)
-    private String reportsToName;
-
-    @Column(name = "reports_to", length = 160)
-    private String reportsTo;
-
     @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(name = "app_lm_position_direct_report",
+    @CollectionTable(name = "app_lm_position_org_node",
             joinColumns = @JoinColumn(name = "position_id"))
     @OrderColumn(name = "sort_order")
-    private List<PositionDirectReport> directReports = new ArrayList<>();
+    private List<PositionOrgNode> orgChart = new ArrayList<>();
 
     @Column(name = "team_size", length = 160)
     private String teamSize;
@@ -215,16 +210,15 @@ public class Position extends BaseEntity {
     }
 
     public void applyReporting(ReportingStructure reporting) {
-        this.reportsToName = reporting.reportsToName();
-        this.reportsTo = reporting.reportsTo();
         this.teamSize = reporting.teamSize();
         this.noticeValue = reporting.noticeValue();
         this.noticeUnit = reporting.noticeUnit();
-        // A seat with neither a title nor a name is a placeholder the screen has not filled in — most
-        // often one of the empties V39 created from the old count. Saving the step clears them.
-        replace(this.directReports, reporting.directReports().stream()
-                .filter(report -> !report.isBlank())
-                .toList());
+        replace(this.orgChart, reporting.orgChart());
+    }
+
+    /** The seat this brief is for. Absent only on a chart that has somehow lost its anchor. */
+    public Optional<PositionOrgNode> mandateSeat() {
+        return orgChart.stream().filter(PositionOrgNode::isMandateSeat).findFirst();
     }
 
     public void applyCompensation(CompensationPackage compensation) {

@@ -17,7 +17,7 @@ import app.lightmove.api.position.model.PositionBenefit;
 import app.lightmove.api.position.model.PositionCompetency;
 import app.lightmove.api.position.model.PositionCriterion;
 import app.lightmove.api.position.model.PositionDetails;
-import app.lightmove.api.position.model.PositionDirectReport;
+import app.lightmove.api.position.model.PositionOrgNode;
 import app.lightmove.api.position.model.ReportingStructure;
 import app.lightmove.api.position.constant.StrategicPriority;
 import jakarta.servlet.http.HttpServletRequest;
@@ -85,11 +85,13 @@ public class PositionService {
     @Transactional
     public PositionResponse putReporting(UUID userId, UUID workspaceId, UUID projectId,
                                          PutReportingStructureRequest request, HttpServletRequest httpRequest) {
+        OrgChartRules.validate(request.orgChart());
         PositionBrief brief = briefs.require(workspaceId, projectId);
         brief.position().applyReporting(new ReportingStructure(
-                request.reportsToName(), request.reportsTo(),
-                orEmpty(request.directReports()).stream()
-                        .map(report -> PositionDirectReport.of(report.title(), report.name()))
+                request.orgChart().stream()
+                        .map(node -> PositionOrgNode.of(node.nodeId(), node.parentNodeId(),
+                                node.title(), node.name(), node.mandateSeat(),
+                                node.canvasX(), node.canvasY()))
                         .toList(),
                 request.teamSize(), request.noticeValue(), request.noticeUnit()));
         // The mandate keeps one target date, on the project — the step's "Target start" writes it there.

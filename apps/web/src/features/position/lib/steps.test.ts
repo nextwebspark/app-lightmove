@@ -21,9 +21,17 @@ const blank: Position = {
     internalContext: null,
   },
   reporting: {
-    reportsToName: null,
-    reportsTo: null,
-    directReports: [],
+    orgChart: [
+      {
+        nodeId: "n-seat",
+        parentNodeId: null,
+        title: null,
+        name: null,
+        mandateSeat: true,
+        canvasX: null,
+        canvasY: null,
+      },
+    ],
     teamSize: null,
     targetStart: null,
     noticeValue: null,
@@ -60,17 +68,43 @@ describe("step completion", () => {
     ).toBe(true);
   });
 
-  it("counts the reporting step done only when the line and at least one seat are named", () => {
+  it("counts the reporting step done only when a manager and at least one report are on the chart", () => {
     const reporting = stepNamed("reporting");
-    const withLine = {
-      ...blank,
-      reporting: { ...blank.reporting, reportsTo: "Group CEO" },
+    const seat = blank.reporting.orgChart[0];
+    const manager = {
+      nodeId: "n-manager",
+      parentNodeId: null,
+      title: "Group CEO",
+      name: null,
+      mandateSeat: false,
+      canvasX: null,
+      canvasY: null,
     };
-    expect(reporting.isDone(withLine)).toBe(false);
+    const withManager = {
+      ...blank,
+      reporting: {
+        ...blank.reporting,
+        orgChart: [manager, { ...seat, parentNodeId: manager.nodeId }],
+      },
+    };
+    expect(reporting.isDone(withManager)).toBe(false);
+
+    const report = {
+      nodeId: "n-report",
+      parentNodeId: seat.nodeId,
+      title: "Financial Controller",
+      name: null,
+      mandateSeat: false,
+      canvasX: null,
+      canvasY: null,
+    };
     expect(
       reporting.isDone({
-        ...withLine,
-        reporting: { ...withLine.reporting, directReports: [{ title: "Controller", name: null }] },
+        ...withManager,
+        reporting: {
+          ...withManager.reporting,
+          orgChart: [...withManager.reporting.orgChart, report],
+        },
       }),
     ).toBe(true);
   });

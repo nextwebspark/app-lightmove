@@ -37,9 +37,19 @@ export type IncentiveType = "LTIP_CASH" | "RSU" | "OPTIONS" | "PHANTOM_EQUITY";
 
 export type BenefitFrequency = "MONTHLY" | "YEARLY";
 
-export interface DirectReport {
+/**
+ * One seat in the org chart. Exactly one node carries `mandateSeat` — the role being searched for —
+ * and everything else reads off it: the manager is that seat's parent, the direct reports are its
+ * children. `canvasX`/`canvasY` are where the box was dragged, absent until it has been.
+ */
+export interface OrgNode {
+  nodeId: string;
+  parentNodeId: string | null;
   title: string | null;
   name: string | null;
+  mandateSeat: boolean;
+  canvasX: number | null;
+  canvasY: number | null;
 }
 
 export interface Benefit {
@@ -83,11 +93,14 @@ export interface MandateContext {
   internalContext: string | null;
 }
 
-/** Step 3. `targetStart` is the mandate's single target date, sourced from the project. */
+/**
+ * Step 3. `targetStart` is the mandate's single target date, sourced from the project.
+ *
+ * Who the role reports to and how many seats it leads are not fields: they are the parent and the
+ * children of the chart's mandate seat, derived by `lib/orgChart.ts` rather than sent twice.
+ */
 export interface ReportingStructure {
-  reportsToName: string | null;
-  reportsTo: string | null;
-  directReports: DirectReport[];
+  orgChart: OrgNode[];
   teamSize: string | null;
   targetStart: string | null;
   noticeValue: number | null;

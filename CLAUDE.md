@@ -27,7 +27,9 @@ with three of them is three lines and one with none keeps its "Add executive" sl
 Candidates screen, the pipeline and outreach tables don't exist yet, and neither does the CSV import or
 the plugin's profile capture (the columns and `CandidateSource` are there for them). The **Position**
 screen is the mandate's brief, edited as a six-step wizard (details, mandate context, reporting,
-compensation, assessment, review) that autosaves one step at a time; step one attaches the position
+compensation, assessment, review) that autosaves one step at a time. Step three is an editable
+React Flow org chart — add, rename, re-parent and drag any seat; only the role's own seat is fixed.
+Step one attaches the position
 description, which is *stored and never read* — no extraction, no auto-fill. Publishing stamps who
 called the brief ready and **freezes nothing** (V38 retired the lock deliberately). Don't build ahead of
 the mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
@@ -133,9 +135,12 @@ left in place rather than dropped. A mandate's whole filter is one `jsonb` colum
 (V30 explains why). `app_lm_project_candidate` (V36) is the people half: `project_id` is the mapping and
 `triage_company_id` is nullable with **ON DELETE SET NULL** beside a snapshotted `company_name`, so
 removing a company from a mandate unmaps its executives rather than deleting them; career history and
-languages are one `profile` jsonb column for V30's reasons. `app_lm_position` and its five owned-list
+languages are one `profile` jsonb column for V30's reasons. `app_lm_position` and its six owned-list
 tables are the brief (V7, grown by V39): every list a step edits is a child table replaced wholesale by
 its step's write, so the aggregate keeps one idiom rather than mixing rows and jsonb.
+`app_lm_position_org_node` is the org chart — a tree of seats with exactly one flagged
+`mandate_seat`, so "reports to" is that seat's parent and "direct reports" are its children, both
+derived rather than stored twice.
 `app_lm_position_document` holds the attached position description inline (`bytea`) — one small file per
 mandate, read back only by its own download endpoint. Everything else (roles, hardening, grants) →
 `db-ops` skill.

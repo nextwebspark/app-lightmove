@@ -5,6 +5,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.position.constant.EmploymentType;
 import app.lightmove.api.position.model.Position;
 import app.lightmove.api.position.model.PositionDetails;
+import app.lightmove.api.position.model.PositionOrgNode;
 import app.lightmove.api.position.model.PositionSeed;
 import app.lightmove.api.position.model.ReportingStructure;
 import app.lightmove.api.position.repository.PositionRepository;
@@ -54,11 +55,22 @@ class PositionBriefLoader {
         position.applyDetails(new PositionDetails(
                 null, location, EmploymentType.FULL_TIME_PERMANENT, seed.seniority(),
                 seed.responsibilities(), seed.narrative()));
-        position.applyReporting(new ReportingStructure(
-                null, seed.reportsTo(), List.of(), null, null, null));
+        position.applyReporting(new ReportingStructure(seededChart(seed.reportsTo()), null, null, null));
         position.replaceCriteria(seed.criteria());
         position.replaceCompetencies(seed.competencies());
         return positions.save(position);
+    }
+
+    /**
+     * The chart a fresh brief opens on: the manager the template names, and the mandate's own seat
+     * beneath it. The third tier is left empty rather than filled with placeholder boxes — the canvas
+     * offers a seat to add, which says the same thing without inventing a report nobody named.
+     */
+    private static List<PositionOrgNode> seededChart(String managerTitle) {
+        UUID managerId = UUID.randomUUID();
+        return List.of(
+                PositionOrgNode.of(managerId, null, managerTitle, null, false, null, null),
+                PositionOrgNode.mandateSeat(UUID.randomUUID(), managerId));
     }
 
     private String hqCountryOf(UUID clientId, UUID workspaceId) {

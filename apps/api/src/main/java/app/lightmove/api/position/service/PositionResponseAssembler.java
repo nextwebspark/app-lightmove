@@ -7,7 +7,7 @@ import app.lightmove.api.position.dto.BenefitDto;
 import app.lightmove.api.position.dto.CompensationDto;
 import app.lightmove.api.position.dto.CompetencyDto;
 import app.lightmove.api.position.dto.CriterionResponse;
-import app.lightmove.api.position.dto.DirectReportDto;
+import app.lightmove.api.position.dto.OrgNodeDto;
 import app.lightmove.api.position.dto.MandateContextDto;
 import app.lightmove.api.position.dto.PositionDetailsDto;
 import app.lightmove.api.position.dto.PositionDocumentDto;
@@ -77,10 +77,10 @@ class PositionResponseAssembler {
     private ReportingStructureDto reportingOf(PositionBrief brief) {
         Position position = brief.position();
         return new ReportingStructureDto(
-                position.getReportsToName(),
-                position.getReportsTo(),
-                position.getDirectReports().stream()
-                        .map(report -> new DirectReportDto(report.getTitle(), report.getName()))
+                position.getOrgChart().stream()
+                        .map(node -> new OrgNodeDto(node.getNodeId(), node.getParentNodeId(),
+                                node.getTitle(), node.getName(), node.isMandateSeat(),
+                                node.getCanvasX(), node.getCanvasY()))
                         .toList(),
                 position.getTeamSize(),
                 brief.project().getTargetDate(),

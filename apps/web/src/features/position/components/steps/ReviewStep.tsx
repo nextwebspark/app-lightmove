@@ -2,6 +2,7 @@ import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { cn } from "../../../../lib/cn";
 import { formatInstantDate } from "../../../../lib/format";
 import type { Position } from "../../api/types";
+import { labelOfNode, managerOf } from "../../lib/orgChart";
 import { REVIEWABLE_STEPS, panelTotal, type StepKey } from "../../lib/steps";
 
 /**
@@ -101,7 +102,7 @@ function readinessOf(position: Position): { label: string; met: boolean }[] {
         position.details.roleTitle.trim() &&
           position.details.location?.trim() &&
           position.context.businessDriver?.trim() &&
-          position.reporting.reportsTo?.trim(),
+          labelOfNode(managerOf(position.reporting.orgChart)),
       ),
     },
     {
