@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Spinner, useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
@@ -30,7 +30,7 @@ import {
 import { StepRail } from "../components/StepRail";
 import { AssessmentStep } from "../components/steps/AssessmentStep";
 import { CompensationStep } from "../components/steps/CompensationStep";
-import { MandateContextStep } from "../components/steps/MandateContextStep";
+import { MandateContextStep, MandateReasonField } from "../components/steps/MandateContextStep";
 import { PositionDetailsStep } from "../components/steps/PositionDetailsStep";
 import { ReportingStructureStep } from "../components/steps/ReportingStructureStep";
 import { ReviewStep } from "../components/steps/ReviewStep";
@@ -68,10 +68,21 @@ export function PositionPage() {
  */
 function PositionWizard({ projectId, position }: { projectId: string; position: Position }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const toast = useToast();
   const key = positionApi.POSITION_KEY(projectId);
 
-  const [currentStep, setCurrentStep] = useState<StepKey>("details");
+  // A published brief opens on its own review: somebody coming back to a finished mandate — its
+  // author, a colleague, the same person after a logout — is looking at what was published rather
+  // than starting the wizard again.
+  const opensOn: StepKey = position.publication.publishedAt ? "review" : "details";
+  const [currentStep, setCurrentStep] = useState<StepKey>(opensOn);
+  // Somebody has said they mean to change a published brief. It opens the review's section links
+  // rather than unlocking anything: nothing here was ever locked.
+  const [editingPublished, setEditingPublished] = useState(false);
+  // The furthest step reached this sitting, which is what the rail is allowed to call done — see
+  // doneSteps in lib/steps, which reads publication first.
+  const [furthestStep, setFurthestStep] = useState<StepKey>(opensOn);
   const [details, setDetails] = useState<PositionDetails>(position.details);
   const [context, setContext] = useState<MandateContext>(position.context);
   const [reporting, setReporting] = useState<ReportingStructure>(position.reporting);
@@ -190,6 +201,27 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       if (immediate) void competenciesSave.flush();
     };
 
+  /** Where a published brief leads: the mandate's own market, which is the next thing to be done. */
+  const goToStrategy = () => navigate(`/projects/${projectId}/strategy`);
+
+  const selectStep = (key: StepKey) => {
+    // Opening a step of a published brief is the same statement as "Edit position": the fields are
+    // right there and live. Anything else would leave the rail claiming a read-back it is not doing.
+    if (position.publication.publishedAt && key !== "review") setEditingPublished(true);
+    setCurrentStep(key);
+    setFurthestStep((furthest) =>
+      stepIndexOf(key) > stepIndexOf(furthest) ? key : furthest,
+    );
+  };
+
+  const publishNow = () =>
+    position.publication.publishedAt ? void publishChanges() : publish.mutate();
+
+  const editPosition = () => {
+    setEditingPublished(true);
+    selectStep("review");
+  };
+
   /** Reordering is the ranking, and a decision rather than typing — so it saves at once. */
   const reorderPanel = (panel: CompetencyPanelKey) => (fromId: string, toId: string) => {
     const rows = panel === "technical" ? technical : behavioural;
@@ -197,16 +229,35 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   };
 
   const publish = useMutation({
-    mutationFn: () =>
-      position.publication.publishedAt
-        ? positionApi.withdrawPublication(projectId)
-        : positionApi.publish(projectId),
+    mutationFn: () => positionApi.publish(projectId),
     onSuccess: (saved) => {
       queryClient.setQueryData(key, saved);
-      toast(saved.publication.publishedAt ? "Position profile published" : "Publication withdrawn");
+      toast("Position profile published");
     },
     onError: (error) => toast(messageFor(error)),
   });
+
+  const withdraw = useMutation({
+    mutationFn: () => positionApi.withdrawPublication(projectId),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(key, saved);
+      setEditingPublished(false);
+      toast("Publication withdrawn");
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  /**
+   * Publishing a brief that is already published. The stamp does not move — it records when the
+   * brief was first called ready and a second click must not rewrite it — so what this does is flush
+   * what the edits left in flight and close the review back up. It is the same act from where the
+   * consultant sits: they said it was ready, and they are saying it again.
+   */
+  const publishChanges = async () => {
+    await flushEverything();
+    setEditingPublished(false);
+    toast("Changes published");
+  };
 
   const attachDocument = useMutation({
     mutationFn: (file: File) => positionApi.attachDocument(projectId, file),
@@ -224,8 +275,10 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     onError: (error) => toast(messageFor(error)),
   });
 
+  const flushEverything = () => Promise.allSettled(channels.map((channel) => channel.flush()));
+
   const saveDraft = async () => {
-    await Promise.allSettled(channels.map((channel) => channel.flush()));
+    await flushEverything();
     toast("Draft saved");
   };
 
@@ -278,9 +331,19 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
 
       <div className="flex flex-wrap items-start gap-[22px]">
         <div className="order-2 min-w-0 flex-[2_1_460px] md:order-1">
-          <div className="mb-[22px]">
-            <h2 className="text-[19px] font-bold tracking-[-0.01em] text-text">{step.heading}</h2>
-            <p className="mt-[5px] max-w-[62ch] text-[13px] text-text3">{step.subheading}</p>
+          <div className="mb-[22px] flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+            {/* flex-1 with a floor, so the blurb gives way to the field beside it rather than taking
+                the whole row and pushing it onto the next one. */}
+            <div className="min-w-[240px] flex-1">
+              <h2 className="text-[19px] font-bold tracking-[-0.01em] text-text">{step.heading}</h2>
+              <p className="mt-[5px] max-w-[62ch] text-[13px] text-text3">{step.subheading}</p>
+            </div>
+            {currentStep === "context" && (
+              <MandateReasonField
+                value={context.mandateReason}
+                onChange={(mandateReason) => changeContext({ mandateReason }, true)}
+              />
+            )}
           </div>
 
           {currentStep === "details" && (
@@ -321,13 +384,19 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
             />
           )}
           {currentStep === "review" && (
-            <ReviewStep position={drafted} onEditStep={setCurrentStep} />
+            <ReviewStep
+              position={drafted}
+              canEdit={!drafted.publication.publishedAt || editingPublished}
+              onEditStep={selectStep}
+              onWithdraw={editingPublished ? () => withdraw.mutate() : null}
+            />
           )}
 
           <StepNavigation
             currentStep={currentStep}
-            onSelectStep={setCurrentStep}
-            onPublish={() => publish.mutate()}
+            onSelectStep={selectStep}
+            onPublish={publishNow}
+            onGoToStrategy={goToStrategy}
             publishing={publish.isPending}
             published={Boolean(drafted.publication.publishedAt)}
           />
@@ -336,9 +405,13 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
         <StepRail
           position={drafted}
           currentStep={currentStep}
-          onSelectStep={setCurrentStep}
-          onPublish={() => publish.mutate()}
+          furthestStep={furthestStep}
+          onSelectStep={selectStep}
+          onPublish={publishNow}
           onSaveDraft={() => void saveDraft()}
+          onGoToStrategy={goToStrategy}
+          onEditPosition={editPosition}
+          editing={editingPublished}
           publishing={publish.isPending}
         />
       </div>

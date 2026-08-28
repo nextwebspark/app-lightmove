@@ -2,6 +2,8 @@ package app.lightmove.api.position.service;
 
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.position.constant.CompetencyPanel;
 import app.lightmove.api.position.dto.PositionResponse;
 import app.lightmove.api.position.dto.PutCompensationRequest;
@@ -10,6 +12,7 @@ import app.lightmove.api.position.dto.PutCriteriaRequest;
 import app.lightmove.api.position.dto.PutMandateContextRequest;
 import app.lightmove.api.position.dto.PutPositionDetailsRequest;
 import app.lightmove.api.position.dto.PutReportingStructureRequest;
+import app.lightmove.api.position.dto.StrategicPriorityDto;
 import app.lightmove.api.position.model.CompensationPackage;
 import app.lightmove.api.position.model.MandateContext;
 import app.lightmove.api.position.model.Position;
@@ -18,13 +21,11 @@ import app.lightmove.api.position.model.PositionCompetency;
 import app.lightmove.api.position.model.PositionCriterion;
 import app.lightmove.api.position.model.PositionDetails;
 import app.lightmove.api.position.model.PositionOrgNode;
+import app.lightmove.api.position.model.PositionPriority;
 import app.lightmove.api.position.model.ReportingStructure;
-import app.lightmove.api.position.constant.StrategicPriority;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.Collection;
-import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
@@ -78,7 +79,7 @@ public class PositionService {
         PositionBrief brief = briefs.require(workspaceId, projectId);
         brief.position().applyContext(new MandateContext(
                 request.mandateReason(), request.businessDriver(),
-                prioritiesOf(request.strategicPriorities()), request.hiringUrgency(),
+                prioritiesOf(request.strategicPriorities()),
                 request.confidential(), request.internalContext()));
         return saved(brief, userId, workspaceId, projectId, "context", httpRequest);
     }
@@ -193,11 +194,28 @@ public class PositionService {
         entry.record();
     }
 
-    /** An absent set and an empty one mean the same thing here: nothing selected. */
-    private static Set<StrategicPriority> prioritiesOf(Collection<StrategicPriority> selected) {
-        return selected == null || selected.isEmpty()
-                ? EnumSet.noneOf(StrategicPriority.class)
-                : EnumSet.copyOf(selected);
+    /**
+     * One chip per name, checked here rather than left to the screen.
+     *
+     * <p>Until V40 the priorities were a set keyed on the value, so the schema made a duplicate
+     * impossible; an ordered list of names cannot say the same thing, and two chips reading alike are
+     * indistinguishable on the screen and meaningless in the brief. Refused rather than quietly
+     * de-duplicated: a caller that sent both meant something by it, and dropping one silently would
+     * answer with a brief it did not ask for.
+     */
+    private static List<PositionPriority> prioritiesOf(List<StrategicPriorityDto> sent) {
+        List<PositionPriority> priorities = orEmpty(sent).stream()
+                .map(priority -> PositionPriority.of(priority.name(), priority.selected()))
+                .toList();
+        long distinct = priorities.stream()
+                .map(priority -> priority.getName().toLowerCase(Locale.ROOT))
+                .distinct()
+                .count();
+        if (distinct != priorities.size()) {
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
+                    "Two strategic priorities share a name");
+        }
+        return priorities;
     }
 
     private static <T> List<T> orEmpty(List<T> values) {

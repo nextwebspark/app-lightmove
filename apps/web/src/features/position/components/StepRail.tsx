@@ -1,7 +1,8 @@
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import type { Position } from "../api/types";
-import { POSITION_STEPS, completion, type StepKey } from "../lib/steps";
+import { POSITION_STEPS, completion, doneSteps, type StepKey } from "../lib/steps";
 
 /**
  * The profile summary beside the form: how far the brief has got, and one clickable line per step
@@ -13,20 +14,34 @@ import { POSITION_STEPS, completion, type StepKey } from "../lib/steps";
 export function StepRail({
   position,
   currentStep,
+  furthestStep,
   onSelectStep,
   onPublish,
   onSaveDraft,
+  onGoToStrategy,
+  onEditPosition,
+  editing,
   publishing,
 }: {
   position: Position;
   currentStep: StepKey;
+  /** The furthest step reached: nothing beyond it is reported done. */
+  furthestStep: StepKey;
   onSelectStep: (key: StepKey) => void;
   onPublish: () => void;
   onSaveDraft: () => void;
+  onGoToStrategy: () => void;
+  onEditPosition: () => void;
+  /** Whether a published brief has been opened for changes — see ReviewStep's `canEdit`. */
+  editing: boolean;
   publishing: boolean;
 }) {
-  const donePercent = completion(position);
   const published = Boolean(position.publication.publishedAt);
+  // A published brief nobody has opened for changes is being read, not edited — the step in view is
+  // simply the page you are on, and labelling it "Editing" would describe something not happening.
+  const readingBack = published && !editing;
+  const done = doneSteps(position, furthestStep);
+  const donePercent = completion(position, furthestStep);
 
   return (
     <aside className="order-1 w-full rounded-[10px] border border-line-soft bg-panel2 p-4 md:order-2 md:max-w-[340px] md:flex-[1_1_280px] lg:sticky lg:top-0">
@@ -47,12 +62,12 @@ export function StepRail({
       </div>
 
       <div className="my-3.5 flex gap-1" aria-hidden="true">
-        {POSITION_STEPS.map((step) => (
+        {POSITION_STEPS.map((step, index) => (
           <span
             key={step.key}
             className={cn(
               "h-[3px] flex-1 rounded-full",
-              step.isDone(position) ? "bg-green" : step.key === currentStep ? "bg-sky" : "bg-line",
+              done[index] ? "bg-green" : step.key === currentStep ? "bg-sky" : "bg-line",
             )}
           />
         ))}
@@ -60,8 +75,9 @@ export function StepRail({
 
       <ol className="flex flex-col gap-2">
         {POSITION_STEPS.map((step, index) => {
-          const done = step.isDone(position);
+          const stepDone = done[index];
           const current = step.key === currentStep;
+          const label = current && !readingBack ? "Editing" : stepDone ? "✓" : "";
           return (
             <li key={step.key}>
               <button
@@ -72,7 +88,7 @@ export function StepRail({
                   "block w-full rounded-[9px] border px-3.5 py-[11px] text-start transition",
                   current
                     ? "border-solid border-sky bg-sky-dim"
-                    : done
+                    : stepDone
                       ? "border-solid border-line-soft bg-transparent hover:border-text3"
                       : "border-dashed border-line bg-transparent hover:border-text3",
                 )}
@@ -89,16 +105,16 @@ export function StepRail({
                   <span
                     className={cn(
                       "ms-auto whitespace-nowrap font-mono text-[10.5px] font-semibold",
-                      current ? "text-sky" : "text-green",
+                      label === "Editing" ? "text-sky" : "text-green",
                     )}
                   >
-                    {current ? "Editing" : done ? "✓" : ""}
+                    {label}
                   </span>
                 </span>
                 <span
                   className={cn(
                     "mt-[7px] block truncate text-[13px] font-semibold",
-                    current || done ? "text-text" : "text-text3",
+                    current || stepDone ? "text-text" : "text-text3",
                   )}
                 >
                   {step.summary(position)}
@@ -112,12 +128,30 @@ export function StepRail({
         })}
       </ol>
 
-      <Button onClick={onPublish} loading={publishing} className="mt-4 w-full py-[11px]">
-        {published ? "Published" : "Publish position profile"}
-      </Button>
-      <Button variant="secondary" onClick={onSaveDraft} className="mt-2 w-full py-2.5">
-        Save draft
-      </Button>
+      {/* The lead button is whatever the brief is waiting for, and the one under it is what you do
+          instead. Read back, that pair is getting on with the search, or opening the brief up. Being
+          written or changed, it is declaring it ready, or putting the work down half-done — which is
+          the same pair the wizard has always offered, published or not. */}
+      {published && !editing ? (
+        <>
+          <Button onClick={onGoToStrategy} className="mt-4 w-full py-[11px]">
+            Move to strategy
+            <Icon d={ICONS.arrowRight} size={15} />
+          </Button>
+          <Button variant="secondary" onClick={onEditPosition} className="mt-2 w-full py-2.5">
+            Edit position
+          </Button>
+        </>
+      ) : (
+        <>
+          <Button onClick={onPublish} loading={publishing} className="mt-4 w-full py-[11px]">
+            {published ? "Publish changes" : "Publish position profile"}
+          </Button>
+          <Button variant="secondary" onClick={onSaveDraft} className="mt-2 w-full py-2.5">
+            Save draft
+          </Button>
+        </>
+      )}
     </aside>
   );
 }

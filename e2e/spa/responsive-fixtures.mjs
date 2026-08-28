@@ -292,8 +292,11 @@ const POSITION = {
   context: {
     mandateReason: "GROWTH_EXPANSION",
     businessDriver: "Consolidate four plants under one operating leader before the next capital phase.",
-    strategicPriorities: ["OPERATIONAL_EXCELLENCE", "CAPITAL_DISCIPLINE"],
-    hiringUrgency: "PRIORITY",
+    strategicPriorities: [
+      { name: "Operational excellence", selected: true },
+      { name: "Capital discipline", selected: true },
+      { name: "Talent development", selected: false },
+    ],
     confidential: true,
     internalContext: "Succession for a retiring incumbent, confidential until Q4.",
   },

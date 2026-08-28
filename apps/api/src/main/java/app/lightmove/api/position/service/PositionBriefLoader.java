@@ -3,8 +3,10 @@ package app.lightmove.api.position.service;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.position.constant.EmploymentType;
+import app.lightmove.api.position.constant.MandateReason;
 import app.lightmove.api.position.model.Position;
 import app.lightmove.api.position.model.PositionDetails;
+import app.lightmove.api.position.model.MandateContext;
 import app.lightmove.api.position.model.PositionOrgNode;
 import app.lightmove.api.position.model.PositionSeed;
 import app.lightmove.api.position.model.ReportingStructure;
@@ -55,6 +57,8 @@ class PositionBriefLoader {
         position.applyDetails(new PositionDetails(
                 null, location, EmploymentType.FULL_TIME_PERMANENT, seed.seniority(),
                 seed.responsibilities(), seed.narrative()));
+        position.applyContext(new MandateContext(
+                MandateReason.NEW_ROLE, null, PositionTemplates.startingPriorities(), false, null));
         position.applyReporting(new ReportingStructure(seededChart(seed.reportsTo()), null, null, null));
         position.replaceCriteria(seed.criteria());
         position.replaceCompetencies(seed.competencies());

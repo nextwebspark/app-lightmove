@@ -3,11 +3,9 @@ import type {
   BenefitFrequency,
   BonusBasis,
   EmploymentType,
-  HiringUrgency,
   IncentiveType,
   MandateReason,
   NoticeUnit,
-  StrategicPriority,
 } from "../api/types";
 
 /**
@@ -32,20 +30,6 @@ export const MANDATE_REASON_LABELS: Record<MandateReason, string> = {
   RESTRUCTURING: "Restructure",
   SUCCESSION: "Succession plan",
   GROWTH_EXPANSION: "Growth / expansion",
-};
-
-export const HIRING_URGENCY_LABELS: Record<HiringUrgency, string> = {
-  STANDARD: "Standard (90 days)",
-  PRIORITY: "Priority (60 days)",
-  URGENT: "Urgent (30 days)",
-};
-
-export const STRATEGIC_PRIORITY_LABELS: Record<StrategicPriority, string> = {
-  CAPITAL_DISCIPLINE: "Capital discipline",
-  PORTFOLIO_GROWTH: "Portfolio growth",
-  OPERATIONAL_EXCELLENCE: "Operational excellence",
-  GOVERNANCE_AND_CONTROLS: "Governance & controls",
-  TALENT_DEVELOPMENT: "Talent development",
 };
 
 export const NOTICE_UNIT_LABELS: Record<NoticeUnit, string> = {
