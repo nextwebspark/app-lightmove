@@ -40,7 +40,25 @@ export function labelOfNode(node: OrgNode | null): string | null {
   return node.name?.trim() || node.title?.trim() || null;
 }
 
-/** Removing a seat takes the branch under it — the alternative is orphans the chart cannot draw. */
+/**
+ * Removes one seat and re-attaches whatever reported to it to the seat above.
+ *
+ * Deleting a box must not delete work nobody asked to lose: a manager typed in by mistake sits above
+ * the whole chart, and taking its branch with it would take the mandate seat and every report anybody
+ * had drawn. Splicing it out instead leaves every other seat where it was, one tier up. A seat with no
+ * parent leaves its children as roots, which the layout and the server both allow.
+ */
+export function removeSeat(chart: OrgNode[], nodeId: string): OrgNode[] {
+  const removed = chart.find((node) => node.nodeId === nodeId);
+  if (!removed) return chart;
+  return chart
+    .filter((node) => node.nodeId !== nodeId)
+    .map((node) =>
+      node.parentNodeId === nodeId ? { ...node, parentNodeId: removed.parentNodeId } : node,
+    );
+}
+
+/** Every seat under `nodeId`, and the seat itself, dropped — the reading behind branchHoldsMandateSeat. */
 export function removeBranch(chart: OrgNode[], nodeId: string): OrgNode[] {
   const doomed = new Set<string>([nodeId]);
   let grew = true;

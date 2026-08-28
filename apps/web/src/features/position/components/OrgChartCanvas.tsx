@@ -17,6 +17,7 @@ import {
   childrenOf,
   layoutChart,
   removeBranch,
+  removeSeat,
 } from "../lib/orgChart";
 import { OrgSeatNode, type OrgSeatData } from "./OrgSeatNode";
 
@@ -27,6 +28,8 @@ import { OrgSeatNode, type OrgSeatData } from "./OrgSeatNode";
  * it — with an add affordance under the seat, so the third tier is always one click away without a
  * placeholder box standing in for a report nobody has named. Every seat above and below can be edited,
  * moved, given children, or removed; only the mandate's own seat is fixed, because it is the mandate.
+ * Removing a seat splices it out and lifts its reports onto the seat above, so deleting a manager
+ * never takes the chart drawn beneath it.
  *
  * Dragging a box stores where it was put. Anything never dragged is laid out from the tree, so
  * arranging one corner of a chart does not rearrange the rest.
@@ -104,7 +107,7 @@ function OrgChart({ chart, roleTitle, onChange }: OrgChartCanvasProps) {
   );
 
   const remove = useCallback(
-    (nodeId: string) => onChange(removeBranch(chart, nodeId), true),
+    (nodeId: string) => onChange(removeSeat(chart, nodeId), true),
     [chart, onChange],
   );
 
@@ -126,7 +129,7 @@ function OrgChart({ chart, roleTitle, onChange }: OrgChartCanvasProps) {
             roleTitle,
             childCount: childrenOf(chart, seat.nodeId).length,
             isRoot: seat.parentNodeId === null,
-            canRemove: !seat.mandateSeat && !branchHoldsMandateSeat(chart, seat.nodeId),
+            canRemove: !seat.mandateSeat,
             onPatch: patch,
             onAddChild: addChild,
             onAddParent: addParent,
