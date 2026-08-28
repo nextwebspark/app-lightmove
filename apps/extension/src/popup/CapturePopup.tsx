@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CaptureHeader } from "./components/CaptureHeader";
-import { CaptureTabs, type CaptureSubject } from "./components/CaptureTabs";
+import { CaptureTabs, capturePanelId, type CaptureSubject } from "./components/CaptureTabs";
 import { PopupShell } from "./components/PopupChrome";
 import { useExtensionSession } from "./hooks/useExtensionSession";
 import { CaptureCompanyScreen } from "./screens/CaptureCompanyScreen";
@@ -34,7 +34,9 @@ export function CapturePopup() {
     <PopupShell>
       <CaptureHeader user={session.user} onSignOut={() => void session.signOut()} />
       <CaptureTabs active={subject} onSelect={setSubject} />
-      {subject === "company" ? <CaptureCompanyScreen /> : <PersonCaptureComingSoonScreen />}
+      <div role="tabpanel" id={capturePanelId(subject)} aria-labelledby={`capture-tab-${subject}`}>
+        {subject === "company" ? <CaptureCompanyScreen /> : <PersonCaptureComingSoonScreen />}
+      </div>
     </PopupShell>
   );
 }

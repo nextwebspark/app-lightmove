@@ -39,20 +39,6 @@ function initialsOf(name: string): string {
   return (first + last).toUpperCase();
 }
 
-/** The uppercase micro-label above each section of the form. */
-export function SectionLabel({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div
-      className={cn(
-        "font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
 /** The fixed 400x600 shell every screen renders inside. */
 export function PopupShell({ children }: { children: ReactNode }) {
   return <div className="flex h-[600px] w-[400px] flex-col overflow-hidden bg-panel">{children}</div>;

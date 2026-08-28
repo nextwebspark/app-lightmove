@@ -1,4 +1,4 @@
-import { SectionLabel } from "../components/PopupChrome";
+import { SectionLabel } from "../components/SectionLabel";
 
 /**
  * The Person tab, honestly.

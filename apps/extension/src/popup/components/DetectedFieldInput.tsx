@@ -4,7 +4,6 @@ interface DetectedFieldInputProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  placeholder?: string;
   inputMode?: "text" | "numeric" | "url";
 }
 
@@ -19,7 +18,6 @@ export function DetectedFieldInput({
   label,
   value,
   onChange,
-  placeholder,
   inputMode = "text",
 }: DetectedFieldInputProps) {
   const inputId = useId();
@@ -35,7 +33,6 @@ export function DetectedFieldInput({
         id={inputId}
         value={value}
         inputMode={inputMode}
-        placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         className="mt-1 w-full rounded-[7px] border border-line bg-panel2 px-2.5 py-[7px] font-mono text-[12.5px] text-text outline-none focus:border-sky"
       />

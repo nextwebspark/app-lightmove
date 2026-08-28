@@ -1,6 +1,5 @@
 import { workspaceOrigin } from "../../workspaceOrigin";
-import { BrandTile } from "../components/PopupChrome";
-import { PopupShell } from "../components/PopupChrome";
+import { BrandTile, PopupShell } from "../components/PopupChrome";
 
 interface SignedOutScreenProps {
   onConnected: () => void;

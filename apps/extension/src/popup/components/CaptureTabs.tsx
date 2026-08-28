@@ -1,6 +1,12 @@
 import { cn } from "../lib/cn";
 
-export type CaptureSubject = "person" | "company";
+export const CAPTURE_SUBJECTS = ["person", "company"] as const;
+export type CaptureSubject = (typeof CAPTURE_SUBJECTS)[number];
+
+/** The panel a tab drives, so the tab roles below describe something real to a screen reader. */
+export function capturePanelId(subject: CaptureSubject): string {
+  return `capture-panel-${subject}`;
+}
 
 interface CaptureTabsProps {
   active: CaptureSubject;
@@ -17,11 +23,13 @@ interface CaptureTabsProps {
 export function CaptureTabs({ active, onSelect }: CaptureTabsProps) {
   return (
     <div className="flex gap-0.5 border-b border-line-soft px-3.5" role="tablist">
-      {(["person", "company"] as const).map((subject) => (
+      {CAPTURE_SUBJECTS.map((subject) => (
         <button
           key={subject}
           role="tab"
           type="button"
+          id={`capture-tab-${subject}`}
+          aria-controls={capturePanelId(subject)}
           aria-selected={active === subject}
           onClick={() => onSelect(subject)}
           className={cn(

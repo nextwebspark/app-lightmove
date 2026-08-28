@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ExtractedCompany } from "../../content/pageReader/extractedCompany";
 import type { TriageDestination } from "../../domain/triageDestination";
 import { DetectedFieldInput } from "../components/DetectedFieldInput";
 import { DestinationButtons } from "../components/DestinationButtons";
 import { ProjectSelect } from "../components/ProjectSelect";
-import { SectionLabel } from "../components/PopupChrome";
+import { SectionLabel } from "../components/SectionLabel";
 import { useActiveTabCompany } from "../hooks/useActiveTabCompany";
-import { useCaptureCompany, type CaptureRefusal } from "../hooks/useCaptureCompany";
+import { useCaptureCompany, CaptureRefusal } from "../hooks/useCaptureCompany";
 import { useProjectSelection } from "../hooks/useProjectSelection";
 import { CaptureSavedScreen } from "./CaptureSavedScreen";
 
@@ -57,18 +57,22 @@ export function CaptureCompanyScreen() {
   // structural sharing is what keeps an unchanged re-read from resetting the form underneath someone.
   useEffect(() => {
     if (page.company) {
-      setDraft(toDraft(page.company));
+      setDraft(toDraft(page.company, page.sourceUrl));
     }
-  }, [page.company]);
-
-  // A website is not required by the API — a captured company is identified by its name within the
-  // mandate. It is still the field most worth having, so the form nudges for it rather than blocking.
-  const website = draft.website.trim() || page.sourceUrl || "";
+  }, [page.company, page.sourceUrl]);
 
   // A name and a mandate. That is what the API requires, and the popup should not invent more.
   const canSave = useMemo(
     () => Boolean(draft.companyName.trim()) && Boolean(projects.selectedProjectId),
     [draft.companyName, projects.selectedProjectId],
+  );
+
+  // Before its call sites rather than hoisted after them, and memoised: seven `onChange` props that
+  // are otherwise stable should not be seven new closures on every keystroke.
+  const update = useCallback(
+    (field: keyof CompanyDraft) => (value: string) =>
+      setDraft((current) => ({ ...current, [field]: value })),
+    [],
   );
 
   const handleCapture = (destination: TriageDestination) => {
@@ -82,11 +86,11 @@ export function CaptureCompanyScreen() {
       capture: {
         source: "extension",
         companyName: draft.companyName.trim(),
-        website: website || null,
-        companyLinkedinUrl: draft.linkedinUrl || null,
-        industry: draft.industry || null,
-        companyCity: draft.companyCity || null,
-        companyCountry: draft.companyCountry || null,
+        website: blankToNull(draft.website),
+        companyLinkedinUrl: blankToNull(draft.linkedinUrl),
+        industry: blankToNull(draft.industry),
+        companyCity: blankToNull(draft.companyCity),
+        companyCountry: blankToNull(draft.companyCountry),
         numEmployees: toHeadcount(draft.numEmployees),
         shortDescription: truncateDescription(page.company?.description),
         note: note.trim() || null,
@@ -173,9 +177,6 @@ export function CaptureCompanyScreen() {
     </>
   );
 
-  function update(field: keyof CompanyDraft) {
-    return (value: string) => setDraft((current) => ({ ...current, [field]: value }));
-  }
 }
 
 /** A refusal the consultant can act on, rather than a generic apology. */
@@ -194,10 +195,18 @@ function RefusalNote({ refusal }: { refusal: CaptureRefusal }) {
   );
 }
 
-function toDraft(company: ExtractedCompany): CompanyDraft {
+/**
+ * The read, as the form's starting values.
+ *
+ * The page's own URL seeds an unanswered website so the consultant can see it and delete it. Applying
+ * it at write time instead would make the field the one thing on this screen that cannot be cleared —
+ * blanking it would silently file the LinkedIn or Apollo page as the company's site, which is exactly
+ * what `isAggregatorHost` exists to prevent, arrived at by a different door.
+ */
+function toDraft(company: ExtractedCompany, sourceUrl: string | null): CompanyDraft {
   return {
     companyName: company.companyName ?? "",
-    website: company.website ?? "",
+    website: company.website ?? sourceUrl ?? "",
     linkedinUrl: company.linkedinUrl ?? "",
     industry: company.industry ?? "",
     companyCity: company.companyCity ?? "",
@@ -212,6 +221,11 @@ function toDraft(company: ExtractedCompany): CompanyDraft {
  * the cap would 400 the whole capture, and the consultant would see a validation message about a field
  * they cannot see, edit, or clear, with no way out of it but abandoning the page.
  */
+/** A field cleared to whitespace is absent, not a blank value stored and rendered as a gap. */
+function blankToNull(value: string): string | null {
+  return value.trim() || null;
+}
+
 function truncateDescription(description: string | null | undefined): string | null {
   if (!description) {
     return null;

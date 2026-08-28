@@ -34,9 +34,8 @@ export interface ApiClientOptions {
 }
 
 export interface ApiRequestOptions {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST";
   body?: unknown;
-  query?: Record<string, string | null | undefined>;
 }
 
 export interface LightMoveApiClient {
@@ -46,11 +45,6 @@ export interface LightMoveApiClient {
 export function createLightMoveApiClient(options: ApiClientOptions): LightMoveApiClient {
   const send = async (path: string, request: ApiRequestOptions, token: string | null) => {
     const url = new URL(`${options.baseOrigin}/api/v1${path}`);
-    for (const [key, value] of Object.entries(request.query ?? {})) {
-      if (value !== null && value !== undefined && value !== "") {
-        url.searchParams.set(key, value);
-      }
-    }
 
     const headers: Record<string, string> = {};
     if (token) {
