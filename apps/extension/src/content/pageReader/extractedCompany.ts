@@ -102,6 +102,68 @@ export function countryOf(place: string | null | undefined): string | null {
   return parts.length > 1 ? parts[parts.length - 1] : null;
 }
 
+/**
+ * A page-supplied URL, or nothing unless it is http(s).
+ *
+ * Every URL an extractor yields is text a hostile page controls, and it is persisted rather than
+ * merely displayed — so a `javascript:` href planted today detonates on whichever future screen
+ * turns a stored website into a link. Checking the parsed protocol here, once, is what stops that
+ * being a decision every render site has to remember to make.
+ */
+export function httpUrlOrNull(value: string | null | undefined, base?: string): string | null {
+  const candidate = cleanText(value);
+  if (!candidate) {
+    return null;
+  }
+  // Parsing is the check, never a rewrite: the caller's own text comes back, because `URL.href`
+  // normalises ("example.ae" gains a trailing slash) and would churn every value already stored.
+  if (isAbsolute(candidate)) {
+    return isHttp(parseOrNull(candidate)) ? candidate : null;
+  }
+  // A bare domain — "zenith-industrial.sa" — is what a directory page's "Website" row usually holds.
+  if (hasHostShape(candidate)) {
+    return candidate;
+  }
+  // A relative href is meaningless alone, so this is the one case resolved against its page.
+  const resolved = base ? parseOrNull(candidate, base) : null;
+  return isHttp(resolved) ? resolved!.href : null;
+}
+
+function parseOrNull(value: string, base?: string): URL | null {
+  try {
+    return new URL(value, base);
+  } catch {
+    return null;
+  }
+}
+
+function isHttp(url: URL | null): boolean {
+  return url !== null && (url.protocol === "https:" || url.protocol === "http:");
+}
+
+/** A scheme-less host, "acme.ae" or "acme.ae/about" — never a path, and never a scheme in disguise. */
+function hasHostShape(value: string): boolean {
+  const host = parseOrNull(`https://${value}`)?.hostname;
+  return host !== undefined && host.includes(".") && value.startsWith(host);
+}
+
+function isAbsolute(value: string): boolean {
+  return /^[a-z][a-z0-9+.-]*:/i.test(value) || value.startsWith("//");
+}
+
+/** Whether a URL is a LinkedIn company page, by parsed host — never a substring of the whole URL. */
+export function isLinkedInCompanyUrl(value: string | null | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+  try {
+    const url = new URL(value);
+    return /(^|\.)linkedin\.com$/i.test(url.hostname) && url.pathname.startsWith("/company/");
+  } catch {
+    return false;
+  }
+}
+
 /** Collapses whitespace and trims; returns null for what is left of an empty string. */
 export function cleanText(value: string | null | undefined): string | null {
   if (!value) {

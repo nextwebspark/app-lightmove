@@ -2,6 +2,8 @@ import {
   cityOf,
   cleanText,
   countryOf,
+  httpUrlOrNull,
+  isLinkedInCompanyUrl,
   parseHeadcount,
   withoutEmpty,
   type CompanyExtractor,
@@ -47,18 +49,28 @@ export const linkedInCompanyExtractor: CompanyExtractor = (document) => {
   return withoutEmpty(extracted);
 };
 
+/**
+ * Keyed on the host the browser actually loaded, never on `canonical`/`og:url` — those are page-supplied,
+ * so any site could otherwise declare itself a LinkedIn company page and be read by this extractor.
+ */
 function isLinkedInCompanyPage(document: Document): boolean {
-  const url = canonicalCompanyUrl(document) ?? document.location?.href ?? "";
-  return /linkedin\.com\/company\//i.test(url);
+  const hostname = document.location?.hostname ?? "";
+  return /(^|\.)linkedin\.com$/i.test(hostname) && (document.location?.pathname ?? "").startsWith("/company/");
 }
 
 function canonicalCompanyUrl(document: Document): string | null {
-  const canonical = document.querySelector('link[rel="canonical"]')?.getAttribute("href");
-  if (canonical && /linkedin\.com\/company\//i.test(canonical)) {
-    return canonical;
+  const candidates = [
+    document.querySelector('link[rel="canonical"]')?.getAttribute("href"),
+    document.querySelector('meta[property="og:url"]')?.getAttribute("content"),
+    document.location?.href,
+  ];
+  for (const candidate of candidates) {
+    const url = httpUrlOrNull(candidate);
+    if (url && isLinkedInCompanyUrl(url)) {
+      return url;
+    }
   }
-  const ogUrl = document.querySelector('meta[property="og:url"]')?.getAttribute("content");
-  return ogUrl && /linkedin\.com\/company\//i.test(ogUrl) ? ogUrl : null;
+  return null;
 }
 
 /**
@@ -111,10 +123,9 @@ function companyWebsiteFrom(href: string | null | undefined): string | null {
     return null;
   }
   if (!/(^|\.)linkedin\.com$/i.test(parsed.hostname)) {
-    return absolute;
+    return httpUrlOrNull(absolute);
   }
-  const wrapped = parsed.searchParams.get("url");
-  return wrapped ? wrapped : null;
+  return httpUrlOrNull(parsed.searchParams.get("url"));
 }
 
 /** The href of the first link in each `<dd>`, for the labels whose value is a URL. */

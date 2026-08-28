@@ -1,5 +1,8 @@
 import {
   cleanText,
+  httpUrlOrNull,
+  isLinkedInCompanyUrl,
+  mergeExtracted,
   parseHeadcount,
   withoutEmpty,
   type CompanyExtractor,
@@ -43,20 +46,28 @@ const ORGANIZATION_TYPES = new Set([
   "EducationalOrganization",
 ]);
 
+/**
+ * Every Organization node, merged in document order rather than only the first.
+ *
+ * A page commonly carries a publisher or `WebSite` stub — name and logo, nothing else — ahead of the
+ * real company node. Taking `[0]` would answer `companyName` from the stub, and because the merge is
+ * first-non-empty that one bad early answer would beat every good later one.
+ */
 function fromJsonLd(document: Document): Partial<ExtractedCompany> {
-  for (const node of findOrganizationNodes(document)) {
-    const address = asRecord(node.address);
-    return withoutEmpty({
-      companyName: cleanText(asText(node.legalName) ?? asText(node.name)),
-      website: asText(node.url),
-      linkedinUrl: linkedInFrom(node.sameAs),
-      description: cleanText(asText(node.description)),
-      numEmployees: parseHeadcount(headcountFrom(node.numberOfEmployees)),
-      companyCity: cleanText(asText(address?.["addressLocality"])),
-      companyCountry: cleanText(asText(address?.["addressCountry"])),
-    });
-  }
-  return {};
+  return withoutEmpty(mergeExtracted(findOrganizationNodes(document).map(toCompany)));
+}
+
+function toCompany(node: OrganizationJsonLd): Partial<ExtractedCompany> {
+  const address = asRecord(node.address);
+  return withoutEmpty({
+    companyName: cleanText(asText(node.legalName) ?? asText(node.name)),
+    website: httpUrlOrNull(asText(node.url)),
+    linkedinUrl: linkedInFrom(node.sameAs),
+    description: cleanText(asText(node.description)),
+    numEmployees: parseHeadcount(headcountFrom(node.numberOfEmployees)),
+    companyCity: cleanText(asText(address?.["addressLocality"])),
+    companyCountry: cleanText(asText(address?.["addressCountry"])),
+  });
 }
 
 /**
@@ -104,7 +115,7 @@ function isOrganization(node: OrganizationJsonLd): boolean {
 function fromOpenGraph(document: Document): Partial<ExtractedCompany> {
   return withoutEmpty({
     companyName: cleanText(metaContent(document, "og:site_name")),
-    website: metaContent(document, "og:url") ?? canonicalHref(document),
+    website: httpUrlOrNull(metaContent(document, "og:url") ?? canonicalHref(document)),
     description: cleanText(metaContent(document, "og:description") ?? metaContent(document, "description")),
   });
 }
@@ -122,8 +133,8 @@ function canonicalHref(document: Document): string | null {
 function linkedInFrom(sameAs: unknown): string | null {
   const candidates = Array.isArray(sameAs) ? sameAs : [sameAs];
   for (const candidate of candidates) {
-    const url = asText(candidate);
-    if (url && /linkedin\.com\/company\//i.test(url)) {
+    const url = httpUrlOrNull(asText(candidate));
+    if (url && isLinkedInCompanyUrl(url)) {
       return url;
     }
   }

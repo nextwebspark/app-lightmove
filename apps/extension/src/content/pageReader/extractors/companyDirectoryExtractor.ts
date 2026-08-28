@@ -2,6 +2,8 @@ import {
   cityOf,
   cleanText,
   countryOf,
+  httpUrlOrNull,
+  isLinkedInCompanyUrl,
   parseHeadcount,
   withoutEmpty,
   type CompanyExtractor,
@@ -27,7 +29,7 @@ export const companyDirectoryExtractor: CompanyExtractor = (document) => {
 
   const extracted: Partial<ExtractedCompany> = {
     companyName: cleanText(document.querySelector("main h1, h1")?.textContent),
-    website: facts.get("website"),
+    website: httpUrlOrNull(facts.get("website")),
     linkedinUrl: linkedInLink(document),
     industry: facts.get("industry") ?? facts.get("industries"),
     numEmployees: parseHeadcount(facts.get("employees") ?? facts.get("company size") ?? facts.get("headcount")),
@@ -88,9 +90,16 @@ function readLabelledFacts(document: Document): Map<string, string> {
   }
   // The div-pair layout: a short label element with exactly one sibling holding the value. The length
   // guard is what keeps a paragraph that happens to begin with "Industry" out of the map.
+  // Order matters for cost, not behaviour. `textContent` serialises a whole subtree, and the selector
+  // matches nested spans, so reading it first walked an outer span's text again for every descendant
+  // that also matched — quadratic in nesting depth, synchronously, while the popup waits. A label is
+  // a leaf with a sibling, so both of those are settled before anything is serialised.
   for (const candidate of document.querySelectorAll("main span, main div > span, li")) {
+    if (candidate.children.length > 0 || !candidate.nextElementSibling) {
+      continue;
+    }
     const label = cleanText(candidate.textContent);
-    if (label && label.length <= 20 && candidate.nextElementSibling) {
+    if (label && label.length <= 20) {
       remember(label, candidate.nextElementSibling.textContent);
     }
   }
@@ -98,7 +107,13 @@ function readLabelledFacts(document: Document): Map<string, string> {
 }
 
 function linkedInLink(document: Document): string | null {
-  return document.querySelector('a[href*="linkedin.com/company/"]')?.getAttribute("href") ?? null;
+  for (const anchor of document.querySelectorAll('a[href*="linkedin.com/company/"]')) {
+    const url = httpUrlOrNull(anchor.getAttribute("href"), document.location?.href);
+    if (url && isLinkedInCompanyUrl(url)) {
+      return url;
+    }
+  }
+  return null;
 }
 
 /** An explicit city field wins; otherwise the first part of whatever place the page names. */
