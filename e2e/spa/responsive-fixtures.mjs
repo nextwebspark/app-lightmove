@@ -150,11 +150,6 @@ const FACETS = {
   ],
   adjacentIndustries: {},
   marketSegments: [{ value: "enterprise", label: "Enterprise", count: 3200 }],
-  countries: [
-    { value: "United Arab Emirates", label: "United Arab Emirates", count: 18240 },
-    { value: "Saudi Arabia", label: "Saudi Arabia", count: 15110 },
-    { value: "Qatar", label: "Qatar", count: 4820 },
-  ],
   employeeBands: [
     { value: "1-10", label: "1-10", count: 12000 },
     { value: "1001-2000", label: "1001-2000", count: 900 },

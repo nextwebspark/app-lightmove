@@ -7,8 +7,9 @@ import { Button, Field, FormError, Input, TextArea } from "../../../components/u
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { optionalNumber, optionalWebAddress } from "../../../lib/formFields";
 import * as companiesApi from "../../strategy/api/companiesApi";
-import type { FacetCount } from "../../strategy/api/types";
+import type { FacetCount, FacetOption } from "../../strategy/api/types";
 import { FacetCombobox } from "../../strategy/components/FacetCombobox";
+import { GCC_COUNTRIES } from "../../strategy/lib/countries";
 import type { CaptureCompanyPayload, EditCompanyPayload, TriageCompany } from "../api/types";
 
 /**
@@ -122,7 +123,6 @@ export function CompanyFactsForm({
   const industries: FacetCount[] = (facets.data?.sectorGroups ?? [])
     .flatMap((group) => group.industries)
     .sort((first, second) => first.label.localeCompare(second.label));
-  const countries: FacetCount[] = facets.data?.countries ?? [];
 
   const saving = useMutation({
     mutationFn: save,
@@ -185,8 +185,9 @@ export function CompanyFactsForm({
               control={control}
               listId="company-country"
               noun="countries"
-              options={countries}
-              unavailable={facets.isError}
+              options={GCC_COUNTRIES}
+              // The country vocabulary is fixed rather than read, so this box has nothing to lose.
+              unavailable={false}
               placeholder="United Arab Emirates"
             />
           </Field>
@@ -259,7 +260,7 @@ function VocabularyField({
   control: Control<CompanyFactsValues, unknown, ParsedCompanyFacts>;
   listId: string;
   noun: string;
-  options: FacetCount[];
+  options: readonly FacetOption[];
   unavailable: boolean;
   placeholder: string;
 }) {

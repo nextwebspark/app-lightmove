@@ -201,9 +201,9 @@ try {
     check("S2.5", "Unknown revenue is the rows carrying no figure",
       num("SELECT count(*) FROM app_lm_apollo_companies WHERE annual_revenue IS NULL"),
       facets.revenueBands.find((band) => band.value === "unknown")?.count);
-    check("S2.6", `the ${TOP_COUNTRY} chip counts what the database holds`,
-      num(`SELECT count(*) FROM app_lm_apollo_companies WHERE company_country = '${TOP_COUNTRY.replace(/'/g, "''")}'`),
-      facets.countries.find((country) => country.value === TOP_COUNTRY)?.count);
+    // Location is not in this response at all — its six GCC chips are the SPA's own fixed list, so
+    // they draw before this read and carry no count. S3.1 is what proves they still filter.
+    check("S2.6", "the facets read carries no Location axis", true, facets.countries === undefined);
     note("S2.7", `market segments overlap and sum to ${sum("marketSegments").toLocaleString()} over ${UNIVERSE.toLocaleString()} rows`);
   }
 
