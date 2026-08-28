@@ -48,7 +48,7 @@ public class CompanySearchController {
         this.searchConfig = properties.company().search();
     }
 
-    /** Everything the five filter accordions render, counted over the whole universe. */
+    /** Everything the filter accordions count over the whole universe — Location is not counted. */
     @GetMapping("/facets")
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
     public ResponseEntity<FacetsResponse> facets() {
@@ -56,7 +56,6 @@ public class CompanySearchController {
                 companies.sectorGroups(),
                 adjacency.neighbours(),
                 companies.marketSegmentFacets(),
-                companies.countryFacets(),
                 companies.employeeBandFacets(),
                 companies.revenueBandFacets()));
     }
