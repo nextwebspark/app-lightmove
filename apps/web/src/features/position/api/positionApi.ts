@@ -1,4 +1,4 @@
-import { request } from "../../../lib/apiClient";
+import { request, requestBlob } from "../../../lib/apiClient";
 import type {
   Compensation,
   Competency,
@@ -77,6 +77,26 @@ export function attachDocument(projectId: string, file: File): Promise<Position>
   return request<Position>(`${base(projectId)}/document`, { method: "POST", body: form });
 }
 
-export function documentUrl(projectId: string): string {
-  return `/api/v1${base(projectId)}/document`;
+/**
+ * Fetches the stored position description and hands it to the browser to save.
+ *
+ * Not an `<a href>`: the access token lives in a module variable inside `apiClient` and rides on the
+ * `Authorization` header, which a browser navigation does not send — and the refresh cookie is
+ * path-scoped to the auth routes, so a plain link to this endpoint 401s for every user, every time.
+ */
+export async function saveDocument(projectId: string, fileName: string): Promise<void> {
+  const blob = await requestBlob(`${base(projectId)}/document`);
+  const url = URL.createObjectURL(blob);
+  try {
+    const link = window.document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    window.document.body.append(link);
+    link.click();
+    link.remove();
+  } finally {
+    // Revoked once the click has been handed off; leaving it would pin the blob in memory for the
+    // life of the document.
+    URL.revokeObjectURL(url);
+  }
 }

@@ -110,6 +110,12 @@ CREATE UNIQUE INDEX app_lm_position_org_node_uk
 
 -- Exactly one mandate seat per chart, enforced where it cannot be forgotten — the same shape as
 -- V5's one-lead-per-project index.
+--
+-- It costs one rule elsewhere. Hibernate replaces an @OrderColumn collection by updating rows in
+-- place at each index rather than clearing the old set first, so a save that moved the flagged seat
+-- between slots would hold the flag on two rows at once and this index would refuse the write. The
+-- seat is therefore pinned to slot 0 by the seed, by the conversion below, and on every write — see
+-- Position#mandateSeatFirst.
 CREATE UNIQUE INDEX app_lm_position_org_node_seat_uk
     ON app_lm_position_org_node (position_id) WHERE mandate_seat;
 
@@ -118,16 +124,16 @@ CREATE UNIQUE INDEX app_lm_position_org_node_seat_uk
 -- seat with neither a title nor a name clears itself the next time the step is saved.
 INSERT INTO app_lm_position_org_node
     (position_id, sort_order, node_id, parent_node_id, title, name, mandate_seat)
-SELECT p.id, 0, seat.manager_id, NULL, p.reports_to, p.reports_to_name, false
+SELECT p.id, 1, seat.manager_id, NULL, p.reports_to, p.reports_to_name, false
 FROM app_lm_position p
 CROSS JOIN LATERAL (SELECT gen_random_uuid() AS manager_id) AS seat;
 
 INSERT INTO app_lm_position_org_node
     (position_id, sort_order, node_id, parent_node_id, title, name, mandate_seat)
-SELECT p.id, 1, gen_random_uuid(), manager.node_id, NULL, NULL, true
+SELECT p.id, 0, gen_random_uuid(), manager.node_id, NULL, NULL, true
 FROM app_lm_position p
 JOIN app_lm_position_org_node manager
-  ON manager.position_id = p.id AND manager.sort_order = 0;
+  ON manager.position_id = p.id AND manager.sort_order = 1;
 
 INSERT INTO app_lm_position_org_node
     (position_id, sort_order, node_id, parent_node_id, title, name, mandate_seat)

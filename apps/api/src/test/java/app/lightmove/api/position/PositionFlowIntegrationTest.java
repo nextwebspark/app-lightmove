@@ -14,6 +14,8 @@ import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.position.repository.PositionRepository;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,9 +50,10 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.details.employmentType").value("FULL_TIME_PERMANENT"))
                 .andExpect(jsonPath("$.details.responsibilities[0]").value("Group P&L stewardship"))
                 .andExpect(jsonPath("$.reporting.orgChart.length()").value(2))
-                .andExpect(jsonPath("$.reporting.orgChart[0].title").value("Group CEO"))
-                .andExpect(jsonPath("$.reporting.orgChart[0].mandateSeat").value(false))
-                .andExpect(jsonPath("$.reporting.orgChart[1].mandateSeat").value(true))
+                // The mandate seat leads the stored chart — Position#mandateSeatFirst explains why.
+                .andExpect(jsonPath("$.reporting.orgChart[0].mandateSeat").value(true))
+                .andExpect(jsonPath("$.reporting.orgChart[1].title").value("Group CEO"))
+                .andExpect(jsonPath("$.reporting.orgChart[1].mandateSeat").value(false))
                 .andExpect(jsonPath("$.compensation.currency").value("USD"))
                 .andExpect(jsonPath("$.compensation.baseSalaryMode").value("ANNUAL"))
                 .andExpect(jsonPath("$.context.hiringUrgency").value("STANDARD"))
@@ -125,9 +128,11 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                  "noticeValue":90,"noticeUnit":"DAYS"}"""
                 .formatted(managerId, seatId, managerId, controllerId, seatId))
                 .andExpect(jsonPath("$.reporting.orgChart.length()").value(3))
-                .andExpect(jsonPath("$.reporting.orgChart[0].name").value("Hassan Al Marri"))
-                // The dragged seat keeps where it was put; the others are laid out by the screen.
-                .andExpect(jsonPath("$.reporting.orgChart[1].canvasX").value(120.5))
+                // The mandate seat is stored first whatever order it was sent in, and the seat that
+                // was dragged keeps where it was put; the others are laid out by the screen.
+                .andExpect(jsonPath("$.reporting.orgChart[0].mandateSeat").value(true))
+                .andExpect(jsonPath("$.reporting.orgChart[0].canvasX").value(120.5))
+                .andExpect(jsonPath("$.reporting.orgChart[1].name").value("Hassan Al Marri"))
                 .andExpect(jsonPath("$.reporting.orgChart[2].parentNodeId").value(seatId))
                 .andExpect(jsonPath("$.reporting.teamSize").value("38 across the finance function"))
                 .andExpect(jsonPath("$.reporting.noticeUnit").value("DAYS"));
@@ -179,6 +184,39 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
         assertThat(brief.get("compensation").get("currency").asString()).isEqualTo("SAR");
         // The template's own seeding survived both writes — neither step owns the assessment lists.
         assertThat(brief.get("assessment").get("criteria").size()).isGreaterThan(0);
+    }
+
+    @Test
+    @DisplayName("an unfilled seat clears itself, unless something reports to it")
+    void unnamedLeavesClearThemselves() throws Exception {
+        String admin = adminOf("Unfilled Seat Firm");
+        String projectId = createProject(admin, createClient(admin, "Emsteel", "UAE"), "CFO");
+        String seatId = "22222222-2222-4222-8222-222222222222";
+        String emptyLeafId = "33333333-3333-4333-8333-333333333333";
+        String emptyMiddleId = "44444444-4444-4444-8444-444444444444";
+        String namedChildId = "55555555-5555-4555-8555-555555555555";
+
+        putStep(admin, projectId, "reporting", """
+                {"orgChart":[
+                   {"nodeId":"%s","parentNodeId":null,"title":null,"name":null,
+                    "mandateSeat":true,"canvasX":null,"canvasY":null},
+                   {"nodeId":"%s","parentNodeId":"%s","title":null,"name":null,
+                    "mandateSeat":false,"canvasX":null,"canvasY":null},
+                   {"nodeId":"%s","parentNodeId":"%s","title":null,"name":null,
+                    "mandateSeat":false,"canvasX":null,"canvasY":null},
+                   {"nodeId":"%s","parentNodeId":"%s","title":"Financial Controller","name":null,
+                    "mandateSeat":false,"canvasX":null,"canvasY":null}],
+                 "teamSize":null,"targetStart":null,"noticeValue":null,"noticeUnit":null}"""
+                .formatted(seatId, emptyLeafId, seatId, emptyMiddleId, seatId, namedChildId, emptyMiddleId));
+
+        JsonNode chart = readBrief(admin, projectId).get("reporting").get("orgChart");
+        List<String> kept = new ArrayList<>();
+        for (JsonNode node : chart) {
+            kept.add(node.get("nodeId").asString());
+        }
+        // The empty leaf goes. The empty seat between the role and a named report stays, because
+        // dropping it would leave that report pointing at a seat no longer in the chart.
+        assertThat(kept).containsExactlyInAnyOrder(seatId, emptyMiddleId, namedChildId);
     }
 
     @Test

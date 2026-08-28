@@ -174,7 +174,11 @@ interface RequestOptions {
   signal?: AbortSignal;
 }
 
-export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+/**
+ * The shared transport: the bearer token, the one refresh retry, and the error shape. Returns the raw
+ * response so both the JSON and the file readers below get the same authentication for free.
+ */
+async function sendWithAuth(path: string, options: RequestOptions): Promise<Response> {
   const { method = "GET", body, anonymous = false, withCsrf = false, signal } = options;
 
   const send = async (token: string | null): Promise<Response> => {
@@ -222,12 +226,30 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     throw new ApiRequestError(await problemFrom(response));
   }
 
+  return response;
+}
+
+export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const response = await sendWithAuth(path, options);
+
   // 204 No Content — logout, reject. There is no body to parse, and parsing one would throw.
   if (response.status === 204 || response.headers.get("content-length") === "0") {
     return undefined as T;
   }
 
   return (await response.json()) as T;
+}
+
+/**
+ * For the endpoints that answer with a file rather than JSON.
+ *
+ * A file still needs the bearer token, and the token only exists in this module — so a download
+ * cannot be an `<a href>`. A browser navigation carries no `Authorization` header, and the refresh
+ * cookie is path-scoped to the auth routes, so such a link is guaranteed to 401. Fetch the bytes
+ * here, hand the caller a Blob, and let it save that.
+ */
+export async function requestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
+  return (await sendWithAuth(path, options)).blob();
 }
 
 /**

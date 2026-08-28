@@ -68,9 +68,10 @@ class PositionBriefLoader {
      */
     private static List<PositionOrgNode> seededChart(String managerTitle) {
         UUID managerId = UUID.randomUUID();
+        // The mandate seat leads the list — see Position#mandateSeatFirst for why that matters.
         return List.of(
-                PositionOrgNode.of(managerId, null, managerTitle, null, false, null, null),
-                PositionOrgNode.mandateSeat(UUID.randomUUID(), managerId));
+                PositionOrgNode.mandateSeat(UUID.randomUUID(), managerId),
+                PositionOrgNode.of(managerId, null, managerTitle, null, false, null, null));
     }
 
     private String hqCountryOf(UUID clientId, UUID workspaceId) {

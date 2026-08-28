@@ -6,9 +6,11 @@ import app.lightmove.api.position.dto.OrgNodeDto;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * What makes a submitted org chart a chart rather than a bag of boxes.
@@ -23,6 +25,32 @@ import java.util.function.Function;
 final class OrgChartRules {
 
     private OrgChartRules() {
+    }
+
+    /**
+     * Drops the seats nobody filled in — but only the ones nothing reports to.
+     *
+     * <p>Both V39 and this package's docs promise that a seat with neither a title nor a name clears
+     * itself, which is what makes the placeholders V39 creates from the old direct-report count
+     * disappear once somebody actually works on the chart.
+     *
+     * <p><b>Only leaves.</b> Removing an unnamed seat that has children would leave every one of them
+     * pointing at a parent that is no longer in the chart — the exact state
+     * {@link #requireParentsResolve} exists to refuse, reached by the back door because filtering
+     * happens after validation. An unnamed manager with named reports under it is a chart somebody is
+     * halfway through drawing, and it keeps its box until they empty it.
+     */
+    static List<OrgNodeDto> withoutUnnamedLeaves(List<OrgNodeDto> chart) {
+        Set<UUID> parents = chart.stream()
+                .map(OrgNodeDto::parentNodeId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        return chart.stream()
+                .filter(node -> node.mandateSeat()
+                        || node.title() != null
+                        || node.name() != null
+                        || parents.contains(node.nodeId()))
+                .toList();
     }
 
     static void validate(List<OrgNodeDto> chart) {
@@ -48,7 +76,7 @@ final class OrgChartRules {
     }
 
     private static void requireParentsResolve(List<OrgNodeDto> chart) {
-        Set<UUID> ids = chart.stream().map(OrgNodeDto::nodeId).collect(HashSet::new, Set::add, Set::addAll);
+        Set<UUID> ids = chart.stream().map(OrgNodeDto::nodeId).collect(Collectors.toSet());
         boolean dangling = chart.stream()
                 .map(OrgNodeDto::parentNodeId)
                 .anyMatch(parent -> parent != null && !ids.contains(parent));
@@ -64,7 +92,7 @@ final class OrgChartRules {
      */
     private static void requireNoCycles(List<OrgNodeDto> chart) {
         Map<UUID, OrgNodeDto> byId = chart.stream()
-                .collect(java.util.stream.Collectors.toMap(OrgNodeDto::nodeId, Function.identity()));
+                .collect(Collectors.toMap(OrgNodeDto::nodeId, Function.identity()));
         for (OrgNodeDto start : chart) {
             Set<UUID> walked = new HashSet<>();
             OrgNodeDto node = start;

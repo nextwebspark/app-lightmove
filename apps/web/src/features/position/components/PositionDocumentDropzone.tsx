@@ -16,13 +16,13 @@ export function PositionDocumentDropzone({
   uploading,
   onAttach,
   onRemove,
-  downloadUrl,
+  onDownload,
 }: {
   document: PositionDocument | null;
   uploading: boolean;
   onAttach: (file: File) => void;
   onRemove: () => void;
-  downloadUrl: string;
+  onDownload: () => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -54,12 +54,15 @@ export function PositionDocumentDropzone({
             <Icon d={ICONS.file} size={17} />
           </span>
           <div className="min-w-0 flex-[1_1_140px]">
-            <a
-              href={downloadUrl}
-              className="block truncate text-[13px] font-semibold text-text hover:text-sky hover:underline"
+            {/* A button, not a link: the bytes are fetched with the access token attached, so there
+                is no URL a navigation could follow. */}
+            <button
+              type="button"
+              onClick={onDownload}
+              className="block max-w-full truncate text-start text-[13px] font-semibold text-text hover:text-sky hover:underline"
             >
               {document.fileName}
-            </a>
+            </button>
             <span className="mt-px block font-mono text-[11.5px] text-text3">
               {fileSizeOf(document.fileSize)} · added {formatInstantDate(document.uploadedAt)}
             </span>

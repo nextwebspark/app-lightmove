@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -213,7 +214,24 @@ public class Position extends BaseEntity {
         this.teamSize = reporting.teamSize();
         this.noticeValue = reporting.noticeValue();
         this.noticeUnit = reporting.noticeUnit();
-        replace(this.orgChart, reporting.orgChart());
+        replace(this.orgChart, mandateSeatFirst(reporting.orgChart()));
+    }
+
+    /**
+     * Pins the mandate seat to the front of the stored list, and it is not cosmetic.
+     *
+     * <p>{@code app_lm_position_org_node} carries a partial unique index allowing one flagged seat per
+     * chart, and Hibernate replaces an {@code @OrderColumn} collection by updating rows <i>in place</i>
+     * at each index rather than deleting the old set first. So a save that moves the seat from slot 1
+     * to slot 0 writes the flag onto slot 0 while slot 1 still holds it, and the index — correctly —
+     * refuses the whole write with a 409. Keeping the seat at slot 0 in the seed, in the migration and
+     * on every write means the flag never moves between rows, and the transient double never happens.
+     */
+    private static List<PositionOrgNode> mandateSeatFirst(List<PositionOrgNode> chart) {
+        return Stream.concat(
+                        chart.stream().filter(PositionOrgNode::isMandateSeat),
+                        chart.stream().filter(node -> !node.isMandateSeat()))
+                .toList();
     }
 
     /** The seat this brief is for. Absent only on a chart that has somehow lost its anchor. */

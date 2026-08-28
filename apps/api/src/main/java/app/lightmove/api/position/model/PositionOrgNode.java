@@ -66,11 +66,6 @@ public class PositionOrgNode {
         return of(nodeId, parentNodeId, null, null, true, null, null);
     }
 
-    /** True when neither half was filled in — a seat the chart has drawn but nobody has named. */
-    public boolean isUnnamed() {
-        return title == null && name == null;
-    }
-
     private static String trimmedOrNull(String value) {
         if (value == null) {
             return null;

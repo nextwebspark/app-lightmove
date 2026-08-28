@@ -88,7 +88,7 @@ public class PositionService {
         OrgChartRules.validate(request.orgChart());
         PositionBrief brief = briefs.require(workspaceId, projectId);
         brief.position().applyReporting(new ReportingStructure(
-                request.orgChart().stream()
+                OrgChartRules.withoutUnnamedLeaves(request.orgChart()).stream()
                         .map(node -> PositionOrgNode.of(node.nodeId(), node.parentNodeId(),
                                 node.title(), node.name(), node.mandateSeat(),
                                 node.canvasX(), node.canvasY()))

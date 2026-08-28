@@ -192,6 +192,11 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     onSuccess: (saved) => queryClient.setQueryData(key, saved),
     onError: (error) => toast(messageFor(error)),
   });
+  const downloadDocument = useMutation({
+    mutationFn: () =>
+      positionApi.saveDocument(projectId, position.document?.fileName ?? "position-description"),
+    onError: (error) => toast(messageFor(error)),
+  });
 
   const saveDraft = async () => {
     await Promise.allSettled(channels.map((channel) => channel.flush()));
@@ -253,7 +258,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               details={details}
               document={drafted.document}
               uploading={attachDocument.isPending || removeDocument.isPending}
-              downloadUrl={positionApi.documentUrl(projectId)}
+              onDownload={() => downloadDocument.mutate()}
               onChange={changeDetails}
               onAttachDocument={(file) => attachDocument.mutate(file)}
               onRemoveDocument={() => removeDocument.mutate()}

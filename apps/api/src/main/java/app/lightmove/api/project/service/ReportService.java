@@ -6,6 +6,7 @@ import app.lightmove.api.project.dto.BreakdownDto;
 import app.lightmove.api.project.dto.CompensationBandDto;
 import app.lightmove.api.project.dto.ReportResponse;
 import app.lightmove.api.project.dto.ScopeCaveatsDto;
+import app.lightmove.api.position.constant.BaseSalaryMode;
 import app.lightmove.api.position.model.Position;
 import app.lightmove.api.position.repository.PositionRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
@@ -55,6 +56,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ReportService {
 
+    private static final int MONTHS_PER_YEAR = 12;
+
     /** Enough bars to show the shape without turning a wide scope into a wall of one-company rows. */
     private static final int SECTOR_LIMIT = 10;
     private static final int COUNTRY_LIMIT = 8;
@@ -94,13 +97,28 @@ public class ReportService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
-    /** A band with neither bound is no band at all — null, so the screen states its absence. */
+    /**
+     * A band with neither bound is no band at all — null, so the screen states its absence.
+     *
+     * <p>Annualised on the way out. A brief quoting its base monthly is ordinary here, and reporting
+     * those figures as an annual band understates the role by a factor of twelve — the reader has no
+     * way to tell, because the report never shows the period.
+     */
     private static CompensationBandDto mandateBandOf(Optional<Position> position) {
         return position
                 .filter(brief -> brief.getSalaryMin() != null || brief.getSalaryMax() != null)
                 .map(brief -> new CompensationBandDto(
-                        brief.getSalaryMin(), brief.getSalaryMax(), brief.getCurrency()))
+                        annualised(brief.getSalaryMin(), brief.getBaseSalaryMode()),
+                        annualised(brief.getSalaryMax(), brief.getBaseSalaryMode()),
+                        brief.getCurrency()))
                 .orElse(null);
+    }
+
+    private static Long annualised(Long amount, BaseSalaryMode mode) {
+        if (amount == null) {
+            return null;
+        }
+        return mode == BaseSalaryMode.MONTHLY ? amount * MONTHS_PER_YEAR : amount;
     }
 
     /**

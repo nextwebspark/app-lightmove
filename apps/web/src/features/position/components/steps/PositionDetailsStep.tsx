@@ -10,7 +10,7 @@ export function PositionDetailsStep({
   details,
   document,
   uploading,
-  downloadUrl,
+  onDownload,
   onChange,
   onAttachDocument,
   onRemoveDocument,
@@ -18,7 +18,7 @@ export function PositionDetailsStep({
   details: PositionDetails;
   document: PositionDocument | null;
   uploading: boolean;
-  downloadUrl: string;
+  onDownload: () => void;
   onChange: (patch: Partial<PositionDetails>) => void;
   onAttachDocument: (file: File) => void;
   onRemoveDocument: () => void;
@@ -37,7 +37,7 @@ export function PositionDetailsStep({
       <PositionDocumentDropzone
         document={document}
         uploading={uploading}
-        downloadUrl={downloadUrl}
+        onDownload={onDownload}
         onAttach={onAttachDocument}
         onRemove={onRemoveDocument}
       />
