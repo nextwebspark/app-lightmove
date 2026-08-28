@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Spinner, useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
@@ -68,13 +68,21 @@ export function PositionPage() {
  */
 function PositionWizard({ projectId, position }: { projectId: string; position: Position }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const toast = useToast();
   const key = positionApi.POSITION_KEY(projectId);
 
-  const [currentStep, setCurrentStep] = useState<StepKey>("details");
+  // A published brief opens on its own review: somebody coming back to a finished mandate — its
+  // author, a colleague, the same person after a logout — is looking at what was published rather
+  // than starting the wizard again.
+  const opensOn: StepKey = position.publication.publishedAt ? "review" : "details";
+  const [currentStep, setCurrentStep] = useState<StepKey>(opensOn);
+  // Somebody has said they mean to change a published brief. It opens the review's section links
+  // rather than unlocking anything: nothing here was ever locked.
+  const [editingPublished, setEditingPublished] = useState(false);
   // The furthest step reached this sitting, which is what the rail is allowed to call done — see
-  // doneSteps in lib/steps.
-  const [furthestStep, setFurthestStep] = useState<StepKey>("details");
+  // doneSteps in lib/steps, which reads publication first.
+  const [furthestStep, setFurthestStep] = useState<StepKey>(opensOn);
   const [details, setDetails] = useState<PositionDetails>(position.details);
   const [context, setContext] = useState<MandateContext>(position.context);
   const [reporting, setReporting] = useState<ReportingStructure>(position.reporting);
@@ -193,11 +201,19 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       if (immediate) void competenciesSave.flush();
     };
 
+  /** Where a published brief leads: the mandate's own market, which is the next thing to be done. */
+  const goToStrategy = () => navigate(`/projects/${projectId}/strategy`);
+
   const selectStep = (key: StepKey) => {
     setCurrentStep(key);
     setFurthestStep((furthest) =>
       stepIndexOf(key) > stepIndexOf(furthest) ? key : furthest,
     );
+  };
+
+  const editPosition = () => {
+    setEditingPublished(true);
+    selectStep("review");
   };
 
   /** Reordering is the ranking, and a decision rather than typing — so it saves at once. */
@@ -339,13 +355,18 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
             />
           )}
           {currentStep === "review" && (
-            <ReviewStep position={drafted} onEditStep={selectStep} />
+            <ReviewStep
+              position={drafted}
+              canEdit={!drafted.publication.publishedAt || editingPublished}
+              onEditStep={selectStep}
+            />
           )}
 
           <StepNavigation
             currentStep={currentStep}
             onSelectStep={selectStep}
             onPublish={() => publish.mutate()}
+            onGoToStrategy={goToStrategy}
             publishing={publish.isPending}
             published={Boolean(drafted.publication.publishedAt)}
           />
@@ -358,6 +379,9 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
           onSelectStep={selectStep}
           onPublish={() => publish.mutate()}
           onSaveDraft={() => void saveDraft()}
+          onGoToStrategy={goToStrategy}
+          onEditPosition={editPosition}
+          editing={editingPublished}
           publishing={publish.isPending}
         />
       </div>

@@ -1,3 +1,4 @@
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import type { Position } from "../api/types";
@@ -17,6 +18,9 @@ export function StepRail({
   onSelectStep,
   onPublish,
   onSaveDraft,
+  onGoToStrategy,
+  onEditPosition,
+  editing,
   publishing,
 }: {
   position: Position;
@@ -26,6 +30,10 @@ export function StepRail({
   onSelectStep: (key: StepKey) => void;
   onPublish: () => void;
   onSaveDraft: () => void;
+  onGoToStrategy: () => void;
+  onEditPosition: () => void;
+  /** Whether a published brief has been opened for changes — see ReviewStep's `canEdit`. */
+  editing: boolean;
   publishing: boolean;
 }) {
   const done = doneSteps(position, furthestStep);
@@ -116,12 +124,36 @@ export function StepRail({
         })}
       </ol>
 
-      <Button onClick={onPublish} loading={publishing} className="mt-4 w-full py-[11px]">
-        {published ? "Published" : "Publish position profile"}
-      </Button>
-      <Button variant="secondary" onClick={onSaveDraft} className="mt-2 w-full py-2.5">
-        Save draft
-      </Button>
+      {/* A published brief has nothing left to ask of this screen, so the rail stops offering to
+          publish it again and offers the two things somebody actually comes back for: getting on
+          with the search, and changing their mind about the brief. Editing stays available —
+          publishing is a stamp, not a lock. */}
+      {published ? (
+        <>
+          <Button onClick={onGoToStrategy} className="mt-4 w-full py-[11px]">
+            Move to strategy
+            <Icon d={ICONS.arrowRight} size={15} />
+          </Button>
+          {editing ? (
+            <Button variant="secondary" onClick={onSaveDraft} className="mt-2 w-full py-2.5">
+              Save draft
+            </Button>
+          ) : (
+            <Button variant="secondary" onClick={onEditPosition} className="mt-2 w-full py-2.5">
+              Edit position
+            </Button>
+          )}
+        </>
+      ) : (
+        <>
+          <Button onClick={onPublish} loading={publishing} className="mt-4 w-full py-[11px]">
+            Publish position profile
+          </Button>
+          <Button variant="secondary" onClick={onSaveDraft} className="mt-2 w-full py-2.5">
+            Save draft
+          </Button>
+        </>
+      )}
     </aside>
   );
 }

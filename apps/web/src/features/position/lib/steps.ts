@@ -151,9 +151,16 @@ export function stepIndexOf(key: StepKey): number {
  * is created, and the rail ticked a step nobody had opened while the person was still on step two.
  * A step is only reported done once it has been reached, so the tracker reads as a record of where
  * somebody has been rather than of what the seed happened to fill in.
+ *
+ * Publishing settles that for good. Somebody declaring the brief ready is the statement that the
+ * whole of it has been through, and it is stored — so a published brief reads the same to the person
+ * who published it, to a colleague opening it cold, and to either of them a week later. Which step
+ * anybody has scrolled to since stops mattering.
  */
 export function doneSteps(position: Position, reached: StepKey): boolean[] {
-  const furthest = stepIndexOf(reached);
+  const furthest = position.publication.publishedAt
+    ? POSITION_STEPS.length - 1
+    : stepIndexOf(reached);
   return POSITION_STEPS.map((step, index) => index <= furthest && step.isDone(position));
 }
 

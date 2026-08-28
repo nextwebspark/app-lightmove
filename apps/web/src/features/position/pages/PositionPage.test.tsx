@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { AuthProvider } from "../../auth/AuthProvider";
@@ -124,6 +124,11 @@ const seeded: Position = {
   document: null,
 };
 
+/** Where the wizard navigated to, for the step that leaves the screen entirely. */
+function Whereabouts() {
+  return <span data-testid="location">{useLocation().pathname}</span>;
+}
+
 const renderPage = () =>
   render(
     <MemoryRouter>
@@ -137,11 +142,17 @@ const renderPage = () =>
                 <Route path="/" element={<PositionPage />} />
               </Route>
             </Routes>
+            <Whereabouts />
           </ToastProvider>
         </AuthProvider>
       </QueryClientProvider>
     </MemoryRouter>,
   );
+
+const published: Position = {
+  ...seeded,
+  publication: { publishedAt: "2026-08-27T10:00:00Z", publishedBy: "Alok Kumar" },
+};
 
 describe("PositionPage", () => {
   beforeEach(() => {
@@ -237,10 +248,6 @@ describe("PositionPage", () => {
   });
 
   it("publishes from the rail and shows the brief as published, still editable", async () => {
-    const published: Position = {
-      ...seeded,
-      publication: { publishedAt: "2026-08-27T10:00:00Z", publishedBy: "Alok Kumar" },
-    };
     vi.mocked(positionApi.publish).mockResolvedValue(published);
     renderPage();
     const user = userEvent.setup();
@@ -251,6 +258,49 @@ describe("PositionPage", () => {
     expect(await screen.findByText("✓ Published")).toBeInTheDocument();
     // Publishing is a stamp, not a lock: step one's fields keep accepting input.
     expect(screen.getByDisplayValue("Chief Financial Officer")).toBeEnabled();
+  });
+
+  it("opens a published brief on its own review, complete, for whoever comes back to it", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue(published);
+    renderPage();
+
+    // Nobody has walked the wizard in this sitting — publishing is what says the whole brief has
+    // been through, and it is stored, so a colleague opening it cold reads the same thing.
+    expect(await screen.findByRole("heading", { name: "Review & publish" })).toBeInTheDocument();
+    expect(screen.getByText("Position profile published")).toBeInTheDocument();
+
+    const rail = screen.getByRole("complementary");
+    expect(within(rail).getByText("50% Done")).toBeInTheDocument();
+    expect(within(rail).getByRole("button", { name: /Move to strategy/ })).toBeInTheDocument();
+  });
+
+  it("takes a published brief back into edit through the section it names", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue(published);
+    renderPage();
+    const user = userEvent.setup();
+
+    // A published brief reads back rather than inviting edits until somebody says they mean to.
+    expect(await screen.findByText("Position profile published")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+
+    const rail = screen.getByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: "Edit position" }));
+
+    const sections = screen.getAllByRole("button", { name: "Edit" });
+    expect(sections).toHaveLength(5);
+    await user.click(sections[1]);
+    expect(screen.getByRole("heading", { name: "Mandate context" })).toBeInTheDocument();
+  });
+
+  it("moves on to the mandate's market once the brief is published", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue(published);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Move to strategy/ }));
+
+    expect(await screen.findByTestId("location")).toHaveTextContent("/projects/p1/strategy");
   });
 
   it("locks a competency so its weight holds while another is dragged", async () => {
