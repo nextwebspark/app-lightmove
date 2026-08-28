@@ -13,6 +13,7 @@ export function StepNavigation({
   onGoToStrategy,
   publishing,
   published,
+  editing,
 }: {
   currentStep: StepKey;
   onSelectStep: (key: StepKey) => void;
@@ -20,6 +21,8 @@ export function StepNavigation({
   onGoToStrategy: () => void;
   publishing: boolean;
   published: boolean;
+  /** Whether a published brief has been opened for changes — the foot then offers to publish them. */
+  editing: boolean;
 }) {
   const index = stepIndexOf(currentStep);
   const previous = POSITION_STEPS[index - 1];
@@ -38,14 +41,14 @@ export function StepNavigation({
           Next: {next.name}
           <Icon d={ICONS.arrowRight} size={15} />
         </Button>
-      ) : published ? (
+      ) : published && !editing ? (
         <Button onClick={onGoToStrategy}>
           Move to strategy
           <Icon d={ICONS.arrowRight} size={15} />
         </Button>
       ) : (
         <Button onClick={onPublish} loading={publishing}>
-          Publish position profile
+          {published ? "Publish changes" : "Publish position profile"}
         </Button>
       )}
     </div>

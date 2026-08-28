@@ -205,11 +205,17 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const goToStrategy = () => navigate(`/projects/${projectId}/strategy`);
 
   const selectStep = (key: StepKey) => {
+    // Opening a step of a published brief is the same statement as "Edit position": the fields are
+    // right there and live. Anything else would leave the rail claiming a read-back it is not doing.
+    if (position.publication.publishedAt && key !== "review") setEditingPublished(true);
     setCurrentStep(key);
     setFurthestStep((furthest) =>
       stepIndexOf(key) > stepIndexOf(furthest) ? key : furthest,
     );
   };
+
+  const publishNow = () =>
+    position.publication.publishedAt ? void publishChanges() : publish.mutate();
 
   const editPosition = () => {
     setEditingPublished(true);
@@ -223,16 +229,35 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   };
 
   const publish = useMutation({
-    mutationFn: () =>
-      position.publication.publishedAt
-        ? positionApi.withdrawPublication(projectId)
-        : positionApi.publish(projectId),
+    mutationFn: () => positionApi.publish(projectId),
     onSuccess: (saved) => {
       queryClient.setQueryData(key, saved);
-      toast(saved.publication.publishedAt ? "Position profile published" : "Publication withdrawn");
+      toast("Position profile published");
     },
     onError: (error) => toast(messageFor(error)),
   });
+
+  const withdraw = useMutation({
+    mutationFn: () => positionApi.withdrawPublication(projectId),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(key, saved);
+      setEditingPublished(false);
+      toast("Publication withdrawn");
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  /**
+   * Publishing a brief that is already published. The stamp does not move — it records when the
+   * brief was first called ready and a second click must not rewrite it — so what this does is flush
+   * what the edits left in flight and close the review back up. It is the same act from where the
+   * consultant sits: they said it was ready, and they are saying it again.
+   */
+  const publishChanges = async () => {
+    await flushEverything();
+    setEditingPublished(false);
+    toast("Changes published");
+  };
 
   const attachDocument = useMutation({
     mutationFn: (file: File) => positionApi.attachDocument(projectId, file),
@@ -250,8 +275,10 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     onError: (error) => toast(messageFor(error)),
   });
 
+  const flushEverything = () => Promise.allSettled(channels.map((channel) => channel.flush()));
+
   const saveDraft = async () => {
-    await Promise.allSettled(channels.map((channel) => channel.flush()));
+    await flushEverything();
     toast("Draft saved");
   };
 
@@ -305,7 +332,9 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       <div className="flex flex-wrap items-start gap-[22px]">
         <div className="order-2 min-w-0 flex-[2_1_460px] md:order-1">
           <div className="mb-[22px] flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-            <div className="min-w-0">
+            {/* flex-1 with a floor, so the blurb gives way to the field beside it rather than taking
+                the whole row and pushing it onto the next one. */}
+            <div className="min-w-[240px] flex-1">
               <h2 className="text-[19px] font-bold tracking-[-0.01em] text-text">{step.heading}</h2>
               <p className="mt-[5px] max-w-[62ch] text-[13px] text-text3">{step.subheading}</p>
             </div>
@@ -359,16 +388,18 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               position={drafted}
               canEdit={!drafted.publication.publishedAt || editingPublished}
               onEditStep={selectStep}
+              onWithdraw={editingPublished ? () => withdraw.mutate() : null}
             />
           )}
 
           <StepNavigation
             currentStep={currentStep}
             onSelectStep={selectStep}
-            onPublish={() => publish.mutate()}
+            onPublish={publishNow}
             onGoToStrategy={goToStrategy}
             publishing={publish.isPending}
             published={Boolean(drafted.publication.publishedAt)}
+            editing={editingPublished}
           />
         </div>
 
@@ -377,7 +408,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
           currentStep={currentStep}
           furthestStep={furthestStep}
           onSelectStep={selectStep}
-          onPublish={() => publish.mutate()}
+          onPublish={publishNow}
           onSaveDraft={() => void saveDraft()}
           onGoToStrategy={goToStrategy}
           onEditPosition={editPosition}

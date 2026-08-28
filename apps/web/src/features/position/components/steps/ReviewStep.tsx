@@ -16,6 +16,7 @@ export function ReviewStep({
   position,
   canEdit,
   onEditStep,
+  onWithdraw,
 }: {
   position: Position;
   /**
@@ -25,6 +26,12 @@ export function ReviewStep({
    */
   canEdit: boolean;
   onEditStep: (key: StepKey) => void;
+  /**
+   * Taking the publication back, offered only while the brief is being changed — it is the one
+   * moment somebody is asking what publishing means, and a control this consequential should not sit
+   * under the reader's cursor the rest of the time. Absent when there is nothing to withdraw.
+   */
+  onWithdraw: (() => void) | null;
 }) {
   const published = position.publication.publishedAt;
 
@@ -44,6 +51,15 @@ export function ReviewStep({
               {canEdit ? " · the brief stays editable" : " · Edit position to change it"}
             </span>
           </span>
+          {onWithdraw && (
+            <button
+              type="button"
+              onClick={onWithdraw}
+              className="ms-auto text-[11.5px] font-semibold text-text3 hover:text-red hover:underline"
+            >
+              Withdraw publication
+            </button>
+          )}
         </div>
       )}
 

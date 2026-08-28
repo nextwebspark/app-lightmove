@@ -36,9 +36,12 @@ export function StepRail({
   editing: boolean;
   publishing: boolean;
 }) {
+  const published = Boolean(position.publication.publishedAt);
+  // A published brief nobody has opened for changes is being read, not edited — the step in view is
+  // simply the page you are on, and labelling it "Editing" would describe something not happening.
+  const readingBack = published && !editing;
   const done = doneSteps(position, furthestStep);
   const donePercent = completion(position, furthestStep);
-  const published = Boolean(position.publication.publishedAt);
 
   return (
     <aside className="order-1 w-full rounded-[10px] border border-line-soft bg-panel2 p-4 md:order-2 md:max-w-[340px] md:flex-[1_1_280px] lg:sticky lg:top-0">
@@ -74,6 +77,7 @@ export function StepRail({
         {POSITION_STEPS.map((step, index) => {
           const stepDone = done[index];
           const current = step.key === currentStep;
+          const label = current && !readingBack ? "Editing" : stepDone ? "✓" : "";
           return (
             <li key={step.key}>
               <button
@@ -101,10 +105,10 @@ export function StepRail({
                   <span
                     className={cn(
                       "ms-auto whitespace-nowrap font-mono text-[10.5px] font-semibold",
-                      current ? "text-sky" : "text-green",
+                      label === "Editing" ? "text-sky" : "text-green",
                     )}
                   >
-                    {current ? "Editing" : stepDone ? "✓" : ""}
+                    {label}
                   </span>
                 </span>
                 <span
@@ -124,34 +128,33 @@ export function StepRail({
         })}
       </ol>
 
-      {/* A published brief has nothing left to ask of this screen, so the rail stops offering to
-          publish it again and offers the two things somebody actually comes back for: getting on
-          with the search, and changing their mind about the brief. Editing stays available —
-          publishing is a stamp, not a lock. */}
-      {published ? (
+      {/* The lead button is whatever the brief is waiting for. Unpublished, that is publishing it.
+          Published and read back, it is getting on with the search. Published and being changed, it
+          is publishing again — so the way out of editing is the same act that got the brief here. */}
+      {published && !editing ? (
         <>
           <Button onClick={onGoToStrategy} className="mt-4 w-full py-[11px]">
             Move to strategy
             <Icon d={ICONS.arrowRight} size={15} />
           </Button>
-          {editing ? (
-            <Button variant="secondary" onClick={onSaveDraft} className="mt-2 w-full py-2.5">
-              Save draft
-            </Button>
-          ) : (
-            <Button variant="secondary" onClick={onEditPosition} className="mt-2 w-full py-2.5">
-              Edit position
-            </Button>
-          )}
+          <Button variant="secondary" onClick={onEditPosition} className="mt-2 w-full py-2.5">
+            Edit position
+          </Button>
         </>
       ) : (
         <>
           <Button onClick={onPublish} loading={publishing} className="mt-4 w-full py-[11px]">
-            Publish position profile
+            {published ? "Publish changes" : "Publish position profile"}
           </Button>
-          <Button variant="secondary" onClick={onSaveDraft} className="mt-2 w-full py-2.5">
-            Save draft
-          </Button>
+          {published ? (
+            <Button variant="secondary" onClick={onGoToStrategy} className="mt-2 w-full py-2.5">
+              Move to strategy
+            </Button>
+          ) : (
+            <Button variant="secondary" onClick={onSaveDraft} className="mt-2 w-full py-2.5">
+              Save draft
+            </Button>
+          )}
         </>
       )}
     </aside>

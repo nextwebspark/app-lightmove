@@ -171,7 +171,7 @@ export function MandateReasonField({
   onChange: (mandateReason: MandateContext["mandateReason"]) => void;
 }) {
   return (
-    <StepField label="Reason for hire" className="w-full sm:w-[240px]">
+    <StepField label="Reason for hire" className="w-full flex-none sm:w-[240px]">
       <Select
         value={value}
         onChange={(event) => onChange(event.target.value as MandateContext["mandateReason"])}
