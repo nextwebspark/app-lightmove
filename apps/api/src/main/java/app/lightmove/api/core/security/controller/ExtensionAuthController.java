@@ -8,6 +8,7 @@ import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.service.AuthenticationService;
+import app.lightmove.api.core.security.token.SessionClient;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -40,11 +41,11 @@ import org.springframework.web.bind.annotation.RestController;
  *       and there is no cookie here for it to attach.
  * </ul>
  *
- * <p><b>A token may only be redeemed by the client its family was opened for</b> — {@code TokenService}
- * refuses a web session's refresh token here, so a cookie-only credential cannot be laundered into a
- * body-carried one. It recognises the two by the session label, which for a web family is the caller's
- * own User-Agent; a dedicated client column on {@code app_lm_refresh_token} would make that
- * unspoofable, and is the honest next step if this route ever carries more.
+ * <p><b>A token may only be redeemed by the client its family was opened for</b>, on all three routes —
+ * {@code TokenService} refuses a web session's refresh token here, so a cookie-only credential cannot
+ * be laundered into a body-carried one. It recognises the two by the session label, which for a web
+ * family is the caller's own User-Agent; a dedicated client column on {@code app_lm_refresh_token}
+ * would make that unspoofable, and is the honest next step if this route ever carries more.
  */
 @RestController
 @RequestMapping("/api/v1/auth/extension")
@@ -65,9 +66,7 @@ public class ExtensionAuthController {
     @PostMapping("/tokens")
     public ResponseEntity<ExtensionSessionResponse> pair(@AuthenticationPrincipal AuthPrincipal principal,
                                                          HttpServletRequest httpRequest) {
-        // Rate-limited despite being authenticated, and that is the point: this route converts a
-        // 15-minute in-memory access token into a 14-day one that leaves in a response body. Script
-        // that has got hold of the former should not be able to farm the latter in a loop.
+        // Rate-limited despite being authenticated; RateLimitGuard.checkExtensionPairing says why.
         rateLimit.checkExtensionPairing(principal.email(), httpRequest);
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -92,7 +91,7 @@ public class ExtensionAuthController {
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@Valid @RequestBody ExtensionRefreshRequest request,
                                        HttpServletRequest httpRequest) {
-        authentication.logout(request.refreshToken(), httpRequest);
+        authentication.logout(request.refreshToken(), httpRequest, SessionClient.BROWSER_EXTENSION);
         return ResponseEntity.noContent().build();
     }
 

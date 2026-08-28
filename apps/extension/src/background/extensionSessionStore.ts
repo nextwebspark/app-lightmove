@@ -68,7 +68,36 @@ export async function storePairedSession(session: ExtensionSession): Promise<voi
   if (!isUsableSession(session)) {
     throw new Error("The workspace offered a session with no refresh token.");
   }
+  // The extension holds the only copy of the session it is about to replace, so nobody else can end
+  // it: pairing again from a bookmark or a colleague's link would otherwise leave the old family live
+  // for its full fortnight, as a second row in Settings → Active sessions that is byte-identical to
+  // the new one — same label, same device — so the screen that could clean it up cannot tell them apart.
+  await revokeStoredSession();
   await write(session);
+}
+
+/**
+ * Ends the stored session server-side, best-effort.
+ *
+ * Never throws. Both callers have already done, or are about to do, the thing the consultant asked
+ * for — signing out locally, or storing a new pairing — and neither should fail because the workspace
+ * was unreachable. An unrevoked token expires on its own.
+ */
+async function revokeStoredSession(): Promise<void> {
+  const previous = await read();
+  if (!previous) {
+    return;
+  }
+  try {
+    await fetch(`${workspaceOrigin}/api/v1/auth/extension/logout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "omit",
+      body: JSON.stringify({ refreshToken: previous.refreshToken }),
+    });
+  } catch {
+    // See above: unreachable workspace, or a token already dead.
+  }
 }
 
 function isUsableSession(session: ExtensionSession | null | undefined): session is ExtensionSession {
@@ -76,7 +105,9 @@ function isUsableSession(session: ExtensionSession | null | undefined): session 
     session
       && typeof session.refreshToken === "string" && session.refreshToken.length > 0
       && typeof session.accessToken === "string" && session.accessToken.length > 0
-      && typeof session.expiresIn === "number",
+      && typeof session.expiresIn === "number"
+      // `user` reaches CaptureHeader unguarded, and initialsOf throws on a missing name.
+      && typeof session.user?.fullName === "string" && session.user.fullName.length > 0,
   );
 }
 
@@ -139,20 +170,6 @@ export function renewAccessToken(): Promise<string | null> {
  * separate token families precisely so that signing out of one is not signing out of the other.
  */
 export async function signOut(): Promise<void> {
-  const session = await read();
+  await revokeStoredSession();
   await clear();
-  if (!session) {
-    return;
-  }
-  try {
-    await fetch(`${workspaceOrigin}/api/v1/auth/extension/logout`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "omit",
-      body: JSON.stringify({ refreshToken: session.refreshToken }),
-    });
-  } catch {
-    // Local state is already gone, which is what the consultant asked for. The token expires on its
-    // own, and failing loudly here would only tell them their sign-out did not work when it did.
-  }
 }

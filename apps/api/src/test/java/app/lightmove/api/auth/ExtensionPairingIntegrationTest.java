@@ -187,6 +187,28 @@ class ExtensionPairingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a browser session cannot be signed out through the extension's logout")
+    void aWebTokenIsRefusedOnTheExtensionLogout() throws Exception {
+        String workspaceOwner = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", workspaceOwner), "Logout Fence Firm");
+        Cookie browserCookie = refreshCookieOf(signInRaw(workspaceOwner));
+
+        // The third route, fenced like the other two. Not exploitable — a web refresh token lives only
+        // in an httpOnly cookie no script can read — but the class doc states the invariant for all
+        // three, and one with a silent exception is the kind someone later relies on.
+        mvc.perform(post("/api/v1/auth/extension/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(browserCookie.getValue())))
+                .andExpect(status().isNoContent());
+
+        // Refused means untouched: the browser session still refreshes.
+        mvc.perform(post("/api/v1/auth/refresh")
+                        .cookie(browserCookie)
+                        .with(csrf()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("a caller may not open a session claiming to be the extension")
     void aWebCallerCannotClaimTheExtensionsLabel() throws Exception {
         String workspaceOwner = "alok@" + domain;

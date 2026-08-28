@@ -174,7 +174,22 @@ public class TokenService {
     /** Ends one session. Idempotent — signing out twice is not an error. */
     @Transactional
     public void revoke(String presentedToken, HttpServletRequest request) {
+        revoke(presentedToken, request, null);
+    }
+
+    /**
+     * Ends one session, refusing a family opened for a different client.
+     *
+     * <p>The same fence {@code rotate} applies, so all three routes hold the invariant rather than two
+     * of them: without it {@code /auth/extension/logout} would revoke a web session, and an invariant
+     * with a silent exception is the kind someone later relies on having read the doc.
+     */
+    @Transactional
+    public void revoke(String presentedToken, HttpServletRequest request, SessionClient client) {
         refreshTokens.findByTokenHash(Tokens.hash(presentedToken)).ifPresent(token -> {
+            if (client != null && !clientMatches(token, client)) {
+                return;
+            }
             token.revoke(RevokeReason.LOGOUT, Instant.now());
             audit.event(AuthEventType.LOGOUT).actor(token.getUserId()).from(request).record();
         });

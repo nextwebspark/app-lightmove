@@ -288,8 +288,14 @@ public class AuthenticationService {
 
     @Transactional
     public void logout(String refreshToken, HttpServletRequest request) {
+        logout(refreshToken, request, null);
+    }
+
+    /** Signs out, refusing a token whose family belongs to a different client. */
+    @Transactional
+    public void logout(String refreshToken, HttpServletRequest request, SessionClient client) {
         if (refreshToken != null && !refreshToken.isBlank()) {
-            tokens.revoke(refreshToken, request);
+            tokens.revoke(refreshToken, request, client);
         }
     }
 
