@@ -42,6 +42,10 @@ export const ICONS = {
   /** A page with its corner turned — the attached position description. */
   file: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6",
   lock: "M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 10 0v4",
+  /** The same padlock with its shackle swung open — the off state of a lock toggle. */
+  unlock: "M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 9.9-1",
+  /** Two grip lines — the only draggable part of a row that is otherwise full of inputs. */
+  dragHandle: "M5 9h14M5 15h14",
   info: "M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z",
   laptop: "M2 4h20v12H2zM8 20h8M12 16v4",
   phone: "M7 2h10v20H7zM11 19h2",

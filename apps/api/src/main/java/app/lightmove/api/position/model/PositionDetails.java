@@ -1,7 +1,7 @@
 package app.lightmove.api.position.model;
 
 import app.lightmove.api.position.constant.EmploymentType;
-import app.lightmove.api.position.constant.PositionSeniority;
+import app.lightmove.api.common.constant.Seniority;
 import java.util.List;
 
 /**
@@ -14,7 +14,7 @@ public record PositionDetails(
         String department,
         String location,
         EmploymentType employmentType,
-        PositionSeniority seniority,
+        Seniority seniority,
         List<String> responsibilities,
         String narrative
 ) {

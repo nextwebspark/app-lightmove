@@ -1,6 +1,6 @@
 package app.lightmove.api.candidate.model;
 
-import app.lightmove.api.candidate.constant.CandidateSeniority;
+import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.core.persistence.model.BaseEntity;
@@ -59,7 +59,7 @@ public class Candidate extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "seniority_level", length = 16)
-    private CandidateSeniority seniorityLevel;
+    private Seniority seniorityLevel;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 24)

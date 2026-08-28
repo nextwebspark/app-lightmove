@@ -19,6 +19,14 @@ import type {
   ReportingStructure,
 } from "../api/types";
 import { StepNavigation } from "../components/StepNavigation";
+import type { CompetencyPanelKey } from "../components/steps/AssessmentStep";
+import {
+  forWire,
+  identify,
+  moveRow,
+  toggle,
+  type IdentifiedCompetency,
+} from "../lib/competencyRows";
 import { StepRail } from "../components/StepRail";
 import { AssessmentStep } from "../components/steps/AssessmentStep";
 import { CompensationStep } from "../components/steps/CompensationStep";
@@ -69,8 +77,17 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const [reporting, setReporting] = useState<ReportingStructure>(position.reporting);
   const [compensation, setCompensation] = useState<Compensation>(position.compensation);
   const [criteria, setCriteria] = useState<Criterion[]>(position.assessment.criteria);
-  const [technical, setTechnical] = useState<Competency[]>(position.assessment.technical);
-  const [behavioural, setBehavioural] = useState<Competency[]>(position.assessment.behavioural);
+  // Carry a client-side id per competency: a lock has to survive its row moving, and the sortable
+  // list needs a stable key. Stripped again on the way to the API — see lib/competencyRows.
+  const [technical, setTechnical] = useState<IdentifiedCompetency[]>(() =>
+    identify(position.assessment.technical),
+  );
+  const [behavioural, setBehavioural] = useState<IdentifiedCompetency[]>(() =>
+    identify(position.assessment.behavioural),
+  );
+  // Locks live here rather than in the panel: step panels unmount when you visit another step, which
+  // is exactly when somebody would have left one set.
+  const [lockedCompetencies, setLockedCompetencies] = useState<ReadonlySet<string>>(new Set());
 
   /** Shared persistence shape: cache the returned snapshot and toast failures. */
   const persist =
@@ -160,14 +177,26 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     setCriteria(next);
     criteriaSave.schedule(next);
   };
-  const changePanel = (panel: "technical" | "behavioural") => (rows: Competency[]) => {
-    const next = {
-      technical: panel === "technical" ? rows : technical,
-      behavioural: panel === "behavioural" ? rows : behavioural,
+  const changePanel =
+    (panel: CompetencyPanelKey, immediate = false) =>
+    (rows: IdentifiedCompetency[]) => {
+      const next = {
+        technical: panel === "technical" ? rows : technical,
+        behavioural: panel === "behavioural" ? rows : behavioural,
+      };
+      setTechnical(next.technical);
+      setBehavioural(next.behavioural);
+      competenciesSave.schedule({
+        technical: forWire(next.technical),
+        behavioural: forWire(next.behavioural),
+      });
+      if (immediate) void competenciesSave.flush();
     };
-    setTechnical(next.technical);
-    setBehavioural(next.behavioural);
-    competenciesSave.schedule(next);
+
+  /** Reordering is the ranking, and a decision rather than typing — so it saves at once. */
+  const reorderPanel = (panel: CompetencyPanelKey) => (fromId: string, toId: string) => {
+    const rows = panel === "technical" ? technical : behavioural;
+    changePanel(panel, true)(moveRow(rows, fromId, toId));
   };
 
   const publish = useMutation({
@@ -211,7 +240,11 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     context,
     reporting,
     compensation,
-    assessment: { criteria, technical, behavioural },
+    assessment: {
+      criteria,
+      technical: forWire(technical),
+      behavioural: forWire(behavioural),
+    },
   };
   const step = POSITION_STEPS[stepIndexOf(currentStep)];
 
@@ -280,9 +313,14 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
           )}
           {currentStep === "assessment" && (
             <AssessmentStep
-              assessment={drafted.assessment}
+              criteria={criteria}
+              technical={technical}
+              behavioural={behavioural}
+              locked={lockedCompetencies}
               onCriteria={changeCriteria}
               onPanel={changePanel}
+              onToggleLock={(id) => setLockedCompetencies((current) => toggle(current, id))}
+              onReorder={reorderPanel}
             />
           )}
           {currentStep === "review" && (

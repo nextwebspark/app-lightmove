@@ -94,8 +94,7 @@ public class PositionService {
                                 node.canvasX(), node.canvasY()))
                         .toList(),
                 request.teamSize(), request.noticeValue(), request.noticeUnit()));
-        // The mandate keeps one target date, on the project — the step's "Target start" writes it there.
-        brief.project().setTargetDate(request.targetStart());
+        // The target date is the mandate's, read here and set on the project — see the request record.
         return saved(brief, userId, workspaceId, projectId, "reporting", httpRequest);
     }
 

@@ -2,7 +2,7 @@ package app.lightmove.api.position.service;
 
 import app.lightmove.api.position.constant.CompetencyPanel;
 import app.lightmove.api.position.constant.CriterionMode;
-import app.lightmove.api.position.constant.PositionSeniority;
+import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.position.model.PositionCompetency;
 import app.lightmove.api.position.model.PositionCriterion;
 import app.lightmove.api.position.model.PositionSeed;
@@ -70,7 +70,7 @@ final class PositionTemplates {
     }
 
     private static final PositionSeed GENERIC = new PositionSeed(
-            PositionSeniority.N_MINUS_1,
+            Seniority.N_MINUS_1,
             "Chief Executive Officer",
             "This is a senior leadership appointment with significant scope and visibility. The ideal "
                     + "candidate combines a strong operating track record at comparable scale with the "
@@ -92,7 +92,7 @@ final class PositionTemplates {
     private static final List<Template> CATALOG = List.of(
             new Template(List.of("chief financial", "cfo", "finance director", "head of finance"),
                     new PositionSeed(
-                            PositionSeniority.C_SUITE,
+                            Seniority.C_SUITE,
                             "Group CEO",
                             "The Chief Financial Officer will sit on the executive committee, reporting to "
                                     + "the Group CEO with board-level exposure. This is a hands-on leadership "
@@ -116,7 +116,7 @@ final class PositionTemplates {
                                     executiveBehaviours()))),
             new Template(List.of("chief executive", "ceo", "managing director"),
                     new PositionSeed(
-                            PositionSeniority.C_SUITE,
+                            Seniority.C_SUITE,
                             "Board of Directors",
                             "The Chief Executive Officer will own the full P&L and set the strategic agenda, "
                                     + "accountable to the board. The ideal candidate has led an organisation of "
@@ -137,7 +137,7 @@ final class PositionTemplates {
                                     executiveBehaviours()))),
             new Template(List.of("chief operating", "coo", "operations director"),
                     new PositionSeed(
-                            PositionSeniority.C_SUITE,
+                            Seniority.C_SUITE,
                             "Chief Executive Officer",
                             "The Chief Operating Officer will run day-to-day operations across the group, "
                                     + "translating strategy into delivery. The ideal candidate has scaled "
@@ -158,7 +158,7 @@ final class PositionTemplates {
                                     executiveBehaviours()))),
             new Template(List.of("chief technology", "chief information", "cto", "cio", "technology director"),
                     new PositionSeed(
-                            PositionSeniority.C_SUITE,
+                            Seniority.C_SUITE,
                             "Chief Executive Officer",
                             "The technology leader will own the technology strategy and delivery organisation. "
                                     + "The ideal candidate has built and led engineering or IT at scale, "
@@ -178,7 +178,7 @@ final class PositionTemplates {
                                     executiveBehaviours()))),
             new Template(List.of("chief human resources", "chief people", "chro", "people director", "hr director"),
                     new PositionSeed(
-                            PositionSeniority.C_SUITE,
+                            Seniority.C_SUITE,
                             "Chief Executive Officer",
                             "The people leader will own talent, culture and organisation design across the "
                                     + "group. The ideal candidate has led HR through growth or restructuring at "
@@ -198,7 +198,7 @@ final class PositionTemplates {
                                     executiveBehaviours()))),
             new Template(List.of("chief marketing", "cmo", "marketing director"),
                     new PositionSeed(
-                            PositionSeniority.C_SUITE,
+                            Seniority.C_SUITE,
                             "Chief Executive Officer",
                             "The marketing leader will own brand, demand and customer strategy. The ideal "
                                     + "candidate has built brands and growth engines at comparable scale and "
@@ -218,7 +218,7 @@ final class PositionTemplates {
                                     executiveBehaviours()))),
             new Template(List.of("chief revenue", "chief commercial", "cro", "sales director", "commercial director"),
                     new PositionSeed(
-                            PositionSeniority.C_SUITE,
+                            Seniority.C_SUITE,
                             "Chief Executive Officer",
                             "The commercial leader will own revenue across all channels. The ideal candidate "
                                     + "has built and led high-performing sales organisations at comparable scale "

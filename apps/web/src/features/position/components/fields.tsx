@@ -1,6 +1,5 @@
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
 import { cn } from "../../../lib/cn";
-import { formatDate } from "../../../lib/format";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 
 const INLINE =
@@ -111,48 +110,6 @@ export function MoneyInput({
       }}
       className={cn(INLINE, className)}
     />
-  );
-}
-
-/**
- * A date field that reads as "15 Sep 2026" (not the browser's dd/mm/yyyy): the formatted value shows
- * on top of a transparent native date input, so a click opens the native picker and keyboard entry
- * still works — no date-picker dependency.
- */
-export function FormattedDateField({
-  value,
-  onChange,
-}: {
-  value: string | null;
-  onChange: (value: string | null) => void;
-}) {
-  return (
-    <div className="relative">
-      <span
-        className={cn(
-          "block cursor-pointer border-b border-transparent py-1 font-mono text-[13.5px] font-medium transition hover:border-line",
-          value ? "text-text" : "text-text3",
-        )}
-      >
-        {value ? formatDate(value) : "Set a date"}
-      </span>
-      <input
-        type="date"
-        value={value ?? ""}
-        onChange={(e) => onChange(e.target.value || null)}
-        // A native date input only opens its calendar from the (here invisible) picker icon; opening it
-        // explicitly on any click makes the whole formatted field editable, not just that far corner.
-        onClick={(e) => {
-          try {
-            e.currentTarget.showPicker?.();
-          } catch {
-            /* showPicker throws outside a user gesture on some engines — the click itself still focuses */
-          }
-        }}
-        aria-label="Target start date"
-        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-      />
-    </div>
   );
 }
 

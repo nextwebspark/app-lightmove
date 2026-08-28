@@ -112,7 +112,10 @@ const seeded: Position = {
   },
   assessment: {
     criteria: [{ text: "Board reporting experience", mode: "REQUIRED", fromBrief: true }],
-    technical: [{ name: "Treasury", description: "Debt and liquidity", weight: 100 }],
+    technical: [
+      { name: "Treasury", description: "Debt and liquidity", weight: 60 },
+      { name: "Controls", description: null, weight: 40 },
+    ],
     behavioural: [{ name: "Strategic Leadership", description: null, weight: 100 }],
   },
   publication: { publishedAt: null, publishedBy: null },
@@ -199,6 +202,50 @@ describe("PositionPage", () => {
     expect(await screen.findByText("✓ Published")).toBeInTheDocument();
     // Publishing is a stamp, not a lock: step one's fields keep accepting input.
     expect(screen.getByDisplayValue("Chief Financial Officer")).toBeEnabled();
+  });
+
+  it("locks a competency so its weight holds while another is dragged", async () => {
+    vi.mocked(positionApi.putCompetencies).mockResolvedValue(seeded);
+    renderPage();
+    const person = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await person.click(within(rail).getByRole("button", { name: /Assessment criteria/ }));
+
+    const treasurySlider = screen.getByRole("slider", { name: "Treasury slider" });
+    expect(treasurySlider).toBeEnabled();
+
+    await person.click(screen.getByRole("button", { name: "Lock Treasury" }));
+
+    // A locked row states itself: the slider and the number both stop accepting input, so the lock
+    // is visible rather than something you discover by dragging and nothing moving.
+    expect(screen.getByRole("slider", { name: "Treasury slider" })).toBeDisabled();
+    expect(screen.getByRole("spinbutton", { name: "Treasury weight" })).toBeDisabled();
+
+    await person.click(screen.getByRole("button", { name: "Unlock Treasury" }));
+    expect(screen.getByRole("slider", { name: "Treasury slider" })).toBeEnabled();
+  });
+
+  it("offers every competency a keyboard-reachable reorder handle", async () => {
+    renderPage();
+    const person = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await person.click(within(rail).getByRole("button", { name: /Assessment criteria/ }));
+
+    // Order is the ranking, so reordering must be reachable without a mouse. What is asserted here is
+    // the affordance: a real <button>, named for its row, that takes focus and announces itself to
+    // dnd-kit's keyboard sensor.
+    //
+    // The drag itself is deliberately NOT driven here. dnd-kit resolves a drop from element geometry,
+    // and jsdom reports every rect as zero at the origin, so a keyboard drag "succeeds" against
+    // fabricated layout and proves nothing about the real thing. The reordering logic is covered
+    // where it actually lives — moveRow, in lib/competencyRows.test.ts — and the drag and keyboard
+    // paths are checked in a browser.
+    const handle = screen.getByRole("button", { name: "Reorder Treasury" });
+    expect(handle).toHaveAttribute("aria-roledescription", "sortable");
+    handle.focus();
+    expect(handle).toHaveFocus();
   });
 
   it("shows the attached position description rather than promising an auto-fill", async () => {

@@ -8,7 +8,7 @@ import app.lightmove.api.position.constant.HiringUrgency;
 import app.lightmove.api.position.constant.IncentiveType;
 import app.lightmove.api.position.constant.MandateReason;
 import app.lightmove.api.position.constant.NoticeUnit;
-import app.lightmove.api.position.constant.PositionSeniority;
+import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.position.constant.StrategicPriority;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -69,7 +69,7 @@ public class Position extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "seniority", length = 16)
-    private PositionSeniority seniority;
+    private Seniority seniority;
 
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "app_lm_position_responsibility",

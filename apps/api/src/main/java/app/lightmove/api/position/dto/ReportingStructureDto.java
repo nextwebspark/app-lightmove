@@ -14,7 +14,7 @@ import java.util.List;
 public record ReportingStructureDto(
         List<OrgNodeDto> orgChart,
         String teamSize,
-        /** The mandate's one target date — sourced from the project, not a position field. */
+        /** The mandate's one target date, read from the project. This screen shows it, never sets it. */
         LocalDate targetStart,
         Integer noticeValue,
         NoticeUnit noticeUnit

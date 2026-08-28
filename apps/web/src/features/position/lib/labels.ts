@@ -7,7 +7,6 @@ import type {
   IncentiveType,
   MandateReason,
   NoticeUnit,
-  PositionSeniority,
   StrategicPriority,
 } from "../api/types";
 
@@ -24,12 +23,8 @@ export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
   RETAINED_ADVISORY: "Advisory",
 };
 
-export const SENIORITY_LABELS: Record<PositionSeniority, string> = {
-  C_SUITE: "C-suite",
-  N_MINUS_1: "N-1",
-  N_MINUS_2: "N-2",
-  N_MINUS_3: "N-3",
-};
+// Seniority is not this screen's to define: a brief and a candidate are written in one ladder.
+export { SENIORITY_LABELS } from "../../../lib/seniority";
 
 export const MANDATE_REASON_LABELS: Record<MandateReason, string> = {
   NEW_ROLE: "New role",

@@ -1,6 +1,6 @@
 package app.lightmove.api.candidate.service;
 
-import app.lightmove.api.candidate.constant.CandidateSeniority;
+import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.dto.CandidateCareerEntryDto;
@@ -312,11 +312,11 @@ public class CandidateService {
     }
 
     /** Null when nobody named a level, which is not the same as naming an unknown one. */
-    private static CandidateSeniority resolveSeniority(String token) {
+    private static Seniority resolveSeniority(String token) {
         if (token == null || token.isBlank()) {
             return null;
         }
-        CandidateSeniority seniority = CandidateSeniority.fromValue(token);
+        Seniority seniority = Seniority.fromValue(token);
         if (seniority == null) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown seniority level: " + token);
         }

@@ -1,3 +1,5 @@
+import type { SeniorityTier } from "../../../lib/seniority";
+
 /** The position-brief API contract, hand-mirrored from the records in the position dto package. */
 
 export type MandateReason =
@@ -16,7 +18,8 @@ export type EmploymentType =
   | "INTERIM"
   | "RETAINED_ADVISORY";
 
-export type PositionSeniority = "C_SUITE" | "N_MINUS_1" | "N_MINUS_2" | "N_MINUS_3";
+/** The shared ladder — see lib/seniority.ts. Aliased so this feature's payloads read in one place. */
+export type PositionSeniority = SeniorityTier;
 
 export type HiringUrgency = "STANDARD" | "PRIORITY" | "URGENT";
 
@@ -102,6 +105,7 @@ export interface MandateContext {
 export interface ReportingStructure {
   orgChart: OrgNode[];
   teamSize: string | null;
+  /** Read-only here: the mandate owns its target date, and the project screen is where it is set. */
   targetStart: string | null;
   noticeValue: number | null;
   noticeUnit: NoticeUnit | null;

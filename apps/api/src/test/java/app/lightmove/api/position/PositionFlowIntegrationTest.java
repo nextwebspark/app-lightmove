@@ -100,10 +100,26 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("every seniority tier round-trips, the board seat included")
+    void everySeniorityTierRoundTrips() throws Exception {
+        String admin = adminOf("Seniority Firm");
+        String projectId = createProject(admin, createClient(admin, "ADQ", "UAE"), "CFO");
+
+        // A mandate is written for a board seat as readily as for an N-1, and the tier above the
+        // executive line is named rather than numbered — the same ladder the candidate side records.
+        for (String tier : List.of("BOARD", "C_SUITE", "N_MINUS_1", "N_MINUS_2", "N_MINUS_3")) {
+            putStep(admin, projectId, "details", """
+                    {"roleTitle":"CFO","department":null,"location":null,"employmentType":null,
+                     "seniority":"%s","responsibilities":[],"narrative":null}""".formatted(tier))
+                    .andExpect(jsonPath("$.details.seniority").value(tier));
+        }
+    }
+
+    @Test
     @DisplayName("the remaining steps round-trip, each with the units its figures are quoted in")
     void everyStepRoundTrips() throws Exception {
         String admin = adminOf("Steps Firm");
-        String projectId = createProject(admin, createClient(admin, "NMC", "UAE"), "CFO");
+        String projectId = createProject(admin, createClient(admin, "NMC", "UAE"), "CFO", "2026-06-30");
 
         putStep(admin, projectId, "context", """
                 {"mandateReason":"GROWTH_EXPANSION","businessDriver":"Carry the next capital phase.",
@@ -124,7 +140,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                     "mandateSeat":true,"canvasX":120.5,"canvasY":80.0},
                    {"nodeId":"%s","parentNodeId":"%s","title":"Financial Controller","name":"Layla Nasser",
                     "mandateSeat":false,"canvasX":null,"canvasY":null}],
-                 "teamSize":"38 across the finance function","targetStart":"2026-09-15",
+                 "teamSize":"38 across the finance function",
                  "noticeValue":90,"noticeUnit":"DAYS"}"""
                 .formatted(managerId, seatId, managerId, controllerId, seatId))
                 .andExpect(jsonPath("$.reporting.orgChart.length()").value(3))
@@ -158,9 +174,12 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
         assertThat(brief.get("reporting").get("orgChart").size()).isEqualTo(3);
         assertThat(brief.get("compensation").get("currency").asString()).isEqualTo("AED");
 
-        // "Target start" is the mandate's one target date, not a second field on the brief.
+        // The target date is the mandate's and this screen only shows it, so saving the step leaves
+        // the project's date exactly where the project set it.
         mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + admin))
-                .andExpect(jsonPath("$[0].targetDate").value("2026-09-15"));
+                .andExpect(jsonPath("$[0].targetDate").value("2026-06-30"));
+        assertThat(readBrief(admin, projectId).get("reporting").get("targetStart").asString())
+                .isEqualTo("2026-06-30");
     }
 
     @Test
@@ -206,7 +225,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                     "mandateSeat":false,"canvasX":null,"canvasY":null},
                    {"nodeId":"%s","parentNodeId":"%s","title":"Financial Controller","name":null,
                     "mandateSeat":false,"canvasX":null,"canvasY":null}],
-                 "teamSize":null,"targetStart":null,"noticeValue":null,"noticeUnit":null}"""
+                 "teamSize":null,"noticeValue":null,"noticeUnit":null}"""
                 .formatted(seatId, emptyLeafId, seatId, emptyMiddleId, seatId, namedChildId, emptyMiddleId));
 
         JsonNode chart = readBrief(admin, projectId).get("reporting").get("orgChart");
@@ -400,7 +419,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"orgChart":%s,"teamSize":null,"targetStart":null,
+                                {"orgChart":%s,"teamSize":null,
                                  "noticeValue":null,"noticeUnit":null}""".formatted(chartJson)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
@@ -438,12 +457,19 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
     }
 
     private String createProject(String token, String clientId, String position) throws Exception {
+        return createProject(token, clientId, position, null);
+    }
+
+    /** The mandate is where a target date is set, so a test about one starts by giving it one. */
+    private String createProject(String token, String clientId, String position, String targetDate)
+            throws Exception {
+        String target = targetDate == null ? "null" : "\"%s\"".formatted(targetDate);
         return body(mvc.perform(post("/api/v1/projects")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"clientId":"%s","positionTitle":"%s"}
-                                """.formatted(clientId, position)))
+                                {"clientId":"%s","positionTitle":"%s","targetDate":%s}
+                                """.formatted(clientId, position, target)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
     }

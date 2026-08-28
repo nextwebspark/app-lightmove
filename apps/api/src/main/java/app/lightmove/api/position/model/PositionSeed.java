@@ -1,6 +1,6 @@
 package app.lightmove.api.position.model;
 
-import app.lightmove.api.position.constant.PositionSeniority;
+import app.lightmove.api.common.constant.Seniority;
 import java.util.List;
 
 /**
@@ -11,7 +11,7 @@ import java.util.List;
  * through its enclosing path is the thing this codebase renamed {@code Auth.Jwt} to avoid.
  */
 public record PositionSeed(
-        PositionSeniority seniority,
+        Seniority seniority,
         String reportsTo,
         String narrative,
         List<String> responsibilities,

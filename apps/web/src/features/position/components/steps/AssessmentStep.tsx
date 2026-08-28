@@ -1,42 +1,61 @@
-import type { Assessment, Competency, Criterion } from "../../api/types";
+import type { Criterion } from "../../api/types";
+import type { IdentifiedCompetency } from "../../lib/competencyRows";
 import { CompetencyPanel } from "../CompetencyPanel";
 import { CriteriaCard } from "../CriteriaCard";
 import { SectionHeading } from "../fields";
 
-/** Step five: what a candidate is scored against, and how much each part counts. */
+export type CompetencyPanelKey = "technical" | "behavioural";
+
+/** Step five: what a candidate is scored against, how much each part counts, and in what order. */
 export function AssessmentStep({
-  assessment,
+  criteria,
+  technical,
+  behavioural,
+  locked,
   onCriteria,
   onPanel,
+  onToggleLock,
+  onReorder,
 }: {
-  assessment: Assessment;
+  criteria: Criterion[];
+  technical: IdentifiedCompetency[];
+  behavioural: IdentifiedCompetency[];
+  locked: ReadonlySet<string>;
   onCriteria: (criteria: Criterion[]) => void;
-  onPanel: (panel: "technical" | "behavioural") => (rows: Competency[]) => void;
+  onPanel: (panel: CompetencyPanelKey) => (rows: IdentifiedCompetency[]) => void;
+  onToggleLock: (id: string) => void;
+  onReorder: (panel: CompetencyPanelKey) => (fromId: string, toId: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-5">
       <div>
         <SectionHeading
           title="Competency weighting"
-          aside="drag to rebalance · type a number to set exactly"
+          aside="drag to rank · lock a weight to hold it"
         />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <CompetencyPanel
             title="Technical Competencies"
             accent="sky"
-            rows={assessment.technical}
+            rows={technical}
+            locked={locked}
             onChange={onPanel("technical")}
+            onToggleLock={onToggleLock}
+            onReorder={onReorder("technical")}
           />
           <CompetencyPanel
             title="Behavioural Competencies"
             accent="amber"
-            rows={assessment.behavioural}
+            rows={behavioural}
+            locked={locked}
             onChange={onPanel("behavioural")}
+            onToggleLock={onToggleLock}
+            onReorder={onReorder("behavioural")}
           />
         </div>
       </div>
 
-      <CriteriaCard criteria={assessment.criteria} onChange={onCriteria} />
+      <CriteriaCard criteria={criteria} onChange={onCriteria} />
     </div>
   );
 }
