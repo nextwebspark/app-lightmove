@@ -23,6 +23,7 @@ vi.mock("../api/positionApi", async (importOriginal) => ({
   putCriteria: vi.fn(),
   putCompetencies: vi.fn(),
   publish: vi.fn(),
+  withdrawPublication: vi.fn(),
 }));
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
@@ -290,6 +291,31 @@ describe("PositionPage", () => {
     expect(sections).toHaveLength(5);
     await user.click(sections[1]);
     expect(screen.getByRole("heading", { name: "Mandate context" })).toBeInTheDocument();
+  });
+
+  it("closes an edit of a published brief by publishing it again, and never by withdrawing", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue(published);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: "Edit position" }));
+    expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(5);
+
+    // Calls, not implementations: the mocks are shared across this file's tests.
+    vi.mocked(positionApi.publish).mockClear();
+    vi.mocked(positionApi.withdrawPublication).mockClear();
+    await user.click(within(rail).getByRole("button", { name: "Publish changes" }));
+
+    // Back to reading it: the sections stop offering their way in, and the rail leads on again.
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument(),
+    );
+    expect(within(rail).getByRole("button", { name: "Edit position" })).toBeInTheDocument();
+    // The stamp is already there. Publishing again must not move it, and must never be the
+    // withdrawal the same button used to perform.
+    expect(positionApi.publish).not.toHaveBeenCalled();
+    expect(positionApi.withdrawPublication).not.toHaveBeenCalled();
   });
 
   it("moves on to the mandate's market once the brief is published", async () => {
