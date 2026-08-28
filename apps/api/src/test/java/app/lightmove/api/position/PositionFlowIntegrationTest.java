@@ -56,7 +56,10 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.reporting.orgChart[1].mandateSeat").value(false))
                 .andExpect(jsonPath("$.compensation.currency").value("USD"))
                 .andExpect(jsonPath("$.compensation.baseSalaryMode").value("ANNUAL"))
-                .andExpect(jsonPath("$.context.hiringUrgency").value("STANDARD"))
+                // The brief opens on the priority palette, none of it lit.
+                .andExpect(jsonPath("$.context.strategicPriorities.length()").value(5))
+                .andExpect(jsonPath("$.context.strategicPriorities[0].name").value("Capital discipline"))
+                .andExpect(jsonPath("$.context.strategicPriorities[0].selected").value(false))
                 .andExpect(jsonPath("$.assessment.criteria[0].fromBrief").value(true))
                 .andExpect(jsonPath("$.assessment.criteria[0].mode").value("REQUIRED"))
                 .andExpect(jsonPath("$.assessment.technical[0].name").value("Financial Reporting & Controls"))
@@ -123,10 +126,15 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
 
         putStep(admin, projectId, "context", """
                 {"mandateReason":"GROWTH_EXPANSION","businessDriver":"Carry the next capital phase.",
-                 "strategicPriorities":["CAPITAL_DISCIPLINE","GOVERNANCE_AND_CONTROLS"],
-                 "hiringUrgency":"URGENT","confidential":true,"internalContext":"Keep discreet"}""")
+                 "strategicPriorities":[{"name":"Capital discipline","selected":true},
+                                        {"name":"Lender confidence","selected":false}],
+                 "confidential":true,"internalContext":"Keep discreet"}""")
                 .andExpect(jsonPath("$.context.mandateReason").value("GROWTH_EXPANSION"))
+                // The priorities are whatever the mandate wrote, in the order it wrote them, lit or
+                // not — the write replaces the seeded palette rather than adding to it.
                 .andExpect(jsonPath("$.context.strategicPriorities.length()").value(2))
+                .andExpect(jsonPath("$.context.strategicPriorities[1].name").value("Lender confidence"))
+                .andExpect(jsonPath("$.context.strategicPriorities[1].selected").value(false))
                 .andExpect(jsonPath("$.context.confidential").value(true));
 
         String managerId = "11111111-1111-4111-8111-111111111111";
@@ -168,7 +176,8 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
 
         // Every step is stored independently: writing four of them leaves all four readable at once.
         JsonNode brief = readBrief(admin, projectId);
-        assertThat(brief.get("context").get("hiringUrgency").asString()).isEqualTo("URGENT");
+        assertThat(brief.get("context").get("businessDriver").asString())
+                .isEqualTo("Carry the next capital phase.");
         assertThat(brief.get("reporting").get("teamSize").asString())
                 .isEqualTo("38 across the finance function");
         assertThat(brief.get("reporting").get("orgChart").size()).isEqualTo(3);
@@ -183,6 +192,24 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("two priorities with the same name are refused, whatever their casing")
+    void duplicatePrioritiesAreRefused() throws Exception {
+        String admin = adminOf("Duplicate Firm");
+        String projectId = createProject(admin, createClient(admin, "Aldar", "UAE"), "CFO");
+
+        mvc.perform(put(positionUrl(projectId) + "/context")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"mandateReason":"BACKFILL","businessDriver":null,
+                                 "strategicPriorities":[{"name":"Capital discipline","selected":true},
+                                                        {"name":"capital DISCIPLINE","selected":false}],
+                                 "confidential":false,"internalContext":null}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
     @DisplayName("writing one step leaves the others untouched")
     void oneStepDoesNotDisturbAnother() throws Exception {
         String admin = adminOf("Isolation Firm");
@@ -190,7 +217,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
 
         putStep(admin, projectId, "context", """
                 {"mandateReason":"BACKFILL","businessDriver":"Incumbent retiring.",
-                 "strategicPriorities":["TALENT_DEVELOPMENT"],"hiringUrgency":"PRIORITY",
+                 "strategicPriorities":[{"name":"Talent development","selected":true}],
                  "confidential":false,"internalContext":null}""");
         putStep(admin, projectId, "compensation", """
                 {"currency":"SAR","salaryMin":1,"salaryMax":2,"baseSalaryMode":"ANNUAL",

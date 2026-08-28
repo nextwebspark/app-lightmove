@@ -3,7 +3,6 @@ import type { Position } from "../api/types";
 import { packageTotal } from "./compensation";
 import { directReportsOf, labelOfNode, managerOf } from "./orgChart";
 import {
-  HIRING_URGENCY_LABELS,
   MANDATE_REASON_LABELS,
   SENIORITY_LABELS,
   labelOf,
@@ -60,10 +59,15 @@ export const POSITION_STEPS: PositionStep[] = [
     subheading:
       "Why this mandate exists and the business drivers behind it. Internal only — never shown to candidates.",
     summary: (p) => MANDATE_REASON_LABELS[p.context.mandateReason],
-    detail: (p) =>
-      `${HIRING_URGENCY_LABELS[p.context.hiringUrgency]} · ${
-        p.context.confidential ? "Confidential" : "Standard"
-      }`,
+    detail: (p) => {
+      const priorities = p.context.strategicPriorities.filter((each) => each.selected).length;
+      return [
+        p.context.confidential ? "Confidential" : "Standard",
+        priorities > 0 ? `${priorities} priorit${priorities === 1 ? "y" : "ies"}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    },
     isDone: (p) => Boolean(p.context.businessDriver?.trim()),
   },
   {
@@ -139,9 +143,30 @@ export function stepIndexOf(key: StepKey): number {
   return POSITION_STEPS.findIndex((step) => step.key === key);
 }
 
+/**
+ * Which steps the tracker is willing to call done, one flag per step.
+ *
+ * `isDone` alone is not enough. A brief arrives seeded from the role template, and the template
+ * balances both competency panels to exactly 100% — so step five's rule holds on the day the project
+ * is created, and the rail ticked a step nobody had opened while the person was still on step two.
+ * A step is only reported done once it has been reached, so the tracker reads as a record of where
+ * somebody has been rather than of what the seed happened to fill in.
+ *
+ * Publishing settles that for good. Somebody declaring the brief ready is the statement that the
+ * whole of it has been through, and it is stored — so a published brief reads the same to the person
+ * who published it, to a colleague opening it cold, and to either of them a week later. Which step
+ * anybody has scrolled to since stops mattering.
+ */
+export function doneSteps(position: Position, reached: StepKey): boolean[] {
+  const furthest = position.publication.publishedAt
+    ? POSITION_STEPS.length - 1
+    : stepIndexOf(reached);
+  return POSITION_STEPS.map((step, index) => index <= furthest && step.isDone(position));
+}
+
 /** How far through the brief the mandate is, as the mockup counts it: done steps out of six. */
-export function completion(position: Position): number {
-  const done = POSITION_STEPS.filter((step) => step.isDone(position)).length;
+export function completion(position: Position, reached: StepKey): number {
+  const done = doneSteps(position, reached).filter(Boolean).length;
   return Math.round((done / POSITION_STEPS.length) * 100);
 }
 

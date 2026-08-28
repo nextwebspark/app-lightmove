@@ -8,6 +8,7 @@ import {
   layoutChart,
   managerOf,
   removeBranch,
+  removeSeat,
 } from "./orgChart";
 
 const seat = (
@@ -59,16 +60,29 @@ describe("reading the chart", () => {
 });
 
 describe("removing a seat", () => {
-  it("takes the branch under it, so nothing is orphaned", () => {
+  it("lifts the reports of the seat it removes onto the seat above", () => {
+    const left = removeSeat(chart, "controller");
+    expect(left.map((node) => node.nodeId)).not.toContain("controller");
+    expect(left.find((node) => node.nodeId === "analyst")?.parentNodeId).toBe("role");
+  });
+
+  it("keeps the mandate seat when the manager above it goes, as a root of its own", () => {
+    const left = removeSeat(chart, "manager");
+    expect(left.map((node) => node.nodeId)).toContain("role");
+    expect(left.find((node) => node.nodeId === "role")?.parentNodeId).toBeNull();
+    expect(left).toHaveLength(chart.length - 1);
+  });
+
+  it("leaves a chart it cannot find the seat in exactly as it was", () => {
+    expect(removeSeat(chart, "nobody")).toBe(chart);
+  });
+
+  it("reads whole branches too, which is how re-parenting refuses to make a loop", () => {
     const left = removeBranch(chart, "controller").map((node) => node.nodeId);
     expect(left).not.toContain("controller");
     expect(left).not.toContain("analyst");
     expect(left).toContain("treasurer");
-  });
-
-  it("knows which branches hold the mandate seat, because those may never be removed", () => {
     expect(branchHoldsMandateSeat(chart, "manager")).toBe(true);
-    expect(branchHoldsMandateSeat(chart, "role")).toBe(true);
     expect(branchHoldsMandateSeat(chart, "controller")).toBe(false);
   });
 });

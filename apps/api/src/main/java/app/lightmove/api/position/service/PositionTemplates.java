@@ -5,6 +5,7 @@ import app.lightmove.api.position.constant.CriterionMode;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.position.model.PositionCompetency;
 import app.lightmove.api.position.model.PositionCriterion;
+import app.lightmove.api.position.model.PositionPriority;
 import app.lightmove.api.position.model.PositionSeed;
 import java.util.List;
 import java.util.Locale;
@@ -24,6 +25,21 @@ import java.util.stream.Stream;
 final class PositionTemplates {
 
     private PositionTemplates() {
+    }
+
+    /**
+     * The priority chips a fresh brief opens on, none of them lit. Shared by every template: which
+     * priorities a search can serve is a question about the client's business rather than the role,
+     * so the palette is the same everywhere and the consultant lights, deletes and adds to it.
+     */
+    static List<PositionPriority> startingPriorities() {
+        return Stream.of("Capital discipline",
+                        "Portfolio growth",
+                        "Operational excellence",
+                        "Governance & controls",
+                        "Talent development")
+                .map(name -> PositionPriority.of(name, false))
+                .toList();
     }
 
     static PositionSeed forTitle(String positionTitle) {

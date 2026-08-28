@@ -1,10 +1,10 @@
 package app.lightmove.api.position.dto;
 
-import app.lightmove.api.position.constant.HiringUrgency;
 import app.lightmove.api.position.constant.MandateReason;
-import app.lightmove.api.position.constant.StrategicPriority;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import java.util.Set;
+import jakarta.validation.constraints.Size;
+import java.util.List;
 
 /** Snapshot PUT of step two. */
 public record PutMandateContextRequest(
@@ -13,10 +13,8 @@ public record PutMandateContextRequest(
 
         String businessDriver,
 
-        Set<StrategicPriority> strategicPriorities,
-
-        @NotNull(message = "Choose a hiring urgency")
-        HiringUrgency hiringUrgency,
+        @Size(max = 20, message = "That is too many strategic priorities")
+        List<@Valid StrategicPriorityDto> strategicPriorities,
 
         boolean confidential,
         String internalContext

@@ -21,15 +21,6 @@ export type EmploymentType =
 /** The shared ladder — see lib/seniority.ts. Aliased so this feature's payloads read in one place. */
 export type PositionSeniority = SeniorityTier;
 
-export type HiringUrgency = "STANDARD" | "PRIORITY" | "URGENT";
-
-export type StrategicPriority =
-  | "CAPITAL_DISCIPLINE"
-  | "PORTFOLIO_GROWTH"
-  | "OPERATIONAL_EXCELLENCE"
-  | "GOVERNANCE_AND_CONTROLS"
-  | "TALENT_DEVELOPMENT";
-
 export type NoticeUnit = "DAYS" | "WEEKS" | "MONTHS";
 
 export type BaseSalaryMode = "ANNUAL" | "MONTHLY";
@@ -86,12 +77,20 @@ export interface PositionDetails {
   narrative: string | null;
 }
 
-/** Step 2. */
+/**
+ * One strategic priority chip: a name somebody wrote, and whether the mandate is aligned to it. An
+ * unselected chip is part of the palette rather than a choice — kept until somebody deletes it.
+ */
+export interface StrategicPriority {
+  name: string;
+  selected: boolean;
+}
+
+/** Step 2. The priorities are the mandate's own, in the order the brief lists them. */
 export interface MandateContext {
   mandateReason: MandateReason;
   businessDriver: string | null;
   strategicPriorities: StrategicPriority[];
-  hiringUrgency: HiringUrgency;
   confidential: boolean;
   internalContext: string | null;
 }

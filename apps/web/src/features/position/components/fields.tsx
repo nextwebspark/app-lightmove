@@ -190,7 +190,7 @@ export function ColumnLabel({ children, className }: { children: ReactNode; clas
 
 /**
  * The segmented button group the wizard uses wherever a choice is short and worth seeing all of at
- * once — annual/monthly, required/preferred, the three urgencies.
+ * once — annual/monthly, required/preferred, monthly/yearly.
  */
 export function SegmentedControl<T extends string>({
   options,
@@ -235,33 +235,6 @@ export function SegmentedControl<T extends string>({
         </button>
       ))}
     </div>
-  );
-}
-
-/** A multi-select chip — on or off, no third state. */
-export function ToggleChip({
-  label,
-  selected,
-  onToggle,
-}: {
-  label: string;
-  selected: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      onClick={onToggle}
-      className={cn(
-        "rounded-lg border px-3 py-1.5 text-xs font-semibold transition",
-        selected
-          ? "border-sky bg-sky-dim text-sky"
-          : "border-line bg-panel text-text3 hover:border-text3 hover:text-text2",
-      )}
-    >
-      {label}
-    </button>
   );
 }
 

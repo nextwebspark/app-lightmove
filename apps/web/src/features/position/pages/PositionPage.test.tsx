@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { AuthProvider } from "../../auth/AuthProvider";
@@ -23,6 +23,7 @@ vi.mock("../api/positionApi", async (importOriginal) => ({
   putCriteria: vi.fn(),
   putCompetencies: vi.fn(),
   publish: vi.fn(),
+  withdrawPublication: vi.fn(),
 }));
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
@@ -83,8 +84,10 @@ const seeded: Position = {
   context: {
     mandateReason: "NEW_ROLE",
     businessDriver: null,
-    strategicPriorities: [],
-    hiringUrgency: "STANDARD",
+    strategicPriorities: [
+      { name: "Capital discipline", selected: false },
+      { name: "Portfolio growth", selected: false },
+    ],
     confidential: false,
     internalContext: null,
   },
@@ -122,6 +125,11 @@ const seeded: Position = {
   document: null,
 };
 
+/** Where the wizard navigated to, for the step that leaves the screen entirely. */
+function Whereabouts() {
+  return <span data-testid="location">{useLocation().pathname}</span>;
+}
+
 const renderPage = () =>
   render(
     <MemoryRouter>
@@ -135,11 +143,17 @@ const renderPage = () =>
                 <Route path="/" element={<PositionPage />} />
               </Route>
             </Routes>
+            <Whereabouts />
           </ToastProvider>
         </AuthProvider>
       </QueryClientProvider>
     </MemoryRouter>,
   );
+
+const published: Position = {
+  ...seeded,
+  publication: { publishedAt: "2026-08-27T10:00:00Z", publishedBy: "Alok Kumar" },
+};
 
 describe("PositionPage", () => {
   beforeEach(() => {
@@ -156,7 +170,18 @@ describe("PositionPage", () => {
 
     const rail = screen.getByRole("complementary");
     expect(within(rail).getByText("Reports to Group CEO")).toBeInTheDocument();
-    // Two of six steps are done: details is complete, and both panels total 100.
+    // One of six: details is complete. The seed also balances both competency panels to 100, but
+    // nobody has reached step five, and the rail does not tick a step on the seed's behalf.
+    expect(within(rail).getByText("17% Done")).toBeInTheDocument();
+  });
+
+  it("only counts a step done once it has been reached", async () => {
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Assessment criteria/ }));
+
     expect(within(rail).getByText("33% Done")).toBeInTheDocument();
   });
 
@@ -187,11 +212,43 @@ describe("PositionPage", () => {
     expect(vi.mocked(positionApi.putDetails).mock.calls.at(-1)?.[1].department).toBe("Finance");
   });
 
+  it("lights, drops and adds a strategic priority", async () => {
+    vi.mocked(positionApi.putContext).mockResolvedValue(seeded);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Mandate context/ }));
+
+    // A chip in the palette is off until somebody lights it.
+    const growth = screen.getByRole("button", { name: "Portfolio growth" });
+    expect(growth).toHaveAttribute("aria-pressed", "false");
+    await user.click(growth);
+    await waitFor(() => expect(positionApi.putContext).toHaveBeenCalled());
+    expect(
+      vi.mocked(positionApi.putContext).mock.calls.at(-1)?.[1].strategicPriorities,
+    ).toEqual([
+      { name: "Capital discipline", selected: false },
+      { name: "Portfolio growth", selected: true },
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "Remove Capital discipline" }));
+    expect(
+      vi.mocked(positionApi.putContext).mock.calls.at(-1)?.[1].strategicPriorities,
+    ).toEqual([{ name: "Portfolio growth", selected: true }]);
+
+    // Anything the palette does not offer is typed in, and arrives lit — adding one is choosing it.
+    await user.click(screen.getByRole("button", { name: "+ Add priority" }));
+    await user.type(screen.getByRole("textbox", { name: "Name the priority" }), "Lender confidence{Enter}");
+    expect(
+      vi.mocked(positionApi.putContext).mock.calls.at(-1)?.[1].strategicPriorities,
+    ).toEqual([
+      { name: "Portfolio growth", selected: true },
+      { name: "Lender confidence", selected: true },
+    ]);
+  });
+
   it("publishes from the rail and shows the brief as published, still editable", async () => {
-    const published: Position = {
-      ...seeded,
-      publication: { publishedAt: "2026-08-27T10:00:00Z", publishedBy: "Alok Kumar" },
-    };
     vi.mocked(positionApi.publish).mockResolvedValue(published);
     renderPage();
     const user = userEvent.setup();
@@ -202,6 +259,74 @@ describe("PositionPage", () => {
     expect(await screen.findByText("✓ Published")).toBeInTheDocument();
     // Publishing is a stamp, not a lock: step one's fields keep accepting input.
     expect(screen.getByDisplayValue("Chief Financial Officer")).toBeEnabled();
+  });
+
+  it("opens a published brief on its own review, complete, for whoever comes back to it", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue(published);
+    renderPage();
+
+    // Nobody has walked the wizard in this sitting — publishing is what says the whole brief has
+    // been through, and it is stored, so a colleague opening it cold reads the same thing.
+    expect(await screen.findByRole("heading", { name: "Review & publish" })).toBeInTheDocument();
+    expect(screen.getByText("Position profile published")).toBeInTheDocument();
+
+    const rail = screen.getByRole("complementary");
+    expect(within(rail).getByText("50% Done")).toBeInTheDocument();
+    expect(within(rail).getByRole("button", { name: /Move to strategy/ })).toBeInTheDocument();
+  });
+
+  it("takes a published brief back into edit through the section it names", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue(published);
+    renderPage();
+    const user = userEvent.setup();
+
+    // A published brief reads back rather than inviting edits until somebody says they mean to.
+    expect(await screen.findByText("Position profile published")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+
+    const rail = screen.getByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: "Edit position" }));
+
+    const sections = screen.getAllByRole("button", { name: "Edit" });
+    expect(sections).toHaveLength(5);
+    await user.click(sections[1]);
+    expect(screen.getByRole("heading", { name: "Mandate context" })).toBeInTheDocument();
+  });
+
+  it("closes an edit of a published brief by publishing it again, and never by withdrawing", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue(published);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: "Edit position" }));
+    expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(5);
+
+    // Calls, not implementations: the mocks are shared across this file's tests.
+    vi.mocked(positionApi.publish).mockClear();
+    vi.mocked(positionApi.withdrawPublication).mockClear();
+    await user.click(within(rail).getByRole("button", { name: "Publish changes" }));
+
+    // Back to reading it: the sections stop offering their way in, and the rail leads on again.
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument(),
+    );
+    expect(within(rail).getByRole("button", { name: "Edit position" })).toBeInTheDocument();
+    // The stamp is already there. Publishing again must not move it, and must never be the
+    // withdrawal the same button used to perform.
+    expect(positionApi.publish).not.toHaveBeenCalled();
+    expect(positionApi.withdrawPublication).not.toHaveBeenCalled();
+  });
+
+  it("moves on to the mandate's market once the brief is published", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue(published);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Move to strategy/ }));
+
+    expect(await screen.findByTestId("location")).toHaveTextContent("/projects/p1/strategy");
   });
 
   it("locks a competency so its weight holds while another is dragged", async () => {
