@@ -116,12 +116,12 @@ export function CompanyFactsForm({
     staleTime: FACETS_STALE_MS,
   });
 
-  // Flattened and ordered exactly as the Strategy filter offers them — commonest first, ties by name.
-  // The sector groups are the API's way of laying the taxonomy out, not a thing anyone picks, and a
-  // box you search does not need the headings a box you scroll does.
+  // Flattened and ordered exactly as the Strategy filter offers them — A to Z. The sector groups are
+  // the API's way of laying the taxonomy out, not a thing anyone picks, and a box you search does not
+  // need the headings a box you scroll does.
   const industries: FacetCount[] = (facets.data?.sectorGroups ?? [])
     .flatMap((group) => group.industries)
-    .sort((first, second) => second.count - first.count || first.label.localeCompare(second.label));
+    .sort((first, second) => first.label.localeCompare(second.label));
   const countries: FacetCount[] = facets.data?.countries ?? [];
 
   const saving = useMutation({
