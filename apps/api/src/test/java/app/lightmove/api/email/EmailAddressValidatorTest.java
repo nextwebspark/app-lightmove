@@ -128,6 +128,7 @@ class EmailAddressValidatorTest {
                 null,
                 new EmailSettings("log", "LightMove", "noreply@lightmove.app", null, validation),
                 null,
+                null,
                 null));
     }
 

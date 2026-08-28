@@ -57,3 +57,26 @@ body * {
     transition: none !important;
   }
 }
+
+/*
+ * React Flow ships its own palette, which is a light-mode one — on the dark theme its edges, dot grid
+ * and zoom controls stay pale and the org chart reads as a light panel someone forgot to convert.
+ * Its `--xy-*` variables are the supported seam, so they are pointed at our tokens here and the chart
+ * follows the theme like everything else. The nodes themselves are our own components and need none
+ * of this.
+ */
+.react-flow {
+  --xy-background-color: var(--color-panel2);
+  --xy-edge-stroke: var(--color-line);
+  --xy-edge-stroke-selected: var(--color-sky);
+  --xy-connectionline-stroke: var(--color-sky);
+  --xy-handle-background-color: var(--color-panel);
+  --xy-handle-border-color: var(--color-line);
+  --xy-controls-button-background-color: var(--color-panel);
+  --xy-controls-button-background-color-hover: var(--color-panel2);
+  --xy-controls-button-color: var(--color-text2);
+  --xy-controls-button-color-hover: var(--color-text);
+  --xy-controls-button-border-color: var(--color-line);
+  --xy-selection-background-color: var(--color-sky-dim);
+  --xy-selection-border: 1px solid var(--color-sky);
+}

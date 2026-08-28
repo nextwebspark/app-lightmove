@@ -3,7 +3,7 @@ package app.lightmove.api.candidate.model;
 import static app.lightmove.api.core.text.service.SuppliedText.blankToNull;
 import static app.lightmove.api.core.text.service.SuppliedText.browsableUrlOrNull;
 
-import app.lightmove.api.candidate.constant.CandidateSeniority;
+import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.candidate.constant.CandidateStatus;
 
 /**
@@ -23,7 +23,7 @@ import app.lightmove.api.candidate.constant.CandidateStatus;
  * URL is the field most likely to be pasted from somewhere else, and the plugin will eventually post
  * one it read off a page.
  */
-public record CandidateDetails(String fullName, String title, CandidateSeniority seniority,
+public record CandidateDetails(String fullName, String title, Seniority seniority,
                                CandidateStatus status, String employerName, String email, String phone,
                                String linkedinUrl, String locationCountry, String locationCity,
                                String nationality, Integer yearsExperience, String summary, String note,

@@ -75,6 +75,6 @@ class PasswordPolicyTest {
                 Duration.ofMinutes(30), Duration.ofDays(7),
                 // Null oauth: nothing here signs in through a provider, and AuthSettings defaults it.
                 true, false, 4, null);
-        return new LightMoveProperties(auth, null, null, null);
+        return new LightMoveProperties(auth, null, null, null, null);
     }
 }

@@ -13,6 +13,7 @@ import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.position.service.PositionService;
 import app.lightmove.api.project.constant.ProjectHealth;
 import app.lightmove.api.project.dto.AttachedRepresentativeResponse;
 import app.lightmove.api.project.dto.CreateProjectRequest;
@@ -114,14 +115,15 @@ public class ProjectService {
     public ProjectResponse create(UUID userId, UUID workspaceId, CreateProjectRequest request,
                                   HttpServletRequest httpRequest) {
         WorkspaceMember creator = access.requireActiveMember(userId, workspaceId);
-        requireClient(request.clientId(), workspaceId);
+        Client client = requireClient(request.clientId(), workspaceId);
 
         Project project = projects.save(Project.create(
                 workspaceId, request.clientId(), request.positionTitle(), request.targetDate(), userId));
         seats.save(ProjectMember.of(project.getId(), creator.getId(),
                 rbac.projectRoles(EnumSet.of(ProjectRole.LEAD)), userId));
-        // The brief arrives drafted, not blank — seeded from the role-template library.
-        positionService.seedFor(project);
+        // The brief arrives drafted, not blank — seeded from the role-template library. Handed the
+        // three facts it needs rather than the mandate itself: the project row is this package's.
+        positionService.seedFor(project.getId(), project.getPositionTitle(), client.getHqCountry());
 
         log.info("User {} created project {} in workspace {}", userId, project.getId(), workspaceId);
         audit.event(ProjectEventType.PROJECT_CREATED)
