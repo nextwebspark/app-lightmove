@@ -24,6 +24,7 @@ import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
@@ -168,6 +169,19 @@ public class GlobalExceptionHandler {
         log.debug("Unsupported content type {} at {} {} (supported: {})",
                 ex.getContentType(), request.getMethod(), request.getRequestURI(), ex.getSupportedMediaTypes());
         return problem(ErrorCode.UNSUPPORTED_MEDIA_TYPE, ErrorCode.UNSUPPORTED_MEDIA_TYPE.defaultMessage());
+    }
+
+    /**
+     * An upload past the container's multipart ceiling. Without this the caller gets a <b>500</b> and we
+     * get an ERROR stack trace for what is an ordinary "that file is too big" — the same confusion
+     * between a malformed client request and a real fault that {@link #handleMediaTypeNotSupported}
+     * exists to prevent. Spring throws here before the controller runs, so no endpoint can answer it.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ProblemDetail handleUploadTooLarge(MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        log.debug("Upload exceeded the multipart limit at {} {}: {}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage());
+        return problem(ErrorCode.FILE_TOO_LARGE, ErrorCode.FILE_TOO_LARGE.defaultMessage());
     }
 
     /** The mirror of {@link #handleMediaTypeNotSupported} for a request's {@code Accept} header. */

@@ -44,6 +44,11 @@ public class Project extends BaseEntity {
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
 
+    /** The mandate keeps one role title, and the Position screen's step one is where it is edited. */
+    public void rename(String positionTitle) {
+        this.positionTitle = positionTitle.trim();
+    }
+
     public static Project create(UUID workspaceId, UUID clientId, String positionTitle,
                                  LocalDate targetDate, UUID createdBy) {
         Project project = new Project();

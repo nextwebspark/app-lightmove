@@ -1,12 +1,13 @@
 /**
- * Common executive-package benefits offered as suggestions when adding one — the user picks a preset
- * or types a custom value; either way it is stored as a plain string on the position.
+ * Common executive-package allowances, offered as suggestions when adding one. A consultant picks a
+ * preset or types their own; either way the row is stored with whatever amount and frequency they
+ * give it, and a preset asserts nothing about the money.
  */
 export const BENEFIT_PRESETS = [
   "Housing allowance",
   "Car allowance",
   "Company car & driver",
-  "Schooling for dependents",
+  "Schooling allowance",
   "Annual home leave",
   "Flights (home country)",
   "Health insurance (family)",
@@ -14,7 +15,6 @@ export const BENEFIT_PRESETS = [
   "Relocation support",
   "Accommodation",
   "Club membership",
-  "Annual leave (30 days)",
   "Education allowance",
   "Pension / end-of-service",
 ];

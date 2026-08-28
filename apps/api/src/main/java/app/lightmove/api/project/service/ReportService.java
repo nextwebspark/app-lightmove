@@ -6,8 +6,9 @@ import app.lightmove.api.project.dto.BreakdownDto;
 import app.lightmove.api.project.dto.CompensationBandDto;
 import app.lightmove.api.project.dto.ReportResponse;
 import app.lightmove.api.project.dto.ScopeCaveatsDto;
-import app.lightmove.api.project.model.Position;
-import app.lightmove.api.project.repository.PositionRepository;
+import app.lightmove.api.position.constant.BaseSalaryMode;
+import app.lightmove.api.position.model.Position;
+import app.lightmove.api.position.repository.PositionRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.strategy.constant.RevenueBand;
 import app.lightmove.api.strategy.model.CompanyScope;
@@ -44,10 +45,18 @@ import org.springframework.transaction.annotation.Transactional;
  * wide: {@link StrategyService#scopeOf} hands back the resolved scope, so the report never learns how
  * a filter is stored, validated or translated. The universe read beside it crosses into the same
  * feature, and is the same shape of seam: one public method over {@code strategy}'s own records.
+ *
+ * <p>The band beside them is not that shape yet. This class reads {@code position}'s repository and
+ * entity directly, which is a feature reaching into another feature's internals in the one direction
+ * {@code position} already depends on back. It is left standing rather than papered over: the report
+ * composes three features and belongs to none of them, so the fix is to lift it out of {@code project}
+ * into its own package, not to add a seam method that makes the cycle look intentional.
  */
 @Service
 @RequiredArgsConstructor
 public class ReportService {
+
+    private static final int MONTHS_PER_YEAR = 12;
 
     /** Enough bars to show the shape without turning a wide scope into a wall of one-company rows. */
     private static final int SECTOR_LIMIT = 10;
@@ -58,6 +67,7 @@ public class ReportService {
     // The one thing this feature needs from strategy: the scope a mandate's saved filter defines.
     // A single public method, so the report never learns how a filter is stored or resolved.
     private final StrategyService strategy;
+    // Reached into directly rather than through a seam — see the class doc.
     private final PositionRepository positions;
     private final ApolloCompanyQueryService companies;
 
@@ -87,13 +97,28 @@ public class ReportService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
-    /** A band with neither bound is no band at all — null, so the screen states its absence. */
+    /**
+     * A band with neither bound is no band at all — null, so the screen states its absence.
+     *
+     * <p>Annualised on the way out. A brief quoting its base monthly is ordinary here, and reporting
+     * those figures as an annual band understates the role by a factor of twelve — the reader has no
+     * way to tell, because the report never shows the period.
+     */
     private static CompensationBandDto mandateBandOf(Optional<Position> position) {
         return position
                 .filter(brief -> brief.getSalaryMin() != null || brief.getSalaryMax() != null)
                 .map(brief -> new CompensationBandDto(
-                        brief.getSalaryMin(), brief.getSalaryMax(), brief.getCurrency()))
+                        annualised(brief.getSalaryMin(), brief.getBaseSalaryMode()),
+                        annualised(brief.getSalaryMax(), brief.getBaseSalaryMode()),
+                        brief.getCurrency()))
                 .orElse(null);
+    }
+
+    private static Long annualised(Long amount, BaseSalaryMode mode) {
+        if (amount == null) {
+            return null;
+        }
+        return mode == BaseSalaryMode.MONTHLY ? amount * MONTHS_PER_YEAR : amount;
     }
 
     /**

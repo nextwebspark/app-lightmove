@@ -194,19 +194,42 @@ class ReportIntegrationTest extends FlowTestSupport {
         mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$.mandateBand").doesNotExist());
 
-        mvc.perform(put("/api/v1/projects/" + projectId + "/position")
+        mvc.perform(put("/api/v1/projects/" + projectId + "/position/compensation")
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"mandateReason":"SUCCESSION","narrative":"A hands-on CFO.",
-                                 "location":"Abu Dhabi, UAE","employmentType":"FULL_TIME_PERMANENT",
-                                 "salaryMin":500000,"salaryMax":750000,"currency":"AED",
-                                 "confidential":false}"""))
+                                {"currency":"AED","salaryMin":500000,"salaryMax":750000,
+                                 "baseSalaryMode":"ANNUAL","bonusValue":null,"bonusBasis":null,
+                                 "incentiveType":null,"incentiveAmount":null,"incentiveVesting":null,
+                                 "benefits":[]}"""))
                 .andExpect(status().isOk());
 
         mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$.mandateBand.min").value(500000))
                 .andExpect(jsonPath("$.mandateBand.max").value(750000))
+                .andExpect(jsonPath("$.mandateBand.currency").value("AED"));
+    }
+
+    @Test
+    @DisplayName("a monthly base is annualised, because the report never shows the period")
+    void monthlyBandIsAnnualisedForTheReport() throws Exception {
+        String admin = adminOf("Monthly Band Firm");
+        String projectId = projectOf(admin, "Head of Retail");
+
+        mvc.perform(put("/api/v1/projects/" + projectId + "/position/compensation")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"currency":"AED","salaryMin":30000,"salaryMax":40000,
+                                 "baseSalaryMode":"MONTHLY","bonusValue":null,"bonusBasis":null,
+                                 "incentiveType":null,"incentiveAmount":null,"incentiveVesting":null,
+                                 "benefits":[]}"""))
+                .andExpect(status().isOk());
+
+        // 30,000/month is a 360,000 role. Reported as 30,000 it reads as a twelfth of what it pays.
+        mvc.perform(get(reportUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.mandateBand.min").value(360000))
+                .andExpect(jsonPath("$.mandateBand.max").value(480000))
                 .andExpect(jsonPath("$.mandateBand.currency").value("AED"));
     }
 

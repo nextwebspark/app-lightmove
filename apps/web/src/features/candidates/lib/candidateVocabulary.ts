@@ -1,3 +1,4 @@
+import { SENIORITY_TOKENS } from "../../../lib/seniority";
 import type { CandidateSeniority, CandidateStatus } from "../api/types";
 
 /**
@@ -29,11 +30,8 @@ export function candidateStatusStyle(status: CandidateStatus) {
   return BY_VALUE.get(status) ?? CANDIDATE_STATUSES[0];
 }
 
-/** The wire tokens are what a consultant writes, so they are also the labels. */
-export const CANDIDATE_SENIORITIES: CandidateSeniority[] = [
-  "Board",
-  "C-Suite",
-  "N-1",
-  "N-2",
-  "N-3",
-];
+/**
+ * The wire tokens are what a consultant writes, so they are also the labels. The ladder itself is
+ * shared with the position brief — see lib/seniority.ts.
+ */
+export const CANDIDATE_SENIORITIES: CandidateSeniority[] = SENIORITY_TOKENS;

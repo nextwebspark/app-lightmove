@@ -38,6 +38,11 @@ export function formatInstantDate(isoInstant: string | null | undefined): string
   return moment.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+/** 450000 → "450,000". The money shape a package reads in, where the exact figure is the point. */
+export function formatNumber(value: number): string {
+  return value.toLocaleString("en-GB");
+}
+
 /** 450000 → "450K", the compact money shape the hero and the report band both show. */
 export function abbreviateAmount(value: number): string {
   return value >= 1000 ? `${Math.round(value / 1000)}K` : String(value);

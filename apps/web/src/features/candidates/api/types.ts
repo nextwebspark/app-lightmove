@@ -1,3 +1,4 @@
+import type { SeniorityToken } from "../../../lib/seniority";
 /**
  * Where a mandate's research on an executive has got to. Not a shortlist flag: talent mapping records
  * the market as it is, so someone ruled out is kept with the reason rather than deleted — the map is
@@ -18,7 +19,8 @@ export type CandidateStatus =
  * the executive line are named rather than numbered, because a board seat is a different kind of role
  * and not a distance from the CEO.
  */
-export type CandidateSeniority = "Board" | "C-Suite" | "N-1" | "N-2" | "N-3";
+/** The shared ladder's wire token — see lib/seniority.ts. This contract speaks the label. */
+export type CandidateSeniority = SeniorityToken;
 
 /** Which door a profile came through. Only `manual` is reachable today. */
 export type CandidateSource = "manual" | "csv" | "extension";
