@@ -192,6 +192,24 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("two priorities with the same name are refused, whatever their casing")
+    void duplicatePrioritiesAreRefused() throws Exception {
+        String admin = adminOf("Duplicate Firm");
+        String projectId = createProject(admin, createClient(admin, "Aldar", "UAE"), "CFO");
+
+        mvc.perform(put(positionUrl(projectId) + "/context")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"mandateReason":"BACKFILL","businessDriver":null,
+                                 "strategicPriorities":[{"name":"Capital discipline","selected":true},
+                                                        {"name":"capital DISCIPLINE","selected":false}],
+                                 "confidential":false,"internalContext":null}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
     @DisplayName("writing one step leaves the others untouched")
     void oneStepDoesNotDisturbAnother() throws Exception {
         String admin = adminOf("Isolation Firm");
