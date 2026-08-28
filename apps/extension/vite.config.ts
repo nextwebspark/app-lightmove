@@ -70,8 +70,8 @@ export default defineConfig(({ mode }) => {
     sourcemap: "hidden",
     rollupOptions: {
       input: {
-        popup: resolve("popup.html"),
-        background: resolve("src/background/serviceWorker.ts"),
+        popup: resolve(import.meta.dirname, "popup.html"),
+        background: resolve(import.meta.dirname, "src/background/serviceWorker.ts"),
       },
       output: {
         // Fixed names, because manifest.config.ts names these files. A hash here would break the

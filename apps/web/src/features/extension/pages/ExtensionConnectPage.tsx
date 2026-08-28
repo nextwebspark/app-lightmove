@@ -4,32 +4,6 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import * as extensionApi from "../api/extensionApi";
 
 /**
- * Where the browser extension is paired with this account.
- *
- * The extension cannot use this app's session cookie — it is `SameSite=Strict`, host-only and scoped
- * to `/api/v1/auth`, and reaching it from a `chrome-extension://` origin would mean stripping every
- * attribute that protects it. So this page, which *is* on the right origin and *is* signed in, asks
- * the API for a refresh token of the extension's own and hands it over.
- *
- * **The handover is addressed to one extension, not broadcast.** `chrome.runtime.sendMessage(id, …)`
- * delivers to exactly the extension named. The obvious-looking alternative — `window.postMessage` to
- * this page's own window — is not private: every listener in the frame receives it, and a content
- * script's isolated world does not isolate it from those events, so any other extension the consultant
- * had installed with a broad content script would have read the refresh token straight off this page.
- *
- * Naming the id here costs nothing. It is not a secret, it is pinned by the extension's manifest key,
- * and `application.yml` already names the same id in the CORS allow-list — so it was never the
- * "hardcoded id" the postMessage version claimed to avoid.
- *
- * **Minting waits for a click.** It used to happen on mount, which made "is Capture installed" the
- * entire gate on issuing a 14-day credential — so any site could navigate a signed-in consultant here
- * and silently mint one, orphaning whatever token the extension held and spending a pairing from the
- * hourly budget. Nothing leaks (the handover is addressed, and the page never reads the token back),
- * so it was nuisance rather than compromise; but a credential-minting side effect of a GET navigation
- * is the shape that belongs behind a button.
- */
-
-/**
  * The extension this page hands the session to.
  *
  * Configurable because it has to be: the id below is the one the pinned manifest key produces when the
@@ -89,6 +63,9 @@ export function ExtensionConnectPage() {
     setState("pairing");
     try {
       const session = await extensionApi.pairExtension();
+      // Addressed to one extension, never `window.postMessage`: that reaches every listener in the
+      // frame, and a content script's isolated world does not isolate it from those events — so any
+      // other extension with a broad content script would read this refresh token off the page.
       runtime.sendMessage(EXTENSION_ID, { kind: STORE_PAIRED_SESSION, session }, (response) => {
         // `lastError` has to be read or Chrome logs an unchecked-error warning; it is also the only
         // signal that the id named above resolves to nothing installed.
@@ -102,11 +79,7 @@ export function ExtensionConnectPage() {
     } catch (error) {
       isPairing.current = false;
       setState("failed");
-      setErrorMessage(
-        error instanceof ApiRequestError
-          ? error.problem.detail
-          : "The workspace could not create a session for the extension.",
-      );
+      setErrorMessage(refusalMessage(error));
     }
   }, []);
 
@@ -201,4 +174,17 @@ function ConnectStatus({
       </div>
     </>
   );
+}
+
+/**
+ * What to tell the consultant, keyed on `code` rather than `detail`.
+ *
+ * The auth surface's own messages are deliberately vague, so relaying one says nothing useful. Only
+ * the rate limit is worth naming: it is the single refusal here a consultant can act on.
+ */
+function refusalMessage(error: unknown): string {
+  if (error instanceof ApiRequestError && error.code === "RATE_LIMITED") {
+    return "Too many attempts to connect the extension. Try again in an hour.";
+  }
+  return "The workspace could not create a session for the extension.";
 }

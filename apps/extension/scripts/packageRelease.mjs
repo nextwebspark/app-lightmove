@@ -14,7 +14,7 @@
  *      archive and rejects an archive with a directory wrapping it.
  */
 import { execFileSync } from "node:child_process";
-import { globSync, readFileSync, writeFileSync, rmSync, mkdirSync, cpSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync, rmSync, mkdirSync, cpSync } from "node:fs";
 import { resolve } from "node:path";
 
 const workspaceOrigin = process.env.LM_WORKSPACE_ORIGIN?.trim();
@@ -38,10 +38,13 @@ const run = (command, args, cwd) =>
 run("npm", ["run", "build"]);
 
 // Packaged from a copy, so dist/ keeps its `key` and stays loadable unpacked after a release build.
-const packageDir = resolve("release/package");
-rmSync(resolve("release"), { recursive: true, force: true });
+// Anchored on this script, never the cwd: npm chooses the working directory for a run script, and
+// this one both deletes a tree and writes a zip.
+const extensionDir = resolve(import.meta.dirname, "..");
+const packageDir = resolve(extensionDir, "release/package");
+rmSync(resolve(extensionDir, "release"), { recursive: true, force: true });
 mkdirSync(packageDir, { recursive: true });
-cpSync(resolve("dist"), packageDir, { recursive: true });
+cpSync(resolve(extensionDir, "dist"), packageDir, { recursive: true });
 
 const manifestPath = resolve(packageDir, "manifest.json");
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
@@ -50,11 +53,13 @@ writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 
 // Source maps are for debugging our own build, not for the listing — and they carry the full original
 // sources, which there is no reason to ship. Every one of them, including the chunks'.
-for (const map of globSync("**/*.map", { cwd: packageDir })) {
+// readdirSync's recursive option, not fs.globSync: that landed in Node 22 and the repo's engines
+// field allows 20, so a maintainer running this by hand would lose a full build to it.
+for (const map of readdirSync(packageDir, { recursive: true }).filter((file) => String(file).endsWith(".map"))) {
   rmSync(resolve(packageDir, map), { force: true });
 }
 
-const zipPath = resolve(`release/lightmove-capture-${manifest.version}.zip`);
+const zipPath = resolve(extensionDir, `release/lightmove-capture-${manifest.version}.zip`);
 run("zip", ["-qr", zipPath, ".", "-x", ".*"], packageDir);
 
 console.log(

@@ -80,12 +80,6 @@ public class RateLimitGuard {
      * repeatedly before anyone notices.
      */
     public void checkExtensionPairing(String email, HttpServletRequest request) {
-        // The one action whose two budgets are deliberately different. The threat here is per-account
-        // — script holding one stolen access token — so the account budget is what defends it and is
-        // tight. Charging a whole office the same figure defends nothing and breaks the ordinary case:
-        // an executive-search firm is a dozen consultants behind one NAT, and the day Capture ships
-        // they all install it within the hour. The sixth would have been refused on a first-run step,
-        // by a message naming nothing they could act on.
         checkRateLimit("extension-pairing", email, request, config.extensionPairingsPerHour(),
                 config.extensionPairingsPerHourPerIp(), Duration.ofHours(1));
     }

@@ -31,7 +31,7 @@ export function iifeBundle(options: {
       emptyOutDir: false,
       minify: false,
       lib: {
-        entry: resolve(options.entry),
+        entry: resolve(import.meta.dirname, options.entry),
         formats: ["iife"],
         name: options.globalName,
         fileName: () => options.fileName,

@@ -7,16 +7,8 @@ import org.springframework.boot.convert.DurationStyle;
 /**
  * The browser extension's session — {@code lightmove.auth.extension.*}.
  *
- * <p>The extension does not use the refresh <i>cookie</i>: it is {@code SameSite=Strict}, host-only
- * and scoped to {@code /api/v1/auth}, and reaching it from another origin would mean weakening every
- * attribute that protects it. So the extension is paired instead — the signed-in web app mints it a
- * refresh token that travels in a response body and lives in the extension's own storage.
- *
- * <p>That storage is on disk rather than in a cookie jar, which is why the TTL here is its own knob
- * and is much shorter than {@code lightmove.auth.refresh-token-ttl}. Everything else about the token
- * — rotation, reuse detection, revocation — is the ordinary machinery, and re-pairing is a click. The
- * session's label is <i>not</i> configurable and lives on {@code SessionClient}; the device describer
- * matches on it, and a second copy here would drift.
+ * <p>Shorter than the web app's TTL because the extension's refresh token rests in its own storage
+ * rather than in an httpOnly cookie. Why it is paired at all: {@code .claude/skills/chrome-extension}.
  */
 public record ExtensionSettings(
 
@@ -27,15 +19,7 @@ public record ExtensionSettings(
     // AuthSettings needs the same value when the whole branch is absent from yml.
     static final String DEFAULT_REFRESH_TOKEN_TTL = "14d";
 
-    /**
-     * What binding produces when {@code lightmove.auth.extension} is not in the configuration at all.
-     *
-     * <p>Parsed with Boot's own {@code DurationStyle.SIMPLE}, which is the parser it uses for the yml
-     * value, so the annotation default and this one agree by construction. Hand-rolling it as
-     * {@code Duration.parse("P" + ttl)} worked only because the unit happened to be days: the first
-     * person to write {@code "12h"} would have got {@code P12H} — invalid ISO-8601, which needs the
-     * {@code T} — and a boot-time failure naming neither this file nor the constant.
-     */
+    /** Boot's own parser for the yml value, so the two default paths agree by construction. */
     static ExtensionSettings defaults() {
         return new ExtensionSettings(DurationStyle.SIMPLE.parse(DEFAULT_REFRESH_TOKEN_TTL));
     }
