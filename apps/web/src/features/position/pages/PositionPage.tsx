@@ -112,10 +112,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     persist((next: MandateContext) => positionApi.putContext(projectId, next)),
   );
   const reportingSave = useAutosave(
-    // Step three writes the mandate's one target date, which the list's Target column shows.
-    persist((next: ReportingStructure) => positionApi.putReporting(projectId, next), () => {
-      void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
-    }),
+    persist((next: ReportingStructure) => positionApi.putReporting(projectId, next)),
   );
   const compensationSave = useAutosave(
     // The report restates this band as the mandate's, so it goes stale with every package edit.
