@@ -11,7 +11,7 @@ import java.util.List;
 public record MandateContext(
         MandateReason mandateReason,
         String businessDriver,
-        List<String> strategicPriorities,
+        List<PositionPriority> strategicPriorities,
         boolean confidential,
         String internalContext
 ) {

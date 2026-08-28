@@ -14,6 +14,7 @@ import app.lightmove.api.position.dto.PositionDocumentDto;
 import app.lightmove.api.position.dto.PositionResponse;
 import app.lightmove.api.position.dto.PublicationDto;
 import app.lightmove.api.position.dto.ReportingStructureDto;
+import app.lightmove.api.position.dto.StrategicPriorityDto;
 import app.lightmove.api.position.model.Position;
 import app.lightmove.api.position.model.PositionDocumentSummary;
 import app.lightmove.api.position.repository.PositionDocumentRepository;
@@ -67,7 +68,9 @@ class PositionResponseAssembler {
         return new MandateContextDto(
                 position.getMandateReason(),
                 position.getBusinessDriver(),
-                List.copyOf(position.getStrategicPriorities()),
+                position.getStrategicPriorities().stream()
+                        .map(priority -> new StrategicPriorityDto(priority.getName(), priority.isSelected()))
+                        .toList(),
                 position.isConfidential(),
                 position.getInternalContext());
     }

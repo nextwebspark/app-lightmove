@@ -60,7 +60,7 @@ export const POSITION_STEPS: PositionStep[] = [
       "Why this mandate exists and the business drivers behind it. Internal only — never shown to candidates.",
     summary: (p) => MANDATE_REASON_LABELS[p.context.mandateReason],
     detail: (p) => {
-      const priorities = p.context.strategicPriorities.length;
+      const priorities = p.context.strategicPriorities.filter((each) => each.selected).length;
       return [
         p.context.confidential ? "Confidential" : "Standard",
         priorities > 0 ? `${priorities} priorit${priorities === 1 ? "y" : "ies"}` : null,

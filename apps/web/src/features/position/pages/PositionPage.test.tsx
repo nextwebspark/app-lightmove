@@ -83,7 +83,10 @@ const seeded: Position = {
   context: {
     mandateReason: "NEW_ROLE",
     businessDriver: null,
-    strategicPriorities: [],
+    strategicPriorities: [
+      { name: "Capital discipline", selected: false },
+      { name: "Portfolio growth", selected: false },
+    ],
     confidential: false,
     internalContext: null,
   },
@@ -195,6 +198,42 @@ describe("PositionPage", () => {
     await waitFor(() => expect(positionApi.putDetails).toHaveBeenCalled());
     expect(positionApi.putContext).not.toHaveBeenCalled();
     expect(vi.mocked(positionApi.putDetails).mock.calls.at(-1)?.[1].department).toBe("Finance");
+  });
+
+  it("lights, drops and adds a strategic priority", async () => {
+    vi.mocked(positionApi.putContext).mockResolvedValue(seeded);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Mandate context/ }));
+
+    // A chip in the palette is off until somebody lights it.
+    const growth = screen.getByRole("button", { name: "Portfolio growth" });
+    expect(growth).toHaveAttribute("aria-pressed", "false");
+    await user.click(growth);
+    await waitFor(() => expect(positionApi.putContext).toHaveBeenCalled());
+    expect(
+      vi.mocked(positionApi.putContext).mock.calls.at(-1)?.[1].strategicPriorities,
+    ).toEqual([
+      { name: "Capital discipline", selected: false },
+      { name: "Portfolio growth", selected: true },
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "Remove Capital discipline" }));
+    expect(
+      vi.mocked(positionApi.putContext).mock.calls.at(-1)?.[1].strategicPriorities,
+    ).toEqual([{ name: "Portfolio growth", selected: true }]);
+
+    // Anything the palette does not offer is typed in, and arrives lit — adding one is choosing it.
+    await user.click(screen.getByRole("button", { name: "+ Add priority" }));
+    await user.type(screen.getByRole("textbox", { name: "Name the priority" }), "Lender confidence{Enter}");
+    expect(
+      vi.mocked(positionApi.putContext).mock.calls.at(-1)?.[1].strategicPriorities,
+    ).toEqual([
+      { name: "Portfolio growth", selected: true },
+      { name: "Lender confidence", selected: true },
+    ]);
   });
 
   it("publishes from the rail and shows the brief as published, still editable", async () => {

@@ -77,11 +77,20 @@ export interface PositionDetails {
   narrative: string | null;
 }
 
-/** Step 2. The priorities are free text a mandate writes, in the order it wrote them. */
+/**
+ * One strategic priority chip: a name somebody wrote, and whether the mandate is aligned to it. An
+ * unselected chip is part of the palette rather than a choice — kept until somebody deletes it.
+ */
+export interface StrategicPriority {
+  name: string;
+  selected: boolean;
+}
+
+/** Step 2. The priorities are the mandate's own, in the order the brief lists them. */
 export interface MandateContext {
   mandateReason: MandateReason;
   businessDriver: string | null;
-  strategicPriorities: string[];
+  strategicPriorities: StrategicPriority[];
   confidential: boolean;
   internalContext: string | null;
 }

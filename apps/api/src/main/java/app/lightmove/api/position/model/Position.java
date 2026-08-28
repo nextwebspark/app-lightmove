@@ -90,8 +90,7 @@ public class Position extends BaseEntity {
     @CollectionTable(name = "app_lm_position_priority",
             joinColumns = @JoinColumn(name = "position_id"))
     @OrderColumn(name = "sort_order")
-    @Column(name = "priority", nullable = false, length = 120)
-    private List<String> strategicPriorities = new ArrayList<>();
+    private List<PositionPriority> strategicPriorities = new ArrayList<>();
 
     @Column(name = "confidential", nullable = false)
     private boolean confidential;

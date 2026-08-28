@@ -56,6 +56,10 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.reporting.orgChart[1].mandateSeat").value(false))
                 .andExpect(jsonPath("$.compensation.currency").value("USD"))
                 .andExpect(jsonPath("$.compensation.baseSalaryMode").value("ANNUAL"))
+                // The brief opens on the priority palette, none of it lit.
+                .andExpect(jsonPath("$.context.strategicPriorities.length()").value(5))
+                .andExpect(jsonPath("$.context.strategicPriorities[0].name").value("Capital discipline"))
+                .andExpect(jsonPath("$.context.strategicPriorities[0].selected").value(false))
                 .andExpect(jsonPath("$.assessment.criteria[0].fromBrief").value(true))
                 .andExpect(jsonPath("$.assessment.criteria[0].mode").value("REQUIRED"))
                 .andExpect(jsonPath("$.assessment.technical[0].name").value("Financial Reporting & Controls"))
@@ -122,12 +126,15 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
 
         putStep(admin, projectId, "context", """
                 {"mandateReason":"GROWTH_EXPANSION","businessDriver":"Carry the next capital phase.",
-                 "strategicPriorities":["Capital discipline","Lender confidence"],
+                 "strategicPriorities":[{"name":"Capital discipline","selected":true},
+                                        {"name":"Lender confidence","selected":false}],
                  "confidential":true,"internalContext":"Keep discreet"}""")
                 .andExpect(jsonPath("$.context.mandateReason").value("GROWTH_EXPANSION"))
+                // The priorities are whatever the mandate wrote, in the order it wrote them, lit or
+                // not — the write replaces the seeded palette rather than adding to it.
                 .andExpect(jsonPath("$.context.strategicPriorities.length()").value(2))
-                // The priorities are whatever the mandate wrote, in the order it wrote them.
-                .andExpect(jsonPath("$.context.strategicPriorities[1]").value("Lender confidence"))
+                .andExpect(jsonPath("$.context.strategicPriorities[1].name").value("Lender confidence"))
+                .andExpect(jsonPath("$.context.strategicPriorities[1].selected").value(false))
                 .andExpect(jsonPath("$.context.confidential").value(true));
 
         String managerId = "11111111-1111-4111-8111-111111111111";
@@ -192,7 +199,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
 
         putStep(admin, projectId, "context", """
                 {"mandateReason":"BACKFILL","businessDriver":"Incumbent retiring.",
-                 "strategicPriorities":["Talent development"],
+                 "strategicPriorities":[{"name":"Talent development","selected":true}],
                  "confidential":false,"internalContext":null}""");
         putStep(admin, projectId, "compensation", """
                 {"currency":"SAR","salaryMin":1,"salaryMax":2,"baseSalaryMode":"ANNUAL",

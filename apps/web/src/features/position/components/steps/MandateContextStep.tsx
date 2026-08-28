@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Input, Select, TextArea } from "../../../../components/ui";
 import { cn } from "../../../../lib/cn";
-import type { MandateContext } from "../../api/types";
+import type { MandateContext, StrategicPriority } from "../../api/types";
 import { MANDATE_REASON_LABELS } from "../../lib/labels";
-import { AddRowButton, RemoveRowButton, StepField, SubCard } from "../fields";
+import { AddRowButton, RemoveRowButton, StepField } from "../fields";
 
 /** Step two: why the mandate exists. Internal throughout — no candidate ever reads any of it. */
 export function MandateContextStep({
@@ -13,19 +13,21 @@ export function MandateContextStep({
   context: MandateContext;
   onChange: (patch: Partial<MandateContext>, immediate?: boolean) => void;
 }) {
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const replacePriorities = (priorities: StrategicPriority[]) =>
+    onChange({ strategicPriorities: priorities }, true);
 
   const addPriority = () => {
-    const priority = draft.trim();
-    if (!priority) return;
-    // Same priority twice says nothing twice, and the chips would be indistinguishable.
-    const duplicate = context.strategicPriorities.some(
-      (each) => each.toLowerCase() === priority.toLowerCase(),
+    const name = draft?.trim();
+    setDraft(null);
+    if (!name) return;
+    // The same priority twice says nothing twice, and the two chips would be indistinguishable.
+    const known = context.strategicPriorities.some(
+      (each) => each.name.toLowerCase() === name.toLowerCase(),
     );
-    if (!duplicate) {
-      onChange({ strategicPriorities: [...context.strategicPriorities, priority] }, true);
-    }
-    setDraft("");
+    if (known) return;
+    replacePriorities([...context.strategicPriorities, { name, selected: true }]);
   };
 
   return (
@@ -43,50 +45,50 @@ export function MandateContextStep({
         <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.02em] text-text2">
           Strategic priority alignment
         </span>
-        <SubCard>
-          {context.strategicPriorities.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {context.strategicPriorities.map((priority, index) => (
-                <span
-                  key={`${priority}-${index}`}
-                  className="inline-flex items-center gap-[7px] rounded border border-line bg-panel py-1.5 pe-2 ps-2.5 text-xs font-semibold text-text2"
-                >
-                  {priority}
-                  <RemoveRowButton
-                    label={`Remove ${priority}`}
-                    onClick={() =>
-                      onChange(
-                        {
-                          strategicPriorities: context.strategicPriorities.filter(
-                            (_, at) => at !== index,
-                          ),
-                        },
-                        true,
-                      )
-                    }
-                  />
-                </span>
-              ))}
+        <div className="flex flex-wrap gap-2">
+          {context.strategicPriorities.map((priority, index) => (
+            <PriorityChip
+              key={`${priority.name}-${index}`}
+              priority={priority}
+              onToggle={() =>
+                replacePriorities(
+                  context.strategicPriorities.map((each, at) =>
+                    at === index ? { ...each, selected: !each.selected } : each,
+                  ),
+                )
+              }
+              onRemove={() =>
+                replacePriorities(context.strategicPriorities.filter((_, at) => at !== index))
+              }
+            />
+          ))}
+        </div>
+        <div className="mt-2.5">
+          {draft === null ? (
+            <AddRowButton onClick={() => setDraft("")}>+ Add priority</AddRowButton>
+          ) : (
+            <div className="flex max-w-[360px] gap-2">
+              <Input
+                autoFocus
+                value={draft}
+                aria-label="Name the priority"
+                placeholder="Name the priority…"
+                onChange={(event) => setDraft(event.target.value)}
+                onBlur={addPriority}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") return setDraft(null);
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  addPriority();
+                }}
+                className="flex-1 bg-panel"
+              />
+              <AddRowButton onClick={addPriority} className="flex-none">
+                Add
+              </AddRowButton>
             </div>
           )}
-          <div className="mt-3.5 flex gap-2">
-            <Input
-              value={draft}
-              aria-label="Add a strategic priority"
-              placeholder="Add a strategic priority…"
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") return;
-                event.preventDefault();
-                addPriority();
-              }}
-              className="flex-1 bg-panel"
-            />
-            <AddRowButton onClick={addPriority} className="flex-none">
-              + Add priority
-            </AddRowButton>
-          </div>
-        </SubCard>
+        </div>
       </div>
 
       <div>
@@ -120,6 +122,38 @@ export function MandateContextStep({
         />
       </StepField>
     </div>
+  );
+}
+
+/**
+ * One priority: click the name to light it, the ✕ to drop it from the palette altogether.
+ *
+ * Two buttons rather than one — a chip that both toggles and deletes cannot be a single control, and
+ * a button inside a button is not markup a browser will draw. The border carries the chip.
+ */
+function PriorityChip({
+  priority,
+  onToggle,
+  onRemove,
+}: {
+  priority: StrategicPriority;
+  onToggle: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-lg border py-1.5 pe-1.5 ps-3 text-xs font-semibold transition",
+        priority.selected
+          ? "border-sky bg-sky-dim text-sky"
+          : "border-line bg-panel text-text3 hover:border-text3 hover:text-text2",
+      )}
+    >
+      <button type="button" aria-pressed={priority.selected} onClick={onToggle}>
+        {priority.name}
+      </button>
+      <RemoveRowButton label={`Remove ${priority.name}`} onClick={onRemove} />
+    </span>
   );
 }
 

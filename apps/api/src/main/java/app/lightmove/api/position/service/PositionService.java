@@ -18,6 +18,7 @@ import app.lightmove.api.position.model.PositionCompetency;
 import app.lightmove.api.position.model.PositionCriterion;
 import app.lightmove.api.position.model.PositionDetails;
 import app.lightmove.api.position.model.PositionOrgNode;
+import app.lightmove.api.position.model.PositionPriority;
 import app.lightmove.api.position.model.ReportingStructure;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -74,7 +75,9 @@ public class PositionService {
         PositionBrief brief = briefs.require(workspaceId, projectId);
         brief.position().applyContext(new MandateContext(
                 request.mandateReason(), request.businessDriver(),
-                orEmpty(request.strategicPriorities()),
+                orEmpty(request.strategicPriorities()).stream()
+                        .map(priority -> PositionPriority.of(priority.name(), priority.selected()))
+                        .toList(),
                 request.confidential(), request.internalContext()));
         return saved(brief, userId, workspaceId, projectId, "context", httpRequest);
     }
