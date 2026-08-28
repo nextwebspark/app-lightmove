@@ -242,25 +242,6 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * The Location accordion. Ranked by size, and the live vocabulary is the six GCC countries — which
-     * is why the mockup's six fixed chips turned out to be the whole list rather than a sample.
-     */
-    public List<FacetCount> countryFacets() {
-        return jdbc.sql("""
-                        SELECT company_country AS label, count(*) AS count
-                        FROM app_lm_apollo_companies
-                        WHERE company_country IS NOT NULL AND company_country <> ''
-                        GROUP BY 1
-                        ORDER BY count(*) DESC, 1
-                        """)
-                .query(ScopeBreakdown.class)
-                .list()
-                .stream()
-                .map(row -> new FacetCount(row.label(), row.label(), row.count()))
-                .toList();
-    }
-
-    /**
      * The two size accordions. One GROUP BY over a CASE built from the enum's own bounds, so the
      * chip counts and the filter that runs when the chip is clicked can never disagree — a band
      * counted by one set of numbers and filtered by another is the bug this shape prevents.

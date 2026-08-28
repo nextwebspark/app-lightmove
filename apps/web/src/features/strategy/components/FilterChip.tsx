@@ -8,17 +8,16 @@ import { cn } from "../../../lib/cn";
  * is why every other panel is a checkbox list: an ordered axis read as wrapped pills loses the order,
  * and a long list of pills is a wall rather than a filter.
  *
- * <p>The count is over the whole universe rather than the current selection, so it does not move
- * under the hand as chips are toggled.
+ * <p>The chip carries no count. The universe is six countries deep on this axis, so a count decides
+ * nothing a consultant is choosing between — and counting them meant the panel could not draw until
+ * the facets read came back.
  */
 export function FilterChip({
   label,
-  count,
   selected,
   onToggle,
 }: {
   label: string;
-  count: number;
   selected: boolean;
   onToggle: () => void;
 }) {
@@ -28,7 +27,7 @@ export function FilterChip({
       onClick={onToggle}
       aria-pressed={selected}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full px-3 py-2 transition",
+        "inline-flex items-center rounded-full px-3 py-2 transition",
         "shadow-[inset_0_0_0_1px_currentColor] hover:text-amber",
         selected ? "bg-amber-dim text-amber" : "bg-transparent text-line",
       )}
@@ -40,14 +39,6 @@ export function FilterChip({
         )}
       >
         {label}
-      </span>
-      <span
-        className={cn(
-          "font-sans text-[13px] font-semibold",
-          selected ? "text-amber" : "text-text3",
-        )}
-      >
-        {count.toLocaleString()}
       </span>
     </button>
   );

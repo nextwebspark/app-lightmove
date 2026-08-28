@@ -73,10 +73,6 @@ const FACETS: Facets = {
     construction: ["oil & energy"],
   },
   marketSegments: [{ value: "B2B", label: "B2B", count: 40 }],
-  countries: [
-    { value: "United Arab Emirates", label: "United Arab Emirates", count: 37154 },
-    { value: "Qatar", label: "Qatar", count: 4609 },
-  ],
   employeeBands: [
     { value: "1001-2000", label: "1001-2000", count: 2022 },
     { value: "2001-5000", label: "2001-5000", count: 640 },
@@ -196,9 +192,22 @@ describe("StrategyPage — the filter sidebar and its results", () => {
 
     expect(await screen.findByText("ACWA Power")).toBeInTheDocument();
     const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "# Employees" }));
     await waitFor(() =>
       expect(within(filters).getByText(/counts are not available to you/i)).toBeInTheDocument(),
     );
+  });
+
+  it("offers Location without the facets read, so a refused count cannot take the axis with it", async () => {
+    // The vocabulary is the six GCC markets and the chips carry no count, so nothing about this
+    // panel waits on /companies/facets — which is also why it survives that read being refused.
+    vi.mocked(companiesApi.getFacets).mockRejectedValue(new Error("Forbidden"));
+    renderPage();
+
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    for (const country of ["United Arab Emirates", "Saudi Arabia", "Qatar", "Kuwait", "Oman", "Bahrain"]) {
+      expect(within(filters).getByRole("button", { name: country })).toBeInTheDocument();
+    }
   });
 
   it("autosaves a chip as a whole-filter snapshot", async () => {
@@ -472,8 +481,9 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
 
-    // Location is six countries and reads as pills; the count lives on the pill itself.
-    expect(within(filters).getByRole("button", { name: /Qatar/ })).toBeInTheDocument();
+    // Location is six countries and reads as pills, named and nothing else — an axis that shallow
+    // has nothing a count would decide.
+    expect(within(filters).getByRole("button", { name: "Qatar" })).toBeInTheDocument();
     expect(within(filters).queryByRole("checkbox", { name: /Qatar/ })).not.toBeInTheDocument();
 
     // Employees is an ordered axis of eleven bands, so it is a checkbox list. Pills would lose the

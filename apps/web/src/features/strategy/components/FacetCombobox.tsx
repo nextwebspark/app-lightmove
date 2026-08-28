@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
-import type { FacetCount } from "../api/types";
+import type { FacetOption } from "../api/types";
 import { useComboboxList } from "../lib/useComboboxList";
 
 /**
@@ -28,7 +28,8 @@ export function FacetCombobox({
   noun: string;
   /** The chosen wire value, or "" for nothing recorded. */
   value: string;
-  options: FacetCount[];
+  /** The counted facets and the fixed country list are both offered here, so counts are not read. */
+  options: readonly FacetOption[];
   onChange: (value: string) => void;
 }) {
   // Null is "showing what is chosen"; a string is what the consultant is typing over it. Two states

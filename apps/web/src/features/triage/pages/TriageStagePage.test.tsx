@@ -153,10 +153,6 @@ const FACETS: Facets = {
   ],
   adjacentIndustries: {},
   marketSegments: [],
-  countries: [
-    { value: "Saudi Arabia", label: "Saudi Arabia", count: 900 },
-    { value: "United Arab Emirates", label: "United Arab Emirates", count: 1800 },
-  ],
   employeeBands: [],
   revenueBands: [],
 };

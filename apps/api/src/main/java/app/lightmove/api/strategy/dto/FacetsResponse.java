@@ -21,9 +21,11 @@ import java.util.Map;
  * <p>{@code adjacentIndustries} is advice rather than a facet: which industries sit beside which,
  * for the panel's suggestion chips. It carries no counts because it selects nothing on its own.
  *
- * <p>There is no ownership facet: the universe has no ownership column.
+ * <p>There is no ownership facet: the universe has no ownership column, and no location facet: the
+ * six GCC markets are a fixed vocabulary the sidebar holds, so counting them cost a GROUP BY over the
+ * whole universe to draw six chips whose counts decided nothing.
  */
 public record FacetsResponse(List<SectorGroup> sectorGroups,
                              Map<String, List<String>> adjacentIndustries,
-                             List<FacetCount> marketSegments, List<FacetCount> countries,
+                             List<FacetCount> marketSegments,
                              List<FacetCount> employeeBands, List<FacetCount> revenueBands) {}

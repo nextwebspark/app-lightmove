@@ -75,18 +75,13 @@ class CompanyFacetIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the countries are the ones the universe actually holds, largest first")
-    void countriesRankedBySize() throws Exception {
+    @DisplayName("Location is not counted: the sidebar holds the six GCC markets itself")
+    void noCountryFacet() throws Exception {
         String admin = adminOf("Facet Country Firm");
         universe.company("a1", "One").country("United Arab Emirates").employees(10).insert();
-        universe.company("a2", "Two").country("United Arab Emirates").employees(10).insert();
-        universe.company("a3", "Three").country("Qatar").employees(10).insert();
 
         mvc.perform(get("/api/v1/companies/facets").header("Authorization", "Bearer " + admin))
-                .andExpect(jsonPath("$.countries.length()").value(2))
-                .andExpect(jsonPath("$.countries[0].value").value("United Arab Emirates"))
-                .andExpect(jsonPath("$.countries[0].count").value(2))
-                .andExpect(jsonPath("$.countries[1].value").value("Qatar"));
+                .andExpect(jsonPath("$.countries").doesNotExist());
     }
 
     @Test

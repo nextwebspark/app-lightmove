@@ -1,9 +1,13 @@
-/** One selectable value in a filter accordion, with the count that makes it worth clicking. */
-export interface FacetCount {
+/** One offerable value: what a filter stores, and what the control reading it says. */
+export interface FacetOption {
   /** What a saved filter stores. A slug for bands, the value itself for industries and countries. */
   value: string;
   /** What the chip reads. Presentation only — never stored, so relabelling breaks nothing. */
   label: string;
+}
+
+/** A facet value counted over the universe — the count is what makes it worth clicking. */
+export interface FacetCount extends FacetOption {
   count: number;
 }
 
@@ -17,8 +21,11 @@ export interface SectorGroup {
 }
 
 /**
- * Everything the filter sidebar renders, in one read. Counts are over the whole universe rather than
+ * Everything the filter sidebar counts, in one read. Counts are over the whole universe rather than
  * the current selection, so this is the same for every mandate and no chip click invalidates it.
+ *
+ * <p>Location is not here: its vocabulary is the six fixed GCC markets in {@link GCC_COUNTRIES}, so
+ * the panel offers them without waiting on this read at all.
  */
 export interface Facets {
   sectorGroups: SectorGroup[];
@@ -29,7 +36,6 @@ export interface Facets {
   adjacentIndustries: Record<string, string[]>;
   /** Overlapping by design — a company can be B2B and SaaS at once. */
   marketSegments: FacetCount[];
-  countries: FacetCount[];
   employeeBands: FacetCount[];
   revenueBands: FacetCount[];
 }
