@@ -84,7 +84,6 @@ const seeded: Position = {
     mandateReason: "NEW_ROLE",
     businessDriver: null,
     strategicPriorities: [],
-    hiringUrgency: "STANDARD",
     confidential: false,
     internalContext: null,
   },
@@ -156,7 +155,18 @@ describe("PositionPage", () => {
 
     const rail = screen.getByRole("complementary");
     expect(within(rail).getByText("Reports to Group CEO")).toBeInTheDocument();
-    // Two of six steps are done: details is complete, and both panels total 100.
+    // One of six: details is complete. The seed also balances both competency panels to 100, but
+    // nobody has reached step five, and the rail does not tick a step on the seed's behalf.
+    expect(within(rail).getByText("17% Done")).toBeInTheDocument();
+  });
+
+  it("only counts a step done once it has been reached", async () => {
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Assessment criteria/ }));
+
     expect(within(rail).getByText("33% Done")).toBeInTheDocument();
   });
 

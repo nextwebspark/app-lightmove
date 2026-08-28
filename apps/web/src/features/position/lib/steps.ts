@@ -143,9 +143,23 @@ export function stepIndexOf(key: StepKey): number {
   return POSITION_STEPS.findIndex((step) => step.key === key);
 }
 
+/**
+ * Which steps the tracker is willing to call done, one flag per step.
+ *
+ * `isDone` alone is not enough. A brief arrives seeded from the role template, and the template
+ * balances both competency panels to exactly 100% — so step five's rule holds on the day the project
+ * is created, and the rail ticked a step nobody had opened while the person was still on step two.
+ * A step is only reported done once it has been reached, so the tracker reads as a record of where
+ * somebody has been rather than of what the seed happened to fill in.
+ */
+export function doneSteps(position: Position, reached: StepKey): boolean[] {
+  const furthest = stepIndexOf(reached);
+  return POSITION_STEPS.map((step, index) => index <= furthest && step.isDone(position));
+}
+
 /** How far through the brief the mandate is, as the mockup counts it: done steps out of six. */
-export function completion(position: Position): number {
-  const done = POSITION_STEPS.filter((step) => step.isDone(position)).length;
+export function completion(position: Position, reached: StepKey): number {
+  const done = doneSteps(position, reached).filter(Boolean).length;
   return Math.round((done / POSITION_STEPS.length) * 100);
 }
 

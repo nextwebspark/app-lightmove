@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Position } from "../api/types";
-import { POSITION_STEPS, completion, panelTotal, stepIndexOf } from "./steps";
+import { POSITION_STEPS, completion, doneSteps, panelTotal, stepIndexOf } from "./steps";
 
 const blank: Position = {
   details: {
@@ -16,7 +16,6 @@ const blank: Position = {
     mandateReason: "NEW_ROLE",
     businessDriver: null,
     strategicPriorities: [],
-    hiringUrgency: "STANDARD",
     confidential: false,
     internalContext: null,
   },
@@ -145,14 +144,30 @@ describe("step completion", () => {
 });
 
 describe("completion", () => {
+  const placed: Position = {
+    ...blank,
+    details: { ...blank.details, department: "Group Finance", location: "Abu Dhabi" },
+  };
+
   it("is done steps out of six", () => {
-    expect(completion(blank)).toBe(0);
-    expect(
-      completion({
-        ...blank,
-        details: { ...blank.details, department: "Group Finance", location: "Abu Dhabi" },
-      }),
-    ).toBe(17);
+    expect(completion(blank, "review")).toBe(0);
+    expect(completion(placed, "review")).toBe(17);
+  });
+
+  it("counts nothing past the furthest step reached, however complete the seed left it", () => {
+    // The role template balances both panels to 100%, so step five's own rule holds from the day the
+    // brief is created — and the rail used to tick it while somebody was still on step two.
+    const seeded: Position = {
+      ...placed,
+      assessment: {
+        criteria: [],
+        technical: [{ name: "Financial Reporting", description: null, weight: 100 }],
+        behavioural: [{ name: "Strategic Leadership", description: null, weight: 100 }],
+      },
+    };
+    expect(completion(seeded, "review")).toBe(33);
+    expect(completion(seeded, "context")).toBe(17);
+    expect(doneSteps(seeded, "context")).toEqual([true, false, false, false, false, false]);
   });
 });
 

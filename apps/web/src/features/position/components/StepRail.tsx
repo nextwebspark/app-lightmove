@@ -1,7 +1,7 @@
 import { Button } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import type { Position } from "../api/types";
-import { POSITION_STEPS, completion, type StepKey } from "../lib/steps";
+import { POSITION_STEPS, completion, doneSteps, type StepKey } from "../lib/steps";
 
 /**
  * The profile summary beside the form: how far the brief has got, and one clickable line per step
@@ -13,6 +13,7 @@ import { POSITION_STEPS, completion, type StepKey } from "../lib/steps";
 export function StepRail({
   position,
   currentStep,
+  furthestStep,
   onSelectStep,
   onPublish,
   onSaveDraft,
@@ -20,12 +21,15 @@ export function StepRail({
 }: {
   position: Position;
   currentStep: StepKey;
+  /** The furthest step reached: nothing beyond it is reported done. */
+  furthestStep: StepKey;
   onSelectStep: (key: StepKey) => void;
   onPublish: () => void;
   onSaveDraft: () => void;
   publishing: boolean;
 }) {
-  const donePercent = completion(position);
+  const done = doneSteps(position, furthestStep);
+  const donePercent = completion(position, furthestStep);
   const published = Boolean(position.publication.publishedAt);
 
   return (
@@ -47,12 +51,12 @@ export function StepRail({
       </div>
 
       <div className="my-3.5 flex gap-1" aria-hidden="true">
-        {POSITION_STEPS.map((step) => (
+        {POSITION_STEPS.map((step, index) => (
           <span
             key={step.key}
             className={cn(
               "h-[3px] flex-1 rounded-full",
-              step.isDone(position) ? "bg-green" : step.key === currentStep ? "bg-sky" : "bg-line",
+              done[index] ? "bg-green" : step.key === currentStep ? "bg-sky" : "bg-line",
             )}
           />
         ))}
@@ -60,7 +64,7 @@ export function StepRail({
 
       <ol className="flex flex-col gap-2">
         {POSITION_STEPS.map((step, index) => {
-          const done = step.isDone(position);
+          const stepDone = done[index];
           const current = step.key === currentStep;
           return (
             <li key={step.key}>
@@ -72,7 +76,7 @@ export function StepRail({
                   "block w-full rounded-[9px] border px-3.5 py-[11px] text-start transition",
                   current
                     ? "border-solid border-sky bg-sky-dim"
-                    : done
+                    : stepDone
                       ? "border-solid border-line-soft bg-transparent hover:border-text3"
                       : "border-dashed border-line bg-transparent hover:border-text3",
                 )}
@@ -92,13 +96,13 @@ export function StepRail({
                       current ? "text-sky" : "text-green",
                     )}
                   >
-                    {current ? "Editing" : done ? "✓" : ""}
+                    {current ? "Editing" : stepDone ? "✓" : ""}
                   </span>
                 </span>
                 <span
                   className={cn(
                     "mt-[7px] block truncate text-[13px] font-semibold",
-                    current || done ? "text-text" : "text-text3",
+                    current || stepDone ? "text-text" : "text-text3",
                   )}
                 >
                   {step.summary(position)}

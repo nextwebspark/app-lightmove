@@ -72,6 +72,9 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const key = positionApi.POSITION_KEY(projectId);
 
   const [currentStep, setCurrentStep] = useState<StepKey>("details");
+  // The furthest step reached this sitting, which is what the rail is allowed to call done — see
+  // doneSteps in lib/steps.
+  const [furthestStep, setFurthestStep] = useState<StepKey>("details");
   const [details, setDetails] = useState<PositionDetails>(position.details);
   const [context, setContext] = useState<MandateContext>(position.context);
   const [reporting, setReporting] = useState<ReportingStructure>(position.reporting);
@@ -189,6 +192,13 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       });
       if (immediate) void competenciesSave.flush();
     };
+
+  const selectStep = (key: StepKey) => {
+    setCurrentStep(key);
+    setFurthestStep((furthest) =>
+      stepIndexOf(key) > stepIndexOf(furthest) ? key : furthest,
+    );
+  };
 
   /** Reordering is the ranking, and a decision rather than typing — so it saves at once. */
   const reorderPanel = (panel: CompetencyPanelKey) => (fromId: string, toId: string) => {
@@ -329,12 +339,12 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
             />
           )}
           {currentStep === "review" && (
-            <ReviewStep position={drafted} onEditStep={setCurrentStep} />
+            <ReviewStep position={drafted} onEditStep={selectStep} />
           )}
 
           <StepNavigation
             currentStep={currentStep}
-            onSelectStep={setCurrentStep}
+            onSelectStep={selectStep}
             onPublish={() => publish.mutate()}
             publishing={publish.isPending}
             published={Boolean(drafted.publication.publishedAt)}
@@ -344,7 +354,8 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
         <StepRail
           position={drafted}
           currentStep={currentStep}
-          onSelectStep={setCurrentStep}
+          furthestStep={furthestStep}
+          onSelectStep={selectStep}
           onPublish={() => publish.mutate()}
           onSaveDraft={() => void saveDraft()}
           publishing={publish.isPending}
