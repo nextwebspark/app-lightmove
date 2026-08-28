@@ -13,7 +13,6 @@ export function StepNavigation({
   onGoToStrategy,
   publishing,
   published,
-  editing,
 }: {
   currentStep: StepKey;
   onSelectStep: (key: StepKey) => void;
@@ -21,8 +20,6 @@ export function StepNavigation({
   onGoToStrategy: () => void;
   publishing: boolean;
   published: boolean;
-  /** Whether a published brief has been opened for changes — the foot then offers to publish them. */
-  editing: boolean;
 }) {
   const index = stepIndexOf(currentStep);
   const previous = POSITION_STEPS[index - 1];
@@ -41,14 +38,16 @@ export function StepNavigation({
           Next: {next.name}
           <Icon d={ICONS.arrowRight} size={15} />
         </Button>
-      ) : published && !editing ? (
+      ) : published ? (
+        // Where Next would be on any other step: the last page of a published brief leads out of the
+        // wizard, whether or not it is being changed. Publishing again is the rail's business.
         <Button onClick={onGoToStrategy}>
           Move to strategy
           <Icon d={ICONS.arrowRight} size={15} />
         </Button>
       ) : (
         <Button onClick={onPublish} loading={publishing}>
-          {published ? "Publish changes" : "Publish position profile"}
+          Publish position profile
         </Button>
       )}
     </div>

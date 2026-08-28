@@ -128,9 +128,10 @@ export function StepRail({
         })}
       </ol>
 
-      {/* The lead button is whatever the brief is waiting for. Unpublished, that is publishing it.
-          Published and read back, it is getting on with the search. Published and being changed, it
-          is publishing again — so the way out of editing is the same act that got the brief here. */}
+      {/* The lead button is whatever the brief is waiting for, and the one under it is what you do
+          instead. Read back, that pair is getting on with the search, or opening the brief up. Being
+          written or changed, it is declaring it ready, or putting the work down half-done — which is
+          the same pair the wizard has always offered, published or not. */}
       {published && !editing ? (
         <>
           <Button onClick={onGoToStrategy} className="mt-4 w-full py-[11px]">
@@ -146,15 +147,9 @@ export function StepRail({
           <Button onClick={onPublish} loading={publishing} className="mt-4 w-full py-[11px]">
             {published ? "Publish changes" : "Publish position profile"}
           </Button>
-          {published ? (
-            <Button variant="secondary" onClick={onGoToStrategy} className="mt-2 w-full py-2.5">
-              Move to strategy
-            </Button>
-          ) : (
-            <Button variant="secondary" onClick={onSaveDraft} className="mt-2 w-full py-2.5">
-              Save draft
-            </Button>
-          )}
+          <Button variant="secondary" onClick={onSaveDraft} className="mt-2 w-full py-2.5">
+            Save draft
+          </Button>
         </>
       )}
     </aside>

@@ -399,7 +399,6 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
             onGoToStrategy={goToStrategy}
             publishing={publish.isPending}
             published={Boolean(drafted.publication.publishedAt)}
-            editing={editingPublished}
           />
         </div>
 
