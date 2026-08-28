@@ -1,12 +1,9 @@
-import { Select, TextArea } from "../../../../components/ui";
+import { useState } from "react";
+import { Input, Select, TextArea } from "../../../../components/ui";
 import { cn } from "../../../../lib/cn";
-import type { MandateContext, StrategicPriority } from "../../api/types";
-import {
-  HIRING_URGENCY_LABELS,
-  MANDATE_REASON_LABELS,
-  STRATEGIC_PRIORITY_LABELS,
-} from "../../lib/labels";
-import { SegmentedControl, StepField, SubCard, ToggleChip } from "../fields";
+import type { MandateContext } from "../../api/types";
+import { MANDATE_REASON_LABELS } from "../../lib/labels";
+import { AddRowButton, RemoveRowButton, StepField, SubCard } from "../fields";
 
 /** Step two: why the mandate exists. Internal throughout — no candidate ever reads any of it. */
 export function MandateContextStep({
@@ -16,74 +13,80 @@ export function MandateContextStep({
   context: MandateContext;
   onChange: (patch: Partial<MandateContext>, immediate?: boolean) => void;
 }) {
-  const togglePriority = (priority: StrategicPriority) => {
-    const selected = context.strategicPriorities.includes(priority)
-      ? context.strategicPriorities.filter((each) => each !== priority)
-      : [...context.strategicPriorities, priority];
-    onChange({ strategicPriorities: selected }, true);
+  const [draft, setDraft] = useState("");
+
+  const addPriority = () => {
+    const priority = draft.trim();
+    if (!priority) return;
+    // Same priority twice says nothing twice, and the chips would be indistinguishable.
+    const duplicate = context.strategicPriorities.some(
+      (each) => each.toLowerCase() === priority.toLowerCase(),
+    );
+    if (!duplicate) {
+      onChange({ strategicPriorities: [...context.strategicPriorities, priority] }, true);
+    }
+    setDraft("");
   };
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-x-[18px]">
-        <StepField label="Reason for hire">
-          <Select
-            value={context.mandateReason}
-            onChange={(event) =>
-              onChange(
-                { mandateReason: event.target.value as MandateContext["mandateReason"] },
-                true,
-              )
-            }
-          >
-            {Object.entries(MANDATE_REASON_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
-        </StepField>
-        <StepField label="Business driver">
-          <TextArea
-            value={context.businessDriver ?? ""}
-            rows={2}
-            onChange={(event) => onChange({ businessDriver: event.target.value || null })}
-          />
-        </StepField>
-      </div>
+      <StepField label="Business driver">
+        <TextArea
+          value={context.businessDriver ?? ""}
+          rows={3}
+          placeholder="What has to change in the business for this hire to have been worth making…"
+          onChange={(event) => onChange({ businessDriver: event.target.value || null })}
+        />
+      </StepField>
 
       <div>
         <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.02em] text-text2">
           Strategic priority alignment
         </span>
         <SubCard>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(STRATEGIC_PRIORITY_LABELS).map(([value, label]) => (
-              <ToggleChip
-                key={value}
-                label={label}
-                selected={context.strategicPriorities.includes(value as StrategicPriority)}
-                onToggle={() => togglePriority(value as StrategicPriority)}
-              />
-            ))}
+          {context.strategicPriorities.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {context.strategicPriorities.map((priority, index) => (
+                <span
+                  key={`${priority}-${index}`}
+                  className="inline-flex items-center gap-[7px] rounded border border-line bg-panel py-1.5 pe-2 ps-2.5 text-xs font-semibold text-text2"
+                >
+                  {priority}
+                  <RemoveRowButton
+                    label={`Remove ${priority}`}
+                    onClick={() =>
+                      onChange(
+                        {
+                          strategicPriorities: context.strategicPriorities.filter(
+                            (_, at) => at !== index,
+                          ),
+                        },
+                        true,
+                      )
+                    }
+                  />
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="mt-3.5 flex gap-2">
+            <Input
+              value={draft}
+              aria-label="Add a strategic priority"
+              placeholder="Add a strategic priority…"
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                event.preventDefault();
+                addPriority();
+              }}
+              className="flex-1 bg-panel"
+            />
+            <AddRowButton onClick={addPriority} className="flex-none">
+              + Add priority
+            </AddRowButton>
           </div>
         </SubCard>
-      </div>
-
-      <div>
-        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.02em] text-text2">
-          Hiring urgency
-        </span>
-        <SegmentedControl
-          label="Hiring urgency"
-          accent="amber"
-          value={context.hiringUrgency}
-          onChange={(hiringUrgency) => onChange({ hiringUrgency }, true)}
-          options={Object.entries(HIRING_URGENCY_LABELS).map(([value, label]) => ({
-            value: value as MandateContext["hiringUrgency"],
-            label,
-          }))}
-        />
       </div>
 
       <div>
@@ -117,6 +120,35 @@ export function MandateContextStep({
         />
       </StepField>
     </div>
+  );
+}
+
+/**
+ * Reason for hire, drawn beside the step's own heading rather than inside the form.
+ *
+ * It answers the question the heading asks — why this mandate exists — in one word, and it is the
+ * only field on the step short enough to sit on that line. Below it, every field gets the full width.
+ */
+export function MandateReasonField({
+  value,
+  onChange,
+}: {
+  value: MandateContext["mandateReason"];
+  onChange: (mandateReason: MandateContext["mandateReason"]) => void;
+}) {
+  return (
+    <StepField label="Reason for hire" className="w-full sm:w-[240px]">
+      <Select
+        value={value}
+        onChange={(event) => onChange(event.target.value as MandateContext["mandateReason"])}
+      >
+        {Object.entries(MANDATE_REASON_LABELS).map(([reason, label]) => (
+          <option key={reason} value={reason}>
+            {label}
+          </option>
+        ))}
+      </Select>
+    </StepField>
   );
 }
 

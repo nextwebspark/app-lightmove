@@ -21,15 +21,6 @@ export type EmploymentType =
 /** The shared ladder — see lib/seniority.ts. Aliased so this feature's payloads read in one place. */
 export type PositionSeniority = SeniorityTier;
 
-export type HiringUrgency = "STANDARD" | "PRIORITY" | "URGENT";
-
-export type StrategicPriority =
-  | "CAPITAL_DISCIPLINE"
-  | "PORTFOLIO_GROWTH"
-  | "OPERATIONAL_EXCELLENCE"
-  | "GOVERNANCE_AND_CONTROLS"
-  | "TALENT_DEVELOPMENT";
-
 export type NoticeUnit = "DAYS" | "WEEKS" | "MONTHS";
 
 export type BaseSalaryMode = "ANNUAL" | "MONTHLY";
@@ -86,12 +77,11 @@ export interface PositionDetails {
   narrative: string | null;
 }
 
-/** Step 2. */
+/** Step 2. The priorities are free text a mandate writes, in the order it wrote them. */
 export interface MandateContext {
   mandateReason: MandateReason;
   businessDriver: string | null;
-  strategicPriorities: StrategicPriority[];
-  hiringUrgency: HiringUrgency;
+  strategicPriorities: string[];
   confidential: boolean;
   internalContext: string | null;
 }

@@ -30,7 +30,7 @@ import {
 import { StepRail } from "../components/StepRail";
 import { AssessmentStep } from "../components/steps/AssessmentStep";
 import { CompensationStep } from "../components/steps/CompensationStep";
-import { MandateContextStep } from "../components/steps/MandateContextStep";
+import { MandateContextStep, MandateReasonField } from "../components/steps/MandateContextStep";
 import { PositionDetailsStep } from "../components/steps/PositionDetailsStep";
 import { ReportingStructureStep } from "../components/steps/ReportingStructureStep";
 import { ReviewStep } from "../components/steps/ReviewStep";
@@ -278,9 +278,17 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
 
       <div className="flex flex-wrap items-start gap-[22px]">
         <div className="order-2 min-w-0 flex-[2_1_460px] md:order-1">
-          <div className="mb-[22px]">
-            <h2 className="text-[19px] font-bold tracking-[-0.01em] text-text">{step.heading}</h2>
-            <p className="mt-[5px] max-w-[62ch] text-[13px] text-text3">{step.subheading}</p>
+          <div className="mb-[22px] flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+            <div className="min-w-0">
+              <h2 className="text-[19px] font-bold tracking-[-0.01em] text-text">{step.heading}</h2>
+              <p className="mt-[5px] max-w-[62ch] text-[13px] text-text3">{step.subheading}</p>
+            </div>
+            {currentStep === "context" && (
+              <MandateReasonField
+                value={context.mandateReason}
+                onChange={(mandateReason) => changeContext({ mandateReason }, true)}
+              />
+            )}
           </div>
 
           {currentStep === "details" && (

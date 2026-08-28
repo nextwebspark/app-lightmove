@@ -3,7 +3,6 @@ import type { Position } from "../api/types";
 import { packageTotal } from "./compensation";
 import { directReportsOf, labelOfNode, managerOf } from "./orgChart";
 import {
-  HIRING_URGENCY_LABELS,
   MANDATE_REASON_LABELS,
   SENIORITY_LABELS,
   labelOf,
@@ -60,10 +59,15 @@ export const POSITION_STEPS: PositionStep[] = [
     subheading:
       "Why this mandate exists and the business drivers behind it. Internal only — never shown to candidates.",
     summary: (p) => MANDATE_REASON_LABELS[p.context.mandateReason],
-    detail: (p) =>
-      `${HIRING_URGENCY_LABELS[p.context.hiringUrgency]} · ${
-        p.context.confidential ? "Confidential" : "Standard"
-      }`,
+    detail: (p) => {
+      const priorities = p.context.strategicPriorities.length;
+      return [
+        p.context.confidential ? "Confidential" : "Standard",
+        priorities > 0 ? `${priorities} priorit${priorities === 1 ? "y" : "ies"}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    },
     isDone: (p) => Boolean(p.context.businessDriver?.trim()),
   },
   {

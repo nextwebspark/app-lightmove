@@ -1,9 +1,7 @@
 package app.lightmove.api.position.model;
 
-import app.lightmove.api.position.constant.HiringUrgency;
 import app.lightmove.api.position.constant.MandateReason;
-import app.lightmove.api.position.constant.StrategicPriority;
-import java.util.Set;
+import java.util.List;
 
 /**
  * Step two of the brief: why the mandate exists. Internal throughout — none of it is written for a
@@ -13,8 +11,7 @@ import java.util.Set;
 public record MandateContext(
         MandateReason mandateReason,
         String businessDriver,
-        Set<StrategicPriority> strategicPriorities,
-        HiringUrgency hiringUrgency,
+        List<String> strategicPriorities,
         boolean confidential,
         String internalContext
 ) {

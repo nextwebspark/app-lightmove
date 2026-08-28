@@ -19,12 +19,8 @@ import app.lightmove.api.position.model.PositionCriterion;
 import app.lightmove.api.position.model.PositionDetails;
 import app.lightmove.api.position.model.PositionOrgNode;
 import app.lightmove.api.position.model.ReportingStructure;
-import app.lightmove.api.position.constant.StrategicPriority;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.Collection;
-import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
@@ -78,7 +74,7 @@ public class PositionService {
         PositionBrief brief = briefs.require(workspaceId, projectId);
         brief.position().applyContext(new MandateContext(
                 request.mandateReason(), request.businessDriver(),
-                prioritiesOf(request.strategicPriorities()), request.hiringUrgency(),
+                orEmpty(request.strategicPriorities()),
                 request.confidential(), request.internalContext()));
         return saved(brief, userId, workspaceId, projectId, "context", httpRequest);
     }
@@ -191,13 +187,6 @@ public class PositionService {
             entry.detail("section", section);
         }
         entry.record();
-    }
-
-    /** An absent set and an empty one mean the same thing here: nothing selected. */
-    private static Set<StrategicPriority> prioritiesOf(Collection<StrategicPriority> selected) {
-        return selected == null || selected.isEmpty()
-                ? EnumSet.noneOf(StrategicPriority.class)
-                : EnumSet.copyOf(selected);
     }
 
     private static <T> List<T> orEmpty(List<T> values) {

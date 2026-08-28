@@ -56,7 +56,6 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.reporting.orgChart[1].mandateSeat").value(false))
                 .andExpect(jsonPath("$.compensation.currency").value("USD"))
                 .andExpect(jsonPath("$.compensation.baseSalaryMode").value("ANNUAL"))
-                .andExpect(jsonPath("$.context.hiringUrgency").value("STANDARD"))
                 .andExpect(jsonPath("$.assessment.criteria[0].fromBrief").value(true))
                 .andExpect(jsonPath("$.assessment.criteria[0].mode").value("REQUIRED"))
                 .andExpect(jsonPath("$.assessment.technical[0].name").value("Financial Reporting & Controls"))
@@ -123,10 +122,12 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
 
         putStep(admin, projectId, "context", """
                 {"mandateReason":"GROWTH_EXPANSION","businessDriver":"Carry the next capital phase.",
-                 "strategicPriorities":["CAPITAL_DISCIPLINE","GOVERNANCE_AND_CONTROLS"],
-                 "hiringUrgency":"URGENT","confidential":true,"internalContext":"Keep discreet"}""")
+                 "strategicPriorities":["Capital discipline","Lender confidence"],
+                 "confidential":true,"internalContext":"Keep discreet"}""")
                 .andExpect(jsonPath("$.context.mandateReason").value("GROWTH_EXPANSION"))
                 .andExpect(jsonPath("$.context.strategicPriorities.length()").value(2))
+                // The priorities are whatever the mandate wrote, in the order it wrote them.
+                .andExpect(jsonPath("$.context.strategicPriorities[1]").value("Lender confidence"))
                 .andExpect(jsonPath("$.context.confidential").value(true));
 
         String managerId = "11111111-1111-4111-8111-111111111111";
@@ -168,7 +169,8 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
 
         // Every step is stored independently: writing four of them leaves all four readable at once.
         JsonNode brief = readBrief(admin, projectId);
-        assertThat(brief.get("context").get("hiringUrgency").asString()).isEqualTo("URGENT");
+        assertThat(brief.get("context").get("businessDriver").asString())
+                .isEqualTo("Carry the next capital phase.");
         assertThat(brief.get("reporting").get("teamSize").asString())
                 .isEqualTo("38 across the finance function");
         assertThat(brief.get("reporting").get("orgChart").size()).isEqualTo(3);
@@ -190,7 +192,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
 
         putStep(admin, projectId, "context", """
                 {"mandateReason":"BACKFILL","businessDriver":"Incumbent retiring.",
-                 "strategicPriorities":["TALENT_DEVELOPMENT"],"hiringUrgency":"PRIORITY",
+                 "strategicPriorities":["Talent development"],
                  "confidential":false,"internalContext":null}""");
         putStep(admin, projectId, "compensation", """
                 {"currency":"SAR","salaryMin":1,"salaryMax":2,"baseSalaryMode":"ANNUAL",

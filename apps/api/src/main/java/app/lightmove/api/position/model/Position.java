@@ -4,12 +4,10 @@ import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.position.constant.BaseSalaryMode;
 import app.lightmove.api.position.constant.BonusBasis;
 import app.lightmove.api.position.constant.EmploymentType;
-import app.lightmove.api.position.constant.HiringUrgency;
 import app.lightmove.api.position.constant.IncentiveType;
 import app.lightmove.api.position.constant.MandateReason;
 import app.lightmove.api.position.constant.NoticeUnit;
 import app.lightmove.api.common.constant.Seniority;
-import app.lightmove.api.position.constant.StrategicPriority;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -24,10 +22,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 import lombok.AccessLevel;
@@ -93,13 +89,9 @@ public class Position extends BaseEntity {
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "app_lm_position_priority",
             joinColumns = @JoinColumn(name = "position_id"))
-    @Enumerated(EnumType.STRING)
-    @Column(name = "priority", nullable = false, length = 32)
-    private Set<StrategicPriority> strategicPriorities = EnumSet.noneOf(StrategicPriority.class);
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "hiring_urgency", nullable = false, length = 16)
-    private HiringUrgency hiringUrgency = HiringUrgency.STANDARD;
+    @OrderColumn(name = "sort_order")
+    @Column(name = "priority", nullable = false, length = 120)
+    private List<String> strategicPriorities = new ArrayList<>();
 
     @Column(name = "confidential", nullable = false)
     private boolean confidential;
@@ -203,11 +195,9 @@ public class Position extends BaseEntity {
     public void applyContext(MandateContext context) {
         this.mandateReason = context.mandateReason();
         this.businessDriver = context.businessDriver();
-        this.hiringUrgency = context.hiringUrgency();
         this.confidential = context.confidential();
         this.internalContext = context.internalContext();
-        this.strategicPriorities.clear();
-        this.strategicPriorities.addAll(context.strategicPriorities());
+        replace(this.strategicPriorities, context.strategicPriorities());
     }
 
     public void applyReporting(ReportingStructure reporting) {

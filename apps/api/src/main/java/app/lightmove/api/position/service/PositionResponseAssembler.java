@@ -20,7 +20,6 @@ import app.lightmove.api.position.repository.PositionDocumentRepository;
 import app.lightmove.api.core.security.model.User;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -68,8 +67,7 @@ class PositionResponseAssembler {
         return new MandateContextDto(
                 position.getMandateReason(),
                 position.getBusinessDriver(),
-                Set.copyOf(position.getStrategicPriorities()),
-                position.getHiringUrgency(),
+                List.copyOf(position.getStrategicPriorities()),
                 position.isConfidential(),
                 position.getInternalContext());
     }
