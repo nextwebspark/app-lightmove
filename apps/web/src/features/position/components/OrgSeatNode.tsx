@@ -1,8 +1,8 @@
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import type { OrgNode } from "../api/types";
 import { NODE_HEIGHT, NODE_WIDTH } from "../lib/orgChart";
-import { SEAT_ICONS, SeatActionButton } from "./OrgChartCanvas";
 
 export interface OrgSeatData extends Record<string, unknown> {
   seat: OrgNode;
@@ -73,24 +73,27 @@ export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
         {isRoot && (
           <SeatActionButton
             label="Add a manager above"
-            icon={SEAT_ICONS.add}
+            icon={ICONS.plus}
             onClick={() => data.onAddParent(seat.nodeId)}
           />
         )}
         {canRemove && (
           <SeatActionButton
             label="Remove this seat"
-            icon={SEAT_ICONS.remove}
+            icon={ICONS.close}
             tone="red"
             onClick={() => data.onRemove(seat.nodeId)}
           />
         )}
       </span>
 
-      <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100">
+      {/* Off to the side, not centred: the source handle sits at bottom-centre, and a button under it
+          swallows the click that was meant to start a connection — or, as it turned out, the other way
+          round, with the handle intercepting every press of the add button. */}
+      <span className="absolute -bottom-2.5 end-2 opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100">
         <SeatActionButton
           label={isMandate ? "Add a direct report" : "Add a seat below"}
-          icon={SEAT_ICONS.add}
+          icon={ICONS.plus}
           onClick={() => data.onAddChild(seat.nodeId)}
         />
       </span>
@@ -103,5 +106,35 @@ export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
 
       <Handle type="source" position={Position.Bottom} className="!size-2 !border-line !bg-panel2" />
     </div>
+  );
+}
+
+/** The small round control a seat wears for adding a neighbour or removing itself. */
+function SeatActionButton({
+  label,
+  icon,
+  tone = "sky",
+  onClick,
+}: {
+  label: string;
+  icon: string;
+  tone?: "sky" | "red";
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className={cn(
+        "grid size-5 place-items-center rounded-full border bg-panel transition",
+        tone === "red"
+          ? "border-line text-text3 hover:border-red hover:text-red"
+          : "border-line text-text3 hover:border-sky hover:text-sky",
+      )}
+    >
+      <Icon d={icon} size={11} />
+    </button>
   );
 }

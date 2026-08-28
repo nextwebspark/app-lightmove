@@ -2,19 +2,17 @@ import {
   Background,
   Controls,
   ReactFlow,
+  ReactFlowProvider,
+  useReactFlow,
   type Connection,
   type Edge,
   type Node,
   type NodeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useCallback, useMemo } from "react";
-import { Icon, ICONS } from "../../../components/layout/Icon";
-import { cn } from "../../../lib/cn";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { OrgNode } from "../api/types";
 import {
-  NODE_HEIGHT,
-  NODE_WIDTH,
   branchHoldsMandateSeat,
   childrenOf,
   layoutChart,
@@ -33,16 +31,24 @@ import { OrgSeatNode, type OrgSeatData } from "./OrgSeatNode";
  * Dragging a box stores where it was put. Anything never dragged is laid out from the tree, so
  * arranging one corner of a chart does not rearrange the rest.
  */
-export function OrgChartCanvas({
-  chart,
-  roleTitle,
-  onChange,
-}: {
+export function OrgChartCanvas(props: OrgChartCanvasProps) {
+  // The provider is what gives the canvas below access to the viewport — see useSeatInView.
+  return (
+    <ReactFlowProvider>
+      <OrgChart {...props} />
+    </ReactFlowProvider>
+  );
+}
+
+interface OrgChartCanvasProps {
   chart: OrgNode[];
   roleTitle: string;
   /** `immediate` for structural edits, which are decisions rather than typing. */
   onChange: (chart: OrgNode[], immediate?: boolean) => void;
-}) {
+}
+
+function OrgChart({ chart, roleTitle, onChange }: OrgChartCanvasProps) {
+  useSeatInView(chart.length);
   const patch = useCallback(
     (nodeId: string, changes: Partial<OrgNode>, immediate = false) =>
       onChange(
@@ -203,40 +209,26 @@ export function OrgChartCanvas({
   );
 }
 
+/**
+ * Brings a newly added seat into view.
+ *
+ * A chart wider than its frame puts the next seat outside it, and a button that appears to do nothing
+ * is worse than one that moves the view. Only a growing chart refits — dragging a box around must not
+ * rescale everything underneath the hand doing the dragging.
+ */
+function useSeatInView(seatCount: number) {
+  const { fitView } = useReactFlow();
+  const previousCount = useRef(seatCount);
+
+  useEffect(() => {
+    if (seatCount > previousCount.current) {
+      void fitView({ padding: 0.2, maxZoom: 1, duration: 200 });
+    }
+    previousCount.current = seatCount;
+  }, [seatCount, fitView]);
+}
+
 const NODE_TYPES = { orgSeat: OrgSeatNode };
 const FIT_VIEW = { padding: 0.2, maxZoom: 1 };
 /** The React Flow watermark is a paid-plan removal; hiding it is what the flag is for. */
 const PRO_OPTIONS = { hideAttribution: true };
-
-/** Exported for the seat node, which draws the same add affordance for children and for parents. */
-export function SeatActionButton({
-  label,
-  icon,
-  tone = "sky",
-  onClick,
-}: {
-  label: string;
-  icon: string;
-  tone?: "sky" | "red";
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className={cn(
-        "grid size-5 place-items-center rounded-full border bg-panel transition",
-        tone === "red"
-          ? "border-line text-text3 hover:border-red hover:text-red"
-          : "border-line text-text3 hover:border-sky hover:text-sky",
-      )}
-    >
-      <Icon d={icon} size={11} />
-    </button>
-  );
-}
-
-export const SEAT_ICONS = { add: ICONS.plus, remove: ICONS.close };
-export const SEAT_SIZE = { width: NODE_WIDTH, height: NODE_HEIGHT };
