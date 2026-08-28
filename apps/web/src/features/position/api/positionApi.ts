@@ -33,7 +33,10 @@ export function putContext(projectId: string, context: MandateContext): Promise<
 }
 
 export function putReporting(projectId: string, reporting: ReportingStructure): Promise<Position> {
-  return request<Position>(`${base(projectId)}/reporting`, { method: "PUT", body: reporting });
+  // The target date is the project's and this step only displays it, so it is dropped rather than
+  // echoed back: the server has no field for it, and sending one implies an owner this screen is not.
+  const { targetStart: _targetStart, ...editable } = reporting;
+  return request<Position>(`${base(projectId)}/reporting`, { method: "PUT", body: editable });
 }
 
 export function putCompensation(projectId: string, compensation: Compensation): Promise<Position> {

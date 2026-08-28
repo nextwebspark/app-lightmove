@@ -4,9 +4,10 @@
  * The Position screen is the only thing that reads it, and it edits the brief section by section.
  *
  * <p><b>The mandate owns two of the fields the screen shows.</b> The role title and the one target
- * date live on {@code app_lm_project}, and this package reads and writes them there. V8 retired the
- * position's own {@code start_target} for exactly that reason: two unlinked dates diverged, and the
- * date typed at project creation never reached the brief.
+ * date live on {@code app_lm_project}. The title is read and written there; the target date is only
+ * read — the project screen is the single place it is set, so a brief cannot move a date the rest of
+ * the workspace plans around. V8 retired the position's own {@code start_target} for exactly that
+ * reason: two unlinked dates diverged, and the date typed at project creation never reached the brief.
  *
  * <p><b>Nothing here freezes.</b> V38 retired the position lock and its {@code POSITION_UNLOCK} action
  * deliberately — a brief that had reached a readiness gate went read-only, and the mandate never

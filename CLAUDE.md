@@ -45,8 +45,8 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 `position` is the mandate's **brief** — what the role is, why it exists, what it pays and what a
 candidate is scored against. It owns `app_lm_position` and its owned lists, and it depends on `project`
-because the mandate keeps two of the fields the screen edits: the role title and the one target date
-(V8). Nothing else depends on it, except `project`'s `ReportService`, which still reads the position
+because the mandate keeps two of the fields the screen shows: the role title, which step one edits, and
+the one target date (V8), which the screen only displays — it is set on the project and nowhere else. Nothing else depends on it, except `project`'s `ReportService`, which still reads the position
 repository directly for the report's salary band — a known reverse edge left standing rather than
 disguised as a seam, and the reason to lift the report into its own package.
 

@@ -43,8 +43,9 @@ import org.springframework.transaction.annotation.Transactional;
  * nothing here refuses a band whose minimum exceeds its maximum or a panel that does not total 100.
  * Those are readings the screen offers, not conditions of storing what somebody wrote down.
  *
- * <p>Two of the fields the screen edits are the mandate's, not the brief's — the role title and the one
- * target date (V8) — so those two steps write through to the project row they are loaded with.
+ * <p>Two of the fields the screen shows are the mandate's, not the brief's. Step one edits the role
+ * title, so that step writes through to the project row it was loaded with. The one target date (V8)
+ * is read-only here — every read returns the project's, and no step writes it.
  */
 @Service
 @RequiredArgsConstructor
@@ -94,7 +95,6 @@ public class PositionService {
                                 node.canvasX(), node.canvasY()))
                         .toList(),
                 request.teamSize(), request.noticeValue(), request.noticeUnit()));
-        // The target date is the mandate's, read here and set on the project — see the request record.
         return saved(brief, userId, workspaceId, projectId, "reporting", httpRequest);
     }
 

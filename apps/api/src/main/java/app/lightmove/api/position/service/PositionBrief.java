@@ -4,9 +4,9 @@ import app.lightmove.api.position.model.Position;
 import app.lightmove.api.project.model.Project;
 
 /**
- * A brief and the mandate it belongs to, loaded together. The mandate is here because two of the
- * fields the Position screen edits live on it — the role title and the one target date (V8) — so
- * every read and every write of a step needs both rows in hand.
+ * A brief and the mandate it belongs to, loaded together. The mandate is here because the Position
+ * screen reads two fields off it: the role title, which step one also edits, and the one target date
+ * (V8), which the screen only displays — so a read of any step needs both rows in hand.
  */
 record PositionBrief(Project project, Position position) {
 }
