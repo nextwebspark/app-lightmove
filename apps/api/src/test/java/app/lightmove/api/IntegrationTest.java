@@ -26,12 +26,18 @@ import java.lang.annotation.Target;
  *
  * <p>Audit writes run inline here rather than on their own thread — see {@link SynchronousAuditWrites}
  * for why a test that reads {@code app_lm_audit_event} otherwise races the writer.
+ *
+ * <p>{@code application-test.yml} turns off the real Google GenAI auto-configuration (no GCP
+ * credentials in CI), so {@link StubChatModel} and {@link StubEmbeddingModel} stand in — otherwise
+ * {@code ChatClientConfig} and the {@code llm} services have no {@code ChatModel}/{@code
+ * EmbeddingModel} to wire and the whole context fails to load.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({TestcontainersConfig.class, SynchronousAuditWrites.class})
+@Import({TestcontainersConfig.class, SynchronousAuditWrites.class, StubChatModel.Config.class,
+        StubEmbeddingModel.Config.class})
 public @interface IntegrationTest {
 }

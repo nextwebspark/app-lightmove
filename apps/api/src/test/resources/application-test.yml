@@ -1,4 +1,14 @@
 spring:
+  ai:
+    model:
+      # No GCP ADC in CI, and no test should depend on a live Vertex AI call. This turns off
+      # spring-ai-starter-model-google-genai's auto-configuration entirely, so the shared
+      # IntegrationTest context never tries to build a real com.google.genai.Client. Tests that
+      # exercise the new LLM services use a hand-rolled ChatModel/EmbeddingModel double instead.
+      chat: none
+      embedding:
+        text: none
+
   jpa:
     hibernate:
       # `validate` here and nowhere else.

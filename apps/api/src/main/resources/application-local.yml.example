@@ -10,6 +10,11 @@
 #
 #   OAuth sign-in on either path, since the client credentials live here. Without them the Google and
 #   LinkedIn buttons are reported unavailable and you get password auth only.
+#
+# The Google GenAI (Vertex AI) integration is different: it needs `gcloud auth application-default
+# login` on EVERY path, including plain `npm run dev` — there is no local emulator for Vertex AI,
+# and nothing about it lives in this file (no API key; Vertex AI mode authenticates via ADC, see
+# application.yml's spring.ai.google.genai.* block).
 
 spring:
   datasource:
