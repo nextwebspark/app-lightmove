@@ -112,6 +112,25 @@ spring:
 Without this, `spring-ai-starter-model-google-genai`'s auto-configuration tries to build a real
 `com.google.genai.Client` for every `@SpringBootTest`, which fails with no GCP ADC in CI.
 
+**This alone wasn't enough — CI still failed** after the PR went up, with `GoogleGenAiEmbeddingConnectionAutoConfiguration`
+throwing `Failed to get application default credentials`. `spring.ai.model.embedding.text=none`
+only disables `GoogleGenAiTextEmbeddingAutoConfiguration` (the `EmbeddingModel` bean); the
+`Client`-building "connection details" bean lives in a sibling autoconfiguration class gated only
+by `@ConditionalOnClass`, so it still ran unconditionally and resolved ADC eagerly in its
+constructor. It passed locally only because the dev machine already had `gcloud auth
+application-default login` set up — CI has none. The chat side has no equivalent gap:
+`GoogleGenAiChatAutoConfiguration` builds its `Client` inside the same class
+`spring.ai.model.chat=none` already disables. Fixed by explicitly excluding the connection class:
+```yaml
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiEmbeddingConnectionAutoConfiguration
+```
+Verified by rerunning the full suite with ADC hidden locally (pointing `APPDATA` at an empty
+directory) to genuinely reproduce the CI failure before and after this fix, rather than trusting a
+local run that had working credentials the whole time.
+
 **`apps/api/src/test/java/app/lightmove/api/StubChatModel.java` and `StubEmbeddingModel.java`** —
 required in addition to disabling the real auto-configuration, not originally anticipated: turning
 off `spring.ai.model.chat`/`spring.ai.model.embedding.text` removes the `ChatModel`/`EmbeddingModel`
