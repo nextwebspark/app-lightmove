@@ -9,6 +9,18 @@ spring:
       embedding:
         text: none
 
+  autoconfigure:
+    exclude:
+      # spring.ai.model.embedding.text=none above only disables GoogleGenAiTextEmbeddingAutoConfiguration
+      # (the EmbeddingModel bean). It does NOT disable this sibling class, which builds the
+      # underlying com.google.genai.Client eagerly and unconditionally whenever the embedding
+      # starter is on the classpath — that Client constructor resolves Application Default
+      # Credentials immediately, so with no ADC in CI the whole context failed to load even
+      # though nothing in the test suite ever uses the embedding connection. The chat side has no
+      # equivalent gap: GoogleGenAiChatAutoConfiguration builds its Client inside the same class
+      # spring.ai.model.chat=none already turns off.
+      - org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiEmbeddingConnectionAutoConfiguration
+
   jpa:
     hibernate:
       # `validate` here and nowhere else.
