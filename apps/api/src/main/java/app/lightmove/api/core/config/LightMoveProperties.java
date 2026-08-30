@@ -18,5 +18,6 @@ public record LightMoveProperties(
         EmailSettings email,
         WebSettings web,
         CompanySettings company,
-        PositionSettings position
+        PositionSettings position,
+        VendorSettings vendor
 ) {}

@@ -2,6 +2,7 @@ package app.lightmove.api.core.error.handler;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.service.Problems;
+import app.lightmove.api.core.vendor.model.VendorException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
@@ -191,6 +192,27 @@ public class GlobalExceptionHandler {
         log.debug("Unacceptable Accept header at {} {} (we produce: {})",
                 request.getMethod(), request.getRequestURI(), ex.getSupportedMediaTypes());
         return problem(ErrorCode.NOT_ACCEPTABLE, ErrorCode.NOT_ACCEPTABLE.defaultMessage());
+    }
+
+    /**
+     * A paid third-party API did not give us what we asked for.
+     *
+     * <p>Reaching here means an adapter let the failure travel rather than translating it, which is
+     * fine — this is the safety net that keeps it from being reported as our own 500. It is logged at
+     * warn rather than error and without a stack trace, because a vendor being throttled or briefly
+     * down is a fact about the day, not a defect to page someone about; the classification and status
+     * are the whole diagnostic.
+     *
+     * <p><b>The exception is never logged as an object.</b> A vendor's error body echoes the query
+     * back, so it carries the names and companies we asked about — and a stack trace here would put
+     * that into structured logs with no retention or redaction story behind them. The same rule
+     * {@code ResendEmailSender} follows when it logs a recipient and never a body.
+     */
+    @ExceptionHandler(VendorException.class)
+    public ProblemDetail handleVendorFailure(VendorException ex, HttpServletRequest request) {
+        log.warn("[{}] {} {} at {} {}", ErrorCode.UPSTREAM_UNAVAILABLE, ex.getCall().label(),
+                ex.getFailure().describe(), request.getMethod(), request.getRequestURI());
+        return problem(ErrorCode.UPSTREAM_UNAVAILABLE, ErrorCode.UPSTREAM_UNAVAILABLE.defaultMessage());
     }
 
     /**

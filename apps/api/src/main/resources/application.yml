@@ -207,6 +207,41 @@ lightmove:
       # truncated. Above CompanyListSettings.MAX_BULK_ADD_LIMIT the application refuses to start.
       bulk-add-limit: ${COMPANY_BULK_ADD_LIMIT:200}
 
+  # How this application talks to paid third-party APIs. Every key here is spelled out rather than
+  # left to the record's @DefaultValue, because @Retryable reads the retry knobs through ${...}
+  # placeholders — and a placeholder resolves against the property sources, not against the binding.
+  # A key present only as a Java default would fail to resolve and break every annotated method.
+  vendor:
+    connect-timeout: ${VENDOR_CONNECT_TIMEOUT:5s}
+    read-timeout: ${VENDOR_READ_TIMEOUT:15s}
+    # Retries AFTER the first attempt, so 2 is at most three calls. Kept low deliberately: every
+    # attempt against a metered API is billable, and a vendor having a bad minute is not made better
+    # by us asking it ten more times.
+    max-retries: ${VENDOR_MAX_RETRIES:2}
+    retry-delay: ${VENDOR_RETRY_DELAY:500ms}
+    retry-multiplier: ${VENDOR_RETRY_MULTIPLIER:2.0}
+    # Without jitter, every caller throttled in the same burst comes back in the same instant and is
+    # throttled again together.
+    retry-jitter: ${VENDOR_RETRY_JITTER:250ms}
+    retry-max-delay: ${VENDOR_RETRY_MAX_DELAY:5s}
+    # Past this, a vendor's Retry-After is honoured by giving up rather than by sleeping. Spring's
+    # backoff cannot read the header, so the choice is between ignoring what they asked and holding a
+    # request thread for as long as they asked for; neither is worth more than a fast, honest failure.
+    retry-after-ceiling: ${VENDOR_RETRY_AFTER_CEILING:2s}
+    # The longest a call waits for its own rate-limit permit. Bounded because virtual threads apply
+    # no backpressure of their own: an unbounded wait queues a burst behind the bucket indefinitely.
+    permit-max-wait: ${VENDOR_PERMIT_MAX_WAIT:2s}
+
+    # Coresignal is the source of PEOPLE. The company universe is ours and stays ours; Coresignal is
+    # handed a company we already hold and asked who works there. Off by default so a fresh clone and
+    # the test suite run with no account and no cost.
+    coresignal:
+      enabled: ${CORESIGNAL_ENABLED:false}
+      api-key: ${CORESIGNAL_API_KEY:}
+      base-url: ${CORESIGNAL_BASE_URL:https://api.coresignal.com}
+      # Their published per-key cap. Calls are paced to it rather than discovering it as 429s.
+      requests-per-second: ${CORESIGNAL_REQUESTS_PER_SECOND:18}
+
   position:
     document:
       # The position description attached to a brief. Stored in the row, so the bytes cross the same

@@ -191,6 +191,11 @@ core/
   error/       constant/(ErrorCode)  model/(ApiException)  service/(Problems)
                handler/(GlobalExceptionHandler, ProblemAccessDeniedHandler)
   ratelimit/   service/(RateLimiter, Bucket4jRateLimiter, RateLimitGuard)
+  vendor/      constant/(VendorFailureKind)  model/(VendorCall, VendorFailure, VendorException,
+               VendorClientSpec, VendorAttempt, VendorAttemptResult)
+               service/(VendorClientFactory, VendorCallGuard, VendorRetryPredicate,
+               VendorAttemptChain, VendorRateLimiter)
+               coresignal/ model/ service/ config/    (the worked example adapter)
   persistence/ model/(BaseEntity)
   logging/     service/(CorrelationId, CorrelationIdFilter)
   config/      LightMoveProperties (root record) + one *Settings record per branch,
@@ -299,6 +304,16 @@ Ports worth knowing: `EmailSender` (`core/email/service`; `LogEmailSender` print
 the console — the default, so a fresh clone is fully testable with no provider account; `ResendEmailSender`
 for prod) and `RateLimiter` (`core/ratelimit/service`; in-memory Bucket4j — swap for Redis before running
 more than one instance).
+
+**Calling a paid third-party API goes through `core/vendor`, always.** `VendorClientFactory` builds the
+client (timeouts on both ends, key in a header, correlation id, and every non-2xx already classified
+as a `VendorFailureKind`); `VendorCallGuard` wraps one attempt (rate-limit permit, plus the two
+failures no status handler can see — a transport error and an unreadable body); `@Retryable` naming
+`VendorRetryPredicate` decides what is worth repeating; `VendorAttemptChain` is the endpoint cascade,
+advancing only on "no answer" and aborting on anything else. **Retry belongs inside one attempt and
+the cascade outside it** — the other order re-pays for every step. `core/vendor/coresignal` is the
+worked example every new adapter copies. Never write `RestClient` against a vendor directly, and
+never call one inside `@Transactional`.
 
 ## Conventions
 

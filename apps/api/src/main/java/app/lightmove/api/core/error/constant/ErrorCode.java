@@ -163,6 +163,18 @@ public enum ErrorCode {
     /** An upload arrived as a document type this endpoint does not accept. */
     UNSUPPORTED_FILE_TYPE(HttpStatus.BAD_REQUEST, "That file type is not supported"),
 
+    /**
+     * A third-party data vendor did not answer, or answered with a refusal we cannot route around —
+     * out of credits, throttled, rejecting our key. Distinct from {@link #INTERNAL_ERROR} because
+     * nothing here is broken on our side and the caller may usefully try later, and because the two
+     * want different people: a 500 pages whoever ships the code, this pages whoever owns the account.
+     *
+     * <p>What the vendor actually said never reaches the client. Their error bodies echo the query
+     * back, so they carry the names and companies we asked about.
+     */
+    UPSTREAM_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
+            "A data provider is unavailable right now. Please try again shortly"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;
