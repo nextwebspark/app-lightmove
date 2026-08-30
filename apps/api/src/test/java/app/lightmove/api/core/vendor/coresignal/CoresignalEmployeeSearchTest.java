@@ -47,11 +47,30 @@ class CoresignalEmployeeSearchTest {
         CoresignalSettings config = new CoresignalSettings(true, "test-key", coresignal.baseUrl(), 0);
         LightMoveProperties properties = new LightMoveProperties(null, null, null, null, null, vendorSettings);
 
-        VendorCallGuard guard = new VendorCallGuard(new VendorRateLimiter(), properties);
+        VendorRateLimiter rateLimiter = new VendorRateLimiter();
+        VendorCallGuard guard = new VendorCallGuard(rateLimiter, properties);
         CoresignalEmployeeClient client = new CoresignalEmployeeClient(
-                config, vendorSettings, new VendorClientFactory(properties), guard, RestClient.builder());
+                config, vendorSettings, new VendorClientFactory(properties, rateLimiter),
+                guard, RestClient.builder());
 
         search = new CoresignalEmployeeSearch(client);
+    }
+
+    /** A second client against the same stub, for the tests that care about pacing. */
+    private CoresignalEmployeeClient clientWith(int requestsPerSecond, Duration permitMaxWait) {
+        VendorSettings settings = new VendorSettings(
+                Duration.ofSeconds(2), Duration.ofSeconds(2),
+                0, Duration.ofMillis(1), 1.0, Duration.ZERO, Duration.ofMillis(10),
+                Duration.ofSeconds(2), permitMaxWait, null);
+        LightMoveProperties properties = new LightMoveProperties(null, null, null, null, null, settings);
+
+        VendorRateLimiter rateLimiter = new VendorRateLimiter();
+        return new CoresignalEmployeeClient(
+                new CoresignalSettings(true, "test-key", coresignal.baseUrl(), requestsPerSecond),
+                settings,
+                new VendorClientFactory(properties, rateLimiter),
+                new VendorCallGuard(rateLimiter, properties),
+                RestClient.builder());
     }
 
     @AfterEach
@@ -121,5 +140,45 @@ class CoresignalEmployeeSearchTest {
 
         assertThat(found.isAnswered()).isFalse();
         assertThat(coresignal.requestCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("the spec's published rate is what actually paces the calls")
+    void theSpecsRateIsTheOneThatPaces() {
+        coresignal.willAnswer(200, "[401]");
+
+        // One request per second, and no willingness to wait for the second permit. If the spec's
+        // figure were decorative — as it was before VendorClientFactory registered it — both calls
+        // would sail through and a future adapter would hammer a vendor at whatever rate it liked.
+        CoresignalEmployeeClient paced = clientWith(1, Duration.ofMillis(1));
+
+        assertThat(paced.atCompanyLinkedInUrl("https://www.linkedin.com/company/acme-gulf")).isPresent();
+
+        assertThatThrownBy(() -> paced.atCompanyLinkedInUrl("https://www.linkedin.com/company/acme-gulf"))
+                .isInstanceOf(VendorException.class)
+                .extracting(failure -> ((VendorException) failure).getFailure().kind())
+                .isEqualTo(VendorFailureKind.RATE_LIMITED);
+
+        // The refused call never reached the vendor, which is the whole point of pacing.
+        assertThat(coresignal.requestCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a 200 whose body is the wrong shape is malformed, not a timeout, and stops the chain")
+    void anUnreadableBodyIsClassifiedRatherThanMistakenForATimeout() {
+        coresignal.willAnswer(200, "{\"unexpected\":\"shape\"}");
+
+        // Pinned against the real client rather than a hand-built exception, because this failure
+        // never reaches the status handler — the response was a 200 — and its classification depends
+        // on what Spring and Jackson actually wrap a mapping failure as. Jackson 3's exceptions
+        // extend RuntimeException rather than IOException, so they miss the transport branch; that is
+        // a detail of the version we are on, and this is the test that notices if it changes.
+        assertThatThrownBy(() -> search.at("https://www.linkedin.com/company/acme-gulf", "acme.com"))
+                .isInstanceOf(VendorException.class)
+                .extracting(failure -> ((VendorException) failure).getFailure().kind())
+                .isEqualTo(VendorFailureKind.MALFORMED_RESPONSE);
+
+        // Their contract changed; asking the next endpoint gets the same broken body.
+        assertThat(coresignal.requestCount()).isEqualTo(1);
     }
 }

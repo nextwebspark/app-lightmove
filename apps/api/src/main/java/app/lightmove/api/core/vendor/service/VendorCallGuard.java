@@ -45,8 +45,10 @@ public class VendorCallGuard {
         this.settings = properties.vendor();
     }
 
-    public <T> T call(VendorCall call, int requestsPerSecond, Supplier<T> attempt) {
-        if (!rateLimiter.tryAcquire(call.vendor(), requestsPerSecond, settings.permitMaxWait())) {
+    public <T> T call(VendorCall call, Supplier<T> attempt) {
+        // The rate itself came from the vendor's spec when its client was built, so there is exactly
+        // one place it is configured and no way for a caller to pass a different one by mistake.
+        if (!rateLimiter.tryAcquire(call.vendor(), settings.permitMaxWait())) {
             throw new VendorException(call, VendorFailure.of(VendorFailureKind.RATE_LIMITED),
                     "no permit within " + settings.permitMaxWait());
         }

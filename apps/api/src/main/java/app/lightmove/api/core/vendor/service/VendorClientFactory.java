@@ -47,13 +47,19 @@ public class VendorClientFactory {
     private static final int ERROR_BODY_SNIPPET_LIMIT = 512;
 
     private final VendorSettings settings;
+    private final VendorRateLimiter rateLimiter;
 
-    public VendorClientFactory(LightMoveProperties properties) {
+    public VendorClientFactory(LightMoveProperties properties, VendorRateLimiter rateLimiter) {
         this.settings = properties.vendor();
+        this.rateLimiter = rateLimiter;
     }
 
     public RestClient create(VendorClientSpec spec, RestClient.Builder builder) {
         requireUsable(spec);
+
+        // Building the client is the moment the vendor's rate is known, so it is the moment to
+        // declare it. Leaving this to the adapter is what made the spec's own figure decorative.
+        rateLimiter.pace(spec.vendor(), spec.requestsPerSecond());
 
         return builder
                 .requestFactory(timeoutBoundFactory(spec))

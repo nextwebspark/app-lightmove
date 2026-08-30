@@ -4,7 +4,6 @@ import app.lightmove.api.core.vendor.coresignal.model.CoresignalEmployeeReferenc
 import app.lightmove.api.core.vendor.model.VendorAttemptResult;
 import app.lightmove.api.core.vendor.service.VendorAttemptChain;
 import java.util.List;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -26,6 +25,11 @@ public class CoresignalEmployeeSearch {
     private final CoresignalEmployeeClient client;
 
     /**
+     * Who Coresignal has working at this company, asked the precise way first.
+     *
+     * <p>An identifier we do not hold is simply a step that answers "nobody" — the client spends
+     * nothing on a blank one — so a company with only a domain costs exactly one call.
+     *
      * @param companyLinkedInUrl the company's own LinkedIn URL, or null if we do not hold one
      * @param companyDomain      its domain, used only when the LinkedIn URL found nobody
      * @return who was found and which lookup found them — the second half being provenance worth
@@ -34,17 +38,8 @@ public class CoresignalEmployeeSearch {
      */
     public VendorAttemptResult<List<CoresignalEmployeeReference>> at(String companyLinkedInUrl, String companyDomain) {
         return VendorAttemptChain.<List<CoresignalEmployeeReference>>forLookup("employees at a target company")
-                .attempt("linkedin-url", () -> hasText(companyLinkedInUrl)
-                        ? client.atCompanyLinkedInUrl(companyLinkedInUrl)
-                        : Optional.empty())
-                .attempt("website", () -> hasText(companyDomain)
-                        ? client.atCompanyWebsite(companyDomain)
-                        : Optional.empty())
+                .attempt("linkedin-url", () -> client.atCompanyLinkedInUrl(companyLinkedInUrl))
+                .attempt("website", () -> client.atCompanyWebsite(companyDomain))
                 .run();
-    }
-
-    /** A company we hold no identifier for is a step with nothing to ask, not a call worth paying for. */
-    private static boolean hasText(String value) {
-        return value != null && !value.isBlank();
     }
 }

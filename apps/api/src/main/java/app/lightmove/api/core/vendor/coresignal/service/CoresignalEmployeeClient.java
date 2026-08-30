@@ -52,13 +52,11 @@ public class CoresignalEmployeeClient {
 
     private final RestClient client;
     private final VendorCallGuard guard;
-    private final int requestsPerSecond;
 
     public CoresignalEmployeeClient(CoresignalSettings config, VendorSettings vendorSettings,
                                     VendorClientFactory clientFactory, VendorCallGuard guard,
                                     RestClient.Builder builder) {
         this.guard = guard;
-        this.requestsPerSecond = config.requestsPerSecond();
         this.client = clientFactory.create(new VendorClientSpec(
                 VENDOR,
                 config.baseUrl(),
@@ -88,7 +86,7 @@ public class CoresignalEmployeeClient {
             maxDelayString = "${lightmove.vendor.retry-max-delay}")
     public Optional<List<CoresignalEmployeeReference>> atCompanyLinkedInUrl(String companyLinkedInUrl) {
         return search("employee-search-by-company-linkedin-url",
-                Map.of("active_experience_company_linkedin_url", companyLinkedInUrl));
+                "active_experience_company_linkedin_url", companyLinkedInUrl);
     }
 
     /** The looser way, for a company whose LinkedIn URL we do not hold. */
@@ -101,20 +99,28 @@ public class CoresignalEmployeeClient {
             maxDelayString = "${lightmove.vendor.retry-max-delay}")
     public Optional<List<CoresignalEmployeeReference>> atCompanyWebsite(String companyDomain) {
         return search("employee-search-by-company-website",
-                Map.of("active_experience_company_website", companyDomain));
+                "active_experience_company_website", companyDomain);
     }
 
     /**
      * A search spends credits but changes nothing, so it is a read: safe to repeat, which is what
      * makes a timeout worth retrying rather than a possible double charge.
      */
-    private Optional<List<CoresignalEmployeeReference>> search(String operation, Map<String, String> filter) {
+    private Optional<List<CoresignalEmployeeReference>> search(String operation, String filterField, String value) {
+        // A company we hold no identifier for is a question with nothing in it. Answering "nobody"
+        // here rather than asking the caller to check first is what keeps the guarantee whole: every
+        // public method on this class either returns an answer or throws a classified
+        // VendorException, and never a NullPointerException from a filter built out of a null.
+        if (value == null || value.isBlank()) {
+            return Optional.empty();
+        }
+
         VendorCall call = VendorCall.read(VENDOR, operation);
 
-        return guard.call(call, requestsPerSecond, () -> {
+        return guard.call(call, () -> {
             long[] ids = client.post()
                     .uri(SEARCH_PATH)
-                    .body(filter)
+                    .body(Map.of(filterField, value))
                     .retrieve()
                     .body(long[].class);
 

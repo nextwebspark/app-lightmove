@@ -1,10 +1,10 @@
 package app.lightmove.api.core.vendor.service;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Component;
 
 /**
@@ -14,6 +14,17 @@ import org.springframework.stereotype.Component;
  * to "may this caller go again?" is yes or no and a no is a 429 we send. Outbound, the answer is
  * "not yet" — a call held back for 80 ms costs nothing, where the 429 we would otherwise have earned
  * costs a round trip and a retry. So this one waits.
+ *
+ * <p><b>A vendor is paced from the moment its client is built, and only then.</b>
+ * {@link VendorClientFactory} registers the rate off the {@code VendorClientSpec}, which makes the
+ * spec the single place that number is written. An earlier draft passed it per call instead, which
+ * meant a spec could carry a rate that nothing read — an adapter author who set it and trusted it
+ * would have shipped completely unpaced calls, silently.
+ *
+ * <p>A plain map rather than a bounded cache, unlike the inbound limiter. Its keys are
+ * attacker-supplied (an IP, an email) so an unbounded map is itself a denial of service; these are
+ * vendor names from our own configuration, a handful at most. Eviction would be the real hazard here:
+ * a dropped entry does not merely forget a counter, it silently un-paces the vendor.
  *
  * <p><b>The wait is bounded, and that bound is the point.</b> Bucket4j's {@code consume} reserves
  * tokens with no ceiling: the bucket goes negative and the caller parks for the full deficit. With
@@ -28,22 +39,30 @@ import org.springframework.stereotype.Component;
 @Component
 public class VendorRateLimiter {
 
-    /** Vendors are ours, not attacker-supplied, so this is a leak guard rather than a defence. */
-    private static final int MAX_TRACKED_VENDORS = 64;
-
-    private final Cache<String, Bucket> buckets = Caffeine.newBuilder()
-            .maximumSize(MAX_TRACKED_VENDORS)
-            .build();
+    private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 
     /**
-     * @param requestsPerSecond the vendor's cap; zero or less leaves the call unpaced
-     * @return true once a permit is held; false if none came free within {@code maxWait}
+     * Declares how fast this vendor may be called. Called once, when its client is built.
+     *
+     * @param requestsPerSecond the vendor's published cap; zero or less leaves it unpaced
      */
-    public boolean tryAcquire(String vendor, int requestsPerSecond, Duration maxWait) {
+    public void pace(String vendor, int requestsPerSecond) {
         if (requestsPerSecond <= 0) {
+            buckets.remove(vendor);
+            return;
+        }
+        buckets.put(vendor, newBucket(requestsPerSecond));
+    }
+
+    /**
+     * @return true once a permit is held — including for a vendor nobody paced; false only when a
+     *         paced vendor had none free within {@code maxWait}
+     */
+    public boolean tryAcquire(String vendor, Duration maxWait) {
+        Bucket bucket = buckets.get(vendor);
+        if (bucket == null) {
             return true;
         }
-        Bucket bucket = buckets.get(vendor, ignored -> newBucket(requestsPerSecond));
         try {
             return bucket.asBlocking().tryConsume(1, maxWait);
         } catch (InterruptedException ex) {
