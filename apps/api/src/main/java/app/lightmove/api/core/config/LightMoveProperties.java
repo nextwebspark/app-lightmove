@@ -19,5 +19,7 @@ public record LightMoveProperties(
         WebSettings web,
         CompanySettings company,
         PositionSettings position,
-        LlmSettings llm
+        LlmSettings llm,
+        CustomColumnSettings customColumn,
+        SpreadsheetImportSettings spreadsheetImport
 ) {}

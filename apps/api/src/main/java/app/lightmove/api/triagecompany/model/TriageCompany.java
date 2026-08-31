@@ -3,6 +3,7 @@ package app.lightmove.api.triagecompany.model;
 import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.customcolumn.model.CustomFieldValues;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -12,6 +13,8 @@ import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * A company a mandate has taken a position on — the row "Add to Universe" writes, the Companies
@@ -95,6 +98,15 @@ public class TriageCompany extends BaseEntity {
     @Column(name = "logo_url")
     private String logoUrl;
 
+    /**
+     * Values for this project's COMPANY custom columns, keyed by the column's {@code field_key}. The
+     * definitions live in {@code customcolumn}; nothing here validates a key, because
+     * {@code CustomColumnService.applyTo} is the only thing that ever writes this field.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "custom_fields", nullable = false)
+    private CustomFieldValues customFields = CustomFieldValues.empty();
+
     @Column(name = "added_by", nullable = false, updatable = false)
     private UUID addedBy;
 
@@ -159,6 +171,15 @@ public class TriageCompany extends BaseEntity {
 
     public void moveTo(TriageCompanyStatus newStatus) {
         this.status = newStatus;
+    }
+
+    /**
+     * Replaces the whole custom-column bag. Whole rather than per-key because the caller has already
+     * merged it: {@code CustomColumnService.applyTo} decides which keys are real and what an absent
+     * one means, and an entity that also had an opinion would be a second place to get it wrong.
+     */
+    public void describeCustomFields(CustomFieldValues values) {
+        this.customFields = values == null ? CustomFieldValues.empty() : values;
     }
 
     /** Blank clears the note rather than storing an empty string, so "has a note" stays a null check. */

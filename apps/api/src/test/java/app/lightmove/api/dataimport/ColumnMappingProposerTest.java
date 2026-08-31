@@ -1,0 +1,210 @@
+package app.lightmove.api.dataimport;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.config.SpreadsheetImportSettings;
+import app.lightmove.api.dataimport.constant.ImportTargetField;
+import app.lightmove.api.dataimport.model.ParsedSheet;
+import app.lightmove.api.dataimport.model.ProposedColumnMappings;
+import app.lightmove.api.dataimport.model.SheetColumn;
+import app.lightmove.api.dataimport.service.ColumnMappingProposer;
+import app.lightmove.api.dataimport.service.HeuristicColumnMatcher;
+import java.util.ArrayList;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+
+/**
+ * What is sent to the model, and what happens when it cannot be reached.
+ *
+ * <p>The first is a privacy guarantee rather than an implementation detail: a spreadsheet of
+ * executives is client and candidate PII, so {@code sendsNoCellValues} is the test that fails if
+ * anyone ever "improves" the prompt by pasting a few rows into it.
+ */
+class ColumnMappingProposerTest {
+
+    @Test
+    @DisplayName("sends headers and value shapes, and no cell values at all")
+    void sendsNoCellValues() {
+        RecordingChatModel model = new RecordingChatModel("""
+                {"columns":[{"header":"Contact","targetField":"candidateEmail"}]}
+                """);
+        ColumnMappingProposer proposer = proposerWith(model, false);
+
+        proposer.propose(sheetWithValues(), List.of());
+
+        String sent = model.lastPrompt();
+        assertThat(sent).contains("Contact").contains("email addresses");
+        assertThat(sent)
+                .as("a candidate's details must never leave the process")
+                .doesNotContain("layla@acwa.example")
+                .doesNotContain("Layla Haddad")
+                .doesNotContain("ACWA Power");
+    }
+
+    @Test
+    @DisplayName("sends sample values only when an operator has explicitly turned them on")
+    void sendsSamplesOnlyWhenAsked() {
+        RecordingChatModel model = new RecordingChatModel("""
+                {"columns":[{"header":"Contact","targetField":"candidateEmail"}]}
+                """);
+
+        proposerWith(model, true).propose(sheetWithValues(), List.of());
+
+        assertThat(model.lastPrompt()).contains("layla@acwa.example");
+    }
+
+    @Test
+    @DisplayName("takes the model's answer over the heuristic's guess")
+    void appliesTheModelsAnswer() {
+        // "Contact" matches CANDIDATE_NAME by synonym, but the column holds email addresses. This is
+        // exactly the disambiguation the model is asked for, and the reason the value shape is sent.
+        RecordingChatModel model = new RecordingChatModel("""
+                {"columns":[{"header":"Contact","targetField":"candidateEmail"}]}
+                """);
+
+        ProposedColumnMappings proposed = proposerWith(model, false).propose(sheetWithValues(), List.of());
+
+        assertThat(proposed.byModel()).isTrue();
+        assertThat(proposed.mappings().getFirst().field()).isEqualTo(ImportTargetField.CANDIDATE_EMAIL);
+    }
+
+    @Test
+    @DisplayName("falls back to the heuristic, and says so, when the model cannot be reached")
+    void fallsBackWhenTheModelFails() {
+        // The ordinary case on a machine with no Application Default Credentials, which is every
+        // fresh clone. An import must still work there.
+        ColumnMappingProposer proposer = proposerWith(new ThrowingChatModel(), false);
+
+        ProposedColumnMappings proposed = proposer.propose(sheetOf(
+                column(0, "Company Name", SheetColumn.ValueShape.SHORT_TEXT)), List.of());
+
+        assertThat(proposed.byModel()).isFalse();
+        assertThat(proposed.mappings().getFirst().field()).isEqualTo(ImportTargetField.COMPANY_NAME);
+    }
+
+    @Test
+    @DisplayName("matches the answer to columns by header, never by position")
+    void matchesAnswersByHeader() {
+        // A model that drops or reorders an entry would otherwise shift every mapping after it onto
+        // the wrong column — the one failure where a plausible answer writes a whole file into the
+        // wrong fields.
+        RecordingChatModel model = new RecordingChatModel("""
+                {"columns":[
+                  {"header":"Email","targetField":"candidateEmail"},
+                  {"header":"Company","targetField":"companyName"}
+                ]}
+                """);
+
+        ProposedColumnMappings proposed = proposerWith(model, false).propose(sheetOf(
+                column(0, "Company", SheetColumn.ValueShape.SHORT_TEXT),
+                column(1, "Email", SheetColumn.ValueShape.EMAIL)), List.of());
+
+        assertThat(proposed.mappings().get(0).field()).isEqualTo(ImportTargetField.COMPANY_NAME);
+        assertThat(proposed.mappings().get(1).field()).isEqualTo(ImportTargetField.CANDIDATE_EMAIL);
+    }
+
+    @Test
+    @DisplayName("a field the model claims twice goes to the first column, not the last")
+    void refusesADoubleClaim() {
+        RecordingChatModel model = new RecordingChatModel("""
+                {"columns":[
+                  {"header":"Email","targetField":"candidateEmail"},
+                  {"header":"Work Email","targetField":"candidateEmail"}
+                ]}
+                """);
+
+        ProposedColumnMappings proposed = proposerWith(model, false).propose(sheetOf(
+                column(0, "Email", SheetColumn.ValueShape.EMAIL),
+                column(1, "Work Email", SheetColumn.ValueShape.EMAIL)), List.of());
+
+        assertThat(proposed.mappings().get(0).field()).isEqualTo(ImportTargetField.CANDIDATE_EMAIL);
+        assertThat(proposed.mappings().get(1).isCustom()).isTrue();
+    }
+
+    @Test
+    @DisplayName("the model may not discard a column that has values in it")
+    void keepsAColumnTheModelWantedToDrop() {
+        // Ignoring an empty column is an easy agreement. Discarding a column full of data is not the
+        // model's call — the heuristic's custom column stands and the user decides in the mapping step.
+        RecordingChatModel model = new RecordingChatModel("""
+                {"columns":[{"header":"Ethnicity"}]}
+                """);
+
+        ProposedColumnMappings proposed = proposerWith(model, false).propose(sheetOf(
+                column(0, "Ethnicity", SheetColumn.ValueShape.SHORT_TEXT)), List.of());
+
+        assertThat(proposed.mappings().getFirst().isIgnored()).isFalse();
+        assertThat(proposed.mappings().getFirst().customLabel()).isEqualTo("Ethnicity");
+    }
+
+    private static ColumnMappingProposer proposerWith(ChatModel model, boolean sendSamples) {
+        Resource prompt = new ByteArrayResource("map the columns".getBytes());
+        return new ColumnMappingProposer(ChatClient.builder(model).build(), new HeuristicColumnMatcher(),
+                prompt, propertiesWith(sendSamples));
+    }
+
+    private static LightMoveProperties propertiesWith(boolean sendSamples) {
+        return new LightMoveProperties(null, null, null, null, null, null, null,
+                new SpreadsheetImportSettings(10_485_760L, 5000, sendSamples, List.of("text/csv")));
+    }
+
+    private static ParsedSheet sheetWithValues() {
+        return new ParsedSheet(
+                List.of(new SheetColumn(0, "Contact", SheetColumn.ValueShape.EMAIL,
+                        List.of("layla@acwa.example"), false)),
+                List.of(List.of("layla@acwa.example")));
+    }
+
+    private static SheetColumn column(int index, String header, SheetColumn.ValueShape shape) {
+        return new SheetColumn(index, header, shape, List.of(), false);
+    }
+
+    private static ParsedSheet sheetOf(SheetColumn... columns) {
+        return new ParsedSheet(List.of(columns), List.of());
+    }
+
+    /** Answers a fixed reply and keeps what it was asked, so a test can assert on the prompt itself. */
+    private static final class RecordingChatModel implements ChatModel {
+
+        private final String reply;
+        private final List<String> prompts = new ArrayList<>();
+
+        private RecordingChatModel(String reply) {
+            this.reply = reply;
+        }
+
+        @Override
+        public ChatResponse call(Prompt prompt) {
+            StringBuilder text = new StringBuilder();
+            for (Message message : prompt.getInstructions()) {
+                text.append(message.getText()).append('\n');
+            }
+            prompts.add(text.toString());
+            return new ChatResponse(List.of(new Generation(new AssistantMessage(reply))));
+        }
+
+        String lastPrompt() {
+            return prompts.getLast();
+        }
+    }
+
+    /** Stands in for every way the call can fail: no credentials, no quota, no network. */
+    private static final class ThrowingChatModel implements ChatModel {
+
+        @Override
+        public ChatResponse call(Prompt prompt) {
+            throw new IllegalStateException("Failed to get application default credentials");
+        }
+    }
+}
