@@ -173,6 +173,15 @@ lightmove:
       verification-resends-per-hour: ${AUTH_VERIFICATION_RESENDS_PER_HOUR:3}
       password-reset-requests-per-hour: ${AUTH_PASSWORD_RESET_REQUESTS_PER_HOUR:3}
 
+  # The demo LLM endpoints (/api/v1/llm/*) call billed Vertex AI usage with only authentication as
+  # a gate, so each is additionally capped per user. Same in-memory-per-instance caveat as the auth
+  # rate limiter above.
+  llm:
+    rate-limit:
+      enabled: ${LLM_RATE_LIMIT_ENABLED:true}
+      shortlist-requests-per-minute: ${LLM_SHORTLIST_REQUESTS_PER_MINUTE:10}
+      embed-requests-per-minute: ${LLM_EMBED_REQUESTS_PER_MINUTE:20}
+
   email:
     provider: ${EMAIL_PROVIDER:resend}
     from-name: LightMove

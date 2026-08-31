@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Bean;
 /**
  * An {@link EmbeddingModel} that returns a fixed vector, for the same reason as
  * {@link StubChatModel}: the real Google GenAI auto-configuration is off under the {@code test}
- * profile, but {@link app.lightmove.api.core.llm.service.CandidateEmbeddingService} still needs
+ * profile, but {@link app.lightmove.api.candidate.service.CandidateEmbeddingService} still needs
  * an {@code EmbeddingModel} bean to wire the application context.
  */
 public class StubEmbeddingModel implements EmbeddingModel {
