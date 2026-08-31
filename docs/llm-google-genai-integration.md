@@ -52,24 +52,34 @@ than `new SimpleLoggerAdvisor()`.
   `dependencyManagement` of its own before this).
 - `spring-ai-starter-model-google-genai` (chat) and `spring-ai-starter-model-google-genai-embedding`.
 
-**`app.lightmove.api.core.llm`** — new `core` module, type-subpackaged like every other:
-- `config/ChatClientConfig.java` — the `ChatClient` bean: model `gemini-2.5-flash`, temperature
-  `0.8`, the system prompt injected as a `Resource`
-  (`@Value("classpath:prompts/recruiter-shortlist-system.st")`) via `.defaultSystem(Resource)`,
-  and `SimpleLoggerAdvisor.builder().build()` as the sole default advisor. Deliberately **omits**
-  the `@Primary ChatModel` passthrough bean from the reference example: with exactly one
+**`app.lightmove.api.core.llm`** — new `core` module, holding only the reusable `ChatClient` bean:
+- `config/ChatClientConfig.java` — model and temperature bound from
+  `spring.ai.google.genai.chat.*` (not repeated as literals), and
+  `SimpleLoggerAdvisor.builder()` given metadata-only `requestToString`/`responseToString`
+  formatters (model name, token counts) rather than its default full-content logging. Carries no
+  system prompt — that is feature-specific and set per call, not on this shared bean. Deliberately
+  **omits** the `@Primary ChatModel` passthrough bean from the reference example: with exactly one
   `ChatModel` in the context there is no ambiguity for `@Primary` to resolve — add it back if a
   second model (e.g. OpenAI) is ever wired in alongside this one.
-- `service/CandidateShortlistService.java` — takes the `ChatClient`, `shortlist(jobBrief,
-  candidateProfile)` renders both as template params in the user prompt and returns
-  `.call().content()`. No persistence.
-- `service/CandidateEmbeddingService.java` — thin wrapper over the auto-configured
+
+The candidate-matching logic built on top of that bean lives in the `candidate` feature instead of
+`core` — `core` holds reusable infra only and never feature logic, and `candidate` already owns
+this domain:
+- `candidate/service/CandidateShortlistService.java` — takes the `ChatClient` plus the system
+  prompt `Resource` (`@Value("classpath:prompts/recruiter-shortlist-system.st")`), sets it
+  per-call via `.system(...)`, and `shortlist(jobBrief, candidateProfile)` renders both as
+  template params in the user prompt and returns `.call().content()`. No persistence.
+- `candidate/service/CandidateEmbeddingService.java` — thin wrapper over the auto-configured
   `EmbeddingModel`, `embed(text)` returning `float[]`. No persistence.
-- `controller/LlmController.java` — `POST /api/v1/llm/shortlist` and `POST /api/v1/llm/embed`.
-  Authenticated only (the existing `anyRequest().authenticated()` default in `SecurityConfig`) —
-  no `@PreAuthorize` action, since the endpoint reads no workspace data and writes nothing; it's a
-  stateless utility over caller-supplied text, unlike every other controller in the codebase.
-- `dto/ShortlistRequest.java`, `dto/ShortlistResponse.java`, `dto/EmbedRequest.java`,
+- `candidate/controller/CandidateLlmController.java` — `POST /api/v1/llm/shortlist` and
+  `POST /api/v1/llm/embed` (URLs unchanged by the move). Authenticated only (the existing
+  `anyRequest().authenticated()` default in `SecurityConfig`) — no `@PreAuthorize` action, since
+  the endpoint reads no workspace data and writes nothing. Both calls are billed Vertex AI usage,
+  so each is additionally capped per user via the existing `RateLimiter` (`core/ratelimit`),
+  keyed by `principal.userId()` rather than the IP+email pattern `RateLimitGuard` uses for the
+  pre-auth flows, since these endpoints already require authentication. Budgets are
+  `lightmove.llm.rate-limit.*` (`LlmSettings`/`LlmRateLimitSettings` in `core/config`).
+- `candidate/dto/ShortlistRequest.java`, `dto/ShortlistResponse.java`, `dto/EmbedRequest.java`,
   `dto/EmbedResponse.java` — plain records, `@NotBlank`/`@Size` on the text fields.
 
 **`apps/api/src/main/resources/prompts/recruiter-shortlist-system.st`** — the system prompt: an
@@ -139,16 +149,48 @@ so every `@SpringBootTest` in the suite failed to load its context (352 test err
 full run) until these two fixed-response test doubles were wired into the shared `IntegrationTest`
 annotation, the same pattern `RecordingEmailSender`/`SynchronousAuditWrites` already use.
 
-**Tests** — no network calls, no real credentials required:
+**Tests** (`apps/api/src/test/java/app/lightmove/api/candidate/service/`) — no network calls, no
+real credentials required:
 - `CandidateShortlistServiceTest` — builds `ChatClient.builder(stubChatModel).build()` directly
   with a hand-rolled `ChatModel` test double, asserts the service renders both prompt fields and
   returns the model's content.
-- `CandidateEmbeddingServiceTest` — same pattern with a stub `EmbeddingModel`.
+- `CandidateEmbeddingServiceTest` — constructs the service with the shared `StubEmbeddingModel`
+  (`app.lightmove.api`, added for the whole-context wiring below) directly, rather than a second
+  near-identical fixed-vector double.
 
 **`apps/api/src/main/resources/postman/lightmove-llm.postman_collection.json`** — a Postman
 collection with both requests pre-filled (a CFO job brief + candidate profile for `/shortlist`, a
 short profile summary for `/embed`), a `baseUrl` variable, and a Bearer `accessToken` variable at
 the collection level.
+
+## PR review follow-ups
+
+The review on PR #148 requested six changes, all applied:
+
+- **`ChatClientConfig` made actually generic.** It no longer hardwires the recruiter-shortlist
+  system prompt (`.defaultSystem(...)` removed) — the doc comment claimed it was the one `ChatClient`
+  any future feature could reuse, which wasn't true while it carried one feature's prompt. The
+  prompt now loads and is set per-call in `CandidateShortlistService`.
+- **Model/temperature stopped being a second source of truth.** They were hardcoded literals in
+  `ChatClientConfig` that silently overrode `application.yml`'s
+  `spring.ai.google.genai.chat.model`/`chat.temperature`. Now bound from those same properties via
+  `@Value`, so the yml is the only place that sets them.
+- **`SimpleLoggerAdvisor` stopped logging prompt/response content.** Its default formatters dump
+  the full request and response, which will be candidate/client PII once real data flows through
+  `/shortlist`. `SimpleLoggerAdvisor.builder()` already supports custom
+  `requestToString`/`responseToString` functions (no custom advisor class needed) — swapped in for
+  metadata-only ones (model name, token counts).
+- **Rate limiting added.** Both endpoints call billed Vertex AI with only authentication as a
+  gate before this — an authenticated user could loop either uncapped. `CandidateLlmController`
+  now calls the existing `RateLimiter` (`core/ratelimit`) per user before delegating to the
+  service, budgets configurable under `lightmove.llm.rate-limit.*`.
+- **Candidate-matching logic moved out of `core`.** `CandidateShortlistService`,
+  `CandidateEmbeddingService`, the controller (renamed `CandidateLlmController`) and the four DTOs
+  moved from `core/llm/*` into the `candidate` feature, which already owns this domain — `core`
+  keeps only the reusable `ChatClient` bean. Endpoint URLs are unchanged.
+- **Test double duplication removed.** `CandidateEmbeddingServiceTest` no longer declares its own
+  `FixedVectorEmbeddingModel`; it reuses the already-public `StubEmbeddingModel`, which returns the
+  exact same fixed vector.
 
 ## Out of scope
 
