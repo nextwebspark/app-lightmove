@@ -81,11 +81,24 @@ else
 fi
 
 say "waiting for postgres to accept connections"
+# `-h 127.0.0.1` is load-bearing. While initdb runs, the image's entrypoint brings up a temporary
+# server that listens on the unix socket ALONE, so a socket probe answers "accepting connections"
+# from a server that is about to be shut down. The loop then broke on it and the re-check landed in
+# the gap before the real server was listening: `set -e` killed up.sh a second after the container
+# started, silently, and the whole matrix read as "the stack never came up". Over TCP the temporary
+# server cannot answer at all, so a success here is the server the API will actually talk to.
+pg_ready=false
 for _ in $(seq 1 60); do
-  if docker exec "$PG_CONTAINER" pg_isready -U lm_app -d lightmove >/dev/null 2>&1; then break; fi
+  if docker exec "$PG_CONTAINER" pg_isready -h 127.0.0.1 -p 5432 -U lm_app -d lightmove >/dev/null 2>&1; then
+    pg_ready=true; break
+  fi
   sleep 1
 done
-docker exec "$PG_CONTAINER" pg_isready -U lm_app -d lightmove >/dev/null
+if [ "$pg_ready" != true ]; then
+  say "postgres never accepted connections — tail of the container log:"
+  docker logs --tail 40 "$PG_CONTAINER" 2>&1 || true
+  exit 1
+fi
 
 # --- 2. jwt signing keys ----------------------------------------------------
 # JwtConfig only lets the API conjure its own keypair on the `local`, `dev` and `test` profiles, and
