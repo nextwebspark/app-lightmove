@@ -189,12 +189,18 @@ jobs:
           fi
 
           # The browser extension's id, which decides the chrome-extension:// origin the API allows for
-          # CORS. Defaults to the id the pinned manifest key produces when the extension is loaded
-          # UNPACKED — the development id. A published extension has a different one, assigned by the
-          # Chrome Web Store when the item is created, so set the EXTENSION_ID repository variable to
-          # that after publishing. Leave it wrong and every request from the extension is refused, with
-          # nothing in the response to say why.
-          EXTENSION_ID="${{ vars.EXTENSION_ID || 'kllpamcdcnecpdblgdkehgbhdjdlbofh' }}"
+          # CORS. No default: the manifest key is committed, so the development id is reproducible by
+          # anyone, and defaulting to it would have production trust an origin the public can speak
+          # from. Set the EXTENSION_ID repository variable to the id the Chrome Web Store assigned, or
+          # to `dev` to allow the development one on purpose.
+          EXTENSION_ID="${{ vars.EXTENSION_ID }}"
+          if [ -z "$EXTENSION_ID" ]; then
+            echo "::error::EXTENSION_ID is not set. Use the Chrome Web Store id, or 'dev' for the committed development id."
+            exit 1
+          fi
+          if [ "$EXTENSION_ID" = "dev" ]; then
+            EXTENSION_ID="kllpamcdcnecpdblgdkehgbhdjdlbofh"
+          fi
 
           # Same for Resend: EMAIL_PROVIDER=resend without a key fails fast at startup, by design. The
           # sending domain (lightmove.ai) is verified, so the provider defaults to `resend` and the

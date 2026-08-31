@@ -47,13 +47,19 @@ GOOGLE_OAUTH_CLIENT_ID="${GOOGLE_OAUTH_CLIENT_ID:-}"
 # logs a WARN on every signup while it is on, and so does this script.
 AUTO_VERIFY_EMAIL="${AUTO_VERIFY_EMAIL:-false}"
 
-# The browser extension's id, which decides the chrome-extension:// origin the API must allow for CORS.
+# The browser extension's id, which decides the chrome-extension:// origin the API allows for CORS.
 #
-# Defaults to the id the pinned manifest key produces when the extension is loaded UNPACKED, which is
-# the development id. A published extension has a different one — the Chrome Web Store assigns it when
-# the item is created — so set EXTENSION_ID to that once you have published, or the extension is
-# refused by CORS on every request and the failure says nothing useful.
-EXTENSION_ID="${EXTENSION_ID:-kllpamcdcnecpdblgdkehgbhdjdlbofh}"
+# No default, deliberately. The manifest key is committed, so the development id is reproducible by
+# anyone — defaulting to it would have every deployment trust an origin the public can speak from.
+# Set it to the id the Chrome Web Store assigned, or to `dev` to allow the development one on purpose.
+if [ -z "${EXTENSION_ID:-}" ]; then
+  echo "EXTENSION_ID is not set. Use the Chrome Web Store id, or EXTENSION_ID=dev for the" >&2
+  echo "committed development id. Deploying without it would trust a publicly reproducible origin." >&2
+  exit 1
+fi
+if [ "$EXTENSION_ID" = "dev" ]; then
+  EXTENSION_ID="kllpamcdcnecpdblgdkehgbhdjdlbofh"
+fi
 
 # Production limits by default. A tester creating half a dozen accounts in a row will trip the signup one
 # on their fourth attempt, which is exactly what it is for and exactly what you do not want on staging.
