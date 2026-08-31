@@ -1,5 +1,6 @@
 import { cn } from "../lib/cn";
-import { Icon, ICONS } from "./Icon";
+import { ICONS } from "../lib/icons";
+import { Icon } from "./Icon";
 
 interface OffLimitsToggleProps {
   isOffLimits: boolean;

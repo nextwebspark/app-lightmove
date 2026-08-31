@@ -1,6 +1,7 @@
 import type { WorkspaceUser } from "../../api/types";
 import { BrandTile, InitialsAvatar } from "./PopupChrome";
-import { Icon, ICONS } from "./Icon";
+import { ICONS } from "../lib/icons";
+import { Icon } from "./Icon";
 
 interface CaptureHeaderProps {
   user: WorkspaceUser | null;

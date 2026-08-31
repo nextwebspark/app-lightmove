@@ -13,11 +13,17 @@ const SESSION_KEY = ["extension", "session"] as const;
 export function useExtensionSession() {
   const queryClient = useQueryClient();
 
+  // Not paired and "the worker did not answer" are different answers, and collapsing them to null was
+  // the expensive kind of wrong: the popup showed the signed-out screen, whose one action re-pairs —
+  // and a re-pair revokes the session the extension was still holding perfectly well.
   const session = useQuery<WorkspaceUser | null>({
     queryKey: SESSION_KEY,
     queryFn: async () => {
       const result = await askServiceWorker({ kind: "getPairedUser" });
-      return result.ok ? result.value : null;
+      if (!result.ok) {
+        throw new Error(result.message);
+      }
+      return result.value;
     },
   });
 
@@ -32,6 +38,8 @@ export function useExtensionSession() {
   return {
     user: session.data ?? null,
     isPaired: Boolean(session.data),
+    hasFailed: session.isError,
+    failure: session.error instanceof Error ? session.error.message : null,
     isLoading: session.isPending,
     refresh: session.refetch,
     signOut,

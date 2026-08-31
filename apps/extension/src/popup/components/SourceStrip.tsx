@@ -1,5 +1,6 @@
 import type { ActivePage } from "../hooks/useActivePage";
-import { Icon, ICONS } from "./Icon";
+import { ICONS } from "../lib/icons";
+import { Icon } from "./Icon";
 
 /** What was read, and the way back to re-read it — shared by both capture tabs. */
 export function SourceStrip({ page }: { page: ActivePage }) {

@@ -13,14 +13,9 @@ export interface CaptureAttempt {
 /**
  * Writes the company into the chosen mandate.
  *
- * Refusals arrive as data rather than as an exception message, because the popup has something
- * specific to say about two of them — `TRIAGE_COMPANY_ALREADY_HELD` means the mandate already carries
- * a company of that name, and `FORBIDDEN` means the consultant is not seated on that mandate — and
- * neither is served by a generic "something went wrong".
- *
- * The server refuses by name and does not distinguish the stage the existing row sits in, so a
- * company the team previously *declined* reports as already held too. Saying more than that would
- * need the API to say more than it does.
+ * Refusals arrive as data, because the popup says something specific about two of them. The server
+ * refuses by name whatever stage the existing row sits at, so a previously declined company reports
+ * as already held too.
  */
 export function useCaptureCompany() {
   const capture = useMutation<TriagedCompany, CaptureRefusal, CaptureAttempt>({

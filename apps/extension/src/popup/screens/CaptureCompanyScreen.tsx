@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ExtractedCompany } from "../../content/pageReader/extractedCompany";
+import { FIELD_LIMITS, cappedAt } from "../../api/fieldLimits";
 import { DESTINATION_PAST_TENSE, type TriageDestination } from "../../domain/triageDestination";
 import { DetectedFieldInput } from "../components/DetectedFieldInput";
 import { DestinationButtons } from "../components/DestinationButtons";
 import { ProjectSelect } from "../components/ProjectSelect";
 import { SectionLabel } from "../components/SectionLabel";
-import type { ActivePage } from "../hooks/useActivePage";
 import { useCaptureCompany } from "../hooks/useCaptureCompany";
 import { useCaptureSettings } from "../hooks/useCaptureSettings";
-import { useProjectSelection } from "../hooks/useProjectSelection";
+import type { CaptureScreenProps } from "./captureScreenProps";
 import type { CaptureRefusal } from "../lib/captureRefusal";
 import { SourceStrip } from "../components/SourceStrip";
 import { SubjectRow } from "../components/SubjectRow";
@@ -42,19 +42,11 @@ const EMPTY_DRAFT: CompanyDraft = {
 };
 
 /**
- * The capture form: what the page said, editable, and where it should go.
- *
- * Two things happen — the page is read, and the consultant presses one of the two destination
- * buttons. Every field is an editable input rather than a value written straight through, because an
- * extractor reading an About page is pattern-matching on prose and the consultant is the one who
- * knows whether it found the trading name or the legal one.
- *
- * The row this writes carries `source: "extension"` and no universe id — a captured company is
- * identified by its name within the mandate, and the Companies screen shows the provenance so a
- * headcount read off a page is not mistaken for one the Apollo pipeline exported.
+ * The capture form: what the page said, editable, and where it should go. The row carries
+ * `source: "extension"` and no universe id — a captured company is identified by its name within
+ * the mandate.
  */
-export function CaptureCompanyScreen({ page }: { page: ActivePage }) {
-  const projects = useProjectSelection();
+export function CaptureCompanyScreen({ page, projects }: CaptureScreenProps) {
   const capture = useCaptureCompany();
   const { settings } = useCaptureSettings();
   const undo = useUndoCapture();
@@ -96,18 +88,18 @@ export function CaptureCompanyScreen({ page }: { page: ActivePage }) {
       destination,
       capture: {
         source: "extension",
-        companyName: draft.companyName.trim(),
-        website: blankToNull(draft.website),
-        companyLinkedinUrl: blankToNull(draft.linkedinUrl),
-        industry: blankToNull(draft.industry),
-        companyCity: blankToNull(draft.companyCity),
-        companyCountry: blankToNull(draft.companyCountry),
+        companyName: cappedAt(draft.companyName, FIELD_LIMITS.companyName) ?? "",
+        website: cappedAt(draft.website, FIELD_LIMITS.website),
+        companyLinkedinUrl: cappedAt(draft.linkedinUrl, FIELD_LIMITS.companyLinkedinUrl),
+        industry: cappedAt(draft.industry, FIELD_LIMITS.industry),
+        companyCity: cappedAt(draft.companyCity, FIELD_LIMITS.companyCity),
+        companyCountry: cappedAt(draft.companyCountry, FIELD_LIMITS.companyCountry),
         numEmployees: toWholeNumber(draft.numEmployees),
         foundedYear: toWholeNumber(draft.foundedYear),
         annualRevenue: toWholeNumber(draft.annualRevenue),
-        shortDescription: truncateDescription(page.company?.description),
-        note: note.trim() || null,
-        sourceUrl: page.sourceUrl,
+        shortDescription: cappedAt(page.company?.description, FIELD_LIMITS.shortDescription),
+        note: cappedAt(note, FIELD_LIMITS.note),
+        sourceUrl: cappedAt(page.sourceUrl, FIELD_LIMITS.sourceUrl),
       },
     });
   };
@@ -218,12 +210,8 @@ function RefusalNote({ refusal }: { refusal: CaptureRefusal }) {
 }
 
 /**
- * The read, as the form's starting values.
- *
- * The page's own URL seeds an unanswered website so the consultant can see it and delete it. Applying
- * it at write time instead would make the field the one thing on this screen that cannot be cleared —
- * blanking it would silently file the LinkedIn or Apollo page as the company's site, which is exactly
- * what `isAggregatorHost` exists to prevent, arrived at by a different door.
+ * The read, as the form's starting values. The page's own URL seeds an unanswered website *here* so it
+ * can be seen and deleted; applied at write time it would be the one field that cannot be cleared.
  */
 function toDraft(company: ExtractedCompany, sourceUrl: string | null): CompanyDraft {
   return {
@@ -238,26 +226,6 @@ function toDraft(company: ExtractedCompany, sourceUrl: string | null): CompanyDr
     annualRevenue: "",
   };
 }
-
-/** A field cleared to whitespace is absent, not a blank value stored and rendered as a gap. */
-function blankToNull(value: string): string | null {
-  return value.trim() || null;
-}
-
-/**
- * The description is the one extracted field with no input on the form, so it goes from the page to
- * the wire untouched — and an over-long one would 400 the whole capture over a field the consultant
- * cannot see, edit or clear.
- */
-function truncateDescription(description: string | null | undefined): string | null {
-  if (!description) {
-    return null;
-  }
-  return description.length <= MAX_DESCRIPTION ? description : `${description.slice(0, MAX_DESCRIPTION - 1)}…`;
-}
-
-/** Matches `CaptureCompanyRequest.shortDescription`'s `@Size(max = 2000)`. */
-const MAX_DESCRIPTION = 2000;
 
 /** A blank or nonsense figure is sent as absent, never as zero — zero is a claim, absence is not. */
 function toWholeNumber(value: string): number | null {

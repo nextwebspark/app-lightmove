@@ -1,18 +1,16 @@
 import { workspaceOrigin } from "../../workspaceOrigin";
 import { BrandTile, PopupShell } from "../components/PopupChrome";
-import { Icon, ICONS } from "../components/Icon";
+import { Icon } from "../components/Icon";
+import { ICONS } from "../lib/icons";
 
 interface SignedOutScreenProps {
   onConnected: () => void;
 }
 
 /**
- * Before the extension is paired.
- *
- * There is no login form here, and there must not be: asking for a password in a popup trains
- * consultants to type their workspace credentials into whatever surface asks for them. The button
- * opens the workspace in a tab, where they are already signed in or can sign in against the real
- * origin with the real certificate, and the connect page hands the session back.
+ * Before the extension is paired. No login form here, and there must not be: a password box in a popup
+ * trains consultants to type workspace credentials into whatever asks. The button opens the real
+ * origin instead.
  */
 export function SignedOutScreen({ onConnected }: SignedOutScreenProps) {
   const connectUrl = `${workspaceOrigin}/extension/connect`;

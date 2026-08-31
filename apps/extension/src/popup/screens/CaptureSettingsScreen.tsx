@@ -4,11 +4,13 @@ import { ProjectSelect } from "../components/ProjectSelect";
 import { SectionLabel } from "../components/SectionLabel";
 import { ToggleRow } from "../components/ToggleRow";
 import { useCaptureSettings } from "../hooks/useCaptureSettings";
-import { useProjectSelection } from "../hooks/useProjectSelection";
-import { Icon, ICONS } from "../components/Icon";
+import type { ProjectSelection } from "../hooks/useProjectSelection";
+import { Icon } from "../components/Icon";
+import { ICONS } from "../lib/icons";
 
 interface CaptureSettingsScreenProps {
   user: WorkspaceUser | null;
+  projects: ProjectSelection;
   onBack: () => void;
   onSignOut: () => void;
 }
@@ -20,12 +22,11 @@ interface CaptureSettingsScreenProps {
  * writes to extension storage. Signing out ends the extension's own session and leaves the browser's
  * alone, which is the point of pairing being a separate family.
  */
-export function CaptureSettingsScreen({ user, onBack, onSignOut }: CaptureSettingsScreenProps) {
+export function CaptureSettingsScreen({ user, projects, onBack, onSignOut }: CaptureSettingsScreenProps) {
   const { settings, update } = useCaptureSettings();
-  const projects = useProjectSelection();
 
   return (
-    <>
+    <div className="flex flex-1 flex-col overflow-hidden">
       <header className="flex items-center gap-[9px] border-b border-line-soft px-3.5 py-[11px]">
         <button
           type="button"
@@ -84,6 +85,6 @@ export function CaptureSettingsScreen({ user, onBack, onSignOut }: CaptureSettin
           session appears in Settings → Active sessions until you end it from either side.
         </p>
       </div>
-    </>
+    </div>
   );
 }

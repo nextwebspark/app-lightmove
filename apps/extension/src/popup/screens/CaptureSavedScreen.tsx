@@ -1,5 +1,6 @@
 import { workspaceOrigin } from "../../workspaceOrigin";
-import { Icon, ICONS } from "../components/Icon";
+import { Icon } from "../components/Icon";
+import { ICONS } from "../lib/icons";
 
 interface CaptureSavedScreenProps {
   subjectName: string;

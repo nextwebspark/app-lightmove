@@ -1,5 +1,6 @@
 import { DESTINATION_LABELS, TRIAGE_DESTINATIONS, type TriageDestination } from "../../domain/triageDestination";
-import { Icon, ICONS } from "./Icon";
+import { ICONS } from "../lib/icons";
+import { Icon } from "./Icon";
 
 interface DestinationButtonsProps {
   onCapture: (destination: TriageDestination) => void;
@@ -9,12 +10,8 @@ interface DestinationButtonsProps {
 }
 
 /**
- * "Add to universe" and "Add to shortlist" — the two stages a capture may land in.
- *
- * Two buttons rather than a destination dropdown plus one Save, because the choice *is* the action:
- * a consultant looking at a company already knows which of the two it is, and the design makes them
- * say it in one click. It is also why the company form carries no relevance chips — the button is the
- * judgement.
+ * "Add to universe" and "Add to shortlist" — the two stages a capture may land in, as two buttons
+ * rather than a dropdown plus Save, because the choice is the action.
  */
 export function DestinationButtons({
   onCapture,

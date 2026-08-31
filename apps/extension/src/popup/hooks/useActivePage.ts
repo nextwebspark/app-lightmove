@@ -5,14 +5,9 @@ const ACTIVE_PAGE_KEY = ["extension", "activePage"] as const;
 
 /**
  * What is on the page the consultant invoked the extension from — the person, the company, and which
- * of the two the page is about.
+ * of the two it is about. One read feeds both tabs.
  *
- * One read for both tabs: the reader is injected once per open, so switching tabs costs nothing and a
- * person still carries the employer the company side found.
- *
- * `staleTime: 0` and no caching between opens on purpose: the whole point is what is on screen *now*,
- * and a remembered read would quietly offer the previous tab's company. `rescan` is the design's
- * "Re-scan" link, for the pages that finish rendering after the popup opened.
+ * Uncached on purpose: a remembered read would offer the previous tab's company.
  */
 export function useActivePage() {
   const page = useQuery<ReadPageResult>({

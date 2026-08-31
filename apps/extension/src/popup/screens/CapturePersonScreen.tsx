@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { CandidateSeniority, SaveCandidateRequest } from "../../api/types";
+import { FIELD_LIMITS, MAX_CAREER_ENTRIES, cappedAt } from "../../api/fieldLimits";
+import type { CandidateCareerEntry, CandidateSeniority, SaveCandidateRequest } from "../../api/types";
 import { cityOf, countryOf } from "../../content/pageReader/extractedCompany";
 import type { ExtractedPerson } from "../../content/pageReader/extractedPerson";
 import { DetectedFieldInput } from "../components/DetectedFieldInput";
@@ -8,10 +9,9 @@ import { PreviousRolesList } from "../components/PreviousRolesList";
 import { ProjectSelect } from "../components/ProjectSelect";
 import { SectionLabel } from "../components/SectionLabel";
 import { SeniorityChips } from "../components/SeniorityChips";
-import type { ActivePage } from "../hooks/useActivePage";
 import { useCapturePerson } from "../hooks/useCapturePerson";
 import { useCaptureSettings } from "../hooks/useCaptureSettings";
-import { useProjectSelection } from "../hooks/useProjectSelection";
+import type { CaptureScreenProps } from "./captureScreenProps";
 import { useTriageCompanyMatch } from "../hooks/useTriageCompanyMatch";
 import type { CaptureRefusal } from "../lib/captureRefusal";
 import { CaptureSavedScreen } from "./CaptureSavedScreen";
@@ -19,7 +19,8 @@ import { SourceStrip } from "../components/SourceStrip";
 import { SubjectRow } from "../components/SubjectRow";
 import { useCloseAfterSave } from "../hooks/useCloseAfterSave";
 import { useUndoCapture } from "../hooks/useUndoCapture";
-import { Icon, ICONS } from "../components/Icon";
+import { Icon } from "../components/Icon";
+import { ICONS } from "../lib/icons";
 
 /** The form's own state: what the extractor read, as the consultant may have since corrected it. */
 interface PersonDraft {
@@ -51,8 +52,7 @@ const EMPTY_DRAFT: PersonDraft = {
  * posts to, with a strict subset of its fields. `source: "extension"` is the only difference between
  * this row and one typed in by hand.
  */
-export function CapturePersonScreen({ page }: { page: ActivePage }) {
-  const projects = useProjectSelection();
+export function CapturePersonScreen({ page, projects }: CaptureScreenProps) {
   const capture = useCapturePerson();
   const { settings } = useCaptureSettings();
   const undo = useUndoCapture();
@@ -213,15 +213,26 @@ export function CapturePersonScreen({ page }: { page: ActivePage }) {
         <button
           type="button"
           onClick={handleSave}
-          disabled={!canSave || capture.isSaving}
+          disabled={!canSave || capture.isSaving || company.isMatching}
           className="flex w-full items-center justify-center gap-[7px] rounded-lg bg-amber-btn py-2 text-[13px] font-semibold text-on-amber disabled:opacity-50"
         >
           <Icon d={ICONS.plus} />
-          {capture.isSaving ? "Saving…" : "Save to project"}
+          {saveLabel(capture.isSaving, company.isMatching)}
         </button>
       </div>
     </>
   );
+}
+
+/**
+ * Saving while the lookup is still in flight would file the person unmapped against a company the
+ * mandate holds — the write reads `company.match`, and an in-flight match is null.
+ */
+function saveLabel(isSaving: boolean, isMatching: boolean): string {
+  if (isSaving) {
+    return "Saving…";
+  }
+  return isMatching ? "Checking the mandate…" : "Save to project";
 }
 
 /** What the save will do with the employer, said before it does it. */
@@ -289,7 +300,7 @@ interface CandidateExtras {
 }
 
 function toCandidate(draft: PersonDraft, extras: CandidateExtras): SaveCandidateRequest {
-  const employerName = draft.employerName.trim() || null;
+  const employerName = cappedAt(draft.employerName, FIELD_LIMITS.employerName);
   // The current role is the only home tenure has — there is no such column, and `period` is the free
   // text ("Mar 2021 – Present") this is. Not yearsExperience, which is a whole career and would be a
   // number the mandate's own screens then show as fact.
@@ -302,30 +313,33 @@ function toCandidate(draft: PersonDraft, extras: CandidateExtras): SaveCandidate
     // them disagree.
     triageCompanyId: extras.triageCompanyId,
     employerName: extras.triageCompanyId ? null : employerName,
-    fullName: draft.fullName.trim(),
-    title: blankToNull(draft.title),
+    fullName: cappedAt(draft.fullName, FIELD_LIMITS.fullName) ?? "",
+    title: cappedAt(draft.title, FIELD_LIMITS.title),
     seniority: extras.seniority,
     status: extras.isOffLimits ? "offLimits" : null,
     // A malformed address is dropped rather than sent: @Email would 400 the whole save over a field
     // the page filled in, not the consultant.
     email: validEmailOrNull(draft.email),
-    phone: blankToNull(draft.phone),
-    linkedinUrl: blankToNull(draft.linkedinUrl),
-    locationCity: blankToNull(draft.locationCity),
-    locationCountry: blankToNull(draft.locationCountry),
-    note: blankToNull(extras.note),
+    phone: cappedAt(draft.phone, FIELD_LIMITS.phone),
+    linkedinUrl: cappedAt(draft.linkedinUrl, FIELD_LIMITS.linkedinUrl),
+    locationCity: cappedAt(draft.locationCity, FIELD_LIMITS.locationCity),
+    locationCountry: cappedAt(draft.locationCountry, FIELD_LIMITS.locationCountry),
+    note: cappedAt(extras.note, FIELD_LIMITS.note),
     // Capped at what the DTO takes: a 26th entry would 400 a save over a list with no input on it.
-    career: [...currentRole, ...extras.career].slice(0, MAX_CAREER_ENTRIES),
+    career: [...currentRole, ...extras.career].slice(0, MAX_CAREER_ENTRIES).map(cappedEntry),
     source: "extension",
-    sourceUrl: extras.sourceUrl ? extras.sourceUrl.slice(0, MAX_SOURCE_URL) : null,
+    sourceUrl: cappedAt(extras.sourceUrl, FIELD_LIMITS.sourceUrl),
   };
 }
 
-/** Matches `SaveCandidateRequest.career`'s `@Size(max = 25)`. */
-const MAX_CAREER_ENTRIES = 25;
-
-/** Matches `SaveCandidateRequest.sourceUrl`'s `@Size(max = 1000)` — LinkedIn URLs carry long queries. */
-const MAX_SOURCE_URL = 1000;
+/** A career entry is three capped fields; `period` is free text and LinkedIn's is often long. */
+function cappedEntry(entry: CandidateCareerEntry): CandidateCareerEntry {
+  return {
+    company: cappedAt(entry.company, FIELD_LIMITS.careerCompany),
+    title: cappedAt(entry.title, FIELD_LIMITS.careerTitle),
+    period: cappedAt(entry.period, FIELD_LIMITS.careerPeriod),
+  };
+}
 
 function blankToNull(value: string): string | null {
   return value.trim() || null;

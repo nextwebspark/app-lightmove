@@ -1,17 +1,18 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { askServiceWorker } from "../../background/extensionMessages";
 import type { ProjectSummary } from "../../api/types";
 import { useCaptureSettings } from "./useCaptureSettings";
 
 /**
- * The mandate a capture will land in, and the dropdown that chooses it.
- *
- * Defaults to the mandate chosen in Settings, or failing that the last one used — because a consultant
- * working a search captures a dozen companies into the same mandate in a row, and choosing it again
- * each time is the kind of friction that stops a tool being used.
+ * The mandate a capture will land in. Defaults to the one chosen in Settings, else the last one used.
+ * Called once, in `CapturePopup`, and passed to both tabs — two selections file a person into the
+ * mandate the consultant did not choose.
  */
+const LAST_USED_KEY = ["extension", "lastUsedProject"] as const;
+
 export function useProjectSelection() {
+  const queryClient = useQueryClient();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const { settings } = useCaptureSettings();
 
@@ -27,7 +28,7 @@ export function useProjectSelection() {
   });
 
   const lastUsed = useQuery<string | null>({
-    queryKey: ["extension", "lastUsedProject"],
+    queryKey: LAST_USED_KEY,
     queryFn: async () => {
       const result = await askServiceWorker({ kind: "lastUsedProject" });
       return result.ok ? result.value : null;
@@ -48,6 +49,9 @@ export function useProjectSelection() {
 
   const selectProject = (projectId: string) => {
     setSelectedProjectId(projectId);
+    // The cache as well as storage: `staleTime` means the old answer would otherwise be served for
+    // another half-minute, and the next popup open would offer a mandate the consultant moved off.
+    queryClient.setQueryData(LAST_USED_KEY, projectId);
     void askServiceWorker({ kind: "rememberProject", projectId });
   };
 
@@ -59,3 +63,5 @@ export function useProjectSelection() {
     isLoading: projects.isPending || lastUsed.isPending,
   };
 }
+
+export type ProjectSelection = ReturnType<typeof useProjectSelection>;

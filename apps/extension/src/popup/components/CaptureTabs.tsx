@@ -1,12 +1,5 @@
+import { CAPTURE_SUBJECTS, capturePanelId, type CaptureSubject } from "../../domain/captureSubject";
 import { cn } from "../lib/cn";
-
-export const CAPTURE_SUBJECTS = ["person", "company"] as const;
-export type CaptureSubject = (typeof CAPTURE_SUBJECTS)[number];
-
-/** The panel a tab drives, so the tab roles below describe something real to a screen reader. */
-export function capturePanelId(subject: CaptureSubject): string {
-  return `capture-panel-${subject}`;
-}
 
 interface CaptureTabsProps {
   active: CaptureSubject;
