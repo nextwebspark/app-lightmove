@@ -29,10 +29,12 @@ the plugin's profile capture (the columns and `CandidateSource` are there for th
 screen is the mandate's brief, edited as a six-step wizard (details, mandate context, reporting,
 compensation, assessment, review) that autosaves one step at a time. It opens drafted rather than
 blank: a **role-template library** of seventeen briefs (twelve C-suite, four functional heads, one
-generic fallback) lives in the database, matched against the mandate's role title at creation and
-re-pickable afterwards from `GET /position-templates` + `POST .../position/template`. A template is
-managed as a migration for now — the per-workspace management screen is a later session, and the
-rows it will write are already keyed to a workspace. Step three is an editable
+generic fallback) lives in the database, matched against the mandate's role title at creation. Step
+one's **Role title is a combobox**: free text — a mandate is titled "Group CFO – Energy Division" as
+often as it is titled "Chief Financial Officer" — that type-aheads the seventeen titles, and picking
+one takes that title and redrafts the brief from its template (`GET /position-templates` +
+`POST .../position/template`). A template is managed as a migration for now — the per-workspace
+management screen is a later session, and the rows it will write are already keyed to a workspace. Step three is an editable
 React Flow org chart — add, rename, re-parent and drag any seat; only the role's own seat is fixed.
 Step one attaches the position
 description, which is *stored and never read* — no extraction, no auto-fill. Publishing stamps who

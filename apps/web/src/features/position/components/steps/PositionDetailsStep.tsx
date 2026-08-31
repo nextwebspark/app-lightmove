@@ -1,25 +1,32 @@
 import { useState } from "react";
 import { Input, Select, TextArea } from "../../../../components/ui";
-import type { PositionDetails, PositionDocument } from "../../api/types";
+import type { PositionDetails, PositionDocument, PositionTemplate } from "../../api/types";
 import { EMPLOYMENT_TYPE_LABELS, SENIORITY_LABELS } from "../../lib/labels";
 import { PositionDocumentDropzone } from "../PositionDocumentDropzone";
+import { RoleTitleCombobox } from "../RoleTitleCombobox";
 import { AddRowButton, CheckedInput, RemoveRowButton, StepField, SubCard } from "../fields";
 
 /** Step one: what the role is. */
 export function PositionDetailsStep({
   details,
   document,
+  templates,
+  applyingTemplate,
   uploading,
   onDownload,
   onChange,
+  onPickTemplate,
   onAttachDocument,
   onRemoveDocument,
 }: {
   details: PositionDetails;
   document: PositionDocument | null;
+  templates: PositionTemplate[];
+  applyingTemplate: boolean;
   uploading: boolean;
   onDownload: () => void;
   onChange: (patch: Partial<PositionDetails>) => void;
+  onPickTemplate: (template: PositionTemplate) => void;
   onAttachDocument: (file: File) => void;
   onRemoveDocument: () => void;
 }) {
@@ -44,10 +51,12 @@ export function PositionDetailsStep({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-x-[18px]">
         <StepField label="Role title">
-          <CheckedInput
+          <RoleTitleCombobox
             value={details.roleTitle}
-            placeholder="e.g. Chief Financial Officer"
-            onChange={(event) => onChange({ roleTitle: event.target.value })}
+            templates={templates}
+            busy={applyingTemplate}
+            onChange={(roleTitle) => onChange({ roleTitle })}
+            onPick={onPickTemplate}
           />
         </StepField>
         <StepField label="Department">
