@@ -16,16 +16,26 @@ workspace `CLIENT` role grants nothing; access is the project `CLIENT` seat, whi
 screens, a project's Team & access tab, the client registry with representative invites and their
 scoped read-only project access, and **Strategy → Companies**: a filter over the company universe, the
 searches saved against it, and the three Companies pages (In universe / Shortlisted / Declined) where a
-mandate triages what it took from it. A company reaches those pages three ways — out of the market
+mandate triages what it took from it. A company reaches those pages four ways — out of the market
 (Strategy's per-row add, or the Companies screen's own picker over the same universe, both `POST
-/triage` with an id the server resolves), typed in by hand, or captured by the browser plugin
-(`POST /triage/capture`; the extension itself is not built).
+/triage` with an id the server resolves), typed in by hand, captured by the browser plugin
+(`POST /triage/capture`; the extension itself is not built), or **imported from a spreadsheet**.
 Deleting one drops the project↔company row only: the Apollo universe is read-only to the app. On top of
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
-with three of them is three lines and one with none keeps its "Add executive" slot. The standalone
-Candidates screen, the pipeline and outreach tables don't exist yet, and neither does the CSV import or
-the plugin's profile capture (the columns and `CandidateSource` are there for them). The **Position**
+with three of them is three lines and one with none keeps its "Add executive" slot.
+The **spreadsheet import** is that fourth door and carries both halves at once: a CSV or Excel file
+whose rows are people at companies, mapped column-by-column onto our fields — proposed by the model
+over the existing `ChatClient` (headers and a locally computed value shape only; **no cell values are
+sent**) with a synonym matcher as both seed and offline fallback, then confirmed by a person before
+anything is written. A header no field covers becomes a **per-project custom column**: the definitions
+are rows in `app_lm_project_custom_column` and the values a jsonb bag on the row, so the grid renders
+it like any built-in while a new mandate still starts from the built-ins alone. The importer writes
+nothing itself — it builds the same requests the Companies drawer posts and hands them to
+`triagecompany` and `candidate`, so every scope check, duplicate rule and audit event stays where it
+already lives. The standalone Candidates screen, and the pipeline and outreach tables, don't exist yet,
+and neither does the plugin's profile capture (the columns and `CandidateSource` are there for it).
+The **Position**
 screen is the mandate's brief, edited as a six-step wizard (details, mandate context, reporting,
 compensation, assessment, review) that autosaves one step at a time. Step three is an editable
 React Flow org chart — add, rename, re-parent and drag any seat; only the role's own seat is fixed.
@@ -38,7 +48,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate`, `customcolumn`, `dataimport` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
 | `ops/cloudsql/` | Database bootstrap and hardening scripts |
@@ -59,7 +69,13 @@ company* is a decision. Searching goes in `strategy` however company-shaped its 
 holds only what a mandate *did* about a company. **`candidate` is the people side** — one row per
 executive a mandate has mapped, belonging to the *project* and only optionally to one of its triaged
 companies, because a researcher meets people at companies the universe does not carry. It depends on
-`triagecompany` through one public method and `triagecompany` never depends back. Details in
+`triagecompany` through one public method and `triagecompany` never depends back.
+**`customcolumn` is the columns a mandate added to its own grid** — definitions only, plus the one
+method (`applyTo`) that decides what a row may store in them, since the bag is open and nothing else
+stands between it and arbitrary caller-chosen keys. `triagecompany` and `candidate` depend on it; it
+depends on neither and knows nothing about companies or people. **`dataimport` is the spreadsheet** —
+read the file, work out what its columns mean, and write what it carries through the doors that
+already exist. It depends on those three and none of them depends back. Details in
 `java-spring-development`.
 
 ## Commands
@@ -141,6 +157,13 @@ its step's write, so the aggregate keeps one idiom rather than mixing rows and j
 `app_lm_position_org_node` is the org chart — a tree of seats with exactly one flagged
 `mandate_seat`, so "reports to" is that seat's parent and "direct reports" are its children, both
 derived rather than stored twice.
+`app_lm_project_custom_column` (V42) is the columns a mandate added to its own grid, and V43 puts their
+values in a `custom_fields` jsonb bag on both row tables: a column per tenant in real DDL would be
+unmigratable and would need the runtime role to hold the `CREATE` privilege `harden.sql` revokes, so
+the definitions are rows and the values are a document. `field_key` is slugged once and never
+rewritten — every stored value points at it — while `label` is the header a user renames.
+V43 also adds `'CSV'` to the triage company's `source` CHECK, the spelling V36 had already reserved on
+the candidate side.
 `app_lm_position_document` holds the attached position description inline (`bytea`) — one small file per
 mandate, read back only by its own download endpoint. Everything else (roles, hardening, grants) →
 `db-ops` skill.
