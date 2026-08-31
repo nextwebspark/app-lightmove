@@ -86,8 +86,23 @@ else
     "login set no lm_refresh cookie on this profile"
 fi
 
-# Pair again for the capture below.
+# --- pairing again replaces the session, rather than adding a second -----------
+#
+# The connect page can mint without the extension ever receiving what it minted — storage cleared, a
+# reinstall, a failed handover. An abandoned credential would otherwise stay live for its full TTL.
+
 http POST /auth/extension/tokens -H "$AUTH"
+ABANDONED=$(json '.refreshToken')
+http POST /auth/extension/tokens -H "$AUTH"
+EXT_AUTH="$(auth_header "$(json '.accessToken')")"
+EXT_LIVE=$(json '.refreshToken')
+
+post_json /auth/extension/refresh "$(jq -nc --arg t "$ABANDONED" '{refreshToken:$t}')"
+check_status 15.12 "pairing again ends the extension session the account held" 401
+# Superseded is not theft: were it read as such, the replay above would have revoked the family the
+# extension is actually holding, and every re-pair would sign the consultant out on its next refresh.
+post_json /auth/extension/refresh "$(jq -nc --arg t "$EXT_LIVE" '{refreshToken:$t}')"
+check_status 15.13 "…and replaying the abandoned one is a stale device, not a thief" 200
 EXT_AUTH="$(auth_header "$(json '.accessToken')")"
 
 # --- capturing through the paired session ------------------------------------
@@ -115,6 +130,27 @@ check 15.25 "the other destination button lands it shortlisted" "shortlisted" "$
 
 get "/projects/$PROJECT/triage?status=inUniverse" -H "$AUTH"
 check 15.26 "and the mandate sees it on its own Companies screen" "1" "$(json '.totalCount')"
+
+# --- capturing a person through the same session -------------------------------
+#
+# main's candidate endpoint, unchanged: the extension adds none of its own. The row is mapped to the
+# company captured above when the mandate already holds it under that name, and filed unmapped when it
+# does not — a researcher meets people at companies the universe does not carry.
+
+TRIAGED_ID=$(json '.companies[0].id')
+post_json "/projects/$PROJECT/candidates" "$(jq -nc --arg c "$TRIAGED_ID" --arg n "Amira Haddad $RANDOM" \
+  '{triageCompanyId:$c, fullName:$n, title:"Group Chief Financial Officer", seniority:"C-Suite",
+    locationCity:"Doha", locationCountry:"Qatar", linkedinUrl:"https://www.linkedin.com/in/amira-haddad",
+    career:[{company:"Agthia Group", title:"Finance Director", period:"2016 - 2021"}],
+    source:"extension", sourceUrl:"https://www.linkedin.com/in/amira-haddad"}')" -H "$EXT_AUTH"
+check_status 15.27 "a paired extension session can map a person into the mandate" 201
+check 15.28 "…the row records the plugin as its provenance" "extension" "$(json '.source')"
+check 15.29 "…and it carries the company it was mapped to" "$CAPTURED_NAME" "$(json '.companyName')"
+
+post_json "/projects/$PROJECT/candidates" "$(jq -nc --arg n "Unmapped Executive $RANDOM" \
+  '{fullName:$n, employerName:"A company this mandate does not hold", source:"extension"}')" -H "$EXT_AUTH"
+check 15.29a "a person at a company the mandate does not hold is filed unmapped" "" \
+  "$(json '.triageCompanyId // empty')"
 
 # --- the seat, not the login -------------------------------------------------
 #

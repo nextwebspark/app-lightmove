@@ -1,3 +1,5 @@
+import packageJson from "./package.json" with { type: "json" };
+
 /**
  * The single source of the extension's manifest.
  *
@@ -34,11 +36,14 @@ const PINNED_PUBLIC_KEY =
  * bundle. Guessing here — from `process.env.NODE_ENV`, say, which Vite sets differently depending on
  * how the build was invoked — is how the two end up naming different hosts.
  */
+/** The one version there is: the manifest and the package must not drift. */
+const { version: packageVersion } = packageJson as { version: string };
+
 export function buildManifest(workspaceOrigin: string) {
   return {
     manifest_version: 3,
     name: "LightMove Capture",
-    version: "0.1.0",
+    version: packageVersion,
     description: "Capture a company from the page you are on into a LightMove mandate.",
     key: PINNED_PUBLIC_KEY,
 
