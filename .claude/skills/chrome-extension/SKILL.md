@@ -5,21 +5,35 @@ description: LightMove Capture — the Chrome extension in apps/extension. Manif
 
 # LightMove Capture — the Chrome extension
 
-`apps/extension` is a Manifest V3 browser action: a 400×600 popup that reads the company on the page a
-consultant is standing on and writes it into a mandate's triage as **in universe** or **shortlisted**.
+`apps/extension` is a Manifest V3 browser action: a 400×600 popup that reads whatever the page a
+consultant is standing on is about — a company or a person — and writes it into a mandate. A company
+lands in its triage as **in universe** or **shortlisted**; a person lands in its people, mapped to one
+of its triaged companies when the mandate already holds their employer under that name.
 `claude-design/Extension.dc.html` and `Extension.handoff.md` are the design source of truth — read the
 relevant state before building a screen, the same rule the web app follows.
 
-It is a **client of the existing API**, not a second backend. It adds no table, no migration, no RBAC
-action and no stage — it calls `GET /api/v1/projects` for its dropdown and
-`POST /api/v1/projects/{id}/triage/capture` for its write, both of which already existed: the capture
-endpoint was built for this plugin (its own doc cites `Extension.dc.html`). Every authorisation
-decision is the one `@projectAuthorizer` was already making.
+It is a **client of the existing API**, not a second backend. It adds no table, no RBAC action and no
+stage — every endpoint it calls already existed, and it sends a strict *subset* of the fields the web
+app's own forms send:
+
+| What | Endpoint | The manual surface it mirrors |
+|---|---|---|
+| The dropdown | `GET /projects` | — |
+| A company | `POST /projects/{id}/triage/capture` | `CompanyFactsForm` |
+| A person | `POST /projects/{id}/candidates` | `CandidateDrawer` |
+| The company to map a person to | `GET /projects/{id}/triage?status=…&q=…` | — |
+| Undo | `DELETE` on either row | the Companies grid's own remove |
+
+**A field the popup captures must already be a field the manual form captures.** Adding one is a change
+to both surfaces and a story of its own — never something the extension grows alone, or the two ways
+into the same table stop agreeing about what a company is.
+
+Every authorisation decision is the one `@projectAuthorizer` was already making.
 
 **Before adding anything server-side for the extension, check whether it is already there.** It very
-likely is — a capture is `source: "extension"` on an endpoint that also serves companies typed in by
-hand, and the provenance is the only difference. The one thing the extension genuinely needed and did
-not have is its own session; that is the pairing flow below.
+likely is — a capture is `source: "extension"` on an endpoint that also serves rows typed in by hand,
+and the provenance is the only difference. The one thing the extension genuinely needed and did not
+have is its own session; that is the pairing flow below.
 
 ## Three contexts, and what may live in each
 
@@ -100,10 +114,15 @@ Consequences worth keeping in mind:
 to the popup where **every field is an editable input** — nothing is written blind, and "Re-scan" re-runs
 the whole thing.
 
+One bundle is injected, and its entry is `readPageSubject.ts` — it reads both sides and says which the
+page is about (`person` / `company` / `unknown`, which leaves the tab alone rather than guessing). One
+injection per gesture, and it has to be one: an IIFE cannot code-split, so a second bundle would carry
+its own copy of every shared helper, and classifying a corporate bio needs both readers' answers.
+
 Each extractor is a **pure function over a `Document`**:
 
 ```ts
-(document: Document) => Partial<ExtractedCompany>
+(document: Document) => Partial<ExtractedCompany>   // or Partial<ExtractedPerson>
 ```
 
 That signature is the whole testing strategy: an extractor touches no `chrome.*` API and no network, so
@@ -112,9 +131,15 @@ it runs against a saved HTML fixture under jsdom with no browser at all. An extr
 
 - `structuredDataExtractor.ts` is the universal fallback — JSON-LD `Organization`, OpenGraph, `<meta>`,
   the canonical host. It is the one that works on the GCC long tail, so keep it first-class.
-- `linkedInCompanyExtractor.ts` reads `linkedin.com/company/*`. LinkedIn's class names are generated and
-  churn: every selector needs a documented fallback chain, and a fixture pinning what it was written
-  against. When it breaks, it breaks quietly — the merge just yields fewer fields.
+- `structuredPersonExtractor.ts` is its twin for people — JSON-LD `Person`, and OpenGraph only where
+  `og:type` claims a profile, because every article's `og:title` is a name-shaped string.
+- `linkedInCompanyExtractor.ts` and `linkedInProfileExtractor.ts` read `linkedin.com/company/*` and
+  `/in/*`, keyed on `document.location` and never on `canonical` — a page-supplied URL would let any
+  site declare itself a LinkedIn page. LinkedIn's class names are generated and churn: every selector
+  needs a documented fallback chain, and a fixture pinning what it was written against. Both layouts
+  are live, so there are two profile fixtures. When it breaks, it breaks quietly — fewer fields.
+- The JSON-LD walker lives in `extractors/jsonLd.ts`, shared by both. An extractor keeps its own merge
+  written out field by field, so adding a field fails the build until it is merged too.
 - Extracted text is **data, never markup**. No `innerHTML`, no `eval`, no injecting page-supplied strings
   into the popup as HTML.
 

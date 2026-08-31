@@ -19,13 +19,14 @@ searches saved against it, and the three Companies pages (In universe / Shortlis
 mandate triages what it took from it. A company reaches those pages three ways — out of the market
 (Strategy's per-row add, or the Companies screen's own picker over the same universe, both `POST
 /triage` with an id the server resolves), typed in by hand, or captured by the browser plugin
-(`POST /triage/capture`; the extension itself is not built).
+(`POST /triage/capture`).
 Deleting one drops the project↔company row only: the Apollo universe is read-only to the app. On top of
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
-with three of them is three lines and one with none keeps its "Add executive" slot. The standalone
-Candidates screen, the pipeline and outreach tables don't exist yet, and neither does the CSV import or
-the plugin's profile capture (the columns and `CandidateSource` are there for them). The **Position**
+with three of them is three lines and one with none keeps its "Add executive" slot. An executive is also
+captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`). The
+standalone Candidates screen, the pipeline and outreach tables don't exist yet, and neither does the
+CSV import. The **Position**
 screen is the mandate's brief, edited as a six-step wizard (details, mandate context, reporting,
 compensation, assessment, review) that autosaves one step at a time. Step three is an editable
 React Flow org chart — add, rename, re-parent and drag any seat; only the role's own seat is fixed.
@@ -71,7 +72,7 @@ npm run dev:db:reset         # drop the local database; next boot re-runs every 
 npm run dev:db:psql          # psql shell in the local container
 npm run dev:db:apollo        # copy the Apollo company universe down from Cloud SQL into it
 npm run dev:cloud            # api + web against the SHARED Cloud SQL dev database
-npm test                     # both suites
+npm test                     # all three suites: api, web, extension
 cd apps/api && ./mvnw test   # backend — needs Docker (Testcontainers)
 cd apps/web && npx vitest    # frontend
 cd apps/web && npm run build # the real frontend typecheck

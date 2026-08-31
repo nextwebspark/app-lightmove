@@ -1,16 +1,28 @@
 # LightMove Capture
 
-A Chrome extension that reads the company on the page you are looking at and writes it into a
-mandate's triage — as **in universe** or **shortlisted**.
+A Chrome extension that reads whatever the page you are looking at is about — a company or a person —
+and writes it into a mandate. A company lands in its triage as **in universe** or **shortlisted**; a
+person lands in its people, mapped to one of its triaged companies where the mandate already holds
+their employer under that name.
 
 Its own workspace: it imports nothing from `apps/web` and shares no build with it. What it does share
-is the API, and **everything it writes with already existed there** — `GET /projects` for the dropdown
-and `POST /projects/{id}/triage/capture` for the write, behind the same `WORK_EXECUTE` gate the
-Companies screen goes through. That endpoint was built for this plugin; a capture is just
-`source: "extension"` on the path that also takes a company typed in by hand.
+is the API, and **everything it writes with already existed there**, behind the same `WORK_EXECUTE`
+gate the mandate's own screens go through:
 
-This extension adds **no migration and no triage code**. The only thing it needed that did not exist is
-a session of its own, which is the pairing flow below.
+| What | Endpoint | The manual surface it mirrors |
+|---|---|---|
+| The dropdown | `GET /projects` | — |
+| A company | `POST /projects/{id}/triage/capture` | the Companies screen's Add-company panel |
+| A person | `POST /projects/{id}/candidates` | the Add-executive drawer |
+| The company to map a person to | `GET /projects/{id}/triage` | — |
+| Undo | `DELETE` on either row | the Companies grid's own remove |
+
+A capture is just `source: "extension"` on paths that also take a row typed in by hand, and the popup
+sends a strict *subset* of the fields those forms send. **A field it captures must already be a field
+the manual form captures** — adding one is a change to both, and a story of its own.
+
+This extension adds **no triage code and no candidate code**. The only thing it needed that did not
+exist is a session of its own, which is the pairing flow below.
 
 Design source of truth: `claude-design/Extension.dc.html` and `Extension.handoff.md`.
 Coding standard: `.claude/skills/chrome-extension/SKILL.md` — read it before changing anything here.
@@ -135,13 +147,14 @@ thing you need to know about any file here.
 Extractors live in `src/content/pageReader/extractors/` and are pure functions:
 
 ```ts
-(document: Document) => Partial<ExtractedCompany>
+(document: Document) => Partial<ExtractedCompany>   // or Partial<ExtractedPerson>
 ```
 
 No `chrome.*`, no network — which is what makes them testable against a saved HTML fixture with no
 browser. Write the extractor, save a fixture beside it in `__fixtures__/`, add it to the list in
-`readCompanyFromPage.ts` **at the end** (the merge takes the first non-empty value per field, so
-appending can only fill gaps and never break a page that already worked), and test it:
+`readCompanyFromPage.ts` or `readPersonFromPage.ts` **at the end** (the merge takes the first non-empty
+value per field, so appending can only fill gaps and never break a page that already worked), and test
+it:
 
 ```bash
 npx vitest
