@@ -102,6 +102,27 @@ spring:
     virtual:
       enabled: true           # Java 21 virtual threads: auth endpoints are IO-bound (DB, DNS, email).
 
+  ai:
+    google:
+      genai:
+        # Vertex AI mode: authenticates via Application Default Credentials, the same
+        # `gcloud auth application-default login` already needed for `npm run dev:cloud` — except
+        # this one is needed on *every* path, including plain `npm run dev`. There is no local
+        # emulator for Vertex AI, and no api-key property is set here on purpose: setting one
+        # would switch this to the Gemini Developer API instead of Vertex.
+        project-id: ${GOOGLE_CLOUD_PROJECT:hak-talent-mapping}
+        location: ${GOOGLE_CLOUD_LOCATION:us-central1}
+        chat:
+          model: gemini-2.5-flash
+          temperature: 0.8
+        embedding:
+          # The embedding client resolves its own project/location independently of the chat
+          # block above (Spring AI's own namespacing, not a LightMove choice).
+          project-id: ${GOOGLE_CLOUD_PROJECT:hak-talent-mapping}
+          location: ${GOOGLE_CLOUD_LOCATION:us-central1}
+          text:
+            model: text-embedding-004
+
 server:
   port: ${PORT:8080}          # Cloud Run injects PORT and expects the container to honour it.
   error:
@@ -159,6 +180,15 @@ lightmove:
       password-reset-requests-per-hour: ${AUTH_PASSWORD_RESET_REQUESTS_PER_HOUR:3}
       extension-pairings-per-hour: ${AUTH_EXTENSION_PAIRINGS_PER_HOUR:5}
       extension-pairings-per-hour-per-ip: ${AUTH_EXTENSION_PAIRINGS_PER_HOUR_PER_IP:60}
+
+  # The demo LLM endpoints (/api/v1/llm/*) call billed Vertex AI usage with only authentication as
+  # a gate, so each is additionally capped per user. Same in-memory-per-instance caveat as the auth
+  # rate limiter above.
+  llm:
+    rate-limit:
+      enabled: ${LLM_RATE_LIMIT_ENABLED:true}
+      shortlist-requests-per-minute: ${LLM_SHORTLIST_REQUESTS_PER_MINUTE:10}
+      embed-requests-per-minute: ${LLM_EMBED_REQUESTS_PER_MINUTE:20}
 
   email:
     provider: ${EMAIL_PROVIDER:resend}

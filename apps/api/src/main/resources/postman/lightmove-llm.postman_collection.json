@@ -1,0 +1,83 @@
+{
+	"info": {
+		"name": "LightMove — LLM (Google GenAI)",
+		"description": "Demo requests for the Spring AI / Google GenAI (Vertex) integration: POST /api/v1/llm/shortlist and POST /api/v1/llm/embed. Both require an authenticated access token — log in through the SPA (or the auth API) and paste the access token into the accessToken collection variable.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080"
+		},
+		{
+			"key": "accessToken",
+			"value": ""
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{accessToken}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "Shortlist candidate",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"jobBrief\": \"Chief Financial Officer — Series C fintech scale-up (120 employees, $40M ARR). Reports to CEO. Must have led finance through a Series B or later raise, owns FP&A and investor relations, ideally has payments or lending sector experience, and has managed a team of 8+.\",\n  \"candidateProfile\": \"Priya Menon — CFO at a fintech lending platform for 4 years, led the Series C raise ($55M) and built the FP&A function from scratch. Previously VP Finance at a payments company. Manages a team of 10 across finance and accounting. MBA, CPA. Based in Singapore, open to relocation.\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/llm/shortlist",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "v1", "llm", "shortlist"]
+				},
+				"description": "Returns { \"verdict\": \"...\" } — the model's SHORTLIST/DECLINE recommendation and reasoning."
+			}
+		},
+		{
+			"name": "Embed text",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"text\": \"CFO with 8+ years in fintech, led two Series C raises, deep experience in payments and lending sector finance, built and scaled FP&A teams.\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/llm/embed",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "v1", "llm", "embed"]
+				},
+				"description": "Returns { \"dimensions\": 768, \"embedding\": [...] } — text-embedding-004 produces 768-dimensional vectors by default."
+			}
+		}
+	]
+}
