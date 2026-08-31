@@ -90,7 +90,7 @@ public class ActiveSessionService {
     }
 
     private ActiveSessionResponse describe(RefreshToken token, UUID currentFamilyId) {
-        DeviceDescription device = deviceDescriber.describe(token.getUserAgent());
+        DeviceDescription device = deviceDescriber.describe(token.getClient(), token.getUserAgent());
         return new ActiveSessionResponse(
                 token.getFamilyId(),
                 device.label(),

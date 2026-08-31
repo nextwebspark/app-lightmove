@@ -5,9 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 /**
  * The extension presenting its refresh token — for a new session, or to end the one it has.
  *
- * <p>In the body rather than a cookie because the extension has no cookie to send, which is also what
- * makes these routes safe to exempt from CSRF: a cross-site page can cause a browser to attach a
- * cookie it cannot read, but it cannot produce a token it has never seen.
+ * <p>In the body, which is why these routes are CSRF-exempt: there is no cookie for a cross-site page
+ * to cause the browser to attach.
  */
 public record ExtensionRefreshRequest(
         @NotBlank(message = "A refresh token is required")

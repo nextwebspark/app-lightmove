@@ -44,8 +44,8 @@ export function ExtensionConnectPage() {
   const isPairing = useRef(false);
 
   const pair = useCallback(async () => {
-    // Guards a double-click as well as a re-render: each run mints a token and abandons whatever the
-    // extension held, and an abandoned one stays live in Settings → Active sessions for its full TTL.
+    // Guards a double-click as well as a re-render: each run ends the extension session the account
+    // holds and mints a replacement, so a second run mid-handover signs the extension out again.
     if (isPairing.current) {
       return;
     }

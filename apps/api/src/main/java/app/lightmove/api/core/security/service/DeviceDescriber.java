@@ -7,7 +7,7 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 /**
- * Turns the User-Agent recorded with a refresh token into the line Settings → Active sessions shows.
+ * Turns a session's client and User-Agent into the line Settings → Active sessions shows.
  *
  * <p>A best-effort label, never a security decision — a User-Agent is client-supplied and freely
  * forged. It exists so someone can recognise their own laptop in a list, and an unrecognised string
@@ -32,6 +32,9 @@ public class DeviceDescriber {
             new BrowserMarker("Chrome", "Chrome"),
             new BrowserMarker("Safari", "Safari"));
 
+    /** The extension's fetches carry the host browser's User-Agent, so only the client tells them apart. */
+    private static final String EXTENSION_LABEL = "LightMove Capture (browser extension)";
+
     private static final List<PlatformMarker> PLATFORMS = List.of(
             new PlatformMarker("iPhone", "iPhone", DeviceKind.MOBILE),
             new PlatformMarker("iPad", "iPad", DeviceKind.TABLET),
@@ -40,16 +43,13 @@ public class DeviceDescriber {
             new PlatformMarker("CrOS", "ChromeOS", DeviceKind.DESKTOP),
             new PlatformMarker("Linux", "Linux", DeviceKind.DESKTOP));
 
-    public DeviceDescription describe(String userAgent) {
-        if (userAgent == null || userAgent.isBlank()) {
-            return DeviceDescription.unknown();
+    public DeviceDescription describe(SessionClient client, String userAgent) {
+        if (client == SessionClient.BROWSER_EXTENSION) {
+            return new DeviceDescription(DeviceKind.EXTENSION, EXTENSION_LABEL);
         }
 
-        // Checked before any browser marker, because this is not a User-Agent the browser sent: the
-        // extension's session records a label of its own precisely so it can be told apart from the
-        // browser hosting it, which sends a string every marker below would match.
-        if (SessionClient.BROWSER_EXTENSION.sessionLabel().equals(userAgent)) {
-            return new DeviceDescription(DeviceKind.EXTENSION, userAgent);
+        if (userAgent == null || userAgent.isBlank()) {
+            return DeviceDescription.unknown();
         }
 
         PlatformMarker platform = platformOf(userAgent);

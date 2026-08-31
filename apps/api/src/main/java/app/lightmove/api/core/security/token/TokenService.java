@@ -52,10 +52,7 @@ public class TokenService {
         return issue(user, membership, request, SessionClient.WEB_APP);
     }
 
-    /**
-     * The same, for a named client. The extension pairs through this: the token it opens comes back in
-     * the response body rather than a cookie, so it needs its own TTL and its own session label.
-     */
+    /** The same, for a named client: the extension's token comes back in the body and lives its own TTL. */
     @Transactional
     public AuthenticatedSession issue(User user, WorkspaceMember membership, HttpServletRequest request,
                                       SessionClient client) {
@@ -64,9 +61,10 @@ public class TokenService {
         String plaintext = Tokens.generate();
         RefreshToken token = RefreshToken.issue(
                 user.getId(),
+                client,
                 Tokens.hash(plaintext),
                 now.plus(refreshTokenTtl(client)),
-                sessionLabel(client, request),
+                userAgent(request),
                 clientIpResolver.resolve(request));
         refreshTokens.save(token);
 
@@ -94,11 +92,7 @@ public class TokenService {
         return rotate(presentedToken, request, userLookup, membershipLookup, SessionClient.WEB_APP);
     }
 
-    /**
-     * The same, for a named client. The client has to travel with the rotation, not just the first
-     * issue: the successor inherits neither the TTL nor the label otherwise, so an extension session
-     * would quietly become a 30-day one and stop naming itself in Settings after its first refresh.
-     */
+    /** The same, for a named client, which must travel with the rotation or the successor loses its TTL. */
     @Transactional(noRollbackFor = ApiException.class)
     public AuthenticatedSession rotate(String presentedToken, HttpServletRequest request,
                                        UserLookup userLookup, MembershipLookup membershipLookup,
@@ -113,17 +107,10 @@ public class TokenService {
                 .orElseThrow(() -> new ApiException(ErrorCode.REFRESH_TOKEN_INVALID,
                         "No refresh token matches the presented hash"));
 
-        // A token belongs to the client its family was opened for, and may only be redeemed there.
-        // Without this, a *web* refresh token — which exists only as an httpOnly SameSite=Strict cookie
-        // — could be presented to /auth/extension/refresh, and its successor would come back in a
-        // plaintext response body: a credential deliberately kept out of script's reach turned into a
-        // bearer token, and the victim's browser session silently relabelled as their extension.
-        //
-        // The fence is **hard in both directions**: an extension token is equally refused at
-        // /auth/refresh. So a family carrying the wrong label is not a wrong icon, it is a session that
-        // can never refresh — which is why sessionLabel() below refuses to write the extension's label
-        // for a web caller, rather than trusting that no real browser sends that User-Agent.
-        if (!clientMatches(existing, client)) {
+        // Hard in both directions. A web refresh token exists only as an httpOnly SameSite=Strict
+        // cookie; redeemed at /auth/extension/refresh its successor would come back in a plaintext body,
+        // laundering a credential kept out of script's reach into a bearer token.
+        if (existing.getClient() != client) {
             throw new ApiException(ErrorCode.REFRESH_TOKEN_INVALID,
                     "Refresh token belongs to a different client than " + client);
         }
@@ -155,10 +142,11 @@ public class TokenService {
         String plaintext = Tokens.generate();
         RefreshToken successor = RefreshToken.issueInFamily(
                 user.getId(),
+                existing.getClient(),
                 Tokens.hash(plaintext),
                 existing.getFamilyId(),
                 now.plus(refreshTokenTtl(client)),
-                sessionLabel(client, request),
+                userAgent(request),
                 clientIpResolver.resolve(request));
         refreshTokens.save(successor);
 
@@ -177,17 +165,11 @@ public class TokenService {
         revoke(presentedToken, request, null);
     }
 
-    /**
-     * Ends one session, refusing a family opened for a different client.
-     *
-     * <p>The same fence {@code rotate} applies, so all three routes hold the invariant rather than two
-     * of them: without it {@code /auth/extension/logout} would revoke a web session, and an invariant
-     * with a silent exception is the kind someone later relies on having read the doc.
-     */
+    /** Ends one session, refusing a family opened for a different client — the fence {@code rotate} applies. */
     @Transactional
     public void revoke(String presentedToken, HttpServletRequest request, SessionClient client) {
         refreshTokens.findByTokenHash(Tokens.hash(presentedToken)).ifPresent(token -> {
-            if (client != null && !clientMatches(token, client)) {
+            if (client != null && token.getClient() != client) {
                 return;
             }
             token.revoke(RevokeReason.LOGOUT, Instant.now());
@@ -200,6 +182,13 @@ public class TokenService {
     public void revokeAllSessions(UUID userId, RevokeReason reason) {
         int revoked = refreshTokens.revokeAllForUser(userId, reason, Instant.now());
         log.debug("Revoked {} session(s) for user {} ({})", revoked, userId, reason);
+    }
+
+    /** Ends the account's sessions on one client, leaving the other client's alone. */
+    @Transactional
+    public void revokeSessionsForClient(UUID userId, SessionClient client, RevokeReason reason) {
+        int revoked = refreshTokens.revokeAllForUserAndClient(userId, client, reason, Instant.now());
+        log.debug("Revoked {} {} session(s) for user {} ({})", revoked, client, userId, reason);
     }
 
     private void handleReuse(RefreshToken replayed, HttpServletRequest request, Instant now) {
@@ -257,42 +246,10 @@ public class TokenService {
         return jwtEncoder.encode(JwtEncoderParameters.from(claims.build())).getTokenValue();
     }
 
-    /**
-     * Whether this family was opened for the client now trying to redeem it.
-     *
-     * <p>Deliberately exact, not a prefix or a contains: the extension's label is a constant this
-     * codebase writes, so an exact match is the whole test, and anything looser would let a
-     * caller-supplied User-Agent that merely mentions the product through.
-     */
-    private static boolean clientMatches(RefreshToken token, SessionClient client) {
-        boolean tokenIsExtension = SessionClient.BROWSER_EXTENSION.sessionLabel()
-                .equals(token.getUserAgent());
-        return tokenIsExtension == (client == SessionClient.BROWSER_EXTENSION);
-    }
-
     private Duration refreshTokenTtl(SessionClient client) {
         return client == SessionClient.BROWSER_EXTENSION
                 ? config.extension().refreshTokenTtl()
                 : config.refreshTokenTtl();
-    }
-
-    /**
-     * What to record as the session's User-Agent: a client's own label where it has one, otherwise the
-     * caller's.
-     *
-     * <p>With one refusal, and it is load-bearing rather than tidy. The client fence in {@code rotate}
-     * recognises an extension family by this exact string, so a web caller sending it as their own
-     * User-Agent would open a family that fence reads as the extension's — and that session could then
-     * never refresh at {@code /auth/refresh}, because the fence is a hard refusal in both directions.
-     * Not exploitable, since no real browser sends it, but a self-inflicted wedged account is a worse
-     * failure than a wrong icon. A caller does not get to claim to be the extension.
-     */
-    private static String sessionLabel(SessionClient client, HttpServletRequest request) {
-        if (client.sessionLabel() != null) {
-            return client.sessionLabel();
-        }
-        String claimed = userAgent(request);
-        return SessionClient.BROWSER_EXTENSION.sessionLabel().equals(claimed) ? null : claimed;
     }
 
     private static String userAgent(HttpServletRequest request) {

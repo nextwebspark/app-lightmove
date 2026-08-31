@@ -20,11 +20,11 @@ class DeviceDescriberTest {
     @Test
     @DisplayName("Edge is not Chrome, and Chrome is not Safari")
     void theMostSpecificBrowserMarkerWins() {
-        assertThat(describer.describe("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        assertThat(describer.describe(SessionClient.WEB_APP, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                 + "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0"))
                 .isEqualTo(new DeviceDescription(DeviceKind.DESKTOP, "Windows — Edge"));
 
-        assertThat(describer.describe("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        assertThat(describer.describe(SessionClient.WEB_APP, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
                 + "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"))
                 .isEqualTo(new DeviceDescription(DeviceKind.DESKTOP, "macOS — Chrome"));
     }
@@ -32,7 +32,7 @@ class DeviceDescriberTest {
     @Test
     @DisplayName("Safari on a Mac is Safari")
     void safariIsRecognisedWhenNothingElseClaimsIt() {
-        assertThat(describer.describe("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
+        assertThat(describer.describe(SessionClient.WEB_APP, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
                 + "(KHTML, like Gecko) Version/17.1 Safari/605.1.15"))
                 .isEqualTo(new DeviceDescription(DeviceKind.DESKTOP, "macOS — Safari"));
     }
@@ -40,7 +40,7 @@ class DeviceDescriberTest {
     @Test
     @DisplayName("Chrome on iOS says CriOS and never says Chrome")
     void iosBrowsersAreReadBeforeSafari() {
-        assertThat(describer.describe("Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) "
+        assertThat(describer.describe(SessionClient.WEB_APP, "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) "
                 + "AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/119.0.0.0 Mobile/15E148 Safari/604.1"))
                 .isEqualTo(new DeviceDescription(DeviceKind.MOBILE, "iPhone — Chrome"));
     }
@@ -48,11 +48,11 @@ class DeviceDescriberTest {
     @Test
     @DisplayName("an Android phone and an Android tablet differ by one token, and both carry Linux")
     void androidIsSplitByFormFactorAndBeatsLinux() {
-        assertThat(describer.describe("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 "
+        assertThat(describer.describe(SessionClient.WEB_APP, "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 "
                 + "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"))
                 .isEqualTo(new DeviceDescription(DeviceKind.MOBILE, "Android — Chrome"));
 
-        assertThat(describer.describe("Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 "
+        assertThat(describer.describe(SessionClient.WEB_APP, "Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 "
                 + "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"))
                 .isEqualTo(new DeviceDescription(DeviceKind.TABLET, "Android — Chrome"));
     }
@@ -60,7 +60,7 @@ class DeviceDescriberTest {
     @Test
     @DisplayName("an iPad is a tablet")
     void ipadIsATablet() {
-        assertThat(describer.describe("Mozilla/5.0 (iPad; CPU OS 17_1 like Mac OS X) AppleWebKit/605.1.15 "
+        assertThat(describer.describe(SessionClient.WEB_APP, "Mozilla/5.0 (iPad; CPU OS 17_1 like Mac OS X) AppleWebKit/605.1.15 "
                 + "(KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1").kind())
                 .isEqualTo(DeviceKind.TABLET);
     }
@@ -68,19 +68,26 @@ class DeviceDescriberTest {
     @Test
     @DisplayName("nothing recognisable is reported as unknown rather than guessed at")
     void unrecognisedInputIsUnknown() {
-        assertThat(describer.describe(null)).isEqualTo(DeviceDescription.unknown());
-        assertThat(describer.describe("  ")).isEqualTo(DeviceDescription.unknown());
-        assertThat(describer.describe("curl/8.4.0")).isEqualTo(DeviceDescription.unknown());
+        assertThat(describer.describe(SessionClient.WEB_APP, null)).isEqualTo(DeviceDescription.unknown());
+        assertThat(describer.describe(SessionClient.WEB_APP, "  ")).isEqualTo(DeviceDescription.unknown());
+        assertThat(describer.describe(SessionClient.WEB_APP, "curl/8.4.0")).isEqualTo(DeviceDescription.unknown());
     }
 
     @Test
-    @DisplayName("the browser extension is its own device, not another copy of the browser hosting it")
+    @DisplayName("the browser extension is its own device, despite sending the host browser's User-Agent")
     void namesTheBrowserExtension() {
-        // Its fetches carry Chrome's own User-Agent, so without the label its session would appear in
-        // the list as a second, indistinguishable "Chrome — macOS" and nobody could tell which to end.
-        DeviceDescription described = describer.describe(SessionClient.BROWSER_EXTENSION.sessionLabel());
+        DeviceDescription described = describer.describe(SessionClient.BROWSER_EXTENSION,
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+                        + "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
         assertThat(described.kind()).isEqualTo(DeviceKind.EXTENSION);
-        assertThat(described.label()).isEqualTo(SessionClient.BROWSER_EXTENSION.sessionLabel());
+        assertThat(described.label()).isEqualTo("LightMove Capture (browser extension)");
+    }
+
+    @Test
+    @DisplayName("a web session claiming the extension's label is still a browser")
+    void theExtensionsLabelCannotBeClaimed() {
+        assertThat(describer.describe(SessionClient.WEB_APP, "LightMove Capture (browser extension)").kind())
+                .isNotEqualTo(DeviceKind.EXTENSION);
     }
 }

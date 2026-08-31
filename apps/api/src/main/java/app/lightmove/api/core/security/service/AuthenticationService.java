@@ -328,11 +328,17 @@ public class AuthenticationService {
      * one leaves the other alone — that is what makes "sign out of the extension" and "sign out of the
      * browser" two separate decisions in Settings → Active sessions. The token comes back in the
      * response body because the extension is a different origin and cannot be given a cookie scoped to
-     * this one; see {@link SessionClient#BROWSER_EXTENSION} for what that costs and what pays for it.
+     * this one.
+     *
+     * <p>Pairing again <b>replaces</b> the extension session the account held rather than adding a
+     * second: the page can mint without the extension ever receiving what it minted, and an abandoned
+     * credential would otherwise stay live for its full TTL.
      */
     @Transactional
     public AuthenticatedSession pairExtension(UUID userId, HttpServletRequest request) {
         User user = requireUser(userId);
+        tokens.revokeSessionsForClient(userId, SessionClient.BROWSER_EXTENSION, RevokeReason.SUPERSEDED);
+
         AuthenticatedSession paired = tokens.issue(user, activeMembership(userId).orElse(null), request,
                 SessionClient.BROWSER_EXTENSION);
 

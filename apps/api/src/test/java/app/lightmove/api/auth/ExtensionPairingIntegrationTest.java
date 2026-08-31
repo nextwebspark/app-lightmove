@@ -209,14 +209,11 @@ class ExtensionPairingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a caller may not open a session claiming to be the extension")
-    void aWebCallerCannotClaimTheExtensionsLabel() throws Exception {
+    @DisplayName("claiming the extension's User-Agent buys a web caller nothing")
+    void spoofingTheExtensionsUserAgentChangesNothing() throws Exception {
         String workspaceOwner = "alok@" + domain;
-        verifiedUser("Alok Kumar", workspaceOwner);
+        createWorkspace(verifiedUser("Alok Kumar", workspaceOwner), "Spoofed Label Firm");
 
-        // Were the claimed User-Agent stored verbatim, the client fence would read this family as the
-        // extension's — and the session could then never refresh on the route it actually belongs to.
-        // A wedged account is a worse failure than a wrong icon, so the claim is refused at write time.
         MvcResult signIn = mvc.perform(post("/api/v1/auth/login")
                         .header("User-Agent", "LightMove Capture (browser extension)")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -224,10 +221,68 @@ class ExtensionPairingIntegrationTest extends FlowTestSupport {
                                 {"email":"%s","password":"%s"}""".formatted(workspaceOwner, PASSWORD)))
                 .andExpect(status().isOk())
                 .andReturn();
+        Cookie browserCookie = refreshCookieOf(signIn);
 
-        mvc.perform(post("/api/v1/auth/refresh")
-                        .cookie(refreshCookieOf(signIn))
-                        .with(csrf()))
+        // The client is a column the caller never supplies, so the claim decides nothing: the session is
+        // still a browser, is still refused where it does not belong, and still refreshes where it does.
+        mvc.perform(get("/api/v1/auth/sessions")
+                        .header("Authorization", "Bearer " + body(signIn).get("accessToken").asText())
+                        .cookie(browserCookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.deviceKind == 'EXTENSION')]").isEmpty());
+
+        mvc.perform(post("/api/v1/auth/extension/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(browserCookie.getValue())))
+                .andExpect(status().isUnauthorized());
+
+        // Last, because rotation spends the cookie and /auth/sessions refuses a stale one — it can only
+        // mark which row is *this* session by matching the cookie presented.
+        mvc.perform(post("/api/v1/auth/refresh").cookie(browserCookie).with(csrf()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("pairing again replaces the extension session rather than adding a second")
+    void pairingAgainEndsThePriorExtensionSession() throws Exception {
+        String user = signedInUser("Re-pairing Firm");
+        String first = body(pair(user)).get("refreshToken").asText();
+        String second = body(pair(user)).get("refreshToken").asText();
+
+        // The page can mint without the extension ever receiving what it minted — extension storage
+        // cleared, a reinstall, a failed handover. An abandoned credential would otherwise stay live
+        // for its full 14 days and sit in Active sessions indistinguishable from the real one.
+        mvc.perform(post("/api/v1/auth/extension/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(first)))
+                .andExpect(status().isUnauthorized());
+
+        mvc.perform(post("/api/v1/auth/extension/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(second)))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + user))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("a superseded token replayed is a stale device, not a thief")
+    void replayingASupersededTokenIsNotTreatedAsTheft() throws Exception {
+        String user = signedInUser("Superseded Replay Firm");
+        String abandoned = body(pair(user)).get("refreshToken").asText();
+        String live = body(pair(user)).get("refreshToken").asText();
+
+        mvc.perform(post("/api/v1/auth/extension/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(abandoned)))
+                .andExpect(status().isUnauthorized());
+
+        // Were SUPERSEDED read as theft, that replay would have revoked the family the extension is
+        // actually holding — so every re-pair would sign the consultant out on their next refresh.
+        mvc.perform(post("/api/v1/auth/extension/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(live)))
                 .andExpect(status().isOk());
     }
 
