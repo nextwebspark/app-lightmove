@@ -14,7 +14,9 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.MediaType;
 import tools.jackson.databind.JsonNode;
 
@@ -25,6 +27,17 @@ import tools.jackson.databind.JsonNode;
 @IntegrationTest
 @Import(RecordingEmailSender.Config.class)
 class PositionTemplateIntegrationTest extends FlowTestSupport {
+
+    private static final String FIRM_TEMPLATE_BODY = """
+            {"department":"Group Treasury","reportsTo":"Chief Financial Officer",
+             "responsibilities":["Liquidity, funding and banking relationships"],
+             "criteria":[{"text":"Corporate treasury leadership at comparable scale","mode":"REQUIRED"}],
+             "competencies":[
+               {"panel":"TECHNICAL","name":"Treasury Operations","description":"Cash, funding and risk","weight":100},
+               {"panel":"BEHAVIOURAL","name":"Judgement under Pressure","description":"Decides with the money moving","weight":100}]}
+            """;
+
+    @Autowired JdbcTemplate db;
 
     @Test
     @DisplayName("the picker lists the seeded library, and every template in it is readable")
@@ -173,6 +186,38 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
                 .contains("Chief Executive Officer");
     }
 
+    @Test
+    @DisplayName("a firm's own template leads its picker, matches its mandates, and is invisible next door")
+    void workspaceTemplatesAreScopedAndLeadTheCatalog() throws Exception {
+        Firm firm = firmOf("Own Library Firm", "alok");
+        String ours = insertWorkspaceTemplate(firm.workspaceId(), "group-treasury-lead",
+                "Group Treasury Lead", "Treasury Lead");
+
+        // A workspace's own template sorts ahead of the shared library, and says which it is.
+        JsonNode library = templates(firm.token());
+        assertThat(library.get(0).get("code").asString()).isEqualTo("group-treasury-lead");
+        assertThat(library.get(0).get("shared").asBoolean()).isFalse();
+        assertThat(codesOf(library)).contains("chief-financial-officer");
+
+        // Matched on a keyword stored with capitals — every row this table will ever hold comes from
+        // a text box, so matching cannot depend on the writer having lower-cased it.
+        String clientId = createClient(firm.token(), "Emirates NBD", "UAE");
+        JsonNode brief = readBrief(firm.token(), createProject(firm.token(), clientId, "Treasury Lead"));
+        assertThat(brief.get("details").get("department").asString()).isEqualTo("Group Treasury");
+        assertThat(titlesOf(brief.get("reporting").get("orgChart"))).contains("Chief Financial Officer");
+
+        // The firm next door neither sees it nor can draft against it.
+        Firm neighbour = firmOf("Neighbour Firm", "sara");
+        assertThat(codesOf(templates(neighbour.token()))).doesNotContain("group-treasury-lead");
+        String theirProject = createProject(neighbour.token(),
+                createClient(neighbour.token(), "Aldar", "UAE"), "CFO");
+        mvc.perform(post(positionUrl(theirProject) + "/template")
+                        .header("Authorization", "Bearer " + neighbour.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"templateId\":\"%s\"}".formatted(ours)))
+                .andExpect(status().isNotFound());
+    }
+
     private JsonNode templates(String token) throws Exception {
         return body(mvc.perform(get("/api/v1/position-templates")
                         .header("Authorization", "Bearer " + token))
@@ -253,8 +298,36 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
     }
 
     private String adminOf(String workspaceName) throws Exception {
-        createWorkspace(verifiedUser("Alok Kumar", "alok@" + domain), workspaceName);
-        return login("alok@" + domain);
+        return firmOf(workspaceName, "alok").token();
+    }
+
+    /** An admin plus the id of the workspace they created — a test writing template rows needs both. */
+    private Firm firmOf(String workspaceName, String localPart) throws Exception {
+        String address = localPart + "@" + domain;
+        String workspaceId = createWorkspace(verifiedUser("Alok Kumar", address), workspaceName);
+        return new Firm(login(address), workspaceId);
+    }
+
+    private record Firm(String token, String workspaceId) {
+    }
+
+    /**
+     * Writes a template the way the management screen eventually will — straight into the table, owned
+     * by one workspace. SQL rather than a service call because there is no write path yet, and the
+     * rows this PR's reads are scoped against have to exist for the scoping to be worth asserting.
+     */
+    private String insertWorkspaceTemplate(String workspaceId, String code, String title, String keyword) {
+        UUID templateId = UUID.randomUUID();
+        db.update("""
+                insert into app_lm_position_template
+                    (id, workspace_id, code, title, discipline, seniority, summary, sort_order, body)
+                values (?, ?::uuid, ?, ?, 'FINANCE', 'C_SUITE', ?, 10, ?::jsonb)
+                """, templateId, workspaceId, code, title, "This firm's own brief.", FIRM_TEMPLATE_BODY);
+        db.update("""
+                insert into app_lm_position_template_keyword (template_id, sort_order, keyword)
+                values (?, 0, ?)
+                """, templateId, keyword);
+        return templateId.toString();
     }
 
     private String createClient(String token, String name, String hqCountry) throws Exception {
