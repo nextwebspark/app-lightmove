@@ -1,12 +1,7 @@
 /**
- * What the popup remembers about how the consultant wants it to behave.
- *
- * Extension-local and nothing else: none of this reaches the workspace, because none of it is a fact
- * about a mandate. Three settings rather than the design's four, because the rest gate features that
- * do not exist — a toggle for a behaviour nothing implements is a dead control that looks live.
- *
- * Here rather than beside its hook because the service worker owns the storage and must not import
- * anything the popup's React tree drags with it.
+ * What the popup remembers about how it should behave. Extension-local; none of it reaches the
+ * workspace. Three settings rather than the design's four — the rest would gate features that do not
+ * exist. Here rather than beside its hook so the worker can read it without importing React.
  */
 export interface CaptureSettings {
   /** The mandate to preselect, or null to keep offering the last one used. */
