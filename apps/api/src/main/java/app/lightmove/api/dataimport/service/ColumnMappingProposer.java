@@ -2,6 +2,7 @@ package app.lightmove.api.dataimport.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.SpreadsheetImportSettings;
+import app.lightmove.api.core.llm.config.ChatClientConfig;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.constant.CustomColumnType;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
@@ -53,6 +54,9 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class ColumnMappingProposer {
 
+    /** Names this feature in the shared client's log line. */
+    private static final String PROMPT_ID = "import-column-mapping";
+
     /** Enough of a sheet to describe its columns; a header list is short, and this bounds a wide file. */
     private static final int MAX_HEADERS_SENT = 120;
 
@@ -95,6 +99,7 @@ public class ColumnMappingProposer {
 
     private ProposedMapping ask(ParsedSheet sheet, List<CustomColumnDto> existingColumns) {
         return chatClient.prompt()
+                .advisors(advisor -> advisor.param(ChatClientConfig.PROMPT_ID, PROMPT_ID))
                 .system(systemPrompt)
                 .user(user -> user.text("""
                         Columns in the uploaded file:

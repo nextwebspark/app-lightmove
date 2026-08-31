@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.SpreadsheetImportSettings;
+import app.lightmove.api.core.llm.config.ChatClientConfig;
 import app.lightmove.api.dataimport.constant.ImportTargetField;
 import app.lightmove.api.dataimport.model.ParsedSheet;
 import app.lightmove.api.dataimport.model.ProposedColumnMappings;
@@ -12,9 +13,14 @@ import app.lightmove.api.dataimport.service.ColumnMappingProposer;
 import app.lightmove.api.dataimport.service.HeuristicColumnMatcher;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.ChatClientRequest;
+import org.springframework.ai.chat.client.ChatClientResponse;
+import org.springframework.ai.chat.client.advisor.api.CallAdvisor;
+import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.model.ChatModel;
@@ -172,6 +178,53 @@ class ColumnMappingProposerTest {
 
     private static ParsedSheet sheetOf(SheetColumn... columns) {
         return new ParsedSheet(List.of(columns), List.of());
+    }
+
+    @Test
+    @DisplayName("tags its calls, so the import's share of the LLM bill can be told apart")
+    void tagsItsCalls() {
+        // The ChatClient is shared with the shortlist feature, so without this every line in the log
+        // says only that something called Gemini. See ChatClientConfig.PROMPT_ID.
+        RecordingChatModel model = new RecordingChatModel("""
+                {"columns":[{"header":"Contact","targetField":"candidateEmail"}]}
+                """);
+        ContextCapturingAdvisor captured = new ContextCapturingAdvisor();
+        Resource prompt = new ByteArrayResource("map the columns".getBytes());
+        ChatClient chatClient = ChatClient.builder(model).defaultAdvisors(captured).build();
+
+        new ColumnMappingProposer(chatClient, new HeuristicColumnMatcher(), prompt, propertiesWith(false))
+                .propose(sheetWithValues(), List.of());
+
+        assertThat(captured.context).containsEntry(ChatClientConfig.PROMPT_ID, "import-column-mapping");
+    }
+
+    /**
+     * Records the advisor context a call carried.
+     *
+     * <p>An advisor rather than the logging advisor's formatter hook, which looks like the obvious
+     * route and is not: {@code SimpleLoggerAdvisor} only calls its formatters when its own logger is
+     * at DEBUG, so under the suite's INFO level the hook never fires and the assertion would pass
+     * against an empty map. What the log line itself says is {@code ChatClientLoggingTest}'s subject.
+     */
+    private static final class ContextCapturingAdvisor implements CallAdvisor {
+
+        private Map<String, Object> context = Map.of();
+
+        @Override
+        public ChatClientResponse adviseCall(ChatClientRequest request, CallAdvisorChain chain) {
+            context = request.context();
+            return chain.nextCall(request);
+        }
+
+        @Override
+        public String getName() {
+            return "context-capturing";
+        }
+
+        @Override
+        public int getOrder() {
+            return 0;
+        }
     }
 
     /** Answers a fixed reply and keeps what it was asked, so a test can assert on the prompt itself. */

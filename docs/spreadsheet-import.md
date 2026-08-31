@@ -80,6 +80,31 @@ mapper that ever runs. It seeds the model's request and answers alone when the c
 preview response says which of the two produced the mapping, because they are worth different amounts
 of scrutiny.
 
+### What every call logs
+
+`SimpleLoggerAdvisor`'s formatters (in `ChatClientConfig`) were already replaced to keep prompt and
+response content out of the log. They now also carry what a production LLM integration actually gets
+asked:
+
+```
+chat request  prompt=import-column-mapping model=gemini-2.5-flash temperature=0.8
+chat response id=… model=gemini-2.5-flash inputTokens=1200 outputTokens=340 totalTokens=1540 finish=STOP
+```
+
+- **`prompt=`** is the calling feature, passed per call site through the advisor context
+  (`ChatClientConfig.PROMPT_ID`) and read back in the request formatter. The `ChatClient` is shared, so
+  without it every line says only that *something* called Gemini — and "which prompt" is the first
+  question when a bill jumps. A call site that sets none logs `unattributed` rather than failing.
+- **Token counts** come from the provider, so they are the figures the bill is computed from. One
+  trap: Spring AI substitutes an *empty* usage when a provider reports none, so an unreported count
+  arrives as `0` rather than null. A zero input count means "not reported", not "free".
+- **`finish=`** is the field that separates a good answer from a silently truncated one — a
+  `MAX_TOKENS` or `SAFETY` stop returns a partial body over a perfectly successful call, which then
+  fails to parse downstream for reasons that look nothing like the cause.
+
+The advisor only calls its formatters when its own logger is at `DEBUG`, which is worth knowing before
+going looking for these lines in a deployed environment.
+
 Preview is capped per user through `LlmBudgetGuard`, which is
 `CandidateLlmController`'s former private `checkRateLimit` lifted into `core/ratelimit` rather than
 copied into a second controller. It stays separate from `RateLimitGuard`, which is auth-shaped (IP +
@@ -179,7 +204,11 @@ every other mandate's grid.
   header, a numeric cell Excel stored as a double, a workbook mislabelled `text/csv`, the row cap.
 - `ColumnMappingProposerTest` — with the existing `StubChatModel`: that the prompt carries headers and
   shapes and **no cell values**, that answers are matched by header rather than position, that a
-  double-claimed field goes to the first column, and that a thrown call falls back to the heuristic.
+  double-claimed field goes to the first column, that a thrown call falls back to the heuristic, and
+  that the call is tagged `import-column-mapping`.
+- `ChatClientLoggingTest` — the log line, driven through a real `ChatClient` and the real advisor:
+  model, both token counts, the finish reason, the prompt id from each call site, an unattributed
+  call, a response carrying no metadata, and that no prompt or response content is ever logged.
 - `HeuristicColumnMatcherTest` — the header spellings real files carry.
 - `SpreadsheetImportIntegrationTest` — companies-only, candidates-only and combined files; a re-import
   that updates rather than duplicates; a blank cell that does not clear a stored value; an unknown

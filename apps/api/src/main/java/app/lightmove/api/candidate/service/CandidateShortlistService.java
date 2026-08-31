@@ -1,5 +1,6 @@
 package app.lightmove.api.candidate.service;
 
+import app.lightmove.api.core.llm.config.ChatClientConfig;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -15,6 +16,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class CandidateShortlistService {
 
+    /** Names this feature in the shared client's log line. */
+    private static final String PROMPT_ID = "recruiter-shortlist";
+
     private final ChatClient chatClient;
     private final Resource systemPrompt;
 
@@ -29,6 +33,7 @@ public class CandidateShortlistService {
 
     public String shortlist(String jobBrief, String candidateProfile) {
         return chatClient.prompt()
+                .advisors(advisor -> advisor.param(ChatClientConfig.PROMPT_ID, PROMPT_ID))
                 .system(systemPrompt)
                 .user(user -> user.text("""
                         Job brief:
