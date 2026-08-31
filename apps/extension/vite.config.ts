@@ -57,16 +57,14 @@ export default defineConfig(({ mode }) => {
 
   build: {
     outDir: "dist",
-    emptyOutDir: true,
+    // Never emptied by this pass, and that is load-bearing rather than cautious. The page reader is a
+    // second build writing into the same dist/, and in watch mode Vite re-empties on every rebuild —
+    // so editing a popup file would delete the bundle the manifest injects, and page reading would
+    // stay broken until something happened to touch the reader. `npm run clean` empties dist once.
+    emptyOutDir: false,
     minify: true,
-    // Minified but never obfuscated. A popup is opened and thrown away dozens of times a day, so parse
-    // time is felt, and 700 kB of unminified React is a real cost for it.
-    //
-    // "hidden" emits the maps without the //# sourceMappingURL comment, which is the shape that suits
-    // how these are actually used: packageRelease.mjs strips every map from the uploaded archive —
-    // they carry the full original sources — so the store never sees one and the maps are for
-    // debugging our own dist/. Plain `true` would leave the comment behind in the shipped JS and make
-    // devtools 404 on every file in the published build.
+    // "hidden" emits the maps without the sourceMappingURL comment: packageRelease.mjs strips every
+    // map from the uploaded archive, so plain `true` would leave devtools 404ing on the published build.
     sourcemap: "hidden",
     rollupOptions: {
       input: {
@@ -85,7 +83,6 @@ export default defineConfig(({ mode }) => {
 
   test: {
     environment: "jsdom",
-    globals: true,
   },
   };
 });

@@ -1,17 +1,9 @@
 /**
  * Builds a publishable extension and zips it for the Chrome Web Store.
  *
- * Exists because three things are easy to get wrong by hand, and each fails silently:
- *
- *   1. Building without LM_WORKSPACE_ORIGIN, which bakes a placeholder host into `host_permissions`
- *      and produces an extension that cannot reach any workspace. Refused here rather than warned
- *      about — a plain `npm run build` may legitimately use the placeholder (CI does), but a release
- *      may not.
- *   2. Leaving `key` in the uploaded manifest. It fixes the id for unpacked loading and has no meaning
- *      to the store, which assigns its own. Stripped from the zip, and left in `dist/` so local
- *      loading still works.
- *   3. Zipping the folder rather than its contents. The store expects the manifest at the root of the
- *      archive and rejects an archive with a directory wrapping it.
+ * Three things fail silently when this is done by hand: a build with no LM_WORKSPACE_ORIGIN bakes in a
+ * placeholder host, a `key` left in the uploaded manifest, and zipping the folder rather than its
+ * contents. Each is handled below.
  */
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, writeFileSync, rmSync, mkdirSync, cpSync } from "node:fs";
@@ -35,12 +27,14 @@ const run = (command, args, cwd) =>
     env: { ...process.env, LM_WORKSPACE_ORIGIN: workspaceOrigin },
   });
 
-run("npm", ["run", "build"]);
+// Anchored on this script, never the cwd: npm chooses the working directory for a run script, and
+// this one both deletes a tree and writes a zip. The build is anchored for the same reason — run from
+// elsewhere it would build a different workspace, or none, and zip whatever dist/ happened to hold.
+const extensionDir = resolve(import.meta.dirname, "..");
+
+run("npm", ["run", "build"], extensionDir);
 
 // Packaged from a copy, so dist/ keeps its `key` and stays loadable unpacked after a release build.
-// Anchored on this script, never the cwd: npm chooses the working directory for a run script, and
-// this one both deletes a tree and writes a zip.
-const extensionDir = resolve(import.meta.dirname, "..");
 const packageDir = resolve(extensionDir, "release/package");
 rmSync(resolve(extensionDir, "release"), { recursive: true, force: true });
 mkdirSync(packageDir, { recursive: true });

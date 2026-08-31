@@ -1,25 +1,15 @@
 import packageJson from "./package.json" with { type: "json" };
 
 /**
- * The single source of the extension's manifest.
- *
- * Written here and emitted by the build rather than hand-maintained as JSON, so the entry points it
- * names and the files the bundler actually produces cannot drift apart — a manifest pointing at a
- * script that moved is an extension that loads and silently does nothing. The paths below are the
- * bundle's own output names, pinned in `vite.config.ts`; never edit `dist/manifest.json` directly.
+ * The single source of the extension's manifest, emitted by the build so the entry points it names and
+ * the files the bundler produces cannot drift — a manifest pointing at a moved script loads and
+ * silently does nothing. Never edit `dist/manifest.json`.
  */
 
 /**
- * The public half of a pinned keypair, which is what makes the extension's id stable **when loaded
- * unpacked**: `kllpamcdcnecpdblgdkehgbhdjdlbofh`. Without it Chrome mints a fresh id on every load, so
- * no `chrome-extension://` origin could be allow-listed for CORS and nothing would work locally.
- *
- * <b>It does not decide the published id.</b> The Chrome Web Store assigns its own when the item is
- * first created, so a published build has a different id from this one — which is why the API's CORS
- * entry and the connect page both take it as configuration rather than a literal. See the README.
- *
- * Public by nature. The private half signs a self-hosted `.crx` and is not in this repo; neither
- * loading unpacked nor Web Store publishing needs it.
+ * The public half of a pinned keypair, which fixes the id **for unpacked loading only**:
+ * `kllpamcdcnecpdblgdkehgbhdjdlbofh`. The Web Store assigns its own, which is why the API's CORS entry
+ * and the connect page take the id as configuration. See the README.
  */
 const PINNED_PUBLIC_KEY =
   "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzEytfwFPI7Za1EUBOOPBAEpoHrYmNyz8P/i97riqVWaylCeZ" +
@@ -29,12 +19,8 @@ const PINNED_PUBLIC_KEY =
   "ba4djQIDAQAB";
 
 /**
- * The manifest for one build.
- *
- * Takes the origin rather than deciding it: `host_permissions` and `externally_connectable` both name
- * it, and `vite.config.ts` resolves it once and hands the same value to both the manifest and the
- * bundle. Guessing here — from `process.env.NODE_ENV`, say, which Vite sets differently depending on
- * how the build was invoked — is how the two end up naming different hosts.
+ * The manifest for one build. Takes the origin rather than deciding it, so the manifest's permissions
+ * and the bundle's fetch target cannot name different hosts.
  */
 /** The one version there is: the manifest and the package must not drift. */
 const { version: packageVersion } = packageJson as { version: string };
@@ -44,7 +30,7 @@ export function buildManifest(workspaceOrigin: string) {
     manifest_version: 3,
     name: "LightMove Capture",
     version: packageVersion,
-    description: "Capture a company from the page you are on into a LightMove mandate.",
+    description: "Capture a company or an executive from the page you are on into a LightMove mandate.",
     key: PINNED_PUBLIC_KEY,
 
     // Every permission below is here for one named feature. An unexplained permission is a review
@@ -89,22 +75,15 @@ export function buildManifest(workspaceOrigin: string) {
     },
 
     // How the workspace hands the paired session over, and the only channel that keeps it private.
-    //
-    // This was a content script and a window.postMessage, which was wrong: postMessage to the page's
-    // own window is delivered to every listener in that frame, and a content script's isolated world
-    // does not isolate it from those events. Any other extension the consultant had installed with a
-    // broad content script — a grammar checker, a coupon finder — would have received the refresh
-    // token. externally_connectable delivers to this extension and to nothing else.
-    //
-    // The id is not a secret and pinning it costs nothing: PINNED_PUBLIC_KEY above fixes it, and
-    // application.yml already names the same id in the CORS allow-list.
+    // This was a window.postMessage, which is delivered to every listener in the frame — including
+    // any other installed extension's content script, which would have read the refresh token.
     externally_connectable: {
       matches: [`${workspaceOrigin}/*`],
     },
 
     commands: {
       _execute_action: {
-        suggested_key: { default: "Alt+Shift+L", mac: "Alt+Shift+L" },
+        suggested_key: { default: "Alt+Shift+L" },
         description: "Open LightMove Capture",
       },
     },
