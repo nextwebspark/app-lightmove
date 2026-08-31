@@ -1,41 +1,51 @@
-import type { TriagedCompany } from "../../api/types";
-import { DESTINATION_PAST_TENSE, type TriageDestination } from "../../domain/triageDestination";
 import { workspaceOrigin } from "../../workspaceOrigin";
+import { Icon, ICONS } from "../components/Icon";
 
 interface CaptureSavedScreenProps {
-  saved: TriagedCompany;
+  subjectName: string;
+  /** Where it landed, in the mandate's own words — the server's answer, never the button pressed. */
+  landedIn: string;
+  projectName: string;
   projectId: string;
-  destination: TriageDestination;
+  sourceUrl: string | null;
   onCaptureAnother: () => void;
+  /** Undoes the write. Absent while there is nothing to undo, or once it has been undone. */
+  onUndo?: () => void;
+  isUndoing?: boolean;
 }
 
 /**
- * The confirmation, after a company lands.
+ * The confirmation, after a capture lands. One screen for both subjects.
  *
- * States where it went in the mandate's own words, because "saved" alone leaves the consultant to
- * remember which of the two buttons they pressed. `status` comes from the server rather than from the
- * button: a company already sitting in the shortlist stays there when captured to the universe, and
- * the receipt has to say what is true rather than what was asked for.
+ * States where it went rather than only that it saved: a company already sitting in the shortlist
+ * stays there when captured to the universe, so the receipt has to say what is true rather than what
+ * was asked for.
  */
 export function CaptureSavedScreen({
-  saved,
+  subjectName,
+  landedIn,
+  projectName,
   projectId,
-  destination,
+  sourceUrl,
   onCaptureAnother,
+  onUndo,
+  isUndoing,
 }: CaptureSavedScreenProps) {
-  const landedIn = saved.status === "declined" ? null : DESTINATION_PAST_TENSE[saved.status];
-  const asked = DESTINATION_PAST_TENSE[destination];
-
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-      <span className="grid h-[46px] w-[46px] place-items-center rounded-full bg-green-dim text-[20px] text-green" aria-hidden>
-        ✓
+      <span className="grid h-[46px] w-[46px] place-items-center rounded-full bg-green-dim text-green" aria-hidden>
+        <Icon d={ICONS.check} size={20} />
       </span>
-      <h2 className="mt-3.5 text-[15px] font-semibold">{saved.companyName} added</h2>
+      <h2 className="mt-3.5 text-[15px] font-semibold">{subjectName} added</h2>
       <p className="mt-2 text-[12.5px] leading-[1.6] text-text2">
-        It is in <span className="font-semibold text-text">{landedIn ?? asked}</span> for this mandate.
-        {saved.source === "extension" && " Captured from this page, and marked as such on the Companies screen."}
+        Filed in <span className="font-semibold text-text">{landedIn}</span>.
       </p>
+
+      <dl className="mt-3.5 w-full rounded-[9px] bg-panel2 px-2.5 py-2 text-left">
+        <ReceiptRow label="Project" value={projectName} />
+        <ReceiptRow label="Landed in" value={landedIn} />
+        <ReceiptRow label="Source" value={sourceUrl ?? "Typed in the popup"} />
+      </dl>
 
       <div className="mt-4 flex gap-2">
         <a
@@ -54,6 +64,29 @@ export function CaptureSavedScreen({
           Capture another
         </button>
       </div>
+
+      {onUndo && (
+        <button
+          type="button"
+          onClick={onUndo}
+          disabled={isUndoing}
+          className="mt-3 inline-flex items-center gap-1.5 text-[11.5px] text-sky hover:underline disabled:opacity-60"
+        >
+          <Icon d={ICONS.undo} size={12} />
+          {isUndoing ? "Undoing…" : "Undo"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ReceiptRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline gap-2 py-[3px]">
+      <dt className="w-[68px] shrink-0 font-mono text-[9.5px] font-semibold uppercase tracking-[0.11em] text-text3">
+        {label}
+      </dt>
+      <dd className="flex-1 truncate text-[11.5px] text-text2">{value}</dd>
     </div>
   );
 }

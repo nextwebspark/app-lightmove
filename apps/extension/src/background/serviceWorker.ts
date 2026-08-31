@@ -1,8 +1,12 @@
 import { ApiRequestError, createLightMoveApiClient } from "../api/lightMoveApiClient";
-import { captureCompany } from "../api/captureCompanyApi";
+import { captureCandidate, removeCandidate } from "../api/captureCandidateApi";
+import { captureCompany, removeTriageCompany } from "../api/captureCompanyApi";
 import { listProjects } from "../api/projectsApi";
+import { findTriageCompanyByName } from "../api/triageApi";
 import type { ExtensionSession } from "../api/types";
 import { workspaceOrigin } from "../workspaceOrigin";
+import type { PageSubject } from "../content/pageReader/readPageSubject";
+import { DEFAULT_CAPTURE_SETTINGS, type CaptureSettings } from "../domain/captureSettings";
 import type { ExtensionFailure, ExtensionRequest, ReadPageResult } from "./extensionMessages";
 import { isReadablePageUrl } from "./readablePageUrl";
 import {
@@ -33,6 +37,7 @@ const api = createLightMoveApiClient({
 });
 
 const LAST_PROJECT_KEY = "lightmove.lastProjectId";
+const SETTINGS_KEY = "lightmove.settings";
 
 /** What the workspace's connect page sends over externally_connectable. */
 interface StorePairedSessionMessage {
@@ -81,17 +86,31 @@ async function handle(message: ExtensionRequest): Promise<unknown> {
     case "signOut":
       await signOut();
       return null;
-    case "readActiveTabCompany":
-      return readActiveTabCompany();
+    case "readActivePage":
+      return readActivePage();
     case "listProjects":
       return listProjects(api);
     case "captureCompany":
       return captureCompany(api, message.projectId, message.capture);
+    case "captureCandidate":
+      return captureCandidate(api, message.projectId, message.candidate);
+    case "findTriageCompany":
+      return findTriageCompanyByName(api, message.projectId, message.companyName);
     case "rememberProject":
       await chrome.storage.local.set({ [LAST_PROJECT_KEY]: message.projectId });
       return null;
     case "lastUsedProject":
       return (await chrome.storage.local.get(LAST_PROJECT_KEY))[LAST_PROJECT_KEY] ?? null;
+    case "removeTriageCompany":
+      await removeTriageCompany(api, message.projectId, message.triageCompanyId);
+      return null;
+    case "removeCandidate":
+      await removeCandidate(api, message.projectId, message.candidateId);
+      return null;
+    case "readSettings":
+      return storedSettings();
+    case "writeSettings":
+      return writeSettings(message.settings);
     default:
       // Reachable in one real state: an extension update restarts the worker while an open popup keeps
       // running against the older contract. Without this the switch falls through to `undefined` and
@@ -99,6 +118,21 @@ async function handle(message: ExtensionRequest): Promise<unknown> {
       // project list rather than reporting anything.
       throw new Error(`This version of LightMove Capture cannot handle "${(message as { kind: string }).kind}".`);
   }
+}
+
+/**
+ * The popup's own preferences, defaulted on read rather than on install — an extension updated from a
+ * version that did not have a setting must not be left with it undefined.
+ */
+async function storedSettings(): Promise<CaptureSettings> {
+  const stored = (await chrome.storage.local.get(SETTINGS_KEY))[SETTINGS_KEY] as Partial<CaptureSettings> | undefined;
+  return { ...DEFAULT_CAPTURE_SETTINGS, ...stored };
+}
+
+async function writeSettings(changed: Partial<CaptureSettings>): Promise<CaptureSettings> {
+  const merged = { ...(await storedSettings()), ...changed };
+  await chrome.storage.local.set({ [SETTINGS_KEY]: merged });
+  return merged;
 }
 
 /** The IIFE bundle of the extractors; see `vite.page-reader.config.ts` for how it answers. */
@@ -116,7 +150,7 @@ const PAGE_READER_BUNDLE = "page-reader.js";
  * unmaintainable function body. A file is a real bundle, and its completion value comes back as
  * `result`.
  */
-async function readActiveTabCompany(): Promise<ReadPageResult> {
+async function readActivePage(): Promise<ReadPageResult> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id || !isReadablePageUrl(tab.url)) {
     throw new PageNotReadableError();
@@ -130,12 +164,12 @@ async function readActiveTabCompany(): Promise<ReadPageResult> {
   if (!injected?.result) {
     throw new PageNotReadableError();
   }
-  return { company: injected.result as ReadPageResult["company"], sourceUrl: tab.url ?? "" };
+  return { ...(injected.result as PageSubject), sourceUrl: tab.url ?? "" };
 }
 
 class PageNotReadableError extends Error {
   constructor() {
-    super("This page cannot be read. Open a company's website or LinkedIn page and try again.");
+    super("This page cannot be read. Open a company's website, or a LinkedIn company or profile page.");
     this.name = "PageNotReadableError";
   }
 }

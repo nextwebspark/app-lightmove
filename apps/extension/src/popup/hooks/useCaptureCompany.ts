@@ -2,28 +2,12 @@ import { useMutation } from "@tanstack/react-query";
 import { askServiceWorker } from "../../background/extensionMessages";
 import type { CaptureCompanyRequest, TriagedCompany } from "../../api/types";
 import type { TriageDestination } from "../../domain/triageDestination";
+import { CaptureRefusal } from "../lib/captureRefusal";
 
 export interface CaptureAttempt {
   projectId: string;
   destination: TriageDestination;
   capture: Omit<CaptureCompanyRequest, "status">;
-}
-
-/**
- * A refusal the popup can say something specific about.
- *
- * An `Error` rather than a plain object: everything else in the extension narrows failures with
- * `instanceof Error`, and a thrown literal has no stack and no name — it surfaces as
- * `Uncaught (in promise) Object` if it ever escapes React Query.
- */
-export class CaptureRefusal extends Error {
-  readonly code: string;
-
-  constructor(code: string, message: string) {
-    super(message);
-    this.name = "CaptureRefusal";
-    this.code = code;
-  }
 }
 
 /**

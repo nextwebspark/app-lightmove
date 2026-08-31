@@ -4,6 +4,8 @@ interface DetectedFieldInputProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  /** Where a field costs something to act on — the employer lookup runs here, not per keystroke. */
+  onSettled?: (value: string) => void;
   inputMode?: "text" | "numeric" | "url";
 }
 
@@ -18,6 +20,7 @@ export function DetectedFieldInput({
   label,
   value,
   onChange,
+  onSettled,
   inputMode = "text",
 }: DetectedFieldInputProps) {
   const inputId = useId();
@@ -34,6 +37,7 @@ export function DetectedFieldInput({
         value={value}
         inputMode={inputMode}
         onChange={(event) => onChange(event.target.value)}
+        onBlur={(event) => onSettled?.(event.target.value)}
         className="mt-1 w-full rounded-[7px] border border-line bg-panel2 px-2.5 py-[7px] font-mono text-[12.5px] text-text outline-none focus:border-sky"
       />
     </div>

@@ -2,16 +2,18 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { askServiceWorker } from "../../background/extensionMessages";
 import type { ProjectSummary } from "../../api/types";
+import { useCaptureSettings } from "./useCaptureSettings";
 
 /**
  * The mandate a capture will land in, and the dropdown that chooses it.
  *
- * Defaults to the last one used — remembered in extension storage by the service worker — because a
- * consultant working a search captures a dozen companies into the same mandate in a row, and choosing
- * it again each time is the kind of friction that stops a tool being used.
+ * Defaults to the mandate chosen in Settings, or failing that the last one used — because a consultant
+ * working a search captures a dozen companies into the same mandate in a row, and choosing it again
+ * each time is the kind of friction that stops a tool being used.
  */
 export function useProjectSelection() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const { settings } = useCaptureSettings();
 
   const projects = useQuery<ProjectSummary[]>({
     queryKey: ["extension", "projects"],
@@ -38,9 +40,11 @@ export function useProjectSelection() {
     if (selectedProjectId || !projects.data?.length) {
       return;
     }
-    const remembered = projects.data.find((project) => project.id === lastUsed.data);
-    setSelectedProjectId(remembered?.id ?? projects.data[0].id);
-  }, [projects.data, lastUsed.data, selectedProjectId]);
+    const preferred = [settings.defaultProjectId, lastUsed.data]
+      .map((wanted) => projects.data?.find((project) => project.id === wanted))
+      .find(Boolean);
+    setSelectedProjectId(preferred?.id ?? projects.data[0].id);
+  }, [projects.data, lastUsed.data, settings.defaultProjectId, selectedProjectId]);
 
   const selectProject = (projectId: string) => {
     setSelectedProjectId(projectId);
@@ -50,6 +54,7 @@ export function useProjectSelection() {
   return {
     projects: projects.data ?? [],
     selectedProjectId,
+    selectedProjectName: projects.data?.find((project) => project.id === selectedProjectId)?.positionTitle ?? null,
     selectProject,
     isLoading: projects.isPending || lastUsed.isPending,
   };

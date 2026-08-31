@@ -1,4 +1,5 @@
 import { DESTINATION_LABELS, TRIAGE_DESTINATIONS, type TriageDestination } from "../../domain/triageDestination";
+import { Icon, ICONS } from "./Icon";
 
 interface DestinationButtonsProps {
   onCapture: (destination: TriageDestination) => void;
@@ -30,7 +31,7 @@ export function DestinationButtons({
         onClick={() => onCapture(primary)}
         className="flex flex-1 items-center justify-center gap-[7px] rounded-lg border border-amber-btn bg-amber-btn px-2.5 py-[9px] text-[12.5px] font-semibold text-on-amber disabled:opacity-60"
       >
-        <span aria-hidden>+</span>
+        <Icon d={ICONS.plus} />
         {savingDestination === primary ? "Adding…" : DESTINATION_LABELS[primary]}
       </button>
       <button
@@ -39,7 +40,7 @@ export function DestinationButtons({
         onClick={() => onCapture(secondary)}
         className="flex flex-1 items-center justify-center gap-[7px] rounded-lg border border-line bg-panel px-2.5 py-[9px] text-[12.5px] font-semibold text-text2 hover:border-text3 hover:text-text disabled:opacity-60"
       >
-        <span aria-hidden>✓</span>
+        <Icon d={ICONS.check} />
         {savingDestination === secondary ? "Adding…" : DESTINATION_LABELS[secondary]}
       </button>
     </div>

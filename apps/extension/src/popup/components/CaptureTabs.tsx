@@ -14,11 +14,10 @@ interface CaptureTabsProps {
 }
 
 /**
- * Person | Company.
+ * Person | Company — the two things a page can be, and both capture.
  *
- * Person is shown and selectable even though it captures nothing yet: it is in the design, and a tab
- * that is simply missing reads as a bug where one that says what is coming reads as a roadmap. What it
- * must not be is a dead control that looks live — selecting it says so plainly.
+ * Which one opens is preselected from what the page turned out to be, and switching is free: the read
+ * that filled both forms happened once, before either was rendered.
  */
 export function CaptureTabs({ active, onSelect }: CaptureTabsProps) {
   return (

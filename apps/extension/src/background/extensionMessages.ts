@@ -1,5 +1,16 @@
-import type { CaptureCompanyRequest, ProjectSummary, TriagedCompany, WorkspaceUser } from "../api/types";
+import type {
+  CaptureCompanyRequest,
+  CapturedCandidate,
+  ProjectSummary,
+  SaveCandidateRequest,
+  TriageCompanyMatch,
+  TriagedCompany,
+  WorkspaceUser,
+} from "../api/types";
 import type { ExtractedCompany } from "../content/pageReader/extractedCompany";
+import type { ExtractedPerson } from "../content/pageReader/extractedPerson";
+import type { PageSubjectKind } from "../content/pageReader/readPageSubject";
+import type { CaptureSettings } from "../domain/captureSettings";
 
 /**
  * Everything the popup can ask the service worker to do.
@@ -17,11 +28,17 @@ import type { ExtractedCompany } from "../content/pageReader/extractedCompany";
 export type ExtensionRequest =
   | { kind: "getPairedUser" }
   | { kind: "signOut" }
-  | { kind: "readActiveTabCompany" }
+  | { kind: "readActivePage" }
   | { kind: "listProjects" }
   | { kind: "captureCompany"; projectId: string; capture: CaptureCompanyRequest }
+  | { kind: "captureCandidate"; projectId: string; candidate: SaveCandidateRequest }
+  | { kind: "findTriageCompany"; projectId: string; companyName: string }
   | { kind: "rememberProject"; projectId: string }
-  | { kind: "lastUsedProject" };
+  | { kind: "lastUsedProject" }
+  | { kind: "removeTriageCompany"; projectId: string; triageCompanyId: string }
+  | { kind: "removeCandidate"; projectId: string; candidateId: string }
+  | { kind: "readSettings" }
+  | { kind: "writeSettings"; settings: Partial<CaptureSettings> };
 
 /** What went wrong, in the popup's own vocabulary. `code` is the API's when the API is what failed. */
 export interface ExtensionFailure {
@@ -32,7 +49,10 @@ export interface ExtensionFailure {
 
 export type ExtensionResult<T> = { ok: true; value: T } | ExtensionFailure;
 
+/** One read of the active tab: both sides of it, and which one the page is about. */
 export interface ReadPageResult {
+  subject: PageSubjectKind;
+  person: ExtractedPerson;
   company: ExtractedCompany;
   sourceUrl: string;
 }
@@ -41,11 +61,17 @@ export interface ReadPageResult {
 export interface ExtensionReplies {
   getPairedUser: WorkspaceUser | null;
   signOut: null;
-  readActiveTabCompany: ReadPageResult;
+  readActivePage: ReadPageResult;
   listProjects: ProjectSummary[];
   captureCompany: TriagedCompany;
+  captureCandidate: CapturedCandidate;
+  findTriageCompany: TriageCompanyMatch | null;
   rememberProject: null;
   lastUsedProject: string | null;
+  removeTriageCompany: null;
+  removeCandidate: null;
+  readSettings: CaptureSettings;
+  writeSettings: CaptureSettings;
 }
 
 /**

@@ -21,3 +21,12 @@ export function captureCompany(
     body: capture,
   });
 }
+
+/** Undoes a capture: drops the project↔company row, which is all the mandate ever held. */
+export function removeTriageCompany(
+  api: LightMoveApiClient,
+  projectId: string,
+  triageCompanyId: string,
+): Promise<void> {
+  return api.request<void>(`/projects/${projectId}/triage/${triageCompanyId}`, { method: "DELETE" });
+}

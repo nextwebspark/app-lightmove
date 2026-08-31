@@ -1,5 +1,6 @@
 import { workspaceOrigin } from "../../workspaceOrigin";
 import { BrandTile, PopupShell } from "../components/PopupChrome";
+import { Icon, ICONS } from "../components/Icon";
 
 interface SignedOutScreenProps {
   onConnected: () => void;
@@ -32,10 +33,10 @@ export function SignedOutScreen({ onConnected }: SignedOutScreenProps) {
 
       <div className="flex flex-1 flex-col items-center justify-center px-3.5 text-center">
         <span
-          className="grid h-11 w-11 place-items-center rounded-xl border border-line bg-panel2 text-[20px] text-text3"
+          className="grid h-11 w-11 place-items-center rounded-xl border border-line bg-panel2 text-text3"
           aria-hidden
         >
-          🔒
+          <Icon d={ICONS.lock} size={20} />
         </span>
         <h1 className="mt-3.5 text-[15px] font-semibold">Connect to LightMove</h1>
         <p className="mt-2 max-w-[280px] text-[12.5px] leading-[1.6] text-text2">
@@ -48,7 +49,7 @@ export function SignedOutScreen({ onConnected }: SignedOutScreenProps) {
           className="mt-4 inline-flex items-center gap-2 rounded-lg bg-amber-btn px-4 py-[9px] text-[13px] font-semibold text-on-amber"
         >
           Open LightMove
-          <span aria-hidden>↗</span>
+          <Icon d={ICONS.externalLink} />
         </button>
         <p className="mt-2.5 font-mono text-[11px] text-text3">{connectUrl}</p>
       </div>

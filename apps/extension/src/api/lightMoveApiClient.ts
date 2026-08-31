@@ -34,7 +34,7 @@ export interface ApiClientOptions {
 }
 
 export interface ApiRequestOptions {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "DELETE";
   body?: unknown;
 }
 

@@ -1,0 +1,42 @@
+<!--
+  A corporate leadership page: a JSON-LD Person beside the site's own Organization. The classifier's
+  tie-break case — both are present and the consultant is looking at the person.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Leadership — Zenith Industrial</title>
+    <meta property="og:site_name" content="Zenith Industrial" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          { "@type": "WebSite", "name": "Zenith Industrial" },
+          {
+            "@type": "Organization",
+            "name": "Zenith Industrial Holding",
+            "url": "https://zenith-industrial.sa"
+          },
+          {
+            "@type": "Person",
+            "givenName": "Khalid",
+            "familyName": "Al Mutairi",
+            "jobTitle": "Chief Operating Officer",
+            "worksFor": { "@type": "Organization", "name": "Zenith Industrial Holding" },
+            "address": {
+              "@type": "PostalAddress",
+              "addressLocality": "Riyadh",
+              "addressCountry": "Saudi Arabia"
+            },
+            "email": "mailto:k.almutairi@zenith-industrial.sa",
+            "telephone": "+966 11 123 4567",
+            "sameAs": ["https://www.linkedin.com/in/khalid-al-mutairi"]
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <h1>Khalid Al Mutairi</h1>
+  </body>
+</html>

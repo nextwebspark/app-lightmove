@@ -8,8 +8,8 @@ import { iifeBundle } from "./vite.iife";
  * completion value, which Chrome hands to the worker as `InjectionResult.result`.
  */
 export default iifeBundle({
-  entry: "src/content/pageReader/readCompanyFromPage.ts",
+  entry: "src/content/pageReader/readPageSubject.ts",
   fileName: "page-reader.js",
   globalName: "lightMovePageReader",
-  footer: "lightMovePageReader.readCompanyFromPage(document);",
+  footer: "lightMovePageReader.readPageSubject(document);",
 });

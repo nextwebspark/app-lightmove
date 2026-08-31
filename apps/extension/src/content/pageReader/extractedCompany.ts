@@ -77,10 +77,10 @@ function firstAnswer<K extends keyof ExtractedCompany>(
  * Load-bearing for the merge, not tidiness: an explicit null still counts as "this extractor answered"
  * and would stop a later, broader extractor filling the gap.
  */
-export function withoutEmpty(fields: Partial<ExtractedCompany>): Partial<ExtractedCompany> {
+export function withoutEmpty<T extends object>(fields: Partial<T>): Partial<T> {
   return Object.fromEntries(
     Object.entries(fields).filter(([, value]) => value !== null && value !== undefined && value !== ""),
-  ) as Partial<ExtractedCompany>;
+  ) as Partial<T>;
 }
 
 /**
