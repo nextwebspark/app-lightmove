@@ -27,7 +27,12 @@ with three of them is three lines and one with none keeps its "Add executive" sl
 Candidates screen, the pipeline and outreach tables don't exist yet, and neither does the CSV import or
 the plugin's profile capture (the columns and `CandidateSource` are there for them). The **Position**
 screen is the mandate's brief, edited as a six-step wizard (details, mandate context, reporting,
-compensation, assessment, review) that autosaves one step at a time. Step three is an editable
+compensation, assessment, review) that autosaves one step at a time. It opens drafted rather than
+blank: a **role-template library** of seventeen briefs (twelve C-suite, four functional heads, one
+generic fallback) lives in the database, matched against the mandate's role title at creation and
+re-pickable afterwards from `GET /position-templates` + `POST .../position/template`. A template is
+managed as a migration for now — the per-workspace management screen is a later session, and the
+rows it will write are already keyed to a workspace. Step three is an editable
 React Flow org chart — add, rename, re-parent and drag any seat; only the role's own seat is fixed.
 Step one attaches the position
 description, which is *stored and never read* — no extraction, no auto-fill. Publishing stamps who
@@ -141,6 +146,11 @@ its step's write, so the aggregate keeps one idiom rather than mixing rows and j
 `app_lm_position_org_node` is the org chart — a tree of seats with exactly one flagged
 `mandate_seat`, so "reports to" is that seat's parent and "direct reports" are its children, both
 derived rather than stored twice.
+`app_lm_position_template` (V42) is the role-template library — the identity a picker lists as columns,
+the drafted brief as one `jsonb` body (V30's idiom, not V39's child tables: a template is a
+heterogeneous document read and written whole), and the match keywords as a child table because they
+are the catalog's lookup key. `workspace_id` is nullable: NULL is the shared library, non-null is one
+firm's own, and every read filters on both.
 `app_lm_position_document` holds the attached position description inline (`bytea`) — one small file per
 mandate, read back only by its own download endpoint. Everything else (roles, hardening, grants) →
 `db-ops` skill.
