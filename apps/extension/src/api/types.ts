@@ -13,7 +13,6 @@ export interface ApiError {
   code: string;
   detail: string;
   status: number;
-  fieldErrors?: Record<string, string>;
 }
 
 export interface WorkspaceUser {
@@ -33,7 +32,8 @@ export interface ExtensionSession {
 /** One entry in the popup's project dropdown, from `GET /projects`. */
 export interface ProjectSummary {
   id: string;
-  name: string;
+  /** The mandate's role — the server calls it this, and there is no `name` on `ProjectResponse`. */
+  positionTitle: string;
   clientName: string | null;
 }
 
@@ -67,8 +67,62 @@ export interface CaptureCompanyRequest {
 /** The triage row the capture created. */
 export interface TriagedCompany {
   id: string;
-  apolloAccountId: string | null;
   source: "strategy" | "manual" | "extension";
   status: TriageDestination | "declined";
   companyName: string;
+}
+
+/** The seniority tokens the API speaks — `Seniority.value()`, not the enum names. */
+export const CANDIDATE_SENIORITIES = ["Board", "C-Suite", "N-1", "N-2", "N-3"] as const;
+export type CandidateSeniority = (typeof CANDIDATE_SENIORITIES)[number];
+
+/** One role before the current one, as `CandidateCareerEntryDto` takes it. */
+export interface CandidateCareerEntry {
+  company?: string | null;
+  title?: string | null;
+  /** Free text: "2016 – 2021", "c. 2015". */
+  period?: string | null;
+}
+
+/**
+ * The body of `POST /projects/{id}/candidates`.
+ *
+ * The API's own `SaveCandidateRequest`, the same one the web app's Add-executive drawer posts. A strict
+ * subset of its fields: the popup sends what a page can honestly yield and leaves the rest — nationality,
+ * compensation, languages — to the drawer. Nothing here is invented and the extension adds no endpoint.
+ */
+export interface SaveCandidateRequest {
+  /** Set only when the employer matched a company the mandate already triaged; never with employerName. */
+  triageCompanyId?: string | null;
+  fullName: string;
+  title?: string | null;
+  seniority?: CandidateSeniority | null;
+  /** `offLimits` when the toggle is on; omitted otherwise, so the server's `identified` stands. */
+  status?: "offLimits" | null;
+  /** Ignored by the server when triageCompanyId is present, so the two are never sent together. */
+  employerName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  linkedinUrl?: string | null;
+  locationCountry?: string | null;
+  locationCity?: string | null;
+  note?: string | null;
+  career?: CandidateCareerEntry[];
+  source: "extension";
+  sourceUrl?: string | null;
+}
+
+/** The candidate row the capture created. */
+export interface CapturedCandidate {
+  id: string;
+  fullName: string;
+  companyName: string | null;
+  triageCompanyId: string | null;
+}
+
+/** A company the mandate already holds, as the auto-link needs it. */
+export interface TriageCompanyMatch {
+  id: string;
+  companyName: string;
+  status: TriageDestination | "declined";
 }
