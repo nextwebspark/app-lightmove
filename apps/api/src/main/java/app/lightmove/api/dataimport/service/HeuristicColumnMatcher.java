@@ -5,6 +5,8 @@ import app.lightmove.api.customcolumn.constant.CustomColumnType;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
 import app.lightmove.api.dataimport.constant.ImportTargetField;
 import app.lightmove.api.dataimport.model.ColumnMapping;
+import app.lightmove.api.dataimport.model.HeaderMatch;
+import app.lightmove.api.dataimport.model.HeuristicProposal;
 import app.lightmove.api.dataimport.model.ParsedSheet;
 import app.lightmove.api.dataimport.model.SheetColumn;
 import java.text.Normalizer;
@@ -56,38 +58,40 @@ public class HeuristicColumnMatcher {
      * a file whose extra headers a mandate already has fills those columns instead of asking to make
      * them again.
      */
-    public List<ColumnMapping> propose(ParsedSheet sheet, List<CustomColumnDto> existingColumns) {
+    public HeuristicProposal propose(ParsedSheet sheet, List<CustomColumnDto> existingColumns) {
         Set<ImportTargetField> claimed = new LinkedHashSet<>();
         List<ColumnMapping> mappings = new ArrayList<>(sheet.columns().size());
+        boolean everyColumnCertain = true;
         for (SheetColumn column : sheet.columns()) {
-            mappings.add(proposeOne(column, existingColumns, claimed));
+            Optional<HeaderMatch> matched = match(column.header());
+            // A file with "Email" and "Work Email" would otherwise map both onto the same field and
+            // let the second silently overwrite the first. The first wins; the loser becomes a custom
+            // column, which keeps the data and leaves the correction to the person confirming.
+            if (matched.isPresent() && claimed.add(matched.get().field())) {
+                mappings.add(ColumnMapping.onto(column.index(), column.header(), matched.get().field()));
+                everyColumnCertain &= matched.get().certain();
+                continue;
+            }
+            ColumnMapping custom = asCustomColumn(column, existingColumns);
+            mappings.add(custom);
+            // Filling a column this project already has is as certain as hitting a known field. Minting
+            // a new one is not: an unfamiliar header may be a field held under a name we do not know.
+            everyColumnCertain &= custom.customFieldKey() != null;
         }
-        return mappings;
+        return new HeuristicProposal(mappings, everyColumnCertain);
     }
 
     /** The best built-in field for one header, or empty when nothing matches well enough. */
-    public Optional<ImportTargetField> match(String header) {
+    public Optional<HeaderMatch> match(String header) {
         String normalised = normalise(header);
         if (normalised.isEmpty()) {
             return Optional.empty();
         }
         ImportTargetField bySynonym = BY_SYNONYM.get(normalised);
         if (bySynonym != null) {
-            return Optional.of(bySynonym);
+            return Optional.of(HeaderMatch.certain(bySynonym));
         }
-        return bestByOverlap(normalised);
-    }
-
-    private ColumnMapping proposeOne(SheetColumn column, List<CustomColumnDto> existingColumns,
-                                     Set<ImportTargetField> claimed) {
-        Optional<ImportTargetField> matched = match(column.header());
-        // A file with "Email" and "Work Email" would otherwise map both onto the same field and let
-        // the second silently overwrite the first. The first wins; the loser becomes a custom column,
-        // which keeps the data and leaves the correction to the person confirming the mapping.
-        if (matched.isPresent() && claimed.add(matched.get())) {
-            return ColumnMapping.onto(column.index(), column.header(), matched.get());
-        }
-        return asCustomColumn(column, existingColumns);
+        return bestByOverlap(normalised).map(HeaderMatch::likely);
     }
 
     /**

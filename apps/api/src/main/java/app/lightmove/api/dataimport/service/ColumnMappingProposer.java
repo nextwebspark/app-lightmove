@@ -8,7 +8,9 @@ import app.lightmove.api.customcolumn.constant.CustomColumnType;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
 import app.lightmove.api.dataimport.constant.ImportTargetField;
 import app.lightmove.api.dataimport.model.ColumnMapping;
+import app.lightmove.api.dataimport.model.HeuristicProposal;
 import app.lightmove.api.dataimport.model.ParsedSheet;
+import app.lightmove.api.dataimport.constant.MappingSource;
 import app.lightmove.api.dataimport.model.ProposedColumnMappings;
 import app.lightmove.api.dataimport.model.ProposedMapping;
 import app.lightmove.api.dataimport.model.SheetColumn;
@@ -78,22 +80,31 @@ public class ColumnMappingProposer {
     }
 
     public ProposedColumnMappings propose(ParsedSheet sheet, List<CustomColumnDto> existingColumns) {
-        List<ColumnMapping> fallback = heuristics.propose(sheet, existingColumns);
+        HeuristicProposal heuristic = heuristics.propose(sheet, existingColumns);
+
+        // The model is asked only where there is genuine doubt. A file whose every header is a known
+        // spelling — anything built from the downloadable template, and most second imports — is
+        // already mapped, and paying Vertex to confirm it would be paying for nothing.
+        if (heuristic.everyColumnCertain()) {
+            return new ProposedColumnMappings(heuristic.mappings(), MappingSource.EXACT_HEADERS);
+        }
+
+        List<ColumnMapping> fallback = heuristic.mappings();
         try {
             ProposedMapping answered = ask(sheet, existingColumns);
             if (answered == null) {
-                return new ProposedColumnMappings(fallback, false);
+                return new ProposedColumnMappings(fallback, MappingSource.HEADER_MATCHER);
             }
             return new ProposedColumnMappings(
-                    reconcile(sheet, existingColumns, answered, fallback), true);
+                    reconcile(sheet, existingColumns, answered, fallback), MappingSource.MODEL);
         } catch (RuntimeException e) {
             // Deliberately broad and deliberately quiet: every way this call can fail — no
             // credentials, no quota, a network that cannot reach Vertex, an answer that will not bind
             // — has the same right answer, which is the mapping the heuristic already worked out. The
-            // user still gets a mapping step to correct, and the response says which of the two
+            // user still gets a mapping step to correct, and the response says which of the three
             // produced it rather than claiming the model did.
             log.warn("Column mapping fell back to the heuristic matcher: {}", e.toString());
-            return new ProposedColumnMappings(fallback, false);
+            return new ProposedColumnMappings(fallback, MappingSource.HEADER_MATCHER);
         }
     }
 

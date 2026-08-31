@@ -5,7 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.SpreadsheetImportSettings;
 import app.lightmove.api.core.llm.config.ChatClientConfig;
+import app.lightmove.api.customcolumn.dto.CustomColumnDto;
 import app.lightmove.api.dataimport.constant.ImportTargetField;
+import app.lightmove.api.dataimport.constant.MappingSource;
+import app.lightmove.api.dataimport.model.ColumnMapping;
 import app.lightmove.api.dataimport.model.ParsedSheet;
 import app.lightmove.api.dataimport.model.ProposedColumnMappings;
 import app.lightmove.api.dataimport.model.SheetColumn;
@@ -81,7 +84,7 @@ class ColumnMappingProposerTest {
 
         ProposedColumnMappings proposed = proposerWith(model, false).propose(sheetWithValues(), List.of());
 
-        assertThat(proposed.byModel()).isTrue();
+        assertThat(proposed.source()).isEqualTo(MappingSource.MODEL);
         assertThat(proposed.mappings().getFirst().field()).isEqualTo(ImportTargetField.CANDIDATE_EMAIL);
     }
 
@@ -93,9 +96,11 @@ class ColumnMappingProposerTest {
         ColumnMappingProposer proposer = proposerWith(new ThrowingChatModel(), false);
 
         ProposedColumnMappings proposed = proposer.propose(sheetOf(
-                column(0, "Company Name", SheetColumn.ValueShape.SHORT_TEXT)), List.of());
+                column(0, "Company Name", SheetColumn.ValueShape.SHORT_TEXT),
+                // Unplaceable, so the model is reached — and therefore able to fail.
+                column(1, "Ethnicity", SheetColumn.ValueShape.SHORT_TEXT)), List.of());
 
-        assertThat(proposed.byModel()).isFalse();
+        assertThat(proposed.source()).isEqualTo(MappingSource.HEADER_MATCHER);
         assertThat(proposed.mappings().getFirst().field()).isEqualTo(ImportTargetField.COMPANY_NAME);
     }
 
@@ -114,7 +119,8 @@ class ColumnMappingProposerTest {
 
         ProposedColumnMappings proposed = proposerWith(model, false).propose(sheetOf(
                 column(0, "Company", SheetColumn.ValueShape.SHORT_TEXT),
-                column(1, "Email", SheetColumn.ValueShape.EMAIL)), List.of());
+                column(1, "Email", SheetColumn.ValueShape.EMAIL),
+                column(2, "Ethnicity", SheetColumn.ValueShape.SHORT_TEXT)), List.of());
 
         assertThat(proposed.mappings().get(0).field()).isEqualTo(ImportTargetField.COMPANY_NAME);
         assertThat(proposed.mappings().get(1).field()).isEqualTo(ImportTargetField.CANDIDATE_EMAIL);
@@ -154,6 +160,59 @@ class ColumnMappingProposerTest {
         assertThat(proposed.mappings().getFirst().customLabel()).isEqualTo("Ethnicity");
     }
 
+    @Test
+    @DisplayName("a sheet of known headers never touches the model")
+    void skipsTheModelWhenEveryHeaderIsCertain() {
+        // The reason the template exists. Paying Vertex to confirm a mapping the synonym table already
+        // made with certainty is paying for nothing, and this is what stops it.
+        RecordingChatModel model = new RecordingChatModel("{}");
+
+        ProposedColumnMappings proposed = proposerWith(model, false).propose(sheetOf(
+                column(0, "Company", SheetColumn.ValueShape.SHORT_TEXT),
+                column(1, "Name", SheetColumn.ValueShape.SHORT_TEXT),
+                column(2, "Email", SheetColumn.ValueShape.EMAIL)), List.of());
+
+        assertThat(model.calls()).isZero();
+        assertThat(proposed.source()).isEqualTo(MappingSource.EXACT_HEADERS);
+        assertThat(proposed.mappings()).extracting(ColumnMapping::field).containsExactly(
+                ImportTargetField.COMPANY_NAME,
+                ImportTargetField.CANDIDATE_NAME,
+                ImportTargetField.CANDIDATE_EMAIL);
+    }
+
+    @Test
+    @DisplayName("filling a column this project already has is certain too")
+    void skipsTheModelForAnExistingCustomColumn() {
+        // What keeps a second import of the same file free: the extra header is not a known field, but
+        // it is a column this mandate already defined, which is just as certain.
+        RecordingChatModel model = new RecordingChatModel("{}");
+        CustomColumnDto ethnicity =
+                new CustomColumnDto("c1", "candidate", "ethnicity", "Ethnicity", "text", 0, false);
+
+        ProposedColumnMappings proposed = proposerWith(model, false).propose(sheetOf(
+                column(0, "Company", SheetColumn.ValueShape.SHORT_TEXT),
+                column(1, "Ethnicity", SheetColumn.ValueShape.SHORT_TEXT)), List.of(ethnicity));
+
+        assertThat(model.calls()).isZero();
+        assertThat(proposed.source()).isEqualTo(MappingSource.EXACT_HEADERS);
+        assertThat(proposed.mappings().get(1).customFieldKey()).isEqualTo("ethnicity");
+    }
+
+    @Test
+    @DisplayName("one header in doubt is enough to bring the model back")
+    void asksTheModelWhenAnythingIsUncertain() {
+        RecordingChatModel model = new RecordingChatModel("""
+                {"columns":[{"header":"Ethnicity","customLabel":"Ethnicity","customTarget":"candidate"}]}
+                """);
+
+        ProposedColumnMappings proposed = proposerWith(model, false).propose(sheetOf(
+                column(0, "Company", SheetColumn.ValueShape.SHORT_TEXT),
+                column(1, "Ethnicity", SheetColumn.ValueShape.SHORT_TEXT)), List.of());
+
+        assertThat(model.calls()).isEqualTo(1);
+        assertThat(proposed.source()).isEqualTo(MappingSource.MODEL);
+    }
+
     private static ColumnMappingProposer proposerWith(ChatModel model, boolean sendSamples) {
         Resource prompt = new ByteArrayResource("map the columns".getBytes());
         return new ColumnMappingProposer(ChatClient.builder(model).build(), new HeuristicColumnMatcher(),
@@ -165,11 +224,20 @@ class ColumnMappingProposerTest {
                 new SpreadsheetImportSettings(10_485_760L, 5000, sendSamples, List.of("text/csv")));
     }
 
+    /**
+     * One ambiguous header and one the matcher cannot place at all.
+     *
+     * <p>The second is load-bearing: the model is consulted only when a sheet holds something
+     * uncertain, so a fixture of known headers alone would skip it and every assertion about the
+     * prompt would pass against a call that never happened.
+     */
     private static ParsedSheet sheetWithValues() {
         return new ParsedSheet(
                 List.of(new SheetColumn(0, "Contact", SheetColumn.ValueShape.EMAIL,
-                        List.of("layla@acwa.example"), false)),
-                List.of(List.of("layla@acwa.example")));
+                                List.of("layla@acwa.example"), false),
+                        new SheetColumn(1, "Ethnicity", SheetColumn.ValueShape.SHORT_TEXT,
+                                List.of("Lebanese"), false)),
+                List.of(List.of("layla@acwa.example", "Lebanese")));
     }
 
     private static SheetColumn column(int index, String header, SheetColumn.ValueShape shape) {
@@ -249,6 +317,10 @@ class ColumnMappingProposerTest {
 
         String lastPrompt() {
             return prompts.getLast();
+        }
+
+        int calls() {
+            return prompts.size();
         }
     }
 

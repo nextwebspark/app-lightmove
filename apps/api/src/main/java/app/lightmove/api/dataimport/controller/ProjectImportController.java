@@ -5,14 +5,20 @@ import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.dataimport.dto.CommitImportRequest;
 import app.lightmove.api.dataimport.dto.ImportPreviewResponse;
 import app.lightmove.api.dataimport.dto.ImportSummaryResponse;
+import app.lightmove.api.dataimport.service.ImportTemplateWriter;
 import app.lightmove.api.dataimport.service.ProjectImportService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import java.nio.charset.StandardCharsets;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,6 +44,30 @@ public class ProjectImportController {
 
     private final ProjectImportService imports;
     private final LlmBudgetGuard llmBudget;
+
+    /**
+     * A blank CSV to fill in and upload back. Optional — the import maps whatever headers arrive — but
+     * a file built from this needs no model call, because every header in it is one the matcher knows.
+     *
+     * <p>Served as {@code text/csv} rather than the {@code application/octet-stream} the position
+     * document uses: that rule exists because it echoes caller-supplied bytes back, and this content is
+     * generated here.
+     */
+    @GetMapping("/template")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
+    public ResponseEntity<byte[]> template(@AuthenticationPrincipal AuthPrincipal principal,
+                                           @PathVariable UUID projectId) {
+        byte[] csv = imports.template(principal.requireWorkspaceId(), projectId)
+                .getBytes(StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(ImportTemplateWriter.FILE_NAME)
+                        .build()
+                        .toString())
+                .header("X-Content-Type-Options", "nosniff")
+                .body(csv);
+    }
 
     /**
      * Reads the file and answers with a mapping to confirm. Writes nothing.

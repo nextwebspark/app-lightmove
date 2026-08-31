@@ -50,7 +50,8 @@ class HeuristicColumnMatcherTest {
             "Notice Period,CANDIDATE_NOTICE_PERIOD",
     })
     void matchesRealHeaders(String header, ImportTargetField expected) {
-        assertThat(matcher.match(header)).contains(expected);
+        assertThat(matcher.match(header))
+                .hasValueSatisfying(match -> assertThat(match.field()).isEqualTo(expected));
     }
 
     @Test
@@ -67,7 +68,7 @@ class HeuristicColumnMatcherTest {
                 column(0, "Company", SheetColumn.ValueShape.SHORT_TEXT),
                 column(1, "Ethnicity", SheetColumn.ValueShape.SHORT_TEXT));
 
-        List<ColumnMapping> mappings = matcher.propose(sheet, List.of());
+        List<ColumnMapping> mappings = matcher.propose(sheet, List.of()).mappings();
 
         assertThat(mappings.get(0).field()).isEqualTo(ImportTargetField.COMPANY_NAME);
         assertThat(mappings.get(1).isCustom()).isTrue();
@@ -84,7 +85,7 @@ class HeuristicColumnMatcherTest {
         CustomColumnDto existing = new CustomColumnDto("id", "candidate", "ethnicity", "Ethnicity",
                 "text", 0, false);
 
-        List<ColumnMapping> mappings = matcher.propose(sheet, List.of(existing));
+        List<ColumnMapping> mappings = matcher.propose(sheet, List.of(existing)).mappings();
 
         assertThat(mappings.getFirst().customFieldKey()).isEqualTo("ethnicity");
         assertThat(mappings.getFirst().customLabel()).isEqualTo("Ethnicity");
@@ -99,7 +100,7 @@ class HeuristicColumnMatcherTest {
                 column(0, "Email", SheetColumn.ValueShape.EMAIL),
                 column(1, "Work Email", SheetColumn.ValueShape.EMAIL));
 
-        List<ColumnMapping> mappings = matcher.propose(sheet, List.of());
+        List<ColumnMapping> mappings = matcher.propose(sheet, List.of()).mappings();
 
         assertThat(mappings.get(0).field()).isEqualTo(ImportTargetField.CANDIDATE_EMAIL);
         assertThat(mappings.get(1).isCustom()).isTrue();
@@ -113,7 +114,7 @@ class HeuristicColumnMatcherTest {
                 column(1, "Interviewed", SheetColumn.ValueShape.BOOLEAN),
                 column(2, "Ethnicity", SheetColumn.ValueShape.SHORT_TEXT));
 
-        List<ColumnMapping> mappings = matcher.propose(sheet, List.of());
+        List<ColumnMapping> mappings = matcher.propose(sheet, List.of()).mappings();
 
         assertThat(mappings.get(0).customType()).isEqualTo(CustomColumnType.NUMBER);
         assertThat(mappings.get(1).customType()).isEqualTo(CustomColumnType.BOOLEAN);
@@ -127,10 +128,52 @@ class HeuristicColumnMatcherTest {
                 column(0, "Company Ownership", SheetColumn.ValueShape.SHORT_TEXT),
                 column(1, "Ethnicity", SheetColumn.ValueShape.SHORT_TEXT));
 
-        List<ColumnMapping> mappings = matcher.propose(sheet, List.of());
+        List<ColumnMapping> mappings = matcher.propose(sheet, List.of()).mappings();
 
         assertThat(mappings.get(0).customColumnTarget()).isEqualTo(CustomColumnTarget.COMPANY);
         assertThat(mappings.get(1).customColumnTarget()).isEqualTo(CustomColumnTarget.CANDIDATE);
+    }
+
+    @Test
+    @DisplayName("a known spelling is certain; a fuzzy hit is only likely")
+    void separatesAKnownSpellingFromAGuess() {
+        // The distinction that decides whether the model is paid for at all.
+        assertThat(matcher.match("Company Name")).hasValueSatisfying(
+                match -> assertThat(match.certain()).isTrue());
+        assertThat(matcher.match("Legal Company Name"))
+                .hasValueSatisfying(match -> assertThat(match.certain()).isFalse());
+    }
+
+    @Test
+    @DisplayName("a sheet of known headers reports itself as certain throughout")
+    void reportsAnAllKnownSheetAsCertain() {
+        assertThat(matcher.propose(sheetOf(
+                column(0, "Company", SheetColumn.ValueShape.SHORT_TEXT),
+                column(1, "Email", SheetColumn.ValueShape.EMAIL)), List.of()).everyColumnCertain())
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("an unrecognised header makes the sheet uncertain, however well the rest matched")
+    void oneUnknownHeaderMakesTheSheetUncertain() {
+        // It may be a field we hold under a name we do not know, which is the model's job to spot.
+        assertThat(matcher.propose(sheetOf(
+                column(0, "Company", SheetColumn.ValueShape.SHORT_TEXT),
+                column(1, "Ethnicity", SheetColumn.ValueShape.SHORT_TEXT)), List.of()).everyColumnCertain())
+                .isFalse();
+    }
+
+    @Test
+    @DisplayName("a header naming a column this project already has is certain")
+    void anExistingCustomColumnIsCertain() {
+        CustomColumnDto ethnicity =
+                new CustomColumnDto("c1", "candidate", "ethnicity", "Ethnicity", "text", 0, false);
+
+        assertThat(matcher.propose(sheetOf(
+                column(0, "Company", SheetColumn.ValueShape.SHORT_TEXT),
+                column(1, "Ethnicity", SheetColumn.ValueShape.SHORT_TEXT)),
+                List.of(ethnicity)).everyColumnCertain())
+                .isTrue();
     }
 
     private static SheetColumn column(int index, String header, SheetColumn.ValueShape shape) {

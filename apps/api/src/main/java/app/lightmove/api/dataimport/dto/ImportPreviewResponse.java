@@ -15,5 +15,6 @@ public record ImportPreviewResponse(
         int rowCount,
         List<ImportColumnDto> columns,
         List<ImportTargetFieldDto> availableFields,
-        boolean mappedByModel
+        /** A {@code MappingSource} wire token: what worked the mapping out, and how far to trust it. */
+        String mappingSource
 ) {}

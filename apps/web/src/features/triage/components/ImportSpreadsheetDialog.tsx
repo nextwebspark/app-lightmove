@@ -10,6 +10,7 @@ import * as importApi from "../api/importApi";
 import type {
   ImportPreview,
   ImportSummary,
+  MappingSource,
   ProposedColumnMapping,
 } from "../api/importTypes";
 
@@ -24,6 +25,12 @@ const CUSTOM_TYPES: { value: CustomColumnType; label: string }[] = [
 ];
 
 const LABEL = "font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3";
+
+const MAPPING_SOURCE_LABELS: Record<MappingSource, string> = {
+  exactHeaders: "every column matched by name",
+  model: "columns matched by the assistant",
+  headerMatcher: "matched by header name — check these",
+};
 
 /**
  * Import a spreadsheet into this mandate's Companies grid.
@@ -85,6 +92,11 @@ export function ImportSpreadsheetDialog({
     },
   });
 
+  const template = useMutation({
+    mutationFn: () => importApi.saveTemplate(projectId),
+    onError: (failure) => setError(messageFor(failure)),
+  });
+
   const commit = useMutation({
     mutationFn: () => importApi.commitImport(projectId, file!, mappings),
     onMutate: () => setError(null),
@@ -128,6 +140,20 @@ export function ImportSpreadsheetDialog({
               Reading {file?.name}…
             </span>
           )}
+
+          {/* Offered, never required — the import maps whatever headers a file arrives with. */}
+          <p className="font-mono text-[11.5px] text-text3">
+            Not sure of the format?{" "}
+            <button
+              type="button"
+              onClick={() => template.mutate()}
+              disabled={template.isPending}
+              className="rounded-[4px] text-sky underline transition hover:brightness-110 disabled:opacity-50"
+            >
+              Download a sample file
+            </button>{" "}
+            with this mandate's columns already in it.
+          </p>
         </div>
       )}
 
@@ -135,12 +161,9 @@ export function ImportSpreadsheetDialog({
         <div className="flex flex-col gap-4">
           <p className="font-mono text-[11.5px] text-text3">
             {preview.fileName} · {preview.rowCount} {preview.rowCount === 1 ? "row" : "rows"} ·{" "}
-            {preview.mappedByModel
-              ? "columns matched by the assistant"
-              : /* Said plainly rather than hidden: the header match is the fallback that runs when
-                   the assistant cannot be reached, and it is confident about far less. A user who
-                   knows which one answered knows how hard to look at the rows below. */
-                "matched by header name — check these"}
+            {/* Said plainly rather than hidden: the three differ in how far they are worth trusting,
+                and a user who knows which one answered knows how hard to look at the rows below. */}
+            {MAPPING_SOURCE_LABELS[preview.mappingSource]}
           </p>
 
           <div className="max-h-[46dvh] overflow-y-auto rounded-lg border border-line-soft">

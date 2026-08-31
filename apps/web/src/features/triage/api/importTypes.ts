@@ -44,9 +44,16 @@ export interface ImportPreview {
   rowCount: number;
   columns: ImportColumn[];
   availableFields: ImportTargetField[];
-  /** False when the model could not be reached and the header heuristic answered instead. */
-  mappedByModel: boolean;
+  /** What worked the mapping out. The three are worth different amounts of scrutiny. */
+  mappingSource: MappingSource;
 }
+
+/**
+ * `exactHeaders` — every header was a known name, so no model call was made.
+ * `model` — the assistant resolved what the header matcher was unsure of.
+ * `headerMatcher` — the matcher answered alone because the assistant could not be reached.
+ */
+export type MappingSource = "exactHeaders" | "model" | "headerMatcher";
 
 export interface ImportRowError {
   rowNumber: number;

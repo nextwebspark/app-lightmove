@@ -74,6 +74,29 @@ the wrong fields. Unknown tokens are dropped, a field two columns both claim goe
 loser keeps its data as a custom column rather than silently overwriting the winner on every row), and
 a column the model wanted to discard is kept when it has values in it.
 
+**The model is only asked when a header is actually in doubt.** `HeuristicColumnMatcher` reports not
+just *what* a header matched but *how sure* it is: a hit in the synonym table, or an exact match for a
+column this project already has, is `certain`; a fuzzy token-overlap hit is not, and neither is a
+header nothing recognised. When every column is certain, `ColumnMappingProposer` returns the
+heuristic's answer and never calls Vertex — which is the common case for a file built from the
+template, and for a second import of a shape a mandate has seen before. An unfamiliar header does
+bring the model back, deliberately: it may be a field we hold under a name we do not know ("Firma",
+"Raison sociale"), and that is precisely what the model is worth paying for.
+
+The preview reports which of the three produced the mapping — `exactHeaders`, `model` or
+`headerMatcher` — and the dialog says so under the file name, because they are worth different
+amounts of scrutiny.
+
+### The sample file
+
+`GET /projects/{projectId}/import/template` returns a blank CSV: the twelve fields people actually
+fill in, then **this mandate's own custom columns**, then one example row. Optional — the import maps
+whatever headers arrive — but every header it emits is one the matcher knows for certain, so a file
+built from it maps with no model call at all. `ImportTemplateWriterTest` pins exactly that property,
+because a label edited out of step with the synonym table would quietly cost one call per import and
+nothing else would notice. It is project-scoped rather than static precisely so the custom columns
+travel with it, which is what keeps the second import free too.
+
 **`HeuristicColumnMatcher` is not a nicety.** Vertex AI needs Application Default Credentials on every
 path including a plain `npm run dev` — there is no emulator — so for anyone without them it is the only
 mapper that ever runs. It seeds the model's request and answers alone when the call fails, and the

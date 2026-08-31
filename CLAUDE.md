@@ -25,10 +25,11 @@ that sits the **people half**: an executive mapped for a mandate, optionally aga
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
 with three of them is three lines and one with none keeps its "Add executive" slot.
 The **spreadsheet import** is that fourth door and carries both halves at once: a CSV or Excel file
-whose rows are people at companies, mapped column-by-column onto our fields — proposed by the model
-over the existing `ChatClient` (headers and a locally computed value shape only; **no cell values are
-sent**) with a synonym matcher as both seed and offline fallback, then confirmed by a person before
-anything is written. A header no field covers becomes a **per-project custom column**: the definitions
+whose rows are people at companies, mapped column-by-column onto our fields, then confirmed by a
+person before anything is written. **The model is asked only where a header is in doubt** — a sheet
+whose every header is a known spelling (anything built from the downloadable template, and most second
+imports) maps with no LLM call at all; when it is asked it gets headers and a locally computed value
+shape only, **never cell values**, and a synonym matcher answers alone when Vertex cannot be reached. A header no field covers becomes a **per-project custom column**: the definitions
 are rows in `app_lm_project_custom_column` and the values a jsonb bag on the row, so the grid renders
 it like any built-in while a new mandate still starts from the built-ins alone. The importer writes
 nothing itself — it builds the same requests the Companies drawer posts and hands them to

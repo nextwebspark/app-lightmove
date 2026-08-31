@@ -1,4 +1,4 @@
-import { request } from "../../../lib/apiClient";
+import { request, requestBlob } from "../../../lib/apiClient";
 import type { ImportPreview, ImportSummary, ProposedColumnMapping } from "./importTypes";
 
 /**
@@ -8,6 +8,26 @@ import type { ImportPreview, ImportSummary, ProposedColumnMapping } from "./impo
  * with the mapping the user confirmed. Nothing is held open between them — this browser still holds
  * the `File`, so re-posting costs one parse and saves a staging table with an expiry to explain.
  */
+
+/**
+ * Downloads the blank template and saves it. Optional — the import maps whatever headers arrive — but
+ * a file built from it needs no assistant call, because every header in it is one we already know.
+ *
+ * A fetch and an object URL rather than an href: the bytes need the bearer token, the same reason
+ * `positionApi.saveDocument` does it this way.
+ */
+export async function saveTemplate(projectId: string): Promise<void> {
+  const blob = await requestBlob(`/projects/${projectId}/import/template`);
+  const url = URL.createObjectURL(blob);
+  try {
+    const link = window.document.createElement("a");
+    link.href = url;
+    link.download = "lightmove-import-template.csv";
+    link.click();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
 /** Reads the file and answers with a mapping to confirm. Writes nothing. */
 export function previewImport(projectId: string, file: File): Promise<ImportPreview> {

@@ -12,6 +12,7 @@ vi.mock("../api/importApi", async (importOriginal) => ({
   ...(await importOriginal<typeof importApi>()),
   previewImport: vi.fn(),
   commitImport: vi.fn(),
+  saveTemplate: vi.fn(),
 }));
 
 const ethnicity: CustomColumn = {
@@ -28,7 +29,7 @@ const ethnicity: CustomColumn = {
 const preview: ImportPreview = {
   fileName: "longlist.csv",
   rowCount: 2,
-  mappedByModel: true,
+  mappingSource: "model",
   availableFields: [
     { value: "companyName", label: "Company", target: "company" },
     { value: "candidateName", label: "Name", target: "candidate" },
@@ -209,7 +210,10 @@ describe("ImportSpreadsheetDialog", () => {
   it("says when the header matcher answered rather than the assistant", async () => {
     // Worth saying plainly: the fallback is confident about far less, and on a machine with no
     // Application Default Credentials it is what every user gets.
-    vi.mocked(importApi.previewImport).mockResolvedValue({ ...preview, mappedByModel: false });
+    vi.mocked(importApi.previewImport).mockResolvedValue({
+      ...preview,
+      mappingSource: "headerMatcher",
+    });
     renderDialog();
     await choose();
 
@@ -241,5 +245,26 @@ describe("ImportSpreadsheetDialog", () => {
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(screen.getByLabelText(/Spreadsheet to import/i)).toBeInTheDocument();
     expect(importApi.commitImport).not.toHaveBeenCalled();
+  });
+
+  it("says when every column matched by name, so nothing needed the assistant", async () => {
+    vi.mocked(importApi.previewImport).mockResolvedValue({
+      ...preview,
+      mappingSource: "exactHeaders",
+    });
+    renderDialog();
+    await choose();
+
+    expect(await screen.findByText(/every column matched by name/i)).toBeInTheDocument();
+  });
+
+  it("offers the sample file before a file is chosen", async () => {
+    // Optional, never required — but it is the path that costs no assistant call, so it is offered
+    // where somebody unsure of the format will actually see it.
+    renderDialog();
+
+    await userEvent.click(screen.getByRole("button", { name: /Download a sample file/i }));
+
+    await waitFor(() => expect(importApi.saveTemplate).toHaveBeenCalledWith("p1"));
   });
 });

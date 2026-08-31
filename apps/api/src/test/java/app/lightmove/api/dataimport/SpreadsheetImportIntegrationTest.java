@@ -254,6 +254,71 @@ class SpreadsheetImportIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    @DisplayName("a file built from the template maps without asking the model")
+    void theTemplateRoundTrips() throws Exception {
+        // The whole point of offering a template: its headers are ones the matcher knows, so the
+        // preview costs nothing at Vertex and the mapping needs no correcting.
+        String admin = adminOf("Import Template Firm");
+        String projectId = project(admin);
+
+        String template = mvc.perform(get("/api/v1/projects/" + projectId + "/import/template")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String headerRow = template.lines().findFirst().orElseThrow();
+
+        JsonNode preview = body(mvc.perform(multipart("/api/v1/projects/" + projectId + "/import/preview")
+                        .file(csv(headerRow + "\nACWA Power,Energy,Saudi Arabia,Riyadh,3000,,Layla Haddad,CFO,C-Suite,layla@acwa.example,,\n"))
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        assertThat(preview.get("mappingSource").asText()).isEqualTo("exactHeaders");
+        assertThat(preview.get("columns")).allSatisfy(column ->
+                assertThat(column.get("mapping").get("targetField").isNull()).isFalse());
+    }
+
+    @Test
+    @DisplayName("the template carries this mandate's own columns as well")
+    void theTemplateCarriesCustomColumns() throws Exception {
+        String admin = adminOf("Import Template Columns Firm");
+        String projectId = project(admin);
+        mvc.perform(post("/api/v1/projects/" + projectId + "/custom-columns")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"target":"candidate","label":"Ethnicity","dataType":"text"}"""))
+                .andExpect(status().isCreated());
+
+        String template = mvc.perform(get("/api/v1/projects/" + projectId + "/import/template")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(template.lines().findFirst().orElseThrow()).contains("Ethnicity");
+    }
+
+    @Test
+    @DisplayName("a file with an unfamiliar header still reports where its mapping came from")
+    void anUnfamiliarHeaderIsNotReportedAsExact() throws Exception {
+        // StubChatModel's fixed reply will not bind, so this lands on the header matcher — which is
+        // exactly what a run without Application Default Credentials gets, and it must say so.
+        String admin = adminOf("Import Source Firm");
+        String projectId = project(admin);
+
+        JsonNode preview = body(mvc.perform(multipart("/api/v1/projects/" + projectId + "/import/preview")
+                        .file(csv("""
+                                Company,Ethnicity
+                                ACWA Power,Lebanese
+                                """))
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        assertThat(preview.get("mappingSource").asText()).isEqualTo("headerMatcher");
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     /** Previews, then commits the mapping the preview proposed — what the dialog does when nobody edits it. */

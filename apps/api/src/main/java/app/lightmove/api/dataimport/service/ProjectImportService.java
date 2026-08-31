@@ -82,12 +82,19 @@ import org.springframework.web.multipart.MultipartFile;
 public class ProjectImportService {
 
     private final SpreadsheetReader reader;
+    private final ImportTemplateWriter templateWriter;
     private final ColumnMappingProposer proposer;
     private final CustomColumnService customColumns;
     private final TriageCompanyService triage;
     private final CandidateService candidates;
     private final ProjectRepository projects;
     private final AuditService audit;
+
+    /** The blank CSV a consultant can fill in — carrying this mandate's own custom columns. */
+    public String template(UUID workspaceId, UUID projectId) {
+        requireProject(projectId, workspaceId);
+        return templateWriter.templateFor(customColumns.list(workspaceId, projectId).columns());
+    }
 
     public ImportPreviewResponse preview(UUID workspaceId, UUID projectId, MultipartFile file) {
         requireProject(projectId, workspaceId);
@@ -110,7 +117,7 @@ public class ProjectImportService {
                 sheet.rowCount(),
                 columns,
                 availableFields(),
-                proposed.byModel());
+                proposed.source().value());
     }
 
     public ImportSummaryResponse commit(UUID userId, UUID workspaceId, UUID projectId,
