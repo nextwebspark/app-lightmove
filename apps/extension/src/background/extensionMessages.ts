@@ -13,16 +13,11 @@ import type { PageSubjectKind } from "../content/pageReader/readPageSubject";
 import type { CaptureSettings } from "../domain/captureSettings";
 
 /**
- * Everything the popup can ask the service worker to do.
+ * Everything the popup can ask the service worker to do. It asks; the worker acts, because the worker
+ * holds the session and outlives the popup.
  *
- * The popup makes no network call of its own and reads no page of its own. It asks; the worker acts.
- * That is not ceremony — the session token lives in the worker's storage and must never be handed to a
- * document that a page could reach, and the worker is the only context that survives the popup closing
- * mid-request.
- *
- * Every reply is a discriminated result rather than a thrown error: a message that rejects across the
- * `chrome.runtime` boundary arrives as an opaque "Could not establish connection" with the real cause
- * lost, so the worker catches its own failures and reports them as data.
+ * Every reply is a discriminated result rather than a thrown error: a rejection across the
+ * `chrome.runtime` boundary arrives as an opaque "Could not establish connection", cause lost.
  */
 
 export type ExtensionRequest =
@@ -85,7 +80,15 @@ export async function askServiceWorker<K extends ExtensionRequest["kind"]>(
   request: Extract<ExtensionRequest, { kind: K }>,
 ): Promise<ExtensionResult<ExtensionReplies[K]>> {
   try {
-    return (await chrome.runtime.sendMessage(request)) as ExtensionResult<ExtensionReplies[K]>;
+    const reply = (await chrome.runtime.sendMessage(request)) as ExtensionResult<ExtensionReplies[K]> | undefined;
+    // A worker that dies mid-request closes the channel without answering, and Chrome *resolves* with
+    // undefined rather than rejecting — so without this every caller reads `.ok` off nothing and throws
+    // a TypeError out of its queryFn, which is the shape this module exists to prevent.
+    return reply ?? {
+      ok: false,
+      code: "WORKER_UNREACHABLE",
+      message: "The extension's background worker closed the connection without answering.",
+    };
   } catch (error) {
     return {
       ok: false,

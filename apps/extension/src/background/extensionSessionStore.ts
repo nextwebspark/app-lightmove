@@ -1,23 +1,12 @@
 import type { ExtensionSession, WorkspaceUser } from "../api/types";
 import { workspaceOrigin } from "../workspaceOrigin";
+import { SESSION_KEY, WORKSPACE_SCOPED_KEYS } from "./storageKeys";
 
 /**
- * The paired session, at rest and on demand.
- *
- * The only module in the extension that holds a credential, and it runs only in the service worker —
- * never in the popup, which is destroyed on every close, and never in a content script, which shares
- * an origin with whatever page it was injected into.
- *
- * <b>Why the access token is stored too, and not just kept in memory.</b> The web app keeps its access
- * token in a module variable because its refresh token is in an httpOnly cookie the page cannot read,
- * so memory is genuinely safer than disk. Here the refresh token is already in this same storage —
- * there is no cookie to put it in — so writing the short-lived access token beside it adds no
- * meaningful exposure, and it avoids the alternative: an MV3 service worker is killed between events,
- * so an in-memory token would be gone by the next popup open and every open would spend a rotation.
- * Rotations are not free — a response lost mid-rotation is read as a replay and revokes the family.
+ * The paired session, at rest and on demand. The only module that holds a credential, and it runs in
+ * the service worker alone; the access token is stored beside the refresh token rather than kept in
+ * memory, because the worker is killed between events and every open would otherwise spend a rotation.
  */
-
-const STORAGE_KEY = "lightmove.session";
 
 /** Refreshed this long before expiry, so a request never races its own token running out. */
 const RENEW_BEFORE_EXPIRY_MS = 60_000;
@@ -33,8 +22,8 @@ interface StoredSession {
 let renewalInFlight: Promise<string | null> | null = null;
 
 async function read(): Promise<StoredSession | null> {
-  const stored = await chrome.storage.local.get(STORAGE_KEY);
-  return (stored[STORAGE_KEY] as StoredSession | undefined) ?? null;
+  const stored = await chrome.storage.local.get(SESSION_KEY);
+  return (stored[SESSION_KEY] as StoredSession | undefined) ?? null;
 }
 
 async function write(session: ExtensionSession): Promise<StoredSession> {
@@ -44,12 +33,12 @@ async function write(session: ExtensionSession): Promise<StoredSession> {
     accessTokenExpiresAt: Date.now() + session.expiresIn * 1000,
     user: session.user,
   };
-  await chrome.storage.local.set({ [STORAGE_KEY]: stored });
+  await chrome.storage.local.set({ [SESSION_KEY]: stored });
   return stored;
 }
 
 async function clear(): Promise<void> {
-  await chrome.storage.local.remove(STORAGE_KEY);
+  await chrome.storage.local.remove(WORKSPACE_SCOPED_KEYS);
 }
 
 /** Who the extension is paired as, or null if it is not paired. */
@@ -68,10 +57,9 @@ export async function storePairedSession(session: ExtensionSession): Promise<voi
   if (!isUsableSession(session)) {
     throw new Error("The workspace offered a session with no refresh token.");
   }
-  // The extension holds the only copy of the session it is about to replace, so nobody else can end
-  // it: pairing again from a bookmark or a colleague's link would otherwise leave the old family live
-  // for its full fortnight, as a second row in Settings → Active sessions that is byte-identical to
-  // the new one — same label, same device — so the screen that could clean it up cannot tell them apart.
+  // Belt to the server's braces: pairing revokes the account's live extension families anyway, but a
+  // session stored here that the workspace never issued — a stale handover, a restored profile — is
+  // one only this side knows about.
   await revokeStoredSession();
   await write(session);
 }
