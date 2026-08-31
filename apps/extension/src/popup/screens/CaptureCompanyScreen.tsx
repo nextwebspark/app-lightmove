@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ExtractedCompany } from "../../content/pageReader/extractedCompany";
-import type { TriageDestination } from "../../domain/triageDestination";
+import { DESTINATION_PAST_TENSE, type TriageDestination } from "../../domain/triageDestination";
 import { DetectedFieldInput } from "../components/DetectedFieldInput";
 import { DestinationButtons } from "../components/DestinationButtons";
 import { ProjectSelect } from "../components/ProjectSelect";
 import { SectionLabel } from "../components/SectionLabel";
-import { useActiveTabCompany } from "../hooks/useActiveTabCompany";
-import { useCaptureCompany, CaptureRefusal } from "../hooks/useCaptureCompany";
+import type { ActivePage } from "../hooks/useActivePage";
+import { useCaptureCompany } from "../hooks/useCaptureCompany";
+import { useCaptureSettings } from "../hooks/useCaptureSettings";
 import { useProjectSelection } from "../hooks/useProjectSelection";
+import type { CaptureRefusal } from "../lib/captureRefusal";
+import { SourceStrip } from "../components/SourceStrip";
+import { SubjectRow } from "../components/SubjectRow";
+import { useCloseAfterSave } from "../hooks/useCloseAfterSave";
+import { useUndoCapture } from "../hooks/useUndoCapture";
 import { CaptureSavedScreen } from "./CaptureSavedScreen";
 
 /** The form's own state: what the extractor read, as the consultant may have since corrected it. */
@@ -19,6 +25,8 @@ interface CompanyDraft {
   companyCity: string;
   companyCountry: string;
   numEmployees: string;
+  foundedYear: string;
+  annualRevenue: string;
 }
 
 const EMPTY_DRAFT: CompanyDraft = {
@@ -29,6 +37,8 @@ const EMPTY_DRAFT: CompanyDraft = {
   companyCity: "",
   companyCountry: "",
   numEmployees: "",
+  foundedYear: "",
+  annualRevenue: "",
 };
 
 /**
@@ -43,10 +53,11 @@ const EMPTY_DRAFT: CompanyDraft = {
  * identified by its name within the mandate, and the Companies screen shows the provenance so a
  * headcount read off a page is not mistaken for one the Apollo pipeline exported.
  */
-export function CaptureCompanyScreen() {
-  const page = useActiveTabCompany();
+export function CaptureCompanyScreen({ page }: { page: ActivePage }) {
   const projects = useProjectSelection();
   const capture = useCaptureCompany();
+  const { settings } = useCaptureSettings();
+  const undo = useUndoCapture();
 
   const [draft, setDraft] = useState<CompanyDraft>(EMPTY_DRAFT);
   const [note, setNote] = useState("");
@@ -91,7 +102,9 @@ export function CaptureCompanyScreen() {
         industry: blankToNull(draft.industry),
         companyCity: blankToNull(draft.companyCity),
         companyCountry: blankToNull(draft.companyCountry),
-        numEmployees: toHeadcount(draft.numEmployees),
+        numEmployees: toWholeNumber(draft.numEmployees),
+        foundedYear: toWholeNumber(draft.foundedYear),
+        annualRevenue: toWholeNumber(draft.annualRevenue),
         shortDescription: truncateDescription(page.company?.description),
         note: note.trim() || null,
         sourceUrl: page.sourceUrl,
@@ -101,33 +114,35 @@ export function CaptureCompanyScreen() {
 
   const handleCaptureAnother = () => {
     capture.reset();
+    undo.reset();
     setAttemptedDestination(null);
     setNote("");
     void page.rescan();
   };
 
+  useCloseAfterSave(Boolean(capture.saved), settings.closesAfterSave);
+
   if (capture.saved && projects.selectedProjectId && attemptedDestination) {
+    const landed = capture.saved.status === "declined" ? attemptedDestination : capture.saved.status;
+    const savedId = capture.saved.id;
+    const projectId = projects.selectedProjectId;
     return (
       <CaptureSavedScreen
-        saved={capture.saved}
-        projectId={projects.selectedProjectId}
-        destination={attemptedDestination}
+        subjectName={capture.saved.companyName}
+        landedIn={DESTINATION_PAST_TENSE[landed]}
+        projectName={projects.selectedProjectName ?? "this mandate"}
+        projectId={projectId}
+        sourceUrl={page.sourceUrl}
         onCaptureAnother={handleCaptureAnother}
+        onUndo={undo.hasUndone ? undefined : () => undo.undo({ projectId, triageCompanyId: savedId })}
+        isUndoing={undo.isUndoing}
       />
     );
   }
 
   return (
     <>
-      <div className="flex items-center gap-2 border-b border-line-soft bg-sky-dim px-3.5 py-[9px]">
-        <span className="text-sky" aria-hidden>✓</span>
-        <span className="flex-1 truncate font-mono text-[11px] text-text2">
-          {page.isReading ? "Reading this page…" : `Read from ${page.sourceUrl ?? "this page"}`}
-        </span>
-        <button type="button" onClick={() => void page.rescan()} className="text-[11px] font-medium text-sky hover:underline">
-          Re-scan
-        </button>
-      </div>
+      <SourceStrip page={page} />
 
       <div className="flex-1 overflow-y-auto p-3.5">
         {page.readError && (
@@ -135,6 +150,12 @@ export function CaptureCompanyScreen() {
             {page.readError}
           </p>
         )}
+
+        <SubjectRow
+          name={draft.companyName}
+          detail={[draft.companyCity, draft.website].filter(Boolean).join(" · ") || null}
+          shape="square"
+        />
 
         <SectionLabel className="mb-2">Detected fields</SectionLabel>
         <div className="flex flex-col gap-2">
@@ -145,8 +166,9 @@ export function CaptureCompanyScreen() {
           <DetectedFieldInput label="City" value={draft.companyCity} onChange={update("companyCity")} />
           <DetectedFieldInput label="Country" value={draft.companyCountry} onChange={update("companyCountry")} />
           <DetectedFieldInput label="Headcount" value={draft.numEmployees} onChange={update("numEmployees")} inputMode="numeric" />
+          <DetectedFieldInput label="Founded" value={draft.foundedYear} onChange={update("foundedYear")} inputMode="numeric" />
+          <DetectedFieldInput label="Annual revenue (USD)" value={draft.annualRevenue} onChange={update("annualRevenue")} inputMode="numeric" />
         </div>
-
 
         <SectionLabel className="mb-2 mt-[18px]">Notes</SectionLabel>
         <textarea
@@ -212,20 +234,21 @@ function toDraft(company: ExtractedCompany, sourceUrl: string | null): CompanyDr
     companyCity: company.companyCity ?? "",
     companyCountry: company.companyCountry ?? "",
     numEmployees: company.numEmployees ? String(company.numEmployees) : "",
+    foundedYear: "",
+    annualRevenue: "",
   };
 }
 
-/**
- * The API caps a description at 2000 characters, and this is the one extracted field with no input on
- * the form — it goes from the page to the wire untouched. A fat JSON-LD or OpenGraph description over
- * the cap would 400 the whole capture, and the consultant would see a validation message about a field
- * they cannot see, edit, or clear, with no way out of it but abandoning the page.
- */
 /** A field cleared to whitespace is absent, not a blank value stored and rendered as a gap. */
 function blankToNull(value: string): string | null {
   return value.trim() || null;
 }
 
+/**
+ * The description is the one extracted field with no input on the form, so it goes from the page to
+ * the wire untouched — and an over-long one would 400 the whole capture over a field the consultant
+ * cannot see, edit or clear.
+ */
 function truncateDescription(description: string | null | undefined): string | null {
   if (!description) {
     return null;
@@ -236,8 +259,8 @@ function truncateDescription(description: string | null | undefined): string | n
 /** Matches `CaptureCompanyRequest.shortDescription`'s `@Size(max = 2000)`. */
 const MAX_DESCRIPTION = 2000;
 
-/** A blank or nonsense headcount is sent as absent, never as zero — zero is a claim, absence is not. */
-function toHeadcount(value: string): number | null {
+/** A blank or nonsense figure is sent as absent, never as zero — zero is a claim, absence is not. */
+function toWholeNumber(value: string): number | null {
   const parsed = Number.parseInt(value.replace(/[^\d]/g, ""), 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
