@@ -6,18 +6,12 @@ import {
   type ExtractedPerson,
   type PersonExtractor,
 } from "../extractedPerson";
+import { hrefOf, textOf } from "./dom";
 
 /**
- * `linkedin.com/in/*` — where an executive's own account of their career is, and the most fragile
- * source there is.
- *
- * Generated class names, two layouts (signed in and signed out), and no stability guarantee, so every
- * field is a chain of increasingly generic strategies and nothing matches on an exact class. A chain
- * that stops matching yields null and the merge falls through — fewer fields, never a wrong one.
- *
- * Both fixtures in `__fixtures__` are what these were written against. When LinkedIn changes, add a
- * fixture rather than replacing one: a strategy that still works for some users must not be deleted
- * because a newer layout appeared.
+ * `linkedin.com/in/*` — an executive's own account of their career, and the most fragile source there
+ * is: generated class names and two live layouts, signed in and signed out. Every field is a fallback
+ * chain; a broken one yields null. Extend a chain with a new fixture beside the old ones.
  */
 export const linkedInProfileExtractor: PersonExtractor = (document) => {
   if (!isLinkedInProfilePage(document)) {
@@ -75,12 +69,9 @@ function canonicalProfileUrl(document: Document): string | null {
 }
 
 /**
- * The experience list, most recent first — which is the order LinkedIn renders it in, and the reason
- * the first entry is read as the current role.
- *
- * A role's three parts sit in three sibling elements with no stable class between them, so the shape
- * is what this keys on: a heading for the title, the next line for the company, and a date range
- * recognised by looking like one.
+ * The experience list, most recent first, which is why the first entry is the current role. Keyed on
+ * shape rather than class: the title line, the company line, and a date range recognised by looking
+ * like one.
  */
 function readExperience(document: Document): ExtractedCareerEntry[] {
   const section = experienceSection(document);
@@ -88,19 +79,52 @@ function readExperience(document: Document): ExtractedCareerEntry[] {
     return [];
   }
   const entries: ExtractedCareerEntry[] = [];
-  for (const item of section.querySelectorAll("li")) {
-    const lines = visibleLines(item);
+  for (const item of positionItems(section)) {
+    const grouping = groupedEmployerOf(item);
+    const lines = visibleLines(grouping ? firstChildBlock(item) : item);
     if (lines.length === 0) {
       continue;
     }
     const period = lines.find(isDateRange) ?? null;
     const rest = lines.filter((line) => line !== period);
-    const entry = { title: rest[0] ?? null, company: rest[1] ?? null, period };
+    // Under a grouping the row carries the role only — the employer is on the wrapper above it, and
+    // reading rest[1] there would take the *next* line of the role and file it as the company.
+    const entry = grouping
+      ? { title: rest[0] ?? null, company: grouping, period }
+      : { title: rest[0] ?? null, company: rest[1] ?? null, period };
     if (entry.title || entry.company) {
       entries.push(entry);
     }
   }
   return entries;
+}
+
+/**
+ * The rows that are a position, which is not every `<li>`: two roles at one employer nest inside an
+ * outer `li` naming the company, so taking every `li` yields that wrapper as a position with the
+ * fields swapped, and each real role twice.
+ */
+function positionItems(section: Element): Element[] {
+  return [...section.querySelectorAll("li")].filter((item) => !item.querySelector("li"));
+}
+
+/** The employer named by a grouping wrapper above this row, if this row sits inside one. */
+function groupedEmployerOf(item: Element): string | null {
+  const wrapper = item.parentElement?.closest("li");
+  if (!wrapper) {
+    return null;
+  }
+  return visibleLines(firstChildBlock(wrapper)).find((line) => !isDateRange(line)) ?? null;
+}
+
+/**
+ * The row's own text, excluding anything nested inside it — for a wrapper, the employer heading rather
+ * than every role underneath.
+ */
+function firstChildBlock(item: Element): Element {
+  const clone = item.cloneNode(true) as Element;
+  clone.querySelectorAll("ul, ol").forEach((nested) => nested.remove());
+  return clone;
 }
 
 function experienceSection(document: Document): Element | null {
@@ -140,12 +164,4 @@ function visibleLines(item: Element): string[] {
 /** "Mar 2021 - Present · 4 yrs 5 mos", "2016 – 2021", "Jan 2012 - Dec 2015". */
 function isDateRange(line: string): boolean {
   return /\b(19|20)\d{2}\b/.test(line) && /[-–—]|present/i.test(line);
-}
-
-function textOf(document: Document, selector: string): string | null {
-  return document.querySelector(selector)?.textContent ?? null;
-}
-
-function hrefOf(document: Document, selector: string): string | null {
-  return document.querySelector(selector)?.getAttribute("href") ?? null;
 }

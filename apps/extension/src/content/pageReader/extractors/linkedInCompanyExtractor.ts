@@ -9,19 +9,12 @@ import {
   type CompanyExtractor,
   type ExtractedCompany,
 } from "../extractedCompany";
+import { hrefOf, textOf } from "./dom";
 
 /**
- * `linkedin.com/company/*` — the richest source, and the most fragile.
- *
- * LinkedIn's class names are generated and change without notice, so nothing here matches on one. Each
- * field is a chain of increasingly generic strategies, ending in one that reads the page's own
- * structured data or its visible definition list. When a strategy stops matching, the field comes back
- * null and the merge simply falls through to the next extractor — the capture still works with fewer
- * fields, which is the failure mode worth designing for.
- *
- * The fixture in `__fixtures__` is what these selectors were written against. When LinkedIn changes
- * and a chain needs extending, add a fixture rather than replacing the old one: a strategy that still
- * works for some users must not be deleted because a newer layout appeared.
+ * `linkedin.com/company/*` — the richest source, and the most fragile. Class names are generated, so
+ * every field is a fallback chain and a broken one yields null rather than a wrong answer. Extend a
+ * chain with a new fixture beside the old, never by replacing it.
  */
 export const linkedInCompanyExtractor: CompanyExtractor = (document) => {
   if (!isLinkedInCompanyPage(document)) {
@@ -100,16 +93,10 @@ const WEBSITE_LINK_SELECTOR = 'a[data-tracking-control-name*="website"]';
 /**
  * The company's own site, out of whatever LinkedIn put in the link.
  *
- * LinkedIn wraps outbound links in its own interstitial —
- * `linkedin.com/redir/redirect?url=https%3A%2F%2Falrawabidairy%2Eae&urlhash=…` — so the raw `href` is a
- * linkedin.com URL. Writing that through would file every company captured from LinkedIn under a
- * linkedin.com website, which is exactly what `isAggregatorHost` in `readCompanyFromPage` exists to
- * prevent; that guard only covers the address-bar fallback, so an extracted value routes around it.
- *
- * A LinkedIn URL with no `url` parameter yields nothing rather than itself, so the merge falls through
- * to the structured-data reader instead of recording a wrong answer. The visible link text is
- * deliberately not a fallback: LinkedIn truncates it ("https://www.alrawabidair…"), and a truncated
- * domain is a different company.
+ * LinkedIn wraps outbound links in `linkedin.com/redir/redirect?url=…`, so the raw href is a
+ * linkedin.com URL — writing that through files every captured company under linkedin.com, routing
+ * around `isAggregatorHost`. The visible text is not a fallback: LinkedIn truncates it, and a
+ * truncated domain is a different company.
  */
 function companyWebsiteFrom(href: string | null | undefined): string | null {
   if (!href) {
@@ -157,12 +144,4 @@ function nextDefinition(term: Element): Element | null {
 function companySizeFromSummary(document: Document): string | null {
   const summary = cleanText(document.querySelector('[class*="org-top-card-summary-info"]')?.textContent);
   return summary?.match(/[\d,]+(?:-[\d,]+)?\s+employees/i)?.[0] ?? null;
-}
-
-function textOf(document: Document, selector: string): string | null {
-  return document.querySelector(selector)?.textContent ?? null;
-}
-
-function hrefOf(document: Document, selector: string): string | null {
-  return document.querySelector(selector)?.getAttribute("href") ?? null;
 }

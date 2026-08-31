@@ -4,15 +4,9 @@ import { linkedInCompanyExtractor } from "./extractors/linkedInCompanyExtractor"
 import { structuredDataExtractor } from "./extractors/structuredDataExtractor";
 
 /**
- * Reads the company off a page, by every extractor that has something to say about it.
- *
- * Every extractor runs — none is selected by URL up front. Each decides for itself whether the page is
- * one it understands and returns nothing when it is not, which means a LinkedIn page still gets its
- * OpenGraph read and a corporate site that happens to embed a Crunchbase widget loses nothing.
- *
- * Order is priority, most specific first: the merge takes the first non-empty value for each field, so
- * a later extractor fills gaps and never overwrites. Adding a new reader to the end of this list
- * cannot make an already-working page worse.
+ * Reads the company off a page. Every extractor runs and decides for itself whether it understands the
+ * page; order is priority, most specific first, and the merge takes the first non-empty value — so a
+ * reader appended here can only fill gaps.
  */
 export function readCompanyFromPage(document: Document): ExtractedCompany {
   const company = mergeExtracted([

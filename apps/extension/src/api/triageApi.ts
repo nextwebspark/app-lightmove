@@ -3,17 +3,24 @@ import type { TriageCompanyMatch } from "./types";
 
 interface TriageCompaniesPage {
   companies: TriageCompanyMatch[];
+  totalCount: number;
 }
+
+const PAGE_SIZE = 25;
+
+/**
+ * How far to page before giving up. `q` is a substring match, so a common word can return hundreds and
+ * a popup must not spend that many requests; past this the person is filed unmapped, which the screen
+ * already says and the Companies grid can fix.
+ */
+const MAX_PAGES = 5;
 
 /**
  * The company a mandate already holds under exactly this name, so a captured person can be mapped to it.
  *
- * Two requests, because `GET /triage` reads one stage at a time and defaults to `inUniverse` — a single
- * call would miss every shortlisted company, which is exactly where people get mapped. Shortlisted is
- * asked first so it wins a name held at both stages; `declined` is deliberately never searched.
- *
- * `q` is a substring match server-side — "Emirates NBD" would find "Emirates NBD Capital" — so the
- * name is compared exactly here rather than trusting what came back.
+ * Both stages are asked, shortlisted first, because `GET /triage` reads one at a time and defaults to
+ * `inUniverse` — which is not where mapped people are. `q` is a substring match, so the name is
+ * compared exactly here and the pages are walked rather than trusting the first.
  */
 export async function findTriageCompanyByName(
   api: LightMoveApiClient,
@@ -22,12 +29,18 @@ export async function findTriageCompanyByName(
 ): Promise<TriageCompanyMatch | null> {
   const wanted = name.trim();
   for (const status of ["shortlisted", "inUniverse"] as const) {
-    const page = await api.request<TriageCompaniesPage>(
-      `/projects/${projectId}/triage?status=${status}&size=25&q=${encodeURIComponent(wanted)}`,
-    );
-    const matched = page.companies.find((company) => isSameName(company.companyName, wanted));
-    if (matched) {
-      return matched;
+    for (let page = 0; page < MAX_PAGES; page += 1) {
+      const held = await api.request<TriageCompaniesPage>(
+        `/projects/${projectId}/triage?status=${status}&size=${PAGE_SIZE}&page=${page}`
+          + `&q=${encodeURIComponent(wanted)}`,
+      );
+      const matched = held.companies.find((company) => isSameName(company.companyName, wanted));
+      if (matched) {
+        return matched;
+      }
+      if (held.companies.length < PAGE_SIZE || (page + 1) * PAGE_SIZE >= held.totalCount) {
+        break;
+      }
     }
   }
   return null;

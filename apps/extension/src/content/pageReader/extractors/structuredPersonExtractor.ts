@@ -6,7 +6,7 @@ import {
   type ExtractedPerson,
   type PersonExtractor,
 } from "../extractedPerson";
-import { asRecord, asText, metaContent, nodesOfType, type JsonLdNode } from "./jsonLd";
+import { asRecord, asText, linkedInFrom, metaContent, nodesOfType, type JsonLdNode } from "./jsonLd";
 
 /**
  * The universal person reader: schema.org `Person`, then OpenGraph's profile tags.
@@ -33,7 +33,7 @@ function toPerson(node: JsonLdNode): Partial<ExtractedPerson> {
     employerName: cleanText(asText(node["worksFor"])),
     location: placeOf(cleanText(asText(address?.["addressLocality"])),
       cleanText(asText(address?.["addressCountry"]))),
-    linkedinUrl: linkedInFrom(node["sameAs"]),
+    linkedinUrl: linkedInFrom(node["sameAs"], isLinkedInProfileUrl, httpUrlOrNull),
     email: emailOrNull(asText(node["email"])),
     phone: cleanText(asText(node["telephone"])),
   });
@@ -63,16 +63,4 @@ function fromOpenGraph(document: Document): Partial<ExtractedPerson> {
   return withoutEmpty<ExtractedPerson>({
     fullName: cleanText(named || metaContent(document, "og:title")),
   });
-}
-
-/** `sameAs` is where a bio lists its subject's profiles, and where their LinkedIn usually is. */
-function linkedInFrom(sameAs: unknown): string | null {
-  const candidates = Array.isArray(sameAs) ? sameAs : [sameAs];
-  for (const candidate of candidates) {
-    const url = httpUrlOrNull(asText(candidate));
-    if (url && isLinkedInProfileUrl(url)) {
-      return url;
-    }
-  }
-  return null;
 }

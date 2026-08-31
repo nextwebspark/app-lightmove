@@ -30,7 +30,7 @@ export interface ExtractedCareerEntry {
 /** A reader of one kind of page. Pure, so it can be tested against a saved fixture with no browser. */
 export type PersonExtractor = (document: Document) => Partial<ExtractedPerson>;
 
-export const EMPTY_EXTRACTED_PERSON: ExtractedPerson = {
+const EMPTY_EXTRACTED_PERSON: ExtractedPerson = {
   fullName: null,
   title: null,
   employerName: null,

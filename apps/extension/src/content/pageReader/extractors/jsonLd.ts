@@ -82,3 +82,22 @@ export function metaContent(document: Document, name: string): string | null {
 export function canonicalHref(document: Document): string | null {
   return document.querySelector('link[rel="canonical"]')?.getAttribute("href") ?? null;
 }
+
+/**
+ * The first LinkedIn URL in a `sameAs` list that is the kind wanted — a company page or a member
+ * profile. `sameAs` is where a site lists its social profiles, and where its LinkedIn usually is.
+ */
+export function linkedInFrom(
+  sameAs: unknown,
+  isWanted: (url: string) => boolean,
+  asUrl: (value: string | null) => string | null,
+): string | null {
+  const candidates = Array.isArray(sameAs) ? sameAs : [sameAs];
+  for (const candidate of candidates) {
+    const url = asUrl(asText(candidate));
+    if (url && isWanted(url)) {
+      return url;
+    }
+  }
+  return null;
+}

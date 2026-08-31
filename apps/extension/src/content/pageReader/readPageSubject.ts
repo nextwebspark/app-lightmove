@@ -25,12 +25,9 @@ export function readPageSubject(document: Document): PageSubject {
 }
 
 /**
- * URL shape first, because it is the one signal the page cannot lie about; extracted signal only where
- * the URL says nothing.
- *
- * A name alone is never enough — `og:title` on any article yields a name-shaped string — so a person
- * has to come with a title, an employer or a career. Person wins the tie: on a corporate bio page both
- * are present, and the consultant standing there is looking at the person.
+ * URL shape first — the one signal a page cannot lie about — then extracted signal. A name alone is
+ * never enough, since every article's `og:title` is name-shaped. Person wins the tie: a bio page
+ * carries both, and the consultant is looking at the person.
  */
 function classify(document: Document, person: ExtractedPerson, company: ExtractedCompany): PageSubjectKind {
   const pathname = document.location?.pathname ?? "";

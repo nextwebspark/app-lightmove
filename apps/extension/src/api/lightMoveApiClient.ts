@@ -1,12 +1,9 @@
 import type { ApiError } from "./types";
 
 /**
- * The one place that speaks HTTP to the workspace.
- *
- * Deliberately free of every `chrome.*` API: it is handed an access token and a way to get a fresh
- * one, and knows nothing about where either comes from. That keeps it unit-testable without a browser
- * and keeps the rule that only the service worker touches the session in one place — this file cannot
- * break it because it cannot reach storage.
+ * The one place that speaks HTTP to the workspace, and deliberately free of every `chrome.*` API: it
+ * is handed a token and a way to renew one, so it cannot reach storage and cannot break the rule that
+ * only the worker holds the session.
  */
 
 /** Thrown for any non-2xx, carrying the server's own problem so the popup can switch on `code`. */

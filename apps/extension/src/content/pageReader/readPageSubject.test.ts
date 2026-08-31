@@ -41,6 +41,20 @@ describe("the LinkedIn profile", () => {
     });
   });
 
+  // Two roles at one employer is the ordinary GCC C-suite shape, and LinkedIn nests it: the outer li
+  // names the company. Read flat, the wrapper became a position with the fields swapped.
+  it("reads two roles at one employer without swapping the company into the title", () => {
+    const document = documentAt("linkedInProfileGroupedRoles.html", "https://www.linkedin.com/in/omar-farouk/");
+    const read = linkedInProfileExtractor(document);
+
+    expect(read.employerName).toBe("Zenith Industrial");
+    expect(read.tenure).toBe("Jan 2020 - Present · 5 yrs 7 mos");
+    expect(read.career).toEqual([
+      { title: "Chief Operating Officer", company: "Zenith Industrial", period: "Jun 2016 - Jan 2020 · 3 yrs 7 mos" },
+      { title: "Plant Director", company: "Sabic", period: "2011 - 2016 · 5 yrs" },
+    ]);
+  });
+
   it("is keyed on the host the browser loaded, so a page cannot declare itself a profile", () => {
     const impostor = new JSDOM(
       '<link rel="canonical" href="https://www.linkedin.com/in/amira-haddad" /><h1>Amira Haddad</h1>',
@@ -98,6 +112,17 @@ describe("classifying the page", () => {
     const article = new JSDOM('<meta property="og:title" content="Amira Haddad" /><p>News</p>', {
       url: "https://news.example/story",
     }).window.document as unknown as Document;
+
+    expect(readPageSubject(article).subject).toBe("unknown");
+  });
+
+  // og:site_name is on essentially every page there is, so reading it as a company name answered
+  // "company" for the whole web and emptied out the branch above.
+  it("does not read a publisher's og:site_name as a company", () => {
+    const article = new JSDOM(
+      '<meta property="og:site_name" content="Gulf Business" /><meta property="og:type" content="article" />',
+      { url: "https://gulfbusiness.example/story" },
+    ).window.document as unknown as Document;
 
     expect(readPageSubject(article).subject).toBe("unknown");
   });

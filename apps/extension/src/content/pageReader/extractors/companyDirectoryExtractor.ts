@@ -11,15 +11,9 @@ import {
 } from "../extractedCompany";
 
 /**
- * Company directories — Apollo and Crunchbase.
- *
- * Both render a company as a labelled fact table, and both change their markup often, so this reads
- * the *labels* and not the layout: find the element whose text is "Industry", take the value beside
- * it. That survives a restyle, which a class-name selector does not.
- *
- * Narrower than the structured-data reader on purpose — it runs only on the hosts below, because
- * "find the text next to the word Industry" is a guess that is reliable on a fact table and reckless
- * on a page of prose.
+ * Company directories — Apollo and Crunchbase. Reads the *labels* rather than the layout, which
+ * survives a restyle, and runs only on the hosts below: "the text beside the word Industry" is
+ * reliable on a fact table and reckless on a page of prose.
  */
 export const companyDirectoryExtractor: CompanyExtractor = (document) => {
   if (!isDirectoryPage(document)) {

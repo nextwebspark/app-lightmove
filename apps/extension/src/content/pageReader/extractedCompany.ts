@@ -1,12 +1,7 @@
 /**
- * What reading a page yields — a company as the page described it, before anyone edits it.
- *
- * Every field is optional and every field is a guess. That is why the popup renders each one as an
- * editable input rather than writing them straight through: an extractor reading a corporate "About"
- * page is doing pattern-matching on prose, and it should be easy for a consultant to correct it.
- *
- * The shape every extractor returns a `Partial` of, which is what lets them be merged field by field:
- * the LinkedIn reader may know the headcount while the structured-data reader knows the legal name.
+ * What reading a page yields — a company as the page described it, before anyone edits it. Every field
+ * is a guess, which is why the popup renders each as an editable input, and every extractor returns a
+ * `Partial` of this so the guesses merge field by field.
  */
 export interface ExtractedCompany {
   companyName: string | null;
@@ -22,7 +17,7 @@ export interface ExtractedCompany {
 /** A reader of one kind of page. Pure, so it can be tested against a saved fixture with no browser. */
 export type CompanyExtractor = (document: Document) => Partial<ExtractedCompany>;
 
-export const EMPTY_EXTRACTED_COMPANY: ExtractedCompany = {
+const EMPTY_EXTRACTED_COMPANY: ExtractedCompany = {
   companyName: null,
   website: null,
   linkedinUrl: null,
@@ -34,15 +29,10 @@ export const EMPTY_EXTRACTED_COMPANY: ExtractedCompany = {
 };
 
 /**
- * Folds extractor results together, first non-empty value per field.
+ * Folds extractor results together, first non-empty value per field, most specific reader first.
  *
- * Order is the priority: the caller passes the most specific reader first. A later extractor can fill
- * a field an earlier one left blank but can never overwrite one it answered, so adding a broad
- * fallback reader cannot degrade a page a specific reader already understood.
- *
- * Written out field by field rather than looped over `Object.entries`, which would need a cast to
- * assign back into a heterogeneous record. This way adding a field to `ExtractedCompany` fails the
- * build here until it is merged too, instead of silently arriving as null on every page.
+ * Written out field by field on purpose: adding a field to `ExtractedCompany` fails the build here
+ * until it is merged too, rather than silently arriving as null on every page.
  */
 export function mergeExtracted(results: Partial<ExtractedCompany>[]): ExtractedCompany {
   return {
@@ -103,12 +93,8 @@ export function countryOf(place: string | null | undefined): string | null {
 }
 
 /**
- * A page-supplied URL, or nothing unless it is http(s).
- *
- * Every URL an extractor yields is text a hostile page controls, and it is persisted rather than
- * merely displayed — so a `javascript:` href planted today detonates on whichever future screen
- * turns a stored website into a link. Checking the parsed protocol here, once, is what stops that
- * being a decision every render site has to remember to make.
+ * A page-supplied URL, or nothing unless it is http(s). Hostile text that gets *persisted*, so a
+ * `javascript:` href planted today would detonate on whichever future screen renders it as a link.
  */
 export function httpUrlOrNull(value: string | null | undefined, base?: string): string | null {
   const candidate = cleanText(value);
@@ -141,10 +127,12 @@ function isHttp(url: URL | null): boolean {
   return url !== null && (url.protocol === "https:" || url.protocol === "http:");
 }
 
-/** A scheme-less host, "acme.ae" or "acme.ae/about" — never a path, and never a scheme in disguise. */
+/** A scheme-less host, "acme.ae" or "Acme.AE/about" — never a path, and never a scheme in disguise. */
 function hasHostShape(value: string): boolean {
+  // Compared lower-cased, because WHATWG lower-cases the host while parsing: a directory row reading
+  // "Zenith-Industrial.sa" would otherwise fail its own host check and be dropped as not a URL.
   const host = parseOrNull(`https://${value}`)?.hostname;
-  return host !== undefined && host.includes(".") && value.startsWith(host);
+  return host !== undefined && host.includes(".") && value.toLowerCase().startsWith(host);
 }
 
 function isAbsolute(value: string): boolean {
