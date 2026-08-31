@@ -172,6 +172,12 @@ public class TokenService {
             if (client != null && token.getClient() != client) {
                 return;
             }
+            // Only for a session this call actually ended. RefreshToken.revoke is idempotent, so signing
+            // out a token something else already killed — a re-pair's SUPERSEDED, a password change —
+            // would otherwise write a LOGOUT that never happened.
+            if (token.isRevoked()) {
+                return;
+            }
             token.revoke(RevokeReason.LOGOUT, Instant.now());
             audit.event(AuthEventType.LOGOUT).actor(token.getUserId()).from(request).record();
         });

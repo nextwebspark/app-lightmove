@@ -21,6 +21,9 @@ const EXTENSION_ID = import.meta.env.VITE_EXTENSION_ID || DEVELOPMENT_EXTENSION_
 /** Shared verbatim with the extension's service worker — the one contract between them. */
 const STORE_PAIRED_SESSION = "storePairedSession";
 
+/** Asked before anything is minted, purely to find out whether the extension answers at all. */
+const PING = "ping";
+
 type ConnectState = "ready" | "pairing" | "paired" | "notInstalled" | "failed";
 
 /** What `chrome.runtime` looks like from a web page: present only when an extension exposes it. */
@@ -38,6 +41,19 @@ function extensionChannel(): PageAccessibleChromeRuntime | null {
   return typeof runtime?.sendMessage === "function" ? runtime : null;
 }
 
+/** Whether LightMove Capture is installed and listening, asked with a message that changes nothing. */
+function extensionAnswers(runtime: PageAccessibleChromeRuntime): Promise<boolean> {
+  return new Promise((resolve) => {
+    try {
+      runtime.sendMessage(EXTENSION_ID, { kind: PING }, (response) => {
+        resolve(!runtime.lastError && Boolean(response));
+      });
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
 export function ExtensionConnectPage() {
   const [state, setState] = useState<ConnectState>("ready");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -52,9 +68,11 @@ export function ExtensionConnectPage() {
     isPairing.current = true;
 
     const runtime = extensionChannel();
-    if (!runtime) {
-      // Checked before minting, deliberately: opening this URL without the extension installed must
-      // not leave a live refresh token in a page that has nothing to collect it.
+    // `chrome.runtime.sendMessage` exists in Chrome whether or not *this* extension is installed, so
+    // its presence proves nothing. Minting before knowing would leave a live 14-day token in a page
+    // with nothing to collect it — and, now that pairing revokes the account's previous extension
+    // session, would sign out an extension on another machine to hand the token to nobody.
+    if (!runtime || !(await extensionAnswers(runtime))) {
       setState("notInstalled");
       isPairing.current = false;
       return;
