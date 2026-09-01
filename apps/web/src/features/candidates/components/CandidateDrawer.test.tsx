@@ -43,6 +43,7 @@ const yasmin: Candidate = {
   languages: ["English", "Arabic"],
   source: "manual",
   sourceUrl: null,
+  customFields: {},
   addedAt: "2026-08-02T09:00:00Z",
 };
 
@@ -55,6 +56,7 @@ const renderDrawer = (props: Partial<Parameters<typeof CandidateDrawer>[0]> = {}
           projectId="p1"
           candidate={null}
           company={{ triageCompanyId: "co1", companyName: "Al Rawabi Dairy" }}
+          customColumns={[]}
           canWrite
           onClose={() => {}}
           onSaved={() => {}}

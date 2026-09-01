@@ -53,6 +53,16 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
     List<Candidate> findByProjectIdAndTriageCompanyIdAndFullNameIgnoreCase(
             UUID projectId, UUID triageCompanyId, String fullName);
 
+    /**
+     * How an import recognises someone it has already mapped. Email first, because it is the one field
+     * on an executive's row that identifies a person rather than describing them — a spreadsheet
+     * spells a name three ways across two exports and the address stays the same.
+     *
+     * <p>A list rather than {@code Optional} for the same reason the name finders below are: nothing
+     * stops two rows carrying one address, and a single-result finder would turn that into a 500.
+     */
+    List<Candidate> findByProjectIdAndEmailIgnoreCase(UUID projectId, String email);
+
     List<Candidate> findByProjectIdAndTriageCompanyIdIsNullAndFullNameIgnoreCase(
             UUID projectId, String fullName);
 }

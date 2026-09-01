@@ -8,6 +8,7 @@ import { DetailGrid, DetailPill, DetailTile, DrawerSection } from "../../../comp
 import { Drawer, DrawerCloseButton } from "../../../components/ui/Drawer";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate } from "../../../lib/format";
+import type { CustomColumn } from "../../customcolumns/api/types";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompany, TriageCompanyStatus } from "../api/types";
 import { stageByStatus } from "../lib/triageStages";
@@ -38,6 +39,7 @@ export function CompanyDrawer({
   projectId,
   company,
   landingStatus,
+  customColumns,
   canWrite,
   onClose,
   onSaved,
@@ -50,6 +52,8 @@ export function CompanyDrawer({
   company: TriageCompany | null;
   /** Where a newly added company lands — the stage the grid was showing. */
   landingStatus: TriageCompanyStatus;
+  /** This mandate's own company columns, edited in the same save as the fields above them. */
+  customColumns: readonly CustomColumn[];
   canWrite: boolean;
   onClose: () => void;
   onSaved: () => void;
@@ -94,6 +98,7 @@ export function CompanyDrawer({
         <AddCompanyPanel
           projectId={projectId}
           landingStatus={landingStatus}
+          customColumns={customColumns}
           onClose={onClose}
           onSaved={onSaved}
         />
@@ -145,7 +150,13 @@ export function CompanyDrawer({
         <CompanyFactsForm
           company={company}
           isCapture={false}
-          save={(parsed) => triageApi.editTriageCompany(projectId, company.id, editPayloadOf(parsed))}
+          customColumns={customColumns}
+          save={(parsed, customFields) =>
+            triageApi.editTriageCompany(projectId, company.id, {
+              ...editPayloadOf(parsed),
+              customFields,
+            })
+          }
           onSaved={(saved) => {
             onSaved();
             toast(`${saved.companyName} updated`);

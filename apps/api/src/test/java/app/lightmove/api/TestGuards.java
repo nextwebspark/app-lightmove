@@ -19,6 +19,7 @@ public final class TestGuards {
     public static LlmGuards guards() {
         return new LlmGuards(new LightMoveProperties(null, null, null, null, null,
                 new LlmSettings(new LlmRateLimitSettings(true, 10, 20), 20_000, 1,
-                        List.of("ignore previous instructions", "system prompt", "you are now"))));
+                        List.of("ignore previous instructions", "system prompt", "you are now")),
+                null, null));
     }
 }

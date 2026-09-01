@@ -43,6 +43,15 @@ public class LlmBudgetGuard {
         check("embed", userId, settings.embedRequestsPerMinute());
     }
 
+    /**
+     * The column-mapping call behind an import preview. Budgeted with the shortlist call rather than
+     * given a number of its own: both are one deliberate click by a person, and a second knob would be
+     * a second thing to get wrong for no behaviour anybody wanted.
+     */
+    public void checkColumnMapping(UUID userId) {
+        check("import-mapping", userId, settings.shortlistRequestsPerMinute());
+    }
+
 
     private void check(String action, UUID userId, int limit) {
         if (!settings.enabled()) {

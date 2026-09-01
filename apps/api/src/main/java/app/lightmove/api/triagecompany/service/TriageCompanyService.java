@@ -6,6 +6,8 @@ import app.lightmove.api.core.config.CompanyListSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
+import app.lightmove.api.customcolumn.service.CustomColumnService;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.strategy.constant.CompanySortField;
 import app.lightmove.api.strategy.constant.SortDirection;
@@ -30,7 +32,9 @@ import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -53,9 +57,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class TriageCompanyService {
 
-    /** The two doors a caller may supply a company through. {@code STRATEGY} is the server's to write. */
+    /** The doors a caller may supply a company through. {@code STRATEGY} is the server's to write. */
     private static final Set<TriageCompanySource> CAPTURABLE_SOURCES =
-            Set.of(TriageCompanySource.MANUAL, TriageCompanySource.EXTENSION);
+            Set.of(TriageCompanySource.MANUAL, TriageCompanySource.EXTENSION, TriageCompanySource.CSV);
 
     private static final Sort NEWEST_FIRST = Sort.by(Sort.Direction.DESC, "createdAt");
 
@@ -63,6 +67,7 @@ public class TriageCompanyService {
     private final TriageCompanyWriter writer;
     private final ProjectRepository projects;
     private final StrategyService strategy;
+    private final CustomColumnService customColumns;
     private final AuditService audit;
     private final ApolloCompanyQueryService market;
     private final CompanyListSettings listConfig;
@@ -71,12 +76,13 @@ public class TriageCompanyService {
     // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public TriageCompanyService(TriageCompanyRepository triaged, TriageCompanyWriter writer,
                                 ProjectRepository projects, StrategyService strategy,
-                                AuditService audit, ApolloCompanyQueryService market,
-                                LightMoveProperties properties) {
+                                CustomColumnService customColumns, AuditService audit,
+                                ApolloCompanyQueryService market, LightMoveProperties properties) {
         this.triaged = triaged;
         this.writer = writer;
         this.projects = projects;
         this.strategy = strategy;
+        this.customColumns = customColumns;
         this.audit = audit;
         this.market = market;
         this.listConfig = properties.company().list();
@@ -129,6 +135,25 @@ public class TriageCompanyService {
         return triaged.findByIdAndProjectId(triageCompanyId, projectId)
                 .map(TriageCompanyService::toDto)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
+
+    /**
+     * The mandate's company of that name, if it holds one — the seam the spreadsheet import resolves a
+     * company cell through, so a second import of the same list updates rows rather than duplicating
+     * them.
+     *
+     * <p>Name-matched, because a company typed into a spreadsheet has no other identity. Oldest first
+     * when a mandate somehow holds two: nothing stops the Apollo export publishing two accounts under
+     * one name, and a bulk add takes both, so this has to answer deterministically rather than throw.
+     */
+    @Transactional(readOnly = true)
+    public Optional<TriageCompanyResponse> findCompanyOfProjectByName(UUID projectId, String companyName) {
+        if (companyName == null || companyName.isBlank()) {
+            return Optional.empty();
+        }
+        return triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, companyName.trim()).stream()
+                .min(Comparator.comparing(TriageCompany::getCreatedAt))
+                .map(TriageCompanyService::toDto);
     }
 
     @Transactional
@@ -213,6 +238,8 @@ public class TriageCompanyService {
 
         TriageCompany captured = triaged.save(
                 TriageCompany.captured(projectId, userId, source, status, details));
+        captured.describeCustomFields(customColumns.applyTo(
+                projectId, CustomColumnTarget.COMPANY, captured.getCustomFields(), request.customFields()));
 
         audit.event(ProjectEventType.TRIAGE_COMPANY_CAPTURED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
@@ -326,10 +353,40 @@ public class TriageCompanyService {
         }
 
         company.describe(details);
+        company.describeCustomFields(customColumns.applyTo(
+                projectId, CustomColumnTarget.COMPANY, company.getCustomFields(), request.customFields()));
 
         audit.event(ProjectEventType.TRIAGE_COMPANY_EDITED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .detail("triageCompanyId", triageCompanyId.toString())
+                .record();
+        return toDto(company);
+    }
+
+    /**
+     * Writes only the mandate's custom-column values onto a company, leaving its own facts alone.
+     *
+     * <p>Exists for the one case {@link #edit} cannot serve: a company taken out of the Apollo
+     * universe. Its fields are the export's snapshot and rewriting them would make the Source badge a
+     * lie, which is why {@code edit} refuses one outright — but the mandate's <i>own</i> columns
+     * beside it are not the export's, and an import that filled them in for every hand-typed company
+     * and silently skipped every market one would be arbitrary from the user's side of the screen.
+     */
+    @Transactional
+    public TriageCompanyResponse editCustomFields(UUID userId, UUID workspaceId, UUID projectId,
+                                                  UUID triageCompanyId, Map<String, String> customFields,
+                                                  HttpServletRequest httpRequest) {
+        requireProject(projectId, workspaceId);
+        TriageCompany company = triaged.findByIdAndProjectId(triageCompanyId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+
+        company.describeCustomFields(customColumns.applyTo(
+                projectId, CustomColumnTarget.COMPANY, company.getCustomFields(), customFields));
+
+        audit.event(ProjectEventType.TRIAGE_COMPANY_EDITED)
+                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                .detail("triageCompanyId", triageCompanyId.toString())
+                .detail("customFieldsOnly", "true")
                 .record();
         return toDto(company);
     }
@@ -470,6 +527,6 @@ public class TriageCompanyService {
                 company.getCompanyCity(), company.getNumEmployees(), company.getAnnualRevenue(),
                 company.getWebsite(), company.getCompanyLinkedinUrl(), company.getFoundedYear(),
                 company.getShortDescription(), company.getSourceUrl(), company.getLogoUrl(),
-                company.getCreatedAt());
+                company.getCustomFields().asMap(), company.getCreatedAt());
     }
 }

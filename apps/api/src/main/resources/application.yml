@@ -275,6 +275,36 @@ lightmove:
         - application/vnd.openxmlformats-officedocument.wordprocessingml.document
         - text/plain
 
+  custom-column:
+    # The ceiling on the extra columns one mandate may add to its Companies grid, counted across the
+    # company and candidate halves because it is a limit on one screen's width. Deliberately a limit:
+    # the columns come from whatever a spreadsheet's header row says, and one mis-mapped import of a
+    # very wide file would otherwise leave a mandate with a grid nobody can read across.
+    max-per-project: ${CUSTOM_COLUMN_MAX_PER_PROJECT:40}
+
+  spreadsheet-import:
+    # A mandate's CSV/Excel import. Same ceiling as a position description, and for the same reason:
+    # the bytes are held whole in memory while the sheet is read. Must stay at or below
+    # spring.servlet.multipart.max-file-size, which rejects the upload before it ever arrives.
+    max-file-size-bytes: ${SPREADSHEET_IMPORT_MAX_BYTES:10485760}
+    # Refused whole rather than truncated: taking the first N rows would silently decide which half of
+    # a consultant's list got imported.
+    max-rows: ${SPREADSHEET_IMPORT_MAX_ROWS:5000}
+    # OFF. A spreadsheet of executives is client and candidate PII, and the model is given each
+    # column's header and a locally computed shape ("looks like an email") instead — nearly all the
+    # signal a mapping needs, with none of the data. Turn this on only knowingly.
+    send-sample-values: ${SPREADSHEET_IMPORT_SEND_SAMPLES:false}
+    # Checked server-side, but only as a coarse filter: browsers disagree about what a .csv is and
+    # several send application/vnd.ms-excel for one, so the reader decides the real format from the
+    # bytes. Hence octet-stream is allowed here and would not be for a document upload.
+    allowed-content-types:
+      - text/csv
+      - text/plain
+      - application/csv
+      - application/vnd.ms-excel
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/octet-stream
+
 management:
   # Actuator listens on its own port, bound to loopback — it is not reachable from the internet at all.
   #

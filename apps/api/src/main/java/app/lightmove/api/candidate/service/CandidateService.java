@@ -22,11 +22,15 @@ import app.lightmove.api.core.config.CompanyListSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
+import app.lightmove.api.customcolumn.service.CustomColumnService;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -57,17 +61,19 @@ public class CandidateService {
     private final CandidateRepository candidates;
     private final ProjectRepository projects;
     private final TriageCompanyService triage;
+    private final CustomColumnService customColumns;
     private final AuditService audit;
     private final CompanyListSettings listConfig;
 
     // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
     // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public CandidateService(CandidateRepository candidates, ProjectRepository projects,
-                            TriageCompanyService triage, AuditService audit,
-                            LightMoveProperties properties) {
+                            TriageCompanyService triage, CustomColumnService customColumns,
+                            AuditService audit, LightMoveProperties properties) {
         this.candidates = candidates;
         this.projects = projects;
         this.triage = triage;
+        this.customColumns = customColumns;
         this.audit = audit;
         this.listConfig = properties.company().list();
     }
@@ -122,6 +128,42 @@ public class CandidateService {
                 found.getTotalElements(), page, size);
     }
 
+    /**
+     * The person this mandate already has for a spreadsheet row, if any — the seam the import resolves
+     * a person through, so a second import of the same list updates profiles rather than colliding
+     * with {@code CANDIDATE_ALREADY_MAPPED} on every row.
+     *
+     * <p>Email first and name second, because those identify a person differently. An address is the
+     * one field that is the same across two exports that spell the name differently; a name only
+     * identifies someone <i>within</i> a company, which is exactly the scope V36's unique indexes
+     * enforce. Matching on name alone across the whole mandate would merge two different people who
+     * happen to share one at two different employers.
+     *
+     * <p>Oldest first when more than one row answers, for the reason the repository's finders return
+     * lists at all: nothing makes either column unique, and this has to answer rather than throw.
+     */
+    @Transactional(readOnly = true)
+    public Optional<CandidateResponse> findCandidateOfProject(UUID projectId, UUID triageCompanyId,
+                                                              String email, String fullName) {
+        if (email != null && !email.isBlank()) {
+            Optional<Candidate> byEmail =
+                    candidates.findByProjectIdAndEmailIgnoreCase(projectId, email.trim()).stream()
+                            .min(Comparator.comparing(Candidate::getCreatedAt));
+            if (byEmail.isPresent()) {
+                return byEmail.map(CandidateService::toDto);
+            }
+        }
+        if (fullName == null || fullName.isBlank()) {
+            return Optional.empty();
+        }
+        List<Candidate> byName = triageCompanyId == null
+                ? candidates.findByProjectIdAndTriageCompanyIdIsNullAndFullNameIgnoreCase(projectId, fullName.trim())
+                : candidates.findByProjectIdAndTriageCompanyIdAndFullNameIgnoreCase(projectId, triageCompanyId, fullName.trim());
+        return byName.stream()
+                .min(Comparator.comparing(Candidate::getCreatedAt))
+                .map(CandidateService::toDto);
+    }
+
     @Transactional
     public CandidateResponse add(UUID userId, UUID workspaceId, UUID projectId,
                                  SaveCandidateRequest request, HttpServletRequest httpRequest) {
@@ -133,6 +175,8 @@ public class CandidateService {
 
         Candidate candidate = candidates.save(Candidate.mapped(projectId, userId,
                 request.triageCompanyId(), source, details));
+        candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
+                candidate.getCustomFields(), request.customFields()));
 
         audit.event(ProjectEventType.CANDIDATE_ADDED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
@@ -159,6 +203,8 @@ public class CandidateService {
 
         candidate.remapTo(request.triageCompanyId());
         candidate.describe(details);
+        candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
+                candidate.getCustomFields(), request.customFields()));
 
         audit.event(ProjectEventType.CANDIDATE_UPDATED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
@@ -367,6 +413,7 @@ public class CandidateService {
                 candidate.getProfile().languages(),
                 candidate.getSource().value(),
                 candidate.getSourceUrl(),
+                candidate.getCustomFields().asMap(),
                 candidate.getCreatedAt());
     }
 }

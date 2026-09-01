@@ -1,10 +1,12 @@
 import type { ColumnVisibilityState } from "@tanstack/react-table";
+import { useMemo } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
+import type { CustomColumn } from "../../customcolumns/api/types";
 import type { TriageCounts } from "../api/types";
 import {
-  DEFAULT_TRIAGE_COLUMN_VISIBILITY,
-  triageCompanyColumns,
+  createTriageCompanyColumns,
+  defaultTriageColumnVisibility,
 } from "../lib/triageCompanyColumns";
 import { TriageStageSwitcher } from "./TriageStageSwitcher";
 
@@ -12,8 +14,7 @@ const TOOLBAR_BUTTON =
   "inline-flex items-center gap-1.5 whitespace-nowrap rounded-[6px] border border-line bg-panel " +
   "px-3 py-2 font-sans text-[13px] font-medium text-text2 transition hover:border-text3 hover:text-text";
 
-/** Derived once: the column definitions are a module constant, not per-render state. */
-const HIDEABLE_TRIAGE_COLUMNS = hideableColumnsOf(triageCompanyColumns);
+
 
 /**
  * The Companies grid's toolbar — the same bar Strategy carries, holding the two controls that mean
@@ -34,9 +35,12 @@ export function TriageToolbar({
   onQuery,
   columnVisibility,
   onColumnVisibilityChange,
+  customColumns,
   onResetLayout,
   onAddCompany,
   onAddExecutive,
+  onImport,
+  onManageColumns,
   canWrite,
 }: {
   projectId: string;
@@ -46,12 +50,24 @@ export function TriageToolbar({
   onQuery: (query: string) => void;
   columnVisibility: ColumnVisibilityState;
   onColumnVisibilityChange: (visibility: ColumnVisibilityState) => void;
+  /** This mandate's own extra columns — they are pickable and resettable like any built-in. */
+  customColumns: readonly CustomColumn[];
   onResetLayout: () => void;
   onAddCompany: () => void;
   onAddExecutive: () => void;
+  onImport: () => void;
+  onManageColumns: () => void;
   /** False for a client representative, who reads these grids and writes nothing. */
   canWrite: boolean;
 }) {
+  // Derived from the project's own column set, so a custom column appears in the picker with the
+  // built-ins rather than being the one column on the grid nobody can hide.
+  const hideableColumns = useMemo(
+    () => hideableColumnsOf(createTriageCompanyColumns(customColumns)),
+    [customColumns],
+  );
+  const defaults = useMemo(() => defaultTriageColumnVisibility(customColumns), [customColumns]);
+
   return (
     <div className="flex min-h-[44px] flex-none flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-line-soft bg-panel2 px-3 py-2 sm:px-5 sm:py-1.5">
       <div className="order-last flex w-full min-w-[180px] items-center gap-2 rounded-[6px] border border-line px-3 py-2 sm:order-none sm:w-[240px] sm:flex-none">
@@ -69,15 +85,23 @@ export function TriageToolbar({
 
       <div className="flex items-center gap-3 sm:ml-auto">
         <ColumnPicker
-          columns={HIDEABLE_TRIAGE_COLUMNS}
+          columns={hideableColumns}
           visibility={columnVisibility}
-          defaults={DEFAULT_TRIAGE_COLUMN_VISIBILITY}
+          defaults={defaults}
           onChange={onColumnVisibilityChange}
           onResetLayout={onResetLayout}
         />
 
         {canWrite && (
           <>
+            <button type="button" onClick={onManageColumns} className={TOOLBAR_BUTTON}>
+              <Icon d={ICONS.settings} size={14} className="flex-none" />
+              Columns
+            </button>
+            <button type="button" onClick={onImport} className={TOOLBAR_BUTTON}>
+              <Icon d={ICONS.uploadCloud} size={14} className="flex-none" />
+              Import
+            </button>
             <button
               type="button"
               onClick={onAddExecutive}
