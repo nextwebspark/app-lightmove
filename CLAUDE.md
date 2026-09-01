@@ -65,10 +65,7 @@ companies, because a researcher meets people at companies the universe does not 
 ## Commands
 
 ```bash
-npm run dev                  # docker postgres (:55433) + api (:8080) + web (:5173)
-npm run dev:db:reset         # drop the local database; next boot re-runs every migration from V1
-npm run dev:db:psql          # psql shell in the local container
-npm run dev:db:apollo        # copy the Apollo company universe down from Cloud SQL into it
+npm run dev                  # web only (:5173) — proxies /api to :8080
 npm run dev:cloud            # api + web against the SHARED Cloud SQL dev database
 npm test                     # both suites
 cd apps/api && ./mvnw test   # backend — needs Docker (Testcontainers)
@@ -82,10 +79,12 @@ gitignored personal profile and does not raise `password-reset-requests-per-hour
 `./run-all.sh` burns the production budget of 3/hour and fails six cases (N20.2-3, N30.1-4) that are
 green on the profile CI uses. Those failures are the profile, never the code.
 
-`npm run dev` needs Docker and nothing else — no gcloud, no `application-local.yml`. Its database is
-yours alone, so a migration in your tree applies only to you. The one thing it cannot conjure is the
-Apollo universe: `npm run dev:db:apollo` pulls the 71,822 rows down once (that step needs gcloud), and
-from there `dev:db:reset` snapshots them out and back in rather than wiping them with everything else.
+`npm run dev` starts only the SPA. The API is run separately — `cd apps/api && ./mvnw
+spring-boot:run -Dspring-boot.run.profiles=local`, or an IntelliJ run config with active profile
+`local` — against whatever Postgres `apps/api/src/main/resources/application-local.yml` (gitignored)
+points at. That file is required on every local path now, not just `dev:cloud`. There is no automated
+Apollo-universe restore for a local Postgres; Strategy/Companies screens render empty until that's
+pulled in by hand.
 
 `npm run dev:cloud` hits the shared dev database and applies your migrations to everyone at boot. It
 needs `cp apps/api/src/main/resources/application-local.yml{.example,}` with the DB password filled in,

@@ -45,6 +45,6 @@ coverage/
 ops/migrations/*
 
 
-# The local Apollo universe snapshot, so `npm run dev:db:reset` can carry the 71,822 pipeline-owned
-# rows across a wipe. Data, not source — re-pull it with `npm run dev:db:apollo`.
+# A local cache of the 71,822-row Apollo universe dump, restored by hand against a developer's own
+# Postgres (see the db-ops skill). Data, not source.
 ops/dev/.cache/
