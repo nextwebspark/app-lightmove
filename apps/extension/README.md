@@ -14,7 +14,6 @@ gate the mandate's own screens go through:
 | The dropdown | `GET /projects` | — |
 | A company | `POST /projects/{id}/triage/capture` | the Companies screen's Add-company panel |
 | A person | `POST /projects/{id}/candidates` | the Add-executive drawer |
-| The company to map a person to | `GET /projects/{id}/triage` | — |
 | Undo | `DELETE` on either row | the Companies grid's own remove |
 
 A capture is just `source: "extension"` on paths that also take a row typed in by hand, and the popup
@@ -88,6 +87,14 @@ The result is an ordinary refresh-token family with a shorter TTL, listed in **S
 sessions** as *LightMove Capture* and revocable from there. Signing out of the extension leaves the
 browser session alone, and vice versa.
 
+Pairing is a **one-time click, never a login**: on `/extension/connect` you are already signed into the
+web app, so nothing asks for a password — one button mints the token. After it lands the connect tab
+closes itself and the panel, which watches `chrome.storage` for the session, flips straight to the
+capture form. From then on the panel opens already-signed-in without any step (the stored profile is
+read with no network call), until the token is actually revoked or expires. Being asked to connect
+*repeatedly* is not the flow — it means the paired token was invalidated, most often by a local database
+reset dropping `app_lm_refresh_token`; re-pair once and it sticks.
+
 ## Publishing to the Chrome Web Store
 
 ```bash
@@ -142,6 +149,25 @@ thing you need to know about any file here.
 | `src/api/` | (imported by the worker) | the only code that knows the API exists |
 | `src/domain/` | anywhere | domain normalisation, the two destinations |
 
+## What a capture reads, and why so little
+
+**A name and a URL — deliberately nothing more.** The signed-in 2025 LinkedIn layout has no `h1`,
+hashes class names per deploy, serves no JSON-LD, and lazy-mounts everything else — every attempt to
+read richer fields off it (career, title, employer, Voyager JSON) proved flaky and was removed. This
+is also how the mature tools work: the extension captures who/where, and enrichment happens
+server-side later.
+
+On `linkedin.com/in/<slug>` and `/company/<slug>` the captured URL is **built from the address bar's
+slug** — never read off the page — so it is present even when the page yields nothing. The name comes
+from one injection of the page reader: the `h1` chain where a layout still has one, falling back to
+the tab title (`"(3) Name - Headline - Employer | LinkedIn"`), which every layout carries. One
+injection per capture, no scrolling, no requests of our own against LinkedIn.
+
+**The plugin reads LinkedIn only.** On any other site the panel says so and offers an
+"Open LightMove" button to the selected mandate's Companies page (the projects list when none is
+selected) — manual adds live in the app. A LinkedIn page that names nobody (the feed, search, jobs)
+asks for a profile or company page instead.
+
 ## Adding a page extractor
 
 Extractors live in `src/content/pageReader/extractors/` and are pure functions:
@@ -151,10 +177,9 @@ Extractors live in `src/content/pageReader/extractors/` and are pure functions:
 ```
 
 No `chrome.*`, no network — which is what makes them testable against a saved HTML fixture with no
-browser. Write the extractor, save a fixture beside it in `__fixtures__/`, add it to the list in
-`readCompanyFromPage.ts` or `readPersonFromPage.ts` **at the end** (the merge takes the first non-empty
-value per field, so appending can only fill gaps and never break a page that already worked), and test
-it:
+browser. Write the extractor, save a fixture beside it in `__fixtures__/`, add it to the merge in
+`readPageSubject.ts` **at the end** (the merge takes the first non-empty value per field, so
+appending can only fill gaps and never break a page that already worked), and test it:
 
 ```bash
 npx vitest
@@ -165,11 +190,15 @@ with fewer fields, and every field is editable in the popup anyway.
 
 ## Permissions, and why each one is here
 
-`storage` — the paired session and the last-used mandate.
-`activeTab` + `scripting` — reads the page you invoked the extension on, and only that one. There is
-deliberately **no `<all_urls>` content script**: Chrome grants `activeTab` when you click the toolbar
-icon and revokes it when you navigate away, so the extension can read no page you have not pointed it
-at. `host_permissions` covers the workspace origin alone.
+`storage` — the paired session and the last-used mandate. Nothing else is stored.
+`scripting` — injects the page reader into the LinkedIn tab the panel is looking at.
+`tabs` — the side panel outlives the toolbar gesture and follows the active tab, so it needs to know
+*which* page a tab is on (its URL, never its content).
+`sidePanel` — the capture surface is a side panel, not a popup, so it stays open while you read.
+`host_permissions` — the workspace origin, plus `*://*.linkedin.com/*`: the one site the plugin
+reads, standing so the panel keeps working as you move between profiles without a grant prompt per
+tab. Every other site gets the LinkedIn-only message — no `activeTab`, no optional hosts, no
+`content_scripts`, and nothing close to an `<all_urls>` licence.
 
 ## The pinned key
 

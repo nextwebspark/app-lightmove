@@ -1,6 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { askServiceWorker } from "../../background/extensionMessages";
 import type { WorkspaceUser } from "../../api/types";
+import { SESSION_KEY as STORED_SESSION_KEY } from "../../background/storageKeys";
 
 const SESSION_KEY = ["extension", "session"] as const;
 
@@ -26,6 +28,19 @@ export function useExtensionSession() {
       return result.value;
     },
   });
+
+  // The panel stays open while the consultant pairs in another tab, so the session arrives while this
+  // is on screen. Watching the store is what turns that into the capture form without a second click.
+  const { refetch } = session;
+  useEffect(() => {
+    const onStored = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
+      if (area === "local" && STORED_SESSION_KEY in changes) {
+        void refetch();
+      }
+    };
+    chrome.storage.onChanged.addListener(onStored);
+    return () => chrome.storage.onChanged.removeListener(onStored);
+  }, [refetch]);
 
   const signOut = async () => {
     await askServiceWorker({ kind: "signOut" });

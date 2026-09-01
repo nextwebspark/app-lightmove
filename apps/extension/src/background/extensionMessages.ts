@@ -3,7 +3,6 @@ import type {
   CapturedCandidate,
   ProjectSummary,
   SaveCandidateRequest,
-  TriageCompanyMatch,
   TriagedCompany,
   WorkspaceUser,
 } from "../api/types";
@@ -27,7 +26,6 @@ export type ExtensionRequest =
   | { kind: "listProjects" }
   | { kind: "captureCompany"; projectId: string; capture: CaptureCompanyRequest }
   | { kind: "captureCandidate"; projectId: string; candidate: SaveCandidateRequest }
-  | { kind: "findTriageCompany"; projectId: string; companyName: string }
   | { kind: "rememberProject"; projectId: string }
   | { kind: "lastUsedProject" }
   | { kind: "removeTriageCompany"; projectId: string; triageCompanyId: string }
@@ -60,7 +58,6 @@ export interface ExtensionReplies {
   listProjects: ProjectSummary[];
   captureCompany: TriagedCompany;
   captureCandidate: CapturedCandidate;
-  findTriageCompany: TriageCompanyMatch | null;
   rememberProject: null;
   lastUsedProject: string | null;
   removeTriageCompany: null;

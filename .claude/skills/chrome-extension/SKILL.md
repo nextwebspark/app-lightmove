@@ -5,7 +5,8 @@ description: LightMove Capture — the Chrome extension in apps/extension. Manif
 
 # LightMove Capture — the Chrome extension
 
-`apps/extension` is a Manifest V3 browser action: a 400×600 popup that reads whatever the page a
+`apps/extension` is a Manifest V3 browser action: a **side panel** (not a popup — it stays open while
+the consultant moves between profiles, and follows the active tab) that reads whatever the page a
 consultant is standing on is about — a company or a person — and writes it into a mandate. A company
 lands in its triage as **in universe** or **shortlisted**; a person lands in its people, mapped to one
 of its triaged companies when the mandate already holds their employer under that name.
@@ -21,7 +22,6 @@ app's own forms send:
 | The dropdown | `GET /projects` | — |
 | A company | `POST /projects/{id}/triage/capture` | `CompanyFactsForm` |
 | A person | `POST /projects/{id}/candidates` | `CandidateDrawer` |
-| The company to map a person to | `GET /projects/{id}/triage?status=…&q=…` | — |
 | Undo | `DELETE` on either row | the Companies grid's own remove |
 
 **A field the popup captures must already be a field the manual form captures.** Adding one is a change
@@ -99,25 +99,47 @@ Consequences worth keeping in mind:
 
 ## Permissions: least privilege, checked at review
 
-- `activeTab` + `chrome.scripting.executeScript` on a user gesture — **never** a standing `<all_urls>`
-  content script. Clicking the toolbar icon or pressing the shortcut is what grants access to that one
-  tab, so the extension can read no page the consultant has not pointed it at.
-- `host_permissions` covers the app origin only.
+- `host_permissions` covers the app origin and `*://*.linkedin.com/*` — the one site the plugin
+  reads, standing so the panel follows profile-to-profile moves with no grant prompt. **Nothing
+  else**: no `activeTab`, no `optional_host_permissions`, no content scripts, never `<all_urls>`.
+  A non-LinkedIn page gets the `LINKEDIN_ONLY` message and an "Open LightMove" button, not a read.
 - Every entry in the manifest carries a comment naming the feature that needs it. An unexplained
   permission is a review failure — it is also what gets an extension rejected from the store.
 - **No remote code.** Everything is bundled and the CSP stays at the MV3 default. This is store policy,
   not taste.
 
+## What a capture reads: a name and a URL, deliberately nothing more
+
+V1 captures **`fullName` + `linkedinUrl`** for a person and **`companyName` + `linkedinUrl`** for a
+company — the URLs sent silently with the save, never shown in the panel. The
+reason is the whole story: the signed-in 2025 LinkedIn layout renders no `h1`, hashes every class
+name per deploy, serves no OpenGraph or JSON-LD, and lazy-mounts Experience on scroll — every
+attempt to read richer fields (career, title, employer, and LinkedIn's Voyager JSON API) shipped
+flaky and was **removed**. This matches the mature tools (Clockwork, Lusha): capture who/where in
+the extension, enrich server-side later. Do not re-grow page-side field extraction; a new captured
+field is an enrichment story, not an extractor.
+
+How the two fields are read (`serviceWorker.ts:readActivePage`, one injection, no scrolling):
+
+- On `linkedin.com/in/<slug>` and `/company/<slug>` the URL decides the subject and the captured
+  `linkedinUrl` is **built from the address-bar slug** (`content/pageReader/linkedInUrls.ts`) —
+  never read off the page, so it survives a DOM that yields nothing.
+- The name comes from one pass of the injected page reader: the `h1` fallback chain where a layout
+  still renders one, else the tab title — `"(3) Name - Headline - Employer | LinkedIn"` — which
+  every layout so far carries. A missing name is not an error: the read returns the URL with an
+  empty name and the consultant types it (`canSave` gates on the name anyway).
+- The extension makes **no request of its own against LinkedIn**, ever — no Voyager calls, no
+  interception, no declared `content_scripts`. That restraint is what keeps a real account safe.
+- Off LinkedIn there is no read at all: the worker answers `LINKEDIN_ONLY` and the panel shows the
+  message with an "Open LightMove" button (the selected mandate's Companies page, else the projects
+  list). A LinkedIn page that names nobody — feed, search, jobs — answers `PAGE_NOT_READABLE`.
+
 ## Page extractors
 
-`content/pageReader/readCompanyFromPage.ts` merges every extractor, best field wins, and hands the result
-to the popup where **every field is an editable input** — nothing is written blind, and "Re-scan" re-runs
-the whole thing.
-
-One bundle is injected, and its entry is `readPageSubject.ts` — it reads both sides and says which the
-page is about (`person` / `company` / `unknown`, which leaves the tab alone rather than guessing). One
-injection per gesture, and it has to be one: an IIFE cannot code-split, so a second bundle would carry
-its own copy of every shared helper, and classifying a corporate bio needs both readers' answers.
+One bundle is injected, and its entry is `readPageSubject.ts` — it runs both LinkedIn extractors and
+classifies by URL alone (`/in/` → person, `/company/` → company, else unknown). The popup renders
+what it reads as **editable inputs** — nothing is written blind, and "Re-scan" re-runs the whole
+thing.
 
 Each extractor is a **pure function over a `Document`**:
 
@@ -129,17 +151,13 @@ That signature is the whole testing strategy: an extractor touches no `chrome.*`
 it runs against a saved HTML fixture under jsdom with no browser at all. An extractor that reaches for
 `chrome.tabs` cannot be tested and must be refactored.
 
-- `structuredDataExtractor.ts` is the universal fallback — JSON-LD `Organization`, OpenGraph, `<meta>`,
-  the canonical host. It is the one that works on the GCC long tail, so keep it first-class.
-- `structuredPersonExtractor.ts` is its twin for people — JSON-LD `Person`, and OpenGraph only where
-  `og:type` claims a profile, because every article's `og:title` is a name-shaped string.
 - `linkedInCompanyExtractor.ts` and `linkedInProfileExtractor.ts` read `linkedin.com/company/*` and
   `/in/*`, keyed on `document.location` and never on `canonical` — a page-supplied URL would let any
-  site declare itself a LinkedIn page. LinkedIn's class names are generated and churn: every selector
-  needs a documented fallback chain, and a fixture pinning what it was written against. Both layouts
-  are live, so there are two profile fixtures. When it breaks, it breaks quietly — fewer fields.
-- The JSON-LD walker lives in `extractors/jsonLd.ts`, shared by both. An extractor keeps its own merge
-  written out field by field, so adding a field fails the build until it is merged too.
+  site declare itself a LinkedIn page. Each reads the name only: an `h1` chain ending at the tab
+  title, with a fixture per live layout (the hashed-layout fixture pins the title-tag fallback).
+  When it breaks, it breaks quietly — an empty, editable name.
+- An extractor keeps its own merge written out field by field, so adding a field fails the build
+  until it is merged too.
 - Extracted text is **data, never markup**. No `innerHTML`, no `eval`, no injecting page-supplied strings
   into the popup as HTML.
 
@@ -152,7 +170,7 @@ switching on an RFC 9457 `code` rather than `detail`. Server reads go through Ta
 same idiom as `apps/web`, seeded from `chrome.storage.local` so the project dropdown does not spin on
 every popup open.
 
-Names carry intent, the same rule the backend follows: `readCompanyFromPage`, not `scrape`;
+Names carry intent, the same rule the backend follows: `readPageSubject`, not `scrape`;
 `extensionSessionStore`, not `store`; `DetectedFieldInput`, not `Field`. Every type name reads standalone.
 
 `apps/extension` imports nothing from `apps/web` and vice versa — two apps, two runtimes, no shared

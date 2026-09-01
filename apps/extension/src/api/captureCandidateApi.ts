@@ -2,9 +2,9 @@ import type { LightMoveApiClient } from "./lightMoveApiClient";
 import type { CapturedCandidate, SaveCandidateRequest } from "./types";
 
 /**
- * Writes the person into the mandate's people, mapped to a triaged company where one matched. The same
- * endpoint the Add-executive drawer posts to; `source: "extension"` is the only difference, and a name
- * the mandate already maps is refused rather than merged.
+ * Writes the person into the mandate's people. The same endpoint the Add-executive drawer posts to;
+ * `source: "extension"` is the only difference, and a name the mandate already maps is refused rather
+ * than merged.
  */
 export function captureCandidate(
   api: LightMoveApiClient,

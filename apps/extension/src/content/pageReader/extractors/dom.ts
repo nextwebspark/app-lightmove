@@ -3,7 +3,3 @@
 export function textOf(document: Document, selector: string): string | null {
   return document.querySelector(selector)?.textContent ?? null;
 }
-
-export function hrefOf(document: Document, selector: string): string | null {
-  return document.querySelector(selector)?.getAttribute("href") ?? null;
-}

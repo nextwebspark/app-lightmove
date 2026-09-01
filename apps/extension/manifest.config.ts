@@ -38,21 +38,24 @@ export function buildManifest(workspaceOrigin: string) {
     permissions: [
       // The paired session token and the last-used project. Nothing else is stored.
       "storage",
-      // Read the page the consultant is looking at — but only the tab they invoked the extension on,
-      // and only for as long as that grant lasts. See the note on content_scripts below.
-      "activeTab",
-      // Injects the page reader into that tab on demand. The counterpart to activeTab.
+      // Injects the page reader into the LinkedIn tab the panel is looking at.
       "scripting",
+      // The capture surface is a side panel, which stays open while the consultant reads the page.
+      "sidePanel",
+      // The address of the tab the panel is looking at — which page it is, never its content. A panel
+      // outlives the toolbar gesture, and without this the URL reads as undefined on every tab the
+      // gesture did not cover, so the read is refused before it can even ask.
+      "tabs",
     ],
 
-    // The workspace only. The extension has no standing permission on any other site: it reads a page
-    // through activeTab, which Chrome grants for the current tab when the user clicks the toolbar icon
-    // or presses the shortcut, and revokes when they navigate away. A <all_urls> content script would
-    // have been less code and a standing licence to read every page the consultant ever opens.
-    host_permissions: [`${workspaceOrigin}/*`],
+    // The workspace, and LinkedIn — the one site this plugin reads, standing so the panel keeps
+    // working as the consultant moves between profiles with no grant prompt per tab. Every other
+    // site gets the LinkedIn-only message instead of a read: no activeTab, no optional hosts, no
+    // content scripts, and nothing close to an <all_urls> licence.
+    host_permissions: [`${workspaceOrigin}/*`, "*://*.linkedin.com/*"],
 
+    // No default_popup: the click opens the side panel instead, wired in the service worker.
     action: {
-      default_popup: "popup.html",
       default_title: "LightMove Capture",
       default_icon: {
         16: "icons/icon-16.png",
@@ -60,6 +63,10 @@ export function buildManifest(workspaceOrigin: string) {
         48: "icons/icon-48.png",
         128: "icons/icon-128.png",
       },
+    },
+
+    side_panel: {
+      default_path: "popup.html",
     },
 
     icons: {

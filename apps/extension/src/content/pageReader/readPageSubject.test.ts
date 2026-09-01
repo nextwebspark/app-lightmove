@@ -3,8 +3,9 @@ import { join } from "node:path";
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
 import { readPageSubject } from "./readPageSubject";
+import { linkedInCompanyExtractor } from "./extractors/linkedInCompanyExtractor";
 import { linkedInProfileExtractor } from "./extractors/linkedInProfileExtractor";
-import { structuredPersonExtractor } from "./extractors/structuredPersonExtractor";
+import { isLinkedInPageUrl, companySlugOf, profileSlugOf } from "./linkedInUrls";
 
 const FIXTURES = join(__dirname, "extractors", "__fixtures__");
 
@@ -13,46 +14,26 @@ function documentAt(fixture: string, url: string): Document {
 }
 
 describe("the LinkedIn profile", () => {
-  it("reads the person, the current role and the ones before it", () => {
+  it("reads the name and the canonical profile URL", () => {
     const document = documentAt("linkedInProfilePage.html", "https://www.linkedin.com/in/amira-haddad/");
 
     expect(linkedInProfileExtractor(document)).toMatchObject({
       fullName: "Amira Haddad",
-      title: "Group Chief Financial Officer at Al Rawabi Dairy",
-      employerName: "Al Rawabi Dairy",
-      location: "Dubai, United Arab Emirates",
-      tenure: "Mar 2021 - Present · 4 yrs 5 mos",
       linkedinUrl: "https://www.linkedin.com/in/amira-haddad/",
-      career: [
-        { title: "Finance Director", company: "Agthia Group", period: "2016 - 2021 · 5 yrs" },
-        { title: "Head of FP&A", company: "Almarai", period: "2012 - 2016 · 4 yrs" },
-      ],
     });
+  });
+
+  it("reads the 2025 layout, which has no h1, no metadata and hashed class names", () => {
+    // The tab title is the anchor there: "(3) Name - Headline - Employer | LinkedIn".
+    const document = documentAt("linkedInProfileHashedLayout.html", "https://www.linkedin.com/in/amira-haddad/");
+
+    expect(linkedInProfileExtractor(document).fullName).toBe("Amira Haddad");
   });
 
   it("reads the signed-out layout too, which is a different page", () => {
     const document = documentAt("linkedInProfilePagePublic.html", "https://www.linkedin.com/in/amira-haddad");
 
-    expect(linkedInProfileExtractor(document)).toMatchObject({
-      fullName: "Amira Haddad",
-      title: "Group Chief Financial Officer",
-      employerName: "Al Rawabi Dairy",
-      tenure: "Mar 2021 - Present",
-    });
-  });
-
-  // Two roles at one employer is the ordinary GCC C-suite shape, and LinkedIn nests it: the outer li
-  // names the company. Read flat, the wrapper became a position with the fields swapped.
-  it("reads two roles at one employer without swapping the company into the title", () => {
-    const document = documentAt("linkedInProfileGroupedRoles.html", "https://www.linkedin.com/in/omar-farouk/");
-    const read = linkedInProfileExtractor(document);
-
-    expect(read.employerName).toBe("Zenith Industrial");
-    expect(read.tenure).toBe("Jan 2020 - Present · 5 yrs 7 mos");
-    expect(read.career).toEqual([
-      { title: "Chief Operating Officer", company: "Zenith Industrial", period: "Jun 2016 - Jan 2020 · 3 yrs 7 mos" },
-      { title: "Plant Director", company: "Sabic", period: "2011 - 2016 · 5 yrs" },
-    ]);
+    expect(linkedInProfileExtractor(document).fullName).toBe("Amira Haddad");
   });
 
   it("is keyed on the host the browser loaded, so a page cannot declare itself a profile", () => {
@@ -65,19 +46,19 @@ describe("the LinkedIn profile", () => {
   });
 });
 
-describe("a bio page's structured data", () => {
-  const document = documentAt("personStructuredData.html", "https://zenith-industrial.sa/leadership/khalid");
+describe("the LinkedIn company page", () => {
+  const document = documentAt("linkedInCompanyPage.html", "https://www.linkedin.com/company/al-rawabi-dairy/");
 
-  it("reads the Person node, joining the name parts and unwrapping the mailto", () => {
-    expect(structuredPersonExtractor(document)).toMatchObject({
-      fullName: "Khalid Al Mutairi",
-      title: "Chief Operating Officer",
-      employerName: "Zenith Industrial Holding",
-      location: "Riyadh, Saudi Arabia",
-      email: "k.almutairi@zenith-industrial.sa",
-      phone: "+966 11 123 4567",
-      linkedinUrl: "https://www.linkedin.com/in/khalid-al-mutairi",
+  it("reads the name and the canonical company URL", () => {
+    expect(linkedInCompanyExtractor(document)).toMatchObject({
+      companyName: "Al Rawabi Dairy Company",
+      linkedinUrl: "https://www.linkedin.com/company/al-rawabi-dairy/",
     });
+  });
+
+  it("says nothing about a page that is not a company page", () => {
+    const elsewhere = documentAt("linkedInProfilePage.html", "https://www.linkedin.com/in/amira-haddad/");
+    expect(linkedInCompanyExtractor(elsewhere)).toEqual({});
   });
 });
 
@@ -95,35 +76,27 @@ describe("classifying the page", () => {
     expect(read.subject).toBe("company");
   });
 
-  // Both are on the page; the consultant standing on a bio is looking at the person.
-  it("prefers the person on a bio page that also describes its company", () => {
-    const read = readPageSubject(documentAt("personStructuredData.html", "https://zenith-industrial.sa/leadership"));
-    expect(read.subject).toBe("person");
-    expect(read.company.companyName).toBe("Zenith Industrial Holding");
+  it("says unknown for a LinkedIn page that names nobody — the feed, search, jobs", () => {
+    const feed = new JSDOM("<main>Feed</main>", { url: "https://www.linkedin.com/feed/" })
+      .window.document as unknown as Document;
+    expect(readPageSubject(feed).subject).toBe("unknown");
+  });
+});
+
+describe("recognising LinkedIn URLs", () => {
+  it("accepts any http(s) linkedin.com page and refuses everything else", () => {
+    expect(isLinkedInPageUrl("https://www.linkedin.com/feed/")).toBe(true);
+    expect(isLinkedInPageUrl("https://linkedin.com/in/someone")).toBe(true);
+    expect(isLinkedInPageUrl("https://acme.sa/about")).toBe(false);
+    expect(isLinkedInPageUrl("https://notlinkedin.com/in/someone")).toBe(false);
+    expect(isLinkedInPageUrl("chrome://extensions")).toBe(false);
+    expect(isLinkedInPageUrl(undefined)).toBe(false);
   });
 
-  it("reads a corporate site as a company", () => {
-    expect(readPageSubject(documentAt("corporateSite.html", "https://alrawabidairy.ae/about")).subject)
-      .toBe("company");
-  });
-
-  // A name-shaped og:title is what every article has. Unknown leaves the tab alone rather than guessing.
-  it("says nothing about a page that is neither", () => {
-    const article = new JSDOM('<meta property="og:title" content="Amira Haddad" /><p>News</p>', {
-      url: "https://news.example/story",
-    }).window.document as unknown as Document;
-
-    expect(readPageSubject(article).subject).toBe("unknown");
-  });
-
-  // og:site_name is on essentially every page there is, so reading it as a company name answered
-  // "company" for the whole web and emptied out the branch above.
-  it("does not read a publisher's og:site_name as a company", () => {
-    const article = new JSDOM(
-      '<meta property="og:site_name" content="Gulf Business" /><meta property="og:type" content="article" />',
-      { url: "https://gulfbusiness.example/story" },
-    ).window.document as unknown as Document;
-
-    expect(readPageSubject(article).subject).toBe("unknown");
+  it("takes the slug from the address bar and only there", () => {
+    expect(profileSlugOf("https://www.linkedin.com/in/amira-haddad/details/experience/")).toBe("amira-haddad");
+    expect(profileSlugOf("https://www.linkedin.com/company/acme/")).toBeNull();
+    expect(companySlugOf("https://www.linkedin.com/company/al-rawabi-dairy/about/")).toBe("al-rawabi-dairy");
+    expect(companySlugOf("https://evil.sa/?next=linkedin.com/company/acme")).toBeNull();
   });
 });

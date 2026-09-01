@@ -39,7 +39,14 @@ function initialsOf(name: string): string {
   return (first + last).toUpperCase();
 }
 
-/** The fixed 400x600 shell every screen renders inside. */
+/**
+ * The shell every screen renders inside: the side panel, whatever width the consultant drags it to.
+ *
+ * Pinned to the viewport rather than sized by it. `h-screen` left the footer — the mandate select and
+ * Save — dependent on every ancestor passing a height down, and in the panel it did not arrive.
+ */
 export function PopupShell({ children }: { children: ReactNode }) {
-  return <div className="flex h-[600px] w-[400px] flex-col overflow-hidden bg-panel">{children}</div>;
+  return (
+    <div className="fixed inset-0 flex min-w-[320px] flex-col overflow-hidden bg-panel">{children}</div>
+  );
 }

@@ -1,17 +1,14 @@
 /**
- * What reading a page yields — a company as the page described it, before anyone edits it. Every field
- * is a guess, which is why the popup renders each as an editable input, and every extractor returns a
- * `Partial` of this so the guesses merge field by field.
+ * What reading a page yields — a company as the page described it, before anyone edits it.
+ *
+ * V1 captures what a LinkedIn page states reliably: the company's name and its LinkedIn page.
+ * Everything richer (industry, headcount, location, website) is enrichment, done server-side
+ * later. Every field is a guess, which is why the popup renders the name as an editable input, and
+ * every extractor returns a `Partial` of this so the guesses merge field by field.
  */
 export interface ExtractedCompany {
   companyName: string | null;
-  website: string | null;
   linkedinUrl: string | null;
-  industry: string | null;
-  companyCountry: string | null;
-  companyCity: string | null;
-  numEmployees: number | null;
-  description: string | null;
 }
 
 /** A reader of one kind of page. Pure, so it can be tested against a saved fixture with no browser. */
@@ -19,13 +16,7 @@ export type CompanyExtractor = (document: Document) => Partial<ExtractedCompany>
 
 const EMPTY_EXTRACTED_COMPANY: ExtractedCompany = {
   companyName: null,
-  website: null,
   linkedinUrl: null,
-  industry: null,
-  companyCountry: null,
-  companyCity: null,
-  numEmployees: null,
-  description: null,
 };
 
 /**
@@ -37,13 +28,7 @@ const EMPTY_EXTRACTED_COMPANY: ExtractedCompany = {
 export function mergeExtracted(results: Partial<ExtractedCompany>[]): ExtractedCompany {
   return {
     companyName: firstAnswer(results, "companyName"),
-    website: firstAnswer(results, "website"),
     linkedinUrl: firstAnswer(results, "linkedinUrl"),
-    industry: firstAnswer(results, "industry"),
-    companyCountry: firstAnswer(results, "companyCountry"),
-    companyCity: firstAnswer(results, "companyCity"),
-    numEmployees: firstAnswer(results, "numEmployees"),
-    description: firstAnswer(results, "description"),
   };
 }
 
@@ -71,25 +56,6 @@ export function withoutEmpty<T extends object>(fields: Partial<T>): Partial<T> {
   return Object.fromEntries(
     Object.entries(fields).filter(([, value]) => value !== null && value !== undefined && value !== ""),
   ) as Partial<T>;
-}
-
-/**
- * Splits a place into its parts — "Dubai, Dubai, United Arab Emirates" is city first, country last,
- * with whatever administrative region sits between them dropped.
- */
-export function splitPlaceParts(place: string | null | undefined): string[] {
-  return cleanText(place)?.split(",").map((part) => part.trim()).filter(Boolean) ?? [];
-}
-
-/** The city a place names, or nothing. */
-export function cityOf(place: string | null | undefined): string | null {
-  return splitPlaceParts(place)[0] ?? null;
-}
-
-/** The country a place names — the last part, and only when there is more than one. */
-export function countryOf(place: string | null | undefined): string | null {
-  const parts = splitPlaceParts(place);
-  return parts.length > 1 ? parts[parts.length - 1] : null;
 }
 
 /**
@@ -159,23 +125,4 @@ export function cleanText(value: string | null | undefined): string | null {
   }
   const collapsed = value.replace(/\s+/g, " ").trim();
   return collapsed.length > 0 ? collapsed : null;
-}
-
-/**
- * A headcount out of prose — "1,001-5,000 employees" is 1001, "51-200" is 51.
- *
- * The low end of a range on purpose: the API stores a single figure, and a mandate filtering on
- * "at least 1,000 people" should not have a company let in by the top of a band it barely reaches.
- */
-export function parseHeadcount(value: string | null | undefined): number | null {
-  const text = cleanText(value);
-  if (!text) {
-    return null;
-  }
-  const firstNumber = text.replace(/,/g, "").match(/\d+/);
-  if (!firstNumber) {
-    return null;
-  }
-  const parsed = Number.parseInt(firstNumber[0], 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }

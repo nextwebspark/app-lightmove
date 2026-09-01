@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { capturePanelId, type CaptureSubject } from "../domain/captureSubject";
 import { CaptureHeader } from "./components/CaptureHeader";
 import { CaptureTabs } from "./components/CaptureTabs";
@@ -27,18 +27,17 @@ export function CapturePopup() {
   const { settings } = useCaptureSettings();
   const [subject, setSubject] = useState<CaptureSubject>("company");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const hasAutoSelected = useRef(false);
 
-  // Preselects the tab from what the page turned out to be, once and only once: a re-scan must not
-  // pull the tab out from under someone who has started editing the other one. "unknown" leaves the
-  // choice alone rather than guessing.
+  // The tab follows the page: a profile selects Person, a company page selects Company, on every
+  // navigation — keyed on the page's URL, so moving to a new page of the *same* kind realigns too.
+  // It cannot yank the tab from under an editor: re-reads of the unchanged page (a title blink)
+  // keep both dependency values identical, and "unknown" never guesses.
   useEffect(() => {
-    if (hasAutoSelected.current || !settings.isPageTypeDetected || !page.subject || page.subject === "unknown") {
+    if (!settings.isPageTypeDetected || !page.subject || page.subject === "unknown") {
       return;
     }
-    hasAutoSelected.current = true;
     setSubject(page.subject);
-  }, [page.subject, settings.isPageTypeDetected]);
+  }, [page.subject, page.sourceUrl, settings.isPageTypeDetected]);
 
   if (session.isLoading) {
     return (
@@ -62,7 +61,7 @@ export function CapturePopup() {
 
   return (
     <PopupShell>
-      <div className={cn("flex flex-1 flex-col overflow-hidden", isSettingsOpen && "hidden")}>
+      <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", isSettingsOpen && "hidden")}>
         <CaptureHeader
           user={session.user}
           onOpenSettings={() => setIsSettingsOpen(true)}
@@ -105,7 +104,7 @@ function CapturePanel({
       id={capturePanelId(subject)}
       aria-labelledby={`capture-tab-${subject}`}
       hidden={subject !== active}
-      className={cn("flex flex-1 flex-col overflow-hidden", subject !== active && "hidden")}
+      className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", subject !== active && "hidden")}
     >
       {children}
     </div>

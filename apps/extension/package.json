@@ -6,12 +6,13 @@
   "description": "LightMove Capture — the Chrome extension that writes a company or a person from the open page into a mandate",
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
-    "dev": "npm run clean && npm run build:parts -- --mode development && (vite build --watch --mode development & npm run build:parts -- --watch --mode development)",
+    "dev": "npm run clean && npm run build:parts && (vite build --watch --mode development & npm run watch:parts)",
     "build": "tsc --noEmit && npm run clean && vite build && npm run build:parts",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint",
     "test": "vitest run",
     "build:parts": "vite build --config vite.page-reader.config.ts",
+    "watch:parts": "vite build --watch --config vite.page-reader.config.ts",
     "build:release": "node scripts/packageRelease.mjs"
   },
   "dependencies": {

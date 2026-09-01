@@ -1,7 +1,7 @@
-import type { ExtractedCompany } from "./extractedCompany";
-import type { ExtractedPerson } from "./extractedPerson";
-import { readCompanyFromPage } from "./readCompanyFromPage";
-import { readPersonFromPage } from "./readPersonFromPage";
+import { mergeExtracted, type ExtractedCompany } from "./extractedCompany";
+import { mergeExtractedPerson, type ExtractedPerson } from "./extractedPerson";
+import { linkedInCompanyExtractor } from "./extractors/linkedInCompanyExtractor";
+import { linkedInProfileExtractor } from "./extractors/linkedInProfileExtractor";
 
 export type PageSubjectKind = "person" | "company" | "unknown";
 
@@ -12,35 +12,25 @@ export interface PageSubject {
 }
 
 /**
- * The one thing injected into a page: read both sides, and say which the consultant is looking at.
- *
- * Both, from a single injection, because the two are not alternatives — a person needs their employer
- * and an executive bio carries the site's own Organization alongside the Person. Classifying here
- * rather than in the popup is also what lets the tab preselect itself.
+ * The one thing injected into a page. LinkedIn only, and the URL is the whole classification —
+ * `/in/` is a person, `/company/` is a company, and anything else (the feed, search, jobs) is
+ * "unknown", which the worker answers with "open a profile or company page" rather than a guess.
  */
 export function readPageSubject(document: Document): PageSubject {
-  const person = readPersonFromPage(document);
-  const company = readCompanyFromPage(document);
-  return { subject: classify(document, person, company), person, company };
+  return {
+    subject: classify(document),
+    person: mergeExtractedPerson([linkedInProfileExtractor(document)]),
+    company: mergeExtracted([linkedInCompanyExtractor(document)]),
+  };
 }
 
-/**
- * URL shape first — the one signal a page cannot lie about — then extracted signal. A name alone is
- * never enough, since every article's `og:title` is name-shaped. Person wins the tie: a bio page
- * carries both, and the consultant is looking at the person.
- */
-function classify(document: Document, person: ExtractedPerson, company: ExtractedCompany): PageSubjectKind {
+function classify(document: Document): PageSubjectKind {
   const pathname = document.location?.pathname ?? "";
-  if (/(^|\.)linkedin\.com$/i.test(document.location?.hostname ?? "")) {
-    if (pathname.startsWith("/in/")) {
-      return "person";
-    }
-    if (pathname.startsWith("/company/")) {
-      return "company";
-    }
+  if (!/(^|\.)linkedin\.com$/i.test(document.location?.hostname ?? "")) {
+    return "unknown";
   }
-  if (person.fullName && (person.title || person.employerName || person.career.length > 0)) {
+  if (pathname.startsWith("/in/")) {
     return "person";
   }
-  return company.companyName ? "company" : "unknown";
+  return pathname.startsWith("/company/") ? "company" : "unknown";
 }
