@@ -2,7 +2,7 @@ package app.lightmove.api.candidate.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import app.lightmove.api.TestGuards;
+import app.lightmove.api.TestLlmCallPolicy;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -27,7 +27,7 @@ class CandidateShortlistServiceTest {
         RecordingChatModel chatModel = new RecordingChatModel("SHORTLIST — strong sector match.");
         CandidateShortlistService service =
                 new CandidateShortlistService(ChatClient.builder(chatModel).build(), SYSTEM_PROMPT,
-                        TestGuards.guards());
+                        TestLlmCallPolicy.asShipped());
 
         String verdict = service.shortlist(
                 "Looking for a CFO in fintech.", "10 years as CFO at a fintech scale-up.");
