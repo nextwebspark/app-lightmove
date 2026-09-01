@@ -87,6 +87,57 @@ The preview reports which of the three produced the mapping — `exactHeaders`, 
 `headerMatcher` — and the dialog says so under the file name, because they are worth different
 amounts of scrutiny.
 
+### When the model misbehaves, or cannot be reached
+
+The mapping step is the real backstop — nothing the model says is written, and a person confirms every
+column. Behind that:
+
+- **Any failure falls back to the header matcher**, reported as `headerMatcher` so the dialog says
+  "check these". Missing credentials, quota, network, and an answer that will not bind all land here.
+- **The answer is validated, never trusted.** Entries are matched **by header name, not position**, so
+  a model that drops, reorders or invents one cannot shift every mapping a column sideways — the one
+  failure that would write a whole file into the wrong fields. Unknown tokens are dropped, a field two
+  columns both claim goes to the first, and a "discard this" verdict is refused on a column that has
+  values.
+- **Retry is Spring AI's own**, configured rather than defaulted. `spring-ai-autoconfigure-retry`
+  rides in on the GenAI starter gated only by `@ConditionalOnClass`, so its `RetryTemplate` was
+  *already* active at its default of **ten** attempts — which, over a call that had no timeout, is how
+  one unreachable Vertex became a very long wait on a spinner. Now two attempts, with 400/401/403/404/429
+  excluded: those never come good for this request, so retrying only delays the fallback.
+- **The call is bounded**, through the provider's own `HttpOptions.timeout`
+  (`lightmove.llm.request-timeout-ms`, default 20s). Neither Spring AI's connection properties nor
+  `GoogleGenAiChatOptions` expose a timeout, so `GoogleGenAiClientConfig` replaces the
+  `@ConditionalOnMissingBean` client to set one. It reproduces the **Vertex** path only and refuses an
+  api-key configuration loudly rather than quietly building the wrong client — and it is gated on
+  `spring.ai.model.chat`, because an ungated bean would resolve ADC in every `@SpringBootTest`, which
+  is the failure PR #148 hit with the embedding connection.
+- **Temperature 0 on this call**, set per call rather than on the shared bean, whose other caller is
+  the shortlist prompt. Mapping has one right answer; variance buys only answers that will not bind.
+
+### Prompt injection
+
+The only caller-controlled text reaching the model is the **headers** — no cell values are sent. Two
+layers, and neither is the interesting one on its own:
+
+**Sanitising is what actually closes the hole.** Headers reached the prompt raw and unbounded: a
+first-row cell holds 32,767 characters in Excel, and a newline in a header would end its `- "…"` list
+item and let the rest read as a line of its own — forging extra columns, or something shaped like an
+instruction. `promptSafe` strips control characters and quotes, collapses whitespace and caps at 100
+characters. Deterministic, with nothing to rephrase around. It applies to the **prompt only**: the
+stored header keeps its text, because the mapping step shows it back and the model's answer is matched
+against it.
+
+**`SafeGuardAdvisor` sits behind that** as a second layer, attached per call with a short list of
+phrases with no business in a header. Kept short deliberately — every entry is also a header somebody
+could legitimately have, and blocking a real import is its own failure. Its `failureResponse` is a
+JSON sentinel rather than a sentence, because it answers *in place of* the model and a sentence would
+not bind to `ProposedMapping`: a block would surface as a binding error indistinguishable from an
+outage. As shaped, a block degrades to the header matcher and logs what it was.
+
+Worth keeping in proportion: the model has **no tools**, its output is a typed record, the answer is
+structurally validated, and a person confirms before any write. The worst a successful injection
+achieves is a wrong dropdown the user can see.
+
 ### The sample file
 
 `GET /projects/{projectId}/import/template` returns a blank CSV: the twelve fields people actually

@@ -24,7 +24,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import java.util.regex.Pattern;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.SafeGuardAdvisor;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
@@ -62,6 +65,48 @@ public class ColumnMappingProposer {
     /** Enough of a sheet to describe its columns; a header list is short, and this bounds a wide file. */
     private static final int MAX_HEADERS_SENT = 120;
 
+    /**
+     * A header is a label, not a document. A first-row cell holds 32,767 characters in Excel, and
+     * without a cap all of it reaches the prompt.
+     */
+    private static final int MAX_HEADER_LENGTH = 100;
+
+    /**
+     * Anything that could end a header's line or its quoted field, so a header cannot forge prompt
+     * structure — a newline in one would otherwise break out of its list item and read as a line of
+     * its own.
+     */
+    private static final Pattern PROMPT_UNSAFE = Pattern.compile("[\\p{Cntrl}\"]+");
+
+    /** Column mapping has one right answer, so variance buys only answers that will not bind. */
+    private static final double MAPPING_TEMPERATURE = 0.0;
+
+    /**
+     * Phrases with no business in a spreadsheet header. Short on purpose: every entry is also a header
+     * somebody could legitimately have one day, and blocking a real import is its own failure.
+     */
+    private static final List<String> INJECTION_PHRASES = List.of(
+            "ignore previous instructions",
+            "ignore all previous",
+            "disregard the above",
+            "disregard previous",
+            "system prompt",
+            "you are now");
+
+    /** The header a blocked call comes back under — see {@link #BLOCKED}. */
+    private static final String BLOCKED_HEADER = "__lightmove_blocked__";
+
+    /**
+     * What {@link SafeGuardAdvisor} answers with when it blocks a call.
+     *
+     * <p>It replies with a plain string in place of the model's answer, and a sentence would not bind
+     * to {@link ProposedMapping} — a block would surface as a binding error indistinguishable from
+     * Vertex being unreachable. Shaped as a document that binds, carrying a header no sheet has, so a
+     * block is recognisable and can be logged as what it is.
+     */
+    private static final String BLOCKED =
+            "{\"columns\":[{\"header\":\"" + BLOCKED_HEADER + "\"}]}";
+
     private final ChatClient chatClient;
     private final HeuristicColumnMatcher heuristics;
     private final Resource systemPrompt;
@@ -95,6 +140,14 @@ public class ColumnMappingProposer {
             if (answered == null) {
                 return new ProposedColumnMappings(fallback, MappingSource.HEADER_MATCHER);
             }
+            if (wasBlocked(answered)) {
+                // A header carrying something that reads like an instruction. Worth a line of its own:
+                // the mapping degrades exactly as it does for an outage, and the two are not the same
+                // event to whoever is reading the log.
+                log.warn("Column mapping blocked before reaching the model: a header matched the "
+                        + "injection word list. Falling back to the header matcher.");
+                return new ProposedColumnMappings(fallback, MappingSource.HEADER_MATCHER);
+            }
             return new ProposedColumnMappings(
                     reconcile(sheet, existingColumns, answered, fallback), MappingSource.MODEL);
         } catch (RuntimeException e) {
@@ -111,6 +164,13 @@ public class ColumnMappingProposer {
     private ProposedMapping ask(ParsedSheet sheet, List<CustomColumnDto> existingColumns) {
         return chatClient.prompt()
                 .advisors(advisor -> advisor.param(ChatClientConfig.PROMPT_ID, PROMPT_ID))
+                // Per call, not on the shared bean: its other caller is the shortlist prompt, which
+                // wants neither this temperature nor this word list.
+                .options(ChatOptions.builder().temperature(MAPPING_TEMPERATURE))
+                .advisors(SafeGuardAdvisor.builder()
+                        .sensitiveWords(INJECTION_PHRASES)
+                        .failureResponse(BLOCKED)
+                        .build())
                 .system(systemPrompt)
                 .user(user -> user.text("""
                         Columns in the uploaded file:
@@ -129,6 +189,13 @@ public class ColumnMappingProposer {
                 .entity(ProposedMapping.class);
     }
 
+    private static boolean wasBlocked(ProposedMapping answered) {
+        return answered.columns() != null
+                && answered.columns().size() == 1
+                && answered.columns().getFirst() != null
+                && BLOCKED_HEADER.equals(answered.columns().getFirst().header());
+    }
+
     private String describeColumns(ParsedSheet sheet) {
         return sheet.columns().stream()
                 .limit(MAX_HEADERS_SENT)
@@ -138,7 +205,7 @@ public class ColumnMappingProposer {
 
     private String describeColumn(SheetColumn column) {
         StringBuilder described = new StringBuilder()
-                .append("- \"").append(column.header()).append("\"")
+                .append("- \"").append(promptSafe(column.header())).append("\"")
                 .append(" (values look like: ").append(shapeLabel(column)).append(")");
         if (settings.sendSampleValues() && !column.sampleValues().isEmpty()) {
             described.append(" e.g. ").append(String.join(" | ", column.sampleValues()));
@@ -167,6 +234,20 @@ public class ColumnMappingProposer {
                 .map(field -> "- %s (%s, %s)".formatted(
                         field.value(), field.label(), field.target().value()))
                 .collect(Collectors.joining("\n"));
+    }
+
+    /**
+     * A header as it may appear inside the prompt: no control characters, no quote of its own, and
+     * short enough to be a label.
+     *
+     * <p>Only for the prompt. The stored header keeps its original text — the mapping step shows it
+     * back, and the model's answer is matched against it, so truncating it there would break both.
+     */
+    private static String promptSafe(String header) {
+        String flattened = PROMPT_UNSAFE.matcher(header).replaceAll(" ").replaceAll("\\s+", " ").trim();
+        return flattened.length() > MAX_HEADER_LENGTH
+                ? flattened.substring(0, MAX_HEADER_LENGTH) + "…"
+                : flattened;
     }
 
     private static String describeExisting(List<CustomColumnDto> existingColumns) {
