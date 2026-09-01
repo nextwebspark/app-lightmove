@@ -59,8 +59,13 @@ export async function storePairedSession(session: ExtensionSession): Promise<voi
   }
   // Belt to the server's braces: pairing revokes the account's live extension families anyway, but a
   // session stored here that the workspace never issued — a stale handover, a restored profile — is
-  // one only this side knows about.
-  await revokeStoredSession();
+  // one only this side knows about. Never when the handover repeats one already stored, though: a
+  // connect page delivering the same session twice would otherwise revoke the very token it stores,
+  // and the panel would sit on a dead credential showing the signed-out screen.
+  const previous = await read();
+  if (previous && previous.refreshToken !== session.refreshToken) {
+    await revokeStoredSession();
+  }
   await write(session);
 }
 

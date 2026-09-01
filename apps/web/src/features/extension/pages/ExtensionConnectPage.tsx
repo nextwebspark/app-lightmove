@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Card, Logo, Spinner } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import * as extensionApi from "../api/extensionApi";
@@ -24,7 +24,7 @@ const STORE_PAIRED_SESSION = "storePairedSession";
 /** Asked before anything is minted, purely to find out whether the extension answers at all. */
 const PING = "ping";
 
-type ConnectState = "ready" | "pairing" | "paired" | "notInstalled" | "failed";
+type ConnectState = "pairing" | "paired" | "notInstalled" | "failed";
 
 /** What `chrome.runtime` looks like from a web page: present only when an extension exposes it. */
 interface PageAccessibleChromeRuntime {
@@ -55,7 +55,7 @@ function extensionAnswers(runtime: PageAccessibleChromeRuntime): Promise<boolean
 }
 
 export function ExtensionConnectPage() {
-  const [state, setState] = useState<ConnectState>("ready");
+  const [state, setState] = useState<ConnectState>("pairing");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const isPairing = useRef(false);
 
@@ -101,6 +101,13 @@ export function ExtensionConnectPage() {
     }
   }, []);
 
+  // The route is reached only from the extension's own button, by a consultant already signed in —
+  // so asking them to click "Connect" again was a step that told them nothing. Pairing runs on
+  // arrival instead; the buttons below remain for the states a retry can fix. The ref inside `pair`
+  // is what makes this safe to fire from an effect that runs twice under StrictMode.
+  useEffect(() => {
+    void pair();
+  }, [pair]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg p-6">
@@ -123,21 +130,6 @@ function ConnectStatus({
   errorMessage: string | null;
   onConnect: () => void;
 }) {
-  if (state === "ready") {
-    return (
-      <>
-        <h1 className="mt-6 text-lg font-semibold text-text">Connect LightMove Capture</h1>
-        <p className="mt-2 text-sm leading-relaxed text-text2">
-          This links the browser extension to your account so it can add companies to your mandates.
-          You will not need to sign in again inside the extension.
-        </p>
-        <Button className="mt-5" onClick={onConnect}>
-          Connect the extension
-        </Button>
-      </>
-    );
-  }
-
   if (state === "paired") {
     return (
       <>
