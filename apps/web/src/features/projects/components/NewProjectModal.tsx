@@ -111,7 +111,9 @@ export function NewProjectModal({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="New project">
+    // overflow-visible: the dialog's own scroll clips the template list at the modal's edge; this
+    // form is short enough to never need the scroll, and the list must float over the boundary.
+    <Modal open={open} onClose={onClose} title="New project" className="overflow-visible">
       <FormError message={error} />
 
       {/* The hint carries the name because a disabled <select> is skipped in a screen reader's forms
