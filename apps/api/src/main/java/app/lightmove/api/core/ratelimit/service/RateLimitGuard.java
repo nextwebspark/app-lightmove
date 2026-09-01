@@ -73,7 +73,23 @@ public class RateLimitGuard {
         checkRateLimit("password-change", email, request, config.passwordChangeAttemptsPerHour(), Duration.ofHours(1));
     }
 
+    /**
+     * Guards minting a browser-extension token. The caller is already authenticated, so this is not
+     * about guessing — it is about blast radius: the route hands back a long-lived refresh token in a
+     * response body, and script holding a stolen in-memory access token must not be able to mint them
+     * repeatedly before anyone notices.
+     */
+    public void checkExtensionPairing(String email, HttpServletRequest request) {
+        checkRateLimit("extension-pairing", email, request, config.extensionPairingsPerHour(),
+                config.extensionPairingsPerHourPerIp(), Duration.ofHours(1));
+    }
+
     private void checkRateLimit(String action, String email, HttpServletRequest request, int limit, Duration window) {
+        checkRateLimit(action, email, request, limit, limit, window);
+    }
+
+    private void checkRateLimit(String action, String email, HttpServletRequest request,
+                                int emailLimit, int ipLimit, Duration window) {
         if (!config.enabled()) {
             return;
         }
@@ -84,8 +100,9 @@ public class RateLimitGuard {
         // Both are consumed, not short-circuited: an attempt should count against the account it
         // targeted even when the IP budget is what refused it, or an attacker could exhaust one
         // account's budget for free by first tripping their own IP limit.
-        boolean withinIpBudget = limiter.tryAcquire("%s:ip:%s".formatted(action, ip), limit, window);
-        boolean withinEmailBudget = limiter.tryAcquire("%s:email:%s".formatted(action, normalisedEmail), limit, window);
+        boolean withinIpBudget = limiter.tryAcquire("%s:ip:%s".formatted(action, ip), ipLimit, window);
+        boolean withinEmailBudget =
+                limiter.tryAcquire("%s:email:%s".formatted(action, normalisedEmail), emailLimit, window);
 
         if (withinIpBudget && withinEmailBudget) {
             return;

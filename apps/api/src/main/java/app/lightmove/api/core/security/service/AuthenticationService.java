@@ -1,4 +1,5 @@
 package app.lightmove.api.core.security.service;
+import app.lightmove.api.core.security.token.SessionClient;
 import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.SignupCommand;
@@ -287,8 +288,14 @@ public class AuthenticationService {
 
     @Transactional
     public void logout(String refreshToken, HttpServletRequest request) {
+        logout(refreshToken, request, null);
+    }
+
+    /** Signs out, refusing a token whose family belongs to a different client. */
+    @Transactional
+    public void logout(String refreshToken, HttpServletRequest request, SessionClient client) {
         if (refreshToken != null && !refreshToken.isBlank()) {
-            tokens.revoke(refreshToken, request);
+            tokens.revoke(refreshToken, request, client);
         }
     }
 
@@ -312,6 +319,42 @@ public class AuthenticationService {
         tokens.revokeAllSessions(userId, RevokeReason.PASSWORD_CHANGED);
 
         audit.event(AuthEventType.PASSWORD_CHANGED).actor(userId).from(request).record();
+    }
+
+    /**
+     * Pairs the browser extension with the signed-in user's account.
+     *
+     * <p>Opens a <b>new</b> refresh-token family rather than sharing the web session's, so revoking
+     * one leaves the other alone — that is what makes "sign out of the extension" and "sign out of the
+     * browser" two separate decisions in Settings → Active sessions. The token comes back in the
+     * response body because the extension is a different origin and cannot be given a cookie scoped to
+     * this one.
+     *
+     * <p>Pairing again <b>replaces</b> the extension session the account held rather than adding a
+     * second: the page can mint without the extension ever receiving what it minted, and an abandoned
+     * credential would otherwise stay live for its full TTL.
+     */
+    @Transactional
+    public AuthenticatedSession pairExtension(UUID userId, HttpServletRequest request) {
+        User user = requireUser(userId);
+        tokens.revokeSessionsForClient(userId, SessionClient.BROWSER_EXTENSION, RevokeReason.SUPERSEDED);
+
+        AuthenticatedSession paired = tokens.issue(user, activeMembership(userId).orElse(null), request,
+                SessionClient.BROWSER_EXTENSION);
+
+        audit.event(AuthEventType.EXTENSION_PAIRED).actor(userId).from(request).record();
+        return paired;
+    }
+
+    /**
+     * The extension's own refresh. Rotation, reuse detection and revocation are the ordinary ones —
+     * only the TTL and the session label differ, and both come from the client passed here rather than
+     * from anything the caller says about itself.
+     */
+    @Transactional(noRollbackFor = ApiException.class)
+    public AuthenticatedSession refreshExtension(String refreshToken, HttpServletRequest request) {
+        return tokens.rotate(refreshToken, request, users::findById, this::activeMembership,
+                SessionClient.BROWSER_EXTENSION);
     }
 
     @Transactional(readOnly = true)
