@@ -14,6 +14,8 @@ import app.lightmove.api.dataimport.constant.MappingSource;
 import app.lightmove.api.dataimport.model.ProposedColumnMappings;
 import app.lightmove.api.dataimport.model.ProposedMapping;
 import app.lightmove.api.dataimport.model.SheetColumn;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -27,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.regex.Pattern;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.SafeGuardAdvisor;
+import org.springframework.ai.chat.client.advisor.StructuredOutputValidationAdvisor;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -47,13 +50,14 @@ import org.springframework.stereotype.Service;
  * {@code lightmove.spreadsheet-import.send-sample-values} exists so an operator can make the opposite
  * trade knowingly rather than by editing code.
  *
- * <p><b>The answer is checked, never trusted.</b> Every entry is matched back to a real header by
- * name, unknown tokens are dropped, and a field claimed twice goes to the first column that claimed
- * it — a model that maps two headers onto {@code candidateEmail} would otherwise have the second
- * silently overwrite the first. Anything the model did not answer for falls back to
- * {@link HeuristicColumnMatcher}, as does the whole sheet when the call fails: Vertex needs
- * Application Default Credentials on every path including a plain local run, and an import that was
- * impossible without them would be an import most people never got to use.
+ * <p><b>The answer is checked, never trusted.</b> One that does not fit the schema is put back to the
+ * model with the validation error attached and given one more try. Past that, every entry is matched
+ * back to a real header by name, unknown tokens are dropped, and a field claimed twice goes to the
+ * first column that claimed it — a model that maps two headers onto {@code candidateEmail} would
+ * otherwise have the second silently overwrite the first. Anything the model did not answer for
+ * falls back to {@link HeuristicColumnMatcher}, as does the whole sheet when the call fails: Vertex
+ * needs Application Default Credentials on every path including a plain local run, and an import that
+ * was impossible without them would be an import most people never got to use.
  */
 @Service
 @Slf4j
@@ -80,6 +84,13 @@ public class ColumnMappingProposer {
 
     /** Column mapping has one right answer, so variance buys only answers that will not bind. */
     private static final double MAPPING_TEMPERATURE = 0.0;
+
+    /**
+     * How many times a malformed answer is put back to the model before the heuristic takes over. One,
+     * matching the transport retry budget: the advisor's own default of three would make four paid
+     * calls of an import that is about to fall back anyway.
+     */
+    private static final int MAPPING_REPAIR_ATTEMPTS = 1;
 
     /**
      * Phrases with no business in a spreadsheet header. Short on purpose: every entry is also a header
@@ -110,6 +121,7 @@ public class ColumnMappingProposer {
     private final ChatClient chatClient;
     private final HeuristicColumnMatcher heuristics;
     private final Resource systemPrompt;
+    private final String answerSchema;
     private final SpreadsheetImportSettings settings;
 
     // Hand-written rather than @RequiredArgsConstructor: Lombok cannot annotate a constructor
@@ -117,11 +129,24 @@ public class ColumnMappingProposer {
     public ColumnMappingProposer(ChatClient chatClient,
                                  HeuristicColumnMatcher heuristics,
                                  @Value("classpath:prompts/import-column-mapping-system.st") Resource systemPrompt,
+                                 @Value("classpath:prompts/import-column-mapping-schema.json") Resource answerSchema,
                                  LightMoveProperties properties) {
         this.chatClient = chatClient;
         this.heuristics = heuristics;
         this.systemPrompt = systemPrompt;
+        this.answerSchema = readSchema(answerSchema);
         this.settings = properties.spreadsheetImport();
+    }
+
+    /**
+     * Read once at startup, so a schema that will not load fails the context rather than every import.
+     */
+    private static String readSchema(Resource schema) {
+        try {
+            return schema.getContentAsString(StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not read the column mapping answer schema", e);
+        }
     }
 
     public ProposedColumnMappings propose(ParsedSheet sheet, List<CustomColumnDto> existingColumns) {
@@ -170,6 +195,16 @@ public class ColumnMappingProposer {
                 .advisors(SafeGuardAdvisor.builder()
                         .sensitiveWords(INJECTION_PHRASES)
                         .failureResponse(BLOCKED)
+                        .build())
+                // Order left at its default, which places it inside the guard above: in front of it,
+                // the validator would re-ask the BLOCKED sentinel as though the model had answered it.
+                //
+                // Our own schema rather than one generated from ProposedMapping, which marks every
+                // record component required — under that, an answer omitting targetField because the
+                // column is a custom one is "malformed", and every correct call would be paid twice.
+                .advisors(StructuredOutputValidationAdvisor.builder()
+                        .outputJsonSchema(answerSchema)
+                        .maxRepeatAttempts(MAPPING_REPAIR_ATTEMPTS)
                         .build())
                 .system(systemPrompt)
                 .user(user -> user.text("""

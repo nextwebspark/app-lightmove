@@ -172,6 +172,20 @@ class SpreadsheetReaderTest {
     }
 
     @Test
+    @DisplayName("tells the caller the ceiling it went over, which is the part they can act on")
+    void namesTheRowCeiling() {
+        // A configured limit is not request input, so ApiException's own rule allows saying it — and
+        // "more rows than one import can take" without the number leaves the reader guessing.
+        SpreadsheetReader capped = new SpreadsheetReader(propertiesWith(2));
+
+        assertThatThrownBy(() -> capped.read(csv("Company\nOne\nTwo\nThree\n")))
+                .isInstanceOf(ApiException.class)
+                .extracting(error -> ((ApiException) error).getClientDetail())
+                .asString()
+                .contains("2");
+    }
+
+    @Test
     @DisplayName("refuses a file with nothing in it")
     void refusesAnEmptySheet() {
         assertThatThrownBy(() -> reader.read(csv("\n\n")))

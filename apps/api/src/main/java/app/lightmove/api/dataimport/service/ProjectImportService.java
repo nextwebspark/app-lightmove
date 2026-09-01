@@ -198,8 +198,7 @@ public class ProjectImportService {
                 column = byKey.get(target.value() + ":" + mapping.customFieldKey().trim());
             }
             if (column == null && mapping.customLabel() != null && !mapping.customLabel().isBlank()) {
-                column = customColumns.defineIfAbsent(projectId, userId, target,
-                        mapping.customLabel().trim(), customTypeOf(mapping));
+                column = defineColumnFor(mapping, projectId, userId, target);
                 // "Created" is measured against what the project held when the commit began, so a
                 // column two headers both map to is reported once, and one that already existed is
                 // not reported at all — the summary says what changed, not what was looked up.
@@ -213,6 +212,29 @@ public class ProjectImportService {
             }
         }
         return resolved;
+    }
+
+    /**
+     * Defines the custom column one uploaded column asked for, attributing a refusal to that column.
+     *
+     * <p>This runs before the row loop and outside its per-row catch, so a name clash or the
+     * per-project ceiling fails the whole commit. Left unattributed it was a dead end: the mapping
+     * step named no column and the Import button would fail identically however many times it was
+     * pressed. Keyed to the column's index, the same one the mapping step renders its rows by, the
+     * refusal points at the row to change.
+     */
+    private CustomColumnDto defineColumnFor(ProposedColumnMappingDto mapping, UUID projectId,
+                                            UUID userId, CustomColumnTarget target) {
+        try {
+            return customColumns.defineIfAbsent(projectId, userId, target,
+                    mapping.customLabel().trim(), customTypeOf(mapping));
+        } catch (ApiException e) {
+            // The label is request input and stays out of the message; the index is ours to give.
+            String message = e.getClientDetail() == null
+                    ? e.getCode().defaultMessage()
+                    : e.getClientDetail();
+            throw ApiException.withField(e.getCode(), "columns[" + mapping.index() + "]", message);
+        }
     }
 
     private void importRow(UUID userId, UUID workspaceId, UUID projectId, ParsedSheet sheet,

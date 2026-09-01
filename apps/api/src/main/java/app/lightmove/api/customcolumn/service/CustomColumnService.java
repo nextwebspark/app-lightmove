@@ -279,8 +279,10 @@ public class CustomColumnService {
             throw ApiException.of(ErrorCode.CUSTOM_COLUMN_NAME_TAKEN);
         }
         if (columns.countByProjectId(projectId) >= settings.maxPerProject()) {
-            throw new ApiException(ErrorCode.CUSTOM_COLUMN_LIMIT_REACHED,
-                    "project " + projectId + " already holds " + settings.maxPerProject() + " custom columns");
+            // The ceiling is configured, not request input, so naming it is what turns a refusal into
+            // something the caller can act on — remove a column, or import fewer.
+            throw ApiException.userFacing(ErrorCode.CUSTOM_COLUMN_LIMIT_REACHED,
+                    "This mandate already has its " + settings.maxPerProject() + " custom columns.");
         }
 
         List<ProjectCustomColumn> siblings =

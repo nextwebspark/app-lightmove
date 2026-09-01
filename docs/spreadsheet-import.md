@@ -113,6 +113,21 @@ column. Behind that:
   is the failure PR #148 hit with the embedding connection.
 - **Temperature 0 on this call**, set per call rather than on the shared bean, whose other caller is
   the shortlist prompt. Mapping has one right answer; variance buys only answers that will not bind.
+- **An answer that does not fit the shape gets one corrected try**, through Spring AI's own
+  `StructuredOutputValidationAdvisor`: it validates the reply against a JSON schema and re-prompts with
+  the validation error attached. Two things it needed to be usable here. Its default of **three**
+  repeats would make four paid calls of an import that is about to fall back anyway, so it is set to
+  one — the same budget as the transport retry. And it is given **our own schema**
+  (`prompts/import-column-mapping-schema.json`) rather than one generated from `ProposedMapping`,
+  because the generated one marks every record component `required`: under it, a perfectly good answer
+  that omits `targetField` because the column is a custom one counts as malformed, and *every* correct
+  call would be paid twice. Its order is left at the default, which places it inside `SafeGuardAdvisor`
+  — in front, it would re-ask the block sentinel as though the model had answered badly.
+  Note what it does *not* do: after the last attempt it returns the still-invalid answer rather than
+  throwing, so it is a bounded self-correction loop and the `catch` below it is still the backstop.
+
+There is no fallback chat client, degraded-response advisor or circuit breaker in Spring AI 2.0.1.
+The catch-and-degrade above is the substitute, and it is deliberate rather than a gap.
 
 ### Prompt injection
 
@@ -137,6 +152,27 @@ outage. As shaped, a block degrades to the header matcher and logs what it was.
 Worth keeping in proportion: the model has **no tools**, its output is a typed record, the answer is
 structurally validated, and a person confirms before any write. The worst a successful injection
 achieves is a wrong dropdown the user can see.
+
+### What the person uploading actually sees
+
+An unreachable model is not an error and never reaches the user as one. The failures that do are the
+file's own — and each now says what to do about it rather than only what went wrong.
+
+- **The ceilings name themselves.** "That file is larger than the 10 MB an import can take", "more
+  than 5000 rows", "already has its 40 custom columns". `ApiException`'s class doc carves out
+  configured limits as safe to interpolate — they are server-derived, not echoed input — and the limit
+  is the only part of those three refusals a reader can act on.
+- **The file survives a failed preview**, so the error offers **Try again** rather than a trip back to
+  the file picker to ask the same question of the same file. Not offered for a refusal that cannot
+  change: a missing seat, a name already taken, the column ceiling.
+- **The sample file is offered where it is the fix** — inside the error for the file-shaped codes, and
+  on the mapping step when the source is `headerMatcher`, because a file built from the template maps
+  with no model call at all. Not on `exactHeaders`, where nothing needed fixing.
+- **A refused column names itself.** Columns are defined before the row loop and outside its per-row
+  catch, so hitting the ceiling fails the whole commit. It used to fail anonymously, from a mapping
+  step that named no column, with an Import button that would fail identically forever. The refusal is
+  now keyed `columns[i]` — the index the mapping step renders its rows by — so the dialog marks the row
+  and the user changes that one thing.
 
 ### The sample file
 

@@ -79,8 +79,11 @@ public class SpreadsheetReader {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "Choose a file to import");
         }
         if (file.getSize() > settings.maxFileSizeBytes()) {
-            throw new ApiException(ErrorCode.FILE_TOO_LARGE,
-                    "upload of " + file.getSize() + " bytes exceeds " + settings.maxFileSizeBytes());
+            // The ceiling is a configured value, not request input, so it may be told to the caller —
+            // and without it "too large" leaves them guessing how much to cut.
+            throw ApiException.userFacing(ErrorCode.FILE_TOO_LARGE,
+                    "That file is larger than the " + megabytes(settings.maxFileSizeBytes())
+                            + " MB an import can take.");
         }
         if (!settings.allows(file.getContentType())) {
             throw new ApiException(ErrorCode.UNSUPPORTED_FILE_TYPE,
@@ -91,6 +94,11 @@ public class SpreadsheetReader {
         } catch (IOException e) {
             throw new UncheckedIOException("Could not read the uploaded spreadsheet", e);
         }
+    }
+
+    /** Whole megabytes, rounded down — the ceiling is set in round numbers and reads as one. */
+    private static long megabytes(long bytes) {
+        return bytes / (1024 * 1024);
     }
 
     private static boolean isWorkbook(byte[] content) {
@@ -260,8 +268,9 @@ public class SpreadsheetReader {
             }
             rows.add(padded);
             if (rows.size() > settings.maxRows()) {
-                throw new ApiException(ErrorCode.IMPORT_TOO_MANY_ROWS,
-                        "file carries more than " + settings.maxRows() + " data rows");
+                throw ApiException.userFacing(ErrorCode.IMPORT_TOO_MANY_ROWS,
+                        "That file has more than " + settings.maxRows()
+                                + " rows. Split it and import the parts.");
             }
         }
 

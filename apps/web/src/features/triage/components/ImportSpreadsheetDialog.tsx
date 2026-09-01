@@ -1,10 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
+import { ApiRequestError } from "../../../lib/apiClient";
 import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, Input, Select, Spinner } from "../../../components/ui";
+import { Button, FormError, Input, Select, Spinner } from "../../../components/ui";
 import { FileDropzone } from "../../../components/ui/FileDropzone";
 import { Modal } from "../../../components/ui/Modal";
-import { messageFor } from "../../../lib/errorCodes";
+import { codeOf, messageFor } from "../../../lib/errorCodes";
 import type { CustomColumn, CustomColumnType } from "../../customcolumns/api/types";
 import * as importApi from "../api/importApi";
 import type {
@@ -26,11 +27,33 @@ const CUSTOM_TYPES: { value: CustomColumnType; label: string }[] = [
 
 const LABEL = "font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3";
 
+const LINK = "rounded-[4px] text-sky underline transition hover:brightness-110 disabled:opacity-50";
+
 const MAPPING_SOURCE_LABELS: Record<MappingSource, string> = {
   exactHeaders: "every column matched by name",
   model: "columns matched by the assistant",
-  headerMatcher: "matched by header name — check these",
+  headerMatcher: "the assistant could not be reached — matched by header name, so check these",
 };
+
+/**
+ * Failures the sample file is an answer to. Everything else — a refused seat, a name already taken —
+ * is about this mandate rather than the shape of the file, and offering a download there is noise.
+ */
+const FILE_SHAPED_CODES = [
+  "IMPORT_FILE_UNREADABLE",
+  "IMPORT_TOO_MANY_ROWS",
+  "UNSUPPORTED_FILE_TYPE",
+  "FILE_TOO_LARGE",
+];
+
+/**
+ * Failures that will fail again unchanged. A missing seat and a name clash are decided by state this
+ * dialog cannot alter, so offering to retry them would be offering a button that cannot work.
+ */
+const UNRETRYABLE_CODES = ["FORBIDDEN", "NOT_FOUND", "CUSTOM_COLUMN_NAME_TAKEN", "CUSTOM_COLUMN_LIMIT_REACHED"];
+
+/** What failed, so the error can offer to run that same request again. */
+type FailedRequest = "preview" | "commit" | "template";
 
 /**
  * Import a spreadsheet into this mandate's Companies grid.
@@ -62,7 +85,7 @@ export function ImportSpreadsheetDialog({
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [mappings, setMappings] = useState<ProposedColumnMapping[]>([]);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<Failure | null>(null);
 
   const reset = () => {
     setStep("choose");
@@ -70,7 +93,7 @@ export function ImportSpreadsheetDialog({
     setPreview(null);
     setMappings([]);
     setSummary(null);
-    setError(null);
+    setFailure(null);
   };
 
   const close = () => {
@@ -80,33 +103,39 @@ export function ImportSpreadsheetDialog({
 
   const read = useMutation({
     mutationFn: (chosen: File) => importApi.previewImport(projectId, chosen),
-    onMutate: () => setError(null),
+    onMutate: () => setFailure(null),
     onSuccess: (result) => {
       setPreview(result);
       setMappings(result.columns.map((column) => column.mapping));
       setStep("map");
     },
-    onError: (failure) => {
-      setError(messageFor(failure));
-      setFile(null);
-    },
+    // The file is deliberately kept. Clearing it left nothing to retry, so a transient failure meant
+    // finding the file on disk again to ask the same question.
+    onError: (cause) => setFailure(failureOf(cause, "preview")),
   });
 
   const template = useMutation({
     mutationFn: () => importApi.saveTemplate(projectId),
-    onError: (failure) => setError(messageFor(failure)),
+    onMutate: () => setFailure(null),
+    onError: (cause) => setFailure(failureOf(cause, "template")),
   });
 
   const commit = useMutation({
     mutationFn: () => importApi.commitImport(projectId, file!, mappings),
-    onMutate: () => setError(null),
+    onMutate: () => setFailure(null),
     onSuccess: (result) => {
       setSummary(result);
       setStep("done");
       onImported();
     },
-    onError: (failure) => setError(messageFor(failure)),
+    onError: (cause) => setFailure(failureOf(cause, "commit")),
   });
+
+  const retry = () => {
+    if (failure?.request === "preview" && file) return read.mutate(file);
+    if (failure?.request === "commit") return commit.mutate();
+    if (failure?.request === "template") return template.mutate();
+  };
 
   const setMapping = (index: number, change: Partial<ProposedColumnMapping>) =>
     setMappings((current) =>
@@ -115,10 +144,25 @@ export function ImportSpreadsheetDialog({
 
   return (
     <Modal open={open} onClose={close} title="Import companies and people" className="md:w-[760px]">
-      {error && (
-        <p role="alert" className="mb-4 rounded-lg bg-red-dim px-3 py-2 font-mono text-[12px] text-red">
-          {error}
-        </p>
+      {failure && (
+        // FormError carries its own bottom margin, which the action row tucks back under itself.
+        <div>
+          <FormError message={failure.message} />
+          {(failure.retryable || failure.offerTemplate) && (
+            <p className="-mt-2 mb-4 flex flex-wrap items-center gap-3 font-mono text-[11.5px] text-text3">
+              {failure.retryable && (
+                <button type="button" onClick={retry} className={LINK}>
+                  Try again
+                </button>
+              )}
+              {failure.offerTemplate && (
+                <button type="button" onClick={() => template.mutate()} className={LINK}>
+                  Download a sample file
+                </button>
+              )}
+            </p>
+          )}
+        </div>
       )}
 
       {step === "choose" && (
@@ -142,18 +186,11 @@ export function ImportSpreadsheetDialog({
           )}
 
           {/* Offered, never required — the import maps whatever headers a file arrives with. */}
-          <p className="font-mono text-[11.5px] text-text3">
-            Not sure of the format?{" "}
-            <button
-              type="button"
-              onClick={() => template.mutate()}
-              disabled={template.isPending}
-              className="rounded-[4px] text-sky underline transition hover:brightness-110 disabled:opacity-50"
-            >
-              Download a sample file
-            </button>{" "}
-            with this mandate's columns already in it.
-          </p>
+          <TemplateLine
+            lead="Not sure of the format?"
+            onDownload={() => template.mutate()}
+            pending={template.isPending}
+          />
         </div>
       )}
 
@@ -165,6 +202,16 @@ export function ImportSpreadsheetDialog({
                 and a user who knows which one answered knows how hard to look at the rows below. */}
             {MAPPING_SOURCE_LABELS[preview.mappingSource]}
           </p>
+
+          {/* Only where it is actually the fix: a file built from the template maps with no assistant
+              call at all, so it is the way out of the degrade rather than a repeat of the offer. */}
+          {preview.mappingSource === "headerMatcher" && (
+            <TemplateLine
+              lead="Rather start from a file we already understand?"
+              onDownload={() => template.mutate()}
+              pending={template.isPending}
+            />
+          )}
 
           <div className="max-h-[46dvh] overflow-y-auto rounded-lg border border-line-soft">
             <table className="w-full border-collapse">
@@ -228,6 +275,12 @@ export function ImportSpreadsheetDialog({
                               ))}
                           </optgroup>
                         </Select>
+
+                        {failure?.fieldErrors[`columns[${column.index}]`] && (
+                          <p className="mt-1.5 font-mono text-[11px] text-red">
+                            {failure.fieldErrors[`columns[${column.index}]`]}
+                          </p>
+                        )}
 
                         {/* Only for a column being created. An existing one already has a name and a
                             type, and offering to change them here would edit every other row using it. */}
@@ -344,6 +397,54 @@ export function ImportSpreadsheetDialog({
         </div>
       )}
     </Modal>
+  );
+}
+
+/**
+ * A failure the dialog can act on rather than only report: what to say, which request to run again,
+ * and whether the sample file is an answer to it.
+ */
+interface Failure {
+  message: string;
+  request: FailedRequest;
+  retryable: boolean;
+  offerTemplate: boolean;
+  /** Keyed `columns[i]` by the server, so a refused column marks the row it came from. */
+  fieldErrors: Record<string, string>;
+}
+
+function failureOf(cause: unknown, request: FailedRequest): Failure {
+  const code = codeOf(cause);
+  return {
+    message: messageFor(cause),
+    request,
+    retryable: code === null || !UNRETRYABLE_CODES.includes(code),
+    offerTemplate: code !== null && FILE_SHAPED_CODES.includes(code),
+    fieldErrors: cause instanceof ApiRequestError ? cause.fieldErrors : {},
+  };
+}
+
+/**
+ * The offer of a blank file to fill in. A button rather than a link because the bytes need the bearer
+ * token, the same reason `importApi.saveTemplate` fetches them.
+ */
+function TemplateLine({
+  lead,
+  onDownload,
+  pending,
+}: {
+  lead: string;
+  onDownload: () => void;
+  pending: boolean;
+}) {
+  return (
+    <p className="font-mono text-[11.5px] text-text3">
+      {lead}{" "}
+      <button type="button" onClick={onDownload} disabled={pending} className={LINK}>
+        Download a sample file
+      </button>{" "}
+      with this mandate's columns already in it.
+    </p>
   );
 }
 

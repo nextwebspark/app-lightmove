@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
+import { ApiRequestError } from "../../../lib/apiClient";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import * as importApi from "../api/importApi";
 import type { ImportPreview, ImportSummary } from "../api/importTypes";
@@ -103,6 +104,11 @@ async function choose(name = "longlist.csv") {
   const file = new File(["Organisation,Ethnicity\nACWA Power,Lebanese\n"], name, { type: "text/csv" });
   await userEvent.upload(screen.getByLabelText(/Spreadsheet to import/i), file);
   return file;
+}
+
+/** A server refusal, as `apiClient` throws it. */
+function problem(code: string, fieldErrors?: Record<string, string>) {
+  return new ApiRequestError({ code, detail: "refused", status: 400, correlationId: "c1", fieldErrors });
 }
 
 /**
@@ -245,6 +251,78 @@ describe("ImportSpreadsheetDialog", () => {
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(screen.getByLabelText(/Spreadsheet to import/i)).toBeInTheDocument();
     expect(importApi.commitImport).not.toHaveBeenCalled();
+  });
+
+  it("retries the same file rather than making the user find it again", async () => {
+    // The file used to be discarded on failure, which turned a transient error into a trip back to
+    // the file picker to ask exactly the same question.
+    vi.mocked(importApi.previewImport).mockRejectedValueOnce(problem("IMPORT_FILE_UNREADABLE"));
+    renderDialog();
+    const file = await choose();
+    await screen.findByRole("alert");
+
+    vi.mocked(importApi.previewImport).mockResolvedValue(preview);
+    await userEvent.click(screen.getByRole("button", { name: /Try again/i }));
+
+    expect(await screen.findByText(/Organisation/)).toBeInTheDocument();
+    expect(importApi.previewImport).toHaveBeenLastCalledWith("p1", file);
+  });
+
+  it("offers the sample file for a failure the sample file would fix", async () => {
+    vi.mocked(importApi.previewImport).mockRejectedValue(problem("IMPORT_FILE_UNREADABLE"));
+    renderDialog();
+    await choose("broken.csv");
+
+    await screen.findByRole("alert");
+    expect(screen.getAllByRole("button", { name: /Download a sample file/i })).toHaveLength(2);
+  });
+
+  it("offers neither retry nor the sample file for a refusal that will not change", async () => {
+    vi.mocked(importApi.previewImport).mockRejectedValue(problem("FORBIDDEN"));
+    renderDialog();
+    await choose();
+
+    await screen.findByRole("alert");
+    expect(screen.queryByRole("button", { name: /Try again/i })).not.toBeInTheDocument();
+    // Only the standing offer on the file step — none added to the error.
+    expect(screen.getAllByRole("button", { name: /Download a sample file/i })).toHaveLength(1);
+  });
+
+  it("marks the column a refused commit was about", async () => {
+    // Defining a custom column happens before the row loop, so it fails the whole commit. Naming the
+    // column is what makes that recoverable rather than a button that fails identically forever.
+    vi.mocked(importApi.commitImport).mockRejectedValue(
+      problem("CUSTOM_COLUMN_LIMIT_REACHED", { "columns[1]": "This mandate already has its 40 custom columns." }),
+    );
+    renderDialog();
+    await choose();
+    await userEvent.click(await screen.findByRole("button", { name: /Import 2 rows/i }));
+
+    expect(await screen.findByText(/already has its 40 custom columns/i)).toBeInTheDocument();
+  });
+
+  it("points at the sample file when the assistant could not be reached", async () => {
+    vi.mocked(importApi.previewImport).mockResolvedValue({
+      ...preview,
+      mappingSource: "headerMatcher",
+    });
+    renderDialog();
+    await choose();
+
+    expect(await screen.findByText(/could not be reached/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Download a sample file/i })).toBeInTheDocument();
+  });
+
+  it("does not push the sample file when every column already matched", async () => {
+    vi.mocked(importApi.previewImport).mockResolvedValue({
+      ...preview,
+      mappingSource: "exactHeaders",
+    });
+    renderDialog();
+    await choose();
+
+    await screen.findByText(/every column matched by name/i);
+    expect(screen.queryByRole("button", { name: /Download a sample file/i })).not.toBeInTheDocument();
   });
 
   it("says when every column matched by name, so nothing needed the assistant", async () => {

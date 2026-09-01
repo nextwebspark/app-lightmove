@@ -322,6 +322,52 @@ class SpreadsheetImportIntegrationTest extends FlowTestSupport {
     // ── helpers ───────────────────────────────────────────────────────────────
 
     /** Previews, then commits the mapping the preview proposed — what the dialog does when nobody edits it. */
+    @Test
+    @DisplayName("a column that cannot be created names the column, so the mapping step is not a dead end")
+    void aRefusedColumnNamesItself() throws Exception {
+        // Columns are defined before the row loop and outside its per-row catch, so this fails the
+        // whole commit. Unattributed it was a dead end: the mapping step named no column, and Import
+        // would have failed identically however many times it was pressed.
+        String admin = adminOf("Import Column Ceiling Firm");
+        String projectId = project(admin);
+        for (int i = 0; i < 40; i++) {
+            mvc.perform(post("/api/v1/projects/" + projectId + "/custom-columns")
+                            .header("Authorization", "Bearer " + admin)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"target":"candidate","label":"Filler %d","dataType":"text"}"""
+                                    .formatted(i)))
+                    .andExpect(status().isCreated());
+        }
+
+        String content = """
+                Company,Full Name,Ethnicity
+                ACWA Power,Layla Haddad,Lebanese
+                """;
+        JsonNode preview = body(mvc.perform(multipart("/api/v1/projects/" + projectId + "/import/preview")
+                        .file(csv(content))
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        var columns = new java.util.ArrayList<JsonNode>();
+        preview.get("columns").forEach(column -> columns.add(column.get("mapping")));
+        String mapping = json.writeValueAsString(java.util.Map.of("columns", columns));
+
+        JsonNode problem = body(mvc.perform(multipart("/api/v1/projects/" + projectId + "/import/commit")
+                        .file(csv(content))
+                        .file(new MockMultipartFile("mapping", "mapping.json",
+                                MediaType.APPLICATION_JSON_VALUE, mapping.getBytes(StandardCharsets.UTF_8)))
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isConflict())
+                .andReturn());
+
+        assertThat(problem.get("code").asText()).isEqualTo("CUSTOM_COLUMN_LIMIT_REACHED");
+        // Keyed by the uploaded column's index, which is what the mapping step renders its rows by.
+        assertThat(problem.get("fieldErrors").get("columns[2]").asText()).contains("40");
+        // And nothing was written, so a corrected mapping starts from the same place.
+        assertThat(companies(admin, projectId).get("companies")).isEmpty();
+    }
+
     private JsonNode importFile(String token, String projectId, String content) throws Exception {
         JsonNode preview = body(mvc.perform(multipart("/api/v1/projects/" + projectId + "/import/preview")
                         .file(csv(content))
