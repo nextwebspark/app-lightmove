@@ -122,8 +122,9 @@ public class ProjectService {
         seats.save(ProjectMember.of(project.getId(), creator.getId(),
                 rbac.projectRoles(EnumSet.of(ProjectRole.LEAD)), userId));
         // The brief arrives drafted, not blank — seeded from the role-template library. Handed the
-        // three facts it needs rather than the mandate itself: the project row is this package's.
-        positionService.seedFor(project.getId(), project.getPositionTitle(), client.getHqCountry());
+        // facts it needs rather than the mandate itself: the project row is this package's.
+        positionService.seedFor(workspaceId, project.getId(), project.getPositionTitle(),
+                client.getHqCountry());
 
         log.info("User {} created project {} in workspace {}", userId, project.getId(), workspaceId);
         audit.event(ProjectEventType.PROJECT_CREATED)

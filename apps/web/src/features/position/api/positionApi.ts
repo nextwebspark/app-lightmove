@@ -6,6 +6,7 @@ import type {
   MandateContext,
   Position,
   PositionDetails,
+  PositionTemplate,
   ReportingStructure,
 } from "./types";
 
@@ -18,10 +19,31 @@ import type {
 
 export const POSITION_KEY = (projectId: string) => ["position", projectId] as const;
 
+/** Not keyed by project: the catalog is the workspace's, and every mandate in it sees the same one. */
+export const POSITION_TEMPLATES_KEY = ["position-templates"] as const;
+
 const base = (projectId: string) => `/projects/${projectId}/position`;
 
 export function getPosition(projectId: string, signal?: AbortSignal): Promise<Position> {
   return request<Position>(base(projectId), { signal });
+}
+
+export function listTemplates(signal?: AbortSignal): Promise<PositionTemplate[]> {
+  return request<PositionTemplate[]>("/position-templates", { signal });
+}
+
+/**
+ * Redrafts the brief from a template, answering with the whole document like any step write.
+ *
+ * It does not touch the role title — a template drafts a brief, it does not rename a search. Picking
+ * a title from the type-ahead writes that title through {@link putDetails}, the same path typing it
+ * takes.
+ */
+export function applyTemplate(projectId: string, templateId: string): Promise<Position> {
+  return request<Position>(`${base(projectId)}/template`, {
+    method: "POST",
+    body: { templateId },
+  });
 }
 
 export function putDetails(projectId: string, details: PositionDetails): Promise<Position> {
