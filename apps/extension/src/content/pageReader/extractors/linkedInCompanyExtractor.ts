@@ -17,10 +17,10 @@ export const linkedInCompanyExtractor: CompanyExtractor = (document) => {
     return {};
   }
   const extracted: Partial<ExtractedCompany> = {
+    // Scoped like the profile's: a bare `h1` reaches LinkedIn's own chrome, which names the viewer.
     companyName: cleanText(
       textOf(document, 'h1[class*="org-top-card"]')
-        ?? textOf(document, "main h1")
-        ?? textOf(document, "h1"),
+        ?? textOf(document, "main h1"),
     ) ?? nameFromDocumentTitle(document),
     linkedinUrl: canonicalCompanyUrl(document),
   };
@@ -34,7 +34,11 @@ function nameFromDocumentTitle(document: Document): string | null {
     .replace(/\s*[|│]\s*LinkedIn\s*$/i, "")
     // The company tab title carries a section suffix: "Acme: About", "Acme: Jobs".
     .replace(/:\s*(about|jobs|people|posts|life|overview)\s*$/i, "");
-  return cleanText(titleText);
+  const name = cleanText(titleText);
+  // LinkedIn rewrites the title mid-navigation to its own section names; see the profile extractor.
+  return name && !/^(linkedin|feed|home|messaging|notifications|my network|jobs|search)$/i.test(name)
+    ? name
+    : null;
 }
 
 /**

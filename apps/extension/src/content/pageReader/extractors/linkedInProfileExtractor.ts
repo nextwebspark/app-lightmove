@@ -12,10 +12,12 @@ export const linkedInProfileExtractor: PersonExtractor = (document) => {
     return {};
   }
   const extracted: Partial<ExtractedPerson> = {
+    // Never a bare `h1`: LinkedIn's own chrome — the "Me" menu, the feed's identity card — carries
+    // the *viewer's* name outside `main`, and mid-navigation it is the only heading rendered, so a
+    // document-wide selector captures the consultant themselves.
     fullName: cleanText(
       textOf(document, 'h1[class*="top-card-layout__title"]')
-        ?? textOf(document, "main h1")
-        ?? textOf(document, "h1"),
+        ?? textOf(document, "main h1"),
     ) ?? nameFromDocumentTitle(document),
     linkedinUrl: canonicalProfileUrl(document),
   };
@@ -32,7 +34,17 @@ function nameFromDocumentTitle(document: Document): string | null {
     ?.replace(/^\(\d+\+?\)\s*/, "")
     .replace(/\s*[|│]\s*LinkedIn\s*$/i, "");
   const parts = titleText?.split(/\s+[-–—]\s+/).map((part) => part.trim()).filter(Boolean) ?? [];
-  return parts[0] ?? null;
+  const name = parts[0] ?? null;
+  return name && !isLinkedInSectionTitle(name) ? name : null;
+}
+
+/**
+ * The titles LinkedIn's own sections carry. It rewrites the title while a pushState navigation is in
+ * flight — plain "LinkedIn", or the section being left — so without this the panel offers a person
+ * named "Feed" for the moment between one profile and the next.
+ */
+function isLinkedInSectionTitle(name: string): boolean {
+  return /^(linkedin|feed|home|messaging|notifications|my network|jobs|search|sales navigator)$/i.test(name);
 }
 
 /**

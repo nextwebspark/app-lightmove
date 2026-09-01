@@ -36,6 +36,37 @@ describe("the LinkedIn profile", () => {
     expect(linkedInProfileExtractor(document).fullName).toBe("Amira Haddad");
   });
 
+  // The flash of the consultant's own name over someone else's profile: LinkedIn navigates with
+  // pushState, and mid-navigation the only heading rendered is its own chrome — the "Me" menu — which
+  // names the viewer. A document-wide h1 selector captured them.
+  it("does not read the viewer's own name out of LinkedIn's chrome", () => {
+    const midNavigation = new JSDOM(
+      '<title>LinkedIn</title><header><h1>Alok Kumar</h1></header><main></main>',
+      { url: "https://www.linkedin.com/in/amira-haddad/" },
+    ).window.document as unknown as Document;
+
+    expect(linkedInProfileExtractor(midNavigation).fullName).toBeUndefined();
+  });
+
+  // The title is rewritten mid-navigation too, so the fallback would offer a person named "Feed".
+  it("does not read one of LinkedIn's own section titles as a name", () => {
+    const leavingTheFeed = new JSDOM('<title>(3) Feed | LinkedIn</title><main></main>', {
+      url: "https://www.linkedin.com/in/amira-haddad/",
+    }).window.document as unknown as Document;
+
+    expect(linkedInProfileExtractor(leavingTheFeed).fullName).toBeUndefined();
+  });
+
+  // The worker compares this against the slug it asked about, so a read that landed on another page
+  // is discarded rather than shown.
+  it("reports the address it was read at", () => {
+    const read = readPageSubject(
+      documentAt("linkedInProfilePage.html", "https://www.linkedin.com/in/amira-haddad/"),
+    );
+
+    expect(read.pageUrl).toBe("https://www.linkedin.com/in/amira-haddad/");
+  });
+
   it("is keyed on the host the browser loaded, so a page cannot declare itself a profile", () => {
     const impostor = new JSDOM(
       '<link rel="canonical" href="https://www.linkedin.com/in/amira-haddad" /><h1>Amira Haddad</h1>',

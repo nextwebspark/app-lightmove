@@ -170,7 +170,7 @@ async function readActivePage(): Promise<ReadPageResult> {
 
   const profileSlug = profileSlugOf(tab.url);
   if (profileSlug) {
-    const read = await readPage(tab.id);
+    const read = await readPage(tab.id, (page) => profileSlugOf(page.pageUrl) === profileSlug);
     // The slug-built URL first, so it wins the merge: the address bar cannot lie, and it is present
     // even when the read came back empty.
     const person = mergeExtractedPerson([
@@ -182,7 +182,7 @@ async function readActivePage(): Promise<ReadPageResult> {
 
   const companySlug = companySlugOf(tab.url);
   if (companySlug) {
-    const read = await readPage(tab.id);
+    const read = await readPage(tab.id, (page) => companySlugOf(page.pageUrl) === companySlug);
     const company = mergeExtracted([
       { linkedinUrl: linkedInCompanyUrlOf(companySlug) },
       read?.company ?? {},
@@ -225,10 +225,20 @@ function isCapturableTab(tab: chrome.tabs.Tab): boolean {
  * One injection of the page reader; the page's answer, or null when it had none. Only ever called
  * for a LinkedIn tab, which the manifest's standing host permission covers — so a failure here is
  * a real one (the tab closed mid-read), never a missing grant.
+ *
+ * `isAboutTheRightPage` is why the reader reports the address it read at. LinkedIn navigates with
+ * pushState, so the URL changes before the new page has rendered: a read landing in that window
+ * describes the *previous* profile, or LinkedIn's own chrome, which names the consultant. Discarding
+ * it leaves the field empty until the read that matches arrives, rather than briefly offering
+ * someone else's name to a Save button.
  */
-async function readPage(tabId: number): Promise<PageSubject | null> {
+async function readPage(
+  tabId: number,
+  isAboutTheRightPage: (page: PageSubject) => boolean,
+): Promise<PageSubject | null> {
   const [injected] = await chrome.scripting.executeScript({ target: { tabId }, files: [PAGE_READER_BUNDLE] });
-  return (injected?.result as PageSubject | undefined) ?? null;
+  const read = injected?.result as PageSubject | undefined;
+  return read && isAboutTheRightPage(read) ? read : null;
 }
 
 /** Not on LinkedIn at all — answered with the pointer to the app, not with an apology. */

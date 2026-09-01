@@ -9,6 +9,8 @@ export interface PageSubject {
   subject: PageSubjectKind;
   person: ExtractedPerson;
   company: ExtractedCompany;
+  /** The address the page had while it was read, so the worker can refuse an answer about another. */
+  pageUrl: string;
 }
 
 /**
@@ -21,6 +23,7 @@ export function readPageSubject(document: Document): PageSubject {
     subject: classify(document),
     person: mergeExtractedPerson([linkedInProfileExtractor(document)]),
     company: mergeExtracted([linkedInCompanyExtractor(document)]),
+    pageUrl: document.location?.href ?? "",
   };
 }
 

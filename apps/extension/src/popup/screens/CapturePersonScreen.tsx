@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FIELD_LIMITS, cappedAt } from "../../api/fieldLimits";
 import type { SaveCandidateRequest } from "../../api/types";
 import type { ExtractedPerson } from "../../content/pageReader/extractedPerson";
@@ -34,12 +34,22 @@ export function CapturePersonScreen({ page, projects }: CaptureScreenProps) {
   const [fullName, setFullName] = useState("");
   const [note, setNote] = useState("");
 
-  // Seeded from the read, then owned by the form — a re-scan overwrites, which is what it is for.
+  // Seeded from the read, then owned by the form. A new page always reseeds, empty included — the
+  // previous person's name must never linger over someone else's profile. Re-reads of the *same*
+  // page only fill a blank field: LinkedIn's SPA re-reads land while a name is being corrected, and
+  // one arriving late must not overwrite the correction.
+  const seededFor = useRef<string | null>(null);
   useEffect(() => {
-    if (page.person) {
-      setFullName(page.person.fullName ?? "");
+    if (!page.person) {
+      return;
     }
-  }, [page.person]);
+    if (seededFor.current !== page.sourceUrl) {
+      seededFor.current = page.sourceUrl;
+      setFullName(page.person.fullName ?? "");
+      return;
+    }
+    setFullName((typed) => typed || (page.person?.fullName ?? ""));
+  }, [page.person, page.sourceUrl]);
 
   // A name and a mandate. That is what the API requires, and the popup should not invent more.
   const canSave = useMemo(

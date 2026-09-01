@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FIELD_LIMITS, cappedAt } from "../../api/fieldLimits";
 import { DESTINATION_PAST_TENSE, type TriageDestination } from "../../domain/triageDestination";
 import { DetectedFieldInput } from "../components/DetectedFieldInput";
@@ -32,14 +32,21 @@ export function CaptureCompanyScreen({ page, projects }: CaptureScreenProps) {
   const [note, setNote] = useState("");
   const [attemptedDestination, setAttemptedDestination] = useState<TriageDestination | null>(null);
 
-  // Seeded from the read, then owned by the form. This runs whenever the reader answers with a new
-  // object, so a re-scan does overwrite edits — which is what "Re-scan" is for. React Query's
-  // structural sharing is what keeps an unchanged re-read from resetting the form underneath someone.
+  // Seeded from the read, then owned by the form. A new page always reseeds, empty included — the
+  // previous company's name must never linger over another's page. Re-reads of the *same* page only
+  // fill a blank field, so a late answer cannot overwrite a correction being typed.
+  const seededFor = useRef<string | null>(null);
   useEffect(() => {
-    if (page.company) {
-      setCompanyName(page.company.companyName ?? "");
+    if (!page.company) {
+      return;
     }
-  }, [page.company]);
+    if (seededFor.current !== page.sourceUrl) {
+      seededFor.current = page.sourceUrl;
+      setCompanyName(page.company.companyName ?? "");
+      return;
+    }
+    setCompanyName((typed) => typed || (page.company?.companyName ?? ""));
+  }, [page.company, page.sourceUrl]);
 
   // A name and a mandate. That is what the API requires, and the popup should not invent more.
   const canSave = Boolean(companyName.trim()) && Boolean(projects.selectedProjectId);
