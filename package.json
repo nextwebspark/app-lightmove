@@ -13,7 +13,7 @@
     "dev": "npm run dev:web",
     "dev:web": "npm run dev --workspace=apps/web",
     "dev:cloud": "concurrently -n api,web -c yellow,cyan \"npm:dev:api:cloud\" \"npm:dev:web\"",
-    "dev:api:cloud": "cd apps/api && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local",
+    "dev:api:cloud": "cd apps/api && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local,cloud",
     "build": "npm run build:api && npm run build:web",
     "build:api": "cd apps/api && ./mvnw -q clean package",
     "build:web": "npm run build --workspace=apps/web",

@@ -3,9 +3,11 @@
 #
 # Required for the API on every local path — `./mvnw spring-boot:run -Dspring-boot.run.profiles=local`,
 # a plain `mvn` build, or an IntelliJ run config (active profile `local`). The API is no longer started
-# through npm, and nothing injects a datasource via the environment, so this file's `spring.datasource`
-# block is the only place it comes from: fill in the host/port/db/user/password of your own local
-# Postgres. `npm run dev:cloud` also reads this file, for the shared Cloud SQL dev database's password.
+# through npm, and nothing injects a datasource via the environment, so the `on-profile: "local &
+# !cloud"` document below is the only place a plain local Postgres URL comes from: fill in the
+# host/port/db/user of your own server there. `npm run dev:cloud` (`-Dspring-boot.run.profiles=
+# local,cloud`) activates `cloud` too, which excludes that document — it keeps using
+# application.yml's Cloud SQL socket-factory datasource instead, and only reads the `password` below.
 # Prerequisite for that path — the Cloud SQL connector authenticates as you:
 #     gcloud auth application-default login
 #
@@ -18,11 +20,6 @@
 # application.yml's spring.ai.google.genai.* block).
 
 spring:
-  datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:lightmove}
-    username: ${DB_USER:lm_app}
-    password: CHANGEME   # your local Postgres role's password (or `gcloud sql users set-password lm_app --instance=bright-gcc` for dev:cloud)
-
   security:
     oauth2:
       client:
@@ -94,3 +91,16 @@ lightmove:
 logging:
   level:
     app.lightmove.api: DEBUG
+
+---
+# Only for plain local dev. `npm run dev:cloud` activates `cloud` alongside `local`, which excludes
+# this document, so it falls through to application.yml's Cloud SQL socket-factory datasource instead
+# of trying a plain TCP connection to whatever's on your machine at this host/port.
+spring:
+  config:
+    activate:
+      on-profile: "local & !cloud"
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:lightmove}
+    username: ${DB_USER:lm_app}
+    password: ${DB_PASSWORD:CHANGEME} # your local Postgres role's password
