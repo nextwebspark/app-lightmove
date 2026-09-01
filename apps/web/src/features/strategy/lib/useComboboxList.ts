@@ -23,12 +23,20 @@ export function useDebouncedValue<T>(value: T, delayMs = DEBOUNCE_MS): T {
 export function useComboboxList({
   optionCount,
   onCommit,
+  autoHighlightFirst = true,
 }: {
   optionCount: number;
   onCommit: (index: number) => void;
+  /**
+   * Whether the first option starts highlighted, so Enter commits it. True for a picker whose input
+   * exists only to search. False where the input is itself the value — the role title accepts "Group
+   * CFO – Energy Division", and Enter on that must not commit the CFO suggestion sitting under it.
+   */
+  autoHighlightFirst?: boolean;
 }) {
+  const none = autoHighlightFirst ? 0 : -1;
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(none);
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
@@ -40,7 +48,7 @@ export function useComboboxList({
 
   const commit = (index: number) => {
     onCommit(index);
-    setActive(0);
+    setActive(none);
     // Left open, the list covers the very rows it just added to.
     setOpen(false);
   };
@@ -68,10 +76,11 @@ export function useComboboxList({
           setActive((index) => Math.min(index + 1, optionCount - 1));
         } else if (event.key === "ArrowUp") {
           event.preventDefault();
-          setActive((index) => Math.max(index - 1, 0));
+          setActive((index) => Math.max(index - 1, none));
         } else if (event.key === "Enter") {
+          if (active < 0 || optionCount === 0) return;
           event.preventDefault();
-          if (optionCount > 0) commit(active);
+          commit(active);
         } else if (event.key === "Escape") {
           setOpen(false);
         }

@@ -176,9 +176,15 @@ public class Position extends BaseEntity {
     @Column(name = "published_by")
     private UUID publishedBy;
 
-    public static Position forProject(UUID projectId) {
+    /**
+     * A blank brief for a mandate, opened at the client's home country. The location is a constructor
+     * argument rather than a later write because it is the one thing about a fresh brief that comes
+     * from the client: a role template has never met them, so applying one must leave it alone.
+     */
+    public static Position forProject(UUID projectId, String location) {
         Position position = new Position();
         position.projectId = projectId;
+        position.location = location;
         return position;
     }
 

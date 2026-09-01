@@ -1,6 +1,7 @@
 package app.lightmove.api.position.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.position.dto.ApplyPositionTemplateRequest;
 import app.lightmove.api.position.dto.PositionResponse;
 import app.lightmove.api.position.dto.PutCompensationRequest;
 import app.lightmove.api.position.dto.PutCompetenciesRequest;
@@ -111,6 +112,20 @@ public class PositionController {
                                                             HttpServletRequest httpRequest) {
         return ResponseEntity.ok(position.putCompetencies(
                 principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
+    }
+
+    /**
+     * Draft this brief as a different role. PROJECT_EDIT like every other write — it replaces the
+     * drafted half of the brief, and the picker that calls it sits inside the wizard.
+     */
+    @PostMapping("/template")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
+    public ResponseEntity<PositionResponse> applyTemplate(@AuthenticationPrincipal AuthPrincipal principal,
+                                                          @PathVariable UUID projectId,
+                                                          @Valid @RequestBody ApplyPositionTemplateRequest request,
+                                                          HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(position.applyTemplate(principal.userId(), principal.requireWorkspaceId(),
+                projectId, request.templateId(), httpRequest));
     }
 
     @PostMapping("/publish")
