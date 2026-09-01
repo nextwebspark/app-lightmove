@@ -2,6 +2,7 @@ package app.lightmove.api.core.llm;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.TestGuards;
 import app.lightmove.api.candidate.service.CandidateShortlistService;
 import app.lightmove.api.core.llm.config.ChatClientConfig;
 import ch.qos.logback.classic.Level;
@@ -139,8 +140,8 @@ class ChatClientLoggingTest {
     }
 
     private CandidateShortlistService shortlistService() {
-        return new CandidateShortlistService(
-                chatClientOver(new FixedChatModel()), new ByteArrayResource("system".getBytes()));
+        return new CandidateShortlistService(chatClientOver(new FixedChatModel()),
+                new ByteArrayResource("system".getBytes()), TestGuards.guards());
     }
 
     private ChatClient chatClientOver(ChatModel model) {

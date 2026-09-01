@@ -2,7 +2,8 @@ package app.lightmove.api.dataimport.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.SpreadsheetImportSettings;
-import app.lightmove.api.core.llm.config.ChatClientConfig;
+import app.lightmove.api.core.llm.model.LlmPromptSpec;
+import app.lightmove.api.core.llm.service.LlmGuards;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.constant.CustomColumnType;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
@@ -14,8 +15,6 @@ import app.lightmove.api.dataimport.constant.MappingSource;
 import app.lightmove.api.dataimport.model.ProposedColumnMappings;
 import app.lightmove.api.dataimport.model.ProposedMapping;
 import app.lightmove.api.dataimport.model.SheetColumn;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -24,12 +23,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import java.util.regex.Pattern;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.SafeGuardAdvisor;
-import org.springframework.ai.chat.client.advisor.StructuredOutputValidationAdvisor;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -86,42 +84,19 @@ public class ColumnMappingProposer {
     private static final double MAPPING_TEMPERATURE = 0.0;
 
     /**
-     * How many times a malformed answer is put back to the model before the heuristic takes over. One,
-     * matching the transport retry budget: the advisor's own default of three would make four paid
-     * calls of an import that is about to fall back anyway.
-     */
-    private static final int MAPPING_REPAIR_ATTEMPTS = 1;
-
-    /**
-     * Phrases with no business in a spreadsheet header. Short on purpose: every entry is also a header
-     * somebody could legitimately have one day, and blocking a real import is its own failure.
-     */
-    private static final List<String> INJECTION_PHRASES = List.of(
-            "ignore previous instructions",
-            "ignore all previous",
-            "disregard the above",
-            "disregard previous",
-            "system prompt",
-            "you are now");
-
-    /** The header a blocked call comes back under — see {@link #BLOCKED}. */
-    private static final String BLOCKED_HEADER = "__lightmove_blocked__";
-
-    /**
-     * What {@link SafeGuardAdvisor} answers with when it blocks a call.
+     * What the guard answers with when it blocks a call.
      *
-     * <p>It replies with a plain string in place of the model's answer, and a sentence would not bind
-     * to {@link ProposedMapping} — a block would surface as a binding error indistinguishable from
-     * Vertex being unreachable. Shaped as a document that binds, carrying a header no sheet has, so a
-     * block is recognisable and can be logged as what it is.
+     * <p>It replies in place of the model, and a sentence would not bind to {@link ProposedMapping} —
+     * a block would surface as a parse error indistinguishable from Vertex being unreachable. So it is
+     * shaped as a document that binds, carrying the shared marker as a header no sheet has.
      */
     private static final String BLOCKED =
-            "{\"columns\":[{\"header\":\"" + BLOCKED_HEADER + "\"}]}";
+            "{\"columns\":[{\"header\":\"" + LlmPromptSpec.BLOCKED_MARKER + "\"}]}";
 
     private final ChatClient chatClient;
     private final HeuristicColumnMatcher heuristics;
     private final Resource systemPrompt;
-    private final String answerSchema;
+    private final Consumer<ChatClient.AdvisorSpec> guarded;
     private final SpreadsheetImportSettings settings;
 
     // Hand-written rather than @RequiredArgsConstructor: Lombok cannot annotate a constructor
@@ -130,23 +105,13 @@ public class ColumnMappingProposer {
                                  HeuristicColumnMatcher heuristics,
                                  @Value("classpath:prompts/import-column-mapping-system.st") Resource systemPrompt,
                                  @Value("classpath:prompts/import-column-mapping-schema.json") Resource answerSchema,
+                                 LlmGuards guards,
                                  LightMoveProperties properties) {
         this.chatClient = chatClient;
         this.heuristics = heuristics;
         this.systemPrompt = systemPrompt;
-        this.answerSchema = readSchema(answerSchema);
+        this.guarded = guards.on(LlmPromptSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
         this.settings = properties.spreadsheetImport();
-    }
-
-    /**
-     * Read once at startup, so a schema that will not load fails the context rather than every import.
-     */
-    private static String readSchema(Resource schema) {
-        try {
-            return schema.getContentAsString(StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new IllegalStateException("Could not read the column mapping answer schema", e);
-        }
     }
 
     public ProposedColumnMappings propose(ParsedSheet sheet, List<CustomColumnDto> existingColumns) {
@@ -188,24 +153,10 @@ public class ColumnMappingProposer {
 
     private ProposedMapping ask(ParsedSheet sheet, List<CustomColumnDto> existingColumns) {
         return chatClient.prompt()
-                .advisors(advisor -> advisor.param(ChatClientConfig.PROMPT_ID, PROMPT_ID))
-                // Per call, not on the shared bean: its other caller is the shortlist prompt, which
-                // wants neither this temperature nor this word list.
+                .advisors(guarded)
+                // Per call, not on the shared bean: its other caller is the shortlist prompt, and 0.8
+                // is a reasonable temperature there. Mapping has one right answer.
                 .options(ChatOptions.builder().temperature(MAPPING_TEMPERATURE))
-                .advisors(SafeGuardAdvisor.builder()
-                        .sensitiveWords(INJECTION_PHRASES)
-                        .failureResponse(BLOCKED)
-                        .build())
-                // Order left at its default, which places it inside the guard above: in front of it,
-                // the validator would re-ask the BLOCKED sentinel as though the model had answered it.
-                //
-                // Our own schema rather than one generated from ProposedMapping, which marks every
-                // record component required — under that, an answer omitting targetField because the
-                // column is a custom one is "malformed", and every correct call would be paid twice.
-                .advisors(StructuredOutputValidationAdvisor.builder()
-                        .outputJsonSchema(answerSchema)
-                        .maxRepeatAttempts(MAPPING_REPAIR_ATTEMPTS)
-                        .build())
                 .system(systemPrompt)
                 .user(user -> user.text("""
                         Columns in the uploaded file:
@@ -228,7 +179,7 @@ public class ColumnMappingProposer {
         return answered.columns() != null
                 && answered.columns().size() == 1
                 && answered.columns().getFirst() != null
-                && BLOCKED_HEADER.equals(answered.columns().getFirst().header());
+                && LlmPromptSpec.wasBlocked(answered.columns().getFirst().header());
     }
 
     private String describeColumns(ParsedSheet sheet) {

@@ -2,6 +2,7 @@ package app.lightmove.api.dataimport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.TestGuards;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.SpreadsheetImportSettings;
 import app.lightmove.api.core.llm.config.ChatClientConfig;
@@ -327,7 +328,7 @@ class ColumnMappingProposerTest {
     private static ColumnMappingProposer proposerWith(ChatModel model, boolean sendSamples) {
         Resource prompt = new ByteArrayResource("map the columns".getBytes());
         return new ColumnMappingProposer(ChatClient.builder(model).build(), new HeuristicColumnMatcher(),
-                prompt, answerSchema(), propertiesWith(sendSamples));
+                prompt, answerSchema(), TestGuards.guards(), propertiesWith(sendSamples));
     }
 
     /** The shipped schema, not a stand-in: what it does and does not require is the thing under test. */
@@ -377,7 +378,7 @@ class ColumnMappingProposerTest {
         ChatClient chatClient = ChatClient.builder(model).defaultAdvisors(captured).build();
 
         new ColumnMappingProposer(chatClient, new HeuristicColumnMatcher(), prompt, answerSchema(),
-                propertiesWith(false))
+                TestGuards.guards(), propertiesWith(false))
                 .propose(sheetWithValues(), List.of());
 
         assertThat(captured.context).containsEntry(ChatClientConfig.PROMPT_ID, "import-column-mapping");
