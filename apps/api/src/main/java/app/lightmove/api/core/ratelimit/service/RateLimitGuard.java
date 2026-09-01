@@ -13,7 +13,8 @@ import java.util.Locale;
 import org.springframework.stereotype.Component;
 
 /**
- * Applies the auth endpoints' rate limits, and records it when someone hits one.
+ * Applies the rate limits on the endpoints strangers can reach — the auth routes, and the in-app
+ * feedback reporter — and records it when someone hits one.
  *
  * <p>Each guard checks <b>two</b> budgets, because the two attacks have different shapes:
  *
@@ -73,21 +74,43 @@ public class RateLimitGuard {
         checkRateLimit("password-change", email, request, config.passwordChangeAttemptsPerHour(), Duration.ofHours(1));
     }
 
+    /**
+     * The same two-budget check for a route that is not an auth route, with its own limit and its own
+     * on/off switch.
+     *
+     * <p>Called directly rather than through a {@code check*} method of its own because the caller
+     * owns the numbers: the feedback endpoint's budget lives under {@code lightmove.feedback}, not
+     * under {@code lightmove.auth.rate-limit}, and reading the auth toggle here would let switching
+     * the auth limiter off for a staging environment quietly unfence an anonymous write endpoint.
+     *
+     * @param subjectKind what {@code subject} identifies, for the audit trail — "email", "reporter".
+     * @param subject     the second budget's key; blank is a valid key, and is the anonymous bucket.
+     */
+    public void check(String action, String subjectKind, String subject, HttpServletRequest request,
+                      int limit, Duration window) {
+        applyBudgets(action, subjectKind, subject, request, limit, window);
+    }
+
     private void checkRateLimit(String action, String email, HttpServletRequest request, int limit, Duration window) {
         if (!config.enabled()) {
             return;
         }
+        applyBudgets(action, "email", email, request, limit, window);
+    }
 
+    private void applyBudgets(String action, String subjectKind, String subject,
+                              HttpServletRequest request, int limit, Duration window) {
         String ip = clientIp(request);
-        String normalisedEmail = email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+        String normalisedSubject = subject == null ? "" : subject.trim().toLowerCase(Locale.ROOT);
 
         // Both are consumed, not short-circuited: an attempt should count against the account it
         // targeted even when the IP budget is what refused it, or an attacker could exhaust one
         // account's budget for free by first tripping their own IP limit.
         boolean withinIpBudget = limiter.tryAcquire("%s:ip:%s".formatted(action, ip), limit, window);
-        boolean withinEmailBudget = limiter.tryAcquire("%s:email:%s".formatted(action, normalisedEmail), limit, window);
+        boolean withinSubjectBudget = limiter.tryAcquire(
+                "%s:%s:%s".formatted(action, subjectKind, normalisedSubject), limit, window);
 
-        if (withinIpBudget && withinEmailBudget) {
+        if (withinIpBudget && withinSubjectBudget) {
             return;
         }
 
@@ -97,7 +120,7 @@ public class RateLimitGuard {
                 .detail("action", action)
                 // Which budget ran out distinguishes stuffing (ip) from a distributed attack on a
                 // single account (email) — the first thing an investigator wants to know.
-                .detail("exhausted", !withinIpBudget ? "ip" : "email")
+                .detail("exhausted", !withinIpBudget ? "ip" : subjectKind)
                 .record();
 
         throw ApiException.of(ErrorCode.RATE_LIMITED);

@@ -198,6 +198,25 @@ jobs:
             EMAIL_SECRETS=",RESEND_API_KEY=lightmove-resend-api-key:latest"
           fi
 
+          # The in-app UAT reporter. Off unless an environment has been given a token, and it must
+          # default off for the same reason Google's switch does: gcloud rejects --set-secrets naming
+          # a secret that does not exist, so defaulting to on would fail the whole deploy for every
+          # environment that has never wired one up. Without it the widget still works — reports are
+          # composed and written to the service log instead of filed.
+          #
+          # Prerequisite, in the deploy project:
+          #   gcloud secrets create lightmove-github-feedback-token --data-file=-
+          #     …holding a fine-grained PAT on the target repository with exactly two permissions,
+          #     Issues: Read and write, and Contents: Read and write (screenshots are committed to a
+          #     branch, because GitHub's REST API has no issue-attachment endpoint).
+          #   …granted roles/secretmanager.secretAccessor to the runtime service account.
+          FEEDBACK_ENV=""
+          FEEDBACK_SECRETS=""
+          if [ "${{ vars.GITHUB_FEEDBACK_ENABLED }}" = "true" ]; then
+            FEEDBACK_ENV="|GITHUB_FEEDBACK_REPOSITORY=${{ vars.GITHUB_FEEDBACK_REPOSITORY || 'nextwebspark/app-lightmove' }}"
+            FEEDBACK_SECRETS=",GITHUB_FEEDBACK_TOKEN=lightmove-github-feedback-token:latest"
+          fi
+
           # ^|^ separates on | rather than a comma, because WEB_CORS_ORIGINS and the OAuth scope are both
           # comma-lists. It must be a character no value contains — @ is wrong, because EMAIL_FROM is an email
           # address and gcloud would split it mid-way and reject the domain half as a malformed entry.
@@ -211,8 +230,8 @@ jobs:
             --cpu 1 --memory 1Gi --cpu-boost \
             --concurrency 80 \
             --timeout 60s \
-            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@lightmove.ai' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem${OAUTH_ENV}" \
-            --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}"
+            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@lightmove.ai' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem${OAUTH_ENV}${FEEDBACK_ENV}" \
+            --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${FEEDBACK_SECRETS}"
 
       # First deploy only: the service now has a URL, and it is not the placeholder we booted with.
       # Verification emails and the OAuth redirect are built from WEB_BASE_URL, so this cannot be left.

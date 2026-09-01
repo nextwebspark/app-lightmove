@@ -130,6 +130,7 @@ class EmailAddressValidatorTest {
                 null,
                 null,
                 null,
+                null,
                 null));
     }
 

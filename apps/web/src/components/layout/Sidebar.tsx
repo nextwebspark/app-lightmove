@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
+import { useFeedback } from "../../features/feedback/FeedbackProvider";
 import { useTheme } from "../../features/theme/useTheme";
 import { cn } from "../../lib/cn";
 import { Icon, ICONS } from "./Icon";
@@ -42,6 +43,7 @@ export function Sidebar({
 }) {
   const { collapsed, toggle } = useSidebarCollapsed();
   const { theme, toggle: toggleTheme } = useTheme();
+  const { open: openFeedback, isCapturing } = useFeedback();
   const dark = theme === "dark";
   const navRef = useRef<HTMLElement>(null);
 
@@ -132,6 +134,20 @@ export function Sidebar({
       ))}
 
       <div className="mt-auto border-t border-line-soft pt-3">
+        {/* Above the theme row rather than below it: this is the one control in the rail a UAT
+            tester needs to find without being shown where it is. */}
+        <button
+          type="button"
+          onClick={openFeedback}
+          disabled={isCapturing}
+          title="Report a bug or request a feature"
+          className={rowClass("text-text2 disabled:cursor-wait")}
+        >
+          <Icon d={ICONS.warning} className="flex-none" />
+          <span className={cn("whitespace-nowrap", labelsHidden)}>
+            {isCapturing ? "Capturing…" : "Report a bug"}
+          </span>
+        </button>
         <button
           type="button"
           onClick={toggleTheme}
