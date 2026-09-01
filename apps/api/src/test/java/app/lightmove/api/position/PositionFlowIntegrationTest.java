@@ -49,11 +49,20 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.details.seniority").value("C_SUITE"))
                 .andExpect(jsonPath("$.details.employmentType").value("FULL_TIME_PERMANENT"))
                 .andExpect(jsonPath("$.details.responsibilities[0]").value("Group P&L stewardship"))
-                .andExpect(jsonPath("$.reporting.orgChart.length()").value(2))
+                // The seat above, the mandate's own, and the four seats a CFO usually owns.
+                .andExpect(jsonPath("$.reporting.orgChart.length()").value(6))
                 // The mandate seat leads the stored chart — Position#mandateSeatFirst explains why.
                 .andExpect(jsonPath("$.reporting.orgChart[0].mandateSeat").value(true))
                 .andExpect(jsonPath("$.reporting.orgChart[1].title").value("Group CEO"))
                 .andExpect(jsonPath("$.reporting.orgChart[1].mandateSeat").value(false))
+                .andExpect(jsonPath("$.reporting.orgChart[2].title").value("Financial Controller"))
+                .andExpect(jsonPath("$.reporting.noticeValue").value(3))
+                .andExpect(jsonPath("$.reporting.noticeUnit").value("MONTHS"))
+                .andExpect(jsonPath("$.compensation.bonusValue").value(40.0))
+                .andExpect(jsonPath("$.compensation.benefits[0].name").value("Housing allowance"))
+                // A template states the shape of a package and never its numbers.
+                .andExpect(jsonPath("$.compensation.benefits[0].amount").isEmpty())
+                .andExpect(jsonPath("$.compensation.salaryMin").isEmpty())
                 .andExpect(jsonPath("$.compensation.currency").value("USD"))
                 .andExpect(jsonPath("$.compensation.baseSalaryMode").value("ANNUAL"))
                 // The brief opens on the priority palette, none of it lit.
@@ -295,7 +304,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .formatted(first, second, second, first));
 
         // The seeded chart survived every refusal.
-        assertThat(readBrief(admin, projectId).get("reporting").get("orgChart").size()).isEqualTo(2);
+        assertThat(readBrief(admin, projectId).get("reporting").get("orgChart").size()).isEqualTo(6);
     }
 
     @Test
@@ -414,7 +423,9 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
         mvc.perform(get(positionUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.details.location").value("Jordan"))
-                .andExpect(jsonPath("$.assessment.criteria.length()").value(3));
+                .andExpect(jsonPath("$.assessment.criteria.length()").value(4))
+                // Seeded lazily through the same catalog: a CEO answers to the board.
+                .andExpect(jsonPath("$.reporting.orgChart[1].title").value("Board of Directors"));
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
