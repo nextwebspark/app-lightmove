@@ -52,6 +52,17 @@ lightmove:
     rate-limit:
       enabled: false
 
+  feedback:
+    # Raised out of the way. The feedback limiter is deliberately independent of the auth one above, so
+    # switching that off does not unfence an anonymous write endpoint — which means it is still armed
+    # here, and a class filing a handful of reports would otherwise trip it. That the limiter limits is
+    # proven by the e2e matrix, where a real budget can be exhausted on purpose.
+    reports-per-hour: 1000
+    github:
+      # No credential, so reports are composed and logged rather than filed. Nothing in the suite
+      # reaches api.github.com.
+      token: ""
+
   company:
     list:
       # Small so the refusal path is reachable. At the production 200 a test would have to seed 201

@@ -237,6 +237,37 @@ lightmove:
       # truncated. Above CompanyListSettings.MAX_BULK_ADD_LIMIT the application refuses to start.
       bulk-add-limit: ${COMPANY_BULK_ADD_LIMIT:200}
 
+  # The in-app bug and feature reporter (UAT). Its endpoint is the only write a caller with no
+  # session may make, so every number here is a fence rather than an ergonomic preference.
+  feedback:
+    enabled: ${FEEDBACK_ENABLED:true}
+    # Off narrows the endpoint to signed-in users. On, because a tester who hits a bug on the login
+    # screen has no account to report it from, and those are the reports worth the most.
+    allow-anonymous: ${FEEDBACK_ALLOW_ANONYMOUS:true}
+    # Per hour, per IP and per reporter. Same in-memory-per-instance caveat as the auth limiter: the
+    # real ceiling is this x Cloud Run max-instances, and a cold start wipes the buckets.
+    reports-per-hour: ${FEEDBACK_REPORTS_PER_HOUR:10}
+    max-attachments: ${FEEDBACK_MAX_ATTACHMENTS:4}
+    # Must stay at or below spring.servlet.multipart.max-file-size, which refuses the part before it
+    # is ever buffered.
+    max-attachment-size-bytes: ${FEEDBACK_MAX_ATTACHMENT_BYTES:5242880}
+    github:
+      # Blank token or blank repository = reports are logged, not filed. That is the local default,
+      # so a fresh clone drives the whole widget without anyone issuing a token first.
+      #
+      # The token is a fine-grained PAT needing exactly two repository permissions:
+      #   Issues: Read and write   — to file the issue
+      #   Contents: Read and write — to commit screenshots to attachment-branch, because GitHub's
+      #                              REST API has no issue-attachment endpoint at all
+      repository: ${GITHUB_FEEDBACK_REPOSITORY:nextwebspark/app-lightmove}
+      token: ${GITHUB_FEEDBACK_TOKEN:}
+      # Created orphaned on first use, so it carries the screenshots and none of the code history.
+      # Nothing builds from it: ci.yml triggers on main and on pull requests only.
+      attachment-branch: ${GITHUB_FEEDBACK_ATTACHMENT_BRANCH:uat-attachments}
+      labels: ${GITHUB_FEEDBACK_LABELS:uat}
+      bug-label: ${GITHUB_FEEDBACK_BUG_LABEL:bug}
+      feature-request-label: ${GITHUB_FEEDBACK_FEATURE_LABEL:enhancement}
+
   position:
     document:
       # The position description attached to a brief. Stored in the row, so the bytes cross the same

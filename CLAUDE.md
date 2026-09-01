@@ -41,11 +41,18 @@ description, which is *stored and never read* — no extraction, no auto-fill. P
 called the brief ready and **freezes nothing** (V38 retired the lock deliberately). Don't build ahead of
 the mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
 
+Alongside all of it sits the **UAT bug reporter**, which is not part of the product: a widget on every
+screen — a tab at the right edge before you are in a workspace, a row in the nav rail once you are — that
+captures the page behind its form and files the report as a GitHub issue. `POST /api/v1/feedback` is the
+**only write in the application a caller with no session may make**, deliberately, because the bugs a
+tester cannot report are the ones on the screens they cannot get past. It stores nothing: no table, no
+migration, the issue is the record.
+
 ## Layout
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate`, `feedback` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
 | `ops/cloudsql/` | Database bootstrap and hardening scripts |
@@ -56,6 +63,11 @@ because the mandate keeps two of the fields the screen shows: the role title, wh
 the one target date (V8), which the screen only displays — it is set on the project and nowhere else. Nothing else depends on it, except `project`'s `ReportService`, which still reads the position
 repository directly for the report's salary band — a known reverse edge left standing rather than
 disguised as a seam, and the reason to lift the report into its own package.
+
+`feedback` is the odd one out and depends on `core` alone — no repository, no entity, no migration. It
+composes a report, hands it to an `IssueTracker` port (`GitHubIssueTracker`, or `LoggingIssueTracker`
+when no token is configured — the local default) and forgets it. Screenshots are committed to an orphan
+`uat-attachments` branch because GitHub's REST API has no issue-attachment endpoint at all.
 
 `strategy` and `triagecompany` split one story in two, in the order a consultant works: **`strategy`
 is the market side** — the saved filter, the saved searches, the reads over the Apollo universe, and

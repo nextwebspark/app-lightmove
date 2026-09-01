@@ -155,6 +155,9 @@ can also be set as an environment variable.
 | `MANAGEMENT_PORT` | Actuator's port. `9090` locally; **`8080`** on Cloud Run, which routes only one port into a container |
 | `FLYWAY_ENABLED` | `true` locally and in tests. **`false`** in the deployed service — migrations are a deploy step, not a boot step |
 | `DB_POOL_MAX` | Hikari pool size, **per instance**. `bright-gcc` is a `db-f1-micro` (~25 connections) and the `brightdata` ETL shares it |
+| `GITHUB_FEEDBACK_TOKEN` | Fine-grained PAT the in-app bug reporter files issues with. Unset (the default) means reports are logged, not filed |
+| `GITHUB_FEEDBACK_REPOSITORY` | Where those issues go. Defaults to `nextwebspark/app-lightmove` |
+| `FEEDBACK_ALLOW_ANONYMOUS` | `true` by default — a tester on the login screen has no session to report from. `false` narrows the endpoint to signed-in users |
 
 **Precedence.** An env var like `EMAIL_PROVIDER` only feeds a `${...}` placeholder in `application.yml`.
 If `application-local.yml` sets the property *literally*, the placeholder is never consulted and the env
@@ -178,6 +181,38 @@ unrecoverable — use `/auth/verify/resend`.
 hides the button, because a button leading to a 404 is worse than no button. To enable it, create an OAuth
 client with redirect URI `http://localhost:8080/login/oauth2/code/google` and put the id and secret in
 `application-local.yml`.
+
+**The in-app bug reporter** is the widget on every screen — a tab at the right edge before you are in a
+workspace, a *Report a bug* row at the bottom of the nav rail once you are. It captures the page behind
+the form, takes a description and any images you add, and files the lot as a GitHub issue.
+
+Nothing is stored on our side: there is no table and no migration, and the issue is the record. With no
+token configured the report is composed and written to the API log instead, which is the local default —
+the whole widget works on a fresh clone with nothing set up.
+
+To file for real, create a **fine-grained personal access token** scoped to the target repository with
+exactly two permissions, and set it as `GITHUB_FEEDBACK_TOKEN`:
+
+- **Issues: Read and write** — to file the issue.
+- **Contents: Read and write** — to store screenshots. GitHub's REST API has no issue-attachment
+  endpoint (the uploader the web UI drives is private), and a `data:` URI is stripped by its markdown
+  sanitiser, so an image needs a real URL first. Each one is committed to `uat-attachments`, a branch
+  created **orphaned** on first use so it carries the screenshots and none of the code history. Nothing
+  builds from it — `ci.yml` triggers on `main` and on pull requests only.
+
+Deployed, set the repository variable `GITHUB_FEEDBACK_ENABLED=true` and create the
+`lightmove-github-feedback-token` secret; `deploy.yml` mounts it only then, because `gcloud` rejects
+`--set-secrets` naming a secret that does not exist.
+
+> **The endpoint is anonymous, and the issues are public.** `POST /api/v1/feedback` is the only write in
+> the application a caller with no session may make — deliberately, because the bugs a tester cannot
+> report are the ones on the screens they cannot get past. It is fenced by a per-IP budget, an image-only
+> allowlist and two switches, but a rate limit is a speed bump, not a wall.
+>
+> `nextwebspark/app-lightmove` is a **public** repository, so every report and every screenshot filed
+> into it is world-readable. During UAT against seeded data that is fine. Before testers touch real
+> candidate records, point `GITHUB_FEEDBACK_REPOSITORY` at a private repository — the screenshot is of
+> whatever was on screen, and this product's screens are full of executive PII.
 
 **Actuator** listens on its own port, bound to loopback; on the app port everything past `health` and
 `info` is denied. It used to sit on :8080 behind `hasRole("ADMIN")` — which is the *tenant* role every

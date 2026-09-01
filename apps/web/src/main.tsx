@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import { AppRoutes } from "./app/routes";
 import { ToastProvider } from "./components/ui";
 import { AuthProvider } from "./features/auth/AuthProvider";
+import { FeedbackProvider } from "./features/feedback/FeedbackProvider";
 import { applyStoredTheme } from "./features/theme/useTheme";
 import "./styles/global.css";
 
@@ -30,7 +31,11 @@ createRoot(document.getElementById("root")!).render(
         {/* Inside the router, because AuthProvider's children navigate. */}
         <AuthProvider>
           <ToastProvider>
-            <AppRoutes />
+            {/* Above the router because the reporter has to work on every screen, signed in or not —
+                the pre-login ones most of all. It reads the session, so it sits inside AuthProvider. */}
+            <FeedbackProvider>
+              <AppRoutes />
+            </FeedbackProvider>
           </ToastProvider>
         </AuthProvider>
       </BrowserRouter>

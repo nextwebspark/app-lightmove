@@ -13,7 +13,8 @@ package app.lightmove.api.core.audit.constant;
  * {@code core} cannot depend on a feature — the same reason the RBAC role enums live in {@code core}.
  */
 public sealed interface AuditEventType
-        permits AuthEventType, WorkspaceEventType, ProjectEventType, SecurityEventType {
+        permits AuthEventType, WorkspaceEventType, ProjectEventType, SecurityEventType,
+                FeedbackEventType {
 
     /** The stored value — {@code Enum.name()}, persisted verbatim to {@code app_lm_audit_event}. */
     String code();

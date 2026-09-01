@@ -251,6 +251,15 @@ public class SecurityConfig {
                         // OAuth sign-in. Spring owns these paths, one pair per configured registration id.
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
 
+                        // Anonymous, and the only *write* in the application that is: the in-app bug
+                        // reporter. A tester who hits a bug on the login screen has no session to
+                        // report it from, and refusing them means the worst bugs are the ones nobody
+                        // can tell us about. POST-only, so it is not reachable as a navigation, and
+                        // FeedbackService holds the fences — an on/off switch, an anonymity switch,
+                        // and a per-IP budget. A caller who *does* hold a token is still identified:
+                        // permitAll skips the check, it does not discard the authentication.
+                        .requestMatchers(HttpMethod.POST, API + "/feedback").permitAll()
+
                         // Anonymous: the person clicking an invitation link out of their inbox has no
                         // account yet, and must still be shown what they are being offered. The 256-bit
                         // token in the URL is the credential, and it was mailed to the address the
