@@ -81,7 +81,7 @@ public class ProjectImportController {
     public ResponseEntity<ImportPreviewResponse> preview(@AuthenticationPrincipal AuthPrincipal principal,
                                                          @PathVariable UUID projectId,
                                                          @RequestParam("file") MultipartFile file) {
-        llmBudget.checkColumnMapping(principal.userId());
+        llmBudget.requireColumnMappingBudget(principal.userId());
         return ResponseEntity.ok(imports.preview(principal.requireWorkspaceId(), projectId, file));
     }
 

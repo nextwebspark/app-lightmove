@@ -2,8 +2,9 @@ package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.llm.model.LlmPromptSpec;
-import app.lightmove.api.core.llm.service.LlmGuards;
+import app.lightmove.api.core.llm.model.BlockedAnswer;
+import app.lightmove.api.core.llm.model.PromptGuardSpec;
+import app.lightmove.api.core.llm.service.LlmCallPolicy;
 import java.util.function.Consumer;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,9 +18,8 @@ import org.springframework.stereotype.Service;
  * a different prompt. Stateless — the caller supplies both texts, nothing is read from or written
  * to the database.
  *
- * <p>Both texts are free text a person wrote, which is a far larger surface than the import's headers,
- * so this call is guarded through {@link LlmGuards} like every other. It answers in prose, so there is
- * no schema to hold it to — the guard is the whole of it.
+ * <p>Both texts are free text a person wrote, so this call is guarded through {@link LlmCallPolicy}
+ * like every other. It answers in prose, so there is no schema to hold it to — the guard is all of it.
  */
 @Service
 public class CandidateShortlistService {
@@ -29,22 +29,22 @@ public class CandidateShortlistService {
 
     private final ChatClient chatClient;
     private final Resource systemPrompt;
-    private final Consumer<ChatClient.AdvisorSpec> guarded;
+    private final Consumer<ChatClient.AdvisorSpec> guardedAdvisors;
 
     // Hand-written rather than @RequiredArgsConstructor: Lombok cannot annotate a constructor
     // parameter with @Value, and the resource has to be loaded here rather than in ChatClientConfig
     // so that bean stays generic.
     public CandidateShortlistService(ChatClient chatClient,
                                      @Value("classpath:prompts/recruiter-shortlist-system.st") Resource systemPrompt,
-                                     LlmGuards guards) {
+                                     LlmCallPolicy llmCalls) {
         this.chatClient = chatClient;
         this.systemPrompt = systemPrompt;
-        this.guarded = guards.on(LlmPromptSpec.of(PROMPT_ID));
+        this.guardedAdvisors = llmCalls.forPrompt(PromptGuardSpec.prose(PROMPT_ID));
     }
 
     public String shortlist(String jobBrief, String candidateProfile) {
-        String answer = chatClient.prompt()
-                .advisors(guarded)
+        String verdict = chatClient.prompt()
+                .advisors(guardedAdvisors)
                 .system(systemPrompt)
                 .user(user -> user.text("""
                         Job brief:
@@ -60,10 +60,10 @@ public class CandidateShortlistService {
 
         // The guard answers in place of the model, so without this the caller would read a canned
         // refusal as an assessment of the candidate — the one outcome worse than no assessment.
-        if (LlmPromptSpec.wasBlocked(answer)) {
+        if (BlockedAnswer.matches(verdict)) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                     "That brief or profile reads like an instruction to the assistant. Reword it and try again.");
         }
-        return answer;
+        return verdict;
     }
 }

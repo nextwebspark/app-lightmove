@@ -21,19 +21,19 @@ a spec, rather than assembled by hand at each call site.
 
 ## What was built
 
-### `LlmGuards` — the advisors every call gets
+### `LlmCallPolicy` — the advisors every call gets
 
 One method, `on(spec)`, returning the advisors and the log attribution as `.advisors(...)` takes them:
 
 ```java
-this.guarded = guards.on(LlmPromptSpec.of(PROMPT_ID));   // in the constructor
-chatClient.prompt().advisors(guarded).system(prompt).call().content();
+this.guardedAdvisors = llmCalls.forPrompt(PromptGuardSpec.prose(PROMPT_ID));   // in the constructor
+chatClient.prompt().advisors(guardedAdvisors).system(prompt).call().content();
 ```
 
 - **`SafeGuardAdvisor`** refuses text that reads like an instruction before the call is made. The
   phrases are configuration (`lightmove.llm.injection-phrases`), not constants in whichever service
   needed them first, and a prompt with dangerous vocabulary of its own **adds** to the baseline through
-  `spec.refusing(...)` rather than replacing it.
+  `spec.alsoRefusing(...)` rather than replacing it.
 - **`StructuredOutputValidationAdvisor`**, only when the spec carries a schema. It validates the reply
   and re-prompts with the validation error attached, `lightmove.llm.answer-repair-attempts` times
   (default 1 — its own default of 3 means four paid calls). A prompt that answers in prose supplies no
@@ -53,8 +53,8 @@ Tempting, because it would make the guard impossible to forget. It does not work
 place of* the model, so its canned answer has to bind to whatever **that** call expects back, and one
 default cannot serve both a prose reply and a typed record.
 
-So the safety net is in the spec instead. `LlmPromptSpec` refuses, at construction, any blocked answer
-that does not carry `BLOCKED_MARKER`, and requires a structured prompt to name its own. Without that
+So the safety net is in the spec instead. `PromptGuardSpec` refuses, at construction, any blocked
+answer that does not carry `BlockedAnswer.MARKER`, and requires a structured prompt to name its own. Without that
 marker a canned refusal reads as the model's own verdict — which on the shortlist prompt would be an
 assessment of a candidate that nobody made. That call now throws rather than returning one.
 
@@ -74,7 +74,7 @@ assessment of a candidate that nobody made. That call now throws rather than ret
 
 ### What every call logs
 
-`SimpleLoggerAdvisor`'s formatters are replaced in `ChatClientConfig`, because the defaults dump prompt
+`SimpleLoggerAdvisor`'s formatters live in `ChatCallLog`, because the defaults dump prompt
 and response in full and both are client and candidate PII. What is logged is metadata:
 
 ```
@@ -103,7 +103,7 @@ deterministic matcher.
 
 ## Verification
 
-- `LlmGuardsTest` — the configured phrases guard a prompt that named none of its own; extra phrases add
+- `LlmCallPolicyTest` — the configured phrases guard a prompt that named none of its own; extra phrases add
   to the baseline rather than replacing it; a prose prompt gets no validator; a document prompt re-asks
   an answer that does not fit; a spec whose blocked answer could not be recognised is refused where it
   is written.

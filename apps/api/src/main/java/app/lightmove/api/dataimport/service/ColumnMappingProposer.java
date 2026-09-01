@@ -2,8 +2,9 @@ package app.lightmove.api.dataimport.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.SpreadsheetImportSettings;
-import app.lightmove.api.core.llm.model.LlmPromptSpec;
-import app.lightmove.api.core.llm.service.LlmGuards;
+import app.lightmove.api.core.llm.model.BlockedAnswer;
+import app.lightmove.api.core.llm.model.PromptGuardSpec;
+import app.lightmove.api.core.llm.service.LlmCallPolicy;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.constant.CustomColumnType;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
@@ -91,12 +92,12 @@ public class ColumnMappingProposer {
      * shaped as a document that binds, carrying the shared marker as a header no sheet has.
      */
     private static final String BLOCKED =
-            "{\"columns\":[{\"header\":\"" + LlmPromptSpec.BLOCKED_MARKER + "\"}]}";
+            "{\"columns\":[{\"header\":\"" + BlockedAnswer.MARKER + "\"}]}";
 
     private final ChatClient chatClient;
     private final HeuristicColumnMatcher heuristics;
     private final Resource systemPrompt;
-    private final Consumer<ChatClient.AdvisorSpec> guarded;
+    private final Consumer<ChatClient.AdvisorSpec> guardedAdvisors;
     private final SpreadsheetImportSettings settings;
 
     // Hand-written rather than @RequiredArgsConstructor: Lombok cannot annotate a constructor
@@ -105,12 +106,13 @@ public class ColumnMappingProposer {
                                  HeuristicColumnMatcher heuristics,
                                  @Value("classpath:prompts/import-column-mapping-system.st") Resource systemPrompt,
                                  @Value("classpath:prompts/import-column-mapping-schema.json") Resource answerSchema,
-                                 LlmGuards guards,
+                                 LlmCallPolicy llmCalls,
                                  LightMoveProperties properties) {
         this.chatClient = chatClient;
         this.heuristics = heuristics;
         this.systemPrompt = systemPrompt;
-        this.guarded = guards.on(LlmPromptSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
+        this.guardedAdvisors = llmCalls.forPrompt(
+                PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
         this.settings = properties.spreadsheetImport();
     }
 
@@ -130,7 +132,7 @@ public class ColumnMappingProposer {
             if (answered == null) {
                 return new ProposedColumnMappings(fallback, MappingSource.HEADER_MATCHER);
             }
-            if (wasBlocked(answered)) {
+            if (isBlockedAnswer(answered)) {
                 // A header carrying something that reads like an instruction. Worth a line of its own:
                 // the mapping degrades exactly as it does for an outage, and the two are not the same
                 // event to whoever is reading the log.
@@ -153,7 +155,7 @@ public class ColumnMappingProposer {
 
     private ProposedMapping ask(ParsedSheet sheet, List<CustomColumnDto> existingColumns) {
         return chatClient.prompt()
-                .advisors(guarded)
+                .advisors(guardedAdvisors)
                 // Per call, not on the shared bean: its other caller is the shortlist prompt, and 0.8
                 // is a reasonable temperature there. Mapping has one right answer.
                 .options(ChatOptions.builder().temperature(MAPPING_TEMPERATURE))
@@ -175,11 +177,12 @@ public class ColumnMappingProposer {
                 .entity(ProposedMapping.class);
     }
 
-    private static boolean wasBlocked(ProposedMapping answered) {
+    /** Whether the guard answered in place of the model — see {@link #BLOCKED}. */
+    private static boolean isBlockedAnswer(ProposedMapping answered) {
         return answered.columns() != null
                 && answered.columns().size() == 1
                 && answered.columns().getFirst() != null
-                && LlmPromptSpec.wasBlocked(answered.columns().getFirst().header());
+                && BlockedAnswer.matches(answered.columns().getFirst().header());
     }
 
     private String describeColumns(ParsedSheet sheet) {

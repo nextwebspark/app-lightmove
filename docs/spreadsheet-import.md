@@ -129,16 +129,16 @@ column. Behind that:
 There is no fallback chat client, degraded-response advisor or circuit breaker in Spring AI 2.0.1.
 The catch-and-degrade above is the substitute, and it is deliberate rather than a gap.
 
-**None of that policy lives here.** It is `core/llm`'s `LlmGuards`, applied from an `LlmPromptSpec`,
+**None of that policy lives here.** It is `core/llm`'s `LlmCallPolicy`, applied from a `PromptGuardSpec`,
 because none of it is a property of the mapping prompt. The two callers had opposite halves of it: the
 import had a guard and a validator, while the shortlist prompt had neither and takes a job brief and a
 candidate profile as *free text* — a far larger injection surface than a spreadsheet header. Now both
 go through the same line, and a call that answers in prose simply supplies no schema.
 
 The one thing that cannot be shared is what a block answers *with*: the guard replies in place of the
-model, so the answer has to bind to whatever that call expects back. `LlmPromptSpec` therefore requires
+model, so the answer has to bind to whatever that call expects back. `PromptGuardSpec` therefore requires
 a structured prompt to name its own, and refuses any blocked answer that does not carry
-`BLOCKED_MARKER` — without which a canned refusal is passed off as the model's verdict, which on the
+`BlockedAnswer.MARKER` — without which a canned refusal is passed off as the model's verdict, which on the
 shortlist prompt would be an assessment nobody made.
 
 ### Prompt injection

@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
  * budget because it guards the pre-auth flows where neither identifies a caller on its own. Here the
  * caller is already authenticated, so there is exactly one honest key. That difference is why this is
  * a separate component rather than more methods on that one: the two answer different questions and
- * record different things — a exhausted login budget is a security event worth an audit row, an
+ * record different things — an exhausted login budget is a security event worth an audit row, an
  * exhausted model budget is a cost control.
  */
 @Component
@@ -35,31 +35,50 @@ public class LlmBudgetGuard {
         this.settings = properties.llm().rateLimit();
     }
 
-    public void checkShortlist(UUID userId) {
-        check("shortlist", userId, settings.shortlistRequestsPerMinute());
-    }
-
-    public void checkEmbed(UUID userId) {
-        check("embed", userId, settings.embedRequestsPerMinute());
+    /**
+     * Spends one of this user's shortlist calls for the current minute.
+     *
+     * @throws ApiException RATE_LIMITED when they have none left
+     */
+    public void requireShortlistBudget(UUID userId) {
+        requireBudget("shortlist", userId, settings.shortlistRequestsPerMinute());
     }
 
     /**
-     * The column-mapping call behind an import preview. Budgeted with the shortlist call rather than
-     * given a number of its own: both are one deliberate click by a person, and a second knob would be
-     * a second thing to get wrong for no behaviour anybody wanted.
+     * Spends one of this user's embedding calls for the current minute.
+     *
+     * @throws ApiException RATE_LIMITED when they have none left
      */
-    public void checkColumnMapping(UUID userId) {
-        check("import-mapping", userId, settings.shortlistRequestsPerMinute());
+    public void requireEmbeddingBudget(UUID userId) {
+        requireBudget("embed", userId, settings.embedRequestsPerMinute());
     }
 
+    /**
+     * Spends one of this user's column-mapping calls for the current minute.
+     *
+     * <p>Counted against the shortlist meter rather than one of its own: both are a single deliberate
+     * click by a person, and a second knob would be a second thing to get wrong for no behaviour
+     * anybody wanted.
+     *
+     * @throws ApiException RATE_LIMITED when they have none left
+     */
+    public void requireColumnMappingBudget(UUID userId) {
+        requireBudget("import-mapping", userId, settings.shortlistRequestsPerMinute());
+    }
 
-    private void check(String action, UUID userId, int limit) {
+    /**
+     * Spends one call from a per-user, per-minute budget, or refuses the request.
+     *
+     * @param budgetName the meter this call is counted against, not the endpoint that made it — two
+     *                   endpoints sharing a name deliberately share a budget
+     */
+    private void requireBudget(String budgetName, UUID userId, int callsPerMinute) {
         if (!settings.enabled()) {
             return;
         }
-        boolean withinBudget = limiter.tryAcquire(
-                "llm-%s:user:%s".formatted(action, userId), limit, Duration.ofMinutes(1));
-        if (!withinBudget) {
+        boolean isWithinBudget = limiter.tryAcquire(
+                "llm-%s:user:%s".formatted(budgetName, userId), callsPerMinute, Duration.ofMinutes(1));
+        if (!isWithinBudget) {
             throw ApiException.of(ErrorCode.RATE_LIMITED);
         }
     }
