@@ -10,6 +10,7 @@ public record AuthSettings(
         CookieSettings cookie,
         LockoutSettings lockout,
         RateLimitSettings rateLimit,
+        ExtensionSettings extension,
 
         /** How long an access token is usable. Short by design — revocation is via the refresh token. */
         @DefaultValue("15m") Duration accessTokenTtl,
@@ -52,8 +53,12 @@ public record AuthSettings(
         OAuthQuirkSettings oauth
 ) {
 
-    /** Absent from yml is the normal case: no provider needs a quirk until one does. */
+    /**
+     * Both branches are absent from yml in the normal case: no provider needs a quirk until one does,
+     * and the extension's defaults are the intended values rather than a placeholder.
+     */
     public AuthSettings {
         oauth = oauth == null ? new OAuthQuirkSettings(List.of(), List.of(), List.of()) : oauth;
+        extension = extension == null ? ExtensionSettings.defaults() : extension;
     }
 }

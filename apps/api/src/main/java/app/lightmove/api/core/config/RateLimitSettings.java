@@ -9,5 +9,9 @@ public record RateLimitSettings(
         @DefaultValue("5") int signupAttemptsPerHour,
         @DefaultValue("3") int verificationResendsPerHour,
         @DefaultValue("3") int passwordResetRequestsPerHour,
-        @DefaultValue("10") int passwordChangeAttemptsPerHour
+        @DefaultValue("10") int passwordChangeAttemptsPerHour,
+
+        /** Pairing the extension: rare and deliberate per account, but a whole firm shares one office IP. */
+        @DefaultValue("5") int extensionPairingsPerHour,
+        @DefaultValue("60") int extensionPairingsPerHourPerIp
 ) {}

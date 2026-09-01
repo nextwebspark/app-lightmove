@@ -1,0 +1,52 @@
+<!--
+  A LinkedIn member profile as a signed-in consultant sees it, reduced to the structure the extractor
+  reads — including the visually-hidden twin of every string, which is why the experience reader
+  de-duplicates lines rather than taking textContent off the row.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="canonical" href="https://www.linkedin.com/in/amira-haddad/" />
+    <meta property="og:url" content="https://www.linkedin.com/in/amira-haddad/" />
+  </head>
+  <body>
+    <main>
+      <section class="artdeco-card">
+        <div class="ph5 pb5">
+          <h1 class="text-heading-xlarge inline">Amira Haddad</h1>
+          <div class="text-body-medium break-words">Group Chief Financial Officer at Al Rawabi Dairy</div>
+          <span class="text-body-small inline t-black--light break-words">Dubai, United Arab Emirates</span>
+        </div>
+      </section>
+
+      <section class="artdeco-card">
+        <div id="experience"></div>
+        <h2 class="pvs-header__title">Experience</h2>
+        <ul>
+          <li class="artdeco-list__item">
+            <div class="display-flex">
+              <span aria-hidden="true">Group Chief Financial Officer</span>
+              <span class="visually-hidden">Group Chief Financial Officer</span>
+              <span aria-hidden="true">Al Rawabi Dairy</span>
+              <span aria-hidden="true">Mar 2021 - Present · 4 yrs 5 mos</span>
+            </div>
+          </li>
+          <li class="artdeco-list__item">
+            <div class="display-flex">
+              <span aria-hidden="true">Finance Director</span>
+              <span aria-hidden="true">Agthia Group</span>
+              <span aria-hidden="true">2016 - 2021 · 5 yrs</span>
+            </div>
+          </li>
+          <li class="artdeco-list__item">
+            <div class="display-flex">
+              <span aria-hidden="true">Head of FP&amp;A</span>
+              <span aria-hidden="true">Almarai</span>
+              <span aria-hidden="true">2012 - 2016 · 4 yrs</span>
+            </div>
+          </li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>

@@ -82,6 +82,9 @@ export function useComboboxList({
           event.preventDefault();
           commit(active);
         } else if (event.key === "Escape") {
+          // Consumed while the list is open: inside a modal, Escape must close the innermost
+          // surface first, not the dialog around it.
+          if (open) event.stopPropagation();
           setOpen(false);
         }
       },

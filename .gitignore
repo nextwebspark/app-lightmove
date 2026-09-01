@@ -31,6 +31,8 @@ target/
 node_modules/
 dist/
 dist-ssr/
+# The packaged extension archive, built on demand by apps/extension's build:release.
+release/
 *.local
 .vite/
 coverage/
