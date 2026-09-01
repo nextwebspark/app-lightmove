@@ -8,7 +8,7 @@ import { AuthProvider } from "../../auth/AuthProvider";
 import * as authApi from "../../auth/api/authApi";
 import type { Project } from "../../projects/api/types";
 import * as positionApi from "../api/positionApi";
-import type { Position } from "../api/types";
+import type { Position, PositionTemplate } from "../api/types";
 import { PositionPage } from "./PositionPage";
 
 vi.mock("../../auth/api/authApi");
@@ -24,6 +24,8 @@ vi.mock("../api/positionApi", async (importOriginal) => ({
   putCompetencies: vi.fn(),
   publish: vi.fn(),
   withdrawPublication: vi.fn(),
+  listTemplates: vi.fn(),
+  applyTemplate: vi.fn(),
 }));
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
@@ -125,6 +127,52 @@ const seeded: Position = {
   document: null,
 };
 
+const catalog: PositionTemplate[] = [
+  {
+    id: "t-cfo",
+    code: "chief-financial-officer",
+    title: "Chief Financial Officer",
+    discipline: "FINANCE",
+    seniority: "C_SUITE",
+    summary: "Group finance, the capital structure and the shareholder relationship.",
+    shared: true,
+  },
+  {
+    id: "t-cco",
+    code: "chief-compliance-officer",
+    title: "Chief Compliance Officer",
+    discipline: "GOVERNANCE",
+    seniority: "C_SUITE",
+    summary: "The compliance programme and the regulatory relationship.",
+    shared: true,
+  },
+  {
+    id: "t-hoc",
+    code: "head-of-compliance",
+    title: "Head of Compliance",
+    discipline: "GOVERNANCE",
+    seniority: "N_MINUS_1",
+    summary: "Day-to-day compliance, monitoring and the regulatory submissions.",
+    shared: true,
+  },
+];
+
+/** What the compliance template redraws the brief into. */
+const redrafted: Position = {
+  ...seeded,
+  details: {
+    ...seeded.details,
+    roleTitle: "Chief Financial Officer",
+    department: "Compliance",
+    responsibilities: ["Group compliance framework and policy"],
+  },
+  assessment: {
+    criteria: [{ text: "Led compliance for a regulated entity", mode: "REQUIRED", fromBrief: true }],
+    technical: [{ name: "Regulatory Framework & Licensing", description: null, weight: 100 }],
+    behavioural: [{ name: "Independence & Objectivity", description: null, weight: 100 }],
+  },
+};
+
 /** Where the wizard navigated to, for the step that leaves the screen entirely. */
 function Whereabouts() {
   return <span data-testid="location">{useLocation().pathname}</span>;
@@ -160,6 +208,7 @@ describe("PositionPage", () => {
     vi.mocked(restoreSession).mockResolvedValue(null);
     vi.mocked(authApi.me).mockResolvedValue(user);
     vi.mocked(positionApi.getPosition).mockResolvedValue(seeded);
+    vi.mocked(positionApi.listTemplates).mockResolvedValue(catalog);
   });
 
   it("opens on step one and reads the brief back in the summary rail", async () => {
@@ -387,5 +436,69 @@ describe("PositionPage", () => {
 
     expect(await screen.findByText("CFO Position Description.pdf")).toBeInTheDocument();
     expect(screen.queryByText(/auto-fill/i)).not.toBeInTheDocument();
+  });
+
+  it("suggests role templates, and lets a title nothing matches be typed anyway", async () => {
+    renderPage();
+    const user = userEvent.setup();
+
+    const title = await screen.findByRole("combobox", { name: /Role title/ });
+    await user.clear(title);
+    await user.type(title, "complian");
+
+    const options = within(screen.getByRole("listbox")).getAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual([
+      expect.stringContaining("Chief Compliance Officer"),
+      expect.stringContaining("Head of Compliance"),
+    ]);
+
+    // Enter on a typed title commits nothing: the field is the value, and the list is an offer.
+    await user.type(title, "{Enter}");
+    expect(positionApi.applyTemplate).not.toHaveBeenCalled();
+    expect(title).toHaveValue("complian");
+  });
+
+  it("drafts the brief from a picked template, and takes its title", async () => {
+    vi.mocked(positionApi.applyTemplate).mockResolvedValue(redrafted);
+    vi.mocked(positionApi.putDetails).mockResolvedValue(redrafted);
+    renderPage();
+    const user = userEvent.setup();
+
+    const title = await screen.findByRole("combobox", { name: /Role title/ });
+    await user.clear(title);
+    await user.type(title, "Chief Compliance");
+    await user.click(within(screen.getByRole("listbox")).getByRole("option", { name: /Chief Compliance Officer/ }));
+
+    await waitFor(() =>
+      expect(positionApi.applyTemplate).toHaveBeenCalledWith("p1", "t-cco"),
+    );
+    // The title is the type-ahead's to write, through the ordinary details save — the template
+    // itself never renames the mandate.
+    await waitFor(() =>
+      expect(positionApi.putDetails).toHaveBeenCalledWith(
+        "p1",
+        expect.objectContaining({ roleTitle: "Chief Compliance Officer", department: "Compliance" }),
+      ),
+    );
+
+    // Every step reseats from the redraft, not just the one in view: step five is the proof, because
+    // its own autosave would otherwise put the old panels back over the new brief.
+    const rail = screen.getByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Assessment criteria/ }));
+    expect(await screen.findByDisplayValue("Regulatory Framework & Licensing")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("Treasury")).not.toBeInTheDocument();
+  });
+
+  it("keeps the title typeable when the catalog cannot be read", async () => {
+    vi.mocked(positionApi.listTemplates).mockRejectedValue(new Error("nope"));
+    renderPage();
+    const user = userEvent.setup();
+
+    const title = await screen.findByRole("combobox", { name: /Role title/ });
+    await user.clear(title);
+    await user.type(title, "Group CFO – Energy Division");
+
+    expect(title).toHaveValue("Group CFO – Energy Division");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
 });

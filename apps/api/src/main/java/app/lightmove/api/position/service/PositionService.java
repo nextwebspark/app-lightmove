@@ -22,6 +22,7 @@ import app.lightmove.api.position.model.PositionCriterion;
 import app.lightmove.api.position.model.PositionDetails;
 import app.lightmove.api.position.model.PositionOrgNode;
 import app.lightmove.api.position.model.PositionPriority;
+import app.lightmove.api.position.model.PositionTemplate;
 import app.lightmove.api.position.model.ReportingStructure;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -54,6 +55,7 @@ public class PositionService {
 
     private final PositionBriefLoader briefs;
     private final PositionResponseAssembler assembler;
+    private final PositionTemplateService templates;
     private final AuditService audit;
 
     @Transactional
@@ -169,13 +171,36 @@ public class PositionService {
     }
 
     /**
-     * Drafts the brief for a mandate that has just been created, from the template matched on its role
-     * title. Takes primitives rather than the {@code Project} it belongs to: the mandate is
-     * {@code project}'s to own, and a brief only needs three facts about it.
+     * Re-drafts the brief from a role template the consultant picked.
+     *
+     * <p>A write like any other step, and gated the same way — the picker is part of the wizard, not a
+     * privileged act. What it replaces and what it leaves alone is {@link PositionTemplateApplier}'s
+     * contract; the short version is that the template writes what a template can know, and anything a
+     * person typed for this mandate survives it.
      */
     @Transactional
-    public Position seedFor(UUID projectId, String positionTitle, String location) {
-        return briefs.draft(projectId, positionTitle, location);
+    public PositionResponse applyTemplate(UUID userId, UUID workspaceId, UUID projectId,
+                                          UUID templateId, HttpServletRequest httpRequest) {
+        PositionBrief brief = briefs.require(workspaceId, projectId);
+        PositionTemplate template = templates.require(workspaceId, templateId);
+        PositionTemplateApplier.applyTo(brief.position(), template);
+
+        audit.event(ProjectEventType.POSITION_TEMPLATE_APPLIED)
+                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                .detail("template", template.getCode())
+                .record();
+        return assembler.assemble(brief);
+    }
+
+    /**
+     * Drafts the brief for a mandate that has just been created, from the template matched on its role
+     * title. Takes primitives rather than the {@code Project} it belongs to: the mandate is
+     * {@code project}'s to own, and a brief only needs four facts about it — the workspace among them,
+     * because a firm's own templates are part of the catalog its mandates are drafted from.
+     */
+    @Transactional
+    public Position seedFor(UUID workspaceId, UUID projectId, String positionTitle, String location) {
+        return briefs.draft(workspaceId, projectId, positionTitle, location);
     }
 
     private PositionResponse saved(PositionBrief brief, UUID userId, UUID workspaceId, UUID projectId,

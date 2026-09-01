@@ -77,6 +77,30 @@ export interface PositionDetails {
   narrative: string | null;
 }
 
+export type PositionDiscipline =
+  | "EXECUTIVE"
+  | "FINANCE"
+  | "OPERATIONS"
+  | "TECHNOLOGY"
+  | "PEOPLE"
+  | "COMMERCIAL"
+  | "GOVERNANCE"
+  | "INVESTMENT";
+
+/**
+ * One option in the role-title type-ahead: a template the brief can be drafted from. `shared` is the
+ * LightMove library; the rest are the workspace's own and lead the list.
+ */
+export interface PositionTemplate {
+  id: string;
+  code: string;
+  title: string;
+  discipline: PositionDiscipline;
+  seniority: PositionSeniority;
+  summary: string | null;
+  shared: boolean;
+}
+
 /**
  * One strategic priority chip: a name somebody wrote, and whether the mandate is aligned to it. An
  * unselected chip is part of the palette rather than a choice — kept until somebody deletes it.
