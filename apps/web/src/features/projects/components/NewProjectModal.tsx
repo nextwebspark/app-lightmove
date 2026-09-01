@@ -1,15 +1,18 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button, DateInput, Field, FormError, Input, Modal, Select, useToast } from "../../../components/ui";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import * as clientsApi from "../../clients/api/clientsApi";
 import type { Client } from "../../clients/api/types";
+import * as positionApi from "../../position/api/positionApi";
+import { RoleTitleCombobox } from "../../position/components/RoleTitleCombobox";
 import * as projectsApi from "../api/projectsApi";
 
 const NEW_CLIENT = "__new__";
 
 /**
- * The New-project modal: client (pick or create inline), position, target date. There is no lead to
+ * The New-project modal: client (pick or create inline), position (typed free, or picked from the
+ * role-template library — the same combobox as the brief's step one), target date. There is no lead to
  * choose — whoever creates the mandate is seated as its admin (and lead) by the server, and delegates
  * from the project drawer afterwards. A 409 on the inline client quietly resolves to the existing
  * record — the user meant that client.
@@ -41,6 +44,14 @@ export function NewProjectModal({
   const [positionTitle, setPositionTitle] = useState("");
   const [targetDate, setTargetDate] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // The picker's options, sharing the Position page's cache. A failed read leaves the field a plain
+  // typeable input — the same degradation as there.
+  const { data: templates = [] } = useQuery({
+    queryKey: positionApi.POSITION_TEMPLATES_KEY,
+    queryFn: ({ signal }) => positionApi.listTemplates(signal),
+    staleTime: 5 * 60 * 1000,
+  });
 
   // Derived from the prop on every render, never seeded into state: a mount-time seed goes stale the
   // moment this modal is rendered always-mounted with `open` toggled, and would then aim the mandate
@@ -139,11 +150,15 @@ export function NewProjectModal({
         </Field>
       )}
 
+      {/* Picking a template only fills the title: creation seeds the brief from the title on the
+          server, through the same keyword match a typed one gets, so no id travels with the form. */}
       <Field label="Position">
-        <Input
+        <RoleTitleCombobox
           value={positionTitle}
-          onChange={(event) => setPositionTitle(event.target.value)}
-          placeholder="e.g. Chief Financial Officer"
+          templates={templates}
+          busy={false}
+          onChange={setPositionTitle}
+          onPick={(template) => setPositionTitle(template.title)}
         />
       </Field>
 
