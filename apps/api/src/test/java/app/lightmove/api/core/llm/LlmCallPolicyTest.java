@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.lightmove.api.TestLlmCallPolicy;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
 import app.lightmove.api.core.llm.model.PromptGuardSpec;
 import java.util.List;
@@ -127,6 +128,32 @@ class LlmCallPolicyTest {
     void requiresABindableBlockedAnswer() {
         assertThatThrownBy(() -> PromptGuardSpec.structured("x", SCHEMA, null))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("a blocked answer is refused rather than returned as the model's own")
+    void refusesABlockedAnswer() {
+        // The failure this exists to stop: a canned refusal read as a real assessment.
+        assertThatThrownBy(() -> TestLlmCallPolicy.asShipped()
+                .requireModelAnswer("some-future-feature", "sorry " + BlockedAnswer.MARKER))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("reads like an instruction");
+    }
+
+    @Test
+    @DisplayName("a null or empty answer is refused too, since content() is nullable")
+    void refusesAnEmptyAnswer() {
+        assertThatThrownBy(() -> TestLlmCallPolicy.asShipped().requireModelAnswer("f", null))
+                .isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> TestLlmCallPolicy.asShipped().requireModelAnswer("f", "  "))
+                .isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    @DisplayName("a real answer passes through untouched")
+    void passesARealAnswerThrough() {
+        assertThat(TestLlmCallPolicy.asShipped().requireModelAnswer("f", "SHORTLIST — strong match."))
+                .isEqualTo("SHORTLIST — strong match.");
     }
 
     private static final class CountingChatModel implements ChatModel {

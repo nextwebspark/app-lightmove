@@ -103,21 +103,6 @@ spring:
       enabled: true           # Java 21 virtual threads: auth endpoints are IO-bound (DB, DNS, email).
 
   ai:
-    # spring-ai-autoconfigure-retry is on the classpath (transitive via the GenAI starter) and is
-    # gated only by @ConditionalOnClass, so its RetryTemplate is ALREADY active and
-    # GoogleGenAiChatModel already takes it. Its default is ten attempts, which — with a call that had
-    # no timeout — is how one unreachable Vertex became a very long wait on a spinner. These are the
-    # provider's own knobs, set rather than left at defaults nobody chose.
-    retry:
-      max-attempts: ${LLM_RETRY_MAX_ATTEMPTS:2}          # one retry, not nine
-      backoff:
-        initial-interval: 500ms
-        multiplier: 2
-        max-interval: 3s
-      # Permanent for this request: no credentials, a refused project, a bad request, an exhausted
-      # quota. Retrying them only delays the fallback the caller was always going to get.
-      exclude-on-http-codes: [400, 401, 403, 404, 429]
-
     google:
       genai:
         # Vertex AI mode: authenticates via Application Default Credentials, the same
@@ -199,9 +184,10 @@ lightmove:
     # How many times an answer that does not fit its schema is put back to the model. One, matching
     # spring.ai.retry above: a model answering out of shape twice will not manage it on a third try.
     answer-repair-attempts: ${LLM_ANSWER_REPAIR_ATTEMPTS:1}
-    # Refused before the call is made, on every prompt. Deliberately short: each is also something
-    # somebody could one day write in a job brief or a spreadsheet header, and blocking real work is
-    # its own failure. Defaults live on LlmSettings; set this only to override the whole list.
+    # Refused before the call is made, on every prompt. The defaults live on LlmSettings; setting this
+    # replaces the whole list rather than adding to it.
+    # injection-phrases:
+    #   - ignore previous instructions
     rate-limit:
       enabled: ${LLM_RATE_LIMIT_ENABLED:true}
       shortlist-requests-per-minute: ${LLM_SHORTLIST_REQUESTS_PER_MINUTE:10}

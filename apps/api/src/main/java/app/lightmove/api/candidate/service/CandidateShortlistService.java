@@ -1,8 +1,5 @@
 package app.lightmove.api.candidate.service;
 
-import app.lightmove.api.core.error.constant.ErrorCode;
-import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.llm.model.BlockedAnswer;
 import app.lightmove.api.core.llm.model.PromptGuardSpec;
 import app.lightmove.api.core.llm.service.LlmCallPolicy;
 import java.util.function.Consumer;
@@ -29,6 +26,7 @@ public class CandidateShortlistService {
 
     private final ChatClient chatClient;
     private final Resource systemPrompt;
+    private final LlmCallPolicy llmCalls;
     private final Consumer<ChatClient.AdvisorSpec> guardedAdvisors;
 
     // Hand-written rather than @RequiredArgsConstructor: Lombok cannot annotate a constructor
@@ -39,11 +37,12 @@ public class CandidateShortlistService {
                                      LlmCallPolicy llmCalls) {
         this.chatClient = chatClient;
         this.systemPrompt = systemPrompt;
+        this.llmCalls = llmCalls;
         this.guardedAdvisors = llmCalls.forPrompt(PromptGuardSpec.prose(PROMPT_ID));
     }
 
     public String shortlist(String jobBrief, String candidateProfile) {
-        String verdict = chatClient.prompt()
+        String answer = chatClient.prompt()
                 .advisors(guardedAdvisors)
                 .system(systemPrompt)
                 .user(user -> user.text("""
@@ -58,12 +57,6 @@ public class CandidateShortlistService {
                 .call()
                 .content();
 
-        // The guard answers in place of the model, so without this the caller would read a canned
-        // refusal as an assessment of the candidate — the one outcome worse than no assessment.
-        if (BlockedAnswer.matches(verdict)) {
-            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                    "That brief or profile reads like an instruction to the assistant. Reword it and try again.");
-        }
-        return verdict;
+        return llmCalls.requireModelAnswer(PROMPT_ID, answer);
     }
 }

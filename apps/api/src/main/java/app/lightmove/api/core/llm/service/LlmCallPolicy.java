@@ -2,6 +2,9 @@ package app.lightmove.api.core.llm.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.LlmSettings;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.llm.model.BlockedAnswer;
 import app.lightmove.api.core.llm.model.PromptGuardSpec;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,6 +13,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.SafeGuardAdvisor;
 import org.springframework.ai.chat.client.advisor.StructuredOutputValidationAdvisor;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
@@ -19,8 +23,13 @@ import org.springframework.stereotype.Service;
  *
  * <p>Here rather than at each call site because none of it is a property of any one prompt. What
  * varies is a {@link PromptGuardSpec}; the policy does not.
+ *
+ * <p><b>It is opt-in, and cannot be otherwise.</b> The shared {@code ChatClient} is a bean of a
+ * framework type, so any feature can inject it and call the model unguarded — nothing here prevents
+ * that, and a reviewer noticing a {@code chatClient.prompt()} without a spec is the only check.
  */
 @Service
+@Slf4j
 public class LlmCallPolicy {
 
     private final LlmSettings settings;
@@ -61,6 +70,27 @@ public class LlmCallPolicy {
         return advisorSpec -> advisorSpec
                 .param(ChatCallLog.PROMPT_ID_ATTRIBUTE, spec.promptId())
                 .advisors(advisors);
+    }
+
+    /**
+     * The model's own answer, or a refusal — never the guard's canned reply passed off as one.
+     *
+     * <p>Here rather than at each call site because the check is the piece most easily forgotten, and
+     * forgetting it serves a canned refusal as a real answer. A null reply is refused for the same
+     * reason: {@code content()} is nullable, and an empty answer rendered as a verdict is the same
+     * failure in a different shape.
+     */
+    public String requireModelAnswer(String promptId, String answer) {
+        if (BlockedAnswer.matches(answer)) {
+            log.warn("Prompt {} was blocked before reaching the model: the caller's text matched the "
+                    + "injection word list.", promptId);
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
+                    "That text reads like an instruction to the assistant. Reword it and try again.");
+        }
+        if (answer == null || answer.isBlank()) {
+            throw new ApiException(ErrorCode.INTERNAL_ERROR, "prompt " + promptId + " answered with nothing");
+        }
+        return answer;
     }
 
     /** The configured baseline, plus anything this prompt refuses on top of it. */

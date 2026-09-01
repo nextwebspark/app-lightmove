@@ -8,7 +8,14 @@ package app.lightmove.api.core.llm.model;
  */
 public final class BlockedAnswer {
 
-    /** The token every blocked answer carries, whatever shape the calling feature needs it in. */
+    /**
+     * The token every blocked answer carries, whatever shape the calling feature needs it in.
+     *
+     * <p><b>Treat it as guessable.</b> Detection is a substring match, which it has to be for a marker
+     * embedded in a JSON document, so anyone who writes this token into text the model echoes can make
+     * their own request look blocked. That costs them their own call and nothing else — but it means no
+     * trust decision may ever rest on this.
+     */
     public static final String MARKER = "__lightmove_blocked__";
 
     private BlockedAnswer() {

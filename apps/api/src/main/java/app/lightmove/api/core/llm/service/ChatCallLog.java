@@ -52,9 +52,9 @@ public final class ChatCallLog {
                 .formatted(
                         blankToUnknown(metadata.getId()),
                         blankToUnknown(metadata.getModel()),
-                        usage == null ? "?" : usage.getPromptTokens(),
-                        usage == null ? "?" : usage.getCompletionTokens(),
-                        usage == null ? "?" : usage.getTotalTokens(),
+                        usage.getPromptTokens(),
+                        usage.getCompletionTokens(),
+                        usage.getTotalTokens(),
                         finishReasonsOf(response));
     }
 
@@ -64,7 +64,7 @@ public final class ChatCallLog {
      */
     private static String finishReasonsOf(ChatResponse response) {
         List<Generation> results = response.getResults();
-        if (results == null || results.isEmpty()) {
+        if (results.isEmpty()) {
             return "none";
         }
         return results.stream()

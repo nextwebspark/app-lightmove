@@ -12,8 +12,12 @@ import org.springframework.stereotype.Component;
  * Caps how often one user may spend billed model time.
  *
  * <p>Every endpoint that calls Vertex has authentication as its only other gate, so without this an
- * authenticated caller can loop one in a script and run up the project's GCP bill. A coarse brake,
- * deliberately: it exists to stop a runaway, not to meter usage.
+ * authenticated caller can loop one in a script and run up the project's GCP bill.
+ *
+ * <p><b>It counts requests, not billed calls.</b> One request can become several: a structured prompt
+ * spends up to {@code lightmove.llm.answer-repair-attempts} extra calls re-asking an answer that did
+ * not fit. Ten requests a minute can therefore cost more than ten calls, which matters the day
+ * somebody tunes these numbers against a GCP bill. A coarse brake to stop a runaway, not a meter.
  *
  * <p>Keyed by user id alone, unlike {@link RateLimitGuard}, which checks an IP budget and an email
  * budget because it guards the pre-auth flows where neither identifies a caller on its own. Here the
