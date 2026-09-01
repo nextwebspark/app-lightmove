@@ -26,6 +26,10 @@ lightmove:
       # Not raised in application-local.yml, which is why 04-tokens-verification.sh needed an
       # env override to pass locally. It does not here.
       password-reset-requests-per-hour: 100
+      # 15-extension-capture.sh pairs three times from one address in a single run. Left at the
+      # production 5 it has one case of headroom, which is the same trap the README documents for
+      # password-reset-requests-per-hour.
+      extension-pairings-per-hour: 100
 
     cookie:
       # The stack is plain http on localhost, and a Secure cookie is dropped by the browser over http —

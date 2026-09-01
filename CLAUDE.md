@@ -19,15 +19,23 @@ searches saved against it, and the three Companies pages (In universe / Shortlis
 mandate triages what it took from it. A company reaches those pages three ways — out of the market
 (Strategy's per-row add, or the Companies screen's own picker over the same universe, both `POST
 /triage` with an id the server resolves), typed in by hand, or captured by the browser plugin
-(`POST /triage/capture`; the extension itself is not built).
+(`POST /triage/capture`).
 Deleting one drops the project↔company row only: the Apollo universe is read-only to the app. On top of
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
-with three of them is three lines and one with none keeps its "Add executive" slot. The standalone
-Candidates screen, the pipeline and outreach tables don't exist yet, and neither does the CSV import or
-the plugin's profile capture (the columns and `CandidateSource` are there for them). The **Position**
+with three of them is three lines and one with none keeps its "Add executive" slot. An executive is also
+captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`). The
+standalone Candidates screen, the pipeline and outreach tables don't exist yet, and neither does the
+CSV import. The **Position**
 screen is the mandate's brief, edited as a six-step wizard (details, mandate context, reporting,
-compensation, assessment, review) that autosaves one step at a time. Step three is an editable
+compensation, assessment, review) that autosaves one step at a time. It opens drafted rather than
+blank: a **role-template library** of seventeen briefs (twelve C-suite, four functional heads, one
+generic fallback) lives in the database, matched against the mandate's role title at creation. Step
+one's **Role title is a combobox**: free text — a mandate is titled "Group CFO – Energy Division" as
+often as it is titled "Chief Financial Officer" — that type-aheads the seventeen titles, and picking
+one takes that title and redrafts the brief from its template (`GET /position-templates` +
+`POST .../position/template`). A template is managed as a migration for now — the per-workspace
+management screen is a later session, and the rows it will write are already keyed to a workspace. Step three is an editable
 React Flow org chart — add, rename, re-parent and drag any seat; only the role's own seat is fixed.
 Step one attaches the position
 description, which is *stored and never read* — no extraction, no auto-fill. Publishing stamps who
@@ -40,6 +48,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 |---|---|
 | `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
+| `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
 | `ops/cloudsql/` | Database bootstrap and hardening scripts |
 
@@ -70,7 +79,7 @@ npm run dev:db:reset         # drop the local database; next boot re-runs every 
 npm run dev:db:psql          # psql shell in the local container
 npm run dev:db:apollo        # copy the Apollo company universe down from Cloud SQL into it
 npm run dev:cloud            # api + web against the SHARED Cloud SQL dev database
-npm test                     # both suites
+npm test                     # all three suites: api, web, extension
 cd apps/api && ./mvnw test   # backend — needs Docker (Testcontainers)
 cd apps/web && npx vitest    # frontend
 cd apps/web && npm run build # the real frontend typecheck
@@ -102,6 +111,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 | `lightmove-domain` | **any** auth / signup / OAuth / workspace / membership / invitation / RBAC / client-representative / verification work |
 | `java-spring-development` | any backend code — architecture, conventions, Boot 4 notes, and the backend traps live there |
 | `react` | any frontend code — real stack, conventions, and the frontend traps live there |
+| `chrome-extension` | any work in `apps/extension`, on `/api/v1/auth/extension`, or on the SPA's `/extension/connect` |
 | `db-ops` | migrations, grants, `harden.sql`, `ops/cloudsql` scripts, the Apollo company universe |
 | `pr-cleanup` | addressing PR review feedback |
 | `verify` | running the app end-to-end |
@@ -141,6 +151,11 @@ its step's write, so the aggregate keeps one idiom rather than mixing rows and j
 `app_lm_position_org_node` is the org chart — a tree of seats with exactly one flagged
 `mandate_seat`, so "reports to" is that seat's parent and "direct reports" are its children, both
 derived rather than stored twice.
+`app_lm_position_template` (V42) is the role-template library — the identity a picker lists as columns,
+the drafted brief as one `jsonb` body (V30's idiom, not V39's child tables: a template is a
+heterogeneous document read and written whole), and the match keywords as a child table because they
+are the catalog's lookup key. `workspace_id` is nullable: NULL is the shared library, non-null is one
+firm's own, and every read filters on both.
 `app_lm_position_document` holds the attached position description inline (`bytea`) — one small file per
 mandate, read back only by its own download endpoint. Everything else (roles, hardening, grants) →
 `db-ops` skill.

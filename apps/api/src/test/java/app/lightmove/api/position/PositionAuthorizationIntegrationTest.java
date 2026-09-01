@@ -70,6 +70,25 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("drafting from a template is an ordinary write, so a researcher cannot do it")
+    void researcherCannotApplyATemplate() throws Exception {
+        Fixture f = fixture("Template Matrix Firm");
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+        String sara = login(f.saraEmail);
+
+        // The catalog itself is workspace reference data, browsable by any member.
+        mvc.perform(get("/api/v1/position-templates").header("Authorization", "Bearer " + sara))
+                .andExpect(status().isOk());
+
+        mvc.perform(post(positionUrl(f.projectId) + "/template")
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"templateId":"11111111-1111-4111-8111-111111111111"}"""))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("publishing is an ordinary write, so a researcher cannot do it either")
     void researcherCannotPublish() throws Exception {
         Fixture f = fixture("Publish Matrix Firm");

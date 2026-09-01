@@ -19,5 +19,5 @@ public record LightMoveProperties(
         WebSettings web,
         CompanySettings company,
         PositionSettings position,
-        VendorSettings vendor
+        LlmSettings llm
 ) {}

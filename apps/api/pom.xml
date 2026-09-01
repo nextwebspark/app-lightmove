@@ -21,7 +21,20 @@
 		<bucket4j.version>8.14.0</bucket4j.version>
 		<cloud-sql.version>1.25.2</cloud-sql.version>
 		<logstash-encoder.version>8.1</logstash-encoder.version>
+		<spring-ai.version>2.0.1</spring-ai.version>
 	</properties>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.springframework.ai</groupId>
+				<artifactId>spring-ai-bom</artifactId>
+				<version>${spring-ai.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 
 	<dependencies>
 		<!-- Web + validation -->
@@ -89,6 +102,18 @@
 			<groupId>net.logstash.logback</groupId>
 			<artifactId>logstash-logback-encoder</artifactId>
 			<version>${logstash-encoder.version}</version>
+		</dependency>
+
+		<!-- Google GenAI (Vertex AI mode): chat via Gemini, plus text embeddings. Vertex AI is
+		     selected by the absence of spring.ai.google.genai.api-key and the presence of
+		     project-id/location — no separate "vertex" artifact exists in this Spring AI line. -->
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-starter-model-google-genai</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-starter-model-google-genai-embedding</artifactId>
 		</dependency>
 
 		<!-- Rate limiting on the auth endpoints -->

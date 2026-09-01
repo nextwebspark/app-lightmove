@@ -102,6 +102,27 @@ spring:
     virtual:
       enabled: true           # Java 21 virtual threads: auth endpoints are IO-bound (DB, DNS, email).
 
+  ai:
+    google:
+      genai:
+        # Vertex AI mode: authenticates via Application Default Credentials, the same
+        # `gcloud auth application-default login` already needed for `npm run dev:cloud` — except
+        # this one is needed on *every* path, including plain `npm run dev`. There is no local
+        # emulator for Vertex AI, and no api-key property is set here on purpose: setting one
+        # would switch this to the Gemini Developer API instead of Vertex.
+        project-id: ${GOOGLE_CLOUD_PROJECT:hak-talent-mapping}
+        location: ${GOOGLE_CLOUD_LOCATION:us-central1}
+        chat:
+          model: gemini-2.5-flash
+          temperature: 0.8
+        embedding:
+          # The embedding client resolves its own project/location independently of the chat
+          # block above (Spring AI's own namespacing, not a LightMove choice).
+          project-id: ${GOOGLE_CLOUD_PROJECT:hak-talent-mapping}
+          location: ${GOOGLE_CLOUD_LOCATION:us-central1}
+          text:
+            model: text-embedding-004
+
 server:
   port: ${PORT:8080}          # Cloud Run injects PORT and expects the container to honour it.
   error:
@@ -125,6 +146,12 @@ lightmove:
     # proof — admin approval of a join request, and invitations, are untouched. Never true in prod.
     auto-verify-email: ${AUTH_AUTO_VERIFY_EMAIL:false}
     bcrypt-strength: 12
+    extension:
+      # Much shorter than refresh-token-ttl above, and for a concrete reason: this token rests in the
+      # extension's own storage on disk rather than in the browser's cookie jar, and re-pairing is a
+      # single click from the popup. Everything else about it — rotation, reuse detection, revocation
+      # from Settings - Active sessions — is the ordinary machinery.
+      refresh-token-ttl: 14d
     jwt:
       issuer: lightmove
       private-key-location: ${JWT_PRIVATE_KEY_LOCATION:file:.keys/jwt-private.pem}
@@ -151,6 +178,17 @@ lightmove:
       signup-attempts-per-hour: ${AUTH_SIGNUP_ATTEMPTS_PER_HOUR:5}
       verification-resends-per-hour: ${AUTH_VERIFICATION_RESENDS_PER_HOUR:3}
       password-reset-requests-per-hour: ${AUTH_PASSWORD_RESET_REQUESTS_PER_HOUR:3}
+      extension-pairings-per-hour: ${AUTH_EXTENSION_PAIRINGS_PER_HOUR:5}
+      extension-pairings-per-hour-per-ip: ${AUTH_EXTENSION_PAIRINGS_PER_HOUR_PER_IP:60}
+
+  # The demo LLM endpoints (/api/v1/llm/*) call billed Vertex AI usage with only authentication as
+  # a gate, so each is additionally capped per user. Same in-memory-per-instance caveat as the auth
+  # rate limiter above.
+  llm:
+    rate-limit:
+      enabled: ${LLM_RATE_LIMIT_ENABLED:true}
+      shortlist-requests-per-minute: ${LLM_SHORTLIST_REQUESTS_PER_MINUTE:10}
+      embed-requests-per-minute: ${LLM_EMBED_REQUESTS_PER_MINUTE:20}
 
   email:
     provider: ${EMAIL_PROVIDER:resend}
@@ -180,7 +218,17 @@ lightmove:
 
   web:
     base-url: ${WEB_BASE_URL:http://localhost:5173}
-    cors-allowed-origins: ${WEB_CORS_ORIGINS:http://localhost:5173}
+    # The SPA's origin, plus LightMove Capture's. The extension's id is stable because its manifest
+    # pins a public key (apps/extension/manifest.config.ts) — without that Chrome re-mints the id on
+    # every unpacked load and no origin could be allow-listed at all. A wildcard is not an option here:
+    # allow-credentials is on, and the spec forbids the pair.
+    #
+    # That development key is committed, so anyone can build an extension carrying it and speak from
+    # this origin: the entry is a browser convenience, never a gate. Nothing is authorised by having
+    # reached us — every route still demands the bearer token and re-reads the roles. The deployed
+    # value overrides this default with the published extension's id (ops deploy sets WEB_CORS_ORIGINS),
+    # and the list applies to the whole API surface, not just the extension's routes.
+    cors-allowed-origins: ${WEB_CORS_ORIGINS:http://localhost:5173,chrome-extension://kllpamcdcnecpdblgdkehgbhdjdlbofh}
     oauth-success-path: /auth/callback
   # Read and write limits around the company universe (app_lm_apollo_companies). Defaults are
   # production-ready; these placeholders let a deployed service retune them without a recompile.

@@ -16,6 +16,7 @@ import type {
   MandateContext,
   Position,
   PositionDetails,
+  PositionTemplate,
   ReportingStructure,
 } from "../api/types";
 import { StepNavigation } from "../components/StepNavigation";
@@ -100,6 +101,14 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   // is exactly when somebody would have left one set.
   const [lockedCompetencies, setLockedCompetencies] = useState<ReadonlySet<string>>(new Set());
 
+  // The picker's options. A failed read leaves the type-ahead with nothing to offer, which is the
+  // right degradation: the title is free text and stays typeable.
+  const { data: templates = [] } = useQuery({
+    queryKey: positionApi.POSITION_TEMPLATES_KEY,
+    queryFn: ({ signal }) => positionApi.listTemplates(signal),
+    staleTime: 5 * 60 * 1000,
+  });
+
   /** Shared persistence shape: cache the returned snapshot and toast failures. */
   const persist =
     <T,>(call: (payload: T) => Promise<Position>, onSaved?: () => void) =>
@@ -181,6 +190,50 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     compensationSave.schedule(next);
     if (immediate) void compensationSave.flush();
   };
+  /**
+   * Replaces every step's draft with a brief the server has just rewritten.
+   *
+   * Each step holds its own local copy, so a write that changes all six — only applying a template
+   * does — has to reseat all of them. Skip one and its next autosave would put the old draft back
+   * over the new brief, a step at a time.
+   */
+  const adoptBrief = (brief: Position) => {
+    queryClient.setQueryData(key, brief);
+    setDetails(brief.details);
+    setContext(brief.context);
+    setReporting(brief.reporting);
+    setCompensation(brief.compensation);
+    setCriteria(brief.assessment.criteria);
+    setTechnical(identify(brief.assessment.technical));
+    setBehavioural(identify(brief.assessment.behavioural));
+    setLockedCompetencies(new Set());
+  };
+
+  /**
+   * Draft this brief as the picked role, and take its title while we are at it.
+   *
+   * Pending edits go first: a title still inside the autosave debounce would otherwise land after
+   * the redraft and reinstate the step it replaced. The title is then written through the ordinary
+   * details save rather than by the template — the server keeps the two apart deliberately, and the
+   * person who picked the row is the one renaming the search.
+   */
+  const applyTemplate = useMutation({
+    mutationFn: async (template: PositionTemplate) => {
+      await Promise.all(channels.map((channel) => channel.flush()));
+      const drafted = await positionApi.applyTemplate(projectId, template.id);
+      const titled = { ...drafted.details, roleTitle: template.title };
+      return { brief: { ...drafted, details: titled }, titled };
+    },
+    onSuccess: ({ brief, titled }, template) => {
+      adoptBrief(brief);
+      detailsSave.schedule(titled);
+      void detailsSave.flush();
+      void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
+      toast(`Brief drafted from the ${template.title} template.`);
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
   const changeCriteria = (next: Criterion[]) => {
     setCriteria(next);
     criteriaSave.schedule(next);
@@ -350,9 +403,12 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
             <PositionDetailsStep
               details={details}
               document={drafted.document}
+              templates={templates}
+              applyingTemplate={applyTemplate.isPending}
               uploading={attachDocument.isPending || removeDocument.isPending}
               onDownload={() => downloadDocument.mutate()}
               onChange={changeDetails}
+              onPickTemplate={(template) => applyTemplate.mutate(template)}
               onAttachDocument={(file) => attachDocument.mutate(file)}
               onRemoveDocument={() => removeDocument.mutate()}
             />
