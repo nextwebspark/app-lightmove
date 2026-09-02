@@ -11,6 +11,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.security.service.ClientIpResolver;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -48,13 +49,21 @@ public class TokenService {
     /** A fresh login: a new access token and a refresh token that opens a new family. */
     @Transactional
     public AuthenticatedSession issue(User user, WorkspaceMember membership, HttpServletRequest request) {
+        return issue(user, membership, request, SessionClient.WEB_APP);
+    }
+
+    /** The same, for a named client: the extension's token comes back in the body and lives its own TTL. */
+    @Transactional
+    public AuthenticatedSession issue(User user, WorkspaceMember membership, HttpServletRequest request,
+                                      SessionClient client) {
         Instant now = Instant.now();
 
         String plaintext = Tokens.generate();
         RefreshToken token = RefreshToken.issue(
                 user.getId(),
+                client,
                 Tokens.hash(plaintext),
-                now.plus(config.refreshTokenTtl()),
+                now.plus(refreshTokenTtl(client)),
                 userAgent(request),
                 clientIpResolver.resolve(request));
         refreshTokens.save(token);
@@ -80,6 +89,14 @@ public class TokenService {
     @Transactional(noRollbackFor = ApiException.class)
     public AuthenticatedSession rotate(String presentedToken, HttpServletRequest request,
                                        UserLookup userLookup, MembershipLookup membershipLookup) {
+        return rotate(presentedToken, request, userLookup, membershipLookup, SessionClient.WEB_APP);
+    }
+
+    /** The same, for a named client, which must travel with the rotation or the successor loses its TTL. */
+    @Transactional(noRollbackFor = ApiException.class)
+    public AuthenticatedSession rotate(String presentedToken, HttpServletRequest request,
+                                       UserLookup userLookup, MembershipLookup membershipLookup,
+                                       SessionClient client) {
         Instant now = Instant.now();
         String presentedHash = Tokens.hash(presentedToken);
 
@@ -89,6 +106,14 @@ public class TokenService {
         RefreshToken existing = refreshTokens.findByTokenHashForUpdate(presentedHash)
                 .orElseThrow(() -> new ApiException(ErrorCode.REFRESH_TOKEN_INVALID,
                         "No refresh token matches the presented hash"));
+
+        // Hard in both directions. A web refresh token exists only as an httpOnly SameSite=Strict
+        // cookie; redeemed at /auth/extension/refresh its successor would come back in a plaintext body,
+        // laundering a credential kept out of script's reach into a bearer token.
+        if (existing.getClient() != client) {
+            throw new ApiException(ErrorCode.REFRESH_TOKEN_INVALID,
+                    "Refresh token belongs to a different client than " + client);
+        }
 
         if (existing.isRevoked()) {
             // Why it was revoked, not merely that it was. A logout or a password change leaves a dead
@@ -117,9 +142,10 @@ public class TokenService {
         String plaintext = Tokens.generate();
         RefreshToken successor = RefreshToken.issueInFamily(
                 user.getId(),
+                existing.getClient(),
                 Tokens.hash(plaintext),
                 existing.getFamilyId(),
-                now.plus(config.refreshTokenTtl()),
+                now.plus(refreshTokenTtl(client)),
                 userAgent(request),
                 clientIpResolver.resolve(request));
         refreshTokens.save(successor);
@@ -136,7 +162,22 @@ public class TokenService {
     /** Ends one session. Idempotent — signing out twice is not an error. */
     @Transactional
     public void revoke(String presentedToken, HttpServletRequest request) {
+        revoke(presentedToken, request, null);
+    }
+
+    /** Ends one session, refusing a family opened for a different client — the fence {@code rotate} applies. */
+    @Transactional
+    public void revoke(String presentedToken, HttpServletRequest request, SessionClient client) {
         refreshTokens.findByTokenHash(Tokens.hash(presentedToken)).ifPresent(token -> {
+            if (client != null && token.getClient() != client) {
+                return;
+            }
+            // Only for a session this call actually ended. RefreshToken.revoke is idempotent, so signing
+            // out a token something else already killed — a re-pair's SUPERSEDED, a password change —
+            // would otherwise write a LOGOUT that never happened.
+            if (token.isRevoked()) {
+                return;
+            }
             token.revoke(RevokeReason.LOGOUT, Instant.now());
             audit.event(AuthEventType.LOGOUT).actor(token.getUserId()).from(request).record();
         });
@@ -147,6 +188,13 @@ public class TokenService {
     public void revokeAllSessions(UUID userId, RevokeReason reason) {
         int revoked = refreshTokens.revokeAllForUser(userId, reason, Instant.now());
         log.debug("Revoked {} session(s) for user {} ({})", revoked, userId, reason);
+    }
+
+    /** Ends the account's sessions on one client, leaving the other client's alone. */
+    @Transactional
+    public void revokeSessionsForClient(UUID userId, SessionClient client, RevokeReason reason) {
+        int revoked = refreshTokens.revokeAllForUserAndClient(userId, client, reason, Instant.now());
+        log.debug("Revoked {} {} session(s) for user {} ({})", revoked, client, userId, reason);
     }
 
     private void handleReuse(RefreshToken replayed, HttpServletRequest request, Instant now) {
@@ -202,6 +250,12 @@ public class TokenService {
         }
 
         return jwtEncoder.encode(JwtEncoderParameters.from(claims.build())).getTokenValue();
+    }
+
+    private Duration refreshTokenTtl(SessionClient client) {
+        return client == SessionClient.BROWSER_EXTENSION
+                ? config.extension().refreshTokenTtl()
+                : config.refreshTokenTtl();
     }
 
     private static String userAgent(HttpServletRequest request) {

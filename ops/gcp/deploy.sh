@@ -47,6 +47,20 @@ GOOGLE_OAUTH_CLIENT_ID="${GOOGLE_OAUTH_CLIENT_ID:-}"
 # logs a WARN on every signup while it is on, and so does this script.
 AUTO_VERIFY_EMAIL="${AUTO_VERIFY_EMAIL:-false}"
 
+# The browser extension's id, which decides the chrome-extension:// origin the API allows for CORS.
+#
+# No default, deliberately. The manifest key is committed, so the development id is reproducible by
+# anyone — defaulting to it would have every deployment trust an origin the public can speak from.
+# Set it to the id the Chrome Web Store assigned, or to `dev` to allow the development one on purpose.
+if [ -z "${EXTENSION_ID:-}" ]; then
+  echo "EXTENSION_ID is not set. Use the Chrome Web Store id, or EXTENSION_ID=dev for the" >&2
+  echo "committed development id. Deploying without it would trust a publicly reproducible origin." >&2
+  exit 1
+fi
+if [ "$EXTENSION_ID" = "dev" ]; then
+  EXTENSION_ID="kllpamcdcnecpdblgdkehgbhdjdlbofh"
+fi
+
 # Production limits by default. A tester creating half a dozen accounts in a row will trip the signup one
 # on their fourth attempt, which is exactly what it is for and exactly what you do not want on staging.
 # Note these are per Cloud Run *instance* and are wiped by a cold start — a speed bump, not a quota.
@@ -179,7 +193,8 @@ if [ "$AUTO_VERIFY_EMAIL" = "true" ]; then
     printf '\033[31m     Anyone may claim any company domain. Do not leave this on with real users.\033[0m\n\n'
 fi
 
-# ^|^ makes | the separator instead of a comma, because WEB_CORS_ORIGINS is a comma-separated list and
+# ^|^ makes | the separator instead of a comma, because WEB_CORS_ORIGINS is a comma-separated list —
+# the app's own origin plus the browser extension's — and
 # the OAuth scope is another. It must be a character that appears in NO value — and @ (the obvious pick)
 # is wrong: EMAIL_FROM is an email address, so gcloud splits it mid-way and rejects `lightmove.app` as a
 # malformed entry. A pipe cannot occur in a URL, an address, or a file path.
@@ -197,7 +212,7 @@ gcloud run deploy "$SERVICE" \
     --cpu 1 --memory 1Gi --cpu-boost \
     --concurrency 80 \
     --timeout 60s \
-    --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${EMAIL_FROM}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${AUTO_VERIFY_EMAIL}|AUTH_RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${LOGIN_ATTEMPTS_PER_MINUTE}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${SIGNUP_ATTEMPTS_PER_HOUR}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${VERIFICATION_RESENDS_PER_HOUR}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${TRUSTED_PROXY_COUNT}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem${OAUTH_ENV}" \
+    --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${EMAIL_FROM}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${AUTO_VERIFY_EMAIL}|AUTH_RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${LOGIN_ATTEMPTS_PER_MINUTE}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${SIGNUP_ATTEMPTS_PER_HOUR}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${VERIFICATION_RESENDS_PER_HOUR}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${TRUSTED_PROXY_COUNT}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem${OAUTH_ENV}" \
     --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}"
 
 URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" --format='value(status.url)')"
@@ -207,7 +222,7 @@ URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PR
 if [ -z "$KNOWN_URL" ]; then
     say "First deploy — correcting WEB_BASE_URL to ${URL}"
     gcloud run services update "$SERVICE" --region "$REGION" --project "$PROJECT" \
-        --update-env-vars "^|^WEB_BASE_URL=${URL}|WEB_CORS_ORIGINS=${URL}"
+        --update-env-vars "^|^WEB_BASE_URL=${URL}|WEB_CORS_ORIGINS=${URL},chrome-extension://${EXTENSION_ID}"
 fi
 
 # ── Prove it serves ───────────────────────────────────────────────────────────

@@ -89,6 +89,21 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
                             @Param("reason") RevokeReason reason,
                             @Param("now") Instant now);
 
+    /** Ends the account's sessions on one client — pairing the extension replaces the one it held. */
+    @Modifying
+    @Query("""
+            UPDATE RefreshToken t
+               SET t.revokedAt = :now,
+                   t.revokedReason = :reason
+             WHERE t.userId = :userId
+               AND t.client = :client
+               AND t.revokedAt IS NULL
+            """)
+    int revokeAllForUserAndClient(@Param("userId") UUID userId,
+                                  @Param("client") SessionClient client,
+                                  @Param("reason") RevokeReason reason,
+                                  @Param("now") Instant now);
+
     /** "Sign out all others": everything but the family the caller is refreshing on. */
     @Modifying
     @Query("""

@@ -43,6 +43,10 @@ public class RefreshToken {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "client", nullable = false, length = 32)
+    private SessionClient client = SessionClient.WEB_APP;
+
     @Column(name = "token_hash", nullable = false, unique = true, length = 64)
     private String tokenHash;
 
@@ -76,16 +80,17 @@ public class RefreshToken {
     private Instant createdAt = Instant.now();
 
     /** Opens a new family: this is a fresh login, not a continuation of an existing session. */
-    public static RefreshToken issue(UUID userId, String tokenHash, Instant expiresAt,
+    public static RefreshToken issue(UUID userId, SessionClient client, String tokenHash, Instant expiresAt,
                                      String userAgent, String ipAddress) {
-        return issueInFamily(userId, tokenHash, UUID.randomUUID(), expiresAt, userAgent, ipAddress);
+        return issueInFamily(userId, client, tokenHash, UUID.randomUUID(), expiresAt, userAgent, ipAddress);
     }
 
     /** Continues an existing family: the same session, one rotation later. */
-    public static RefreshToken issueInFamily(UUID userId, String tokenHash, UUID familyId, Instant expiresAt,
-                                             String userAgent, String ipAddress) {
+    public static RefreshToken issueInFamily(UUID userId, SessionClient client, String tokenHash, UUID familyId,
+                                             Instant expiresAt, String userAgent, String ipAddress) {
         RefreshToken token = new RefreshToken();
         token.userId = userId;
+        token.client = client;
         token.tokenHash = tokenHash;
         token.familyId = familyId;
         token.expiresAt = expiresAt;

@@ -37,7 +37,15 @@ public enum AuthEventType implements AuditEventType {
 
     // Federation
     OAUTH_LOGIN_SUCCEEDED,
-    OAUTH_ACCOUNT_LINKED;
+    OAUTH_ACCOUNT_LINKED,
+
+    // Browser extension
+    /**
+     * A refresh token was minted for LightMove Capture. Worth its own event: it is a long-lived
+     * credential leaving the browser for an extension's storage, and the only record of when a
+     * consultant's account gained one.
+     */
+    EXTENSION_PAIRED;
 
     @Override
     public String code() {
