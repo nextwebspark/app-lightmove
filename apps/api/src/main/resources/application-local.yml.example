@@ -1,15 +1,18 @@
 # Copy to application-local.yml (gitignored) and fill in.
 #   cp application-local.yml.example application-local.yml
 #
-# Not needed for `npm run dev` — that boots against a local Docker Postgres and supplies its own
-# datasource through the environment. Two things still want this file:
+# Required for the API on every local path — `./mvnw spring-boot:run -Dspring-boot.run.profiles=local`,
+# a plain `mvn` build, or an IntelliJ run config (active profile `local`). The API is no longer started
+# through npm, and nothing injects a datasource via the environment, so the `on-profile: "local &
+# !cloud"` document below is the only place a plain local Postgres URL comes from: fill in the
+# host/port/db/user of your own server there. `npm run dev:cloud` (`-Dspring-boot.run.profiles=
+# local,cloud`) activates `cloud` too, which excludes that document — it keeps using
+# application.yml's Cloud SQL socket-factory datasource instead, and only reads the `password` below.
+# Prerequisite for that path — the Cloud SQL connector authenticates as you:
+#     gcloud auth application-default login
 #
-#   `npm run dev:cloud`, which reaches the shared Cloud SQL dev database and needs the password below.
-#   Prerequisite — the Cloud SQL connector authenticates as you:
-#       gcloud auth application-default login
-#
-#   OAuth sign-in on either path, since the client credentials live here. Without them the Google and
-#   LinkedIn buttons are reported unavailable and you get password auth only.
+# OAuth sign-in on either path needs this file too, since the client credentials live here. Without
+# them the Google and LinkedIn buttons are reported unavailable and you get password auth only.
 #
 # The Google GenAI (Vertex AI) integration is different: it needs `gcloud auth application-default
 # login` on EVERY path, including plain `npm run dev` — there is no local emulator for Vertex AI,
@@ -17,9 +20,6 @@
 # application.yml's spring.ai.google.genai.* block).
 
 spring:
-  datasource:
-    password: CHANGEME   # `gcloud sql users set-password lm_app --instance=bright-gcc`
-
   security:
     oauth2:
       client:
@@ -91,3 +91,16 @@ lightmove:
 logging:
   level:
     app.lightmove.api: DEBUG
+
+---
+# Only for plain local dev. `npm run dev:cloud` activates `cloud` alongside `local`, which excludes
+# this document, so it falls through to application.yml's Cloud SQL socket-factory datasource instead
+# of trying a plain TCP connection to whatever's on your machine at this host/port.
+spring:
+  config:
+    activate:
+      on-profile: "local & !cloud"
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:lightmove}
+    username: ${DB_USER:lm_app}
+    password: ${DB_PASSWORD:CHANGEME} # your local Postgres role's password

@@ -55,10 +55,10 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
     # Baseline at 0, not Flyway's default of 1 — otherwise "adopt a non-empty schema" silently means
-    # "assume V1 has already run". ops/dev/db.sh restores app_lm_apollo_companies into the fresh volume
-    # before the API boots (it carries the pipeline-owned universe across `dev:db:reset`), so Flyway
-    # meets a schema holding exactly one table and no history, marks it baselined at the default 1, and
-    # starts at V2 — leaving V4 to fail on an app_lm_user that V1 was never asked to create.
+    # "assume V1 has already run". A developer who restores app_lm_apollo_companies into a fresh local
+    # database before first boot (see the db-ops skill) hands Flyway a schema holding exactly one table
+    # and no history; at the default baseline of 1 it would mark that baselined and start at V2, leaving
+    # V4 to fail on an app_lm_user that V1 was never asked to create.
     # A baseline of 0 records "nothing has been applied yet" and runs the whole chain from V1.
     baseline-version: 0
     placeholders:
