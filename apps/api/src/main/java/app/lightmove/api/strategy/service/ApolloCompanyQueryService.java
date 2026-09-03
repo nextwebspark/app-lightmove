@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -145,6 +146,46 @@ public class ApolloCompanyQueryService {
                 .param("limit", limit)
                 .query(COMPANY_ROW_MAPPER)
                 .list();
+    }
+
+    /**
+     * The one company a research answer names, or nothing — the seam behind resolving a captured
+     * executive's employer (and a plugin-captured company) against the universe. The LinkedIn slug
+     * is the strong key: the universe stores each company's LinkedIn URL and two firms cannot share
+     * a slug. An exact name is trusted only when it is unique — silently mapping the wrong "Alpha"
+     * is worse than mapping none — and nothing here is ever fuzzy.
+     */
+    public Optional<CompanyRow> matchEmployer(String linkedInSlug, String companyName) {
+        if (linkedInSlug != null && !linkedInSlug.isBlank()) {
+            String pattern = escapeLikePattern(linkedInSlug.toLowerCase(Locale.ROOT));
+            List<CompanyRow> bySlug = jdbc.sql("""
+                            SELECT %s
+                            FROM app_lm_apollo_companies
+                            WHERE lower(company_linkedin_url) LIKE :exact ESCAPE '\\'
+                               OR lower(company_linkedin_url) LIKE :trailing ESCAPE '\\'
+                            LIMIT 1
+                            """.formatted(ROW_COLUMNS))
+                    .param("exact", "%linkedin.com/company/" + pattern)
+                    .param("trailing", "%linkedin.com/company/" + pattern + "/%")
+                    .query(COMPANY_ROW_MAPPER)
+                    .list();
+            if (!bySlug.isEmpty()) {
+                return Optional.of(bySlug.getFirst());
+            }
+        }
+        if (companyName == null || companyName.isBlank()) {
+            return Optional.empty();
+        }
+        List<CompanyRow> byName = jdbc.sql("""
+                        SELECT %s
+                        FROM app_lm_apollo_companies
+                        WHERE lower(company_name) = lower(:name)
+                        LIMIT 2
+                        """.formatted(ROW_COLUMNS))
+                .param("name", companyName)
+                .query(COMPANY_ROW_MAPPER)
+                .list();
+        return byName.size() == 1 ? Optional.of(byName.getFirst()) : Optional.empty();
     }
 
     /**

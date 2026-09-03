@@ -77,15 +77,17 @@ export function CompanyDrawer({
     setEditing(false);
   }, [open, company]);
 
-  // A company the mandate supplied itself is the mandate's to rewrite; one taken from the market is
-  // the export's. Keyed on `source` and not on `apolloAccountId`, because that is the test the server
-  // applies — and the two can disagree, which would put an Edit button on a row the API then refuses.
+  // A company the mandate supplied itself is the mandate's to rewrite; one carrying a market snapshot
+  // is the export's. Keyed on `apolloAccountId` and not on `source`, because that is the test the
+  // server applies — and the two can disagree, which would put an Edit button on a row the API then
+  // refuses. They began disagreeing when a plugin capture started resolving against the universe: such
+  // a row is badged `extension` but carries the export's snapshot and its id.
   //
   // Named for the invariant rather than for what this screen concludes from it, and named identically
   // to `TriageCompany.isMandateSupplied` on the server: one rule with two names across the wire is how
   // the apolloAccountId/source split above happened in the first place. Editing is that rule plus a
   // permission, which is what `canEdit` says.
-  const isMandateSupplied = company !== null && company.source !== "strategy";
+  const isMandateSupplied = company !== null && company.apolloAccountId === null;
   const canEdit = isMandateSupplied && canWrite;
 
   if (company === null) {

@@ -19,6 +19,7 @@ import {
 import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { formatInstantDate, formatMoney } from "../../../lib/format";
 import type { Candidate } from "../../candidates/api/types";
+import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
 import { candidateStatusStyle } from "../../candidates/lib/candidateVocabulary";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
 import { MOVES, SOURCE_STYLES } from "./triageVocabulary";
@@ -29,6 +30,8 @@ import type { TriageCompanyRow } from "./triageRows";
  * defs — the page owns the mutations, the columns only say which moves exist.
  */
 interface TriageTableMeta {
+  /** The mandate whose grid this is — the executive avatars fetch their photos under it. */
+  projectId: string;
   onMove: (company: TriageCompany, status: TriageCompanyStatus) => void;
   onDelete: (company: TriageCompany) => void;
   /** Opens the drawer to map someone new at this company. */
@@ -221,7 +224,9 @@ export const triageCompanyColumns = helper.columns([
     },
   }),
 
-  helper.accessor((row) => row.company?.companyCountry ?? null, {
+  // The company's HQ when the row knows it; otherwise the person's own location, which is what an
+  // extension-captured executive (and their research-captured employer) actually carries.
+  helper.accessor((row) => row.company?.companyCountry ?? row.candidate?.locationCountry ?? null, {
     id: "country",
     header: "Country",
     meta: { share: 12, min: 82 },
@@ -245,8 +250,9 @@ export const triageCompanyColumns = helper.columns([
             type="button"
             onClick={() => meta?.onEditCandidate(candidate)}
             title={meta?.canWrite ? "Open this profile" : "View this profile"}
-            className="flex min-w-0 items-center rounded-[4px] text-start font-sans text-[13px] font-medium text-text transition hover:text-sky"
+            className="flex min-w-0 items-center gap-2 rounded-[4px] text-start font-sans text-[13px] font-medium text-text transition hover:text-sky"
           >
+            {meta && <CandidateAvatar projectId={meta.projectId} candidate={candidate} size="sm" />}
             <TruncatedText value={candidate.fullName} />
           </button>
         );
@@ -296,7 +302,7 @@ export const triageCompanyColumns = helper.columns([
     cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
-  helper.accessor((row) => row.company?.companyCity ?? null, {
+  helper.accessor((row) => row.company?.companyCity ?? row.candidate?.locationCity ?? null, {
     id: "location",
     header: "City",
     meta: { share: 11, min: 82 },

@@ -11,10 +11,15 @@ import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.CandidateCapturedEvent;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateCompensation;
 import app.lightmove.api.candidate.model.CandidateDetails;
+import app.lightmove.api.candidate.model.CandidatePhoto;
 import app.lightmove.api.candidate.model.CandidateProfile;
+import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.candidate.model.StoredPhoto;
+import app.lightmove.api.candidate.repository.CandidatePhotoRepository;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
@@ -22,16 +27,23 @@ import app.lightmove.api.core.config.CompanyListSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.stream.ProjectStreamKind;
+import app.lightmove.api.core.stream.ProjectStreamPublisher;
+import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
+import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -44,6 +56,7 @@ import org.springframework.transaction.annotation.Transactional;
  * the same company would drift the moment either changed.
  */
 @Service
+@Slf4j
 public class CandidateService {
 
     /**
@@ -55,20 +68,27 @@ public class CandidateService {
             Sort.by(Sort.Direction.ASC, "createdAt").and(Sort.by(Sort.Direction.ASC, "fullName"));
 
     private final CandidateRepository candidates;
+    private final CandidatePhotoRepository photos;
     private final ProjectRepository projects;
     private final TriageCompanyService triage;
     private final AuditService audit;
+    private final ApplicationEventPublisher events;
+    private final ProjectStreamPublisher stream;
     private final CompanyListSettings listConfig;
 
     // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
     // properties root rather than taking it, which is the one case the Lombok rule exempts.
-    public CandidateService(CandidateRepository candidates, ProjectRepository projects,
-                            TriageCompanyService triage, AuditService audit,
-                            LightMoveProperties properties) {
+    public CandidateService(CandidateRepository candidates, CandidatePhotoRepository photos,
+                            ProjectRepository projects, TriageCompanyService triage,
+                            AuditService audit, ApplicationEventPublisher events,
+                            ProjectStreamPublisher stream, LightMoveProperties properties) {
         this.candidates = candidates;
+        this.photos = photos;
         this.projects = projects;
         this.triage = triage;
         this.audit = audit;
+        this.events = events;
+        this.stream = stream;
         this.listConfig = properties.company().list();
     }
 
@@ -134,6 +154,12 @@ public class CandidateService {
         Candidate candidate = candidates.save(Candidate.mapped(projectId, userId,
                 request.triageCompanyId(), source, details));
 
+        if (source == CandidateSource.EXTENSION && isLinkedInProfileUrl(details.linkedinUrl())) {
+            events.publishEvent(new CandidateCapturedEvent(candidate.getId(), projectId,
+                    details.linkedinUrl()));
+        }
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_CAPTURED);
+
         audit.event(ProjectEventType.CANDIDATE_ADDED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .detail("candidateId", candidate.getId().toString())
@@ -191,6 +217,88 @@ public class CandidateService {
                 .detail("status", request.status())
                 .record();
         return toDto(candidate);
+    }
+
+    /**
+     * The short transactional tail of an enrichment: re-read the row, fill it in, file the employer
+     * into the mandate's universe, keep the photo, announce the change, commit.
+     *
+     * <p>{@code REQUIRES_NEW} because the enrichment worker calls this from an {@code AFTER_COMMIT}
+     * callback, where the completed transaction's resources are still bound to the thread and joining
+     * them writes nothing. The row is re-read project-scoped (the tenant invariant every candidate
+     * finder keeps), and a candidate already enriched, or deleted while the provider was answering,
+     * is left alone. A racing drawer edit wins by {@code @Version}: the save throws an
+     * optimistic-locking failure into the worker's catch and the researcher's version stands.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void applyResearch(UUID projectId, UUID candidateId, EnrichedProfile enriched) {
+        candidates.findByIdAndProjectId(candidateId, projectId).ifPresentOrElse(candidate -> {
+            if (candidate.getProfile().enrichedAt() != null) {
+                return;
+            }
+            candidate.enrich(enriched);
+            mapToEmployer(projectId, candidate, enriched);
+            keepPhoto(candidateId, enriched);
+            stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+        }, () -> log.info("Candidate {} was removed before its research landed", candidateId));
+    }
+
+    /**
+     * An unmapped candidate whose research names an employer gets that company filed into the
+     * mandate's universe and is mapped to it — the same resolve-then-snapshot the manual mapping path
+     * performs, minus the consultant. Skipped when the mandate already maps someone of the same name
+     * at that company: V36's partial unique index would refuse the row, and a constraint violation
+     * here would roll the whole enrichment back with it.
+     */
+    private void mapToEmployer(UUID projectId, Candidate candidate, EnrichedProfile enriched) {
+        if (candidate.getTriageCompanyId() != null || enriched.employerName() == null) {
+            return;
+        }
+        // An employer somebody already stated outranks the vendor's, the same way enrich() refuses to
+        // overwrite it — mapping would otherwise reintroduce through employBy() exactly what that
+        // guard just prevented, and file a stale employer into the universe besides.
+        if (candidate.getCompanyName() != null
+                && !candidate.getCompanyName().equalsIgnoreCase(enriched.employerName())) {
+            return;
+        }
+        TriageCompanyResponse company = triage.captureFromResearch(projectId,
+                candidate.getAddedBy(), new CapturedCompanyDetails(
+                        enriched.employerName(), null, null, null, null, null, null,
+                        enriched.employerLinkedinUrl(), null, null, enriched.employerLogoUrl(),
+                        null, null));
+
+        boolean nameHeldThere = candidates
+                .findByProjectIdAndTriageCompanyIdAndFullNameIgnoreCase(
+                        projectId, company.id(), candidate.getFullName())
+                .stream()
+                .anyMatch(other -> !other.getId().equals(candidate.getId()));
+        if (nameHeldThere) {
+            log.info("Leaving candidate {} unmapped — {} already maps that name", candidate.getId(),
+                    company.companyName());
+            return;
+        }
+        candidate.employBy(company.id(), company.companyName());
+    }
+
+    private void keepPhoto(UUID candidateId, EnrichedProfile enriched) {
+        if (enriched.photo() == null || photos.existsByCandidateId(candidateId)) {
+            return;
+        }
+        photos.save(CandidatePhoto.of(candidateId, enriched.photo()));
+    }
+
+    /** The stored profile photo, or NOT_FOUND — "no photo" and "no such candidate" read the same. */
+    @Transactional(readOnly = true)
+    public StoredPhoto photoOf(UUID workspaceId, UUID projectId, UUID candidateId) {
+        requireProject(projectId, workspaceId);
+        // Existence, not content: a grid of avatars asks this per row, and loading each candidate's
+        // whole row — profile jsonb included — to throw it away is a scan the scoping does not need.
+        if (!candidates.existsByIdAndProjectId(candidateId, projectId)) {
+            throw ApiException.of(ErrorCode.NOT_FOUND);
+        }
+        return photos.findByCandidateId(candidateId)
+                .map(photo -> new StoredPhoto(photo.getContent(), photo.getContentType()))
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
     @Transactional
@@ -296,7 +404,17 @@ public class CandidateService {
                 : request.career().stream()
                         .map(entry -> new CandidateCareerEntry(entry.company(), entry.title(), entry.period()))
                         .toList();
-        return new CandidateProfile(career, request.languages());
+        return new CandidateProfile(career, request.languages(), null, null, null);
+    }
+
+    /**
+     * Only a page the plugin actually read is worth a billed research call. "Worth billing" is
+     * exactly "a slug came back": a bare {@code /in/} carries no one to research, and the providers
+     * are keyed by the slug rather than by the URL, so the gate and the lookup must agree on what
+     * counts.
+     */
+    private static boolean isLinkedInProfileUrl(String url) {
+        return LinkedInUrls.profileSlugOrNull(url) != null;
     }
 
     /** Omitted means identified — where every profile starts, and the only honest default. */
@@ -328,7 +446,10 @@ public class CandidateService {
             return CandidateSource.MANUAL;
         }
         CandidateSource source = CandidateSource.fromValue(token);
-        if (source == null) {
+        if (source == null || source == CandidateSource.CSV) {
+            // CSV is refused rather than merely unbuilt: provenance is the reader's evidence of how
+            // much to trust a figure, so a caller must not be able to stamp a row as bulk-imported
+            // when no import ran.
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown candidate source: " + token);
         }
         return source;
@@ -367,6 +488,7 @@ public class CandidateService {
                 candidate.getProfile().languages(),
                 candidate.getSource().value(),
                 candidate.getSourceUrl(),
-                candidate.getCreatedAt());
+                candidate.getCreatedAt(),
+                candidate.getProfile().enrichedAt());
     }
 }

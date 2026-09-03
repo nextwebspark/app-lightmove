@@ -1,0 +1,97 @@
+{
+  "status": "ok",
+  "query": { "url": "https://www.linkedin.com/in/sample-profile" },
+  "element": {
+    "id": "ACoAAA0000000000000",
+    "publicIdentifier": "sample-profile",
+    "linkedinUrl": "https://www.linkedin.com/in/sample-profile",
+    "firstName": "Sample",
+    "lastName": "Person",
+    "headline": "Group Chief Financial Officer",
+    "about": "Finance leader across GCC retail and FMCG.",
+    "openToWork": false,
+    "premium": true,
+    "connectionsCount": 512,
+    "followerCount": 1024,
+    "location": {
+      "linkedinText": "Dubai, United Arab Emirates",
+      "countryCode": "ae",
+      "parsed": {
+        "text": "Dubai, United Arab Emirates",
+        "countryCode": "ae",
+        "country": "AE",
+        "countryFull": "United Arab Emirates",
+        "state": "",
+        "city": "Dubai"
+      }
+    },
+    "currentPosition": [
+      {
+        "companyName": "Al Rawabi Dairy",
+        "position": "Group CFO",
+        "companyLinkedinUrl": "https://www.linkedin.com/company/example",
+        "companyLogo": { "url": "https://media.example.com/alrawabi.png" },
+        "startDate": { "month": "Jan", "year": 2021, "text": "Jan 2021" }
+      }
+    ],
+    "experience": [
+      {
+        "companyName": "Al Rawabi Dairy",
+        "position": "Group CFO",
+        "employmentType": "Full-time",
+        "duration": "5 yrs 8 mos",
+        "startDate": { "month": "Jan", "year": 2021, "text": "Jan 2021" },
+        "endDate": { "text": "Present" },
+        "skills": ["Leadership"]
+      },
+      {
+        "companyName": "Regional Foods Co.",
+        "position": "Finance Director",
+        "startDate": { "year": 2017, "text": "2017" },
+        "endDate": { "year": 2021, "text": "2021" }
+      },
+      {
+        "companyName": "Advisory Board Co.",
+        "position": "Advisor",
+        "duration": "3 yrs"
+      }
+    ],
+    "education": [
+      {
+        "schoolName": "American University in Cairo",
+        "degree": "MBA",
+        "fieldOfStudy": "Finance",
+        "period": "2010 - 2012",
+        "schoolLinkedinUrl": "https://www.linkedin.com/school/example"
+      }
+    ],
+    "skills": [
+      { "name": "Financial Planning", "endorsements": "99", "positions": ["Group CFO"] },
+      { "name": "M&A" }
+    ],
+    "languages": [
+      { "name": "English", "proficiency": "Native or bilingual proficiency" },
+      { "name": "Arabic" }
+    ],
+    "emails": [
+      {
+        "email": "guess@catchall.example.com",
+        "deliverable": false,
+        "catchAllDomain": true,
+        "validEmailServer": true,
+        "free": false,
+        "status": "risky",
+        "qualityScore": 40
+      },
+      {
+        "email": "sample.person@company.example.com",
+        "deliverable": true,
+        "catchAllDomain": false,
+        "validEmailServer": true,
+        "free": false,
+        "status": "valid",
+        "qualityScore": 95
+      }
+    ]
+  }
+}

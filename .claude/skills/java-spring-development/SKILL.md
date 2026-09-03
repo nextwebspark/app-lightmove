@@ -191,6 +191,12 @@ core/
   error/       constant/(ErrorCode)  model/(ApiException)  service/(Problems)
                handler/(GlobalExceptionHandler, ProblemAccessDeniedHandler)
   ratelimit/   service/(RateLimiter, Bucket4jRateLimiter, RateLimitGuard)
+  resilience/  constant/(VendorFailureKind)  model/(VendorCall, VendorClientSpec, VendorException)
+               service/(VendorClientFactory, VendorCallGuard, VendorRateLimiter,
+                        VendorRetryPredicate)          (every outbound call to a paid API)
+  stream/      ProjectStreamPublisher, PostgresStreamListener, ProjectStreamRegistry,
+               ProjectStreamController, ProjectStreamKind, ProjectStreamNotification
+                                                          (flat concern pkg — SSE push, see below)
   persistence/ model/(BaseEntity)
   logging/     service/(CorrelationId, CorrelationIdFilter)
   config/      LightMoveProperties (root record) + one *Settings record per branch,
@@ -204,7 +210,22 @@ workspace/                 # feature template — project / position / strategy 
   model/      Workspace, WorkspaceMember, PendingOnboarding, Invitation,
               CreateWorkspaceCommand, InviteCommand
   repository/ service/ controller/ dto/(one record per file: WorkspaceSummary, InviteRequest, …)
+
+enrichment/                # the one feature split twice: by subject first, then by type
+  candidate/  service/(LinkedInProfileEnricher, BrightDataProfileEnricher, HarvestApiProfileEnricher,
+                       FallbackProfileEnricher, LogProfileEnricher, ProfilePhotoDownloader,
+                       CandidateEnrichmentWorker)  config/(CandidateEnrichmentConfig)
+  company/    service/(LinkedInCompanyEnricher, BrightDataCompanyEnricher, LogCompanyEnricher,
+                       CompanyEnrichmentWorker)    config/(CompanyEnrichmentConfig)
+  common/     service/(BrightDataSearch)
 ```
+
+**`enrichment/` is the one feature with a subject split above the type split.** People and companies
+are researched through different datasets and different records, and mixing both halves into one
+`service/` would put eight near-identically-named adapters side by side. Inside each half the ordinary
+layout resumes. It owns no `model/`: everything it produces is consumed by `candidate` or
+`triagecompany`, and the dependency runs one way only — see that package's docs for which types stay
+behind and why.
 
 **What goes in each subpackage** (a module includes only the ones it needs):
 
@@ -221,7 +242,14 @@ workspace/                 # feature template — project / position / strategy 
 **Flat concern packages** are the one exception to type-only grouping: inside `core/security`, `jwt/`,
 `token/` and `rbac/` group everything for their concern regardless of type — so `RefreshToken` (an
 entity) and `RevokeReason` (an enum) live in `token/`, and `Role` (an entity) next to `WorkspaceAction`
-(an enum) in `rbac/`. This applies only to those three. Role enums live in `core/security/rbac`, not in
+(an enum) in `rbac/`. `core/stream` is the fourth: the project SSE stream's publisher, Postgres
+listener, emitter registry and controller are one mechanism and meaningless apart. Two of its
+invariants are easy to break from outside: a change is announced by `ProjectStreamPublisher.publish`
+**inside the writing transaction** (`MANDATORY` propagation — Postgres delivers the `NOTIFY` at
+commit, so the event can never beat the data, and a rollback swallows it; never "fix" this by
+publishing after commit), and the emitter timeout stays **just under Cloud Run's 60s request
+timeout** (55s — the server closes cleanly and the SPA reconnects; raising one without the other
+turns every cycle into a network error). This applies only to those four. Role enums live in `core/security/rbac`, not in
 the features — they are catalog mirrors, and both tiers' access services need them. Invitations are
 part of `workspace` (membership), not their own feature.
 
@@ -263,11 +291,18 @@ method plus the records it returns — never another feature's internals:
 - `triagecompany`'s `TriageCompanyService` calls `strategy`'s `ApolloCompanyQueryService` to resolve
   a company snapshot at write time, and `StrategyService.scopeOf` to resolve the saved filter behind
   "Add all to Universe". `strategy` never looks back at a mandate's triaged companies.
-- `candidate`'s `CandidateService` calls `TriageCompanyService.requireCompanyOfProject` — one method
-  wide, answering in triagecompany's own DTO — to resolve and scope-check the company an executive is
-  being mapped to. **`triagecompany` never learns that people exist**, which is why the Companies grid
-  composes the two sides in the SPA (one read for the page's companies, one for the people at them)
-  rather than embedding candidates in the company list.
+- `candidate` calls `triagecompany` through exactly two public methods, both answering in
+  triagecompany's own DTO: `CandidateService.save` calls
+  `TriageCompanyService.requireCompanyOfProject` to resolve and scope-check the company an executive
+  is being mapped to, and `CandidateService.applyResearch` calls `captureFromResearch` to file a
+  captured executive's researched employer into the mandate's universe — that one takes
+  triagecompany's `CapturedCompanyDetails` and,
+  unlike `capture`, answers a company the mandate already holds with the existing row rather than a
+  refusal, because the worker is resolving where a person works rather than asserting a new company.
+  **`triagecompany` never learns that people exist**, which is why the Companies grid composes the two
+  sides in the SPA (one read for the page's companies, one for the people at them) rather than
+  embedding candidates in the company list — and why the employer is filed by a call rather than by an
+  event triagecompany would have to know to listen for.
 - `position`'s `PositionService` reads `project`'s repositories for the mandate a brief belongs to,
   the same way `CandidateService` does — a brief cannot be scoped, titled or dated without it — and
   `project`'s `ProjectService.create` seeds the new mandate's brief through one call taking primitives
@@ -341,9 +376,21 @@ more than one instance).
 Each of these shipped, looked correct, and did nothing. They are all covered by tests now — don't
 reintroduce them.
 
-- **`@Async` / `@Transactional` are proxy-based.** A method calling another method *on itself* bypasses
-  the proxy and the annotations are inert. `AuditService` delegates to a separate `AuditEventWriter`
-  bean for exactly this reason.
+- **`@Async` / `@Transactional` / `@Retryable` are proxy-based.** A method calling another method *on
+  itself* bypasses the proxy and the annotations are inert. `AuditService` delegates to a separate
+  `AuditEventWriter` bean for exactly this reason.
+- **Construction is the other half of that trap, and it looks nothing like a self-call.** An object
+  built with `new` *inside* another bean's `@Bean` method and handed straight to a third object is
+  never proxied, so its `@Retryable` never fires. `CandidateEnrichmentConfig` therefore gives each
+  vendor adapter its own `@Bean` method returning `null` when that provider is off — no bean is
+  registered — and injects them with `@Autowired(required = false)`; the wrapper bean composes
+  whichever came back. Composing them inline would read better and retry nothing.
+- **`@Retryable` cannot see an exception a method swallows.** `ProfilePhotoDownloader.fetchOrNull`
+  exists to let nothing escape, so the retried transfer is a separate bean beneath it — annotate the
+  method that throws, not the one that reports.
+- **`@DefaultValue` on a settings record does not answer a `${...}` placeholder.** `@Retryable` reads
+  `${lightmove.resilience.*}` against the environment, which never sees a binding default, so those
+  keys are spelled out in `application.yml` or the context fails to start.
 - **Spring rolls back on any unchecked exception, including `ApiException`.** `login()` and `rotate()`
   are `@Transactional(noRollbackFor = ApiException.class)`, because otherwise the failed-login counter
   and the token-family revocation are rolled straight back out — silently disabling account lockout and

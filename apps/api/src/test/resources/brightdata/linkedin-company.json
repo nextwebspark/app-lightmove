@@ -1,0 +1,32 @@
+{
+  "hits": [
+    {
+      "id": "sampleco",
+      "company_id": "10801",
+      "name": "SampleCo",
+      "about": "SampleCo is a leading provider of core systems for insurers globally, with offices throughout the world and clients across North America, Europe and Asia Pacific.",
+      "unformatted_about": "SampleCo is a leading provider…",
+      "slogan": "Insurance software, done right",
+      "industries": "Software Development",
+      "company_size": "501-1,000 employees",
+      "employees_in_linkedin": 841,
+      "headquarters": "Dublin",
+      "country_code": "IE,US,AU",
+      "country_codes_array": ["IE", "US", "AU"],
+      "locations": ["SampleCo House Dublin, D3, IE", "75 State Street Boston, MA 02109, US"],
+      "formatted_locations": ["SampleCo House, Dublin, D3, IE"],
+      "website": "https://www.sampleco.example/",
+      "founded": 1993,
+      "organization_type": "Public Company",
+      "specialties": "insurance software, insurance platform",
+      "followers": 25769,
+      "logo": "https://media.example.com/sampleco-logo.png",
+      "image": "https://media.example.com/sampleco-cover.png",
+      "url": "https://www.linkedin.com/company/sampleco",
+      "crunchbase_url": "https://www.crunchbase.com/organization/sampleco",
+      "funding": null,
+      "stock_info": null,
+      "timestamp": 1788345543523
+    }
+  ]
+}

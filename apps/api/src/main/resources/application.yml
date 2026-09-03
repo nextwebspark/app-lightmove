@@ -216,6 +216,31 @@ lightmove:
       block-disposable-domains: ${EMAIL_BLOCK_DISPOSABLE:true}
       extra-disposable-domains: ${EMAIL_EXTRA_DISPOSABLE:}
 
+  # Researches a plugin-captured executive (experience, education, skills, photo, employer), off the
+  # capture's request thread. `brightdata` answers from the stored dataset in under a second
+  # (~$0.0025/hit) and falls back to a HarvestAPI live scrape on a miss when that key is present;
+  # `harvestapi` scrapes live every time (~$0.01, seconds). Off by default: every call is billed,
+  # and a fresh clone must run with no vendor account.
+  enrichment:
+    provider: ${ENRICHMENT_PROVIDER:off}
+    brightdata:
+      api-key: ${BRIGHTDATA_API_KEY:}
+    harvestapi:
+      api-key: ${HARVESTAPI_API_KEY:}
+
+  # How a paid third-party API is called: timeouts, retry and outbound pacing, shared by every vendor
+  # adapter. These are spelled out rather than left to the record's @DefaultValue because @Retryable
+  # resolves them as ${...} placeholders against the environment, which never sees a binding default.
+  # Only a rate limit, a 5xx or a timeout is retried — see VendorFailureKind.
+  resilience:
+    connect-timeout: 5s
+    max-retries: 2
+    retry-delay: 500ms
+    retry-multiplier: 2.0
+    retry-jitter: 250ms
+    retry-max-delay: 5s
+    permit-max-wait: 2s
+
   web:
     base-url: ${WEB_BASE_URL:http://localhost:5173}
     # The SPA's origin, plus LightMove Capture's. The extension's id is stable because its manifest

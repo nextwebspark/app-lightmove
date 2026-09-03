@@ -24,7 +24,8 @@ import static app.lightmove.api.core.text.service.SuppliedText.browsableUrlOrNul
 public record CapturedCompanyDetails(String companyName, String industry, String companyCountry,
                                      String companyCity, Integer numEmployees, Long annualRevenue,
                                      String website, String companyLinkedinUrl, Integer foundedYear,
-                                     String shortDescription, String sourceUrl, String note) {
+                                     String shortDescription, String logoUrl, String sourceUrl,
+                                     String note) {
 
     public CapturedCompanyDetails {
         companyName = companyName == null ? null : companyName.trim();
@@ -34,6 +35,7 @@ public record CapturedCompanyDetails(String companyName, String industry, String
         website = browsableUrlOrNull(website);
         companyLinkedinUrl = browsableUrlOrNull(companyLinkedinUrl);
         shortDescription = blankToNull(shortDescription);
+        logoUrl = browsableUrlOrNull(logoUrl);
         sourceUrl = browsableUrlOrNull(sourceUrl);
     }
 }

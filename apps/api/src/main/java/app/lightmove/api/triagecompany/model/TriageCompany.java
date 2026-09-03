@@ -121,9 +121,48 @@ public class TriageCompany extends BaseEntity {
         company.companyLinkedinUrl = details.companyLinkedinUrl();
         company.foundedYear = details.foundedYear();
         company.shortDescription = details.shortDescription();
+        company.logoUrl = details.logoUrl();
         company.sourceUrl = details.sourceUrl();
         company.annotate(details.note());
         return company;
+    }
+
+    /**
+     * Fills in what company research found, and only where nobody has filled anything in — the
+     * consultant's own capture never loses a field to a vendor. Name, note, stage and provenance are
+     * not facts about the company and are never touched; mirrors {@code Candidate#enrich}.
+     */
+    public void enrichFacts(CapturedCompanyDetails details) {
+        if (industry == null) {
+            industry = details.industry();
+        }
+        if (companyCountry == null) {
+            companyCountry = details.companyCountry();
+        }
+        if (companyCity == null) {
+            companyCity = details.companyCity();
+        }
+        if (numEmployees == null) {
+            numEmployees = details.numEmployees();
+        }
+        if (annualRevenue == null) {
+            annualRevenue = details.annualRevenue();
+        }
+        if (website == null) {
+            website = details.website();
+        }
+        if (companyLinkedinUrl == null) {
+            companyLinkedinUrl = details.companyLinkedinUrl();
+        }
+        if (foundedYear == null) {
+            foundedYear = details.foundedYear();
+        }
+        if (shortDescription == null) {
+            shortDescription = details.shortDescription();
+        }
+        if (logoUrl == null) {
+            logoUrl = details.logoUrl();
+        }
     }
 
     /**
@@ -152,9 +191,15 @@ public class TriageCompany extends BaseEntity {
      * True for a company the mandate supplied itself, which is the only kind it may rewrite. The SPA's
      * Companies panel names this predicate identically and derives its Edit button from it — one
      * invariant, one name, on both sides of the wire.
+     *
+     * <p><b>Keyed on the snapshot, not the door.</b> {@code source != STRATEGY} used to mean the same
+     * thing, because only Strategy wrote market rows — until a plugin capture began resolving against
+     * the universe and landing a full snapshot badged EXTENSION or MANUAL. Those rows carry an
+     * {@code apolloAccountId} the ETL owns and re-keys, so rewriting one is rewriting the export;
+     * what a mandate may edit is the row nobody else authored.
      */
     public boolean isMandateSupplied() {
-        return source != TriageCompanySource.STRATEGY;
+        return apolloAccountId == null;
     }
 
     public void moveTo(TriageCompanyStatus newStatus) {
