@@ -6,14 +6,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
 import java.nio.charset.StandardCharsets;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
@@ -29,6 +33,16 @@ import tools.jackson.databind.JsonNode;
 @IntegrationTest
 @Import(RecordingEmailSender.Config.class)
 class SpreadsheetImportIntegrationTest extends FlowTestSupport {
+
+    @Autowired JdbcTemplate db;
+
+    private ApolloUniverse universe;
+
+    @BeforeEach
+    void freshUniverse() {
+        universe = new ApolloUniverse(db);
+        universe.reset();
+    }
 
     @Test
     @DisplayName("a companies-only file lands every row In universe, sourced as an import")
@@ -50,6 +64,72 @@ class SpreadsheetImportIntegrationTest extends FlowTestSupport {
         JsonNode first = universe.get("companies").get(0);
         assertThat(first.get("source").asText()).isEqualTo("csv");
         assertThat(first.get("numEmployees").asInt()).isIn(3000, 1200);
+    }
+
+    @Test
+    @DisplayName("a company the universe carries still lands as the file wrote it")
+    void keepsTheFilesOwnFiguresOverTheMarkets() throws Exception {
+        // A plugin capture resolves its company against the market — it read a name off a page and
+        // the market knows the rest. An import must not: the file's figures are the reason it was
+        // uploaded, and replacing them with the export's discards the import.
+        universe.company("acc-acwa", "ACWA Power").employees(9999).country("Saudi Arabia").insert();
+        String admin = adminOf("Import Market Firm");
+        String projectId = project(admin);
+
+        importFile(admin, projectId, """
+                Company,Headcount
+                ACWA Power,3000
+                """);
+
+        JsonNode company = companies(admin, projectId).get("companies").get(0);
+        assertThat(company.get("source").asText()).isEqualTo("csv");
+        assertThat(company.get("apolloAccountId").isNull()).isTrue();
+        assertThat(company.get("numEmployees").asInt()).isEqualTo(3000);
+    }
+
+    @Test
+    @DisplayName("two rows naming one company the market renames still land as two people at one row")
+    void doesNotLoseRowsToAMarketRename() throws Exception {
+        // The failure this pins: resolved against the market, row one lands under "ACWA Power
+        // Company", row two looks up "ACWA Power", misses, captures again — and is refused as
+        // already held. A file of a hundred people would lose nearly all of them.
+        universe.company("acc-acwa", "ACWA Power Company").employees(9999).insert();
+        String admin = adminOf("Import Rename Firm");
+        String projectId = project(admin);
+
+        JsonNode summary = importFile(admin, projectId, """
+                Company,Full Name,Job Title
+                ACWA Power,Layla Haddad,CFO
+                ACWA Power,Omar Nasser,COO
+                """);
+
+        assertThat(summary.get("rowErrors")).isEmpty();
+        assertThat(summary.get("companiesCreated").asInt()).isEqualTo(1);
+        assertThat(summary.get("candidatesCreated").asInt()).isEqualTo(2);
+        assertThat(companies(admin, projectId).get("companies").get(0).get("companyName").asText())
+                .isEqualTo("ACWA Power");
+    }
+
+    @Test
+    @DisplayName("re-importing a market-named company updates it rather than being refused the edit")
+    void reImportsACompanyTheMarketAlsoCarries() throws Exception {
+        universe.company("acc-agthia", "Agthia Group").employees(9999).insert();
+        String admin = adminOf("Import Market Reimport Firm");
+        String projectId = project(admin);
+        importFile(admin, projectId, """
+                Company,Headcount
+                Agthia Group,1200
+                """);
+
+        JsonNode second = importFile(admin, projectId, """
+                Company,Headcount
+                Agthia Group,1500
+                """);
+
+        assertThat(second.get("rowErrors")).isEmpty();
+        assertThat(second.get("companiesUpdated").asInt()).isEqualTo(1);
+        assertThat(companies(admin, projectId).get("companies").get(0).get("numEmployees").asInt())
+                .isEqualTo(1500);
     }
 
     @Test

@@ -79,6 +79,8 @@ export interface Candidate {
   /** This mandate's own extra columns for this person, keyed by each column's `fieldKey`. */
   customFields: CustomFieldValues;
   addedAt: string;
+  /** When enrichment last filled this profile in; null while research is pending or off. */
+  enrichedAt: string | null;
 }
 
 export interface CandidatesPage {

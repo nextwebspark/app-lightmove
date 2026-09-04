@@ -72,3 +72,23 @@ export function toTriageRows(
 
   return rows;
 }
+
+/**
+ * Research on a plugin capture normally lands within seconds; past this, it failed and the row will
+ * stay as captured — polling forever for it would be a heartbeat nobody asked for.
+ */
+const RESEARCH_WINDOW_MS = 3 * 60 * 1000;
+
+/**
+ * Whether some visible executive is still being researched — a plugin capture, not yet enriched,
+ * young enough that the answer is still coming. The page polls while this holds and stops by itself:
+ * either the research lands (enrichedAt fills in) or the window expires (it failed).
+ */
+export function awaitingResearch(candidates: Candidate[], now: number = Date.now()): boolean {
+  return candidates.some(
+    (candidate) =>
+      candidate.source === "extension" &&
+      !candidate.enrichedAt &&
+      now - new Date(candidate.addedAt).getTime() < RESEARCH_WINDOW_MS,
+  );
+}

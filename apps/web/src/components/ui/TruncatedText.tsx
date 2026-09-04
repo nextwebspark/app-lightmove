@@ -41,7 +41,9 @@ export function TruncatedText({ value, className }: { value: string | null; clas
         ref={ref}
         onMouseEnter={reveal}
         onMouseLeave={() => setAnchor(null)}
-        className={cn("block truncate", className)}
+        // `min-w-0`: as a flex item, `min-width: auto` is the whole nowrap string, so `truncate`
+        // never clips and the text paints over the next grid column.
+        className={cn("block min-w-0 truncate", className)}
       >
         {value ?? "—"}
       </span>

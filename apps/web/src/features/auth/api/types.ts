@@ -97,7 +97,8 @@ export interface ChangePasswordRequest {
   newPassword: string;
 }
 
-export type DeviceKind = "DESKTOP" | "MOBILE" | "TABLET" | "UNKNOWN";
+/** Mirrors the API's `DeviceKind`. Widen both together — an unmirrored member renders a blank icon. */
+export type DeviceKind = "DESKTOP" | "MOBILE" | "TABLET" | "EXTENSION" | "UNKNOWN";
 
 /** One signed-in device in Settings → Active sessions. */
 export interface ActiveSession {

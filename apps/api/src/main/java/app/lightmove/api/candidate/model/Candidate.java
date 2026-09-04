@@ -10,6 +10,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -174,7 +175,39 @@ public class Candidate extends BaseEntity {
         this.allowances = details.compensation().allowances();
         this.longTermIncentive = details.compensation().longTermIncentive();
         this.noticePeriod = details.compensation().noticePeriod();
-        this.profile = details.profile();
+        // Not a plain replace: the drawer resubmits only the components it renders (career,
+        // languages), and a wholesale overwrite here silently wiped enrichment's fields on the first
+        // edit after a capture was enriched.
+        this.profile = details.profile().keepingEnrichmentOf(this.profile);
+    }
+
+    /**
+     * Fills in what research found, and only where nobody has filled anything in — vendor data never
+     * outranks a researcher. {@code companyName} is stricter still: on a mapped candidate it is the
+     * triage snapshot, and a vendor must not overwrite the mandate's own record of the employer.
+     */
+    public void enrich(EnrichedProfile enriched) {
+        if (title == null) {
+            title = enriched.title();
+        }
+        if (summary == null) {
+            summary = enriched.about();
+        }
+        if (locationCity == null) {
+            locationCity = enriched.locationCity();
+        }
+        if (locationCountry == null) {
+            locationCountry = enriched.locationCountry();
+        }
+        if (triageCompanyId == null && companyName == null) {
+            companyName = enriched.employerName();
+        }
+        this.profile = new CandidateProfile(
+                profile.career().isEmpty() ? enriched.career() : profile.career(),
+                profile.languages().isEmpty() ? enriched.languages() : profile.languages(),
+                enriched.education(),
+                enriched.skills(),
+                Instant.now().toString());
     }
 
     /**
@@ -194,6 +227,12 @@ public class Candidate extends BaseEntity {
     /** Moves the person to another of the mandate's companies, or off the universe altogether. */
     public void remapTo(UUID newTriageCompanyId) {
         this.triageCompanyId = newTriageCompanyId;
+    }
+
+    /** Research resolved the employer into one of the mandate's companies — map and snapshot it. */
+    public void employBy(UUID resolvedTriageCompanyId, String resolvedEmployerName) {
+        this.triageCompanyId = resolvedTriageCompanyId;
+        this.companyName = resolvedEmployerName;
     }
 
     public CandidateCompensation compensation() {

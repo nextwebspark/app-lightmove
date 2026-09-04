@@ -6,6 +6,9 @@ import app.lightmove.api.core.config.CompanyListSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.stream.ProjectStreamKind;
+import app.lightmove.api.core.stream.ProjectStreamPublisher;
+import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.service.CustomColumnService;
 import app.lightmove.api.project.repository.ProjectRepository;
@@ -29,6 +32,7 @@ import app.lightmove.api.triagecompany.dto.TriageCountsDto;
 import app.lightmove.api.triagecompany.dto.UpdateTriageCompanyRequest;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.model.TriageCompany;
+import app.lightmove.api.triagecompany.model.TriageCompanyCapturedEvent;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,10 +42,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -55,11 +63,22 @@ import org.springframework.transaction.annotation.Transactional;
  * {@link TriageCompanySource} records that they were not Apollo's.
  */
 @Service
+@Slf4j
 public class TriageCompanyService {
 
     /** The doors a caller may supply a company through. {@code STRATEGY} is the server's to write. */
     private static final Set<TriageCompanySource> CAPTURABLE_SOURCES =
             Set.of(TriageCompanySource.MANUAL, TriageCompanySource.EXTENSION, TriageCompanySource.CSV);
+
+    /**
+     * The doors a person comes through one company at a time, which is what makes two things
+     * affordable that a spreadsheet cannot afford: resolving the name against the universe, and
+     * researching it. A file states its own figures and is the reason it was uploaded — replacing
+     * them with the market's would discard the import — and it arrives a thousand rows at once, where
+     * a billed vendor call per row is a bill nobody authorised by pressing one button.
+     */
+    private static final Set<TriageCompanySource> SUPPLIED_ONE_AT_A_TIME =
+            Set.of(TriageCompanySource.MANUAL, TriageCompanySource.EXTENSION);
 
     private static final Sort NEWEST_FIRST = Sort.by(Sort.Direction.DESC, "createdAt");
 
@@ -70,6 +89,8 @@ public class TriageCompanyService {
     private final CustomColumnService customColumns;
     private final AuditService audit;
     private final ApolloCompanyQueryService market;
+    private final ApplicationEventPublisher events;
+    private final ProjectStreamPublisher stream;
     private final CompanyListSettings listConfig;
 
     // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
@@ -77,7 +98,8 @@ public class TriageCompanyService {
     public TriageCompanyService(TriageCompanyRepository triaged, TriageCompanyWriter writer,
                                 ProjectRepository projects, StrategyService strategy,
                                 CustomColumnService customColumns, AuditService audit,
-                                ApolloCompanyQueryService market, LightMoveProperties properties) {
+                                ApolloCompanyQueryService market, ApplicationEventPublisher events,
+                                ProjectStreamPublisher stream, LightMoveProperties properties) {
         this.triaged = triaged;
         this.writer = writer;
         this.projects = projects;
@@ -85,6 +107,8 @@ public class TriageCompanyService {
         this.customColumns = customColumns;
         this.audit = audit;
         this.market = market;
+        this.events = events;
+        this.stream = stream;
         this.listConfig = properties.company().list();
     }
 
@@ -187,8 +211,8 @@ public class TriageCompanyService {
         // The check above is a fast path, not the guard: a second click racing this one passes it too.
         // The insert ignores the conflict and the row is read back either way, so both callers get the
         // company and only the one that actually wrote it records an event.
-        int inserted = writer.insertIgnoringHeld(projectId, userId, List.of(row), landingStatus,
-                request.note());
+        int inserted = writer.insertIgnoringHeld(projectId, userId, List.of(row),
+                TriageCompanySource.STRATEGY, landingStatus, request.note(), null);
         TriageCompany taken = triaged.findByProjectIdAndApolloAccountId(projectId, accountId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
 
@@ -230,23 +254,187 @@ public class TriageCompanyService {
                 request.companyName(), request.industry(), request.companyCountry(),
                 request.companyCity(), request.numEmployees(), request.annualRevenue(),
                 request.website(), request.companyLinkedinUrl(), request.foundedYear(),
-                request.shortDescription(), request.sourceUrl(), request.note());
+                request.shortDescription(), null, request.sourceUrl(), request.note());
 
         if (triaged.existsByProjectIdAndCompanyNameIgnoreCase(projectId, details.companyName())) {
             throw ApiException.of(ErrorCode.TRIAGE_COMPANY_ALREADY_HELD);
         }
 
-        TriageCompany captured = triaged.save(
-                TriageCompany.captured(projectId, userId, source, status, details));
+        // A captured company the universe already carries lands as the full market row instead of a
+        // thin hand-typed one — the plugin read a name and a slug, the market knows the rest.
+        ResolvedCapture resolved = SUPPLIED_ONE_AT_A_TIME.contains(source)
+                ? resolveCapture(projectId, userId, details, source, status)
+                : saveCaptured(projectId, userId, source, status, details);
+
+        // The check above covers the name the caller typed; this covers the name the row actually
+        // landed under, which for a market-resolved capture is the market's. Without it a capture of
+        // "Al Rawabi" resolving to "Al Rawabi Dairy" duplicated a row the mandate already held —
+        // the very thing the guard exists to refuse.
+        if (!resolved.created()) {
+            throw ApiException.of(ErrorCode.TRIAGE_COMPANY_ALREADY_HELD);
+        }
+        TriageCompany captured = resolved.company();
         captured.describeCustomFields(customColumns.applyTo(
                 projectId, CustomColumnTarget.COMPANY, captured.getCustomFields(), request.customFields()));
 
-        audit.event(ProjectEventType.TRIAGE_COMPANY_CAPTURED)
+        var event = audit.event(ProjectEventType.TRIAGE_COMPANY_CAPTURED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .detail("source", source.name())
-                .detail("triageCompanyId", captured.getId().toString())
-                .record();
+                .detail("triageCompanyId", captured.getId().toString());
+        if (captured.getApolloAccountId() != null) {
+            event = event.detail("apolloAccountId", captured.getApolloAccountId());
+        }
+        event.record();
+        if (SUPPLIED_ONE_AT_A_TIME.contains(source)) {
+            announceForResearch(captured, projectId);
+        }
+        stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
         return toDto(captured);
+    }
+
+    /**
+     * The research door: the enrichment worker files a captured executive's employer into the
+     * mandate's universe. Unlike {@link #capture}, a name the mandate already holds answers with the
+     * existing row rather than a refusal — the worker is resolving "where does this person work",
+     * not asserting a new company. No audit event of its own: the capture the consultant made is
+     * already audited, and this row is its consequence rather than a second user action.
+     */
+    @Transactional
+    public TriageCompanyResponse captureFromResearch(UUID projectId, UUID addedBy,
+                                                     CapturedCompanyDetails details) {
+        ResolvedCapture resolved = resolveCapture(projectId, addedBy, details,
+                TriageCompanySource.EXTENSION, TriageCompanyStatus.IN_UNIVERSE);
+        if (resolved.created()) {
+            announceForResearch(resolved.company(), projectId);
+        }
+        return toDto(resolved.company());
+    }
+
+    /**
+     * The short transactional tail of a company enrichment: re-read the row project-scoped, fill in
+     * the facts nobody typed, announce the change, commit.
+     *
+     * <p>{@code REQUIRES_NEW} because the enrichment worker calls this from an {@code AFTER_COMMIT}
+     * callback, where the completed transaction's resources are still bound to the thread and joining
+     * them writes nothing. A row deleted while the provider was answering, or one that turned out to
+     * be market-backed after all, is left alone.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void applyEnrichment(UUID projectId, UUID companyId, CapturedCompanyDetails details) {
+        triaged.findByIdAndProjectId(companyId, projectId).ifPresentOrElse(company -> {
+            // Unreachable through the only producer today — announceForResearch fires solely for a
+            // row with no apollo id, and the column is updatable = false. Kept as the guard a second
+            // producer would need, not as protection this path currently relies on.
+            if (company.getApolloAccountId() != null) {
+                return;
+            }
+            company.enrichFacts(details);
+            stream.publish(projectId, ProjectStreamKind.COMPANY_ENRICHED);
+        }, () -> log.info("Company {} was removed before its research landed", companyId));
+    }
+
+    /** A captured company and whether this call is what put it in the mandate's universe. */
+    private record ResolvedCapture(TriageCompany company, boolean created) {}
+
+    /**
+     * Where a captured company lands: the full market snapshot when the universe carries it, a
+     * hand-shaped row when it does not — and, either way, the row the mandate already holds rather
+     * than a second copy of it. The slug is the strong key and an exact unique name the only
+     * fallback; see {@code matchEmployer}.
+     *
+     * <p>Deliberately no off-limits check, unlike {@link #add}: a person the consultant captured
+     * works where they work, and hiding the employer would leave the mapping lying about it — the
+     * user's call, made explicitly.
+     */
+    private ResolvedCapture resolveCapture(UUID projectId, UUID addedBy,
+                                           CapturedCompanyDetails details,
+                                           TriageCompanySource source, TriageCompanyStatus status) {
+        Optional<CompanyRow> matched = market.matchEmployer(
+                LinkedInUrls.companySlugOrNull(details.companyLinkedinUrl()), details.companyName());
+
+        if (matched.isPresent()) {
+            CompanyRow row = matched.get();
+            Optional<TriageCompany> held = heldMarketRow(projectId, row);
+            if (held.isPresent()) {
+                return new ResolvedCapture(held.get(), false);
+            }
+            // The count, not a hard-coded true: the insert is ON CONFLICT DO NOTHING, so the loser of
+            // a race gets zero rows and must not be told it created the row. Reporting true to both
+            // fired the audit event and the stream broadcast twice, and sent a second billed company
+            // lookup after a row that was already being researched.
+            int inserted = writer.insertIgnoringHeld(projectId, addedBy, List.of(row), source, status,
+                    details.note(), details.sourceUrl());
+            return new ResolvedCapture(
+                    triaged.findByProjectIdAndApolloAccountId(projectId, row.apolloAccountId())
+                            .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND)), inserted > 0);
+        }
+
+        List<TriageCompany> heldByName =
+                triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, details.companyName());
+        if (!heldByName.isEmpty()) {
+            return new ResolvedCapture(preferred(heldByName), false);
+        }
+        return saveCaptured(projectId, addedBy, source, status, details);
+    }
+
+    /** The mandate's existing row for a market company — by its apollo id, or by the name it lands under. */
+    private Optional<TriageCompany> heldMarketRow(UUID projectId, CompanyRow row) {
+        Optional<TriageCompany> byId =
+                triaged.findByProjectIdAndApolloAccountId(projectId, row.apolloAccountId());
+        if (byId.isPresent()) {
+            return byId;
+        }
+        List<TriageCompany> byName =
+                triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, row.companyName());
+        return byName.isEmpty() ? Optional.empty() : Optional.of(preferred(byName));
+    }
+
+    /**
+     * Which of several same-named rows a capture answers with. The mandate can legitimately hold two
+     * (see {@link #capture}'s note on the bulk-add carve-out), and an unordered {@code getFirst}
+     * mapped people to whichever row Postgres happened to return — including a declined one, where
+     * a freshly researched executive would never be looked for.
+     */
+    private static TriageCompany preferred(List<TriageCompany> rows) {
+        return rows.stream()
+                .min(Comparator
+                        .comparing((TriageCompany row) -> row.getStatus() == TriageCompanyStatus.DECLINED)
+                        .thenComparing(row -> row.getApolloAccountId() == null)
+                        .thenComparing(TriageCompany::getCreatedAt))
+                .orElseThrow();
+    }
+
+    /**
+     * Saves a hand-shaped row, answering with the winner's row when a concurrent capture of the same
+     * employer got there first. Two enrichment workers researching colleagues at one company both
+     * pass the held-check before either commits, and V34's partial unique index refuses the loser —
+     * whose transaction is the candidate's whole enrichment, so letting it escape would discard a
+     * researched profile and photo over a company row that already exists.
+     */
+    private ResolvedCapture saveCaptured(UUID projectId, UUID addedBy, TriageCompanySource source,
+                                         TriageCompanyStatus status, CapturedCompanyDetails details) {
+        try {
+            return new ResolvedCapture(triaged.saveAndFlush(
+                    TriageCompany.captured(projectId, addedBy, source, status, details)), true);
+        } catch (DataIntegrityViolationException lostTheRace) {
+            List<TriageCompany> held =
+                    triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, details.companyName());
+            if (held.isEmpty()) {
+                throw lostTheRace;
+            }
+            return new ResolvedCapture(preferred(held), false);
+        }
+    }
+
+    /**
+     * A freshly captured row the market could not resolve still has a LinkedIn page — announce it so
+     * the company enrichment worker can research the facts the plugin could not read off the page.
+     */
+    private void announceForResearch(TriageCompany company, UUID projectId) {
+        String slug = LinkedInUrls.companySlugOrNull(company.getCompanyLinkedinUrl());
+        if (company.getApolloAccountId() == null && slug != null) {
+            events.publishEvent(new TriageCompanyCapturedEvent(company.getId(), projectId, slug));
+        }
     }
 
     /**
@@ -277,7 +465,7 @@ public class TriageCompanyService {
         // count it answers with is the number that were new. A row already declined stays declined —
         // re-running after widening the filter must not resurrect a ruled-out company.
         int added = writer.insertIgnoringHeld(projectId, userId, rows,
-                TriageCompanyStatus.IN_UNIVERSE, null);
+                TriageCompanySource.STRATEGY, TriageCompanyStatus.IN_UNIVERSE, null, null);
 
         audit.event(ProjectEventType.TRIAGE_BULK_ADDED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
@@ -342,7 +530,7 @@ public class TriageCompanyService {
                 request.companyName(), request.industry(), request.companyCountry(),
                 request.companyCity(), request.numEmployees(), request.annualRevenue(),
                 request.website(), request.companyLinkedinUrl(), request.foundedYear(),
-                request.shortDescription(), null, null);
+                request.shortDescription(), null, null, null);
 
         boolean nameTaken = triaged
                 .findByProjectIdAndCompanyNameIgnoreCase(projectId, details.companyName())

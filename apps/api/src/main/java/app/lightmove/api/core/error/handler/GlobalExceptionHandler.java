@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -243,13 +244,19 @@ public class GlobalExceptionHandler {
      * <p>Except a client that hung up. The SPA cancels a company read the moment a Strategy save
      * supersedes it, so a half-written response is routine rather than a fault; logging each one at
      * error with a stack trace would bury the failures that really are ours.
+     *
+     * @return the problem to write, or {@code null} when the caller is gone and the response is
+     *     already committed — the contract Spring's own {@code ResponseEntityExceptionHandler}
+     *     answers {@code AsyncRequestNotUsableException} with, for the same reason
      */
     @ExceptionHandler(Exception.class)
-    public ProblemDetail handleUnexpected(Exception ex, HttpServletRequest request) {
+    public @Nullable ProblemDetail handleUnexpected(Exception ex, HttpServletRequest request) {
         if (isClientDisconnect(ex)) {
             log.debug("Client hung up during {} {}", request.getMethod(), request.getRequestURI());
-            // Returned but never written: the socket it would go to is already gone.
-            return problem(ErrorCode.INTERNAL_ERROR, ErrorCode.INTERNAL_ERROR.defaultMessage());
+            // Returning a body here threw a second exception the resolver logged at warn with a
+            // stack trace, once per closed tab: a project stream is committed as text/event-stream,
+            // and no ProblemDetail converter writes that.
+            return null;
         }
         log.error("Unhandled exception at {} {}", request.getMethod(), request.getRequestURI(), ex);
         return problem(ErrorCode.INTERNAL_ERROR, ErrorCode.INTERNAL_ERROR.defaultMessage());

@@ -146,7 +146,13 @@ public class SecurityConfig {
                                 API + "/auth/verify",
                                 API + "/auth/verify/resend",
                                 API + "/auth/password/forgot",
-                                API + "/auth/password/reset"))
+                                API + "/auth/password/reset",
+                                // The extension's own session. Its refresh token travels in the request
+                                // body, not a cookie — so there is nothing for a browser to attach on a
+                                // cross-site page's behalf, and nothing for a CSRF token to defend.
+                                // Deliberately not /auth/extension/**: minting a token stays protected.
+                                API + "/auth/extension/refresh",
+                                API + "/auth/extension/logout"))
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
@@ -159,8 +165,15 @@ public class SecurityConfig {
                                 API + "/auth/password/forgot",
                                 API + "/auth/password/reset",
                                 API + "/auth/csrf",
-                                API + "/auth/providers")
+                                API + "/auth/providers",
+                                // Authenticated by the body-carried refresh token, exactly as
+                                // /auth/refresh is by its cookie.
+                                API + "/auth/extension/refresh",
+                                API + "/auth/extension/logout")
                         .permitAll()
+                        // Everything else here needs a bearer token — including
+                        // /auth/extension/tokens, which mints a credential and must only ever mint one
+                        // for the caller's own account.
                         .anyRequest().authenticated())
 
                 // The same converter as the main chain, and it must be. Not every route here is

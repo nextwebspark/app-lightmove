@@ -21,13 +21,20 @@ public enum RevokeReason {
      * The owner ended this session from another device. Distinct from {@link #ADMIN_REVOKED} so the
      * trail says whether the account holder acted or LightMove staff did.
      */
-    USER_REVOKED;
+    USER_REVOKED,
+
+    /**
+     * Replaced by a newer session for the same client — pairing the browser extension again ends the
+     * one the account already held. An expected terminal state, so it is not theft on replay: the
+     * extension that missed the re-pair is a stale device catching up.
+     */
+    SUPERSEDED;
 
     /**
      * Whether presenting a token revoked for this reason is evidence of theft rather than an ordinary
      * dead session.
      *
-     * <p>{@link #ROTATED} is the load-bearing case and must stay here: a superseded token being
+     * <p>{@link #ROTATED} is the load-bearing case and must stay here: a rotated-away token being
      * presented again <i>is</i> the attack signature, because the legitimate client has already moved
      * on to its successor. Do not widen this into "any revoked token is fine".
      *

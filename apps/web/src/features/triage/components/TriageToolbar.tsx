@@ -3,12 +3,10 @@ import { useMemo } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
 import type { CustomColumn } from "../../customcolumns/api/types";
-import type { TriageCounts } from "../api/types";
 import {
   createTriageCompanyColumns,
   defaultTriageColumnVisibility,
 } from "../lib/triageCompanyColumns";
-import { TriageStageSwitcher } from "./TriageStageSwitcher";
 
 const TOOLBAR_BUTTON =
   "inline-flex items-center gap-1.5 whitespace-nowrap rounded-[6px] border border-line bg-panel " +
@@ -29,8 +27,6 @@ const TOOLBAR_BUTTON =
  * company is that company's own row action, where the company is already known.
  */
 export function TriageToolbar({
-  projectId,
-  counts,
   query,
   onQuery,
   columnVisibility,
@@ -43,9 +39,6 @@ export function TriageToolbar({
   onManageColumns,
   canWrite,
 }: {
-  projectId: string;
-  /** Undefined while the first page is still loading — the pills show a dash, never a zero. */
-  counts: TriageCounts | undefined;
   query: string;
   onQuery: (query: string) => void;
   columnVisibility: ColumnVisibilityState;
@@ -80,8 +73,6 @@ export function TriageToolbar({
           className="w-full bg-transparent font-sans text-[13px] text-text outline-none placeholder:text-text3"
         />
       </div>
-
-      <TriageStageSwitcher projectId={projectId} counts={counts} />
 
       <div className="flex items-center gap-3 sm:ml-auto">
         <ColumnPicker

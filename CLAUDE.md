@@ -19,24 +19,27 @@ searches saved against it, and the three Companies pages (In universe / Shortlis
 mandate triages what it took from it. A company reaches those pages four ways — out of the market
 (Strategy's per-row add, or the Companies screen's own picker over the same universe, both `POST
 /triage` with an id the server resolves), typed in by hand, captured by the browser plugin
-(`POST /triage/capture`; the extension itself is not built), or **imported from a spreadsheet**.
+(`POST /triage/capture`), or **imported from a spreadsheet**.
 Deleting one drops the project↔company row only: the Apollo universe is read-only to the app. On top of
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
-with three of them is three lines and one with none keeps its "Add executive" slot.
+with three of them is three lines and one with none keeps its "Add executive" slot. An executive is also
+captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`).
 The **spreadsheet import** is that fourth door and carries both halves at once: a CSV or Excel file
 whose rows are people at companies, mapped column-by-column onto our fields, then confirmed by a
 person before anything is written. **The model is asked only where a header is in doubt** — a sheet
 whose every header is a known spelling (anything built from the downloadable template, and most second
 imports) maps with no LLM call at all; when it is asked it gets headers and a locally computed value
-shape only, **never cell values**, and a synonym matcher answers alone when Vertex cannot be reached. A header no field covers becomes a **per-project custom column**: the definitions
+shape only, **never cell values**, and a synonym matcher answers alone when Vertex cannot be reached.
+A header no field covers becomes a **per-project custom column**: the definitions
 are rows in `app_lm_project_custom_column` and the values a jsonb bag on the row, so the grid renders
 it like any built-in while a new mandate still starts from the built-ins alone. The importer writes
 nothing itself — it builds the same requests the Companies drawer posts and hands them to
 `triagecompany` and `candidate`, so every scope check, duplicate rule and audit event stays where it
-already lives. The standalone Candidates screen, and the pipeline and outreach tables, don't exist yet,
-and neither does the plugin's profile capture (the columns and `CandidateSource` are there for it).
-The **Position**
+already lives. **An imported row is never resolved against the market and never researched** — a file
+states its own figures and arrives a thousand rows at once, so the two things a one-at-a-time capture
+affords are exactly the two it cannot. The standalone Candidates screen, and the pipeline and outreach
+tables, don't exist yet. The **Position**
 screen is the mandate's brief, edited as a six-step wizard (details, mandate context, reporting,
 compensation, assessment, review) that autosaves one step at a time. It opens drafted rather than
 blank: a **role-template library** of seventeen briefs (twelve C-suite, four functional heads, one
@@ -56,8 +59,9 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate`, `customcolumn`, `dataimport` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
+| `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
 | `ops/cloudsql/` | Database bootstrap and hardening scripts |
 
@@ -77,7 +81,8 @@ company* is a decision. Searching goes in `strategy` however company-shaped its 
 holds only what a mandate *did* about a company. **`candidate` is the people side** — one row per
 executive a mandate has mapped, belonging to the *project* and only optionally to one of its triaged
 companies, because a researcher meets people at companies the universe does not carry. It depends on
-`triagecompany` through one public method and `triagecompany` never depends back.
+`triagecompany` through two public methods — resolving the company an executive is mapped to, and
+filing a researched employer into the universe — and `triagecompany` never depends back.
 **`customcolumn` is the columns a mandate added to its own grid** — definitions only, plus the one
 method (`applyTo`) that decides what a row may store in them, since the bag is open and nothing else
 stands between it and arbitrary caller-chosen keys. `triagecompany` and `candidate` depend on it; it
@@ -94,7 +99,7 @@ npm run dev:db:reset         # drop the local database; next boot re-runs every 
 npm run dev:db:psql          # psql shell in the local container
 npm run dev:db:apollo        # copy the Apollo company universe down from Cloud SQL into it
 npm run dev:cloud            # api + web against the SHARED Cloud SQL dev database
-npm test                     # both suites
+npm test                     # all three suites: api, web, extension
 cd apps/api && ./mvnw test   # backend — needs Docker (Testcontainers)
 cd apps/web && npx vitest    # frontend
 cd apps/web && npm run build # the real frontend typecheck
@@ -126,6 +131,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 | `lightmove-domain` | **any** auth / signup / OAuth / workspace / membership / invitation / RBAC / client-representative / verification work |
 | `java-spring-development` | any backend code — architecture, conventions, Boot 4 notes, and the backend traps live there |
 | `react` | any frontend code — real stack, conventions, and the frontend traps live there |
+| `chrome-extension` | any work in `apps/extension`, on `/api/v1/auth/extension`, or on the SPA's `/extension/connect` |
 | `db-ops` | migrations, grants, `harden.sql`, `ops/cloudsql` scripts, the Apollo company universe |
 | `pr-cleanup` | addressing PR review feedback |
 | `verify` | running the app end-to-end |

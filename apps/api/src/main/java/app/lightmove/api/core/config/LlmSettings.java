@@ -48,6 +48,9 @@ public record LlmSettings(
                     "lightmove.llm.answer-repair-attempts must not be negative, but was "
                             + answerRepairAttempts);
         }
+        if (injectionPhrases == null) {
+            throw new IllegalArgumentException("lightmove.llm.injection-phrases must not be null");
+        }
         // @DefaultValue on a List binds an operator's empty override to [""], not to [] — and a
         // blocklist holding one blank string matches every prompt, so it is refused loudly here.
         if (injectionPhrases.stream().anyMatch(String::isBlank)) {

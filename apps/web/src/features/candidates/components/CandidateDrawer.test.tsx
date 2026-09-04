@@ -45,6 +45,7 @@ const yasmin: Candidate = {
   sourceUrl: null,
   customFields: {},
   addedAt: "2026-08-02T09:00:00Z",
+  enrichedAt: null,
 };
 
 const renderDrawer = (props: Partial<Parameters<typeof CandidateDrawer>[0]> = {}) =>

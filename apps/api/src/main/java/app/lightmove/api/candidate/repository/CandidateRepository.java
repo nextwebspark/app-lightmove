@@ -34,6 +34,8 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
 
     Optional<Candidate> findByIdAndProjectId(UUID id, UUID projectId);
 
+    boolean existsByIdAndProjectId(UUID id, UUID projectId);
+
     /**
      * The duplicate guard for someone mapped at one of the mandate's companies, and its partner below
      * for someone who is not. Two questions rather than one, because "the same person twice" means

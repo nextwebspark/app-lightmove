@@ -1,4 +1,5 @@
 import type { ApiError } from "../features/auth/api/types";
+import { createSseParser, type SseEvent } from "./sse";
 
 /**
  * The only way this app talks to the API.
@@ -250,6 +251,38 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
  */
 export async function requestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
   return (await sendWithAuth(path, options)).blob();
+}
+
+/**
+ * Holds open a server-sent-events stream with the same bearer token and one-refresh retry every
+ * other read gets. It has to be read off fetch's body: a native EventSource cannot send the
+ * Authorization header, and the token lives only in this module.
+ *
+ * Resolves when the server ends the stream — which it does on a cycle by design, so a clean end is
+ * ordinary — and rejects on abort or a network/auth failure. The caller owns reconnecting.
+ */
+export async function streamEvents(
+  path: string,
+  onEvent: (event: SseEvent) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  const response = await sendWithAuth(path, { signal });
+  const reader = response.body?.getReader();
+  if (!reader) {
+    return;
+  }
+
+  const decoder = new TextDecoder();
+  const parse = createSseParser();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      return;
+    }
+    for (const event of parse(decoder.decode(value, { stream: true }))) {
+      onEvent(event);
+    }
+  }
 }
 
 /**

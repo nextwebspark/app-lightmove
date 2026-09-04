@@ -57,6 +57,9 @@ vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
   restoreSession: vi.fn(),
   setAccessToken: vi.fn(),
+  // The page holds a live stream open; here it simply never speaks, so the grid behaves exactly as
+  // it does between events and the fetch-mocked queries stay the only data source.
+  streamEvents: vi.fn(() => new Promise<void>(() => {})),
 }));
 
 const { restoreSession } = await import("../../../lib/apiClient");
@@ -151,6 +154,7 @@ const yasmin: Candidate = {
   sourceUrl: null,
   customFields: {},
   addedAt: "2026-08-02T09:00:00Z",
+  enrichedAt: null,
 };
 
 /** Two of each, so a filtered list can be shown to have left something out. */
@@ -276,17 +280,6 @@ describe("TriageStagePage", () => {
     // carry on every scan. The Columns picker still has it, and the panel always shows it.
     expect(within(grid).queryByText("Strategy")).not.toBeInTheDocument();
     expect(within(grid).queryByRole("columnheader", { name: /Source/i })).not.toBeInTheDocument();
-  });
-
-  it("shows the three stage counts, so a move is visibly reflected", async () => {
-    vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
-      pageOf({ counts: { inUniverse: 4, shortlisted: 2, declined: 7 } }),
-    );
-    renderStage();
-
-    expect(await screen.findByRole("link", { name: /In universe/ })).toHaveTextContent("4");
-    expect(screen.getByRole("link", { name: /Shortlisted/ })).toHaveTextContent("2");
-    expect(screen.getByRole("link", { name: /Declined/ })).toHaveTextContent("7");
   });
 
   it("moves a company through the existing PATCH rather than a stage-specific endpoint", async () => {

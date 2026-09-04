@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <title>LightMove Capture</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!--
+      At the extension root rather than beside the React it loads, and for a mechanical reason: Vite
+      emits an HTML entry at its path relative to the project root, so `src/popup/index.html` would
+      land at `dist/src/popup/index.html` and the manifest's `default_popup: "popup.html"` would find
+      nothing. The popup's code still lives in src/popup/.
+    -->
+    <script type="module" src="./src/popup/main.tsx"></script>
+  </body>
+</html>

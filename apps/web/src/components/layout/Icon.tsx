@@ -48,6 +48,9 @@ export const ICONS = {
   dragHandle: "M5 9h14M5 15h14",
   info: "M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z",
   laptop: "M2 4h20v12H2zM8 20h8M12 16v4",
+  /** A jigsaw piece — the browser extension, in Chrome's own idiom for one. */
+  puzzle:
+    "M10 3a2 2 0 0 1 4 0v1h4a1 1 0 0 1 1 1v4h1a2 2 0 0 1 0 4h-1v4a1 1 0 0 1-1 1h-4v-1a2 2 0 0 0-4 0v1H6a1 1 0 0 1-1-1v-4H4a2 2 0 0 1 0-4h1V5a1 1 0 0 1 1-1h4Z",
   phone: "M7 2h10v20H7zM11 19h2",
   trash: "M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6",
   calendar:

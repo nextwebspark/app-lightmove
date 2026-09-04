@@ -39,7 +39,7 @@ public class CandidateLlmController {
     @PostMapping("/shortlist")
     public ResponseEntity<ShortlistResponse> shortlist(@AuthenticationPrincipal AuthPrincipal principal,
                                                         @Valid @RequestBody ShortlistRequest request) {
-        llmBudget.checkShortlist(principal.userId());
+        llmBudget.requireShortlistBudget(principal.userId());
         String verdict = shortlistService.shortlist(request.jobBrief(), request.candidateProfile());
         return ResponseEntity.ok(new ShortlistResponse(verdict));
     }
@@ -47,7 +47,7 @@ public class CandidateLlmController {
     @PostMapping("/embed")
     public ResponseEntity<EmbedResponse> embed(@AuthenticationPrincipal AuthPrincipal principal,
                                                @Valid @RequestBody EmbedRequest request) {
-        llmBudget.checkEmbed(principal.userId());
+        llmBudget.requireEmbeddingBudget(principal.userId());
         float[] vector = embeddingService.embed(request.text());
         return ResponseEntity.ok(new EmbedResponse(vector.length, vector));
     }

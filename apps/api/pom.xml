@@ -76,10 +76,11 @@
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-database-postgresql</artifactId>
 		</dependency>
+		<!-- Compile scope, not the usual runtime: core/stream's LISTEN loop speaks pgjdbc's own
+		     PGConnection/PGNotification API, which plain JDBC does not expose. -->
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
-			<scope>runtime</scope>
 		</dependency>
 		<!-- Connects to Cloud SQL over an IAM-authorised tunnel, so the database never needs an IP
 		     allowlist entry for a developer's (dynamic) home address. -->

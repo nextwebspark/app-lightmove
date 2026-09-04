@@ -2,8 +2,9 @@ package app.lightmove.api.dataimport.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.SpreadsheetImportSettings;
-import app.lightmove.api.core.llm.model.LlmPromptSpec;
-import app.lightmove.api.core.llm.service.LlmGuards;
+import app.lightmove.api.core.llm.model.BlockedAnswer;
+import app.lightmove.api.core.llm.model.PromptGuardSpec;
+import app.lightmove.api.core.llm.service.LlmCallPolicy;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.constant.CustomColumnType;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
@@ -91,7 +92,7 @@ public class ColumnMappingProposer {
      * shaped as a document that binds, carrying the shared marker as a header no sheet has.
      */
     private static final String BLOCKED =
-            "{\"columns\":[{\"header\":\"" + LlmPromptSpec.BLOCKED_MARKER + "\"}]}";
+            "{\"columns\":[{\"header\":\"" + BlockedAnswer.MARKER + "\"}]}";
 
     private final ChatClient chatClient;
     private final HeuristicColumnMatcher heuristics;
@@ -105,12 +106,12 @@ public class ColumnMappingProposer {
                                  HeuristicColumnMatcher heuristics,
                                  @Value("classpath:prompts/import-column-mapping-system.st") Resource systemPrompt,
                                  @Value("classpath:prompts/import-column-mapping-schema.json") Resource answerSchema,
-                                 LlmGuards guards,
+                                 LlmCallPolicy llmCalls,
                                  LightMoveProperties properties) {
         this.chatClient = chatClient;
         this.heuristics = heuristics;
         this.systemPrompt = systemPrompt;
-        this.guarded = guards.on(LlmPromptSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
+        this.guarded = llmCalls.forPrompt(PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
         this.settings = properties.spreadsheetImport();
     }
 
@@ -179,7 +180,7 @@ public class ColumnMappingProposer {
         return answered.columns() != null
                 && answered.columns().size() == 1
                 && answered.columns().getFirst() != null
-                && LlmPromptSpec.wasBlocked(answered.columns().getFirst().header());
+                && BlockedAnswer.matches(answered.columns().getFirst().header());
     }
 
     private String describeColumns(ParsedSheet sheet) {

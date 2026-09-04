@@ -18,6 +18,7 @@ import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { WorkspaceStepPage } from "../features/auth/pages/WorkspaceStepPage";
 import { isPureClient } from "../features/auth/roles";
 import { ClientsPage } from "../features/clients/pages/ClientsPage";
+import { ExtensionConnectPage } from "../features/extension/pages/ExtensionConnectPage";
 import { PositionPage } from "../features/position/pages/PositionPage";
 import { ProjectPlaceholderPage } from "../features/position/pages/ProjectPlaceholderPage";
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
@@ -68,6 +69,15 @@ export function AppRoutes() {
           steps create, so guarding on it would bounce the user out of their own signup. */}
       <Route path="/signup/workspace" element={<RequireVerified><WorkspaceStepPage /></RequireVerified>} />
       <Route path="/signup/invite" element={<RequireVerified><InviteStepPage /></RequireVerified>} />
+
+      {/* Where the browser extension is paired. RequireWorkspace, not RequireAuth: the extension's
+          only job is to write into a mandate, so pairing an account that has no workspace would mint a
+          credential that can do nothing. It sits outside WorkspaceLayout because it is a handover
+          screen the user closes, not a place in the app. */}
+      <Route
+        path="/extension/connect"
+        element={<RequireWorkspace><ExtensionConnectPage /></RequireWorkspace>}
+      />
 
       {/* The app shell. Sidebar views are routes so every screen is deep-linkable. */}
       <Route element={<RequireWorkspace><WorkspaceLayout /></RequireWorkspace>}>
@@ -155,7 +165,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
   if (!user) {
     // Remember where they were headed, so signing in returns them to it rather than dumping them on
     // the home page.
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }
 
   return <>{children}</>;
@@ -180,9 +190,13 @@ function RequireVerified({ children }: { children: ReactNode }) {
  */
 function RequireWorkspace({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) return <Booting />;
-  if (!user) return <Navigate to="/login" replace />;
+  // Carries the destination the way RequireAuth does. /extension/connect is the reason: pairing is a
+  // one-gesture flow, and dropping it here dead-ends the consultant on the projects list with the
+  // extension still unpaired.
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   if (!user.workspace) return <Navigate to={homeFor(user)} replace />;
 
   return <>{children}</>;

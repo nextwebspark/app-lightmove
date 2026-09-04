@@ -41,6 +41,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -137,10 +138,16 @@ public class ProjectImportService {
             tally.countRow();
             try {
                 importRow(userId, workspaceId, projectId, sheet, row, resolved, tally, httpRequest);
-            } catch (ApiException e) {
+            } catch (ApiException | DataAccessException e) {
                 // One unusable row must not lose the other nine hundred. The message is the internal
                 // detail rather than the user-facing sentence: it names the row's actual problem, and
                 // it reaches only the person who uploaded the file they are being told about.
+                //
+                // DataAccessException because a row can now lose a version race it did not start:
+                // enrichment writes the same company or candidate from its own REQUIRES_NEW
+                // transaction, and the optimistic-lock failure that surfaces is not an ApiException.
+                // Not RuntimeException — a genuine bug must still fail loudly rather than be filed as
+                // one bad row.
                 tally.rowFailed(rowIndex + 1, e.getMessage());
             }
         }
@@ -275,11 +282,12 @@ public class ProjectImportService {
         }
 
         TriageCompanyResponse held = existing.get();
-        // A company taken out of the Apollo universe keeps the export's own figures — that is what the
-        // Source badge on the grid promises, and TriageCompanyService refuses the edit anyway. Its
-        // custom columns are still the mandate's to fill, so those go through the edit the row does
-        // accept: a note. Everything else about the row is left exactly as the market published it.
-        if (!"strategy".equals(held.source())) {
+        // A company carrying a universe id keeps the export's own figures — that is what the Source
+        // badge on the grid promises, and TriageCompanyService refuses the edit anyway. Its custom
+        // columns are still the mandate's to fill, so those go through the edit the row does accept.
+        // Keyed on the id rather than on the badge: a plugin capture that resolved against the
+        // universe is badged `extension` and carries one all the same.
+        if (held.apolloAccountId() == null) {
             TriageCompanyResponse updated = triage.edit(userId, workspaceId, projectId, held.id(),
                     editRequestFor(held, companyName, fields), httpRequest);
             tally.companyUpdated();

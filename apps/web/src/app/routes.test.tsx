@@ -69,7 +69,13 @@ const unverifiedUser = () => ({
 });
 
 function Pathname() {
-  return <div data-testid="pathname">{useLocation().pathname}</div>;
+  const location = useLocation();
+  return (
+    <>
+      <div data-testid="pathname">{location.pathname}</div>
+      <div data-testid="from">{String((location.state as { from?: string } | null)?.from ?? "")}</div>
+    </>
+  );
 }
 
 const renderAt = (path: string) =>
@@ -233,5 +239,24 @@ describe("routes — the settings gates", () => {
     renderAt("/settings/general");
 
     expect(await screen.findByText("Workspace identity and defaults")).toBeInTheDocument();
+  });
+});
+
+/**
+ * Pairing the browser extension is a one-gesture flow: the panel opens /extension/connect, the page
+ * mints a token and hands it over. A consultant who is signed out lands on login instead, and dropping
+ * where they were headed left them on the projects list with the extension still unpaired.
+ */
+describe("routes — returning to where the guard interrupted", () => {
+  beforeEach(() => {
+    vi.mocked(restoreSession).mockResolvedValue(null);
+    vi.mocked(authApi.me).mockRejectedValue(new Error("no session"));
+  });
+
+  it("remembers the extension pairing page a signed-out consultant was headed for", async () => {
+    renderAt("/extension/connect");
+
+    await waitFor(() => expect(screen.getByTestId("pathname")).toHaveTextContent("/login"));
+    expect(screen.getByTestId("from")).toHaveTextContent("/extension/connect");
   });
 });

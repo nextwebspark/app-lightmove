@@ -20,6 +20,8 @@ public record LightMoveProperties(
         CompanySettings company,
         PositionSettings position,
         LlmSettings llm,
+        EnrichmentSettings enrichment,
+        ResilienceSettings resilience,
         CustomColumnSettings customColumn,
         SpreadsheetImportSettings spreadsheetImport
 ) {}

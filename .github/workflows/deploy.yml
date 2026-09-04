@@ -188,6 +188,20 @@ jobs:
             OAUTH_ENV="${OAUTH_ENV}|LIGHTMOVE_AUTH_OAUTH_EMAIL_VERIFIED_OPTIONAL_REGISTRATIONS=linkedin"
           fi
 
+          # The browser extension's id, which decides the chrome-extension:// origin the API allows for
+          # CORS. No default: the manifest key is committed, so the development id is reproducible by
+          # anyone, and defaulting to it would have production trust an origin the public can speak
+          # from. Set the EXTENSION_ID repository variable to the id the Chrome Web Store assigned, or
+          # to `dev` to allow the development one on purpose.
+          EXTENSION_ID="${{ vars.EXTENSION_ID }}"
+          if [ -z "$EXTENSION_ID" ]; then
+            echo "::error::EXTENSION_ID is not set. Use the Chrome Web Store id, or 'dev' for the committed development id."
+            exit 1
+          fi
+          if [ "$EXTENSION_ID" = "dev" ]; then
+            EXTENSION_ID="kllpamcdcnecpdblgdkehgbhdjdlbofh"
+          fi
+
           # Same for Resend: EMAIL_PROVIDER=resend without a key fails fast at startup, by design. The
           # sending domain (lightmove.ai) is verified, so the provider defaults to `resend` and the
           # lightmove-resend-api-key secret is mounted below — a deploy fails if that secret has no
@@ -196,6 +210,27 @@ jobs:
           EMAIL_SECRETS=""
           if [ "$EMAIL_PROVIDER" = "resend" ]; then
             EMAIL_SECRETS=",RESEND_API_KEY=lightmove-resend-api-key:latest"
+          fi
+
+          # Candidate enrichment follows the OAuth shape: off unless the environment says otherwise,
+          # because the branch mounts secrets gcloud refuses to name unless they exist. Set the
+          # ENRICHMENT_PROVIDER var to `brightdata` or `harvestapi`; the Bright Data path also mounts
+          # the Harvest key when HARVESTAPI_FALLBACK_ENABLED=true, which arms the live-scrape
+          # fallback. Prerequisites, in the deploy project (as needed):
+          #   gcloud secrets create lightmove-brightdata-api-key --data-file=-
+          #   gcloud secrets create lightmove-harvestapi-api-key --data-file=-
+          ENRICHMENT_ENV=""
+          ENRICHMENT_SECRETS=""
+          if [ -n "${{ vars.ENRICHMENT_PROVIDER }}" ]; then
+            ENRICHMENT_ENV="|ENRICHMENT_PROVIDER=${{ vars.ENRICHMENT_PROVIDER }}"
+          fi
+          if [ "${{ vars.ENRICHMENT_PROVIDER }}" = "brightdata" ]; then
+            ENRICHMENT_SECRETS=",BRIGHTDATA_API_KEY=lightmove-brightdata-api-key:latest"
+            if [ "${{ vars.HARVESTAPI_FALLBACK_ENABLED }}" = "true" ]; then
+              ENRICHMENT_SECRETS="${ENRICHMENT_SECRETS},HARVESTAPI_API_KEY=lightmove-harvestapi-api-key:latest"
+            fi
+          elif [ "${{ vars.ENRICHMENT_PROVIDER }}" = "harvestapi" ]; then
+            ENRICHMENT_SECRETS=",HARVESTAPI_API_KEY=lightmove-harvestapi-api-key:latest"
           fi
 
           # ^|^ separates on | rather than a comma, because WEB_CORS_ORIGINS and the OAuth scope are both
@@ -211,8 +246,8 @@ jobs:
             --cpu 1 --memory 1Gi --cpu-boost \
             --concurrency 80 \
             --timeout 60s \
-            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@lightmove.ai' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem${OAUTH_ENV}" \
-            --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}"
+            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@lightmove.ai' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem${OAUTH_ENV}${ENRICHMENT_ENV}" \
+            --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}"
 
       # First deploy only: the service now has a URL, and it is not the placeholder we booted with.
       # Verification emails and the OAuth redirect are built from WEB_BASE_URL, so this cannot be left.
@@ -221,7 +256,7 @@ jobs:
         run: |
           URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
           gcloud run services update "$SERVICE" --region "$REGION" \
-            --update-env-vars "^|^WEB_BASE_URL=${URL}|WEB_CORS_ORIGINS=${URL}"
+            --update-env-vars "^|^WEB_BASE_URL=${URL}|WEB_CORS_ORIGINS=${URL},chrome-extension://${EXTENSION_ID}"
           echo "::notice::Service URL is ${URL}. Every deploy from here on resolves it automatically and takes one revision. If you enable Google sign-in, add ${URL}/login/oauth2/code/google to the OAuth client's authorised redirect URIs."
 
       # ── Prove it actually works ──────────────────────────────────────────────

@@ -27,7 +27,7 @@ public class TriageCompanyWriter {
             INSERT INTO app_lm_project_triage_company (
                 project_id, apollo_account_id, source, status, note, company_name, industry,
                 company_country, company_city, num_employees, annual_revenue, website,
-                company_linkedin_url, founded_year, short_description, logo_url, added_by)
+                company_linkedin_url, founded_year, short_description, logo_url, source_url, added_by)
             VALUES
             """;
 
@@ -46,12 +46,16 @@ public class TriageCompanyWriter {
      * and "added" is a number the toast states to the user. Every value is bound — the row template
      * generates placeholder names, it never interpolates a value.
      *
-     * <p>{@code status} and {@code note} are the caller's, not the row's: they say where this act of
-     * adding lands and what the consultant remarked while doing it, so they are the same for every
-     * company in one statement. A bulk add carries neither beyond the default stage.
+     * <p>{@code status}, {@code note} and {@code sourceUrl} are the caller's, not the row's: they say
+     * where this act of adding lands, what the consultant remarked while doing it, and which page it
+     * was made from, so they are the same for every company in one statement. A bulk add carries none
+     * of them beyond the default stage. {@code source} is the door: STRATEGY from the market screens,
+     * EXTENSION when a plugin capture resolved against the universe — either way the row carries the
+     * full market snapshot and its apollo id.
      */
     public int insertIgnoringHeld(UUID projectId, UUID addedBy, List<CompanyRow> rows,
-                                  TriageCompanyStatus status, String note) {
+                                  TriageCompanySource source, TriageCompanyStatus status, String note,
+                                  String sourceUrl) {
         if (rows.isEmpty()) {
             return 0;
         }
@@ -60,7 +64,8 @@ public class TriageCompanyWriter {
         params.put("addedBy", addedBy);
         params.put("status", status.name());
         params.put("note", note);
-        params.put("source", TriageCompanySource.STRATEGY.name());
+        params.put("sourceUrl", sourceUrl);
+        params.put("source", source.name());
 
         StringBuilder sql = new StringBuilder(INSERT_HEAD);
         for (int index = 0; index < rows.size(); index++) {
@@ -76,7 +81,7 @@ public class TriageCompanyWriter {
             "(:projectId, :accountId%1$d, :source, :status, :note, :companyName%1$d, :industry%1$d, "
                     + ":companyCountry%1$d, :companyCity%1$d, :numEmployees%1$d, :annualRevenue%1$d, "
                     + ":website%1$d, :companyLinkedinUrl%1$d, :foundedYear%1$d, "
-                    + ":shortDescription%1$d, :logoUrl%1$d, :addedBy)";
+                    + ":shortDescription%1$d, :logoUrl%1$d, :sourceUrl, :addedBy)";
 
     private static String rowPlaceholders(int index, CompanyRow row, Map<String, Object> params) {
         params.put("accountId" + index, row.apolloAccountId());

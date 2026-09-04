@@ -5,14 +5,18 @@ import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
+import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -63,6 +67,24 @@ public class CandidateController {
         CandidateListCriteria criteria =
                 new CandidateListCriteria(triageCompanyId, unmapped, q, page, size);
         return ResponseEntity.ok(candidates.list(principal.requireWorkspaceId(), projectId, criteria));
+    }
+
+    /**
+     * The stored profile photo, inline. Safe to serve under its stored type, unlike the position
+     * document: these bytes came from enrichment's own server-side download, which accepts raster
+     * image formats only — no caller ever uploads them. {@code nosniff} stays on regardless.
+     */
+    @GetMapping("/{candidateId}/photo")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
+    public ResponseEntity<byte[]> photo(@AuthenticationPrincipal AuthPrincipal principal,
+                                        @PathVariable UUID projectId,
+                                        @PathVariable UUID candidateId) {
+        StoredPhoto photo = candidates.photoOf(principal.requireWorkspaceId(), projectId, candidateId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(photo.contentType()))
+                .header("X-Content-Type-Options", "nosniff")
+                .cacheControl(CacheControl.maxAge(Duration.ofDays(1)).cachePrivate())
+                .body(photo.content());
     }
 
     @PostMapping

@@ -161,6 +161,12 @@ lightmove:
     # proof — admin approval of a join request, and invitations, are untouched. Never true in prod.
     auto-verify-email: ${AUTH_AUTO_VERIFY_EMAIL:false}
     bcrypt-strength: 12
+    extension:
+      # Much shorter than refresh-token-ttl above, and for a concrete reason: this token rests in the
+      # extension's own storage on disk rather than in the browser's cookie jar, and re-pairing is a
+      # single click from the popup. Everything else about it — rotation, reuse detection, revocation
+      # from Settings - Active sessions — is the ordinary machinery.
+      refresh-token-ttl: 14d
     jwt:
       issuer: lightmove
       private-key-location: ${JWT_PRIVATE_KEY_LOCATION:file:.keys/jwt-private.pem}
@@ -187,6 +193,8 @@ lightmove:
       signup-attempts-per-hour: ${AUTH_SIGNUP_ATTEMPTS_PER_HOUR:5}
       verification-resends-per-hour: ${AUTH_VERIFICATION_RESENDS_PER_HOUR:3}
       password-reset-requests-per-hour: ${AUTH_PASSWORD_RESET_REQUESTS_PER_HOUR:3}
+      extension-pairings-per-hour: ${AUTH_EXTENSION_PAIRINGS_PER_HOUR:5}
+      extension-pairings-per-hour-per-ip: ${AUTH_EXTENSION_PAIRINGS_PER_HOUR_PER_IP:60}
 
   # The demo LLM endpoints (/api/v1/llm/*) call billed Vertex AI usage with only authentication as
   # a gate, so each is additionally capped per user. Same in-memory-per-instance caveat as the auth
@@ -201,8 +209,13 @@ lightmove:
     answer-repair-attempts: ${LLM_ANSWER_REPAIR_ATTEMPTS:1}
     # Refused before the call is made, on every prompt. Deliberately short: each is also something
     # somebody could one day write in a job brief or a spreadsheet header, and blocking real work is
-    # its own failure. Defaults live on LlmSettings; set this only to override the whole list.
+    # its own failure. The defaults live on LlmSettings; setting this replaces the whole list rather
+    # than adding to it.
+    # injection-phrases:
+    #   - ignore previous instructions
     rate-limit:
+      # The import's column mapping is metered against shortlist-requests-per-minute, on a meter of
+      # its own: one deliberate click either way, but a large import must not eat the shortlist.
       enabled: ${LLM_RATE_LIMIT_ENABLED:true}
       shortlist-requests-per-minute: ${LLM_SHORTLIST_REQUESTS_PER_MINUTE:10}
       embed-requests-per-minute: ${LLM_EMBED_REQUESTS_PER_MINUTE:20}
@@ -233,9 +246,44 @@ lightmove:
       block-disposable-domains: ${EMAIL_BLOCK_DISPOSABLE:true}
       extra-disposable-domains: ${EMAIL_EXTRA_DISPOSABLE:}
 
+  # Researches a plugin-captured executive (experience, education, skills, photo, employer), off the
+  # capture's request thread. `brightdata` answers from the stored dataset in under a second
+  # (~$0.0025/hit) and falls back to a HarvestAPI live scrape on a miss when that key is present;
+  # `harvestapi` scrapes live every time (~$0.01, seconds). Off by default: every call is billed,
+  # and a fresh clone must run with no vendor account.
+  enrichment:
+    provider: ${ENRICHMENT_PROVIDER:off}
+    brightdata:
+      api-key: ${BRIGHTDATA_API_KEY:}
+    harvestapi:
+      api-key: ${HARVESTAPI_API_KEY:}
+
+  # How a paid third-party API is called: timeouts, retry and outbound pacing, shared by every vendor
+  # adapter. These are spelled out rather than left to the record's @DefaultValue because @Retryable
+  # resolves them as ${...} placeholders against the environment, which never sees a binding default.
+  # Only a rate limit, a 5xx or a timeout is retried — see VendorFailureKind.
+  resilience:
+    connect-timeout: 5s
+    max-retries: 2
+    retry-delay: 500ms
+    retry-multiplier: 2.0
+    retry-jitter: 250ms
+    retry-max-delay: 5s
+    permit-max-wait: 2s
+
   web:
     base-url: ${WEB_BASE_URL:http://localhost:5173}
-    cors-allowed-origins: ${WEB_CORS_ORIGINS:http://localhost:5173}
+    # The SPA's origin, plus LightMove Capture's. The extension's id is stable because its manifest
+    # pins a public key (apps/extension/manifest.config.ts) — without that Chrome re-mints the id on
+    # every unpacked load and no origin could be allow-listed at all. A wildcard is not an option here:
+    # allow-credentials is on, and the spec forbids the pair.
+    #
+    # That development key is committed, so anyone can build an extension carrying it and speak from
+    # this origin: the entry is a browser convenience, never a gate. Nothing is authorised by having
+    # reached us — every route still demands the bearer token and re-reads the roles. The deployed
+    # value overrides this default with the published extension's id (ops deploy sets WEB_CORS_ORIGINS),
+    # and the list applies to the whole API surface, not just the extension's routes.
+    cors-allowed-origins: ${WEB_CORS_ORIGINS:http://localhost:5173,chrome-extension://kllpamcdcnecpdblgdkehgbhdjdlbofh}
     oauth-success-path: /auth/callback
   # Read and write limits around the company universe (app_lm_apollo_companies). Defaults are
   # production-ready; these placeholders let a deployed service retune them without a recompile.

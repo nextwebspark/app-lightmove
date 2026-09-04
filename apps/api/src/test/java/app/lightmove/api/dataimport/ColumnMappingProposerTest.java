@@ -2,10 +2,10 @@ package app.lightmove.api.dataimport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import app.lightmove.api.TestGuards;
+import app.lightmove.api.TestLlmCallPolicy;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.SpreadsheetImportSettings;
-import app.lightmove.api.core.llm.config.ChatClientConfig;
+import app.lightmove.api.core.llm.service.ChatCallLog;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
 import app.lightmove.api.dataimport.constant.ImportTargetField;
 import app.lightmove.api.dataimport.constant.MappingSource;
@@ -328,7 +328,7 @@ class ColumnMappingProposerTest {
     private static ColumnMappingProposer proposerWith(ChatModel model, boolean sendSamples) {
         Resource prompt = new ByteArrayResource("map the columns".getBytes());
         return new ColumnMappingProposer(ChatClient.builder(model).build(), new HeuristicColumnMatcher(),
-                prompt, answerSchema(), TestGuards.guards(), propertiesWith(sendSamples));
+                prompt, answerSchema(), TestLlmCallPolicy.asShipped(), propertiesWith(sendSamples));
     }
 
     /** The shipped schema, not a stand-in: what it does and does not require is the thing under test. */
@@ -337,7 +337,7 @@ class ColumnMappingProposerTest {
     }
 
     private static LightMoveProperties propertiesWith(boolean sendSamples) {
-        return new LightMoveProperties(null, null, null, null, null, null, null,
+        return new LightMoveProperties(null, null, null, null, null, null, null, null, null,
                 new SpreadsheetImportSettings(10_485_760L, 5000, sendSamples, List.of("text/csv")));
     }
 
@@ -369,7 +369,7 @@ class ColumnMappingProposerTest {
     @DisplayName("tags its calls, so the import's share of the LLM bill can be told apart")
     void tagsItsCalls() {
         // The ChatClient is shared with the shortlist feature, so without this every line in the log
-        // says only that something called Gemini. See ChatClientConfig.PROMPT_ID.
+        // says only that something called Gemini. See ChatCallLog.PROMPT_ID_ATTRIBUTE.
         RecordingChatModel model = new RecordingChatModel("""
                 {"columns":[{"header":"Contact","targetField":"candidateEmail"}]}
                 """);
@@ -378,10 +378,10 @@ class ColumnMappingProposerTest {
         ChatClient chatClient = ChatClient.builder(model).defaultAdvisors(captured).build();
 
         new ColumnMappingProposer(chatClient, new HeuristicColumnMatcher(), prompt, answerSchema(),
-                TestGuards.guards(), propertiesWith(false))
+                TestLlmCallPolicy.asShipped(), propertiesWith(false))
                 .propose(sheetWithValues(), List.of());
 
-        assertThat(captured.context).containsEntry(ChatClientConfig.PROMPT_ID, "import-column-mapping");
+        assertThat(captured.context).containsEntry(ChatCallLog.PROMPT_ID_ATTRIBUTE, "import-column-mapping");
     }
 
     /**

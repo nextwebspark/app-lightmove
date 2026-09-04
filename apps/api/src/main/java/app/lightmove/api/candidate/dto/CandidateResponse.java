@@ -35,5 +35,7 @@ public record CandidateResponse(
         String source,
         String sourceUrl,
         Map<String, String> customFields,
-        Instant addedAt
+        Instant addedAt,
+        /** When enrichment last filled this profile in; null while research is pending or off. */
+        String enrichedAt
 ) {}
