@@ -5,6 +5,7 @@ import io.github.bucket4j.Bucket;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
  * limiter's attacker-supplied keys this map needs no eviction.
  */
 @Component
+@Slf4j
 public class VendorRateLimiter {
 
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
@@ -33,6 +35,10 @@ public class VendorRateLimiter {
     public boolean tryAcquire(String vendor, Duration maxWait) {
         Bucket bucket = buckets.get(vendor);
         if (bucket == null) {
+            // Nothing registered this vendor, so the call proceeds unpaced. That is a wiring mistake —
+            // the name here and the one VendorClientSpec paces with are two strings nothing ties
+            // together — and it is silent until an invoice arrives, so say so.
+            log.warn("No rate limit registered for vendor '{}' — calls to it are unpaced", vendor);
             return true;
         }
         try {

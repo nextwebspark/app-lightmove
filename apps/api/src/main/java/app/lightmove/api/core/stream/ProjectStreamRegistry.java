@@ -42,14 +42,19 @@ public class ProjectStreamRegistry {
         return emitter;
     }
 
-    public void broadcast(UUID projectId, String kind) {
+    /**
+     * The kind is the enum rather than the notification's raw string on purpose: the frame is built by
+     * concatenation, so a payload carrying a quote would produce malformed SSE the browser drops in
+     * silence. Parsing it back at the listener makes that unrepresentable here.
+     */
+    public void broadcast(UUID projectId, ProjectStreamKind kind) {
         Set<SseEmitter> held = streams.get(projectId);
         if (held == null) {
             return;
         }
         for (SseEmitter emitter : held) {
             try {
-                emitter.send(SseEmitter.event().name("change").data("{\"kind\":\"" + kind + "\"}"));
+                emitter.send(SseEmitter.event().name("change").data("{\"kind\":\"" + kind.wire() + "\"}"));
             } catch (IOException | IllegalStateException dead) {
                 drop(projectId, emitter);
             }

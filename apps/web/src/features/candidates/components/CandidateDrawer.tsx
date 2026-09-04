@@ -652,7 +652,6 @@ function CandidateProfile({
   );
 }
 
-
 /**
  * A figure in the currency it was quoted in, or null when nobody established it. Zero is kept rather
  * than blanked: "no bonus" is a fact about the package and "bonus not established" is a fact about

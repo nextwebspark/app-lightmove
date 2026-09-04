@@ -54,7 +54,7 @@ public class ProfilePhotoDownloader {
         try {
             return transfer.download(address);
         } catch (RuntimeException ex) {
-            log.info("Profile photo fetch failed for {}: {}", photoUrl, ex.getMessage());
+            log.debug("Profile photo fetch failed for {}: {}", photoUrl, ex.getMessage());
             return null;
         }
     }
@@ -114,14 +114,17 @@ public class ProfilePhotoDownloader {
         if (parsed.getScheme() == null
                 || !parsed.getScheme().toLowerCase(Locale.ROOT).equals("https")
                 || parsed.getHost() == null) {
-            log.info("Refusing a profile photo that is not an https URL: {}", photoUrl);
+            log.debug("Refusing a profile photo that is not an https URL: {}", photoUrl);
             return null;
         }
         try {
             InetAddress resolved = InetAddress.getByName(parsed.getHost());
             if (resolved.isAnyLocalAddress() || resolved.isLoopbackAddress()
                     || resolved.isLinkLocalAddress() || resolved.isSiteLocalAddress()) {
-                log.warn("Refusing a profile photo pointing inside the network: {}", photoUrl);
+                // The host, not the URL: this one stays at warn because it is a security event worth
+                // seeing, and a CDN hostname names no one — the path is the part that would.
+                log.warn("Refusing a profile photo whose host resolves inside the network: {}",
+                        parsed.getHost());
                 return null;
             }
         } catch (UnknownHostException unresolvable) {

@@ -30,7 +30,9 @@ public class FallbackProfileEnricher implements LinkedInProfileEnricher {
         if (answer.isPresent() && answersTheQuestion(answer.get())) {
             return answer;
         }
-        log.info("Primary research {} for {} — falling back to the live scrape",
+        // Debug, not info: a LinkedIn URL is the person. VendorException goes to real trouble to keep
+        // a researched name out of a message, and logging the slug beside it would hand it back.
+        log.debug("Primary research {} for {} — falling back to the live scrape",
                 answer.isPresent() ? "was thin" : "missed", linkedinUrl);
         Optional<EnrichedProfile> live = attempt(secondary, linkedinUrl, "live scrape");
         return live.isPresent() ? live : answer;
@@ -41,7 +43,8 @@ public class FallbackProfileEnricher implements LinkedInProfileEnricher {
         try {
             return enricher.fetch(url);
         } catch (RuntimeException ex) {
-            log.warn("The {} failed for {}: {}", which, url, ex.getMessage());
+            log.warn("The {} failed: {}", which, ex.getMessage());
+            log.debug("The {} failed for {}", which, url);
             return Optional.empty();
         }
     }

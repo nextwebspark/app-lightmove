@@ -4,6 +4,7 @@ import app.lightmove.api.candidate.model.CandidateCapturedEvent;
 import app.lightmove.api.candidate.service.CandidateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -37,6 +38,10 @@ class CandidateEnrichmentWorker {
             enricher.fetch(event.linkedinUrl()).ifPresentOrElse(
                     profile -> candidates.applyResearch(event.projectId(), event.candidateId(), profile),
                     () -> log.info("No research found for candidate {}", event.candidateId()));
+        } catch (ObjectOptimisticLockingFailureException raced) {
+            // Two events for one candidate — a re-capture inside the research window. @Version refuses
+            // the second write, which is the guard working, not a failure worth a stack trace.
+            log.info("Candidate {} was enriched by a concurrent event", event.candidateId());
         } catch (RuntimeException ex) {
             log.error("Failed to enrich candidate {}", event.candidateId(), ex);
         }

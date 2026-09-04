@@ -79,7 +79,7 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
                         .body(BrightDataSearchResult.class));
 
         if (result == null || result.hits() == null || result.hits().isEmpty()) {
-            log.info("Bright Data dataset holds no record for {}", slug);
+            log.debug("Bright Data dataset holds no record for {}", slug);
             return Optional.empty();
         }
         BrightDataPerson person = result.hits().getFirst();

@@ -12,8 +12,9 @@ import java.util.List;
  * beside it for the same reason.
  *
  * <p>{@code education}, {@code skills} and {@code enrichedAt} are enrichment's fields: written by the
- * worker, rendered by no screen yet, and carried across a drawer edit by {@link #keepingEnrichmentOf}
- * because the drawer resubmits only what it renders. {@code enrichedAt} is an ISO-8601 string rather
+ * worker and carried across a drawer edit by {@link #keepingEnrichmentOf} because the drawer resubmits
+ * only what it renders. {@code enrichedAt} is the one the SPA reads — it keys the photo query and
+ * drives the triage grid's "researching" state. {@code enrichedAt} is an ISO-8601 string rather
  * than an {@code Instant} — the jsonb mapper is a bare Jackson 2 {@code ObjectMapper} with no time
  * module, and a type it cannot read back would make every enriched profile unreadable.
  *

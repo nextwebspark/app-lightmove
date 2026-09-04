@@ -6,6 +6,7 @@ import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
 import java.util.function.Supplier;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 
@@ -29,6 +30,7 @@ import org.springframework.web.client.RestClientException;
  * backoff holds a database connection for seconds.
  */
 @Component
+@Slf4j
 public class VendorCallGuard {
 
     private final VendorRateLimiter rateLimiter;
@@ -48,7 +50,13 @@ public class VendorCallGuard {
         } catch (VendorResponseFailure classified) {
             throw new VendorException(call, classified.getKind(), classified);
         } catch (RestClientException noAnswer) {
-            throw new VendorException(call, VendorFailureKind.of(noAnswer), noAnswer);
+            VendorFailureKind kind = VendorFailureKind.of(noAnswer);
+            if (kind == VendorFailureKind.MALFORMED_RESPONSE) {
+                // The fall-through for anything unrecognised, and it is not retryable — so an
+                // unclassifiable transport problem quietly costs an enrichment. Nameable in a log.
+                log.debug("Unclassified failure on {}", call, noAnswer);
+            }
+            throw new VendorException(call, kind, noAnswer);
         }
     }
 }

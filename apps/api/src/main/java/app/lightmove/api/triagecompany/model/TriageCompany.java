@@ -43,7 +43,11 @@ public class TriageCompany extends BaseEntity {
     @Column(name = "project_id", nullable = false, updatable = false)
     private UUID projectId;
 
-    /** Null unless {@link #source} is {@link TriageCompanySource#STRATEGY}. */
+    /**
+     * Null when the company has no universe id to carry. A {@code STRATEGY} row always has one; a
+     * capture has one too whenever it resolved against the market, so {@code source} is not a proxy
+     * for this being set.
+     */
     @Column(name = "apollo_account_id", updatable = false)
     private String apolloAccountId;
 

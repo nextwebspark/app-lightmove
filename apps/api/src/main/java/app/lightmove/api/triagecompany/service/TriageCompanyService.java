@@ -282,6 +282,9 @@ public class TriageCompanyService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void applyEnrichment(UUID projectId, UUID companyId, CapturedCompanyDetails details) {
         triaged.findByIdAndProjectId(companyId, projectId).ifPresentOrElse(company -> {
+            // Unreachable through the only producer today — announceForResearch fires solely for a
+            // row with no apollo id, and the column is updatable = false. Kept as the guard a second
+            // producer would need, not as protection this path currently relies on.
             if (company.getApolloAccountId() != null) {
                 return;
             }
@@ -315,11 +318,15 @@ public class TriageCompanyService {
             if (held.isPresent()) {
                 return new ResolvedCapture(held.get(), false);
             }
-            writer.insertIgnoringHeld(projectId, addedBy, List.of(row), source, status,
+            // The count, not a hard-coded true: the insert is ON CONFLICT DO NOTHING, so the loser of
+            // a race gets zero rows and must not be told it created the row. Reporting true to both
+            // fired the audit event and the stream broadcast twice, and sent a second billed company
+            // lookup after a row that was already being researched.
+            int inserted = writer.insertIgnoringHeld(projectId, addedBy, List.of(row), source, status,
                     details.note(), details.sourceUrl());
             return new ResolvedCapture(
                     triaged.findByProjectIdAndApolloAccountId(projectId, row.apolloAccountId())
-                            .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND)), true);
+                            .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND)), inserted > 0);
         }
 
         List<TriageCompany> heldByName =

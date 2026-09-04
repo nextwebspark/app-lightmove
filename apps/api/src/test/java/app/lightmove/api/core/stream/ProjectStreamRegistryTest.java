@@ -23,15 +23,15 @@ class ProjectStreamRegistryTest {
         departed.complete();
 
         assertThatCode(() -> {
-            registry.broadcast(projectId, "candidate-enriched");
-            registry.broadcast(projectId, "candidate-enriched");
+            registry.broadcast(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+            registry.broadcast(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
         }).doesNotThrowAnyException();
     }
 
     @Test
     @DisplayName("a mandate nobody is watching swallows its broadcast")
     void aMandateNobodyIsWatchingSwallowsItsBroadcast() {
-        assertThatCode(() -> registry.broadcast(UUID.randomUUID(), "company-enriched"))
+        assertThatCode(() -> registry.broadcast(UUID.randomUUID(), ProjectStreamKind.COMPANY_ENRICHED))
                 .doesNotThrowAnyException();
     }
 }

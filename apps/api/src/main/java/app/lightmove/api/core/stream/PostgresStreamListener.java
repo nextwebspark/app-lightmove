@@ -36,6 +36,11 @@ public class PostgresStreamListener implements SmartLifecycle {
 
     @Override
     public void start() {
+        // SmartLifecycle will not start a running bean, but a context restarted in a test can — and a
+        // second call here would leak a thread holding a second LISTEN connection out of a pool of five.
+        if (running) {
+            return;
+        }
         running = true;
         listener = new Thread(this::listen, "project-stream-listener");
         listener.setDaemon(true);
@@ -90,7 +95,9 @@ public class PostgresStreamListener implements SmartLifecycle {
         try {
             ProjectStreamNotification notification =
                     json.readValue(payload, ProjectStreamNotification.class);
-            registry.broadcast(notification.projectId(), notification.kind());
+            ProjectStreamKind.fromWire(notification.kind()).ifPresentOrElse(
+                    kind -> registry.broadcast(notification.projectId(), kind),
+                    () -> log.warn("Ignoring project stream payload naming an unknown kind: {}", payload));
         } catch (Exception malformed) {
             log.warn("Ignoring malformed project stream payload: {}", payload);
         }

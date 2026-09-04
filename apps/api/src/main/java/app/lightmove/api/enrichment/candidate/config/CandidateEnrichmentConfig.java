@@ -60,10 +60,13 @@ public class CandidateEnrichmentConfig {
                                                         VendorCallGuard guard,
                                                         ProfilePhotoDownloader photos) {
         EnrichmentSettings config = properties.enrichment();
-        boolean isProvider = "harvestapi".equalsIgnoreCase(config.provider());
-        if (isProvider) {
+        boolean isPrimary = "harvestapi".equalsIgnoreCase(config.provider());
+        boolean isFallback = "brightdata".equalsIgnoreCase(config.provider())
+                && hasKey(config.harvestapi().apiKey());
+        if (isPrimary) {
             requireKey(config.harvestapi().apiKey(), "HARVESTAPI_API_KEY");
-        } else if (!"brightdata".equalsIgnoreCase(config.provider()) || !hasKey(config.harvestapi().apiKey())) {
+        }
+        if (!isPrimary && !isFallback) {
             return null;
         }
         return new HarvestApiProfileEnricher(config.harvestapi(), clientFactory, rateLimiter, guard,
