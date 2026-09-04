@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { readPageSubject } from "./readPageSubject";
 import { linkedInCompanyExtractor } from "./extractors/linkedInCompanyExtractor";
 import { linkedInProfileExtractor } from "./extractors/linkedInProfileExtractor";
-import { isLinkedInPageUrl, companySlugOf, profileSlugOf } from "./linkedInUrls";
+import { isLinkedInPageUrl, companySlugOf, pageKeyOf, profileSlugOf, tabPageKeyOf } from "./linkedInUrls";
 
 const FIXTURES = join(__dirname, "extractors", "__fixtures__");
 
@@ -112,6 +112,19 @@ describe("classifying the page", () => {
       .window.document as unknown as Document;
     expect(readPageSubject(feed).subject).toBe("unknown");
   });
+
+  it("reports what the page declares itself to be, apart from the address it was read at", () => {
+    // The two disagreeing is the whole tell for a pushState navigation still in flight.
+    const midNavigation = new JSDOM(
+      '<link rel="canonical" href="https://www.linkedin.com/in/amira-haddad/"><main><h1>Amira Haddad</h1></main>',
+      { url: "https://www.linkedin.com/in/bilal-nasser/" },
+    ).window.document as unknown as Document;
+
+    const read = readPageSubject(midNavigation);
+
+    expect(read.pageUrl).toBe("https://www.linkedin.com/in/bilal-nasser/");
+    expect(read.declaredUrl).toBe("https://www.linkedin.com/in/amira-haddad/");
+  });
 });
 
 describe("recognising LinkedIn URLs", () => {
@@ -129,5 +142,20 @@ describe("recognising LinkedIn URLs", () => {
     expect(profileSlugOf("https://www.linkedin.com/company/acme/")).toBeNull();
     expect(companySlugOf("https://www.linkedin.com/company/al-rawabi-dairy/about/")).toBe("al-rawabi-dairy");
     expect(companySlugOf("https://evil.sa/?next=linkedin.com/company/acme")).toBeNull();
+  });
+
+  it("gives one page one key, however the consultant arrived at it", () => {
+    expect(pageKeyOf("https://www.linkedin.com/in/amira-haddad/")).toBe("person:amira-haddad");
+    expect(pageKeyOf("https://www.linkedin.com/in/amira-haddad/details/experience/?trk=nav")).toBe(
+      "person:amira-haddad",
+    );
+    expect(pageKeyOf("https://www.linkedin.com/company/al-rawabi/about/")).toBe("company:al-rawabi");
+    expect(pageKeyOf("https://www.linkedin.com/feed/")).toBeNull();
+  });
+
+  it("still names a page it cannot capture from, and names the two refusals apart", () => {
+    expect(tabPageKeyOf("https://www.linkedin.com/feed/")).toBe("linkedin:unreadable");
+    expect(tabPageKeyOf("https://acme.sa/about")).toBe("offsite");
+    expect(tabPageKeyOf(undefined)).toBe("offsite");
   });
 });

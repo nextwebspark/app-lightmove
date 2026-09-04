@@ -65,9 +65,10 @@ export function buildManifest(workspaceOrigin: string) {
       },
     },
 
-    side_panel: {
-      default_path: "popup.html",
-    },
+    // No `side_panel` key, and that is the whole reason the panel can be scoped to LinkedIn at all.
+    // A `default_path` here creates a *global* panel that shows on every tab and silently overrides
+    // per-tab `setOptions({ tabId, enabled: false })` — the icon greys out and the panel stays put.
+    // The worker names the path on every per-tab enable instead. See panelAvailability.ts.
 
     icons: {
       16: "icons/icon-16.png",

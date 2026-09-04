@@ -7,6 +7,7 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import { ThemeToggle } from "../../theme/ThemeToggle";
 import { useAuth } from "../AuthProvider";
 import { homeFor } from "../homeFor";
+import { rememberReturnTo, safeReturnTo } from "../returnTo";
 import { OAuthButtons } from "../components/OAuthButtons";
 import { loginSchema, type LoginValues } from "../schemas";
 
@@ -20,6 +21,14 @@ export function LoginPage() {
   // Signup hands the typed address over when it turns out to already have an account, so "log in
   // instead" starts with the email filled rather than making the user type it twice.
   const prefill = (location.state as { email?: string } | null)?.email ?? "";
+
+  // Where a guard sent them from, honoured on submit and stashed for the OAuth round trip — which
+  // leaves the SPA and so cannot carry router state. Written on every visit, cleared when there is
+  // nowhere to return to.
+  const returnTo = safeReturnTo((location.state as { from?: unknown } | null)?.from);
+  useEffect(() => {
+    rememberReturnTo(returnTo);
+  }, [returnTo]);
 
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -45,7 +54,9 @@ export function LoginPage() {
     setFormError(null);
     try {
       const user = await signIn(values.email, values.password);
-      navigate(homeFor(user), { replace: true });
+      // Only once they are somewhere they can be: an unverified user or one mid-wizard belongs at the
+      // step homeFor names, not at the page they were reaching for.
+      navigate(returnTo && user.workspace ? returnTo : homeFor(user), { replace: true });
     } catch (error) {
       setFormError(
         error instanceof ApiRequestError

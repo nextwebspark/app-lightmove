@@ -52,3 +52,29 @@ function slugOf(url: string | undefined, pattern: RegExp): string | null {
     return null;
   }
 }
+
+/**
+ * What page this is, canonically: `person:amira-haddad`, `company:acme` — subpaths, locale prefixes and
+ * tracking parameters gone. This is the *identity* of a page, and the reason a capture is not reseeded
+ * when `?trk=` appears or the consultant opens `/details/experience` on the person already on screen.
+ */
+export function pageKeyOf(url: string | null | undefined): string | null {
+  const profile = profileSlugOf(url ?? undefined);
+  if (profile) {
+    return `person:${profile}`;
+  }
+  const company = companySlugOf(url ?? undefined);
+  return company ? `company:${company}` : null;
+}
+
+/**
+ * The identity of whatever tab the panel is looking at, readable or not.
+ *
+ * Total where `pageKeyOf` is nullable, because the panel keys its read on this and a tab it cannot
+ * capture from still has to be *a* page: the two refusals differ (off LinkedIn entirely, versus a
+ * LinkedIn page that names nobody), so they cannot collapse into one key or the panel would keep
+ * showing the first refusal after moving between them.
+ */
+export function tabPageKeyOf(url: string | null | undefined): string {
+  return pageKeyOf(url) ?? (isLinkedInPageUrl(url) ? "linkedin:unreadable" : "offsite");
+}

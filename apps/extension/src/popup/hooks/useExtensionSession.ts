@@ -35,12 +35,17 @@ export function useExtensionSession() {
   useEffect(() => {
     const onStored = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
       if (area === "local" && STORED_SESSION_KEY in changes) {
+        // The whole cache, because the credential every other entry was read with has just changed.
+        // Explicit sign-out clears it too, but a token revoked under the extension clears the store
+        // from the worker with nothing to hear it — and the next consultant to pair would be handed
+        // the previous one's project list for as long as its staleTime lasted.
+        queryClient.clear();
         void refetch();
       }
     };
     chrome.storage.onChanged.addListener(onStored);
     return () => chrome.storage.onChanged.removeListener(onStored);
-  }, [refetch]);
+  }, [queryClient, refetch]);
 
   const signOut = async () => {
     await askServiceWorker({ kind: "signOut" });
