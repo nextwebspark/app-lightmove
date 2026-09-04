@@ -33,5 +33,7 @@ public record CandidateResponse(
         List<String> languages,
         String source,
         String sourceUrl,
-        Instant addedAt
+        Instant addedAt,
+        /** When enrichment last filled this profile in; null while research is pending or off. */
+        String enrichedAt
 ) {}

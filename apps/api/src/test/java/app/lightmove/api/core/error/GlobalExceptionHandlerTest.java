@@ -1,6 +1,7 @@
 package app.lightmove.api.core.error;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.handler.GlobalExceptionHandler;
@@ -9,6 +10,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
@@ -18,10 +20,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
 /**
  * When a race beats a service pre-check, the DB constraint must surface as the same business error
@@ -105,6 +113,31 @@ class GlobalExceptionHandlerTest {
 
         assertThat(errorsLoggedBy(() -> handler.handleUnexpected(brokenPipe, new MockHttpServletRequest())))
                 .isEmpty();
+    }
+
+    @Test
+    @DisplayName("a hangup mid-stream is answered with no body rather than one the stream cannot carry")
+    void aDisconnectOnAnEventStreamWritesNothing() throws Exception {
+        // The bug this replaces: the handler returned a ProblemDetail believing it would never be
+        // written. Spring writes it, and a stream response is already committed as
+        // text/event-stream, which no ProblemDetail converter accepts — so every closed tab
+        // produced a warn-level stack trace from inside the handler that exists to keep them quiet.
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new HungUpStreamController())
+                .setControllerAdvice(handler)
+                .build();
+
+        assertThat(mvc.perform(get("/stream")).andReturn().getResponse().getContentAsString()).isEmpty();
+    }
+
+    /** A stream that has sent its headers and lost its reader — the state an SSE emitter dies in. */
+    @RestController
+    static class HungUpStreamController {
+
+        @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+        void stream(HttpServletResponse response) throws IOException {
+            response.setContentType(MediaType.TEXT_EVENT_STREAM_VALUE);
+            throw new AsyncRequestNotUsableException("Response not usable after async request completion");
+        }
     }
 
     @Test

@@ -5,9 +5,8 @@ package app.lightmove.api.candidate.constant;
  * figure a researcher took from the executive themselves and one a bulk CSV asserted are not equally
  * trustworthy.
  *
- * <p>Only {@link #MANUAL} is reachable today — the CSV import and the browser plugin's profile capture
- * are not built. The enum carries all three from the start anyway, because the alternative is
- * backfilling a provenance nobody recorded.
+ * <p>{@link #CSV} is not reachable yet — the import is not built. The enum carries all three from the
+ * start anyway, because the alternative is backfilling a provenance nobody recorded.
  */
 public enum CandidateSource {
 
@@ -17,7 +16,7 @@ public enum CandidateSource {
     /** Bulk-imported from a spreadsheet of research. Not yet built. */
     CSV("csv"),
 
-    /** Read off a live profile page by the browser plugin. Not yet built. */
+    /** Read off a live profile page by the browser plugin, and the capture enrichment researches. */
     EXTENSION("extension");
 
     private final String wireToken;

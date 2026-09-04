@@ -46,7 +46,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate`, `enrichment` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -68,7 +68,8 @@ company* is a decision. Searching goes in `strategy` however company-shaped its 
 holds only what a mandate *did* about a company. **`candidate` is the people side** — one row per
 executive a mandate has mapped, belonging to the *project* and only optionally to one of its triaged
 companies, because a researcher meets people at companies the universe does not carry. It depends on
-`triagecompany` through one public method and `triagecompany` never depends back. Details in
+`triagecompany` through two public methods — resolving the company an executive is mapped to, and
+filing a researched employer into the universe — and `triagecompany` never depends back. Details in
 `java-spring-development`.
 
 ## Commands

@@ -45,6 +45,9 @@ vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
   restoreSession: vi.fn(),
   setAccessToken: vi.fn(),
+  // The page holds a live stream open; here it simply never speaks, so the grid behaves exactly as
+  // it does between events and the fetch-mocked queries stay the only data source.
+  streamEvents: vi.fn(() => new Promise<void>(() => {})),
 }));
 
 const { restoreSession } = await import("../../../lib/apiClient");
@@ -137,6 +140,7 @@ const yasmin: Candidate = {
   source: "manual",
   sourceUrl: null,
   addedAt: "2026-08-02T09:00:00Z",
+  enrichedAt: null,
 };
 
 /** Two of each, so a filtered list can be shown to have left something out. */

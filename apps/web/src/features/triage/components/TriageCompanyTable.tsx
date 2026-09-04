@@ -46,6 +46,7 @@ export function TriageCompanyTable({
   loading,
   error,
   emptyMessage,
+  projectId,
   onMove,
   onDelete,
   onAddExecutive,
@@ -65,6 +66,7 @@ export function TriageCompanyTable({
   loading: boolean;
   error: boolean;
   emptyMessage: string;
+  projectId: string;
   onMove: (company: TriageCompany, status: TriageCompanyStatus) => void;
   onDelete: (company: TriageCompany) => void;
   onAddExecutive: (company: TriageCompany) => void;
@@ -103,7 +105,7 @@ export function TriageCompanyTable({
       const order = typeof updater === "function" ? updater(layout.order) : updater;
       onLayoutChange({ ...layout, order });
     },
-    meta: { onMove, onDelete, onAddExecutive, onEditCandidate, onOpenCompany, busyId, canWrite },
+    meta: { projectId, onMove, onDelete, onAddExecutive, onEditCandidate, onOpenCompany, busyId, canWrite },
   });
 
   return (

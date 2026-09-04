@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useOutletContext, useParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
@@ -29,10 +29,14 @@ import {
   TRIAGE_SORT_FIELDS,
   triageCompanyColumns,
 } from "../lib/triageCompanyColumns";
-import { toTriageRows } from "../lib/triageRows";
+import { awaitingResearch, toTriageRows } from "../lib/triageRows";
 import { stageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
+import { useProjectStream } from "../lib/useProjectStream";
 
 const TRIAGE_LAYOUT_COLUMNS = layoutColumnsOf(triageCompanyColumns);
+
+/** How hard the In-universe screen looks for research landing on a fresh plugin capture. */
+const RESEARCH_POLL_MS = 4_000;
 
 /** Newest first, matching the server's default, so the first paint is not a re-sort. */
 const DEFAULT_SORT: GridSort<TriageSortField> = { field: "added", direction: "desc" };
@@ -110,6 +114,23 @@ function TriageStage() {
   // now matches two companies shows an empty grid over a non-empty result.
   useEffect(() => setPage(0), [debouncedQuery, sort]);
 
+  /**
+   * The screen's ordinary freshness is the project stream (mounted below): the server says when
+   * something under the mandate moved, and the grid refetches. This poll is the degraded mode —
+   * while a visible plugin capture is still being researched, the grid also looks for itself every
+   * few seconds, so a dropped stream costs a capture nothing worse than the old polling did. It
+   * stops once nothing is pending; there is no ambient interval any more.
+   *
+   * <p>A ref rather than the queries themselves: react-query evaluates this while the first query is
+   * still being declared, so reading the people queries here directly is a use-before-init. The ref
+   * is refreshed right after they land, below.
+   */
+  const visiblePeople = useRef<Candidate[]>([]);
+  const researchPoll = () => {
+    if (stage.status !== "inUniverse") return false;
+    return awaitingResearch(visiblePeople.current) ? RESEARCH_POLL_MS : false;
+  };
+
   const companies = useQuery({
     queryKey: triageApi.TRIAGE_KEY(project.id, stage.status, page, PAGE_SIZE, debouncedQuery, sort),
     queryFn: ({ signal }) =>
@@ -124,6 +145,9 @@ function TriageStage() {
       ),
     // Paging without blanking the grid, which would make every page turn look like a reload.
     placeholderData: keepPreviousData,
+    refetchInterval: researchPoll,
+    // Against a reconnect race: a tab coming back is fresh even if the stream missed something.
+    refetchOnWindowFocus: true,
   });
 
   const companyIds = useMemo(
@@ -148,6 +172,8 @@ function TriageStage() {
       candidatesApi.getCandidates(project.id, { triageCompanyIds: companyIds }, signal),
     enabled: companyIds.length > 0,
     placeholderData: keepPreviousData,
+    refetchInterval: researchPoll,
+    refetchOnWindowFocus: true,
   });
 
   const totalCount = companies.data?.totalCount;
@@ -164,7 +190,14 @@ function TriageStage() {
     queryFn: ({ signal }) =>
       candidatesApi.getCandidates(project.id, { unmapped: true }, signal),
     enabled: stage.status === "inUniverse" && !debouncedQuery && page === lastPage,
+    refetchInterval: researchPoll,
+    refetchOnWindowFocus: true,
   });
+
+  visiblePeople.current = [
+    ...(mappedPeople.data?.candidates ?? []),
+    ...(unmappedPeople.data?.candidates ?? []),
+  ];
 
   const rows = useMemo(
     () =>
@@ -207,6 +240,9 @@ function TriageStage() {
       queryKey: candidatesApi.CANDIDATES_KEY_PREFIX(project.id),
     });
   };
+
+  // The live half: the server announces a capture or landed research, this side just refetches.
+  useProjectStream(project.id, refreshEverything);
 
   const move = useMutation({
     mutationFn: ({ company, status }: { company: TriageCompany; status: TriageCompanyStatus }) =>
@@ -269,6 +305,7 @@ function TriageStage() {
       <div className="flex min-w-0 flex-1 flex-col gap-3 p-3 sm:p-5">
         <TriageCompanyTable
           rows={rows}
+          projectId={project.id}
           label={`${stage.label} companies`}
           sort={sort}
           onSortChange={setSort}

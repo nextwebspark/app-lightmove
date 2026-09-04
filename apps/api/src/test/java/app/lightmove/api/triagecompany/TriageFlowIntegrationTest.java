@@ -14,6 +14,7 @@ import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.strategy.model.CompanyRow;
+import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
 import java.util.List;
@@ -950,7 +951,8 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
 
     /** Market rows straight into the mandate's universe, the stage and note a bulk add carries. */
     private int seedUniverse(UUID projectId, UUID actor, List<CompanyRow> rows) {
-        return writer.insertIgnoringHeld(projectId, actor, rows, TriageCompanyStatus.IN_UNIVERSE, null);
+        return writer.insertIgnoringHeld(projectId, actor, rows, TriageCompanySource.STRATEGY,
+                TriageCompanyStatus.IN_UNIVERSE, null, null);
     }
 
     /** Only the snapshot fields carry here; the rest are not the subject. */

@@ -79,6 +79,7 @@ class GoogleGenAiClientConfigTest {
     private static LightMoveProperties properties(int timeoutMs) {
         return new LightMoveProperties(null, null, null, null, null,
                 new LlmSettings(new LlmRateLimitSettings(true, 10, 20), timeoutMs, 1,
-                        List.of("ignore previous instructions")));
+                        List.of("ignore previous instructions")),
+                null, null);
     }
 }

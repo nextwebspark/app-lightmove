@@ -27,6 +27,7 @@ import {
   CANDIDATE_SENIORITIES,
   CANDIDATE_STATUSES,
 } from "../lib/candidateVocabulary";
+import { CandidateAvatar } from "./CandidateAvatar";
 
 /**
  * Only the name is required, matching the server. Research arrives in pieces — a name, a company and
@@ -229,9 +230,11 @@ export function CandidateDrawer({
 
         {candidate && !editing ? (
           <div className="flex items-start gap-3 pe-8">
-            <span className="flex size-[44px] flex-none items-center justify-center rounded-[10px] border border-line bg-panel2 font-mono text-sm font-semibold text-text2">
-              {initialsOf(candidate.fullName)}
-            </span>
+            <CandidateAvatar
+              projectId={projectId}
+              candidate={candidate}
+              className="size-[44px] rounded-[10px] border border-line text-sm"
+            />
             <div className="min-w-0 flex-1">
               <h2 className="font-sans text-base font-semibold">{candidate.fullName}</h2>
               <p className="mt-0.5 font-mono text-[12.5px] text-text2">{candidate.title ?? "—"}</p>
@@ -647,15 +650,6 @@ function CandidateProfile({
       )}
     </>
   );
-}
-
-/** Two initials, which is what the mockup's identity tile carries when there is no photograph. */
-function initialsOf(fullName: string): string {
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  const first = parts[0][0];
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
-  return (first + last).toUpperCase();
 }
 
 /**

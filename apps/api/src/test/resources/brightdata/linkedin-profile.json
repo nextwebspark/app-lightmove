@@ -1,0 +1,87 @@
+{
+  "hits": [
+    {
+      "id": "sample-person",
+      "linkedin_id": "sample-person",
+      "linkedin_num_id": "1234567",
+      "name": "Sample Person",
+      "first_name": "Sample",
+      "last_name": "Person",
+      "position": "Chief Executive Officer - RetailCo",
+      "about": "Retail leader across the GCC.",
+      "city": "Dubai, United Arab Emirates",
+      "location": "Dubai",
+      "country_code": "AE",
+      "avatar": "https://media.example.com/avatar.jpg",
+      "default_avatar": false,
+      "followers": 12345,
+      "connections": 500,
+      "input_url": "https://www.linkedin.com/in/sample-person/",
+      "current_company": {
+        "company_id": "retailco",
+        "link": "https://ae.linkedin.com/company/retailco?trk=public_profile",
+        "name": "RetailCo"
+      },
+      "current_company_name": "RetailCo",
+      "current_company_company_id": "retailco",
+      "experience": [
+        {
+          "company": "RetailCo",
+          "company_id": "retailco",
+          "company_logo_url": "https://media.example.com/retailco.png",
+          "title": "Chief Executive Officer",
+          "start_date": "Feb 2025",
+          "end_date": "Present"
+        },
+        {
+          "company": "Amazing Corp",
+          "company_id": "amazingcorp",
+          "company_logo_url": "https://media.example.com/amazingcorp.png",
+          "duration": "3 years 3 months",
+          "location": "Luxembourg",
+          "positions": [
+            {
+              "title": "General Manager",
+              "subtitle": "Amazing Corp",
+              "start_date": "Feb 2023",
+              "end_date": "Jan 2025",
+              "meta": "Feb 2023 - Jan 2025 2 years"
+            },
+            {
+              "title": "Senior Manager",
+              "start_date": "Oct 2021",
+              "end_date": "Feb 2023"
+            }
+          ]
+        },
+        {
+          "company": "******* ******",
+          "title": "******* ******",
+          "subtitle": "******"
+        }
+      ],
+      "education": [
+        {
+          "title": "Sample Institute of Management",
+          "degree": "MBA",
+          "field": "Finance",
+          "start_year": "2005",
+          "end_year": "2007",
+          "url": "https://in.linkedin.com/school/sample-institute/"
+        },
+        {
+          "title": "Tech University",
+          "start_year": "2001",
+          "end_year": "2005"
+        }
+      ],
+      "skills": null,
+      "languages": [
+        { "name": "English", "proficiency": "Native or bilingual proficiency" },
+        "Arabic"
+      ],
+      "timestamp": 1788345543523,
+      "url": "https://www.linkedin.com/in/sample-person"
+    }
+  ]
+}

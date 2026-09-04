@@ -75,6 +75,8 @@ export interface Candidate {
   source: CandidateSource;
   sourceUrl: string | null;
   addedAt: string;
+  /** When enrichment last filled this profile in; null while research is pending or off. */
+  enrichedAt: string | null;
 }
 
 export interface CandidatesPage {
