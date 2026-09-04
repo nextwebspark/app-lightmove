@@ -17,23 +17,36 @@ import {
   type CandidateCompanyContext,
 } from "../../candidates/components/CandidateDrawer";
 import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandidateDialog";
+import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
+import type { CustomColumn } from "../../customcolumns/api/types";
 import { canExecuteProjectWork } from "../../projects/lib/access";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
 import { CompanyDrawer } from "../components/CompanyDrawer";
+import { ImportSpreadsheetDialog } from "../components/ImportSpreadsheetDialog";
+import { ManageColumnsDialog } from "../components/ManageColumnsDialog";
 import { RemoveCompanyDialog } from "../components/RemoveCompanyDialog";
 import { TriageCompanyTable } from "../components/TriageCompanyTable";
 import { TriageToolbar } from "../components/TriageToolbar";
 import {
-  DEFAULT_TRIAGE_COLUMN_VISIBILITY,
+  createTriageCompanyColumns,
+  defaultTriageColumnVisibility,
   TRIAGE_SORT_FIELDS,
-  triageCompanyColumns,
 } from "../lib/triageCompanyColumns";
 import { awaitingResearch, toTriageRows } from "../lib/triageRows";
 import { stageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
 import { useProjectStream } from "../lib/useProjectStream";
 
-const TRIAGE_LAYOUT_COLUMNS = layoutColumnsOf(triageCompanyColumns);
+/**
+ * The grid's built-in columns for the layout hook. A mandate's own custom columns are deliberately
+ * absent: `useGridLayout` is keyed per user and per grid, *not* per project — a column layout is a
+ * working habit rather than a property of one mandate — so remembering a width for a column only one
+ * project has would carry a phantom into every other project's grid.
+ */
+const TRIAGE_LAYOUT_COLUMNS = layoutColumnsOf(createTriageCompanyColumns([]));
+
+/** A stable empty array: a fresh `[]` per render would rebuild every column def on every render. */
+const EMPTY_CUSTOM_COLUMNS: CustomColumn[] = [];
 
 /** How hard the In-universe screen looks for research landing on a fresh plugin capture. */
 const RESEARCH_POLL_MS = 4_000;
@@ -91,7 +104,36 @@ function TriageStage() {
   const [pendingRemoval, setPendingRemoval] = useState<TriageCompany | null>(null);
   const [profile, setProfile] = useState<OpenProfile | null>(null);
   const [pendingCandidateRemoval, setPendingCandidateRemoval] = useState<Candidate | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [managingColumns, setManagingColumns] = useState(false);
   const [sort, setSort] = useGridSort("companies", project.id, TRIAGE_SORT_FIELDS, DEFAULT_SORT);
+
+  /**
+   * The mandate's own extra columns. Read once for the screen and shared by the grid, the toolbar's
+   * picker and both drawers' edit forms — a column is one fact about the project, not one per widget.
+   */
+  const customColumnsQuery = useQuery({
+    queryKey: customColumnsApi.CUSTOM_COLUMNS_KEY(project.id),
+    queryFn: () => customColumnsApi.getCustomColumns(project.id),
+  });
+  const customColumns = useMemo(
+    () => customColumnsQuery.data?.columns ?? EMPTY_CUSTOM_COLUMNS,
+    [customColumnsQuery.data],
+  );
+  const defaultVisibility = useMemo(
+    () => defaultTriageColumnVisibility(customColumns),
+    [customColumns],
+  );
+  // Split by which half of the row they describe: a company's form has no business offering the
+  // person's columns, and vice versa.
+  const companyColumns = useMemo(
+    () => customColumns.filter((column) => column.target === "company"),
+    [customColumns],
+  );
+  const candidateColumns = useMemo(
+    () => customColumns.filter((column) => column.target === "candidate"),
+    [customColumns],
+  );
   const [columnVisibility, setColumnVisibility] = useColumnVisibility(
     // Bumped from "companies" when Source became hidden-by-default. `useColumnVisibility` merges a
     // stored map *over* the defaults — deliberately, so a column added later takes its declared
@@ -100,7 +142,7 @@ function TriageStage() {
     // once, which is the price of a default that otherwise could not take effect.
     "companies.v2",
     project.id,
-    DEFAULT_TRIAGE_COLUMN_VISIBILITY,
+    defaultVisibility,
   );
   const [layout, setLayout] = useGridLayout("companies", TRIAGE_LAYOUT_COLUMNS);
 
@@ -232,12 +274,17 @@ function TriageStage() {
 
   /**
    * Removing a company unmaps its people rather than deleting them, and adding one changes which
-   * people the grid should be asking about — so the two caches move together on every write.
+   * people the grid should be asking about — so the two caches move together on every write. The
+   * columns move with them because an import defines new ones: refreshing the rows without their
+   * headers leaves the imported values in columns the grid does not yet know how to render.
    */
   const refreshEverything = () => {
     refreshEveryStage();
     void queryClient.invalidateQueries({
       queryKey: candidatesApi.CANDIDATES_KEY_PREFIX(project.id),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: customColumnsApi.CUSTOM_COLUMNS_KEY(project.id),
     });
   };
 
@@ -294,10 +341,28 @@ function TriageStage() {
         onQuery={setQuery}
         columnVisibility={columnVisibility}
         onColumnVisibilityChange={setColumnVisibility}
+        customColumns={customColumns}
         onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}
         onAddCompany={() => setOpenCompany({ company: null })}
         onAddExecutive={() => setProfile({ candidate: null, company: null })}
+        onImport={() => setImporting(true)}
+        onManageColumns={() => setManagingColumns(true)}
         canWrite={canWrite}
+      />
+
+      <ImportSpreadsheetDialog
+        open={importing}
+        projectId={project.id}
+        customColumns={customColumns}
+        onClose={() => setImporting(false)}
+        onImported={refreshEverything}
+      />
+
+      <ManageColumnsDialog
+        open={managingColumns}
+        projectId={project.id}
+        columns={customColumns}
+        onClose={() => setManagingColumns(false)}
       />
 
       <div className="flex min-w-0 flex-1 flex-col gap-3 p-3 sm:p-5">
@@ -309,6 +374,7 @@ function TriageStage() {
           onSortChange={setSort}
           columnVisibility={columnVisibility}
           onColumnVisibilityChange={setColumnVisibility}
+          customColumns={customColumns}
           layout={layout}
           onLayoutChange={setLayout}
           loading={companies.isFetching}
@@ -345,6 +411,7 @@ function TriageStage() {
         projectId={project.id}
         company={openCompany?.company ?? null}
         landingStatus={stage.status}
+        customColumns={companyColumns}
         canWrite={canWrite}
         onClose={() => setOpenCompany(null)}
         onSaved={refreshEverything}
@@ -364,6 +431,7 @@ function TriageStage() {
         projectId={project.id}
         candidate={profile?.candidate ?? null}
         company={profile?.company ?? null}
+        customColumns={candidateColumns}
         canWrite={canWrite}
         onClose={() => setProfile(null)}
         onSaved={refreshEverything}

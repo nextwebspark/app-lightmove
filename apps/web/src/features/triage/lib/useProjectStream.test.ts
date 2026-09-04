@@ -33,7 +33,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-it("refetches when the server announces a change, and only then", () => {
+it("refetches when the server announces a change, and only then", async () => {
   const onChange = vi.fn();
   renderHook(() => useProjectStream("p1", onChange));
 
@@ -41,6 +41,23 @@ it("refetches when the server announces a change, and only then", () => {
     openStreams[0].emit({ name: "connected", data: "{}" });
     openStreams[0].emit({ name: "change", data: '{"kind":"candidate-enriched"}' });
   });
+  await act(() => vi.advanceTimersByTimeAsync(500));
+
+  expect(onChange).toHaveBeenCalledTimes(1);
+});
+
+it("collapses a burst of changes into one refetch", async () => {
+  const onChange = vi.fn();
+  renderHook(() => useProjectStream("p1", onChange));
+
+  // What a spreadsheet import looks like from here: it commits a row at a time and announces each,
+  // so without the coalesce a thousand-row file is a thousand refetches on every open tab.
+  act(() => {
+    for (let row = 0; row < 50; row += 1) {
+      openStreams[0].emit({ name: "change", data: '{"kind":"company-captured"}' });
+    }
+  });
+  await act(() => vi.advanceTimersByTimeAsync(500));
 
   expect(onChange).toHaveBeenCalledTimes(1);
 });

@@ -163,6 +163,35 @@ public enum ErrorCode {
     /** An upload arrived as a document type this endpoint does not accept. */
     UNSUPPORTED_FILE_TYPE(HttpStatus.BAD_REQUEST, "That file type is not supported"),
 
+    /**
+     * A spreadsheet that opened but could not be read as a table — no header row, a corrupt workbook,
+     * a CSV whose rows do not agree on how many columns they have. Distinct from UNSUPPORTED_FILE_TYPE
+     * because the type was right and the contents were not, which is a different thing to fix.
+     */
+    IMPORT_FILE_UNREADABLE(HttpStatus.BAD_REQUEST,
+            "That file could not be read as a table. Check it has a header row."),
+
+    /**
+     * An import larger than one request should carry. Refused whole rather than truncated: taking the
+     * first N rows would silently decide which half of a consultant's list got imported.
+     */
+    IMPORT_TOO_MANY_ROWS(HttpStatus.PAYLOAD_TOO_LARGE,
+            "That file has more rows than one import can take"),
+
+    /**
+     * A column name already used on the same grid. Distinct from CONFLICT so the dialog can mark the
+     * name field rather than offering "try again" for something retrying will never fix.
+     */
+    CUSTOM_COLUMN_NAME_TAKEN(HttpStatus.CONFLICT,
+            "This mandate already has a column with that name"),
+
+    /**
+     * The per-project ceiling on custom columns. A grid is a thing a person reads across, and one
+     * mis-mapped import could otherwise define a column per header of a very wide file.
+     */
+    CUSTOM_COLUMN_LIMIT_REACHED(HttpStatus.CONFLICT,
+            "This mandate has as many custom columns as it can hold"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

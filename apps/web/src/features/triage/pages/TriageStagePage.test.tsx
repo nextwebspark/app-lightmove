@@ -7,6 +7,8 @@ import { ToastProvider } from "../../../components/ui/Toast";
 import { AuthProvider } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate, CandidatesPage } from "../../candidates/api/types";
+import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
+import type { CustomColumn } from "../../customcolumns/api/types";
 import type { Project } from "../../projects/api/types";
 import * as companiesApi from "../../strategy/api/companiesApi";
 import type { CompanyResult, Facets } from "../../strategy/api/types";
@@ -22,6 +24,16 @@ vi.mock("../../candidates/api/candidatesApi", async (importOriginal) => ({
   createCandidate: vi.fn(),
   updateCandidate: vi.fn(),
   deleteCandidate: vi.fn(),
+}));
+vi.mock("../../customcolumns/api/customColumnsApi", async (importOriginal) => ({
+  // Keys are real; only the calls are mocked.
+  ...(await importOriginal<typeof customColumnsApi>()),
+  getCustomColumns: vi.fn(),
+}));
+vi.mock("../api/importApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../api/importApi")>()),
+  previewImport: vi.fn(),
+  commitImport: vi.fn(),
 }));
 vi.mock("../api/triageApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
@@ -111,6 +123,7 @@ const acwa: TriageCompany = {
   shortDescription: null,
   sourceUrl: null,
   logoUrl: null,
+  customFields: {},
   addedAt: "2026-08-01T09:00:00Z",
 };
 
@@ -139,6 +152,7 @@ const yasmin: Candidate = {
   languages: [],
   source: "manual",
   sourceUrl: null,
+  customFields: {},
   addedAt: "2026-08-02T09:00:00Z",
   enrichedAt: null,
 };
@@ -180,6 +194,17 @@ const marketAcwa = {
   sicCodes: [],
   naicsCodes: [],
 } as unknown as CompanyResult;
+
+/** A column this mandate added to its own grid — the thing an import defines when a header is new. */
+const ethnicity: CustomColumn = {
+  id: "cc1",
+  target: "candidate",
+  fieldKey: "ethnicity",
+  label: "Ethnicity",
+  dataType: "text",
+  displayOrder: 0,
+  hidden: false,
+};
 
 const peopleOf = (candidates: Candidate[]): CandidatesPage => ({
   candidates,
@@ -231,6 +256,7 @@ describe("TriageStagePage", () => {
     vi.mocked(companiesApi.getFacets).mockResolvedValue(FACETS);
     vi.mocked(companiesApi.searchCompanies).mockResolvedValue({ companies: [] });
     vi.mocked(companiesApi.getCompany).mockResolvedValue(marketAcwa);
+    vi.mocked(customColumnsApi.getCustomColumns).mockResolvedValue({ columns: [] });
   });
 
   it("reads the stage from the URL and asks the API for that status", async () => {
@@ -708,5 +734,80 @@ describe("TriageStagePage", () => {
       expect(screen.queryByRole("button", { name: /Add an executive at ACWA Power/i })).not.toBeInTheDocument(),
     );
     expect(screen.queryByRole("button", { name: /^Add executive$/i })).not.toBeInTheDocument();
+  });
+
+  it("renders a mandate's own columns as grid columns, with the values on the rows", async () => {
+    // The whole point of the feature from the user's side: a column nobody wrote into this codebase
+    // reads as an ordinary column, because it is one.
+    vi.mocked(customColumnsApi.getCustomColumns).mockResolvedValue({ columns: [ethnicity] });
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [{ ...yasmin, customFields: { ethnicity: "Lebanese" } }]),
+    );
+    renderStage();
+
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+    expect(await within(grid).findByText("Ethnicity")).toBeInTheDocument();
+    expect(await within(grid).findByText("Lebanese")).toBeInTheDocument();
+  });
+
+  it("does not render a column the mandate has hidden", async () => {
+    vi.mocked(customColumnsApi.getCustomColumns).mockResolvedValue({
+      columns: [{ ...ethnicity, hidden: true }],
+    });
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [{ ...yasmin, customFields: { ethnicity: "Lebanese" } }]),
+    );
+    renderStage();
+
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+    // Awaited on a positive first: asserting absence before the query settles proves nothing.
+    expect(await within(grid).findByText("Yasmin El-Sayed")).toBeInTheDocument();
+    expect(within(grid).queryByText("Ethnicity")).not.toBeInTheDocument();
+    expect(within(grid).queryByText("Lebanese")).not.toBeInTheDocument();
+  });
+
+  it("offers Import and Columns to a colleague and to no client representative", async () => {
+    renderStage();
+    expect(await screen.findByRole("button", { name: /^Import$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Columns$/i })).toBeInTheDocument();
+  });
+
+  it("keeps Import and Columns away from a client representative", async () => {
+    const authApi = await import("../../auth/api/authApi");
+    vi.mocked(authApi.me).mockResolvedValue(representative);
+    renderStage();
+
+    expect(await screen.findByText("ACWA Power")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Import$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Columns$/i })).not.toBeInTheDocument();
+  });
+
+  it("edits a mandate's own column in the same save as the built-in fields", async () => {
+    // One request, not two: the custom values ride on the request the drawer already posts, so a
+    // save cannot half-succeed and there is one audit event rather than a pair.
+    vi.mocked(customColumnsApi.getCustomColumns).mockResolvedValue({ columns: [ethnicity] });
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin]),
+    );
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
+    renderStage();
+
+    await userEvent.click(await screen.findByText("Yasmin El-Sayed"));
+    const drawer = await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i });
+    await userEvent.click(within(drawer).getByRole("button", { name: /^Edit$/i }));
+
+    await userEvent.type(await within(drawer).findByLabelText("Ethnicity"), "Lebanese");
+    await userEvent.click(within(drawer).getByRole("button", { name: /Save changes/i }));
+
+    await waitFor(() =>
+      expect(candidatesApi.updateCandidate).toHaveBeenCalledWith(
+        "p1",
+        "c1",
+        expect.objectContaining({
+          fullName: "Yasmin El-Sayed",
+          customFields: { ethnicity: "Lebanese" },
+        }),
+      ),
+    );
   });
 });
