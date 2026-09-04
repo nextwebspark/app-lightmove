@@ -8,7 +8,7 @@
 -- The obvious answer is DDL per project, and it is the wrong one: a table whose shape depends on
 -- which tenant is asking cannot be migrated, indexed or reasoned about, and it hands the runtime role
 -- the CREATE privilege ops/cloudsql/harden.sql exists to revoke. So the *values* live in a jsonb bag
--- on the row (V43) and this table holds only the definitions: what a project's extra columns are
+-- on the row (V46) and this table holds only the definitions: what a project's extra columns are
 -- called, what type they hold, and what order they sit in. The grid reads these and renders a column
 -- per row of this table, so a column is real to the user and invisible to the schema.
 --

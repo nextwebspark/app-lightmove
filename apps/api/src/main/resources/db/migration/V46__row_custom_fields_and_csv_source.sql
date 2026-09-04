@@ -1,6 +1,6 @@
 -- Where a custom column's values actually live, and the door a spreadsheet comes through.
 --
--- V42 holds the definitions; this holds the values. One jsonb bag per row, keyed by the field_key of
+-- V45 holds the definitions; this holds the values. One jsonb bag per row, keyed by the field_key of
 -- a column the project has defined. The same argument V30 makes for the strategy filter and V36 for a
 -- candidate's career history: read whole, written whole, never queried by axis. Nothing will ever ask
 -- "which candidates have an ethnicity of X" across mandates — the keys are not even the same set from

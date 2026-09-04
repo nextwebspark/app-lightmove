@@ -165,12 +165,12 @@ its step's write, so the aggregate keeps one idiom rather than mixing rows and j
 `app_lm_position_org_node` is the org chart — a tree of seats with exactly one flagged
 `mandate_seat`, so "reports to" is that seat's parent and "direct reports" are its children, both
 derived rather than stored twice.
-`app_lm_project_custom_column` (V42) is the columns a mandate added to its own grid, and V43 puts their
+`app_lm_project_custom_column` (V45) is the columns a mandate added to its own grid, and V46 puts their
 values in a `custom_fields` jsonb bag on both row tables: a column per tenant in real DDL would be
 unmigratable and would need the runtime role to hold the `CREATE` privilege `harden.sql` revokes, so
 the definitions are rows and the values are a document. `field_key` is slugged once and never
 rewritten — every stored value points at it — while `label` is the header a user renames.
-V43 also adds `'CSV'` to the triage company's `source` CHECK, the spelling V36 had already reserved on
+V46 also adds `'CSV'` to the triage company's `source` CHECK, the spelling V36 had already reserved on
 the candidate side.
 `app_lm_position_template` (V42) is the role-template library — the identity a picker lists as columns,
 the drafted brief as one `jsonb` body (V30's idiom, not V39's child tables: a template is a

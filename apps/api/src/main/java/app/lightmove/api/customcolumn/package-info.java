@@ -7,7 +7,7 @@
  * quoted in weeks. Dropping them loses the half of the file that was worth importing; adding a real
  * column per tenant is unmigratable, unindexable, and needs the runtime role to hold the
  * {@code CREATE} privilege {@code harden.sql} exists to revoke. So the <i>values</i> live in a jsonb
- * bag on the row (V43) and this package holds only what the bag's keys mean.
+ * bag on the row (V46) and this package holds only what the bag's keys mean.
  *
  * <p><b>Per project, and that is the point.</b> A new mandate starts with the built-in columns alone;
  * a mandate that imported a file carrying Ethnicity shows an Ethnicity column for as long as it runs.

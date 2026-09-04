@@ -26,7 +26,7 @@ public enum TriageCompanySource {
      * Read out of a spreadsheet a consultant imported. Like MANUAL it carries no universe id — the
      * name in a file is all there is to identify a company by — and it is kept distinct so the grid's
      * Source badge can say that a headcount came out of somebody's export rather than being typed in
-     * after checking. V43 added it to the column's CHECK; V36 had already reserved the same spelling on
+     * after checking. V46 added it to the column's CHECK; V36 had already reserved the same spelling on
      * the candidate side.
      */
     CSV("csv");

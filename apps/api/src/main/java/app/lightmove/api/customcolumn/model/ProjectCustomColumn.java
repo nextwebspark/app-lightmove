@@ -18,7 +18,7 @@ import lombok.NoArgsConstructor;
  * where it sits.
  *
  * <p>This is a <b>definition, not a schema change</b>. The values live in a {@code custom_fields}
- * jsonb bag on the triage-company and candidate rows (V43), keyed by {@link #fieldKey}. A column per
+ * jsonb bag on the triage-company and candidate rows (V46), keyed by {@link #fieldKey}. A column per
  * tenant in real DDL would be unmigratable, unindexable, and would need the runtime role to hold the
  * {@code CREATE} privilege {@code harden.sql} exists to take away.
  *
