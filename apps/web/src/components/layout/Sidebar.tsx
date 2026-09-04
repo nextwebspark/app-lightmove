@@ -20,11 +20,13 @@ export interface SidebarGroup {
 }
 
 /**
- * The mockups' left rail: a rounded panel of grouped nav links, theme and collapse rows pinned to
- * the bottom, 240px wide or 56px collapsed (labels, group headers and counts disappear).
+ * The mockups' left rail: grouped nav links with theme and collapse rows pinned to the bottom, 210px
+ * wide or 56px collapsed (labels, group headers and counts disappear). On desktop it is a bare column
+ * on the page ground, not a card — the main panel is the only card the mockups draw.
  *
  * <p>Below `lg` it slides in over the content as a drawer, ignoring the collapsed preference — a
- * 56px icon-only overlay would be all cost and no benefit on a phone.
+ * 56px icon-only overlay would be all cost and no benefit on a phone. There it <i>is</i> a card: the
+ * border, fill and shadow in the base classes are the drawer's, and the `lg:` group strips them.
  */
 export function Sidebar({
   groups,
@@ -69,13 +71,14 @@ export function Sidebar({
       tabIndex={-1}
       aria-label="Main"
       className={cn(
-        "flex flex-none flex-col overflow-y-auto overflow-x-hidden rounded-[10px] border border-line bg-panel px-2 py-3.5 outline-none",
+        "flex flex-none flex-col overflow-y-auto overflow-x-hidden rounded-[10px] border border-line bg-panel px-2.5 py-3.5 outline-none",
         // `lg:z-auto` is load-bearing: a flex item keeps its stacking context while static, so
         // without the reset the rail floats above an open drawer's scrim instead of dimming.
         "fixed bottom-3.5 left-3.5 top-[52px] z-[95] w-60 shadow-panel transition-transform duration-200",
         open ? "translate-x-0" : "-translate-x-[calc(100%+18px)]",
-        "lg:static lg:z-auto lg:translate-x-0 lg:shadow-none lg:transition-[width] lg:duration-150",
-        collapsed ? "lg:w-14" : "lg:w-60",
+        "lg:static lg:z-auto lg:translate-x-0 lg:rounded-none lg:border-0 lg:bg-transparent",
+        "lg:shadow-none lg:transition-[width] lg:duration-[180ms]",
+        collapsed ? "lg:w-14" : "lg:w-[210px]",
       )}
     >
       {backLink && (

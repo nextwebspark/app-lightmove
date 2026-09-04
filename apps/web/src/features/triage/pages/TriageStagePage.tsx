@@ -225,7 +225,7 @@ function TriageStage() {
   /**
    * Every write invalidates the whole prefix rather than this stage's key. A move changes two stages
    * and all three counts, and a page that refreshed only the list it was looking at would show the
-   * company gone and the shortlist badge still one short.
+   * company gone and the sidebar's shortlist badge still one short.
    */
   const refreshEveryStage = () =>
     void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
@@ -290,8 +290,6 @@ function TriageStage() {
        than guessed from a hard-coded amount of chrome that any topbar change would falsify. */
     <div className="flex min-h-0 flex-1 flex-col">
       <TriageToolbar
-        projectId={project.id}
-        counts={companies.data?.counts}
         query={query}
         onQuery={setQuery}
         columnVisibility={columnVisibility}

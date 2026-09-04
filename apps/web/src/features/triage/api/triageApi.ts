@@ -66,8 +66,8 @@ export const TRIAGE_COUNTS_KEY = (projectId: string) =>
  * mandate, not just the Companies grids.
  *
  * <p>It asks the list endpoint for a single row rather than a counts route of its own: the counts
- * already travel with every page because the switcher is always on screen, and the key sits under
- * {@link TRIAGE_KEY_PREFIX} so a move invalidates the rail's numbers with the grid's.
+ * already travel with every page because the sidebar's badges are always on screen, and the key
+ * sits under {@link TRIAGE_KEY_PREFIX} so a move invalidates the rail's numbers with the grid's.
  */
 export function getTriageCounts(projectId: string, signal?: AbortSignal): Promise<TriageCounts> {
   return getTriageCompanies(

@@ -4,9 +4,9 @@ import type { TriageCompanyStatus } from "../api/types";
 /**
  * The three Companies pages, in the order a mandate works through them.
  *
- * <p>One list, read by the router, the sidebar, the stage switcher and each page's own copy — so a
- * stage cannot exist in the menu and not in the routes, or be called "Shortlisted" in one place and
- * "Shortlist" in another.
+ * <p>One list, read by the router, the sidebar and each page's own copy — so a stage cannot exist
+ * in the menu and not in the routes, or be called "Shortlisted" in one place and "Shortlist" in
+ * another.
  *
  * <p>`slug` and `status` are deliberately different strings. The slug is a URL a consultant reads and
  * sends to a colleague; the status is the API's token. Collapsing them would mean either

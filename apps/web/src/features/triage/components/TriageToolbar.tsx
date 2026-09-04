@@ -1,12 +1,10 @@
 import type { ColumnVisibilityState } from "@tanstack/react-table";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
-import type { TriageCounts } from "../api/types";
 import {
   DEFAULT_TRIAGE_COLUMN_VISIBILITY,
   triageCompanyColumns,
 } from "../lib/triageCompanyColumns";
-import { TriageStageSwitcher } from "./TriageStageSwitcher";
 
 const TOOLBAR_BUTTON =
   "inline-flex items-center gap-1.5 whitespace-nowrap rounded-[6px] border border-line bg-panel " +
@@ -28,8 +26,6 @@ const HIDEABLE_TRIAGE_COLUMNS = hideableColumnsOf(triageCompanyColumns);
  * company is that company's own row action, where the company is already known.
  */
 export function TriageToolbar({
-  projectId,
-  counts,
   query,
   onQuery,
   columnVisibility,
@@ -39,9 +35,6 @@ export function TriageToolbar({
   onAddExecutive,
   canWrite,
 }: {
-  projectId: string;
-  /** Undefined while the first page is still loading — the pills show a dash, never a zero. */
-  counts: TriageCounts | undefined;
   query: string;
   onQuery: (query: string) => void;
   columnVisibility: ColumnVisibilityState;
@@ -64,8 +57,6 @@ export function TriageToolbar({
           className="w-full bg-transparent font-sans text-[13px] text-text outline-none placeholder:text-text3"
         />
       </div>
-
-      <TriageStageSwitcher projectId={projectId} counts={counts} />
 
       <div className="flex items-center gap-3 sm:ml-auto">
         <ColumnPicker

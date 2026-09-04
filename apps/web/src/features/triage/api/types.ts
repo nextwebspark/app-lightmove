@@ -39,7 +39,7 @@ export interface TriageCompany {
   addedAt: string;
 }
 
-/** The stage switcher's badge counts. */
+/** The sidebar's badge counts for the three Companies stages. */
 export interface TriageCounts {
   inUniverse: number;
   shortlisted: number;
@@ -51,7 +51,7 @@ export interface TriageCompaniesPage {
   totalCount: number;
   page: number;
   size: number;
-  /** Travels with every page, because the switcher is visible on all of them. */
+  /** Travels with every page, because the sidebar's badges are visible on all of them. */
   counts: TriageCounts;
 }
 
