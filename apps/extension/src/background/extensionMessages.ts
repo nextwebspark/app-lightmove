@@ -22,7 +22,9 @@ import type { CaptureSettings } from "../domain/captureSettings";
 export type ExtensionRequest =
   | { kind: "getPairedUser" }
   | { kind: "signOut" }
+  | { kind: "openConnectPage" }
   | { kind: "readActivePage" }
+  | { kind: "activePageKey" }
   | { kind: "listProjects" }
   | { kind: "captureCompany"; projectId: string; capture: CaptureCompanyRequest }
   | { kind: "captureCandidate"; projectId: string; candidate: SaveCandidateRequest }
@@ -47,6 +49,21 @@ export interface ReadPageResult {
   subject: PageSubjectKind;
   person: ExtractedPerson;
   company: ExtractedCompany;
+  /** The address actually read, tracking and all — provenance, sent with the capture. */
+  sourceUrl: string;
+  /** Which page this is, canonically. The panel's identity for a read; see `pageKeyOf`. */
+  pageKey: string;
+}
+
+/**
+ * Which page the panel is looking at, with nothing read from it yet.
+ *
+ * The panel asks for this rather than deriving it, so the tab the key names and the tab the read
+ * comes from are resolved by the same rule — otherwise a panel whose guess disagreed with the
+ * worker's would sit empty waiting for a read that answers under another key.
+ */
+export interface ActivePageKey {
+  pageKey: string;
   sourceUrl: string;
 }
 
@@ -54,7 +71,9 @@ export interface ReadPageResult {
 export interface ExtensionReplies {
   getPairedUser: WorkspaceUser | null;
   signOut: null;
+  openConnectPage: null;
   readActivePage: ReadPageResult;
+  activePageKey: ActivePageKey;
   listProjects: ProjectSummary[];
   captureCompany: TriagedCompany;
   captureCandidate: CapturedCandidate;

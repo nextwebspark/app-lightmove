@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { FIELD_LIMITS, cappedAt } from "../../api/fieldLimits";
 import type { SaveCandidateRequest } from "../../api/types";
 import type { ExtractedPerson } from "../../content/pageReader/extractedPerson";
 import { DetectedFieldInput } from "../components/DetectedFieldInput";
 import { PageReadNote } from "../components/PageReadNote";
-import { PanelLoading } from "../components/PanelLoading";
 import { ProjectSelect } from "../components/ProjectSelect";
 import { SectionLabel } from "../components/SectionLabel";
 import { useCapturePerson } from "../hooks/useCapturePerson";
+import { useSeededField } from "../hooks/useSeededField";
 import { useCaptureSettings } from "../hooks/useCaptureSettings";
 import type { CaptureScreenProps } from "./captureScreenProps";
 import type { CaptureRefusal } from "../lib/captureRefusal";
@@ -32,35 +32,17 @@ export function CapturePersonScreen({ page, projects }: CaptureScreenProps) {
   const { settings } = useCaptureSettings();
   const undo = useUndoCapture();
 
-  const [fullName, setFullName] = useState("");
-  const [note, setNote] = useState("");
+  // Both keyed on the page rather than its address: the previous person's name is cleared the instant
+  // the panel is looking at someone else, while a `?trk=` or a `/details/experience` detour is the
+  // same person and leaves a correction being typed alone. The note is never seeded, only reset.
+  const { value: fullName, edit: editFullName, hasBeenEdited } = useSeededField(
+    page.person?.fullName ?? null,
+    page.pageKey,
+  );
 
-  // Seeded from the read, then owned by the form. A new page always reseeds, empty included — the
-  // previous person's name must never linger over someone else's profile. Re-reads of the *same*
-  // page only fill a blank field: LinkedIn's SPA re-reads land while a name is being corrected, and
-  // one arriving late must not overwrite the correction.
-  const seededFor = useRef<string | null>(null);
-  useEffect(() => {
-    // No read to show: the panel has left the page, or the read was refused. Either way the name on
-    // screen belongs to a page nobody is looking at, and holding it there is how the previous
-    // profile's name — the consultant's own, coming from their own profile — reached the next one.
-    if (!page.person) {
-      seededFor.current = null;
-      setFullName("");
-      setNote("");
-      return;
-    }
-    if (seededFor.current !== page.sourceUrl) {
-      seededFor.current = page.sourceUrl;
-      setFullName(page.person.fullName ?? "");
-      return;
-    }
-    setFullName((typed) => typed || (page.person?.fullName ?? ""));
-  }, [page.person, page.sourceUrl]);
-
-  // The loader stands in only while there is nothing true to show. A re-read of the page already on
-  // screen keeps its fields, so a title blink cannot pull the form out from under someone typing.
-  const isReadingSubject = page.isReading && !page.person;
+  // Read data while it still is what the page said; a field the consultant had to fill stays theirs.
+  const isNameLocked = Boolean(page.person?.fullName) && !hasBeenEdited;
+  const { value: note, edit: editNote } = useSeededField(null, page.pageKey);
 
   // A name and a mandate. That is what the API requires, and the popup should not invent more.
   const canSave = useMemo(
@@ -81,7 +63,7 @@ export function CapturePersonScreen({ page, projects }: CaptureScreenProps) {
   const handleCaptureAnother = () => {
     capture.reset();
     undo.reset();
-    setNote("");
+    editNote("");
     void page.rescan();
   };
 
@@ -111,26 +93,26 @@ export function CapturePersonScreen({ page, projects }: CaptureScreenProps) {
       <div className="min-h-0 flex-1 overflow-y-auto p-3.5">
         <PageReadNote error={page.readError} selectedProjectId={projects.selectedProjectId} />
 
-        {isReadingSubject ? (
-          <PanelLoading label="Reading this profile…" />
-        ) : (
-          <>
-            <SubjectRow name={fullName} detail={null} shape="circle" />
+        <SubjectRow name={fullName} isReading={page.isReading} detail={null} shape="circle" />
 
-            <SectionLabel className="mb-2">Detected</SectionLabel>
-            <DetectedFieldInput label="Full name" value={fullName} onChange={setFullName} />
+        <SectionLabel className="mb-2">Detected</SectionLabel>
+        <DetectedFieldInput
+          label="Full name"
+          value={fullName}
+          onChange={editFullName}
+          isReading={page.isReading}
+          isLocked={isNameLocked}
+        />
 
-            <SectionLabel className="mb-2 mt-[18px]">Notes</SectionLabel>
-            <textarea
-              rows={3}
-              value={note}
-              aria-label="Notes"
-              placeholder="Why this person matters to the mandate"
-              onChange={(event) => setNote(event.target.value)}
-              className="w-full resize-y rounded-[7px] border border-line bg-panel2 px-2.5 py-2 text-[12.5px] leading-[1.55] text-text outline-none focus:border-sky"
-            />
-          </>
-        )}
+        <SectionLabel className="mb-2 mt-[18px]">Notes</SectionLabel>
+        <textarea
+          rows={3}
+          value={note}
+          aria-label="Notes"
+          placeholder="Why this person matters to the mandate"
+          onChange={(event) => editNote(event.target.value)}
+          className="w-full resize-y rounded-[7px] border border-line bg-panel2 px-2.5 py-2 text-[12.5px] leading-[1.55] text-text outline-none focus:border-sky"
+        />
       </div>
 
       <div className="flex flex-col gap-[9px] border-t border-line-soft px-3.5 py-[11px]">

@@ -159,9 +159,23 @@ server-side later.
 
 On `linkedin.com/in/<slug>` and `/company/<slug>` the captured URL is **built from the address bar's
 slug** — never read off the page — so it is present even when the page yields nothing. The name comes
-from one injection of the page reader: the `h1` chain where a layout still has one, falling back to
-the tab title (`"(3) Name - Headline - Employer | LinkedIn"`), which every layout carries. One
-injection per capture, no scrolling, no requests of our own against LinkedIn.
+from an injection of the page reader: the `h1` chain where a layout still has one, falling back to
+the tab title (`"(3) Name - Headline - Employer | LinkedIn"`), which every layout carries. No
+scrolling, and no requests of our own against LinkedIn, ever.
+
+**The read waits for the page to catch up with its address, and that is the whole staleness story.**
+LinkedIn navigates with `pushState`, so `tab.url` and `document.location` flip to the new profile at
+the same instant while the DOM and the tab title still describe the previous one — which is why
+comparing one address to another can never catch it, and why the panel used to offer the person the
+consultant had just left. `pageSettleEvidence.ts` asks the other question instead: does anything about
+the *content* say it belongs elsewhere — a `canonical` naming another slug, or the same name that was
+read at a different page. While it does, `activePage.ts` re-injects on a 150ms grid for up to ~3s.
+Past that the name comes back empty rather than wrong, and the re-read that follows LinkedIn's title
+change fills it in.
+
+The last confident read is kept per tab in `chrome.storage.session`, because that is what makes "the
+same name at a different page" recognisable at all — the signed-in layout declares no `canonical`, so
+on the layout consultants actually use it is the only evidence there is.
 
 **The plugin reads LinkedIn only.** On any other site the panel says so and offers an
 "Open LightMove" button to the selected mandate's Companies page (the projects list when none is
@@ -185,15 +199,52 @@ appending can only fill gaps and never break a page that already worked), and te
 npx vitest
 ```
 
-An extractor that stops matching should return nothing rather than throw — the capture still works
-with fewer fields, and every field is editable in the popup anyway.
+An extractor that stops matching should return nothing rather than throw — a field it had nothing to
+say about comes back empty, and **an empty field is the one the consultant can type in**.
+
+## What is typed, and what is only shown
+
+The detected name is **locked** whenever the page supplied it: what LinkedIn calls a person or a
+company is the record, and retyping it by hand is how one executive ends up in two mandates under two
+spellings. It renders as `readOnly` rather than `disabled`, so the value stays focusable and copyable
+and the label still names it for a screen reader.
+
+It falls back to a real editable input when the read came back **empty**, and that is load-bearing
+rather than a nicety: `canSave` gates on the name, so a page the extractor missed — or a read the
+panel gave up on past its settle deadline — would otherwise be a row nobody could file. A name typed
+into a blank field stays the consultant's: a read landing late fills a blank, never an edit.
+
+The note is the one field that is always written. And a name locked in wrong (the title parser splits
+on dashes, so "Amira Haddad - MBA" can lose its suffix) is still editable afterwards in the web app's
+`CandidateDrawer` — the panel is not a one-way door.
 
 ## Permissions, and why each one is here
 
 `storage` — the paired session and the last-used mandate. Nothing else is stored.
 `scripting` — injects the page reader into the LinkedIn tab the panel is looking at.
 `tabs` — the side panel outlives the toolbar gesture and follows the active tab, so it needs to know
-*which* page a tab is on (its URL, never its content).
+*which* page a tab is on (its URL, never its content). It is also what drives `panelAvailability.ts`.
+
+**The panel is hidden and the toolbar icon greyed on every tab that is not LinkedIn** — Chrome's own
+documented recipe for a site-specific panel, per-tab `sidePanel.setOptions({ tabId, enabled })` driven
+from `tabs.onUpdated`. Chrome *hides* rather than closes, and brings the panel back by itself on
+returning to a tab where it was open, so the panel still follows the consultant profile to profile.
+**The manifest deliberately has no `side_panel` key**, and that is the part that actually makes the
+scoping work. A `default_path` there creates a *global* panel which shows on every tab and is **not**
+overridden by per-tab `setOptions({ tabId, enabled: false })` — the icon greys out and the panel sits
+there anyway. So the path is named by the worker on every per-tab enable instead
+(`SIDE_PANEL_PATH` in `buildTargets.ts`), and the global default is explicitly turned off at startup.
+Leaving the path off an enable is the mirror trap: the tab comes back enabled and pointing at nothing,
+so the icon lights up on LinkedIn and clicking it opens no panel. Both of those shipped once.
+
+Three more parts are easy to leave out and all are load-bearing: a **sweep of already-open tabs** at
+worker startup and on `onInstalled`, because `onUpdated` only fires on a change; **`tabs.onActivated`**,
+because a tab the worker has never judged now has no panel path *and* no global default to fall back
+on, so its toolbar click would open nothing; and **`chrome.action.disable(tabId)`**,
+because with `openPanelOnActionClick` a disabled panel makes the toolbar click do nothing *silently*,
+which reads as a broken extension rather than one that is not for this page. A tab with no URL yet is
+unavailable, not skipped. This adds no permission and guards nothing — `host_permissions` already made
+every other site unreadable; it is what the toolbar says about that.
 `sidePanel` — the capture surface is a side panel, not a popup, so it stays open while you read.
 `host_permissions` — the workspace origin, plus `*://*.linkedin.com/*`: the one site the plugin
 reads, standing so the panel keeps working as you move between profiles without a grant prompt per

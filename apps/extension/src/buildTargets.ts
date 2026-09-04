@@ -4,6 +4,15 @@
  * computed at runtime — and resolved here alone, so the manifest and the bundle cannot disagree.
  */
 /**
+ * The side panel's document, named by the manifest's `side_panel.default_path` *and* by every per-tab
+ * `sidePanel.setOptions({ enabled: true })` the worker makes.
+ *
+ * Both, and that is the trap: enabling a tab without naming a path leaves it enabled and pointing at
+ * nothing, so the toolbar icon lights up and clicking it opens no panel at all.
+ */
+export const SIDE_PANEL_PATH = "popup.html";
+
+/**
  * The Vite dev server, not the API on :8080 — it proxies `/api` to the API, so a development build
  * talks to exactly the origin the web app does.
  */

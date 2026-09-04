@@ -3,20 +3,25 @@ import { captureCandidate, removeCandidate } from "../api/captureCandidateApi";
 import { captureCompany, removeTriageCompany } from "../api/captureCompanyApi";
 import { listProjects } from "../api/projectsApi";
 import type { ExtensionSession } from "../api/types";
-import { workspaceOrigin } from "../workspaceOrigin";
+import { extensionConnectUrl, workspaceOrigin } from "../workspaceOrigin";
 import type { PageSubject } from "../content/pageReader/readPageSubject";
-import { mergeExtractedPerson } from "../content/pageReader/extractedPerson";
-import { mergeExtracted } from "../content/pageReader/extractedCompany";
 import {
-  companySlugOf,
-  isLinkedInPageUrl,
-  linkedInCompanyUrlOf,
-  linkedInProfileUrlOf,
-  profileSlugOf,
-} from "../content/pageReader/linkedInUrls";
+  activePageKey,
+  readActivePage,
+  LinkedInOnlyError,
+  PageNotReadableError,
+  type ActivePageDeps,
+  type StoredLastRead,
+} from "./activePage";
+import {
+  applyPanelAvailability,
+  applyPanelAvailabilityToAllTabs,
+  disableGlobalPanel,
+  type PanelAvailabilityDeps,
+} from "./panelAvailability";
 import { DEFAULT_CAPTURE_SETTINGS, type CaptureSettings } from "../domain/captureSettings";
-import type { ExtensionFailure, ExtensionRequest, ReadPageResult } from "./extensionMessages";
-import { LAST_PROJECT_KEY, SETTINGS_KEY } from "./storageKeys";
+import type { ExtensionFailure, ExtensionRequest } from "./extensionMessages";
+import { CONNECT_RETURN_TAB_KEY, LAST_PROJECT_KEY, LAST_READ_KEY, SETTINGS_KEY } from "./storageKeys";
 import {
   currentAccessToken,
   pairedUser,
@@ -48,6 +53,41 @@ type WorkspaceMessage =
 // The toolbar icon opens the side panel. Top level like every other registration here, and tolerant
 // of a Chrome too old to have the API rather than failing the whole worker on startup.
 chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => undefined);
+
+/** Where the availability rule meets the browser. */
+const panelAvailabilityDeps: PanelAvailabilityDeps = {
+  queryTabs: (query) => chrome.tabs.query(query),
+  setPanelOptions: (options) => chrome.sidePanel.setOptions(options),
+  enableAction: (tabId) => chrome.action.enable(tabId),
+  disableAction: (tabId) => chrome.action.disable(tabId),
+  setActionTitle: (details) => chrome.action.setTitle(details),
+};
+
+// Judged on every update rather than only when the address changed: the call is cheap and idempotent,
+// and a tab's first update often carries its URL on the tab and not on the change.
+chrome.tabs.onUpdated.addListener((_tabId, _change, tab) => {
+  void applyPanelAvailability(panelAvailabilityDeps, tab);
+});
+
+// Tabs that were already open have never fired an update, so without these two they keep the
+// manifest's enabled-everywhere default and the panel shows on a page it has no business on.
+chrome.runtime.onInstalled.addListener(() => {
+  void applyPanelAvailabilityToAllTabs(panelAvailabilityDeps);
+});
+
+// A tab the worker has never judged has no panel path and no global default to fall back on, so its
+// toolbar click would open nothing. Activation is the last moment to catch one — a tab that existed
+// before this extension did, or one a sweep raced.
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  void chrome.tabs
+    .get(tabId)
+    .then((tab) => applyPanelAvailability(panelAvailabilityDeps, tab))
+    .catch(() => undefined);
+});
+
+void disableGlobalPanel(panelAvailabilityDeps).then(() =>
+  applyPanelAvailabilityToAllTabs(panelAvailabilityDeps),
+);
 
 chrome.runtime.onMessage.addListener((message: ExtensionRequest, _sender, respond) => {
   // Answering asynchronously requires returning true synchronously, so the work is started here and
@@ -84,7 +124,7 @@ chrome.runtime.onMessageExternal.addListener((message: WorkspaceMessage, sender,
       // The connect page has one job and has done it. Closing it puts the consultant back where they
       // were, which is what makes pairing feel like a step rather than a detour.
       if (sender.tab?.id) {
-        void chrome.tabs.remove(sender.tab.id).catch(() => undefined);
+        void closeConnectPage(sender.tab.id);
       }
     })
     .catch((error) => respond(toFailure(error)));
@@ -103,8 +143,12 @@ async function handle(message: ExtensionRequest): Promise<unknown> {
     case "signOut":
       await signOut();
       return null;
+    case "openConnectPage":
+      return openConnectPage();
     case "readActivePage":
-      return readActivePage();
+      return readActivePage(activePageDeps);
+    case "activePageKey":
+      return activePageKey(activePageDeps);
     case "listProjects":
       return listProjects(api);
     case "captureCompany":
@@ -150,113 +194,64 @@ async function writeSettings(changed: Partial<CaptureSettings>): Promise<Capture
   return merged;
 }
 
+/**
+ * Opens the workspace's pairing page, remembering the tab it was opened from.
+ *
+ * Opened here rather than from the panel so there is something to come back to: a tab created with no
+ * opener leaves Chrome to pick whoever sits next to it when the connect page closes, which is how
+ * pairing from LinkedIn ended up on an unrelated tab.
+ */
+async function openConnectPage(): Promise<null> {
+  const [from] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (from?.id) {
+    await chrome.storage.session.set({ [CONNECT_RETURN_TAB_KEY]: from.id });
+  }
+  await chrome.tabs.create({ url: extensionConnectUrl, openerTabId: from?.id });
+  return null;
+}
+
+/** Closes the pairing page and puts the consultant back on the page they were reading. */
+async function closeConnectPage(connectTabId: number): Promise<void> {
+  const returnTo = (await chrome.storage.session.get(CONNECT_RETURN_TAB_KEY))[CONNECT_RETURN_TAB_KEY] as
+    | number
+    | undefined;
+  await chrome.storage.session.remove(CONNECT_RETURN_TAB_KEY);
+  await chrome.tabs.remove(connectTabId).catch(() => undefined);
+  // `openerTabId` alone is not enough — Chrome only honours it in some close paths — so the tab is
+  // named outright. It may have been closed while the consultant was pairing.
+  if (returnTo !== undefined) {
+    await chrome.tabs.update(returnTo, { active: true }).catch(() => undefined);
+  }
+}
+
 /** The IIFE bundle of the extractors; see `vite.page-reader.config.ts` for how it answers. */
 const PAGE_READER_BUNDLE = "page-reader.js";
 
 /**
- * Reads the tab the consultant invoked the extension on: one injection, one pass, no scrolling.
- *
- * LinkedIn only. The URL decides the subject and supplies the one field that must never be missing —
- * the canonical profile or company URL, built from the address bar's slug — so even a page whose DOM
- * yields nothing still captures with its URL, and the consultant types the name. Anything richer
- * than name + URL is enrichment, done server-side later, not read off the page.
+ * Where the reading of a page meets the browser. Everything above the `chrome.*` calls lives in
+ * `activePage.ts`, which is testable because it does not.
  */
-async function readActivePage(): Promise<ReadPageResult> {
-  const tab = await tabToRead();
-  if (!tab?.id) {
-    throw new LinkedInOnlyError();
-  }
-  const sourceUrl = tab.url ?? "";
-
-  const profileSlug = profileSlugOf(tab.url);
-  if (profileSlug) {
-    const read = await readPage(tab.id, (page) => profileSlugOf(page.pageUrl) === profileSlug);
-    // The slug-built URL first, so it wins the merge: the address bar cannot lie, and it is present
-    // even when the read came back empty.
-    const person = mergeExtractedPerson([
-      { linkedinUrl: linkedInProfileUrlOf(profileSlug) },
-      read?.person ?? {},
-    ]);
-    return { subject: "person", person, company: mergeExtracted([]), sourceUrl };
-  }
-
-  const companySlug = companySlugOf(tab.url);
-  if (companySlug) {
-    const read = await readPage(tab.id, (page) => companySlugOf(page.pageUrl) === companySlug);
-    const company = mergeExtracted([
-      { linkedinUrl: linkedInCompanyUrlOf(companySlug) },
-      read?.company ?? {},
-    ]);
-    return { subject: "company", person: mergeExtractedPerson([]), company, sourceUrl };
-  }
-
-  // LinkedIn, but not a page that names a person or a company — the feed, search, jobs.
-  throw new PageNotReadableError();
-}
-
-/**
- * The tab the panel is looking at.
- *
- * `currentWindow` is the last *focused* window, which is not always a browser window: with DevTools
- * detached and focused it resolves to something with no readable tab, and the read would be refused
- * for a page sitting right there. Falling back to the most recently touched LinkedIn tab answers
- * for the tab beside it — and null means the consultant has no LinkedIn page open anywhere, which
- * is the LinkedIn-only message's case, not an error.
- */
-async function tabToRead(): Promise<chrome.tabs.Tab | null> {
-  const [inCurrent] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (inCurrent?.id && isCapturableTab(inCurrent)) {
-    return inCurrent;
-  }
-  const all = await chrome.tabs.query({});
-  return (
-    all
-      .filter(isCapturableTab)
-      .sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0))[0] ?? null
-  );
-}
-
-/** A tab worth reading: LinkedIn, the one site this plugin captures from. */
-function isCapturableTab(tab: chrome.tabs.Tab): boolean {
-  return Boolean(tab.id) && isLinkedInPageUrl(tab.url);
-}
-
-/**
- * One injection of the page reader; the page's answer, or null when it had none. Only ever called
- * for a LinkedIn tab, which the manifest's standing host permission covers — so a failure here is
- * a real one (the tab closed mid-read), never a missing grant.
- *
- * `isAboutTheRightPage` is why the reader reports the address it read at. LinkedIn navigates with
- * pushState, so the URL changes before the new page has rendered: a read landing in that window
- * describes the *previous* profile, or LinkedIn's own chrome, which names the consultant. Discarding
- * it leaves the field empty until the read that matches arrives, rather than briefly offering
- * someone else's name to a Save button.
- */
-async function readPage(
-  tabId: number,
-  isAboutTheRightPage: (page: PageSubject) => boolean,
-): Promise<PageSubject | null> {
-  const [injected] = await chrome.scripting.executeScript({ target: { tabId }, files: [PAGE_READER_BUNDLE] });
-  const read = injected?.result as PageSubject | undefined;
-  return read && isAboutTheRightPage(read) ? read : null;
-}
-
-/** Not on LinkedIn at all — answered with the pointer to the app, not with an apology. */
-class LinkedInOnlyError extends Error {
-  constructor() {
-    super(
-      "LightMove Capture reads LinkedIn only, for now. To add a person or a company by hand, open LightMove.",
-    );
-    this.name = "LinkedInOnlyError";
-  }
-}
-
-class PageNotReadableError extends Error {
-  constructor() {
-    super("Open a LinkedIn profile or company page to capture from it.");
-    this.name = "PageNotReadableError";
-  }
-}
+const activePageDeps: ActivePageDeps = {
+  queryTabs: (query) => chrome.tabs.query(query),
+  injectReader: async (tabId) => {
+    // Only ever called for a LinkedIn tab, which the manifest's standing host permission covers — so a
+    // failure here is a real one (the tab closed mid-read), never a missing grant.
+    const [injected] = await chrome.scripting.executeScript({
+      target: { tabId },
+      files: [PAGE_READER_BUNDLE],
+    });
+    return (injected?.result as PageSubject | undefined) ?? null;
+  },
+  // `session`, not `local`: this is a name already on screen, worth nothing once the browser closes,
+  // and it must survive the worker being recycled mid-navigation — which `local` would over-persist
+  // and a module variable would not survive at all.
+  lastRead: {
+    get: async () =>
+      ((await chrome.storage.session.get(LAST_READ_KEY))[LAST_READ_KEY] as StoredLastRead | undefined) ?? null,
+    set: async (value) => chrome.storage.session.set({ [LAST_READ_KEY]: value }),
+  },
+  delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+};
 
 /**
  * Failures cross the message boundary as data, never as a rejection.

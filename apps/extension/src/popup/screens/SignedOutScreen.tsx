@@ -1,4 +1,5 @@
-import { workspaceOrigin } from "../../workspaceOrigin";
+import { askServiceWorker } from "../../background/extensionMessages";
+import { extensionConnectUrl } from "../../workspaceOrigin";
 import { BrandTile, PopupShell } from "../components/PopupChrome";
 import { Icon } from "../components/Icon";
 import { ICONS } from "../lib/icons";
@@ -13,12 +14,11 @@ interface SignedOutScreenProps {
  * origin instead.
  */
 export function SignedOutScreen({ onConnected }: SignedOutScreenProps) {
-  const connectUrl = `${workspaceOrigin}/extension/connect`;
-
   const handleConnect = () => {
-    chrome.tabs.create({ url: connectUrl });
-    // The popup closes the moment the new tab takes focus, so the pairing is picked up on the next
-    // open rather than watched for here. Re-checking first covers the case where it does survive.
+    // The worker opens it, so it can remember which tab to return to when the page closes itself.
+    void askServiceWorker({ kind: "openConnectPage" });
+    // The panel stays open while the consultant pairs in that tab, and `useExtensionSession` watches
+    // the store for the session arriving — so this is only the immediate re-check, not the mechanism.
     onConnected();
   };
 
@@ -49,7 +49,7 @@ export function SignedOutScreen({ onConnected }: SignedOutScreenProps) {
           Open LightMove
           <Icon d={ICONS.externalLink} />
         </button>
-        <p className="mt-2.5 font-mono text-[11px] text-text3">{connectUrl}</p>
+        <p className="mt-2.5 font-mono text-[11px] text-text3">{extensionConnectUrl}</p>
       </div>
 
       <footer className="flex items-center justify-between border-t border-line-soft px-3.5 py-2.5 font-mono text-[11px] text-text3">

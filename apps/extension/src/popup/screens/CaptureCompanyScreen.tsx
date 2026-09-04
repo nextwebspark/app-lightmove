@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { FIELD_LIMITS, cappedAt } from "../../api/fieldLimits";
 import { DESTINATION_PAST_TENSE, type TriageDestination } from "../../domain/triageDestination";
 import { DetectedFieldInput } from "../components/DetectedFieldInput";
 import { PageReadNote } from "../components/PageReadNote";
-import { PanelLoading } from "../components/PanelLoading";
 import { DestinationButtons } from "../components/DestinationButtons";
 import { ProjectSelect } from "../components/ProjectSelect";
 import { SectionLabel } from "../components/SectionLabel";
 import { useCaptureCompany } from "../hooks/useCaptureCompany";
+import { useSeededField } from "../hooks/useSeededField";
 import { useCaptureSettings } from "../hooks/useCaptureSettings";
 import type { CaptureScreenProps } from "./captureScreenProps";
 import type { CaptureRefusal } from "../lib/captureRefusal";
@@ -29,33 +29,18 @@ export function CaptureCompanyScreen({ page, projects }: CaptureScreenProps) {
   const { settings } = useCaptureSettings();
   const undo = useUndoCapture();
 
-  const [companyName, setCompanyName] = useState("");
-  const [note, setNote] = useState("");
   const [attemptedDestination, setAttemptedDestination] = useState<TriageDestination | null>(null);
 
-  // Seeded from the read, then owned by the form. A new page always reseeds, empty included — the
-  // previous company's name must never linger over another's page. Re-reads of the *same* page only
-  // fill a blank field, so a late answer cannot overwrite a correction being typed.
-  const seededFor = useRef<string | null>(null);
-  useEffect(() => {
-    // See the person screen: a name held over from a page the panel has left is how the wrong
-    // subject gets captured.
-    if (!page.company) {
-      seededFor.current = null;
-      setCompanyName("");
-      setNote("");
-      return;
-    }
-    if (seededFor.current !== page.sourceUrl) {
-      seededFor.current = page.sourceUrl;
-      setCompanyName(page.company.companyName ?? "");
-      return;
-    }
-    setCompanyName((typed) => typed || (page.company?.companyName ?? ""));
-  }, [page.company, page.sourceUrl]);
+  // Keyed on the page rather than its address; see the person screen for why both rules are what they
+  // are. The note is never seeded, only reset when the panel moves to another page.
+  const { value: companyName, edit: editCompanyName, hasBeenEdited } = useSeededField(
+    page.company?.companyName ?? null,
+    page.pageKey,
+  );
 
-  // The loader stands in only while there is nothing true to show; see the person screen.
-  const isReadingSubject = page.isReading && !page.company;
+  // See the person screen: locked while it is still the page's own answer.
+  const isNameLocked = Boolean(page.company?.companyName) && !hasBeenEdited;
+  const { value: note, edit: editNote } = useSeededField(null, page.pageKey);
 
   // A name and a mandate. That is what the API requires, and the popup should not invent more.
   const canSave = Boolean(companyName.trim()) && Boolean(projects.selectedProjectId);
@@ -82,7 +67,7 @@ export function CaptureCompanyScreen({ page, projects }: CaptureScreenProps) {
     capture.reset();
     undo.reset();
     setAttemptedDestination(null);
-    setNote("");
+    editNote("");
     void page.rescan();
   };
 
@@ -113,26 +98,26 @@ export function CaptureCompanyScreen({ page, projects }: CaptureScreenProps) {
       <div className="min-h-0 flex-1 overflow-y-auto p-3.5">
         <PageReadNote error={page.readError} selectedProjectId={projects.selectedProjectId} />
 
-        {isReadingSubject ? (
-          <PanelLoading label="Reading this company…" />
-        ) : (
-          <>
-            <SubjectRow name={companyName} detail={null} shape="square" />
+        <SubjectRow name={companyName} isReading={page.isReading} detail={null} shape="square" />
 
-            <SectionLabel className="mb-2">Detected</SectionLabel>
-            <DetectedFieldInput label="Company name" value={companyName} onChange={setCompanyName} />
+        <SectionLabel className="mb-2">Detected</SectionLabel>
+        <DetectedFieldInput
+          label="Company name"
+          value={companyName}
+          onChange={editCompanyName}
+          isReading={page.isReading}
+          isLocked={isNameLocked}
+        />
 
-            <SectionLabel className="mb-2 mt-[18px]">Notes</SectionLabel>
-            <textarea
-              rows={3}
-              value={note}
-              aria-label="Notes"
-              placeholder="Context for the universe entry"
-              onChange={(event) => setNote(event.target.value)}
-              className="w-full resize-y rounded-[7px] border border-line bg-panel2 px-2.5 py-2 text-[12.5px] leading-[1.55] text-text outline-none focus:border-sky"
-            />
-          </>
-        )}
+        <SectionLabel className="mb-2 mt-[18px]">Notes</SectionLabel>
+        <textarea
+          rows={3}
+          value={note}
+          aria-label="Notes"
+          placeholder="Context for the universe entry"
+          onChange={(event) => editNote(event.target.value)}
+          className="w-full resize-y rounded-[7px] border border-line bg-panel2 px-2.5 py-2 text-[12.5px] leading-[1.55] text-text outline-none focus:border-sky"
+        />
       </div>
 
       <div className="flex flex-col gap-[9px] border-t border-line-soft px-3.5 py-[11px]">

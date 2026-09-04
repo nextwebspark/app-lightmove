@@ -11,7 +11,9 @@ import { cn } from "./lib/cn";
 import { CaptureCompanyScreen } from "./screens/CaptureCompanyScreen";
 import { CapturePersonScreen } from "./screens/CapturePersonScreen";
 import { CaptureSettingsScreen } from "./screens/CaptureSettingsScreen";
+import { PanelLoading } from "./components/PanelLoading";
 import { SignedOutScreen } from "./screens/SignedOutScreen";
+import type { WorkspaceUser } from "../api/types";
 
 /**
  * The popup's root: which of the states the consultant is in.
@@ -22,22 +24,6 @@ import { SignedOutScreen } from "./screens/SignedOutScreen";
  */
 export function CapturePopup() {
   const session = useExtensionSession();
-  const page = useActivePage();
-  const projects = useProjectSelection();
-  const { settings } = useCaptureSettings();
-  const [subject, setSubject] = useState<CaptureSubject>("company");
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
-  // The tab follows the page: a profile selects Person, a company page selects Company, on every
-  // navigation — keyed on the page's URL, so moving to a new page of the *same* kind realigns too.
-  // It cannot yank the tab from under an editor: re-reads of the unchanged page (a title blink)
-  // keep both dependency values identical, and "unknown" never guesses.
-  useEffect(() => {
-    if (!settings.isPageTypeDetected || !page.subject || page.subject === "unknown") {
-      return;
-    }
-    setSubject(page.subject);
-  }, [page.subject, page.sourceUrl, settings.isPageTypeDetected]);
 
   if (session.isLoading) {
     return (
@@ -55,33 +41,76 @@ export function CapturePopup() {
     );
   }
 
-  if (!session.isPaired) {
+  if (!session.user) {
     return <SignedOutScreen onConnected={() => void session.refresh()} />;
   }
+
+  // Keyed on who is paired, so re-pairing as somebody else remounts rather than inheriting: the
+  // chosen mandate is component state down there, and a shared laptop would otherwise file the next
+  // consultant's first capture into the previous one's mandate.
+  return (
+    <CaptureSession
+      key={session.user.id}
+      user={session.user}
+      onSignOut={() => void session.signOut()}
+    />
+  );
+}
+
+interface CaptureSessionProps {
+  user: WorkspaceUser;
+  onSignOut: () => void;
+}
+
+/** The paired panel: what is on the page, which mandate it lands in, and the two forms over both. */
+function CaptureSession({ user, onSignOut }: CaptureSessionProps) {
+  const page = useActivePage();
+  const projects = useProjectSelection();
+  const { settings } = useCaptureSettings();
+  const [subject, setSubject] = useState<CaptureSubject>("company");
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // The tab follows the page: a profile selects Person, a company page selects Company, on every
+  // navigation — keyed on the page's URL, so moving to a new page of the *same* kind realigns too.
+  // It cannot yank the tab from under an editor: re-reads of the unchanged page (a title blink)
+  // keep both dependency values identical, and "unknown" never guesses.
+  useEffect(() => {
+    if (!settings.isPageTypeDetected || !page.subject || page.subject === "unknown") {
+      return;
+    }
+    setSubject(page.subject);
+  }, [page.subject, page.pageKey, settings.isPageTypeDetected]);
 
   return (
     <PopupShell>
       <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", isSettingsOpen && "hidden")}>
         <CaptureHeader
-          user={session.user}
+          user={user}
           onOpenSettings={() => setIsSettingsOpen(true)}
-          onSignOut={() => void session.signOut()}
+          onSignOut={onSignOut}
         />
         <CaptureTabs active={subject} onSelect={setSubject} />
-        <CapturePanel subject="company" active={subject}>
-          <CaptureCompanyScreen page={page} projects={projects} />
-        </CapturePanel>
-        <CapturePanel subject="person" active={subject}>
-          <CapturePersonScreen page={page} projects={projects} />
-        </CapturePanel>
+        {/* The one read with no form worth leaving on screen. Every later read shimmers in place. */}
+        {page.hasReadOnce ? (
+          <>
+            <CapturePanel subject="company" active={subject}>
+              <CaptureCompanyScreen page={page} projects={projects} />
+            </CapturePanel>
+            <CapturePanel subject="person" active={subject}>
+              <CapturePersonScreen page={page} projects={projects} />
+            </CapturePanel>
+          </>
+        ) : (
+          <PanelLoading label="Reading this page…" />
+        )}
       </div>
 
       {isSettingsOpen && (
         <CaptureSettingsScreen
-          user={session.user}
+          user={user}
           projects={projects}
           onBack={() => setIsSettingsOpen(false)}
-          onSignOut={() => void session.signOut()}
+          onSignOut={onSignOut}
         />
       )}
     </PopupShell>

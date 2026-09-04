@@ -99,6 +99,17 @@ Consequences worth keeping in mind:
 
 ## Permissions: least privilege, checked at review
 
+- **The panel is scoped to LinkedIn in the browser, not just in the UI.** Per-tab
+  `sidePanel.setOptions({ tabId, enabled })` from `tabs.onUpdated`, plus `chrome.action.disable(tabId)`
+  so a click that cannot open a panel is visibly unavailable rather than silently dead. Three traps,
+  all of which shipped once: the manifest must have **no `side_panel` key**, because a `default_path`
+  is a *global* panel that per-tab `enabled: false` does not override; every per-tab **enable must name
+  the path** (`SIDE_PANEL_PATH`), or the tab is enabled and points at nothing; and tabs must be judged
+  on `onInstalled`, at worker start, **and on `onActivated`**, since `onUpdated` only fires on a change
+  and an unjudged tab now has nothing to fall back on. Chrome hides rather than closes, and restores
+  the panel on returning to a tab where it was open — so this costs nothing of the panel following a
+  consultant profile to profile. It adds no permission and guards nothing: `host_permissions` already
+  made every other site unreadable.
 - `host_permissions` covers the app origin and `*://*.linkedin.com/*` — the one site the plugin
   reads, standing so the panel follows profile-to-profile moves with no grant prompt. **Nothing
   else**: no `activeTab`, no `optional_host_permissions`, no content scripts, never `<all_urls>`.
@@ -119,15 +130,35 @@ flaky and was **removed**. This matches the mature tools (Clockwork, Lusha): cap
 the extension, enrich server-side later. Do not re-grow page-side field extraction; a new captured
 field is an enrichment story, not an extractor.
 
-How the two fields are read (`serviceWorker.ts:readActivePage`, one injection, no scrolling):
+How the two fields are read (`background/activePage.ts:readActivePage`, no scrolling):
 
 - On `linkedin.com/in/<slug>` and `/company/<slug>` the URL decides the subject and the captured
   `linkedinUrl` is **built from the address-bar slug** (`content/pageReader/linkedInUrls.ts`) —
   never read off the page, so it survives a DOM that yields nothing.
-- The name comes from one pass of the injected page reader: the `h1` fallback chain where a layout
-  still renders one, else the tab title — `"(3) Name - Headline - Employer | LinkedIn"` — which
-  every layout so far carries. A missing name is not an error: the read returns the URL with an
-  empty name and the consultant types it (`canSave` gates on the name anyway).
+- The name comes from the injected page reader: the `h1` fallback chain where a layout still renders
+  one, else the tab title — `"(3) Name - Headline - Employer | LinkedIn"` — which every layout so
+  far carries. A missing name is not an error: the read returns the URL with an empty name and the
+  consultant types it (`canSave` gates on the name anyway).
+- **The read is repeated until the page catches up with its address, and that is not optional.**
+  LinkedIn navigates with `pushState`: `tab.url` and `document.location` flip to the new profile at
+  the same instant, while the DOM and the tab title still describe the previous one. So a predicate
+  comparing one address to another catches nothing — the address is not what lags — and a single read
+  taken mid-navigation puts the previous person's name above the Save button. `pageSettleEvidence.ts`
+  asks whether anything about the *content* says it belongs elsewhere (a `canonical` naming another
+  slug; the same name that was read at a different page), and `activePage.ts` re-injects on a 150ms
+  grid for ~3s while it does. Past the deadline the name comes back **empty** rather than wrong.
+  A page-supplied value is only ever evidence *against* a read — it can make one wait, never make one
+  trusted.
+- The last confident read is kept per tab in `chrome.storage.session` (`LAST_READ_KEY`). It is the
+  only evidence available on the signed-in layout, which declares no `canonical` at all — and it is
+  written only for a *settled* read, because recording a blank would let the next read fall through
+  to "nothing against it" and hand the stale name straight back.
+- **The panel keys its read on the page, never on the address** (`pageKeyOf` → `person:<slug>` /
+  `company:<slug>`). That identity is what makes `useActivePage` correct without a mask: a new page
+  has no cache entry, so the previous profile is gone on the same render as the navigation, and an
+  answer for the page just left resolves into an entry nothing renders. It is also why a `?trk=` or
+  a `/details/experience` detour does not reseed a form someone is typing in. The raw address stays
+  as `sourceUrl` — provenance, sent with the capture, not identity.
 - The extension makes **no request of its own against LinkedIn**, ever — no Voyager calls, no
   interception, no declared `content_scripts`. That restraint is what keeps a real account safe.
 - Off LinkedIn there is no read at all: the worker answers `LINKEDIN_ONLY` and the panel shows the
@@ -137,9 +168,16 @@ How the two fields are read (`serviceWorker.ts:readActivePage`, one injection, n
 ## Page extractors
 
 One bundle is injected, and its entry is `readPageSubject.ts` — it runs both LinkedIn extractors and
-classifies by URL alone (`/in/` → person, `/company/` → company, else unknown). The popup renders
-what it reads as **editable inputs** — nothing is written blind, and "Re-scan" re-runs the whole
-thing.
+classifies by URL alone (`/in/` → person, `/company/` → company, else unknown). "Re-scan" re-runs the
+whole thing.
+
+**The detected name is locked when the page supplied it, and editable only when it did not.** What
+LinkedIn calls someone is the record; retyping it by hand is how one executive lands in two mandates
+under two spellings. `readOnly`, never `disabled` — the value stays focusable and copyable and the
+label still names it. The empty fallback is not optional: `canSave` gates on the name, so a read that
+came back blank (an extractor miss, or the settle deadline giving up) would otherwise be a row nobody
+could file. An edit is never overwritten by a later read; a blank always is. The note is the one field
+that is always typed, and a name locked in wrong is still editable in the web app's `CandidateDrawer`.
 
 Each extractor is a **pure function over a `Document`**:
 
