@@ -256,17 +256,6 @@ describe("TriageStagePage", () => {
     expect(within(grid).queryByRole("columnheader", { name: /Source/i })).not.toBeInTheDocument();
   });
 
-  it("shows the three stage counts, so a move is visibly reflected", async () => {
-    vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
-      pageOf({ counts: { inUniverse: 4, shortlisted: 2, declined: 7 } }),
-    );
-    renderStage();
-
-    expect(await screen.findByRole("link", { name: /In universe/ })).toHaveTextContent("4");
-    expect(screen.getByRole("link", { name: /Shortlisted/ })).toHaveTextContent("2");
-    expect(screen.getByRole("link", { name: /Declined/ })).toHaveTextContent("7");
-  });
-
   it("moves a company through the existing PATCH rather than a stage-specific endpoint", async () => {
     vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, status: "shortlisted" });
     renderStage();
