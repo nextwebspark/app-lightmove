@@ -120,7 +120,7 @@ export const triageCompanyColumns = helper.columns([
             onClick={open}
             title={`Open ${company.companyName}`}
             aria-label={`Open ${company.companyName}`}
-            className="flex min-w-0 items-center gap-2.5 ps-[38px] text-start transition hover:text-sky"
+            className="flex w-full min-w-0 items-center gap-2.5 ps-[38px] text-start transition hover:text-sky"
           >
             <TruncatedText value={name} className="font-sans text-[13px] text-text3" />
           </button>
@@ -133,7 +133,7 @@ export const triageCompanyColumns = helper.columns([
           onClick={open}
           title={`Open ${company.companyName}`}
           aria-label={`Open ${company.companyName}`}
-          className="flex min-w-0 items-center gap-2.5 text-start"
+          className="flex w-full min-w-0 items-center gap-2.5 text-start"
         >
           <CompanyLogo name={company.companyName} logo={company.logoUrl} size={28} />
           <TruncatedText
@@ -250,7 +250,9 @@ export const triageCompanyColumns = helper.columns([
             type="button"
             onClick={() => meta?.onEditCandidate(candidate)}
             title={meta?.canWrite ? "Open this profile" : "View this profile"}
-            className="flex min-w-0 items-center gap-2 rounded-[4px] text-start font-sans text-[13px] font-medium text-text transition hover:text-sky"
+            // `w-full`: a button sizes to its content even as a flex container, so without it the
+            // row never squeezes and the name paints over the next column instead of clipping.
+            className="flex w-full min-w-0 items-center gap-2 rounded-[4px] text-start font-sans text-[13px] font-medium text-text transition hover:text-sky"
           >
             {meta && <CandidateAvatar projectId={meta.projectId} candidate={candidate} size="sm" />}
             <TruncatedText value={candidate.fullName} />
