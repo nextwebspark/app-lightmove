@@ -35,6 +35,7 @@ export function TriageToolbar({
   onResetLayout,
   onAddCompany,
   onAddExecutive,
+  onImport,
   onManageColumns,
   canWrite,
 }: {
@@ -47,6 +48,7 @@ export function TriageToolbar({
   onResetLayout: () => void;
   onAddCompany: () => void;
   onAddExecutive: () => void;
+  onImport: () => void;
   onManageColumns: () => void;
   /** False for a client representative, who reads these grids and writes nothing. */
   canWrite: boolean;
@@ -86,6 +88,10 @@ export function TriageToolbar({
             <button type="button" onClick={onManageColumns} className={TOOLBAR_BUTTON}>
               <Icon d={ICONS.settings} size={14} className="flex-none" />
               Columns
+            </button>
+            <button type="button" onClick={onImport} className={TOOLBAR_BUTTON}>
+              <Icon d={ICONS.uploadCloud} size={14} className="flex-none" />
+              Import
             </button>
             <button
               type="button"

@@ -7,7 +7,7 @@ import java.util.List;
  * its values so the person confirming can see what is in it, and the mapping proposed for it.
  *
  * <p>The sample values travel back to the browser that sent the file and nowhere else — in
- * particular; the mapping step works from the column's shape rather than its contents.
+ * particular, not to the model, which is given a description of the column's shape instead.
  */
 public record ImportColumnDto(
         int index,

@@ -23,6 +23,7 @@ import { canExecuteProjectWork } from "../../projects/lib/access";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
 import { CompanyDrawer } from "../components/CompanyDrawer";
+import { ImportSpreadsheetDialog } from "../components/ImportSpreadsheetDialog";
 import { ManageColumnsDialog } from "../components/ManageColumnsDialog";
 import { RemoveCompanyDialog } from "../components/RemoveCompanyDialog";
 import { TriageCompanyTable } from "../components/TriageCompanyTable";
@@ -103,6 +104,7 @@ function TriageStage() {
   const [pendingRemoval, setPendingRemoval] = useState<TriageCompany | null>(null);
   const [profile, setProfile] = useState<OpenProfile | null>(null);
   const [pendingCandidateRemoval, setPendingCandidateRemoval] = useState<Candidate | null>(null);
+  const [importing, setImporting] = useState(false);
   const [managingColumns, setManagingColumns] = useState(false);
   const [sort, setSort] = useGridSort("companies", project.id, TRIAGE_SORT_FIELDS, DEFAULT_SORT);
 
@@ -273,7 +275,8 @@ function TriageStage() {
   /**
    * Removing a company unmaps its people rather than deleting them, and adding one changes which
    * people the grid should be asking about — so the two caches move together on every write. The
-   * columns move with them: a row's custom values are unreadable without the headers that name them.
+   * columns move with them because an import defines new ones: refreshing the rows without their
+   * headers leaves the imported values in columns the grid does not yet know how to render.
    */
   const refreshEverything = () => {
     refreshEveryStage();
@@ -342,8 +345,17 @@ function TriageStage() {
         onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}
         onAddCompany={() => setOpenCompany({ company: null })}
         onAddExecutive={() => setProfile({ candidate: null, company: null })}
+        onImport={() => setImporting(true)}
         onManageColumns={() => setManagingColumns(true)}
         canWrite={canWrite}
+      />
+
+      <ImportSpreadsheetDialog
+        open={importing}
+        projectId={project.id}
+        customColumns={customColumns}
+        onClose={() => setImporting(false)}
+        onImported={refreshEverything}
       />
 
       <ManageColumnsDialog

@@ -31,6 +31,17 @@ public record SpreadsheetImportSettings(
          */
         @DefaultValue("5000") int maxRows,
 
+        /**
+         * Whether a few sample cell values may be sent to the model alongside the headers when it
+         * proposes a column mapping.
+         *
+         * <p><b>Off.</b> A spreadsheet of executives is exactly the candidate and client PII that is
+         * deliberately kept out of the application log, and a header plus a locally-computed type hint
+         * carries nearly all the signal a mapping needs. The switch exists so an operator can make
+         * that trade knowingly rather than by editing code.
+         */
+        @DefaultValue("false") boolean sendSampleValues,
+
         /** The document types an import may arrive as. */
         @DefaultValue({
                 "text/csv",

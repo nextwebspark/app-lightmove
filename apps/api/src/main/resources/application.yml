@@ -103,6 +103,21 @@ spring:
       enabled: true           # Java 21 virtual threads: auth endpoints are IO-bound (DB, DNS, email).
 
   ai:
+    # spring-ai-autoconfigure-retry is on the classpath (transitive via the GenAI starter) and is
+    # gated only by @ConditionalOnClass, so its RetryTemplate is ALREADY active and
+    # GoogleGenAiChatModel already takes it. Its default is ten attempts, which — with a call that had
+    # no timeout — is how one unreachable Vertex became a very long wait on a spinner. These are the
+    # provider's own knobs, set rather than left at defaults nobody chose.
+    retry:
+      max-attempts: ${LLM_RETRY_MAX_ATTEMPTS:2}          # one retry, not nine
+      backoff:
+        initial-interval: 500ms
+        multiplier: 2
+        max-interval: 3s
+      # Permanent for this request: no credentials, a refused project, a bad request, an exhausted
+      # quota. Retrying them only delays the fallback the caller was always going to get.
+      exclude-on-http-codes: [400, 401, 403, 404, 429]
+
     google:
       genai:
         # Vertex AI mode: authenticates via Application Default Credentials, the same
@@ -192,11 +207,15 @@ lightmove:
     # How many times an answer that does not fit its schema is put back to the model. One, matching
     # spring.ai.retry above: a model answering out of shape twice will not manage it on a third try.
     answer-repair-attempts: ${LLM_ANSWER_REPAIR_ATTEMPTS:1}
-    # Refused before the call is made, on every prompt. The defaults live on LlmSettings; setting this
-    # replaces the whole list rather than adding to it.
+    # Refused before the call is made, on every prompt. Deliberately short: each is also something
+    # somebody could one day write in a job brief or a spreadsheet header, and blocking real work is
+    # its own failure. The defaults live on LlmSettings; setting this replaces the whole list rather
+    # than adding to it.
     # injection-phrases:
     #   - ignore previous instructions
     rate-limit:
+      # The import's column mapping is metered against shortlist-requests-per-minute, on a meter of
+      # its own: one deliberate click either way, but a large import must not eat the shortlist.
       enabled: ${LLM_RATE_LIMIT_ENABLED:true}
       shortlist-requests-per-minute: ${LLM_SHORTLIST_REQUESTS_PER_MINUTE:10}
       embed-requests-per-minute: ${LLM_EMBED_REQUESTS_PER_MINUTE:20}
@@ -319,6 +338,10 @@ lightmove:
     # Refused whole rather than truncated: taking the first N rows would silently decide which half of
     # a consultant's list got imported.
     max-rows: ${SPREADSHEET_IMPORT_MAX_ROWS:5000}
+    # OFF. A spreadsheet of executives is client and candidate PII, and the model is given each
+    # column's header and a locally computed shape ("looks like an email") instead — nearly all the
+    # signal a mapping needs, with none of the data. Turn this on only knowingly.
+    send-sample-values: ${SPREADSHEET_IMPORT_SEND_SAMPLES:false}
     # Checked server-side, but only as a coarse filter: browsers disagree about what a .csv is and
     # several send application/vnd.ms-excel for one, so the reader decides the real format from the
     # bytes. Hence octet-stream is allowed here and would not be for a document upload.

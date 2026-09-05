@@ -9,9 +9,10 @@ import java.util.regex.Pattern;
 /**
  * Judges what a column's values look like, from the values themselves.
  *
- * <p>A header alone is often ambiguous — "Contact" could be an email, a phone number or a person's
- * name — and a column that is 90% email addresses settles it. The mapping step is given this shape
- * rather than the values themselves, which is what keeps a longlist's PII out of everything above it.
+ * <p>This is the only thing about a file's <i>contents</i> that reaches the model when a mapping is
+ * proposed, and it is the reason no cell value has to. A header alone is often ambiguous — "Contact"
+ * could be an email, a phone number or a person's name — and a column that is 90% email addresses
+ * settles it without a single address leaving this process.
  *
  * <p>A supermajority rather than every row, because real files carry a blank, a "n/a" and a typo in
  * any column of a thousand rows, and a rule that needed all of them to agree would answer

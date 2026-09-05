@@ -5,7 +5,7 @@ import java.util.List;
 
 /**
  * Every field of a Companies-grid row a spreadsheet column can be mapped onto — the catalogue the
- * mapping step offers and the heuristic matches against.
+ * mapping step offers, the model is asked to choose from, and the heuristic matches against.
  *
  * <p>One enum rather than a company list and a candidate list, because a mapping is a flat decision
  * per header: "Employer" and "Ethnicity" are answered from the same dropdown, and the target is what
@@ -114,7 +114,7 @@ public enum ImportTargetField {
         return target;
     }
 
-    /** The wire value; the mapping dropdown speaks these. */
+    /** The wire value; the mapping dropdown and the model's answer both speak these. */
     public String value() {
         return wireToken;
     }

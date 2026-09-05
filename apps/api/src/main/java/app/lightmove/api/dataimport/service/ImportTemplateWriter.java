@@ -11,10 +11,11 @@ import org.springframework.stereotype.Service;
  * Builds the blank CSV a consultant can download, fill in and upload back.
  *
  * <p>Optional, never required — the import maps whatever headers a file arrives with. What the
- * template buys is that a file built from it maps with no guessing at all: every header here is a
- * spelling {@link HeuristicColumnMatcher} matches with certainty.
- * {@code ImportTemplateWriterTest} pins that property, because a label edited out of step with the
- * synonym table would quietly turn every template import into a mapping somebody has to correct.
+ * template buys is that a file built from it needs no model call at all: every header here is a
+ * spelling {@link HeuristicColumnMatcher} matches with certainty, so
+ * {@code ColumnMappingProposer} skips Vertex entirely. {@code ImportTemplateWriterTest} pins that
+ * property, because a label edited out of step with the synonym table would quietly cost a call per
+ * import.
  *
  * <p>A dozen fields rather than all thirty-one: a sheet wide enough to hold every field is a sheet
  * most of whose columns come back empty, and each empty one is another to scroll past. The rest stay
@@ -59,7 +60,7 @@ public class ImportTemplateWriter {
      * The template for one mandate.
      *
      * <p>Project-scoped because the mandate's own custom columns are appended: without them a second
-     * import of the same shape would meet an unrecognised header and be guessed at again to be told
+     * import of the same shape would meet an unrecognised header and pay for a model call to be told
      * what it already knew.
      */
     public String templateFor(List<CustomColumnDto> customColumns) {

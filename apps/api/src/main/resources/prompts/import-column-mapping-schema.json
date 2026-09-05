@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "header": { "type": "string" },
+          "targetField": { "type": ["string", "null"] },
+          "customLabel": { "type": ["string", "null"] },
+          "customTarget": { "type": ["string", "null"] },
+          "customType": { "type": ["string", "null"] }
+        },
+        "required": ["header"]
+      }
+    }
+  },
+  "required": ["columns"]
+}

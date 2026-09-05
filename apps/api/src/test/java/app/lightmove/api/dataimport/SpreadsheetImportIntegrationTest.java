@@ -25,7 +25,10 @@ import tools.jackson.databind.JsonNode;
 /**
  * Importing a consultant's spreadsheet into a mandate's Companies grid, end to end.
  *
- * <p>Every mapping here comes from {@code HeuristicColumnMatcher}, against a real database.
+ * <p>The context runs on {@code StubChatModel}, whose fixed reply will not bind to a mapping — so
+ * every mapping here comes from {@code HeuristicColumnMatcher}. That is deliberate rather than a
+ * limitation: it is the path a user without Application Default Credentials gets, and the one worth
+ * proving works against a real database.
  */
 @IntegrationTest
 @Import(RecordingEmailSender.Config.class)
@@ -332,10 +335,10 @@ class SpreadsheetImportIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a file built from the template maps with nothing left to correct")
+    @DisplayName("a file built from the template maps without asking the model")
     void theTemplateRoundTrips() throws Exception {
         // The whole point of offering a template: its headers are ones the matcher knows, so the
-        // mapping comes back needing no correcting.
+        // preview costs nothing at Vertex and the mapping needs no correcting.
         String admin = adminOf("Import Template Firm");
         String projectId = project(admin);
 
@@ -379,8 +382,8 @@ class SpreadsheetImportIntegrationTest extends FlowTestSupport {
     @Test
     @DisplayName("a file with an unfamiliar header still reports where its mapping came from")
     void anUnfamiliarHeaderIsNotReportedAsExact() throws Exception {
-        // An unrecognised header is a guess rather than a known spelling, and the preview must say
-        // so — that is the difference between a mapping worth a glance and one worth reading.
+        // StubChatModel's fixed reply will not bind, so this lands on the header matcher — which is
+        // exactly what a run without Application Default Credentials gets, and it must say so.
         String admin = adminOf("Import Source Firm");
         String projectId = project(admin);
 
