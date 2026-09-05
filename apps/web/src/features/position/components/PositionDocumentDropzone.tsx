@@ -1,6 +1,7 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Spinner } from "../../../components/ui";
+import { FileDropzone } from "../../../components/ui/FileDropzone";
 import { formatInstantDate } from "../../../lib/format";
 import type { PositionDocument } from "../api/types";
 
@@ -25,23 +26,21 @@ export function PositionDocumentDropzone({
   onDownload: () => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
 
   const choose = () => input.current?.click();
-  const take = (files: FileList | null) => {
-    const file = files?.[0];
-    if (file) onAttach(file);
-  };
 
   return (
     <div>
+      {/* The replace path keeps its own input: the dropzone below is not rendered once a document is
+          attached, and Replace has to reach a file picker from a small button in the card. */}
       <input
         ref={input}
         type="file"
         accept=".pdf,.doc,.docx,.txt"
-        aria-label="Position description file"
+        aria-label="Replacement position description file"
         onChange={(event) => {
-          take(event.target.files);
+          const file = event.target.files?.[0];
+          if (file) onAttach(file);
           // Cleared so choosing the same file twice in a row still fires a change event.
           event.target.value = "";
         }}
@@ -87,36 +86,14 @@ export function PositionDocumentDropzone({
           </div>
         </div>
       ) : (
-        <button
-          type="button"
-          onClick={choose}
-          onDragOver={(event) => {
-            event.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(event) => {
-            event.preventDefault();
-            setDragging(false);
-            take(event.dataTransfer.files);
-          }}
-          className={`flex min-h-[140px] w-full flex-col items-center justify-center gap-3 rounded-xl border-[1.5px] border-dashed bg-panel2 p-6 text-center transition ${
-            dragging ? "border-sky brightness-105" : "border-sky/70 hover:brightness-105"
-          }`}
-        >
-          <span className="grid size-10 flex-none place-items-center rounded-full bg-sky-dim text-sky">
-            <Icon d={ICONS.uploadCloud} size={20} />
-          </span>
-          <span className="flex flex-col gap-1">
-            <span className="text-[15px] font-semibold text-sky">
-              Attach the position description
-            </span>
-            <span className="text-xs text-text3">
-              Kept with the mandate so the brief and the document it came from stay together (PDF,
-              Word or text)
-            </span>
-          </span>
-        </button>
+        <FileDropzone
+          accept=".pdf,.doc,.docx,.txt"
+          label="Position description file"
+          title="Attach the position description"
+          hint="Kept with the mandate so the brief and the document it came from stay together (PDF, Word or text)"
+          disabled={uploading}
+          onFile={onAttach}
+        />
       )}
 
       {uploading && (
