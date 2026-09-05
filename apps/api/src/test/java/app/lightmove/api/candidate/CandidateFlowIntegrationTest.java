@@ -16,6 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -158,6 +159,27 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
                 .andReturn());
 
         assertThat(mapped.get("career")).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("an over-long career entry is refused, not stored truncated")
+    void refusesAnOverLongCareerEntry() throws Exception {
+        // CandidateCareerEntryDto's own @Size constraints only run because @Valid sits on the list's
+        // type argument. On the list itself, as it was, the cascade was a no-op and every one of them
+        // was decoration — the column is varchar-bounded, so the write failed later and worse.
+        String projectId = mandate("Long Career Firm");
+
+        MvcResult refused = mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Omar Haddad",
+                                 "career":[{"company":"%s","title":"CFO","period":"2019-"}]}"""
+                                .formatted("A".repeat(201))))
+                .andExpect(status().isBadRequest())
+                .andReturn();
+
+        assertThat(codeOf(refused)).isEqualTo("VALIDATION_FAILED");
     }
 
     @Test

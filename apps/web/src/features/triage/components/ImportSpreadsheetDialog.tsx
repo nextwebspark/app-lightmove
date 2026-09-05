@@ -147,7 +147,7 @@ export function ImportSpreadsheetDialog({
     );
 
   return (
-    <Modal open={open} onClose={close} title="Import companies and people" className="md:w-[760px]">
+    <Modal open={open} onClose={close} title="Import companies and people" className="md:w-[880px]">
       {failure && (
         // FormError carries its own bottom margin, which the action row tucks back under itself.
         <div>
@@ -217,8 +217,10 @@ export function ImportSpreadsheetDialog({
             />
           )}
 
-          <div className="max-h-[46dvh] overflow-y-auto rounded-lg border border-line-soft">
-            <table className="w-full border-collapse">
+          <div className="max-h-[56dvh] overflow-y-auto rounded-lg border border-line-soft">
+            {/* Fixed, or a long sample line sizes the first column from its content, `truncate`
+                has no bound to work against, and the table grows past the dialog. */}
+            <table className="w-full table-fixed border-collapse">
               <thead className="sticky top-0 bg-panel2">
                 <tr>
                   <th className={`p-2.5 text-start ${LABEL}`}>Column in your file</th>

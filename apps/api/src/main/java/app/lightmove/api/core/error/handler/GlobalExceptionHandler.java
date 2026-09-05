@@ -19,8 +19,11 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.validation.method.ParameterErrors;
+import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
@@ -86,6 +89,51 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = problem(ErrorCode.VALIDATION_FAILED, ErrorCode.VALIDATION_FAILED.defaultMessage());
         problem.setProperty("fieldErrors", fieldErrors);
         return problem;
+    }
+
+    /**
+     * The other Bean Validation failure: a constraint on a controller <i>parameter</i> rather than on
+     * a field inside a request body.
+     *
+     * <p>A container-element constraint — {@code List<@Valid InviteRequest>} on an invite endpoint —
+     * routes through method validation and raises this instead of
+     * {@link MethodArgumentNotValidException}. Without a handler of its own it reached the catch-all
+     * below and answered <b>500</b>: the caller was told something went wrong on our end for a request
+     * that was simply wrong, and we logged an ERROR with a stack trace over a malformed email address.
+     *
+     * <p>The same {@code fieldErrors} map, so the SPA renders both the same way. A key names the
+     * parameter, the element's index where the failure is inside a collection, and the field where the
+     * element is an object: {@code requests[0].email}.
+     */
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ProblemDetail handleParameterValidation(HandlerMethodValidationException ex,
+                                                   HttpServletRequest request) {
+        Map<String, String> fieldErrors = new LinkedHashMap<>();
+        for (ParameterValidationResult result : ex.getParameterValidationResults()) {
+            String parameter = pathOf(result);
+            if (result instanceof ParameterErrors errors && errors.hasFieldErrors()) {
+                errors.getFieldErrors().forEach(error ->
+                        fieldErrors.putIfAbsent(parameter + "." + error.getField(), error.getDefaultMessage()));
+                continue;
+            }
+            result.getResolvableErrors().stream().findFirst().ifPresent(error ->
+                    fieldErrors.putIfAbsent(parameter, error.getDefaultMessage()));
+        }
+
+        log.info("[VALIDATION_FAILED] {} {} → 400 on {}",
+                request.getMethod(), request.getRequestURI(), fieldErrors.keySet());
+
+        ProblemDetail problem = problem(ErrorCode.VALIDATION_FAILED, ErrorCode.VALIDATION_FAILED.defaultMessage());
+        problem.setProperty("fieldErrors", fieldErrors);
+        return problem;
+    }
+
+    private static String pathOf(ParameterValidationResult result) {
+        String name = result.getMethodParameter().getParameterName();
+        String parameter = name == null ? "request" : name;
+        return result.getContainerIndex() == null
+                ? parameter
+                : parameter + "[" + result.getContainerIndex() + "]";
     }
 
     /** Malformed JSON. Says nothing about which parser choked, or on what. */

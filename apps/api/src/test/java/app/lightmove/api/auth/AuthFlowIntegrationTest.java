@@ -392,6 +392,29 @@ class AuthFlowIntegrationTest {
 
     // ── The invitation flow — the only way into an existing workspace ─────────
 
+    @Test
+    @DisplayName("signup step 4 refuses a malformed address rather than mailing it")
+    void signupInviteRefusesAMalformedAddress() throws Exception {
+        // The constraints on InviteRequest are cascaded through the list's type argument. Applied to
+        // the list itself, as they were, they never ran here at all: step 4 handed anything the form
+        // sent straight to the mailer.
+        String alok = verifiedUser("Alok Kumar", alokEmail);
+        createWorkspace(alok, "NextWebSpark Search");
+        String admin = tokenWithWorkspace(alokEmail);
+
+        MvcResult refused = mvc.perform(post("/api/v1/onboarding/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"email":"not-an-address","role":"MEMBER"}]
+                                """))
+                .andExpect(status().isBadRequest())
+                .andReturn();
+
+        assertThat(codeOf(refused)).isEqualTo("VALIDATION_FAILED");
+        assertThat(email.subjectsFor("not-an-address")).isEmpty();
+    }
+
     /**
      * An admin naming a colleague <i>is</i> the approval, made up front — so an invitee lands ACTIVE
      * with the role the admin chose, immediately. The role is the admin's, not the invitee's: nothing

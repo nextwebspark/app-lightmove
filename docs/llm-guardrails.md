@@ -36,6 +36,47 @@ chatClient.prompt().advisors(guardedAdvisors).system(prompt).call().content();
   schema and gets no validator.
 - **The prompt id** in the advisor context, so the log line says which feature made the call.
 
+### A structured caller asks for JSON natively
+
+The advisor validates the answer; it does not clean it. It hands the assistant text to Jackson
+verbatim — no trim, no fence strip — so a reply wrapped in a ```` ```json ```` fence fails on the
+leading backtick and burns the repair attempt re-asking a question whose answer comes back fenced
+identically. `BeanOutputConverter` cleans the text again before binding, so the mapping was right and
+the cost was invisible: twice the Vertex spend and about eight seconds a preview.
+
+So a structured call names `responseMimeType("application/json")` in its own
+`GoogleGenAiChatOptions`, and Gemini emits no fence to strip. Three things about that:
+
+- **At the call site, not in `LlmCallPolicy`.** A policy method would have shared a line without
+  enforcing it: a caller can forget to call it exactly as easily as it can forget the option.
+- **Not the global `spring.ai.google.genai.chat.response-mime-type`.** That one is real and it does
+  merge (below), but it would put the shortlist prompt, which asks for prose, into JSON mode.
+- **`responseSchema` is deliberately unset.** Gemini's is a restricted OpenAPI subset that rejects
+  the `$schema` and union types our answer schemas use, and the validating advisor already holds the
+  full schema.
+
+### Where a default belongs, and which of the two layers merges
+
+Spring AI has two that look alike:
+
+- **The ChatModel's options**, bound from `spring.ai.google.genai.chat.*`, are the **base**:
+  `DefaultChatClientUtils` builds every request as
+  `chatModel.getOptions().mutate().combineWith(perCallOptions)`. `combineWith` copies each non-null
+  field of the call over the base, and merges `labels` and `safetySettings` by key rather than
+  replacing them. A caller therefore inherits everything it does not name, and adding a `prompt`
+  label keeps the application's `app` one.
+- **Options on the shared `ChatClient` bean** do **not** merge with a call's.
+  `ChatClient.Builder.defaultOptions(b)` delegates to the same `optionsCustomizer` field a per-call
+  `.options(b)` assigns, so the first call to name any option silently drops all of them.
+
+So model, temperature, `max-output-tokens` and the billing label live in `application.yml`, and
+`ChatClientConfig` sets no options at all — it contributes the logging advisor and nothing else.
+`ColumnMappingProposer` names only its three deltas and inherits the rest.
+
+One trap if a default is ever put back on the bean: it must be typed `GoogleGenAiChatOptions`.
+`combineWith` reads the provider half of a builder only when the builder handed to it is one of its
+own, so a provider field set on the portable `ChatOptions` builder is dropped rather than refused.
+
 Two ordering facts, both load-bearing:
 
 - The validator's default order places it **inside** the guard. In front, a blocked call's canned

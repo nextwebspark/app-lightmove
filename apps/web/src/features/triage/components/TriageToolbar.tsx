@@ -38,6 +38,7 @@ export function TriageToolbar({
   onImport,
   onManageColumns,
   canWrite,
+  canImport,
 }: {
   query: string;
   onQuery: (query: string) => void;
@@ -52,6 +53,8 @@ export function TriageToolbar({
   onManageColumns: () => void;
   /** False for a client representative, who reads these grids and writes nothing. */
   canWrite: boolean;
+  /** An imported company lands in the universe, so the other two stages do not offer the button. */
+  canImport: boolean;
 }) {
   // Derived from the project's own column set, so a custom column appears in the picker with the
   // built-ins rather than being the one column on the grid nobody can hide.
@@ -89,10 +92,12 @@ export function TriageToolbar({
               <Icon d={ICONS.settings} size={14} className="flex-none" />
               Columns
             </button>
-            <button type="button" onClick={onImport} className={TOOLBAR_BUTTON}>
-              <Icon d={ICONS.uploadCloud} size={14} className="flex-none" />
-              Import
-            </button>
+            {canImport && (
+              <button type="button" onClick={onImport} className={TOOLBAR_BUTTON}>
+                <Icon d={ICONS.uploadCloud} size={14} className="flex-none" />
+                Import
+              </button>
+            )}
             <button
               type="button"
               onClick={onAddExecutive}

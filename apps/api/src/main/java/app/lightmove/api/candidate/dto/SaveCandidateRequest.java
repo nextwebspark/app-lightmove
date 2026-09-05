@@ -81,9 +81,8 @@ public record SaveCandidateRequest(
         @Valid
         CandidateCompensationDto compensation,
 
-        @Valid
         @Size(max = 25, message = "A career history holds 25 posts at most")
-        List<CandidateCareerEntryDto> career,
+        List<@Valid CandidateCareerEntryDto> career,
 
         @Size(max = 20, message = "20 languages is more than anyone speaks")
         List<@Size(max = 60) String> languages,
