@@ -206,6 +206,12 @@ public class GlobalExceptionHandler {
             case "app_lm_project_triage_company_manual_name_uk" -> ErrorCode.TRIAGE_COMPANY_ALREADY_HELD;
             case "app_lm_strategy_search_shared_name_uk", "app_lm_strategy_search_private_name_uk" ->
                     ErrorCode.STRATEGY_SEARCH_NAME_TAKEN;
+            // Both back the same pre-check: the label is what a user types, and the key is slugged
+            // from it, so two requests racing one name lose on whichever index the database reaches
+            // first. One code either way — the dialog marks the name field rather than offering a
+            // "try again" for something retrying will never fix.
+            case "app_lm_project_custom_column_label_uk", "app_lm_project_custom_column_key_uk" ->
+                    ErrorCode.CUSTOM_COLUMN_NAME_TAKEN;
             default -> ErrorCode.CONFLICT;
         };
         log.info("[{}] constraint violation at {} {}", code, request.getMethod(), request.getRequestURI());
