@@ -6,7 +6,11 @@ import { Button, FormError, Input, Select, Spinner } from "../../../components/u
 import { FileDropzone } from "../../../components/ui/FileDropzone";
 import { Modal } from "../../../components/ui/Modal";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
-import type { CustomColumn, CustomColumnType } from "../../customcolumns/api/types";
+import type {
+  CustomColumn,
+  CustomColumnTarget,
+  CustomColumnType,
+} from "../../customcolumns/api/types";
 import * as importApi from "../api/importApi";
 import type {
   ImportPreview,
@@ -225,6 +229,13 @@ export function ImportSpreadsheetDialog({
                 {preview.columns.map((column) => {
                   const mapping = mappings.find((entry) => entry.index === column.index);
                   if (!mapping) return null;
+                  // A built-in field takes one column. The server keeps the first claim and drops
+                  // the rest, so offering a field twice offers a choice that silently loses data.
+                  const takenElsewhere = new Set(
+                    mappings
+                      .filter((entry) => entry.index !== column.index && entry.targetField)
+                      .map((entry) => entry.targetField as string),
+                  );
                   return (
                     <tr key={column.index} className="border-t border-line-soft align-top">
                       <td className="w-[40%] p-2.5">
@@ -250,7 +261,10 @@ export function ImportSpreadsheetDialog({
                           {customColumns.length > 0 && (
                             <optgroup label="This mandate's columns">
                               {customColumns.map((custom) => (
-                                <option key={custom.id} value={`custom:${custom.fieldKey}`}>
+                                <option
+                                  key={custom.id}
+                                  value={`custom:${custom.target}:${custom.fieldKey}`}
+                                >
                                   {custom.label}
                                 </option>
                               ))}
@@ -260,7 +274,11 @@ export function ImportSpreadsheetDialog({
                             {preview.availableFields
                               .filter((field) => field.target === "company")
                               .map((field) => (
-                                <option key={field.value} value={`field:${field.value}`}>
+                                <option
+                                  key={field.value}
+                                  value={`field:${field.value}`}
+                                  disabled={takenElsewhere.has(field.value)}
+                                >
                                   {field.label}
                                 </option>
                               ))}
@@ -269,7 +287,11 @@ export function ImportSpreadsheetDialog({
                             {preview.availableFields
                               .filter((field) => field.target === "candidate")
                               .map((field) => (
-                                <option key={field.value} value={`field:${field.value}`}>
+                                <option
+                                  key={field.value}
+                                  value={`field:${field.value}`}
+                                  disabled={takenElsewhere.has(field.value)}
+                                >
                                   {field.label}
                                 </option>
                               ))}
@@ -471,7 +493,11 @@ function Tally({
 /** The dropdown's value for a mapping — one string, so the `<select>` needs no parallel state. */
 function selectionOf(mapping: ProposedColumnMapping): string {
   if (mapping.targetField) return `field:${mapping.targetField}`;
-  if (mapping.customFieldKey) return `custom:${mapping.customFieldKey}`;
+  // The target belongs in the value: the server looks an existing column up by `target:fieldKey`,
+  // and a key alone would resolve against the wrong half of the row and quietly match nothing.
+  if (mapping.customFieldKey) {
+    return `custom:${mapping.customTarget ?? "candidate"}:${mapping.customFieldKey}`;
+  }
   if (mapping.customLabel !== null) return "new";
   return "ignore";
 }
@@ -501,9 +527,11 @@ function changeFor(selection: string, header: string): Partial<ProposedColumnMap
       customLabel: null,
     };
   }
+  const [target, ...key] = selection.slice("custom:".length).split(":");
   return {
     targetField: null,
-    customFieldKey: selection.slice("custom:".length),
+    customFieldKey: key.join(":"),
     customLabel: null,
+    customTarget: target as CustomColumnTarget,
   };
 }
