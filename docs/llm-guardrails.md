@@ -109,6 +109,11 @@ The per-user cap on model calls, lifted out of `CandidateLlmController`'s privat
 `core/ratelimit` so the next caller does not reimplement it. Without a cap an authenticated caller can
 loop requests and run up the project's GCP bill; the seat check gates *who* may call, not *how often*.
 
+Three meters: shortlist, embedding, and the import's column mapping. The third is metered against
+`shortlist-requests-per-minute` — one deliberate click either way, and a second knob is a second thing
+to get wrong — but on a meter of its own, so a large import cannot spend the shortlist a consultant is
+about to run. The import's commit is not budgeted: it calls no model.
+
 ## What Spring AI does not offer
 
 Checked against every jar in the 2.0.1 line: there is **no** fallback chat client, degraded-response

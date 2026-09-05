@@ -21,8 +21,6 @@ import app.lightmove.api.dataimport.dto.ProposedColumnMappingDto;
 import app.lightmove.api.dataimport.model.ColumnMapping;
 import app.lightmove.api.dataimport.model.ImportTally;
 import app.lightmove.api.dataimport.model.ParsedSheet;
-import app.lightmove.api.dataimport.constant.MappingSource;
-import app.lightmove.api.dataimport.model.HeuristicProposal;
 import app.lightmove.api.dataimport.model.ProposedColumnMappings;
 import app.lightmove.api.dataimport.model.SheetColumn;
 import app.lightmove.api.project.repository.ProjectRepository;
@@ -77,7 +75,8 @@ import org.springframework.web.multipart.MultipartFile;
  * runs in its own transaction, which is the granularity the row loop actually needs. The accepted
  * consequence is that a row whose company is written and whose person is then refused leaves the
  * company behind; that company is real data the file carried, and the row error names what was
- * missed. Preview writes nothing at all, so it stays out of a transaction entirely.
+ * missed. Preview stays out of a transaction for a second reason: it calls Vertex, and an open
+ * transaction must not wait on a network round trip.
  */
 @Service
 @RequiredArgsConstructor
@@ -85,7 +84,7 @@ public class ProjectImportService {
 
     private final SpreadsheetReader reader;
     private final ImportTemplateWriter templateWriter;
-    private final HeuristicColumnMatcher headerMatcher;
+    private final ColumnMappingProposer proposer;
     private final CustomColumnService customColumns;
     private final TriageCompanyService triage;
     private final CandidateService candidates;
@@ -102,7 +101,7 @@ public class ProjectImportService {
         requireProject(projectId, workspaceId);
         ParsedSheet sheet = reader.read(file);
         List<CustomColumnDto> existing = customColumns.list(workspaceId, projectId).columns();
-        ProposedColumnMappings proposed = propose(sheet, existing);
+        ProposedColumnMappings proposed = proposer.propose(sheet, existing);
 
         List<ImportColumnDto> columns = new ArrayList<>(sheet.columns().size());
         for (int index = 0; index < sheet.columns().size(); index++) {
@@ -120,21 +119,6 @@ public class ProjectImportService {
                 columns,
                 availableFields(),
                 proposed.source().value());
-    }
-
-    /**
-     * What the sheet's headers mean, as far as reading them can tell.
-     *
-     * <p>{@code everyColumnCertain} is the distinction worth reporting: a sheet whose every header was
-     * a spelling this application knows — anything built from the downloadable template, and most
-     * second imports — is mapped as well as it can be, while one the matcher had to guess at is worth
-     * a person reading before they commit. The preview says which, because the two deserve different
-     * amounts of scrutiny.
-     */
-    private ProposedColumnMappings propose(ParsedSheet sheet, List<CustomColumnDto> existing) {
-        HeuristicProposal proposal = headerMatcher.propose(sheet, existing);
-        return new ProposedColumnMappings(proposal.mappings(),
-                proposal.everyColumnCertain() ? MappingSource.EXACT_HEADERS : MappingSource.HEADER_MATCHER);
     }
 
     public ImportSummaryResponse commit(UUID userId, UUID workspaceId, UUID projectId,

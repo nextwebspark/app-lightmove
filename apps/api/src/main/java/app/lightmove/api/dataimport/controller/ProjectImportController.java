@@ -1,5 +1,6 @@
 package app.lightmove.api.dataimport.controller;
 
+import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.dataimport.dto.CommitImportRequest;
 import app.lightmove.api.dataimport.dto.ImportPreviewResponse;
@@ -42,10 +43,11 @@ import org.springframework.web.multipart.MultipartFile;
 public class ProjectImportController {
 
     private final ProjectImportService imports;
+    private final LlmBudgetGuard llmBudget;
 
     /**
      * A blank CSV to fill in and upload back. Optional — the import maps whatever headers arrive — but
-     * every header in it is one the matcher knows, so a file built from this maps with no guessing.
+     * a file built from this needs no model call, because every header in it is one the matcher knows.
      *
      * <p>Served as {@code text/csv} rather than the {@code application/octet-stream} the position
      * document uses: that rule exists because it echoes caller-supplied bytes back, and this content is
@@ -69,12 +71,17 @@ public class ProjectImportController {
 
     /**
      * Reads the file and answers with a mapping to confirm. Writes nothing.
+     *
+     * <p>Budgeted before the work starts, because this is the call that reaches Vertex: without a cap
+     * an authenticated caller could loop uploads and run up the project's GCP bill. Commit is not
+     * budgeted here — it calls no model, and the writes it performs are already gated by the seat.
      */
     @PostMapping("/preview")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
     public ResponseEntity<ImportPreviewResponse> preview(@AuthenticationPrincipal AuthPrincipal principal,
                                                          @PathVariable UUID projectId,
                                                          @RequestParam("file") MultipartFile file) {
+        llmBudget.requireColumnMappingBudget(principal.userId());
         return ResponseEntity.ok(imports.preview(principal.requireWorkspaceId(), projectId, file));
     }
 

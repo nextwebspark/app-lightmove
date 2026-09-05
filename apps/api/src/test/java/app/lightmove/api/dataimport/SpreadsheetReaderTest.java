@@ -244,7 +244,7 @@ class SpreadsheetReaderTest {
 
     private static LightMoveProperties propertiesWith(int maxRows) {
         return new LightMoveProperties(null, null, null, null, null, null, null, null, null,
-                new SpreadsheetImportSettings(10_485_760L, maxRows,
+                new SpreadsheetImportSettings(10_485_760L, maxRows, false,
                         List.of("text/csv", "text/plain",
                                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")));
     }
