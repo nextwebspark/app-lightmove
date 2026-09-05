@@ -163,6 +163,20 @@ public enum ErrorCode {
     /** An upload arrived as a document type this endpoint does not accept. */
     UNSUPPORTED_FILE_TYPE(HttpStatus.BAD_REQUEST, "That file type is not supported"),
 
+    /**
+     * A column name already used on the same grid. Distinct from CONFLICT so the dialog can mark the
+     * name field rather than offering "try again" for something retrying will never fix.
+     */
+    CUSTOM_COLUMN_NAME_TAKEN(HttpStatus.CONFLICT,
+            "This mandate already has a column with that name"),
+
+    /**
+     * The per-project ceiling on custom columns. A grid is a thing a person reads across, and one
+     * very wide sheet of headers could otherwise define a column apiece.
+     */
+    CUSTOM_COLUMN_LIMIT_REACHED(HttpStatus.CONFLICT,
+            "This mandate has as many custom columns as it can hold"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

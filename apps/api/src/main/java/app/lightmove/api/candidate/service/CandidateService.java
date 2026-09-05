@@ -30,6 +30,8 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
 import app.lightmove.api.core.text.service.LinkedInUrls;
+import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
+import app.lightmove.api.customcolumn.service.CustomColumnService;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
@@ -71,6 +73,7 @@ public class CandidateService {
     private final CandidatePhotoRepository photos;
     private final ProjectRepository projects;
     private final TriageCompanyService triage;
+    private final CustomColumnService customColumns;
     private final AuditService audit;
     private final ApplicationEventPublisher events;
     private final ProjectStreamPublisher stream;
@@ -80,12 +83,14 @@ public class CandidateService {
     // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public CandidateService(CandidateRepository candidates, CandidatePhotoRepository photos,
                             ProjectRepository projects, TriageCompanyService triage,
-                            AuditService audit, ApplicationEventPublisher events,
-                            ProjectStreamPublisher stream, LightMoveProperties properties) {
+                            CustomColumnService customColumns, AuditService audit,
+                            ApplicationEventPublisher events, ProjectStreamPublisher stream,
+                            LightMoveProperties properties) {
         this.candidates = candidates;
         this.photos = photos;
         this.projects = projects;
         this.triage = triage;
+        this.customColumns = customColumns;
         this.audit = audit;
         this.events = events;
         this.stream = stream;
@@ -153,6 +158,8 @@ public class CandidateService {
 
         Candidate candidate = candidates.save(Candidate.mapped(projectId, userId,
                 request.triageCompanyId(), source, details));
+        candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
+                candidate.getCustomFields(), request.customFields()));
 
         if (source == CandidateSource.EXTENSION && isLinkedInProfileUrl(details.linkedinUrl())) {
             events.publishEvent(new CandidateCapturedEvent(candidate.getId(), projectId,
@@ -185,6 +192,8 @@ public class CandidateService {
 
         candidate.remapTo(request.triageCompanyId());
         candidate.describe(details);
+        candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
+                candidate.getCustomFields(), request.customFields()));
 
         audit.event(ProjectEventType.CANDIDATE_UPDATED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
@@ -488,6 +497,7 @@ public class CandidateService {
                 candidate.getProfile().languages(),
                 candidate.getSource().value(),
                 candidate.getSourceUrl(),
+                candidate.getCustomFields().asMap(),
                 candidate.getCreatedAt(),
                 candidate.getProfile().enrichedAt());
     }

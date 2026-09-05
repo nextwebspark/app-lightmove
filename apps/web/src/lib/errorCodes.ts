@@ -39,6 +39,8 @@ export type ApiErrorCode =
   | "TRIAGE_COMPANY_NOT_EDITABLE"
   | "CANDIDATE_ALREADY_MAPPED"
   | "STRATEGY_SEARCH_NAME_TAKEN"
+  | "CUSTOM_COLUMN_NAME_TAKEN"
+  | "CUSTOM_COLUMN_LIMIT_REACHED"
   | "WORKSPACE_NAME_MISMATCH"
   | "CONFLICT"
   | "RATE_LIMITED"
@@ -51,6 +53,8 @@ export type ApiErrorCode =
 
 // BULK_ADD_SCOPE_TOO_LARGE is deliberately absent: its server detail names how many companies matched
 // and how many may be added, which no fixed sentence here could. Adding it would lose both numbers.
+// CUSTOM_COLUMN_LIMIT_REACHED is absent for the same reason — its detail names the configured
+// ceiling, and the ceiling is the part the reader needs.
 const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   LAST_ADMIN: "A workspace must keep at least one admin.",
   MEMBER_LEADS_PROJECTS: "They are the only lead on active projects — hand those over first.",
@@ -68,6 +72,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CURRENT_SESSION_NOT_REVOCABLE: "Use sign out to end the session you are using.",
   STRATEGY_SEARCH_NAME_TAKEN: "A search with that name is already saved here.",
   CANDIDATE_ALREADY_MAPPED: "Someone with that name is already mapped here.",
+  CUSTOM_COLUMN_NAME_TAKEN: "This mandate already has a column with that name — map onto it instead.",
   TRIAGE_COMPANY_NOT_EDITABLE:
     "This company came from the market export, so its details are not yours to edit.",
 };
