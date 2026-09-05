@@ -70,9 +70,15 @@ code.
 **The answer is checked, never trusted.** Every entry is matched back to a real header **by name**,
 not by position — a model that drops, reorders or invents an entry would otherwise shift every mapping
 after it onto the wrong column, the one failure mode where a plausible answer writes a whole file into
-the wrong fields. Unknown tokens are dropped, a field two columns both claim goes to the first (the
-loser keeps its data as a custom column rather than silently overwriting the winner on every row), and
-a column the model wanted to discard is kept when it has values in it.
+the wrong fields. Unknown tokens are dropped, and a column the model wanted to discard is kept when it
+has values in it.
+
+A field two columns both claim goes to the first — but *first* is decided in two passes, not by
+position in the sheet. The model's own answers are applied and claim their fields before any column
+the model did not answer for falls back to the header matcher. Without that, a fuzzy guess on an early
+column would outrank the model's explicit verdict on a later one, losing exactly the column the call
+was made to disambiguate. The loser, whichever it is, keeps its data as a custom column rather than
+silently overwriting the winner on every row.
 
 **The model is only asked when a header is actually in doubt.** `HeuristicColumnMatcher` reports not
 just *what* a header matched but *how sure* it is: a hit in the synonym table, or an exact match for a
@@ -94,11 +100,6 @@ column. Behind that:
 
 - **Any failure falls back to the header matcher**, reported as `headerMatcher` so the dialog says
   "check these". Missing credentials, quota, network, and an answer that will not bind all land here.
-- **The answer is validated, never trusted.** Entries are matched **by header name, not position**, so
-  a model that drops, reorders or invents one cannot shift every mapping a column sideways — the one
-  failure that would write a whole file into the wrong fields. Unknown tokens are dropped, a field two
-  columns both claim goes to the first, and a "discard this" verdict is refused on a column that has
-  values.
 - **Retry is Spring AI's own**, configured rather than defaulted. `spring-ai-autoconfigure-retry`
   rides in on the GenAI starter gated only by `@ConditionalOnClass`, so its `RetryTemplate` was
   *already* active at its default of **ten** attempts — which, over a call that had no timeout, is how
@@ -118,7 +119,7 @@ column. Behind that:
   the validation error attached. Two things it needed to be usable here. Its default of **three**
   repeats would make four paid calls of an import that is about to fall back anyway, so it is set to
   one — the same budget as the transport retry. And it is given **our own schema**
-  (`prompts/import-column-mapping-schema.json`) rather than one generated from `ProposedMapping`,
+  (`prompts/import-column-mapping-schema.json`) rather than one generated from `ModelMappingAnswer`,
   because the generated one marks every record component `required`: under it, a perfectly good answer
   that omits `targetField` because the column is a custom one counts as malformed, and *every* correct
   call would be paid twice. Its order is left at the default, which places it inside `SafeGuardAdvisor`
@@ -129,16 +130,16 @@ column. Behind that:
 There is no fallback chat client, degraded-response advisor or circuit breaker in Spring AI 2.0.1.
 The catch-and-degrade above is the substitute, and it is deliberate rather than a gap.
 
-**None of that policy lives here.** It is `core/llm`'s `LlmGuards`, applied from an `LlmPromptSpec`,
+**None of that policy lives here.** It is `core/llm`'s `LlmCallPolicy`, applied from a `PromptGuardSpec`,
 because none of it is a property of the mapping prompt. The two callers had opposite halves of it: the
 import had a guard and a validator, while the shortlist prompt had neither and takes a job brief and a
 candidate profile as *free text* — a far larger injection surface than a spreadsheet header. Now both
 go through the same line, and a call that answers in prose simply supplies no schema.
 
 The one thing that cannot be shared is what a block answers *with*: the guard replies in place of the
-model, so the answer has to bind to whatever that call expects back. `LlmPromptSpec` therefore requires
-a structured prompt to name its own, and refuses any blocked answer that does not carry
-`BLOCKED_MARKER` — without which a canned refusal is passed off as the model's verdict, which on the
+model, so the answer has to bind to whatever that call expects back. `PromptGuardSpec` therefore
+requires a structured prompt to name its own, and refuses any blocked answer that does not carry
+`BlockedAnswer.MARKER` — without which a canned refusal is passed off as the model's verdict, which on the
 shortlist prompt would be an assessment nobody made.
 
 ### Prompt injection
@@ -158,7 +159,7 @@ against it.
 phrases with no business in a header. Kept short deliberately — every entry is also a header somebody
 could legitimately have, and blocking a real import is its own failure. Its `failureResponse` is a
 JSON sentinel rather than a sentence, because it answers *in place of* the model and a sentence would
-not bind to `ProposedMapping`: a block would surface as a binding error indistinguishable from an
+not bind to `ModelMappingAnswer`: a block would surface as a binding error indistinguishable from an
 outage. As shaped, a block degrades to the header matcher and logs what it was.
 
 Worth keeping in proportion: the model has **no tools**, its output is a typed record, the answer is
@@ -188,12 +189,12 @@ response content out of the log. They now also carry what a production LLM integ
 asked:
 
 ```
-chat request  prompt=import-column-mapping model=gemini-2.5-flash temperature=0.8
+chat request  prompt=import-column-mapping model=gemini-2.5-flash temperature=0.0
 chat response id=… model=gemini-2.5-flash inputTokens=1200 outputTokens=340 totalTokens=1540 finish=STOP
 ```
 
 - **`prompt=`** is the calling feature, passed per call site through the advisor context
-  (`ChatClientConfig.PROMPT_ID`) and read back in the request formatter. The `ChatClient` is shared, so
+  (`ChatCallLog.PROMPT_ID_ATTRIBUTE`) and read back in the request formatter. The `ChatClient` is shared, so
   without it every line says only that *something* called Gemini — and "which prompt" is the first
   question when a bill jumps. A call site that sets none logs `unattributed` rather than failing.
 - **Token counts** come from the provider, so they are the figures the bill is computed from. One
@@ -293,10 +294,12 @@ taking the first N would silently decide which half of a consultant's list got i
 - `HeuristicColumnMatcherTest` — the header spellings real files carry.
 - `ImportTemplateWriterTest` — that every header the template emits is one the matcher knows for
   certain, so a file built from it costs no model call.
-- `ColumnMappingProposerTest` — with the existing `StubChatModel`: that the prompt carries headers and
-  shapes and **no cell values**, that answers are matched by header rather than position, that a
-  double-claimed field goes to the first column, that a thrown call falls back to the heuristic, and
-  that the call is tagged `import-column-mapping`.
+- `ColumnMappingProposerTest` — against a recording chat model of its own: that the prompt carries
+  headers and
+  shapes and **no cell values** (sample values included, when an operator turns them on), that answers
+  are matched by header rather than position, that a model's answer outranks a heuristic guess on an
+  earlier column, that a thrown call falls back to the heuristic, and that the call is tagged
+  `import-column-mapping`.
 - `SpringAiRetryConfigTest` — that the provider's own retry knobs are the ones this application set.
 - `ChatClientLoggingTest` — the log line, driven through a real `ChatClient` and the real advisor:
   model, both token counts, the finish reason, the prompt id from each call site, an unattributed

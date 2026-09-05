@@ -1,24 +1,20 @@
 package app.lightmove.api.dataimport.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
 
 /**
- * What the model answers when asked to map a sheet's headers — the structured-output shape Spring AI
- * binds its reply to.
+ * What the model answered when asked to map a sheet's headers — raw and unchecked.
  *
- * <p>Deliberately close to the prompt's own vocabulary rather than to
- * {@link ColumnMapping}: a model given a shape full of nulls-meaning-things answers with nulls
- * meaning other things. Here every entry says plainly what it decided, and translating that into the
- * domain's shape — including refusing anything that does not resolve — happens in
+ * <p>Named for where it came from rather than for what it proposes, because
+ * {@link ProposedColumnMappings} sits beside it meaning the opposite: this is what a model said, that
+ * is what this application decided. Deliberately close to the prompt's own vocabulary too — a model
+ * given a shape full of nulls-meaning-things answers with nulls meaning other things. Every entry
+ * here says plainly what it decided, and translating that into the domain's shape — including
+ * refusing anything that does not resolve — happens in
  * {@link app.lightmove.api.dataimport.service.ColumnMappingProposer}, where a bad answer can be
  * dropped rather than trusted.
- *
- * <p>{@code @JsonIgnoreProperties} because a model is free to add a field nobody asked for, and one
- * extra key must not fail the whole mapping.
  */
-@JsonIgnoreProperties(ignoreUnknown = true)
-public record ProposedMapping(List<ProposedColumn> columns) {
+public record ModelMappingAnswer(List<ModelMappedColumn> columns) {
 
     /**
      * One header's verdict.
@@ -33,8 +29,7 @@ public record ProposedMapping(List<ProposedColumn> columns) {
      *                     column describes
      * @param customType   a {@code CustomColumnType} wire token for a new custom column
      */
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record ProposedColumn(
+    public record ModelMappedColumn(
             String header,
             String targetField,
             String customLabel,

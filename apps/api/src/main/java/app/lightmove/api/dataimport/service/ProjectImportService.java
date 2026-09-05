@@ -97,11 +97,11 @@ public class ProjectImportService {
         return templateWriter.templateFor(customColumns.list(workspaceId, projectId).columns());
     }
 
-    public ImportPreviewResponse preview(UUID workspaceId, UUID projectId, MultipartFile file) {
+    public ImportPreviewResponse preview(UUID userId, UUID workspaceId, UUID projectId, MultipartFile file) {
         requireProject(projectId, workspaceId);
         ParsedSheet sheet = reader.read(file);
         List<CustomColumnDto> existing = customColumns.list(workspaceId, projectId).columns();
-        ProposedColumnMappings proposed = proposer.propose(sheet, existing);
+        ProposedColumnMappings proposed = proposer.propose(userId, sheet, existing);
 
         List<ImportColumnDto> columns = new ArrayList<>(sheet.columns().size());
         for (int index = 0; index < sheet.columns().size(); index++) {

@@ -1,6 +1,5 @@
 package app.lightmove.api.dataimport.controller;
 
-import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.dataimport.dto.CommitImportRequest;
 import app.lightmove.api.dataimport.dto.ImportPreviewResponse;
@@ -43,7 +42,6 @@ import org.springframework.web.multipart.MultipartFile;
 public class ProjectImportController {
 
     private final ProjectImportService imports;
-    private final LlmBudgetGuard llmBudget;
 
     /**
      * A blank CSV to fill in and upload back. Optional — the import maps whatever headers arrive — but
@@ -72,17 +70,17 @@ public class ProjectImportController {
     /**
      * Reads the file and answers with a mapping to confirm. Writes nothing.
      *
-     * <p>Budgeted before the work starts, because this is the call that reaches Vertex: without a cap
-     * an authenticated caller could loop uploads and run up the project's GCP bill. Commit is not
-     * budgeted here — it calls no model, and the writes it performs are already gated by the seat.
+     * <p>The model budget is spent inside the mapping, not here: most previews never reach Vertex,
+     * and refusing one that would not have called it with "the model budget is exhausted" would be a
+     * lie the caller cannot act on.
      */
     @PostMapping("/preview")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
     public ResponseEntity<ImportPreviewResponse> preview(@AuthenticationPrincipal AuthPrincipal principal,
                                                          @PathVariable UUID projectId,
                                                          @RequestParam("file") MultipartFile file) {
-        llmBudget.requireColumnMappingBudget(principal.userId());
-        return ResponseEntity.ok(imports.preview(principal.requireWorkspaceId(), projectId, file));
+        return ResponseEntity.ok(imports.preview(principal.userId(), principal.requireWorkspaceId(),
+                projectId, file));
     }
 
     /**
