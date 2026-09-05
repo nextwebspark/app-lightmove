@@ -8,7 +8,8 @@ import { DetailGrid, DetailPill, DetailTile, DrawerSection } from "../../../comp
 import { Drawer, DrawerCloseButton } from "../../../components/ui/Drawer";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate } from "../../../lib/format";
-import type { CustomColumn } from "../../customcolumns/api/types";
+import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
+import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompany, TriageCompanyStatus } from "../api/types";
 import { stageByStatus } from "../lib/triageStages";
@@ -64,6 +65,19 @@ export function CompanyDrawer({
   const [editing, setEditing] = useState(false);
   const [note, setNote] = useState("");
 
+  // A market company's facts are the export's, but the columns this mandate added are its own — so
+  // they are editable here even though everything above them is not.
+  const [customFields, setCustomFields] = useState<CustomFieldValues>({});
+  const saveCustomFields = useMutation({
+    mutationFn: (values: CustomFieldValues) =>
+      triageApi.editCompanyCustomFields(projectId, company!.id, values),
+    onSuccess: () => {
+      onSaved();
+      toast("Columns saved");
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
   const saveNote = useMutation({
     mutationFn: (text: string) =>
       triageApi.updateTriageCompany(projectId, company!.id, { note: text }),
@@ -78,6 +92,7 @@ export function CompanyDrawer({
   useEffect(() => {
     if (!open) return;
     setNote(company?.note ?? "");
+    setCustomFields(company?.customFields ?? {});
     setEditing(false);
   }, [open, company]);
 
@@ -186,6 +201,16 @@ export function CompanyDrawer({
               )}
             </DrawerSection>
 
+            <MandateColumnsSection
+              columns={customColumns}
+              values={customFields}
+              onChange={setCustomFields}
+              canWrite={canWrite}
+              dirty={JSON.stringify(customFields) !== JSON.stringify(company.customFields ?? {})}
+              saving={saveCustomFields.isPending}
+              onSave={() => saveCustomFields.mutate(customFields)}
+            />
+
             <DrawerSection
               title="Note"
               action={
@@ -239,5 +264,51 @@ export function CompanyDrawer({
         </>
       )}
     </Drawer>
+  );
+}
+
+/**
+ * The mandate's own columns on a company it is only reading — the one thing on a market-sourced row
+ * that is still the mandate's to write. Saved on its own, like the note above it, because it is the
+ * mandate's remark rather than the export's fact.
+ */
+function MandateColumnsSection({
+  columns,
+  values,
+  onChange,
+  canWrite,
+  dirty,
+  saving,
+  onSave,
+}: {
+  columns: readonly CustomColumn[];
+  values: CustomFieldValues;
+  onChange: (values: CustomFieldValues) => void;
+  canWrite: boolean;
+  dirty: boolean;
+  saving: boolean;
+  onSave: () => void;
+}) {
+  if (columns.filter((column) => !column.hidden).length === 0) return null;
+
+  return (
+    <DrawerSection
+      title="Your columns"
+      action={
+        canWrite &&
+        dirty && (
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={saving}
+            className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-amber transition hover:underline disabled:opacity-50"
+          >
+            Save
+          </button>
+        )
+      }
+    >
+      <CustomFieldsFieldset columns={columns} values={values} onChange={onChange} />
+    </DrawerSection>
   );
 }

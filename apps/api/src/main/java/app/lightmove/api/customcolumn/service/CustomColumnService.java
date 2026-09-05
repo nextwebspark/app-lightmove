@@ -294,6 +294,11 @@ public class CustomColumnService {
         if (columns.existsByProjectIdAndTargetAndLabelIgnoreCase(projectId, target, label)) {
             throw ApiException.of(ErrorCode.CUSTOM_COLUMN_NAME_TAKEN);
         }
+        // Check-then-act, and knowingly so: unlike the name check above — which a unique index still
+        // catches if two requests race it — nothing in the schema backs this one, so two concurrent
+        // adds at the ceiling can both pass and land. Accepted rather than fixed: it is a limit on how
+        // wide a grid gets, not a security boundary, and the cost of enforcing it properly (a lock, or
+        // a count constraint) is out of proportion to one column over on a genuine race.
         if (columns.countByProjectId(projectId) >= settings.maxPerProject()) {
             // The ceiling is configured, not request input, so naming it is what turns a refusal into
             // something the caller can act on — remove a column, or import fewer.
