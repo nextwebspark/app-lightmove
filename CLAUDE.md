@@ -26,17 +26,20 @@ companies, added by hand from the Companies grid — where a row is a *person at
 with three of them is three lines and one with none keeps its "Add executive" slot. An executive is also
 captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`).
 The **spreadsheet import** is that fourth door and carries both halves at once: a CSV or Excel file
-whose rows are people at companies, mapped column-by-column onto our fields by a header matcher, then
-confirmed by a person before anything is written. A header no field covers becomes a **per-project
-custom column**: the definitions are rows in `app_lm_project_custom_column` and the values a jsonb bag
-on the row, so the grid renders it like any built-in while a new mandate still starts from the
-built-ins alone. The importer writes nothing itself — it builds the same requests the Companies drawer
-posts and hands them to `triagecompany` and `candidate`, so every scope check, duplicate rule and audit
-event stays where it already lives. **An imported row is never resolved against the market and never
-researched** — a file states its own figures and arrives a thousand rows at once, so the two things a
-one-at-a-time capture affords are exactly the two it cannot. The import has no screen yet: it is two
-endpoints. The standalone Candidates screen, and the pipeline and outreach tables, don't exist yet.
-The **Position**
+whose rows are people at companies, mapped column-by-column onto our fields, then confirmed by a
+person before anything is written. The import has no screen yet: it is two endpoints. **The model is asked only where a header is in doubt** — a sheet
+whose every header is a known spelling (anything built from the downloadable template, and most second
+imports) maps with no LLM call at all; when it is asked it gets headers and a locally computed value
+shape only, **never cell values**, and a synonym matcher answers alone when Vertex cannot be reached.
+A header no field covers becomes a **per-project custom column**: the definitions
+are rows in `app_lm_project_custom_column` and the values a jsonb bag on the row, so the grid renders
+it like any built-in while a new mandate still starts from the built-ins alone. The importer writes
+nothing itself — it builds the same requests the Companies drawer posts and hands them to
+`triagecompany` and `candidate`, so every scope check, duplicate rule and audit event stays where it
+already lives. **An imported row is never resolved against the market and never researched** — a file
+states its own figures and arrives a thousand rows at once, so the two things a one-at-a-time capture
+affords are exactly the two it cannot. The standalone Candidates screen, and the pipeline and outreach
+tables, don't exist yet. The **Position**
 screen is the mandate's brief, edited as a six-step wizard (details, mandate context, reporting,
 compensation, assessment, review) that autosaves one step at a time. It opens drafted rather than
 blank: a **role-template library** of seventeen briefs (twelve C-suite, four functional heads, one
@@ -56,7 +59,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |

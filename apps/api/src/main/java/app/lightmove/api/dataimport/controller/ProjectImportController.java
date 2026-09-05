@@ -45,7 +45,7 @@ public class ProjectImportController {
 
     /**
      * A blank CSV to fill in and upload back. Optional — the import maps whatever headers arrive — but
-     * every header in it is one the matcher knows, so a file built from this maps with no guessing.
+     * a file built from this needs no model call, because every header in it is one the matcher knows.
      *
      * <p>Served as {@code text/csv} rather than the {@code application/octet-stream} the position
      * document uses: that rule exists because it echoes caller-supplied bytes back, and this content is
@@ -69,13 +69,18 @@ public class ProjectImportController {
 
     /**
      * Reads the file and answers with a mapping to confirm. Writes nothing.
+     *
+     * <p>The model budget is spent inside the mapping, not here: most previews never reach Vertex,
+     * and refusing one that would not have called it with "the model budget is exhausted" would be a
+     * lie the caller cannot act on.
      */
     @PostMapping("/preview")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
     public ResponseEntity<ImportPreviewResponse> preview(@AuthenticationPrincipal AuthPrincipal principal,
                                                          @PathVariable UUID projectId,
                                                          @RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(imports.preview(principal.requireWorkspaceId(), projectId, file));
+        return ResponseEntity.ok(imports.preview(principal.userId(), principal.requireWorkspaceId(),
+                projectId, file));
     }
 
     /**

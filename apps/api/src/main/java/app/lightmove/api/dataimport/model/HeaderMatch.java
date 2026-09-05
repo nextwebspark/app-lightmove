@@ -7,7 +7,7 @@ import app.lightmove.api.dataimport.constant.ImportTargetField;
  *
  * <p>{@code certain} means the header <i>is</i> a spelling this application knows — an entry in the
  * synonym table. A fuzzy token-overlap hit is a good guess and not the same thing, and the difference
- * decides whether the mapping is reported as certain or as a guess.
+ * decides whether the model is asked at all.
  */
 public record HeaderMatch(ImportTargetField field, boolean certain) {
 

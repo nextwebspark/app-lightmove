@@ -23,7 +23,13 @@ import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 
 /**
- * Matches a sheet's headers to fields by name.
+ * Matches a sheet's headers to fields without asking a model anything.
+ *
+ * <p>Two jobs, and both matter. It <b>seeds</b> the request the model answers, so the model is
+ * correcting a first draft rather than starting from a bare list — and it is the <b>fallback</b> when
+ * the model cannot be reached at all. That second job is the load-bearing one: Vertex AI needs
+ * Application Default Credentials on every path including a plain local run, and an import that became
+ * impossible without them would be an import most people never got to use.
  *
  * <p>Three rules in order — exact normalised match, then a synonym, then token overlap — and a header
  * that matches nothing becomes a custom column rather than being dropped, because a column nobody

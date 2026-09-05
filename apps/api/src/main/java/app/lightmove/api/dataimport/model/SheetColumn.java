@@ -7,11 +7,11 @@ import java.util.List;
  * like.
  *
  * <p>{@link #valueShape} is computed locally from the column's own cells and is the only thing about
- * a column's <i>contents</i> that the mapping step is given. A header alone is often ambiguous —
+ * a column's <i>contents</i> that ever reaches the model. A header alone is often ambiguous —
  * "Contact" could be an email, a phone number or a person — and the shape settles it without a single
  * candidate's details leaving this process.
  *
- * <p>{@link #sampleValues} feed nothing but the screen. They travel back to the browser that sent
+ * <p>{@link #sampleValues} do <b>not</b> go to the model. They travel back to the browser that sent
  * them, so the person confirming the mapping can see what is actually in the column they are
  * assigning.
  */
