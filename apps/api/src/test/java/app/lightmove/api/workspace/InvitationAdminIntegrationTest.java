@@ -128,6 +128,32 @@ class InvitationAdminIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    @DisplayName("a malformed address in the list is a 400, not a 500")
+    void refusesAMalformedAddress() throws Exception {
+        // The constraints on InviteRequest are cascaded through the list's type argument, which is a
+        // parameter-level constraint: it raises HandlerMethodValidationException rather than the
+        // MethodArgumentNotValidException a request body raises. Unhandled, that reached the catch-all
+        // and answered 500 — our fault, logged with a stack trace, for a plainly bad request.
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Refusing Firm");
+        String admin = login(alok);
+
+        MvcResult refused = mvc.perform(post("/api/v1/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"email":"not-an-address","role":"MEMBER"}]
+                                """))
+                .andExpect(status().isBadRequest())
+                .andReturn();
+
+        assertThat(codeOf(refused)).isEqualTo("VALIDATION_FAILED");
+        assertThat(body(refused).get("fieldErrors").has("requests[0].email"))
+                .as("the key names the element that failed and the field inside it")
+                .isTrue();
+    }
+
     private void invite(String adminToken, String inviteeEmail, String role) throws Exception {
         mvc.perform(post("/api/v1/invitations")
                         .header("Authorization", "Bearer " + adminToken)

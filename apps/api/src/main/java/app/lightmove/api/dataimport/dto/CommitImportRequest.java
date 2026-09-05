@@ -14,7 +14,6 @@ import java.util.List;
  */
 public record CommitImportRequest(
         @NotNull
-        @Valid
         @Size(max = 200, message = "That file has more columns than one import can map")
-        List<ProposedColumnMappingDto> columns
+        List<@Valid ProposedColumnMappingDto> columns
 ) {}

@@ -100,7 +100,7 @@ public class OnboardingController {
      */
     @PostMapping("/invitations")
     public ResponseEntity<InviteResult> invite(@AuthenticationPrincipal AuthPrincipal principal,
-                                               @Valid @RequestBody List<InviteRequest> requests,
+                                               @RequestBody List<@Valid InviteRequest> requests,
                                                HttpServletRequest httpRequest) {
         List<InviteCommand> commands = requests.stream()
                 // The mockup's dropdown defaults to Member; an omitted role must not become null.
