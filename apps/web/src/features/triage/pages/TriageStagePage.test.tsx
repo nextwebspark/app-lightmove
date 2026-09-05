@@ -772,6 +772,15 @@ describe("TriageStagePage", () => {
     expect(screen.getByRole("button", { name: /^Columns$/i })).toBeInTheDocument();
   });
 
+  it("offers Import only on the universe, where an imported company lands", async () => {
+    // The importer captures at `inUniverse` and an update never moves a stage, so the button on
+    // Shortlisted or Declined would write rows onto a page the user is not looking at.
+    renderStage("shortlisted");
+
+    expect(await screen.findByRole("button", { name: /^Columns$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Import$/i })).not.toBeInTheDocument();
+  });
+
   it("keeps Import and Columns away from a client representative", async () => {
     const authApi = await import("../../auth/api/authApi");
     vi.mocked(authApi.me).mockResolvedValue(representative);

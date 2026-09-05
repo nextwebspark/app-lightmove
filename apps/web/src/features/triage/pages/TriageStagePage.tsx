@@ -348,6 +348,7 @@ function TriageStage() {
         onImport={() => setImporting(true)}
         onManageColumns={() => setManagingColumns(true)}
         canWrite={canWrite}
+        canImport={stage.status === "inUniverse"}
       />
 
       <ImportSpreadsheetDialog
