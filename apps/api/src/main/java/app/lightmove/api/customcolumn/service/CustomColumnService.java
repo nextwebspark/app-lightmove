@@ -156,6 +156,13 @@ public class CustomColumnService {
      * Applies a whole new order. Every id must belong to this project and to one grid: reordering the
      * company columns cannot be allowed to renumber the candidate ones behind them, and an id from
      * another mandate is a scope error rather than something to skip past.
+     *
+     * <p>The list must also be that grid's <b>whole</b> set, each column once. Only the ids sent are
+     * renumbered, so a short list — a stale tab that read the columns before a third was added, or one
+     * carrying a duplicate — leaves the columns it omitted on their old positions, now colliding with
+     * the ones it did move. Nothing in the schema catches that: {@code display_order} is not unique,
+     * because two columns sharing a position is a display quirk rather than corrupt data. Refused here
+     * instead, since a caller sending a partial order is asking for something it cannot mean.
      */
     @Transactional
     public CustomColumnsResponse reorder(UUID userId, UUID workspaceId, UUID projectId,
@@ -169,6 +176,15 @@ public class CustomColumnService {
         if (ordered.stream().map(ProjectCustomColumn::getTarget).distinct().count() > 1) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED,
                     "reorder mixed COMPANY and CANDIDATE columns in one request");
+        }
+        if (!ordered.isEmpty()) {
+            CustomColumnTarget target = ordered.getFirst().getTarget();
+            long distinctIds = ordered.stream().map(ProjectCustomColumn::getId).distinct().count();
+            long held = columns.countByProjectIdAndTarget(projectId, target);
+            if (distinctIds != ordered.size() || distinctIds != held) {
+                throw new ApiException(ErrorCode.VALIDATION_FAILED,
+                        "reorder must list each of this grid's " + held + " columns exactly once");
+            }
         }
         for (int position = 0; position < ordered.size(); position++) {
             ordered.get(position).moveTo(position);

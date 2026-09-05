@@ -151,6 +151,42 @@ class CustomColumnIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a reorder that leaves a column out is refused rather than half-applied")
+    void refusesAPartialReorder() throws Exception {
+        // Only the ids sent get renumbered, so a stale tab's short list would leave the column it
+        // omitted on a position one of the others just took — a collision nothing in the schema
+        // catches, since display_order is deliberately not unique.
+        String admin = adminOf("Columns Partial Firm");
+        String projectId = project(admin);
+        JsonNode first = define(admin, projectId, "candidate", "Alpha", "text");
+        define(admin, projectId, "candidate", "Beta", "text");
+
+        mvc.perform(put(columnsUrl(projectId) + "/order")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"columnIds":["%s"]}""".formatted(first.get("id").asText())))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("a reorder naming one column twice is refused")
+    void refusesADuplicateInAReorder() throws Exception {
+        String admin = adminOf("Columns Duplicate Firm");
+        String projectId = project(admin);
+        JsonNode first = define(admin, projectId, "candidate", "Alpha", "text");
+        define(admin, projectId, "candidate", "Beta", "text");
+
+        String id = first.get("id").asText();
+        mvc.perform(put(columnsUrl(projectId) + "/order")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"columnIds":["%s","%s"]}""".formatted(id, id)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("one grid's reorder cannot renumber the other's columns")
     void refusesAMixedReorder() throws Exception {
         String admin = adminOf("Columns Mixed Firm");
