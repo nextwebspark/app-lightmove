@@ -38,6 +38,7 @@ import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -513,6 +514,34 @@ public class TriageCompanyService {
         audit.event(ProjectEventType.TRIAGE_COMPANY_EDITED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .detail("triageCompanyId", triageCompanyId.toString())
+                .record();
+        return toDto(company);
+    }
+
+    /**
+     * Writes only the mandate's custom-column values onto a company, leaving its own facts alone.
+     *
+     * <p>Exists for the case {@link #edit} cannot serve: a company taken out of the Apollo universe.
+     * Its fields are the export's snapshot and rewriting them would make the Source badge a lie, which
+     * is why {@code edit} refuses one outright — but the mandate's <i>own</i> columns beside it are not
+     * the export's. Without this a market company, which is most of them, could never carry a value in
+     * a column the mandate added, and the feature would work only for the rows somebody typed in.
+     */
+    @Transactional
+    public TriageCompanyResponse editCustomFields(UUID userId, UUID workspaceId, UUID projectId,
+                                                  UUID triageCompanyId, Map<String, String> customFields,
+                                                  HttpServletRequest httpRequest) {
+        requireProject(projectId, workspaceId);
+        TriageCompany company = triaged.findByIdAndProjectId(triageCompanyId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+
+        company.describeCustomFields(customColumns.applyTo(
+                projectId, CustomColumnTarget.COMPANY, company.getCustomFields(), customFields));
+
+        audit.event(ProjectEventType.TRIAGE_COMPANY_EDITED)
+                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                .detail("triageCompanyId", triageCompanyId.toString())
+                .detail("customFieldsOnly", "true")
                 .record();
         return toDto(company);
     }

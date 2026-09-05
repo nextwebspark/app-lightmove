@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
@@ -16,7 +17,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -30,6 +33,8 @@ import tools.jackson.databind.JsonNode;
 @IntegrationTest
 @Import(RecordingEmailSender.Config.class)
 class CustomColumnIntegrationTest extends FlowTestSupport {
+
+    @Autowired private JdbcTemplate db;
 
     @Test
     @DisplayName("a fresh mandate has no custom columns")
@@ -272,6 +277,49 @@ class CustomColumnIntegrationTest extends FlowTestSupport {
 
         assertThat(companyById(admin, projectId, companyId).get("customFields").get(fieldKey).asText())
                 .isEqualTo("1200");
+    }
+
+    @Test
+    @DisplayName("a company taken from the market can still carry the mandate's own columns")
+    void marketCompanyCarriesCustomFields() throws Exception {
+        // The majority of a mandate's companies arrive this way. Their facts are the export's and the
+        // edit form refuses them — but the columns the mandate added to its own grid are not the
+        // export's, so without this route the feature would work only for hand-typed rows.
+        ApolloUniverse universe = new ApolloUniverse(db);
+        universe.reset();
+        universe.company("a1", "ACWA Power").insert();
+
+        String admin = adminOf("Columns Market Firm");
+        String projectId = project(admin);
+        JsonNode column = define(admin, projectId, "company", "Partner rating", "text");
+
+        JsonNode added = body(mvc.perform(post("/api/v1/projects/" + projectId + "/triage")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountId":"a1","status":"inUniverse"}"""))
+                .andExpect(status().isCreated())
+                .andReturn());
+        String companyId = added.get("id").asText();
+
+        JsonNode saved = body(mvc.perform(patch("/api/v1/projects/" + projectId + "/triage/"
+                        + companyId + "/custom-fields")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customFields":{"%s":"A"}}"""
+                                .formatted(column.get("fieldKey").asText())))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        assertThat(saved.get("customFields").get(column.get("fieldKey").asText()).asText()).isEqualTo("A");
+        // The export's own fields are still refused, which is the invariant this must not have widened.
+        mvc.perform(put("/api/v1/projects/" + projectId + "/triage/" + companyId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Renamed"}"""))
+                .andExpect(status().isConflict());
     }
 
     @Test
