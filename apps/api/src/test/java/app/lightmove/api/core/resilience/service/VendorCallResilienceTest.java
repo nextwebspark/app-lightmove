@@ -206,7 +206,7 @@ class VendorCallResilienceTest {
             ResilienceSettings resilience = new ResilienceSettings(Duration.ofSeconds(5), 2,
                     Duration.ofMillis(10), 1.0, Duration.ZERO, Duration.ofMillis(50),
                     Duration.ofSeconds(2));
-            return new LightMoveProperties(null, null, null, null, null, null, null, resilience, null);
+            return new LightMoveProperties(null, null, null, null, null, null, null, resilience, null, null);
         }
 
         @Bean

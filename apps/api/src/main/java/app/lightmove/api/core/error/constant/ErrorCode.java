@@ -164,6 +164,21 @@ public enum ErrorCode {
     UNSUPPORTED_FILE_TYPE(HttpStatus.BAD_REQUEST, "That file type is not supported"),
 
     /**
+     * A spreadsheet that opened but could not be read as a table — no header row, a corrupt workbook,
+     * a CSV whose rows do not agree on how many columns they have. Distinct from UNSUPPORTED_FILE_TYPE
+     * because the type was right and the contents were not, which is a different thing to fix.
+     */
+    IMPORT_FILE_UNREADABLE(HttpStatus.BAD_REQUEST,
+            "That file could not be read as a table. Check it has a header row."),
+
+    /**
+     * An import larger than one request should carry. Refused whole rather than truncated: taking the
+     * first N rows would silently decide which half of a consultant's list got imported.
+     */
+    IMPORT_TOO_MANY_ROWS(HttpStatus.PAYLOAD_TOO_LARGE,
+            "That file has more rows than one import can take"),
+
+    /**
      * A column name already used on the same grid. Distinct from CONFLICT so the dialog can mark the
      * name field rather than offering "try again" for something retrying will never fix.
      */

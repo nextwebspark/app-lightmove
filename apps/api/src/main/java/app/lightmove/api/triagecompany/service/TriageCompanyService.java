@@ -66,8 +66,18 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class TriageCompanyService {
 
-    /** The two doors a caller may supply a company through. {@code STRATEGY} is the server's to write. */
+    /** The doors a caller may supply a company through. {@code STRATEGY} is the server's to write. */
     private static final Set<TriageCompanySource> CAPTURABLE_SOURCES =
+            Set.of(TriageCompanySource.MANUAL, TriageCompanySource.EXTENSION, TriageCompanySource.CSV);
+
+    /**
+     * The doors a person comes through one company at a time, which is what makes two things
+     * affordable that a spreadsheet cannot afford: resolving the name against the universe, and
+     * researching it. A file states its own figures and is the reason it was uploaded — replacing
+     * them with the market's would discard the import — and it arrives a thousand rows at once, where
+     * a billed vendor call per row is a bill nobody authorised by pressing one button.
+     */
+    private static final Set<TriageCompanySource> SUPPLIED_ONE_AT_A_TIME =
             Set.of(TriageCompanySource.MANUAL, TriageCompanySource.EXTENSION);
 
     private static final Sort NEWEST_FIRST = Sort.by(Sort.Direction.DESC, "createdAt");
@@ -149,6 +159,25 @@ public class TriageCompanyService {
         return triaged.findByIdAndProjectId(triageCompanyId, projectId)
                 .map(TriageCompanyService::toDto)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
+
+    /**
+     * The mandate's company of that name, if it holds one — the seam the spreadsheet import resolves a
+     * company cell through, so a second import of the same list updates rows rather than duplicating
+     * them.
+     *
+     * <p>Name-matched, because a company typed into a spreadsheet has no other identity. Oldest first
+     * when a mandate somehow holds two: nothing stops the Apollo export publishing two accounts under
+     * one name, and a bulk add takes both, so this has to answer deterministically rather than throw.
+     */
+    @Transactional(readOnly = true)
+    public Optional<TriageCompanyResponse> findCompanyOfProjectByName(UUID projectId, String companyName) {
+        if (companyName == null || companyName.isBlank()) {
+            return Optional.empty();
+        }
+        return triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, companyName.trim()).stream()
+                .min(Comparator.comparing(TriageCompany::getCreatedAt))
+                .map(TriageCompanyService::toDto);
     }
 
     @Transactional
@@ -233,7 +262,9 @@ public class TriageCompanyService {
 
         // A captured company the universe already carries lands as the full market row instead of a
         // thin hand-typed one — the plugin read a name and a slug, the market knows the rest.
-        ResolvedCapture resolved = resolveCapture(projectId, userId, details, source, status);
+        ResolvedCapture resolved = SUPPLIED_ONE_AT_A_TIME.contains(source)
+                ? resolveCapture(projectId, userId, details, source, status)
+                : saveCaptured(projectId, userId, source, status, details);
 
         // The check above covers the name the caller typed; this covers the name the row actually
         // landed under, which for a market-resolved capture is the market's. Without it a capture of
@@ -254,7 +285,9 @@ public class TriageCompanyService {
             event = event.detail("apolloAccountId", captured.getApolloAccountId());
         }
         event.record();
-        announceForResearch(captured, projectId);
+        if (SUPPLIED_ONE_AT_A_TIME.contains(source)) {
+            announceForResearch(captured, projectId);
+        }
         stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
         return toDto(captured);
     }
@@ -525,7 +558,9 @@ public class TriageCompanyService {
      * Its fields are the export's snapshot and rewriting them would make the Source badge a lie, which
      * is why {@code edit} refuses one outright — but the mandate's <i>own</i> columns beside it are not
      * the export's. Without this a market company, which is most of them, could never carry a value in
-     * a column the mandate added, and the feature would work only for the rows somebody typed in.
+     * a column the mandate added — and an import that filled those columns in for every hand-typed
+     * company while silently skipping every market one would be arbitrary from the user's side of the
+     * screen.
      */
     @Transactional
     public TriageCompanyResponse editCustomFields(UUID userId, UUID workspaceId, UUID projectId,
@@ -673,6 +708,7 @@ public class TriageCompanyService {
         projects.findByIdAndWorkspaceId(projectId, workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
+
 
     private static TriageCompanyResponse toDto(TriageCompany company) {
         return new TriageCompanyResponse(company.getId(), company.getApolloAccountId(),
