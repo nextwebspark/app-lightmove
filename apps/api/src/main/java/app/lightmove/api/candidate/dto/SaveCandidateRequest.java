@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import tools.jackson.databind.annotation.JsonDeserialize;
 
@@ -93,5 +94,13 @@ public record SaveCandidateRequest(
 
         /** Where the plugin read the profile. Ignored for a profile typed in by hand. */
         @Size(max = 1000)
-        String sourceUrl
+        String sourceUrl,
+
+        /**
+         * Values for this mandate's custom columns, keyed by each column's {@code fieldKey}. Null
+         * leaves every custom column alone — a client that does not render them (an older SPA, the
+         * extension, a script) must be able to save a profile without wiping columns it never showed.
+         * A key the mandate has not defined is dropped, and a blank value clears that one column.
+         */
+        Map<String, String> customFields
 ) {}

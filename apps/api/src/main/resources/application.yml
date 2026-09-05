@@ -304,6 +304,13 @@ lightmove:
         - application/vnd.openxmlformats-officedocument.wordprocessingml.document
         - text/plain
 
+  custom-column:
+    # The ceiling on the extra columns one mandate may add to its Companies grid, counted across the
+    # company and candidate halves because it is a limit on one screen's width. Deliberately a limit:
+    # a grid is a thing a person reads across, and a mandate that grew a column per stray heading
+    # would be left with one nobody can.
+    max-per-project: ${CUSTOM_COLUMN_MAX_PER_PROJECT:40}
+
 management:
   # Actuator listens on its own port, bound to loopback — it is not reachable from the internet at all.
   #

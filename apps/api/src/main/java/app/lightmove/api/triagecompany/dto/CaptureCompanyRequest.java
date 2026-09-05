@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
+import java.util.Map;
 
 /**
  * A company the mandate supplies itself — typed in on the Companies screen, or read off a live page by
@@ -66,5 +67,13 @@ public record CaptureCompanyRequest(
         String sourceUrl,
 
         @Size(max = 2000, message = "A note must be 2000 characters or fewer")
-        String note
+        String note,
+
+        /**
+         * Values for this mandate's custom columns, keyed by each column's {@code fieldKey}. Null
+         * leaves every custom column alone — a client that does not render them (an older SPA, the
+         * extension, a script) must be able to save a row without wiping columns it never showed.
+         * A key the mandate has not defined is dropped, and a blank value clears that one column.
+         */
+        Map<String, String> customFields
 ) {}

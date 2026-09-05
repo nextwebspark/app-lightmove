@@ -24,7 +24,10 @@ Deleting one drops the project↔company row only: the Apollo universe is read-o
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
 with three of them is three lines and one with none keeps its "Add executive" slot. An executive is also
-captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`). The
+captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`).
+Either half of a row can also carry **per-project custom columns** — a mandate adds a column to its own
+grid, the definitions are rows in `app_lm_project_custom_column` and the values a jsonb bag on the row,
+so the grid renders it like any built-in while a new mandate still starts from the built-ins alone. The
 standalone Candidates screen, the pipeline and outreach tables don't exist yet, and neither does the
 CSV import. The **Position**
 screen is the mandate's brief, edited as a six-step wizard (details, mandate context, reporting,
@@ -46,7 +49,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate`, `enrichment` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -69,7 +72,11 @@ holds only what a mandate *did* about a company. **`candidate` is the people sid
 executive a mandate has mapped, belonging to the *project* and only optionally to one of its triaged
 companies, because a researcher meets people at companies the universe does not carry. It depends on
 `triagecompany` through two public methods — resolving the company an executive is mapped to, and
-filing a researched employer into the universe — and `triagecompany` never depends back. Details in
+filing a researched employer into the universe — and `triagecompany` never depends back.
+**`customcolumn` is the columns a mandate added to its own grid** — definitions only, plus the one
+method (`applyTo`) that decides what a row may store in them, since the bag is open and nothing else
+stands between it and arbitrary caller-chosen keys. `triagecompany` and `candidate` depend on it; it
+depends on neither and knows nothing about companies or people. Details in
 `java-spring-development`.
 
 ## Commands
@@ -152,6 +159,11 @@ its step's write, so the aggregate keeps one idiom rather than mixing rows and j
 `app_lm_position_org_node` is the org chart — a tree of seats with exactly one flagged
 `mandate_seat`, so "reports to" is that seat's parent and "direct reports" are its children, both
 derived rather than stored twice.
+`app_lm_project_custom_column` (V45) is the columns a mandate added to its own grid, and V46 puts their
+values in a `custom_fields` jsonb bag on both row tables: a column per tenant in real DDL would be
+unmigratable and would need the runtime role to hold the `CREATE` privilege `harden.sql` revokes, so
+the definitions are rows and the values are a document. `field_key` is slugged once and never
+rewritten — every stored value points at it — while `label` is the header a user renames.
 `app_lm_position_template` (V42) is the role-template library — the identity a picker lists as columns,
 the drafted brief as one `jsonb` body (V30's idiom, not V39's child tables: a template is a
 heterogeneous document read and written whole), and the match keywords as a child table because they

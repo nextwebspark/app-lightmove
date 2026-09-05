@@ -9,6 +9,8 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
 import app.lightmove.api.core.text.service.LinkedInUrls;
+import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
+import app.lightmove.api.customcolumn.service.CustomColumnService;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.strategy.constant.CompanySortField;
 import app.lightmove.api.strategy.constant.SortDirection;
@@ -73,6 +75,7 @@ public class TriageCompanyService {
     private final TriageCompanyWriter writer;
     private final ProjectRepository projects;
     private final StrategyService strategy;
+    private final CustomColumnService customColumns;
     private final AuditService audit;
     private final ApolloCompanyQueryService market;
     private final ApplicationEventPublisher events;
@@ -83,13 +86,14 @@ public class TriageCompanyService {
     // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public TriageCompanyService(TriageCompanyRepository triaged, TriageCompanyWriter writer,
                                 ProjectRepository projects, StrategyService strategy,
-                                AuditService audit, ApolloCompanyQueryService market,
-                                ApplicationEventPublisher events, ProjectStreamPublisher stream,
-                                LightMoveProperties properties) {
+                                CustomColumnService customColumns, AuditService audit,
+                                ApolloCompanyQueryService market, ApplicationEventPublisher events,
+                                ProjectStreamPublisher stream, LightMoveProperties properties) {
         this.triaged = triaged;
         this.writer = writer;
         this.projects = projects;
         this.strategy = strategy;
+        this.customColumns = customColumns;
         this.audit = audit;
         this.market = market;
         this.events = events;
@@ -238,6 +242,8 @@ public class TriageCompanyService {
             throw ApiException.of(ErrorCode.TRIAGE_COMPANY_ALREADY_HELD);
         }
         TriageCompany captured = resolved.company();
+        captured.describeCustomFields(customColumns.applyTo(
+                projectId, CustomColumnTarget.COMPANY, captured.getCustomFields(), request.customFields()));
 
         var event = audit.event(ProjectEventType.TRIAGE_COMPANY_CAPTURED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
@@ -501,6 +507,8 @@ public class TriageCompanyService {
         }
 
         company.describe(details);
+        company.describeCustomFields(customColumns.applyTo(
+                projectId, CustomColumnTarget.COMPANY, company.getCustomFields(), request.customFields()));
 
         audit.event(ProjectEventType.TRIAGE_COMPANY_EDITED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
@@ -637,7 +645,6 @@ public class TriageCompanyService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
-
     private static TriageCompanyResponse toDto(TriageCompany company) {
         return new TriageCompanyResponse(company.getId(), company.getApolloAccountId(),
                 company.getSource().value(), company.getStatus().value(), company.getNote(),
@@ -645,6 +652,6 @@ public class TriageCompanyService {
                 company.getCompanyCity(), company.getNumEmployees(), company.getAnnualRevenue(),
                 company.getWebsite(), company.getCompanyLinkedinUrl(), company.getFoundedYear(),
                 company.getShortDescription(), company.getSourceUrl(), company.getLogoUrl(),
-                company.getCreatedAt());
+                company.getCustomFields().asMap(), company.getCreatedAt());
     }
 }

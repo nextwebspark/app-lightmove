@@ -4,6 +4,7 @@ import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.customcolumn.model.CustomFieldValues;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -115,6 +116,15 @@ public class Candidate extends BaseEntity {
     @Column(name = "profile", nullable = false)
     private CandidateProfile profile = CandidateProfile.empty();
 
+    /**
+     * Values for this project's CANDIDATE custom columns, keyed by the column's {@code field_key}.
+     * Deliberately beside {@link #profile} rather than inside it: that one is a typed record read by
+     * field, and it would have to preserve keys it knows nothing about.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "custom_fields", nullable = false)
+    private CustomFieldValues customFields = CustomFieldValues.empty();
+
     @Enumerated(EnumType.STRING)
     @Column(name = "source", nullable = false, length = 16, updatable = false)
     private CandidateSource source;
@@ -198,6 +208,15 @@ public class Candidate extends BaseEntity {
                 enriched.education(),
                 enriched.skills(),
                 Instant.now().toString());
+    }
+
+    /**
+     * Replaces the whole custom-column bag. Whole rather than per-key because the caller has already
+     * merged it: {@code CustomColumnService.applyTo} decides which keys are real and what an absent
+     * one means, and an entity that also had an opinion would be a second place to get it wrong.
+     */
+    public void describeCustomFields(CustomFieldValues values) {
+        this.customFields = values == null ? CustomFieldValues.empty() : values;
     }
 
     /** Moves the person along the line, leaving the rest of the profile as it was. */
