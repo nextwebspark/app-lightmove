@@ -23,7 +23,10 @@ export async function saveTemplate(projectId: string): Promise<void> {
     const link = window.document.createElement("a");
     link.href = url;
     link.download = "lightmove-import-template.csv";
+    // Appended before the click: Firefox starts no download from an anchor outside the document.
+    window.document.body.append(link);
     link.click();
+    link.remove();
   } finally {
     URL.revokeObjectURL(url);
   }

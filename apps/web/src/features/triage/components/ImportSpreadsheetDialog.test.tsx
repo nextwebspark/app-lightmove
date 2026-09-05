@@ -185,13 +185,42 @@ describe("ImportSpreadsheetDialog", () => {
     await choose();
 
     const select = await screen.findByLabelText(/What "Ethnicity" imports as/i);
-    await userEvent.selectOptions(select, "custom:ethnicity");
+    await userEvent.selectOptions(select, "custom:candidate:ethnicity");
     await userEvent.click(screen.getByRole("button", { name: /Import 2 rows/i }));
 
     await waitFor(() => expect(importApi.commitImport).toHaveBeenCalled());
     const columns = vi.mocked(importApi.commitImport).mock.calls[0][2];
     expect(columns[1].customFieldKey).toBe("ethnicity");
     expect(columns[1].customLabel).toBeNull();
+    expect(columns[1].customTarget).toBe("candidate");
+  });
+
+  it("carries the target when the column already there is about the company", async () => {
+    // The server looks an existing column up by `target:fieldKey`. Sent without the target it read
+    // `candidate:sector`, matched nothing, defined nothing, and dropped the column's values for
+    // every row — under a summary that said the import succeeded.
+    renderDialog([{ ...ethnicity, id: "cc2", target: "company", fieldKey: "sector", label: "Sector" }]);
+    await choose();
+
+    const select = await screen.findByLabelText(/What "Ethnicity" imports as/i);
+    await userEvent.selectOptions(select, "custom:company:sector");
+    await userEvent.click(screen.getByRole("button", { name: /Import 2 rows/i }));
+
+    await waitFor(() => expect(importApi.commitImport).toHaveBeenCalled());
+    const columns = vi.mocked(importApi.commitImport).mock.calls[0][2];
+    expect(columns[1].customFieldKey).toBe("sector");
+    expect(columns[1].customTarget).toBe("company");
+  });
+
+  it("stops a second column claiming a built-in field the first one has", async () => {
+    renderDialog();
+    await choose();
+
+    await screen.findByLabelText(/What "Organisation" imports as/i);
+    const option = screen
+      .getByLabelText(/What "Ethnicity" imports as/i)
+      .querySelector<HTMLOptionElement>('option[value="field:companyName"]');
+    expect(option).toBeDisabled();
   });
 
   it("lets a new column be renamed and retyped before it is created", async () => {

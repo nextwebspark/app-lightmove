@@ -76,7 +76,10 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CURRENT_SESSION_NOT_REVOCABLE: "Use sign out to end the session you are using.",
   STRATEGY_SEARCH_NAME_TAKEN: "A search with that name is already saved here.",
   CANDIDATE_ALREADY_MAPPED: "Someone with that name is already mapped here.",
-  UNSUPPORTED_FILE_TYPE: "Import a CSV or an Excel file.",
+  // Two uploads raise this — the spreadsheet import and the position description — so the wording
+  // stays neutral. Naming one screen's file types here misdescribes the other's refusal, and each
+  // dropzone already states what it takes.
+  UNSUPPORTED_FILE_TYPE: "That file type is not supported.",
   CUSTOM_COLUMN_NAME_TAKEN: "This mandate already has a column with that name — map onto it instead.",
   TRIAGE_COMPANY_NOT_EDITABLE:
     "This company came from the market export, so its details are not yours to edit.",
