@@ -60,14 +60,14 @@ public class LlmBudgetGuard {
     /**
      * Spends one of this user's column-mapping calls, the model call behind an import preview.
      *
-     * <p>Metered against the shortlist's number rather than one of its own: both are a single
-     * deliberate click by a person, and a second knob is a second thing to get wrong. It keeps its own
-     * meter, though, so a large import cannot eat the shortlist a consultant is about to run.
+     * <p>Its own meter, sized off the shortlist's number, so a large import cannot eat the shortlist a
+     * consultant is about to run. Keyed as the prompt id the call is logged under, which is what an
+     * investigation greps for after meeting a RATE_LIMITED.
      *
      * @throws ApiException RATE_LIMITED when they have none left
      */
     public void requireColumnMappingBudget(UUID userId) {
-        requireBudget("import-mapping", userId, settings.shortlistRequestsPerMinute());
+        requireBudget("import-column-mapping", userId, settings.shortlistRequestsPerMinute());
     }
 
     /**

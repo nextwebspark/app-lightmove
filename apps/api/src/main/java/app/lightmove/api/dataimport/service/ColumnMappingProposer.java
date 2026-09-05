@@ -8,15 +8,19 @@ import app.lightmove.api.core.llm.service.LlmCallPolicy;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.constant.CustomColumnType;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
+import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.dataimport.constant.ImportTargetField;
+import app.lightmove.api.dataimport.constant.MappingSource;
 import app.lightmove.api.dataimport.model.ColumnMapping;
 import app.lightmove.api.dataimport.model.HeuristicProposal;
+import app.lightmove.api.dataimport.model.ModelMappingAnswer;
+import app.lightmove.api.dataimport.model.ModelMappingAnswer.ModelMappedColumn;
 import app.lightmove.api.dataimport.model.ParsedSheet;
-import app.lightmove.api.dataimport.constant.MappingSource;
 import app.lightmove.api.dataimport.model.ProposedColumnMappings;
-import app.lightmove.api.dataimport.model.ProposedMapping;
 import app.lightmove.api.dataimport.model.SheetColumn;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -24,10 +28,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import java.util.regex.Pattern;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.beans.factory.annotation.Value;
@@ -87,7 +93,7 @@ public class ColumnMappingProposer {
     /**
      * What the guard answers with when it blocks a call.
      *
-     * <p>It replies in place of the model, and a sentence would not bind to {@link ProposedMapping} —
+     * <p>It replies in place of the model, and a sentence would not bind to {@link ModelMappingAnswer} —
      * a block would surface as a parse error indistinguishable from Vertex being unreachable. So it is
      * shaped as a document that binds, carrying the shared marker as a header no sheet has.
      */
@@ -98,6 +104,7 @@ public class ColumnMappingProposer {
     private final HeuristicColumnMatcher heuristics;
     private final Resource systemPrompt;
     private final Consumer<ChatClient.AdvisorSpec> guarded;
+    private final LlmBudgetGuard llmBudget;
     private final SpreadsheetImportSettings settings;
 
     // Hand-written rather than @RequiredArgsConstructor: Lombok cannot annotate a constructor
@@ -107,15 +114,18 @@ public class ColumnMappingProposer {
                                  @Value("classpath:prompts/import-column-mapping-system.st") Resource systemPrompt,
                                  @Value("classpath:prompts/import-column-mapping-schema.json") Resource answerSchema,
                                  LlmCallPolicy llmCalls,
+                                 LlmBudgetGuard llmBudget,
                                  LightMoveProperties properties) {
         this.chatClient = chatClient;
         this.heuristics = heuristics;
         this.systemPrompt = systemPrompt;
         this.guarded = llmCalls.forPrompt(PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
+        this.llmBudget = llmBudget;
         this.settings = properties.spreadsheetImport();
     }
 
-    public ProposedColumnMappings propose(ParsedSheet sheet, List<CustomColumnDto> existingColumns) {
+    public ProposedColumnMappings propose(UUID userId, ParsedSheet sheet,
+                                          List<CustomColumnDto> existingColumns) {
         HeuristicProposal heuristic = heuristics.propose(sheet, existingColumns);
 
         // The model is asked only where there is genuine doubt. A file whose every header is a known
@@ -125,9 +135,14 @@ public class ColumnMappingProposer {
             return new ProposedColumnMappings(heuristic.mappings(), MappingSource.EXACT_HEADERS);
         }
 
+        // Spent here rather than at the endpoint, because this is the first line that knows a call
+        // is actually going to happen. Metering every preview would refuse a run of template-built
+        // files — which reach Vertex never — with a message saying the model budget was exhausted.
+        llmBudget.requireColumnMappingBudget(userId);
+
         List<ColumnMapping> fallback = heuristic.mappings();
         try {
-            ProposedMapping answered = ask(sheet, existingColumns);
+            ModelMappingAnswer answered = ask(sheet, existingColumns);
             if (answered == null) {
                 return new ProposedColumnMappings(fallback, MappingSource.HEADER_MATCHER);
             }
@@ -152,7 +167,7 @@ public class ColumnMappingProposer {
         }
     }
 
-    private ProposedMapping ask(ParsedSheet sheet, List<CustomColumnDto> existingColumns) {
+    private ModelMappingAnswer ask(ParsedSheet sheet, List<CustomColumnDto> existingColumns) {
         return chatClient.prompt()
                 .advisors(guarded)
                 // Per call, not on the shared bean: its other caller is the shortlist prompt, and 0.8
@@ -173,10 +188,10 @@ public class ColumnMappingProposer {
                         .param("fields", describeFields())
                         .param("existing", describeExisting(existingColumns)))
                 .call()
-                .entity(ProposedMapping.class);
+                .entity(ModelMappingAnswer.class);
     }
 
-    private static boolean wasBlocked(ProposedMapping answered) {
+    private static boolean wasBlocked(ModelMappingAnswer answered) {
         return answered.columns() != null
                 && answered.columns().size() == 1
                 && answered.columns().getFirst() != null
@@ -195,7 +210,12 @@ public class ColumnMappingProposer {
                 .append("- \"").append(promptSafe(column.header())).append("\"")
                 .append(" (values look like: ").append(shapeLabel(column)).append(")");
         if (settings.sendSampleValues() && !column.sampleValues().isEmpty()) {
-            described.append(" e.g. ").append(String.join(" | ", column.sampleValues()));
+            // Sanitised for the same reason the header is: a newline in a cell would end this list
+            // item and let the rest of the value read as a column entry of its own. Excel holds 32,767
+            // characters in a cell, and nothing caps their length before here.
+            described.append(" e.g. ").append(column.sampleValues().stream()
+                    .map(ColumnMappingProposer::promptSafe)
+                    .collect(Collectors.joining(" | ")));
         }
         return described.toString();
     }
@@ -217,7 +237,7 @@ public class ColumnMappingProposer {
     }
 
     private static String describeFields() {
-        return java.util.Arrays.stream(ImportTargetField.values())
+        return Arrays.stream(ImportTargetField.values())
                 .map(field -> "- %s (%s, %s)".formatted(
                         field.value(), field.label(), field.target().value()))
                 .collect(Collectors.joining("\n"));
@@ -256,33 +276,43 @@ public class ColumnMappingProposer {
      * failure mode where a plausible-looking answer writes a whole file into the wrong fields.
      */
     private List<ColumnMapping> reconcile(ParsedSheet sheet, List<CustomColumnDto> existingColumns,
-                                          ProposedMapping answered, List<ColumnMapping> fallback) {
-        Map<String, ProposedMapping.ProposedColumn> byHeader = new HashMap<>();
+                                          ModelMappingAnswer answered, List<ColumnMapping> fallback) {
+        // Keyed on the normalised header, and forgiving about case and spacing, because a model
+        // re-types what it echoes back rather than copying it.
+        Map<String, ModelMappedColumn> byHeader = new HashMap<>();
         if (answered.columns() != null) {
-            for (ProposedMapping.ProposedColumn column : answered.columns()) {
+            for (ModelMappedColumn column : answered.columns()) {
                 if (column != null && column.header() != null) {
-                    byHeader.putIfAbsent(normalisedHeader(column.header()), column);
+                    byHeader.putIfAbsent(HeuristicColumnMatcher.normalise(column.header()), column);
                 }
             }
         }
 
+        // Two passes, because a field two columns want goes to whoever claims it first and the
+        // claim order must not be the sheet's. One pass let a *guess* on an early column outrank the
+        // model's explicit answer on a later one — "Contact" fuzzily matched to the email field would
+        // demote "Work E-mail Address" to a custom column, losing the one call the model was made for.
         Set<ImportTargetField> claimed = new LinkedHashSet<>();
-        List<ColumnMapping> mappings = new ArrayList<>(sheet.columns().size());
+        List<ColumnMapping> mappings = new ArrayList<>(Collections.nCopies(sheet.columns().size(), null));
         for (int index = 0; index < sheet.columns().size(); index++) {
             SheetColumn column = sheet.columns().get(index);
-            ProposedMapping.ProposedColumn answer = byHeader.get(normalisedHeader(column.header()));
-            mappings.add(resolve(column, answer, existingColumns, fallback.get(index), claimed));
+            ModelMappedColumn answer = byHeader.get(HeuristicColumnMatcher.normalise(column.header()));
+            if (answer != null) {
+                mappings.set(index, resolve(column, answer, existingColumns, claimed));
+            }
+        }
+        for (int index = 0; index < mappings.size(); index++) {
+            if (mappings.get(index) == null) {
+                mappings.set(index, keepIfUnclaimed(fallback.get(index), claimed));
+            }
         }
         return mappings;
     }
 
-    private ColumnMapping resolve(SheetColumn column, ProposedMapping.ProposedColumn answer,
-                                  List<CustomColumnDto> existingColumns, ColumnMapping fallback,
+    /** What the model decided for one column, or null to leave it to the header matcher's proposal. */
+    private ColumnMapping resolve(SheetColumn column, ModelMappedColumn answer,
+                                  List<CustomColumnDto> existingColumns,
                                   Set<ImportTargetField> claimed) {
-        if (answer == null) {
-            return keepIfUnclaimed(fallback, claimed);
-        }
-
         ImportTargetField field = answer.targetField() == null
                 ? null
                 : ImportTargetField.fromValue(answer.targetField().trim());
@@ -302,19 +332,19 @@ public class ColumnMappingProposer {
         // The model said the column carries nothing worth importing. An empty column is an easy
         // agreement; a column with values in it is not the model's call to discard, so the heuristic's
         // custom column stands and the user decides in the mapping step.
-        return column.allBlank()
-                ? ColumnMapping.ignored(column.index(), column.header())
-                : keepIfUnclaimed(fallback, claimed);
+        return column.allBlank() ? ColumnMapping.ignored(column.index(), column.header()) : null;
     }
 
     private ColumnMapping keepIfUnclaimed(ColumnMapping fallback, Set<ImportTargetField> claimed) {
-        if (fallback.field() != null && !claimed.add(fallback.field())) {
-            return ColumnMapping.ignored(fallback.columnIndex(), fallback.header());
+        if (fallback.field() == null) {
+            return fallback;
         }
-        return fallback;
+        return claimed.add(fallback.field())
+                ? fallback
+                : ColumnMapping.ignored(fallback.columnIndex(), fallback.header());
     }
 
-    private ColumnMapping customColumnFor(SheetColumn column, ProposedMapping.ProposedColumn answer,
+    private ColumnMapping customColumnFor(SheetColumn column, ModelMappedColumn answer,
                                           List<CustomColumnDto> existingColumns) {
         String label = answer.customLabel() == null || answer.customLabel().isBlank()
                 ? column.header().trim()
@@ -330,20 +360,25 @@ public class ColumnMappingProposer {
                     CustomColumnType.fromValue(defined.dataType()));
         }
 
-        CustomColumnTarget target = answer.customTarget() == null
-                ? CustomColumnTarget.CANDIDATE
-                : Optional.ofNullable(CustomColumnTarget.fromValue(answer.customTarget().trim().toLowerCase(Locale.ROOT)))
-                        .orElse(CustomColumnTarget.CANDIDATE);
-        CustomColumnType type = answer.customType() == null
-                ? CustomColumnType.TEXT
-                : Optional.ofNullable(CustomColumnType.fromValue(answer.customType().trim().toLowerCase(Locale.ROOT)))
-                        .orElse(CustomColumnType.TEXT);
+        CustomColumnTarget target =
+                tokenOr(answer.customTarget(), CustomColumnTarget::fromValue, CustomColumnTarget.CANDIDATE);
+        CustomColumnType type = tokenOr(answer.customType(), CustomColumnType::fromValue, CustomColumnType.TEXT);
 
         return ColumnMapping.intoCustomColumn(column.index(), column.header(), target, null, label, type);
     }
 
-    /** Matching is forgiving about case and spacing, because a model re-types what it echoes back. */
-    private static String normalisedHeader(String header) {
-        return HeuristicColumnMatcher.normalise(header);
+    /**
+     * One of the model's enum tokens, or the default when it answered with something we do not know.
+     *
+     * <p>Lower-cased, unlike {@code targetField} above, because these two enums spell their wire
+     * values in lower case ({@code text}, {@code candidate}) while a target field is camelCase
+     * ({@code candidateEmail}) and would stop matching if it were folded.
+     */
+    private static <T> T tokenOr(String token, Function<String, T> fromValue, T fallback) {
+        if (token == null) {
+            return fallback;
+        }
+        T parsed = fromValue.apply(token.trim().toLowerCase(Locale.ROOT));
+        return parsed == null ? fallback : parsed;
     }
 }

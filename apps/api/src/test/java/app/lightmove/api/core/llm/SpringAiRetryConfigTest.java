@@ -17,7 +17,9 @@ import org.springframework.core.retry.RetryTemplate;
  * and {@code GoogleGenAiChatModel}'s constructor takes one. Its default is <b>ten</b> attempts, which
  * against an unreachable Vertex, over a call that had no timeout, is a very long wait on a spinner.
  * This pins the numbers {@code application.yml} now sets, so a Spring AI upgrade that changes the
- * defaults cannot quietly restore them.
+ * defaults cannot quietly restore them. The {@code RetryTemplate} injection below is itself the check
+ * that the bean is still published: if it ever stops being, the context fails to start and these
+ * numbers stop being decoration in the loudest possible way.
  */
 @IntegrationTest
 class SpringAiRetryConfigTest {
@@ -39,10 +41,4 @@ class SpringAiRetryConfigTest {
         assertThat(retry.getExcludeOnHttpCodes()).contains(400, 401, 403, 404, 429);
     }
 
-    @Test
-    @DisplayName("the template the chat model takes is actually in the context")
-    void theTemplateExists() {
-        // If this bean ever stops being published, the numbers above become decoration.
-        assertThat(retryTemplate).isNotNull();
-    }
 }

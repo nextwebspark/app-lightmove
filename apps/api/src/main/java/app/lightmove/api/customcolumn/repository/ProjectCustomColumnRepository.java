@@ -30,4 +30,7 @@ public interface ProjectCustomColumnRepository extends JpaRepository<ProjectCust
 
     /** The per-project ceiling is counted across both grids — it is a limit on one screen's width. */
     long countByProjectId(UUID projectId);
+
+    /** How many columns a reorder has to account for: one grid's whole set, and nothing beside it. */
+    long countByProjectIdAndTarget(UUID projectId, CustomColumnTarget target);
 }
