@@ -1,3 +1,5 @@
+import type { CustomFieldValues } from "../../customcolumns/api/types";
+
 import type { SeniorityToken } from "../../../lib/seniority";
 /**
  * Where a mandate's research on an executive has got to. Not a shortlist flag: talent mapping records
@@ -74,6 +76,8 @@ export interface Candidate {
   languages: string[];
   source: CandidateSource;
   sourceUrl: string | null;
+  /** This mandate's own extra columns for this person, keyed by each column's `fieldKey`. */
+  customFields: CustomFieldValues;
   addedAt: string;
   /** When enrichment last filled this profile in; null while research is pending or off. */
   enrichedAt: string | null;
@@ -110,4 +114,6 @@ export interface SaveCandidatePayload {
   compensation?: Partial<CandidateCompensation>;
   career?: CandidateCareerEntry[];
   languages?: string[];
+  /** Omitted leaves every custom column alone; a blank value clears that one column. */
+  customFields?: CustomFieldValues;
 }

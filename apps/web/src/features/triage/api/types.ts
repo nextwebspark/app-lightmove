@@ -1,3 +1,5 @@
+import type { CustomFieldValues } from "../../customcolumns/api/types";
+
 /** Where a company stands in a mandate's triage. There is no untriaged state — that has no row. */
 export type TriageCompanyStatus = "inUniverse" | "shortlisted" | "declined";
 
@@ -6,7 +8,7 @@ export type TriageCompanyStatus = "inUniverse" | "shortlisted" | "declined";
  * exported by Apollo and one typed off a careers page are not equally trustworthy, and only a
  * `strategy` company has a universe id to link back to.
  */
-export type TriageCompanySource = "strategy" | "manual" | "extension";
+export type TriageCompanySource = "strategy" | "manual" | "extension" | "csv";
 
 /**
  * One company in a mandate's universe.
@@ -36,6 +38,8 @@ export interface TriageCompany {
   /** The page the plugin captured this from. Null for every other source. */
   sourceUrl: string | null;
   logoUrl: string | null;
+  /** This mandate's own extra columns for this company, keyed by each column's `fieldKey`. */
+  customFields: CustomFieldValues;
   addedAt: string;
 }
 
@@ -102,6 +106,8 @@ export interface EditCompanyPayload {
   website?: string;
   companyLinkedinUrl?: string;
   shortDescription?: string;
+  /** Omitted leaves every custom column alone; a blank value clears that one column. */
+  customFields?: CustomFieldValues;
 }
 
 export interface CaptureCompanyPayload {
@@ -120,4 +126,6 @@ export interface CaptureCompanyPayload {
   shortDescription?: string;
   sourceUrl?: string;
   note?: string;
+  /** Omitted leaves every custom column alone; a blank value clears that one column. */
+  customFields?: CustomFieldValues;
 }

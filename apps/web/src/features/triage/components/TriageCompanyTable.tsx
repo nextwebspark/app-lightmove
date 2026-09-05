@@ -11,10 +11,11 @@ import { DataGrid } from "../../../components/ui/DataGrid";
 import type { GridLayout } from "../../../lib/useGridLayout";
 import type { GridSort } from "../../../lib/useGridSort";
 import type { Candidate } from "../../candidates/api/types";
+import type { CustomColumn } from "../../customcolumns/api/types";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
 import {
+  createTriageCompanyColumns,
   TRIAGE_COLUMN_PINNING,
-  triageCompanyColumns,
   triageTableFeatures,
 } from "../lib/triageCompanyColumns";
 import { triageRowId, type TriageCompanyRow } from "../lib/triageRows";
@@ -41,6 +42,7 @@ export function TriageCompanyTable({
   onSortChange,
   columnVisibility,
   onColumnVisibilityChange,
+  customColumns,
   layout,
   onLayoutChange,
   loading,
@@ -61,6 +63,8 @@ export function TriageCompanyTable({
   onSortChange: (sort: GridSort<TriageSortField>) => void;
   columnVisibility: ColumnVisibilityState;
   onColumnVisibilityChange: OnChangeFn<ColumnVisibilityState>;
+  /** This mandate's own extra columns, appended after the built-ins. */
+  customColumns: readonly CustomColumn[];
   layout: GridLayout;
   onLayoutChange: (layout: GridLayout) => void;
   loading: boolean;
@@ -81,9 +85,13 @@ export function TriageCompanyTable({
     [sort],
   );
 
+  // Rebuilt only when the project's column set changes: a fresh array every render would rebuild
+  // every column def and lose the grid's own per-column state with it.
+  const columns = useMemo(() => createTriageCompanyColumns(customColumns), [customColumns]);
+
   const table = useTable({
     features: triageTableFeatures,
-    columns: triageCompanyColumns,
+    columns,
     data: rows.length > 0 ? rows : NO_ROWS,
     getRowId: triageRowId,
     initialState: { columnPinning: TRIAGE_COLUMN_PINNING },

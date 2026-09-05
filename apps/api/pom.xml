@@ -21,6 +21,8 @@
 		<bucket4j.version>8.14.0</bucket4j.version>
 		<cloud-sql.version>1.25.2</cloud-sql.version>
 		<logstash-encoder.version>8.1</logstash-encoder.version>
+		<commons-csv.version>1.14.1</commons-csv.version>
+		<poi.version>5.4.1</poi.version>
 		<spring-ai.version>2.0.1</spring-ai.version>
 	</properties>
 
@@ -126,6 +128,22 @@
 		<dependency>
 			<groupId>com.github.ben-manes.caffeine</groupId>
 			<artifactId>caffeine</artifactId>
+		</dependency>
+
+		<!-- Reading a mandate's imported spreadsheet. commons-csv rather than splitting on commas: a
+		     consultant's export carries quoted fields with embedded commas and newlines, and every
+		     hand-rolled splitter meets one eventually. poi-ooxml covers .xlsx and, through poi itself,
+		     the legacy .xls a client still emails - the reason it is chosen over the smaller
+		     xlsx-only readers. -->
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-csv</artifactId>
+			<version>${commons-csv.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.poi</groupId>
+			<artifactId>poi-ooxml</artifactId>
+			<version>${poi.version}</version>
 		</dependency>
 
 		<dependency>

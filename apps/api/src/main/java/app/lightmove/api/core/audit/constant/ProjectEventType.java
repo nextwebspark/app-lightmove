@@ -38,7 +38,14 @@ public enum ProjectEventType implements AuditEventType {
 
     CANDIDATE_ADDED,
     CANDIDATE_UPDATED,
-    CANDIDATE_REMOVED;
+    CANDIDATE_REMOVED,
+
+    CUSTOM_COLUMN_DEFINED,
+    CUSTOM_COLUMN_UPDATED,
+    CUSTOM_COLUMN_REORDERED,
+    CUSTOM_COLUMN_REMOVED,
+
+    SPREADSHEET_IMPORTED;
 
     @Override
     public String code() {

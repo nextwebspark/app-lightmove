@@ -21,5 +21,7 @@ public record LightMoveProperties(
         PositionSettings position,
         LlmSettings llm,
         EnrichmentSettings enrichment,
-        ResilienceSettings resilience
+        ResilienceSettings resilience,
+        CustomColumnSettings customColumn,
+        SpreadsheetImportSettings spreadsheetImport
 ) {}
