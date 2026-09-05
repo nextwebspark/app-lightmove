@@ -3,6 +3,7 @@ package app.lightmove.api.triagecompany.controller;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.triagecompany.dto.AddTriageCompanyRequest;
 import app.lightmove.api.triagecompany.dto.CaptureCompanyRequest;
+import app.lightmove.api.triagecompany.dto.EditCustomFieldsRequest;
 import app.lightmove.api.triagecompany.dto.EditTriageCompanyRequest;
 import app.lightmove.api.triagecompany.dto.TriageBulkAddResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
@@ -137,6 +138,26 @@ public class TriageCompanyController {
      * universe is read-only to this application — so it stays on Strategy and stays available to every
      * other mandate.
      */
+    /**
+     * The mandate's own columns for one company — the only edit a market-sourced company accepts.
+     *
+     * <p>Its own route rather than fields on the PUT above, because that one is refused outright for a
+     * company taken from the market and this one must not be: the export's facts are not the mandate's
+     * to rewrite, and the columns the mandate added to its own grid are nobody else's.
+     */
+    @PatchMapping("/{triageCompanyId}/custom-fields")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
+    public ResponseEntity<TriageCompanyResponse> editCustomFields(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable UUID projectId,
+            @PathVariable UUID triageCompanyId,
+            @Valid @RequestBody EditCustomFieldsRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(triage.editCustomFields(principal.userId(),
+                principal.requireWorkspaceId(), projectId, triageCompanyId, request.customFields(),
+                httpRequest));
+    }
+
     @DeleteMapping("/{triageCompanyId}")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
     public ResponseEntity<Void> remove(@AuthenticationPrincipal AuthPrincipal principal,

@@ -554,11 +554,13 @@ public class TriageCompanyService {
     /**
      * Writes only the mandate's custom-column values onto a company, leaving its own facts alone.
      *
-     * <p>Exists for the one case {@link #edit} cannot serve: a company taken out of the Apollo
-     * universe. Its fields are the export's snapshot and rewriting them would make the Source badge a
-     * lie, which is why {@code edit} refuses one outright — but the mandate's <i>own</i> columns
-     * beside it are not the export's, and an import that filled them in for every hand-typed company
-     * and silently skipped every market one would be arbitrary from the user's side of the screen.
+     * <p>Exists for the case {@link #edit} cannot serve: a company taken out of the Apollo universe.
+     * Its fields are the export's snapshot and rewriting them would make the Source badge a lie, which
+     * is why {@code edit} refuses one outright — but the mandate's <i>own</i> columns beside it are not
+     * the export's. Without this a market company, which is most of them, could never carry a value in
+     * a column the mandate added — and an import that filled those columns in for every hand-typed
+     * company while silently skipping every market one would be arbitrary from the user's side of the
+     * screen.
      */
     @Transactional
     public TriageCompanyResponse editCustomFields(UUID userId, UUID workspaceId, UUID projectId,
