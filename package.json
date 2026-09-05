@@ -11,14 +11,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "npm run dev:db && concurrently -n api,web -c yellow,cyan \"npm:dev:api\" \"npm:dev:web\"",
-    "dev:api": "./ops/dev/api.sh",
+    "dev": "npm run dev:web",
     "dev:web": "npm run dev --workspace=apps/web",
-    "dev:db": "./ops/dev/db.sh up",
-    "dev:db:down": "./ops/dev/db.sh down",
-    "dev:db:reset": "./ops/dev/db.sh reset",
-    "dev:db:psql": "./ops/dev/db.sh psql",
-    "dev:db:apollo": "./ops/dev/db.sh apollo-pull",
     "dev:cloud": "concurrently -n api,web -c yellow,cyan \"npm:dev:api:cloud\" \"npm:dev:web\"",
     "dev:api:cloud": "cd apps/api && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local",
     "build": "npm run build:api && npm run build:web && npm run build:extension",

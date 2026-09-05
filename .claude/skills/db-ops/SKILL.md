@@ -60,18 +60,15 @@ and `parent_company` 1,811.
 by a `sync-companies.sh` that has been deleted. Nothing reads it and nothing refills it. It is left in
 place rather than dropped, so if you meet it, ignore it.
 
-Locally the table starts empty — V23 creates it and nothing fills it. `npm run dev:db:apollo`
-(`ops/dev/db.sh apollo-pull`) copies the rows down from the shared Cloud SQL database over
-cloud-sql-proxy, straight into the container with no CSV on disk. It spells the 46 columns out on both
-sides of the pipe rather than `SELECT *`: the deployed table was created by the pipeline and the local
-one by V23, so they agree on the columns and not on their order, and a positional COPY would shift
-every value one column sideways.
-
-`reset` would otherwise throw those rows away, so it dumps the table to `ops/dev/.cache/apollo.dump`
-(gitignored) before dropping the volume, and `up` restores it before the API boots. Restoring first is
-what makes it work: Flyway then meets the table already present and V23's guard skips its body, exactly
-as it does against the deployed database. A snapshot that cannot be written aborts the wipe rather than
-proceeding without it.
+Locally the table starts empty — V23 creates it and nothing fills it. There is no automated restore
+path for a developer's own Postgres (the old `ops/dev/db.sh apollo-pull`/`apollo-restore` were
+Docker-specific — `docker exec`/`docker cp` into a named container — and were removed when local dev
+moved off Docker; not replaced). Strategy/Companies screens render empty locally until the table is
+filled by hand: a `pg_restore` of an `apollo.dump` (schema + data, or `--data-only` against V23's
+already-created empty table) straight against your own database, or a manual pull over
+`cloud-sql-proxy` following the same column-spelled-out shape the old script used — the deployed
+table was created by the pipeline and the local one by V23, so they agree on the 46 columns and not
+on their order, and a positional `COPY`/`SELECT *` would shift every value one column sideways.
 
 Profiling the universe read-only is `./ops/cloudsql/psql.sh -c "…"` — it opens a session as *you*
 over cloud-sql-proxy with `--auto-iam-authn`, no password and no application boot, which is the only
@@ -79,11 +76,13 @@ safe way to look at the shared database while a migration is unfinished in your 
 
 ## Connecting
 
-`npm run dev` runs against a **local Docker Postgres** (`ops/dev/db.sh`, :55433) — Flyway at boot
-applies your migrations there and nowhere else. Prove a new migration here first:
-`npm run dev:db:reset && npm run dev` re-runs the whole chain from V1 on a virgin database, which is
-the only way to catch a migration that only works against a schema that already exists.
-`npm run dev:db:psql` is a shell in it.
+Local dev runs the API directly against a developer's own Postgres — `cd apps/api && ./mvnw
+spring-boot:run -Dspring-boot.run.profiles=local` (or an IntelliJ run config, active profile
+`local`) — reading `apps/api/src/main/resources/application-local.yml` (gitignored) for the
+datasource. Flyway at boot applies your migrations there and nowhere else. Prove a new migration
+here first: drop and recreate your local database, then boot again, to re-run the whole chain from
+V1 on a virgin schema — the only way to catch a migration that only works against a schema that
+already exists.
 
 `npm run dev:cloud` is the **shared dev database** on Cloud SQL. First run:
 `cp apps/api/src/main/resources/application-local.yml{.example,}` and fill in the DB password; the

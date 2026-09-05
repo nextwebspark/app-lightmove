@@ -8,15 +8,22 @@ A **Workspace** is the tenant. It holds **Members** (`ADMIN` / `CONSULTANT` / `R
 
 ## Run it locally
 
-You need Java 21, Node ≥ 20 and Docker. No gcloud, no GCP role, no `application-local.yml`.
+You need Java 21, Node ≥ 20, and your own Postgres server running locally. No gcloud, no GCP role.
 
 ```bash
 npm install
-npm run dev
+cp apps/api/src/main/resources/application-local.yml{.example,}   # fill in your Postgres credentials
+npm run dev            # the SPA — Vite on :5173, proxies /api to :8080
 ```
 
-`npm run dev` starts a `postgres:16-alpine` container, applies every migration into it, and boots the
-API and the SPA against it. The database is **yours** — nothing you do locally reaches anyone else.
+The API is started separately, against whatever Postgres `application-local.yml` points at:
+
+```bash
+cd apps/api && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+```
+
+or, from an IDE, a run config with active profile `local`. Flyway applies every migration to that
+database on boot — it's **yours**, so nothing you do locally reaches anyone else.
 
 The one thing it cannot conjure is the company universe the Strategy screens search over. That is a
 separate one-time step — see **The company universe** below.
@@ -26,61 +33,33 @@ separate one-time step — see **The company universe** below.
 | Web | http://localhost:5173 |
 | API | http://localhost:8080 |
 | Actuator | http://localhost:9090 — separate port, loopback only |
-| Database | `localhost:55433`, user `lm_app`, password `lm`, database `lightmove` |
-
-```bash
-npm run dev:db:psql      # a psql shell in the container
-npm run dev:db:reset     # drop the data; the next boot re-runs every migration from V1
-npm run dev:db:down      # stop the container, keep the data
-```
-
-Port **55433** avoids 5432 (usually taken by another project) and 55432 (the e2e stack's own throwaway
-container, which `e2e/stack/down.sh` deletes). The two never collide, so an e2e run cannot wipe your
-dev data.
+| Database | whatever `application-local.yml`'s `spring.datasource` block names |
 
 ### The company universe
 
 `app_lm_apollo_companies` holds 71,822 GCC companies. An external pipeline owns it, nothing in this
 repo can regenerate it, and it is far too large for git — so migrations create the table empty and
-every Strategy screen renders blank until you fill it. Two ways to do that, and you only ever do it
-once: the rows then survive `dev:db:reset`, which snapshots them out before the wipe and restores them
-on the next boot.
+every Strategy screen renders blank until you fill it, against your own local Postgres.
 
-**Someone hands you the file.** No GCP of any kind — the restore is a local `pg_restore`.
+**Someone hands you the file.** No GCP of any kind — the restore is a local `pg_restore` against your
+own database:
 
 ```bash
-mkdir -p ops/dev/.cache
-cp ~/Downloads/apollo.dump ops/dev/.cache/apollo.dump
-shasum -a 256 ops/dev/.cache/apollo.dump   # compare with the sender before booting
-npm run dev
+pg_restore -h localhost -p 5432 -U <user> -d <database> --no-owner ~/Downloads/apollo.dump
 ```
 
-The path and the filename are both exact — `ops/dev/db.sh` restores that one file, before the API
-boots, so Flyway meets the table already there and `V23` no-ops. Look for `restored 71822 rows` in the
-startup log. Put the file in place *before* `npm run dev`; if you have already booted, drop it in and
-run `npm run dev` again — the restore loads into Flyway's empty table instead.
-
-Transfer it as binary. A truncated or re-encoded archive fails part-way through the load and leaves
-half a table, which is why the checksum step is not optional. The sender's copy is at the same path.
+Use `--data-only` instead if the table already exists empty (Flyway's `V23` already ran). There is no
+scripted restore step any more — run this by hand whenever you (re)create your local database.
 
 **Or pull it from Cloud SQL**, if you have the access described below plus `brew install
-cloud-sql-proxy libpq`:
-
-```bash
-npm run dev         # once, so Flyway applies V23 and the table exists to copy into
-npm run dev:db:apollo
-```
-
-This streams the table down over `cloud-sql-proxy` as your own read-only IAM identity and writes the
-same `ops/dev/.cache/apollo.dump` on the way past. It refuses if the table already holds rows.
-
-`ops/dev/.cache/` is gitignored and stays that way — it is licensed third-party data, not source.
-Don't commit it, and don't forward it outside the team.
+cloud-sql-proxy libpq`, streaming straight into your own database over `\copy` rather than through an
+intermediate file — see the column-order caveat in the `db-ops` skill before writing your own version
+of this.
 
 ### Running against the shared Cloud SQL database
 
-Only when you actually need the shared data — a new migration should be proven on the local container
-first, because Flyway runs at boot and applies it to everyone the moment the API starts.
+Only when you actually need the shared data — a new migration should be proven on your own local
+database first, because Flyway runs at boot and applies it to everyone the moment the API starts.
 
 ```bash
 gcloud auth login
@@ -94,8 +73,9 @@ npm run dev:cloud
 
 This one needs `roles/cloudsql.client` on the `hak-talent-mapping` project — ask an admin. The database
 already exists; you don't create it and you don't run a proxy. Note that `application-local.yml` may pin
-`provider: resend` with a live key, which `npm run dev` overrides and `npm run dev:cloud` does not — see
-**Precedence** below.
+`provider: resend` with a live key — nothing overrides it automatically on either path any more, so a
+signup against the shared database sends real email unless you change that file or set
+`LIGHTMOVE_EMAIL_PROVIDER=log` yourself. See **Precedence** below.
 
 **OAuth sign-in** needs `application-local.yml` either way: it is where the Google and LinkedIn client
 credentials live, and it is still read on the `local` profile that both commands use. Without the file
@@ -113,9 +93,10 @@ no host, no IP allowlist, no proxy process. Your Google identity authorises the 
 (`roles/cloudsql.client`); the database login itself is `lm_app` and its password. `cloud-sql-proxy`
 appears in exactly one place in this repo — `psql.sh` — and running the app never needs it.
 
-`ops/dev/api.sh` steps around all of that by exporting `SPRING_DATASOURCE_URL` with a host in it: an
-environment variable outranks every profile file, and a host-bearing JDBC URL never reaches the socket
-factory. That is the whole trick, and it is the same one `e2e/stack/up.sh` uses.
+Plain local dev steps around all of that instead: `application-local.yml`'s datasource carries a host,
+which never reaches the socket factory — Spring just never activates the `cloud` profile that supplies
+it. `e2e/stack/up.sh` uses the same trick the other way, via an environment variable that outranks
+every profile file.
 
 **The `lm_app` password** is printed once, when the database is created, and cannot be recovered. Ask
 whoever set the environment up, or reset it:
@@ -204,12 +185,13 @@ routing, before anything that logs. Clear the `localhost` cookies (DevTools → 
 Rejections like that appear *only* in the Tomcat access log, which is off by default:
 
 ```bash
+cd apps/api
 SERVER_TOMCAT_ACCESSLOG_ENABLED=true \
 SERVER_TOMCAT_ACCESSLOG_DIRECTORY=/dev \
 SERVER_TOMCAT_ACCESSLOG_PREFIX=stdout \
 SERVER_TOMCAT_ACCESSLOG_SUFFIX= \
 SERVER_TOMCAT_ACCESSLOG_ROTATE=false \
-npm run dev
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 **A 403 from `/onboarding/*` or the workspace screen.** The account is not verified. Workspace data
@@ -221,8 +203,8 @@ detection firing. Fixed — but if you see it, sign in again; the old family is 
 
 ## Reading the database (optional)
 
-This is the **Cloud SQL** database. For the local Docker one, `npm run dev:db:psql` needs no setup at
-all. Not needed to run the app either way — for querying the shared tables by hand:
+This is the **Cloud SQL** database. For your own local one, use `psql` directly — whatever client you
+already have. Not needed to run the app either way — for querying the shared tables by hand:
 
 ```bash
 ./ops/cloudsql/psql.sh                                     # interactive shell
@@ -322,7 +304,6 @@ set the variable and assert it with a test.
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `Dockerfile` | Multi-stage: builds the SPA, copies it into the jar's `static/`, one image |
 | `claude-design/` | HTML mockups — **the source of truth for all UI** |
-| `ops/dev/` | `db.sh` (the local Docker Postgres) and `api.sh` (the API pointed at it) — what `npm run dev` runs |
 | `ops/cloudsql/` | Database bootstrap, hardening, the `lm_migrate` role, and `psql.sh` |
 | `ops/gcp/` | `bootstrap.sh` — everything on GCP the first deploy needs, idempotent |
 | `.github/workflows/` | `ci.yml` gates; `deploy.yml` builds, migrates, deploys, smoke-tests |
