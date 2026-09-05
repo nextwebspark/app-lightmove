@@ -5,15 +5,16 @@ package app.lightmove.api.candidate.constant;
  * figure a researcher took from the executive themselves and one a bulk CSV asserted are not equally
  * trustworthy.
  *
- * <p>{@link #CSV} is not reachable yet — the import is not built. The enum carries all three from the
- * start anyway, because the alternative is backfilling a provenance nobody recorded.
+ * <p>All three are reachable. {@link #CSV} is self-asserted rather than proven: it travels on the wire
+ * like the others and the import is simply the only thing that sends it, so it is a label on a row and
+ * never evidence a reader may lean on.
  */
 public enum CandidateSource {
 
     /** Typed in on the Companies screen. */
     MANUAL("manual"),
 
-    /** Bulk-imported from a spreadsheet of research. Not yet built. */
+    /** Bulk-imported from a spreadsheet a consultant uploaded. */
     CSV("csv"),
 
     /** Read off a live profile page by the browser plugin, and the capture enrichment researches. */

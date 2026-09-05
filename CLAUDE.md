@@ -16,20 +16,27 @@ workspace `CLIENT` role grants nothing; access is the project `CLIENT` seat, whi
 screens, a project's Team & access tab, the client registry with representative invites and their
 scoped read-only project access, and **Strategy → Companies**: a filter over the company universe, the
 searches saved against it, and the three Companies pages (In universe / Shortlisted / Declined) where a
-mandate triages what it took from it. A company reaches those pages three ways — out of the market
+mandate triages what it took from it. A company reaches those pages four ways — out of the market
 (Strategy's per-row add, or the Companies screen's own picker over the same universe, both `POST
-/triage` with an id the server resolves), typed in by hand, or captured by the browser plugin
-(`POST /triage/capture`).
+/triage` with an id the server resolves), typed in by hand, captured by the browser plugin
+(`POST /triage/capture`), or **imported from a spreadsheet**.
 Deleting one drops the project↔company row only: the Apollo universe is read-only to the app. On top of
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
 with three of them is three lines and one with none keeps its "Add executive" slot. An executive is also
 captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`).
-Either half of a row can also carry **per-project custom columns** — a mandate adds a column to its own
-grid, the definitions are rows in `app_lm_project_custom_column` and the values a jsonb bag on the row,
-so the grid renders it like any built-in while a new mandate still starts from the built-ins alone. The
-standalone Candidates screen, the pipeline and outreach tables don't exist yet, and neither does the
-CSV import. The **Position**
+The **spreadsheet import** is that fourth door and carries both halves at once: a CSV or Excel file
+whose rows are people at companies, mapped column-by-column onto our fields by a header matcher, then
+confirmed by a person before anything is written. A header no field covers becomes a **per-project
+custom column**: the definitions are rows in `app_lm_project_custom_column` and the values a jsonb bag
+on the row, so the grid renders it like any built-in while a new mandate still starts from the
+built-ins alone. The importer writes nothing itself — it builds the same requests the Companies drawer
+posts and hands them to `triagecompany` and `candidate`, so every scope check, duplicate rule and audit
+event stays where it already lives. **An imported row is never resolved against the market and never
+researched** — a file states its own figures and arrives a thousand rows at once, so the two things a
+one-at-a-time capture affords are exactly the two it cannot. The import has no screen yet: it is two
+endpoints. The standalone Candidates screen, and the pipeline and outreach tables, don't exist yet.
+The **Position**
 screen is the mandate's brief, edited as a six-step wizard (details, mandate context, reporting,
 compensation, assessment, review) that autosaves one step at a time. It opens drafted rather than
 blank: a **role-template library** of seventeen briefs (twelve C-suite, four functional heads, one
@@ -49,7 +56,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -76,7 +83,9 @@ filing a researched employer into the universe — and `triagecompany` never dep
 **`customcolumn` is the columns a mandate added to its own grid** — definitions only, plus the one
 method (`applyTo`) that decides what a row may store in them, since the bag is open and nothing else
 stands between it and arbitrary caller-chosen keys. `triagecompany` and `candidate` depend on it; it
-depends on neither and knows nothing about companies or people. Details in
+depends on neither and knows nothing about companies or people. **`dataimport` is the spreadsheet** —
+read the file, work out what its columns mean, and write what it carries through the doors that
+already exist. It depends on those three and none of them depends back. Details in
 `java-spring-development`.
 
 ## Commands
@@ -164,6 +173,8 @@ values in a `custom_fields` jsonb bag on both row tables: a column per tenant in
 unmigratable and would need the runtime role to hold the `CREATE` privilege `harden.sql` revokes, so
 the definitions are rows and the values are a document. `field_key` is slugged once and never
 rewritten — every stored value points at it — while `label` is the header a user renames.
+V47 adds `'CSV'` to the triage company's `source` CHECK, the spelling V36 had already reserved on the
+candidate side.
 `app_lm_position_template` (V42) is the role-template library — the identity a picker lists as columns,
 the drafted brief as one `jsonb` body (V30's idiom, not V39's child tables: a template is a
 heterogeneous document read and written whole), and the match keywords as a child table because they

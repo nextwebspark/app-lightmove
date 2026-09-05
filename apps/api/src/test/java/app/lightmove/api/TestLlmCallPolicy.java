@@ -20,6 +20,6 @@ public final class TestLlmCallPolicy {
         return new LlmCallPolicy(new LightMoveProperties(null, null, null, null, null,
                 new LlmSettings(new LlmRateLimitSettings(true, 10, 20), 20_000, 1,
                         List.of("ignore previous instructions", "system prompt", "you are now")),
-                null, null, null));
+                null, null, null, null));
     }
 }

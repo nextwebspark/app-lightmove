@@ -311,6 +311,25 @@ lightmove:
     # would be left with one nobody can.
     max-per-project: ${CUSTOM_COLUMN_MAX_PER_PROJECT:40}
 
+  spreadsheet-import:
+    # A mandate's CSV/Excel import. Same ceiling as a position description, and for the same reason:
+    # the bytes are held whole in memory while the sheet is read. Must stay at or below
+    # spring.servlet.multipart.max-file-size, which rejects the upload before it ever arrives.
+    max-file-size-bytes: ${SPREADSHEET_IMPORT_MAX_BYTES:10485760}
+    # Refused whole rather than truncated: taking the first N rows would silently decide which half of
+    # a consultant's list got imported.
+    max-rows: ${SPREADSHEET_IMPORT_MAX_ROWS:5000}
+    # Checked server-side, but only as a coarse filter: browsers disagree about what a .csv is and
+    # several send application/vnd.ms-excel for one, so the reader decides the real format from the
+    # bytes. Hence octet-stream is allowed here and would not be for a document upload.
+    allowed-content-types:
+      - text/csv
+      - text/plain
+      - application/csv
+      - application/vnd.ms-excel
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/octet-stream
+
 management:
   # Actuator listens on its own port, bound to loopback — it is not reachable from the internet at all.
   #
