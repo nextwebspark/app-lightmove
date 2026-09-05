@@ -1,3 +1,4 @@
+import type { CustomFieldValues } from "../../customcolumns/api/types";
 import { request } from "../../../lib/apiClient";
 import type { GridSort } from "../../../lib/useGridSort";
 import type {
@@ -115,6 +116,24 @@ export function editTriageCompany(
   return request<TriageCompany>(`/projects/${projectId}/triage/${triageCompanyId}`, {
     method: "PUT",
     body: company,
+  });
+}
+
+/**
+ * The mandate's own columns for one company, saved on their own.
+ *
+ * <p>Its own call rather than a field on `editTriageCompany`, because that one is refused for a
+ * company taken from the market and this one is not: the export's facts are not the mandate's to
+ * rewrite, and the columns it added to its own grid are nobody else's.
+ */
+export function editCompanyCustomFields(
+  projectId: string,
+  triageCompanyId: string,
+  customFields: CustomFieldValues,
+): Promise<TriageCompany> {
+  return request<TriageCompany>(`/projects/${projectId}/triage/${triageCompanyId}/custom-fields`, {
+    method: "PATCH",
+    body: { customFields },
   });
 }
 

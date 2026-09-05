@@ -5,6 +5,15 @@ import { streamEvents } from "../../../lib/apiClient";
 const MAX_RETRY_MS = 30_000;
 
 /**
+ * How long a burst of changes is allowed to keep collapsing into one refetch.
+ *
+ * <p>A spreadsheet import commits a row at a time and announces each one, so a thousand-row file
+ * would otherwise be a thousand refetches at every open tab. Lossless to coalesce: the events carry
+ * no content, so the only thing a caller ever does with them is refetch.
+ */
+const COALESCE_MS = 500;
+
+/**
  * Holds the mandate's live stream open while the tab is visible, calling `onChange` whenever the
  * server says something under the project moved. The stream carries no content — the handler
  * refetches through the ordinary guarded reads — so there is nothing here to keep consistent.
@@ -23,7 +32,19 @@ export function useProjectStream(projectId: string, onChange: () => void): void 
     let disposed = false;
     let failures = 0;
     let retryTimer: number | undefined;
+    let coalesceTimer: number | undefined;
     let controller: AbortController | null = null;
+
+    // Trailing rather than leading: the refetch that matters is the one after the burst stops, and a
+    // leading call would read the grid halfway through an import and then never correct it.
+    const announceChange = () => {
+      window.clearTimeout(coalesceTimer);
+      coalesceTimer = window.setTimeout(() => {
+        if (!disposed) {
+          handleChange.current();
+        }
+      }, COALESCE_MS);
+    };
 
     const schedule = (delayMs: number) => {
       window.clearTimeout(retryTimer);
@@ -45,7 +66,7 @@ export function useProjectStream(projectId: string, onChange: () => void): void 
           heardTheServer = true;
           failures = 0;
           if (event.name === "change") {
-            handleChange.current();
+            announceChange();
           }
         },
         controller.signal,
@@ -87,6 +108,7 @@ export function useProjectStream(projectId: string, onChange: () => void): void 
     return () => {
       disposed = true;
       window.clearTimeout(retryTimer);
+      window.clearTimeout(coalesceTimer);
       controller?.abort();
       document.removeEventListener("visibilitychange", handleVisibility);
     };

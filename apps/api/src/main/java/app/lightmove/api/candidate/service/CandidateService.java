@@ -30,12 +30,16 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
 import app.lightmove.api.core.text.service.LinkedInUrls;
+import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
+import app.lightmove.api.customcolumn.service.CustomColumnService;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -71,6 +75,7 @@ public class CandidateService {
     private final CandidatePhotoRepository photos;
     private final ProjectRepository projects;
     private final TriageCompanyService triage;
+    private final CustomColumnService customColumns;
     private final AuditService audit;
     private final ApplicationEventPublisher events;
     private final ProjectStreamPublisher stream;
@@ -80,12 +85,14 @@ public class CandidateService {
     // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public CandidateService(CandidateRepository candidates, CandidatePhotoRepository photos,
                             ProjectRepository projects, TriageCompanyService triage,
-                            AuditService audit, ApplicationEventPublisher events,
-                            ProjectStreamPublisher stream, LightMoveProperties properties) {
+                            CustomColumnService customColumns, AuditService audit,
+                            ApplicationEventPublisher events, ProjectStreamPublisher stream,
+                            LightMoveProperties properties) {
         this.candidates = candidates;
         this.photos = photos;
         this.projects = projects;
         this.triage = triage;
+        this.customColumns = customColumns;
         this.audit = audit;
         this.events = events;
         this.stream = stream;
@@ -142,6 +149,42 @@ public class CandidateService {
                 found.getTotalElements(), page, size);
     }
 
+    /**
+     * The person this mandate already has for a spreadsheet row, if any — the seam the import resolves
+     * a person through, so a second import of the same list updates profiles rather than colliding
+     * with {@code CANDIDATE_ALREADY_MAPPED} on every row.
+     *
+     * <p>Email first and name second, because those identify a person differently. An address is the
+     * one field that is the same across two exports that spell the name differently; a name only
+     * identifies someone <i>within</i> a company, which is exactly the scope V36's unique indexes
+     * enforce. Matching on name alone across the whole mandate would merge two different people who
+     * happen to share one at two different employers.
+     *
+     * <p>Oldest first when more than one row answers, for the reason the repository's finders return
+     * lists at all: nothing makes either column unique, and this has to answer rather than throw.
+     */
+    @Transactional(readOnly = true)
+    public Optional<CandidateResponse> findCandidateOfProject(UUID projectId, UUID triageCompanyId,
+                                                              String email, String fullName) {
+        if (email != null && !email.isBlank()) {
+            Optional<Candidate> byEmail =
+                    candidates.findByProjectIdAndEmailIgnoreCase(projectId, email.trim()).stream()
+                            .min(Comparator.comparing(Candidate::getCreatedAt));
+            if (byEmail.isPresent()) {
+                return byEmail.map(CandidateService::toDto);
+            }
+        }
+        if (fullName == null || fullName.isBlank()) {
+            return Optional.empty();
+        }
+        List<Candidate> byName = triageCompanyId == null
+                ? candidates.findByProjectIdAndTriageCompanyIdIsNullAndFullNameIgnoreCase(projectId, fullName.trim())
+                : candidates.findByProjectIdAndTriageCompanyIdAndFullNameIgnoreCase(projectId, triageCompanyId, fullName.trim());
+        return byName.stream()
+                .min(Comparator.comparing(Candidate::getCreatedAt))
+                .map(CandidateService::toDto);
+    }
+
     @Transactional
     public CandidateResponse add(UUID userId, UUID workspaceId, UUID projectId,
                                  SaveCandidateRequest request, HttpServletRequest httpRequest) {
@@ -153,6 +196,8 @@ public class CandidateService {
 
         Candidate candidate = candidates.save(Candidate.mapped(projectId, userId,
                 request.triageCompanyId(), source, details));
+        candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
+                candidate.getCustomFields(), request.customFields()));
 
         if (source == CandidateSource.EXTENSION && isLinkedInProfileUrl(details.linkedinUrl())) {
             events.publishEvent(new CandidateCapturedEvent(candidate.getId(), projectId,
@@ -185,6 +230,8 @@ public class CandidateService {
 
         candidate.remapTo(request.triageCompanyId());
         candidate.describe(details);
+        candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
+                candidate.getCustomFields(), request.customFields()));
 
         audit.event(ProjectEventType.CANDIDATE_UPDATED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
@@ -446,10 +493,7 @@ public class CandidateService {
             return CandidateSource.MANUAL;
         }
         CandidateSource source = CandidateSource.fromValue(token);
-        if (source == null || source == CandidateSource.CSV) {
-            // CSV is refused rather than merely unbuilt: provenance is the reader's evidence of how
-            // much to trust a figure, so a caller must not be able to stamp a row as bulk-imported
-            // when no import ran.
+        if (source == null) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown candidate source: " + token);
         }
         return source;
@@ -488,6 +532,7 @@ public class CandidateService {
                 candidate.getProfile().languages(),
                 candidate.getSource().value(),
                 candidate.getSourceUrl(),
+                candidate.getCustomFields().asMap(),
                 candidate.getCreatedAt(),
                 candidate.getProfile().enrichedAt());
     }

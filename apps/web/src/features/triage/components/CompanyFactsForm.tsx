@@ -6,6 +6,8 @@ import { z } from "zod";
 import { Button, Field, FormError, Input, TextArea } from "../../../components/ui";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { optionalNumber, optionalWebAddress } from "../../../lib/formFields";
+import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
+import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import * as companiesApi from "../../strategy/api/companiesApi";
 import type { FacetCount, FacetOption } from "../../strategy/api/types";
 import { FacetCombobox } from "../../strategy/components/FacetCombobox";
@@ -78,6 +80,7 @@ export function CompanyFactsForm({
   company,
   seedName = "",
   isCapture,
+  customColumns,
   save,
   onSaved,
   onCancel,
@@ -88,7 +91,9 @@ export function CompanyFactsForm({
   seedName?: string;
   /** A capture collects the first note; an edit leaves the note to its own inline save. */
   isCapture: boolean;
-  save: (parsed: ParsedCompanyFacts) => Promise<TriageCompany>;
+  /** This mandate's own company columns. Empty until somebody adds one or imports a file. */
+  customColumns: readonly CustomColumn[];
+  save: (parsed: ParsedCompanyFacts, customFields: CustomFieldValues) => Promise<TriageCompany>;
   onSaved: (saved: TriageCompany) => void;
   onCancel: () => void;
 }) {
@@ -96,6 +101,10 @@ export function CompanyFactsForm({
   // name marks the name field, and the moment the user edits that name the field error clears while
   // the mutation stays failed — so the same sentence reappeared over a form already corrected.
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Outside react-hook-form: its schema is a fixed shape and these keys are the project's, decided at
+  // runtime. They still travel in the same submit, so a save is one request and one audit event.
+  const [customFields, setCustomFields] = useState<CustomFieldValues>(company?.customFields ?? {});
 
   const {
     register,
@@ -125,7 +134,7 @@ export function CompanyFactsForm({
     .sort((first, second) => first.label.localeCompare(second.label));
 
   const saving = useMutation({
-    mutationFn: save,
+    mutationFn: (parsed: ParsedCompanyFacts) => save(parsed, customFields),
     onSuccess: onSaved,
     onError: (error) => {
       // A name the mandate already holds belongs on the name field, because that is the field to
@@ -223,6 +232,12 @@ export function CompanyFactsForm({
             <TextArea {...register("note")} rows={3} placeholder="Why this one is worth a look…" />
           </Field>
         )}
+
+        <CustomFieldsFieldset
+          columns={customColumns}
+          values={customFields}
+          onChange={setCustomFields}
+        />
       </div>
 
       <div className="flex flex-none justify-end gap-2 border-t border-line-soft px-5 py-3">

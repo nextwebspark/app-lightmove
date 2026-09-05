@@ -1,6 +1,7 @@
 package app.lightmove.api.triagecompany.dto;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -33,5 +34,6 @@ public record TriageCompanyResponse(
         String shortDescription,
         String sourceUrl,
         String logoUrl,
+        Map<String, String> customFields,
         Instant addedAt
 ) {}

@@ -522,6 +522,35 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.totalCount").value(0));
     }
 
+    @Test
+    @DisplayName("csv is a source a caller may name, now that the import that means it exists")
+    void acceptsTheImportsOwnSource() throws Exception {
+        String projectId = mandate("Candidate Csv Source Firm");
+
+        JsonNode mapped = body(mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Layla Haddad","source":"csv"}"""))
+                .andExpect(status().isCreated())
+                .andReturn());
+
+        assertThat(mapped.get("source").asText()).isEqualTo("csv");
+    }
+
+    @Test
+    @DisplayName("a source nobody defined is still refused")
+    void refusesASourceNobodyDefined() throws Exception {
+        String projectId = mandate("Candidate Bad Source Firm");
+
+        mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Layla Haddad","source":"telepathy"}"""))
+                .andExpect(status().isBadRequest());
+    }
+
     // ── fixture ──────────────────────────────────────────────────────────────
 
     private String adminToken;

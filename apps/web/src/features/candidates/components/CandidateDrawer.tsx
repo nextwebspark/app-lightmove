@@ -15,6 +15,8 @@ import { Drawer, DrawerCloseButton } from "../../../components/ui/Drawer";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { optionalNumber, optionalWebAddress } from "../../../lib/formFields";
 import { toBrowsableUrl } from "../../../lib/url";
+import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
+import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import * as candidatesApi from "../api/candidatesApi";
 import type {
   Candidate,
@@ -135,6 +137,7 @@ export function CandidateDrawer({
   projectId,
   candidate,
   company,
+  customColumns,
   canWrite,
   onClose,
   onSaved,
@@ -146,6 +149,8 @@ export function CandidateDrawer({
   candidate: Candidate | null;
   /** The company this executive sits at, when the drawer was opened from that company's row. */
   company: CandidateCompanyContext | null;
+  /** This mandate's own person columns, edited in the same save as the fields above them. */
+  customColumns: readonly CustomColumn[];
   /** False for a client representative, who reads a mandate's people and changes nothing about them. */
   canWrite: boolean;
   onClose: () => void;
@@ -159,6 +164,10 @@ export function CandidateDrawer({
   // name marks the name field, and the moment the user edits that name the field error clears while
   // the mutation stays failed — so the same sentence reappeared over a form already corrected.
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Outside react-hook-form: its schema is a fixed shape and these keys are the project's, decided at
+  // runtime. They still travel in the same submit, so a save is one request and one audit event.
+  const [customFields, setCustomFields] = useState<CustomFieldValues>({});
 
   const {
     register,
@@ -178,7 +187,7 @@ export function CandidateDrawer({
 
   const save = useMutation({
     mutationFn: (parsed: ParsedCandidateForm) => {
-      const payload = payloadOf(parsed, company, candidate);
+      const payload = { ...payloadOf(parsed, company, candidate), customFields };
       return candidate
         ? candidatesApi.updateCandidate(projectId, candidate.id, payload)
         : candidatesApi.createCandidate(projectId, payload);
@@ -218,6 +227,9 @@ export function CandidateDrawer({
     // nothing to read yet.
     setEditing(candidate === null);
     setSubmitError(null);
+    // Reset with the form, and for the same reason: a reopen must not show the draft abandoned last
+    // time. These are outside react-hook-form, so `reset` does not reach them.
+    setCustomFields(candidate?.customFields ?? {});
   }, [open, candidate, company, reset]);
 
   const employerLabel = company?.companyName ?? candidate?.companyName ?? undefined;
@@ -499,6 +511,12 @@ export function CandidateDrawer({
               <TextArea {...register("note")} rows={3} placeholder="Met at a conference last year…" />
             </Field>
           </Section>
+
+          <CustomFieldsFieldset
+            columns={customColumns}
+            values={customFields}
+            onChange={setCustomFields}
+          />
         </div>
 
         <div className="flex flex-none justify-end gap-2 border-t border-line-soft px-5 py-3">
