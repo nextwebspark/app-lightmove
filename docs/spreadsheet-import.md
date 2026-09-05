@@ -166,6 +166,27 @@ Worth keeping in proportion: the model has **no tools**, its output is a typed r
 structurally validated, and a person confirms before any write. The worst a successful injection
 achieves is a wrong dropdown the user can see.
 
+### What the person uploading actually sees
+
+An unreachable model is not an error and never reaches the user as one. The failures that do are the
+file's own — and each now says what to do about it rather than only what went wrong.
+
+- **The ceilings name themselves.** "That file is larger than the 10 MB an import can take", "more
+  than 5000 rows", "already has its 40 custom columns". `ApiException`'s class doc carves out
+  configured limits as safe to interpolate — they are server-derived, not echoed input — and the limit
+  is the only part of those three refusals a reader can act on.
+- **The file survives a failed preview**, so the error offers **Try again** rather than a trip back to
+  the file picker to ask the same question of the same file. Not offered for a refusal that cannot
+  change: a missing seat, a name already taken, the column ceiling.
+- **The sample file is offered where it is the fix** — inside the error for the file-shaped codes, and
+  on the mapping step when the source is `headerMatcher`, because a file built from the template maps
+  with no model call at all. Not on `exactHeaders`, where nothing needed fixing.
+- **A refused column names itself.** Columns are defined before the row loop and outside its per-row
+  catch, so hitting the ceiling fails the whole commit. It used to fail anonymously, from a mapping
+  step that named no column, with an Import button that would fail identically forever. The refusal is
+  now keyed `columns[i]` — the index the mapping step renders its rows by — so the dialog marks the row
+  and the user changes that one thing.
+
 ### The sample file
 
 `GET /projects/{projectId}/import/template` returns a blank CSV: the twelve fields people actually
@@ -276,6 +297,19 @@ consultant saw when they saved is the value they meant to send.
 A row count over `lightmove.spreadsheet-import.max-rows` is refused whole rather than truncated —
 taking the first N would silently decide which half of a consultant's list got imported.
 
+### The screen
+
+The Companies toolbar gains **Import** and **Columns**, both WORK_EXECUTE. The import dialog is three
+steps: choose the file, confirm what each column means, read what happened. Custom columns render as
+ordinary grid columns — pickable, resizable, reorderable — and are **edited in the drawers**, not in
+the cell, because nothing on these screens is edited in a cell and a custom column that were would be
+the one field on the page behaving differently from the twenty beside it. The values ride on the
+request the drawer already posts, so a save is one request and one audit event.
+
+`useGridLayout` is keyed per user and per grid, *not* per project, so the built-in columns alone are
+handed to it; a remembered width for a column only one mandate has would otherwise carry a phantom into
+every other mandate's grid.
+
 ## Out of scope
 
 - **Matching an imported company back to an Apollo account.** Imported companies are `source = 'CSV'`
@@ -311,6 +345,9 @@ taking the first N would silently decide which half of a consultant's list got i
 - `CustomColumnIntegrationTest` — the key surviving a rename, hiding keeping values, deleting keeping
   values, an undefined key being dropped, a value checked against its type, tenant isolation.
 
-The path worth exercising by hand is the one **without** credentials: run `npm run dev` with no
-`gcloud auth application-default login`, preview a file, and confirm the mapping still comes back and
-says the header matcher produced it.
+`cd apps/web && npm run build && npx vitest` — including the mapping step rendering, a correction
+reaching the commit call, and a custom column rendering as a grid column with its values on the rows.
+
+The end-to-end path worth exercising by hand is the one without credentials: run `npm run dev` with no
+`gcloud auth application-default login` and confirm the mapping step still opens, says it matched by
+header name, and imports.

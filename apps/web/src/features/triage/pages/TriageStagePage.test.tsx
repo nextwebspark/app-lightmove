@@ -30,6 +30,11 @@ vi.mock("../../customcolumns/api/customColumnsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof customColumnsApi>()),
   getCustomColumns: vi.fn(),
 }));
+vi.mock("../api/importApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../api/importApi")>()),
+  previewImport: vi.fn(),
+  commitImport: vi.fn(),
+}));
 vi.mock("../api/triageApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
   ...(await importOriginal<typeof triageApi>()),
@@ -761,17 +766,19 @@ describe("TriageStagePage", () => {
     expect(within(grid).queryByText("Lebanese")).not.toBeInTheDocument();
   });
 
-  it("offers Columns to a colleague", async () => {
+  it("offers Import and Columns to a colleague and to no client representative", async () => {
     renderStage();
-    expect(await screen.findByRole("button", { name: /^Columns$/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^Import$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Columns$/i })).toBeInTheDocument();
   });
 
-  it("keeps Columns away from a client representative", async () => {
+  it("keeps Import and Columns away from a client representative", async () => {
     const authApi = await import("../../auth/api/authApi");
     vi.mocked(authApi.me).mockResolvedValue(representative);
     renderStage();
 
     expect(await screen.findByText("ACWA Power")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Import$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Columns$/i })).not.toBeInTheDocument();
   });
 
