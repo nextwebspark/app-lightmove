@@ -27,7 +27,7 @@ with three of them is three lines and one with none keeps its "Add executive" sl
 captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`).
 The **spreadsheet import** is that fourth door and carries both halves at once: a CSV or Excel file
 whose rows are people at companies, mapped column-by-column onto our fields, then confirmed by a
-person before anything is written. The import has no screen yet: it is two endpoints. **The model is asked only where a header is in doubt** — a sheet
+person before anything is written. **The model is asked only where a header is in doubt** — a sheet
 whose every header is a known spelling (anything built from the downloadable template, and most second
 imports) maps with no LLM call at all; when it is asked it gets headers and a locally computed value
 shape only, **never cell values**, and a synonym matcher answers alone when Vertex cannot be reached.
