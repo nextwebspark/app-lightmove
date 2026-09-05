@@ -34,7 +34,9 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
@@ -372,6 +374,45 @@ class ColumnMappingProposerTest {
         assertThat(model.lastTemperature()).isZero();
     }
 
+    @Test
+    @DisplayName("the mapping call does no thinking, and inherits the budget and label it never names")
+    void asksWithoutThinkingAndWithinABudget() {
+        RecordingChatModel model = new RecordingChatModel("{\"columns\":[]}");
+
+        proposerWith(model, false).propose(SOMEBODY, sheetOf(
+                column(0, "Company", SheetColumn.ValueShape.SHORT_TEXT),
+                column(1, "Ethnicity", SheetColumn.ValueShape.SHORT_TEXT)), List.of());
+
+        assertThat(model.lastOptions()).isInstanceOfSatisfying(GoogleGenAiChatOptions.class, options -> {
+            // Mapping is a lookup, not a problem deliberation improves — and the model reasons by
+            // default, billed as output tokens on a preview somebody is waiting for.
+            assertThat(options.getThinkingBudget()).isZero();
+            // Neither is named at the call: the ceiling and the application's billing label come from
+            // the model's own configured options, which a call's options are merged onto rather than
+            // replacing. Labels merge by key, so the prompt's own arrives beside the application's.
+            assertThat(options.getMaxOutputTokens()).isEqualTo(8192);
+            assertThat(options.getLabels())
+                    .containsEntry("app", "lightmove-api")
+                    .containsEntry("prompt", "import-column-mapping");
+        });
+    }
+
+    @Test
+    @DisplayName("the mapping call asks Gemini for JSON, so the answer carries no markdown fence")
+    void asksForJsonNatively() {
+        // Without this the model wraps its answer in a ```json fence, and
+        // StructuredOutputValidationAdvisor hands the text to Jackson verbatim — so every call failed
+        // validation on the leading backtick and paid for a repair round that re-asked the same thing.
+        RecordingChatModel model = new RecordingChatModel("{\"columns\":[]}");
+
+        proposerWith(model, false).propose(SOMEBODY, sheetOf(
+                column(0, "Company", SheetColumn.ValueShape.SHORT_TEXT),
+                column(1, "Ethnicity", SheetColumn.ValueShape.SHORT_TEXT)), List.of());
+
+        assertThat(model.lastOptions()).isInstanceOfSatisfying(GoogleGenAiChatOptions.class,
+                options -> assertThat(options.getResponseMimeType()).isEqualTo("application/json"));
+    }
+
     private static ColumnMappingProposer proposerWith(ChatModel model, boolean sendSamples) {
         Resource prompt = new ByteArrayResource("map the columns".getBytes());
         return new ColumnMappingProposer(ChatClient.builder(model).build(), new HeuristicColumnMatcher(),
@@ -475,9 +516,26 @@ class ColumnMappingProposerTest {
         private final String reply;
         private final List<String> prompts = new ArrayList<>();
         private final List<Double> temperatures = new ArrayList<>();
+        private final List<ChatOptions> options = new ArrayList<>();
 
         private RecordingChatModel(String reply) {
             this.reply = reply;
+        }
+
+        /**
+         * As {@code GoogleGenAiChatModel} answers it, carrying what {@code application.yml} configures
+         * on the model itself. The client folds a call's own options onto these, so a stand-in
+         * returning the portable default would silently drop everything provider-specific the call
+         * asked for, and a bare one would hide whether the call still inherits what it does not name.
+         */
+        @Override
+        public ChatOptions getOptions() {
+            return GoogleGenAiChatOptions.builder()
+                    .model("gemini-2.5-flash")
+                    .temperature(0.8)
+                    .maxOutputTokens(8192)
+                    .labels(Map.of("app", "lightmove-api"))
+                    .build();
         }
 
         @Override
@@ -488,11 +546,16 @@ class ColumnMappingProposerTest {
             }
             prompts.add(text.toString());
             temperatures.add(prompt.getOptions() == null ? null : prompt.getOptions().getTemperature());
+            options.add(prompt.getOptions());
             return new ChatResponse(List.of(new Generation(new AssistantMessage(reply))));
         }
 
         Double lastTemperature() {
             return temperatures.getLast();
+        }
+
+        ChatOptions lastOptions() {
+            return options.getLast();
         }
 
         String lastPrompt() {

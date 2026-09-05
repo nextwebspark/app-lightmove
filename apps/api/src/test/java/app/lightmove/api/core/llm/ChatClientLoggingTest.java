@@ -146,7 +146,7 @@ class ChatClientLoggingTest {
     }
 
     private ChatClient chatClientOver(ChatModel model) {
-        return new ChatClientConfig().chatClient(ChatClient.builder(model), "gemini-2.5-flash", 0.8);
+        return new ChatClientConfig().chatClient(ChatClient.builder(model));
     }
 
     private String lineContaining(String fragment) {

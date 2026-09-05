@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
@@ -43,9 +43,10 @@ import org.springframework.stereotype.Service;
 /**
  * Asks the model which field each column of an uploaded sheet means.
  *
- * <p>Built on the {@link ChatClient} bean the application already has: the model, its temperature and
- * its advisors are set once in {@code ChatClientConfig} and are not restated here. All this adds is a
- * system prompt of its own, set per call so that bean stays reusable, and a structured answer.
+ * <p>Built on the {@link ChatClient} bean the application already has: its advisors are set once in
+ * {@code ChatClientConfig} and the model's own defaults in {@code application.yml}, so neither is
+ * restated here. All this adds is a system prompt of its own, set per call so that bean stays
+ * reusable, a structured answer, and the three options this call wants differently.
  *
  * <p><b>No cell values are sent.</b> A spreadsheet of executives is client and candidate PII — the
  * same PII that was deliberately kept out of the application log — so the request carries each
@@ -89,6 +90,25 @@ public class ColumnMappingProposer {
 
     /** Column mapping has one right answer, so variance buys only answers that will not bind. */
     private static final double MAPPING_TEMPERATURE = 0.0;
+
+    /**
+     * Asked for natively, so there is no markdown fence on the answer.
+     *
+     * <p>Without it Gemini wraps its reply in a {@code ```json} fence, and
+     * {@code StructuredOutputValidationAdvisor} hands the assistant text to Jackson verbatim — no
+     * trim, no strip. Every preview therefore failed validation on the leading backtick and spent its
+     * repair attempt re-asking a question whose answer came back fenced identically, at twice the
+     * Vertex cost. The mapping was right anyway only because {@code BeanOutputConverter} cleans the
+     * text again before binding it, so this cost money and eight seconds rather than correctness.
+     */
+    private static final String ANSWER_MIME_TYPE = "application/json";
+
+    /**
+     * No reasoning step: mapping is a lookup from a header and a value shape onto a fixed field list,
+     * not a problem thinking improves. Left at the model's own default it deliberated before every
+     * answer, which is billed output tokens and seconds of a preview a person is waiting on.
+     */
+    private static final int MAPPING_THINKING_BUDGET = 0;
 
     /**
      * What the guard answers with when it blocks a call.
@@ -167,12 +187,20 @@ public class ColumnMappingProposer {
         }
     }
 
+    /**
+     * Only the three things this call wants differently from every other one — the shortlist prompt,
+     * the other caller of the shared client, wants 0.8 and wants prose. Everything unnamed is
+     * inherited: the model's configured options are the base these are merged onto, and its labels
+     * merge by key rather than being replaced, so the prompt's own is added beside the application's.
+     */
     private ModelMappingAnswer ask(ParsedSheet sheet, List<CustomColumnDto> existingColumns) {
         return chatClient.prompt()
                 .advisors(guarded)
-                // Per call, not on the shared bean: its other caller is the shortlist prompt, and 0.8
-                // is a reasonable temperature there. Mapping has one right answer.
-                .options(ChatOptions.builder().temperature(MAPPING_TEMPERATURE))
+                .options(GoogleGenAiChatOptions.builder()
+                        .temperature(MAPPING_TEMPERATURE)
+                        .responseMimeType(ANSWER_MIME_TYPE)
+                        .thinkingBudget(MAPPING_THINKING_BUDGET)
+                        .labels(Map.of("prompt", PROMPT_ID)))
                 .system(systemPrompt)
                 .user(user -> user.text("""
                         Columns in the uploaded file:

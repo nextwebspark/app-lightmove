@@ -128,8 +128,20 @@ spring:
         project-id: ${GOOGLE_CLOUD_PROJECT:hak-talent-mapping}
         location: ${GOOGLE_CLOUD_LOCATION:us-central1}
         chat:
+          # The ChatModel's own options, and that is the layer that matters: a call's `.options(...)`
+          # is merged onto these field by field, while anything set on the shared ChatClient bean sits
+          # in the same slot as that call and is replaced by it wholesale. Whatever every call should
+          # get regardless belongs here.
           model: gemini-2.5-flash
           temperature: 0.8
+          # A ceiling on one answer, so a model that starts repeating is cut off rather than billed to
+          # the request timeout. Generous because a 2.5 model reasons before answering and spends this
+          # same allowance doing it.
+          max-output-tokens: 8192
+          # Vertex bills a whole GCP project as one line, so this is what separates the application's
+          # spend from anything else beside it. Labels merge by key, so a call adding its own keeps it.
+          labels:
+            app: ${spring.application.name}
         embedding:
           # The embedding client resolves its own project/location independently of the chat
           # block above (Spring AI's own namespacing, not a LightMove choice).
