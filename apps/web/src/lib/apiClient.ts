@@ -12,7 +12,9 @@ import { createSseParser, type SseEvent } from "./sse";
  *      is in an httpOnly cookie script cannot touch at all.
  *   2. A 401 triggers exactly one refresh, no matter how many requests hit it at once, and the
  *      requests that were waiting are retried with the new token.
- *   3. The CSRF header is attached to the cookie-authenticated routes.
+ *   3. The CSRF header is attached to the cookie-authenticated routes, and a refused token is
+ *      re-fetched and the request sent once more — a rejection happens in the filter chain, so
+ *      nothing was done the first time and there is nothing to be idempotent about.
  */
 
 const API = "/api/v1";
@@ -96,13 +98,13 @@ async function refreshAccessToken(): Promise<string> {
       // attaches automatically — including on a request another site provoked. The double-submit
       // token proves the request came from our own JavaScript, which can read the cookie; a cross-site
       // attacker can cause the cookie to be sent but cannot read it.
-      const csrf = await ensureCsrfToken();
-
-      const response = await fetch(`${API}/auth/refresh`, {
-        method: "POST",
-        credentials: "include",
-        headers: csrf ? { "X-XSRF-TOKEN": csrf } : {},
-      });
+      const response = await sendWithCsrf((csrf) =>
+        fetch(`${API}/auth/refresh`, {
+          method: "POST",
+          credentials: "include",
+          headers: csrf ? { "X-XSRF-TOKEN": csrf } : {},
+        }),
+      );
 
       if (!response.ok) {
         throw new ApiRequestError(await problemFrom(response));
@@ -146,13 +148,54 @@ export async function restoreSession(): Promise<string | null> {
  * If we do not have it yet, ask for it.
  */
 async function ensureCsrfToken(): Promise<string | null> {
-  const existing = readCookie("XSRF-TOKEN");
-  if (existing) {
-    return existing;
+  return readCookie("XSRF-TOKEN") ?? (await fetchCsrfToken());
+}
+
+/**
+ * Asks for a token unconditionally, and answers null rather than throwing when the ask does not
+ * land — a proxy hiccup or a transient 5xx on this one request must not become the session's
+ * problem. The caller sends without the header and lets `sendWithCsrf` recover from the refusal.
+ */
+async function fetchCsrfToken(): Promise<string | null> {
+  try {
+    const response = await fetch(`${API}/auth/csrf`, { credentials: "include" });
+    if (!response.ok) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+  return readCookie("XSRF-TOKEN");
+}
+
+/**
+ * Sends a cookie-authenticated request, and recovers from a refused CSRF token by fetching a new one
+ * and sending once more.
+ *
+ * The API answers a rejected token with its own `CSRF_TOKEN_INVALID` code — separate from
+ * `FORBIDDEN` — specifically so the client can do this; `ProblemAccessDeniedHandler` says as much.
+ * Until it did, nothing recovered: a single failed `GET /auth/csrf` left the cookie unset, so the
+ * header went unsent, so `/auth/refresh` answered 403 — and `refreshAccessToken` reads any failed
+ * refresh as the end of the session and signs the user out. One transient blip on a request whose
+ * whole job is to be retried cost the user their session.
+ *
+ * Exactly one retry. A token refused twice is not a stale token, and re-asking forever would turn a
+ * genuine refusal into a loop.
+ */
+async function sendWithCsrf(send: (csrf: string | null) => Promise<Response>): Promise<Response> {
+  const response = await send(await ensureCsrfToken());
+  if (response.status !== 403) {
+    return response;
   }
 
-  await fetch(`${API}/auth/csrf`, { credentials: "include" });
-  return readCookie("XSRF-TOKEN");
+  // A body can only be read once, so reading it here commits us: either this was the recoverable
+  // failure, or the problem we just parsed is the one the caller has to be told about.
+  const problem = await problemFrom(response);
+  if (problem.code !== "CSRF_TOKEN_INVALID") {
+    throw new ApiRequestError(problem);
+  }
+
+  return send(await fetchCsrfToken());
 }
 
 function readCookie(name: string): string | null {
@@ -182,7 +225,7 @@ interface RequestOptions {
 async function sendWithAuth(path: string, options: RequestOptions): Promise<Response> {
   const { method = "GET", body, anonymous = false, withCsrf = false, signal } = options;
 
-  const send = async (token: string | null): Promise<Response> => {
+  const dispatch = (token: string | null, csrf: string | null): Promise<Response> => {
     const isMultipart = body instanceof FormData;
     const headers: Record<string, string> = {};
     if (body !== undefined && !isMultipart) {
@@ -191,11 +234,8 @@ async function sendWithAuth(path: string, options: RequestOptions): Promise<Resp
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
     }
-    if (withCsrf) {
-      const csrf = await ensureCsrfToken();
-      if (csrf) {
-        headers["X-XSRF-TOKEN"] = csrf;
-      }
+    if (csrf) {
+      headers["X-XSRF-TOKEN"] = csrf;
     }
 
     return fetch(`${API}${path}`, {
@@ -208,6 +248,9 @@ async function sendWithAuth(path: string, options: RequestOptions): Promise<Resp
       signal,
     });
   };
+
+  const send = (token: string | null): Promise<Response> =>
+    withCsrf ? sendWithCsrf((csrf) => dispatch(token, csrf)) : dispatch(token, null);
 
   let response = await send(anonymous ? null : accessToken);
 
