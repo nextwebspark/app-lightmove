@@ -136,6 +136,61 @@ describe("apiClient", () => {
     expect(init.headers["X-XSRF-TOKEN"]).toBe("test-csrf");
   });
 
+  /**
+   * The QA report that prompted this: a 503 on GET /auth/csrf. Nothing in the API can answer 503, so
+   * the cause was upstream — but the *consequence* was ours. A csrf request that does not land leaves
+   * the cookie unset, so the header goes unsent, so the refresh is refused; and a refused refresh is
+   * how this client decides a session is over. A blip on the one request whose whole job is to be
+   * retried used to sign the user out.
+   */
+  it("recovers when the CSRF request fails, rather than losing the session", async () => {
+    document.cookie = "XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+
+    let csrfCalls = 0;
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.includes("/auth/csrf")) {
+        csrfCalls += 1;
+        // Down on the first ask, up on the second — the transient failure the report describes.
+        if (csrfCalls === 1) return json(503, null);
+        document.cookie = "XSRF-TOKEN=fresh-csrf";
+        return json(204, null);
+      }
+      const sent = (init?.headers as Record<string, string>)?.["X-XSRF-TOKEN"];
+      return sent
+        ? json(200, { accessToken: "fresh" })
+        : json(403, { code: "CSRF_TOKEN_INVALID", detail: "invalid token", status: 403 });
+    });
+
+    await expect(restoreSession()).resolves.toBe("fresh");
+    expect(csrfCalls).toBe(2);
+  });
+
+  /** One retry, not a loop: a token refused twice is a genuine refusal and must reach the caller. */
+  it("gives up after one CSRF retry", async () => {
+    fetchMock.mockImplementation(async (url: string) =>
+      url.includes("/auth/csrf")
+        ? json(204, null)
+        : json(403, { code: "CSRF_TOKEN_INVALID", detail: "invalid token", status: 403 }),
+    );
+
+    await expect(request("/auth/logout", { method: "POST", withCsrf: true })).rejects.toThrow(
+      ApiRequestError,
+    );
+
+    const logoutCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes("/auth/logout"));
+    expect(logoutCalls).toHaveLength(2);
+  });
+
+  /** A 403 that is not a CSRF refusal is a permissions answer, and must not provoke a retry. */
+  it("does not retry a 403 that is an ordinary refusal", async () => {
+    fetchMock.mockResolvedValue(json(403, { code: "FORBIDDEN", detail: "nope", status: 403 }));
+
+    await expect(request("/auth/logout", { method: "POST", withCsrf: true })).rejects.toSatisfy(
+      (error: unknown) => error instanceof ApiRequestError && error.code === "FORBIDDEN",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("surfaces the server's error code and field errors", async () => {
     fetchMock.mockResolvedValueOnce(
       json(400, {

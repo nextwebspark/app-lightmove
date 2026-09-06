@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
+import { ApiRequestError } from "../../../lib/apiClient";
 import { AuthProvider } from "../../auth/AuthProvider";
 import * as authApi from "../../auth/api/authApi";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
@@ -105,5 +106,32 @@ describe("SettingsMembersPage — the roster", () => {
     await waitFor(() =>
       expect(workspaceApi.changeMemberRoles).toHaveBeenCalledWith("m1", ["ADMIN"]),
     );
+  });
+
+  /**
+   * A refused role change was reported as reverting the dropdown with nothing said. The revert is
+   * right — the picker's value derives from the roles the member actually holds, so a refusal must
+   * snap it back — but it is only half an answer, and the half a user can read is the toast.
+   */
+  it("says why a refused role change was refused, and snaps the picker back", async () => {
+    const user = userEvent.setup();
+    vi.mocked(workspaceApi.changeMemberRoles).mockRejectedValue(
+      new ApiRequestError({
+        code: "LAST_ADMIN",
+        detail: "A workspace must keep at least one admin",
+        status: 409,
+        correlationId: "test",
+      }),
+    );
+
+    renderPage();
+
+    const picker = await screen.findByLabelText("Role for Sara Al-Mansour");
+    await user.selectOptions(picker, "ADMIN");
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "A workspace must keep at least one admin.",
+    );
+    await waitFor(() => expect(picker).toHaveValue("MEMBER"));
   });
 });
