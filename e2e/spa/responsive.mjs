@@ -42,6 +42,10 @@ const ROUTES = [
   { path: "/projects/proj-1/companies/declined", name: "project-companies-declined" },
   { path: "/projects/proj-1/reports", name: "project-reports" },
   { path: "/projects/proj-1/team", name: "project-team" },
+  // Not screens anyone links to: an unknown URL and an unreadable project id render the not-found
+  // page at the address that was asked for, so "reaches the path" is itself the assertion.
+  { path: "/nowhere-in-particular", name: "not-found" },
+  { path: "/projects/no-such-project", name: "not-found-project" },
 ];
 
 let passed = 0;

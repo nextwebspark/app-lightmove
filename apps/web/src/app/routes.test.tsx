@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../components/ui";
@@ -7,6 +8,7 @@ import { AuthProvider } from "../features/auth/AuthProvider";
 import * as authApi from "../features/auth/api/authApi";
 import * as clientsApi from "../features/clients/api/clientsApi";
 import * as projectsApi from "../features/projects/api/projectsApi";
+import * as triageApi from "../features/triage/api/triageApi";
 import * as workspaceApi from "../features/workspace/api/workspaceApi";
 import { AppRoutes } from "./routes";
 
@@ -18,6 +20,10 @@ vi.mock("../features/projects/api/projectsApi", async (importOriginal) => ({
 vi.mock("../features/clients/api/clientsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../features/clients/api/clientsApi")>()),
   clients: vi.fn(),
+}));
+vi.mock("../features/triage/api/triageApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../features/triage/api/triageApi")>()),
+  getTriageCounts: vi.fn(),
 }));
 vi.mock("../features/workspace/api/workspaceApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../features/workspace/api/workspaceApi")>()),
@@ -258,5 +264,59 @@ describe("routes — returning to where the guard interrupted", () => {
 
     await waitFor(() => expect(screen.getByTestId("pathname")).toHaveTextContent("/login"));
     expect(screen.getByTestId("from")).toHaveTextContent("/extension/connect");
+  });
+});
+
+/**
+ * A typo'd URL, a stale bookmark, a deleted mandate and one the caller is not seated on all used to
+ * bounce silently to My projects, leaving the four indistinguishable. They now render a screen that
+ * says so — and keep the URL, so the address bar still shows what was asked for.
+ */
+describe("routes — the not-found screen", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["MEMBER"]));
+    vi.mocked(projectsApi.projects).mockResolvedValue([]);
+    vi.mocked(clientsApi.clients).mockResolvedValue([]);
+    vi.mocked(workspaceApi.members).mockResolvedValue([]);
+    vi.mocked(triageApi.getTriageCounts).mockResolvedValue({
+      inUniverse: 0,
+      shortlisted: 0,
+      declined: 0,
+    });
+  });
+
+  it("renders an unknown route in the app shell instead of redirecting", async () => {
+    renderAt("/nowhere-in-particular");
+
+    expect(await screen.findByText("We couldn't open that page")).toBeInTheDocument();
+    expect(screen.getByTestId("pathname").textContent).toBe("/nowhere-in-particular");
+    // The shell, not a bare page: the rail is how the user gets anywhere else from here.
+    expect(screen.getByRole("link", { name: /my projects/i })).toBeInTheDocument();
+  });
+
+  it("renders a project id it cannot read, rather than the list", async () => {
+    renderAt("/projects/not-a-project/strategy");
+
+    expect(await screen.findByText("We couldn't open that project")).toBeInTheDocument();
+    expect(screen.getByTestId("pathname").textContent).toBe("/projects/not-a-project/strategy");
+  });
+
+  // Neither cause may be claimed: the app cannot tell a deleted mandate from one the caller is not
+  // seated on, because the server deliberately does not say.
+  it("blames neither the resource nor the caller's access", async () => {
+    renderAt("/projects/not-a-project");
+
+    const body = await screen.findByText(/may have been deleted/);
+    expect(body).toHaveTextContent(/may not be on its team/);
+  });
+
+  it("offers the way back to My projects", async () => {
+    renderAt("/nowhere-in-particular");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Go to My projects" }));
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/"));
   });
 });
