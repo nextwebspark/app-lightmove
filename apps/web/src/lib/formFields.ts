@@ -17,8 +17,11 @@ export const optionalNumber = (label: string, max: number) =>
     .string()
     .trim()
     .transform((value) => (value === "" ? undefined : Number(value)))
-    .refine((value) => value === undefined || (Number.isFinite(value) && value >= 0), {
+    .refine((value) => value === undefined || Number.isFinite(value), {
       message: `${label} must be a number`,
+    })
+    .refine((value) => value === undefined || !Number.isFinite(value) || value >= 0, {
+      message: `${label} must be 0 or greater`,
     })
     .refine((value) => value === undefined || value <= max, {
       message: `That ${label.toLowerCase()} looks like a typo`,

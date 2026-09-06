@@ -86,6 +86,18 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
 };
 
 /**
+ * Everything the server can reject about an email address, all of which belong under the email field
+ * rather than in a banner above the form — a consumer address, a disposable one, a domain with no
+ * mailbox behind it, one already registered.
+ */
+export const EMAIL_FIELD_ERROR_CODES: readonly ApiErrorCode[] = [
+  "EMAIL_NOT_WORK_ADDRESS",
+  "EMAIL_DISPOSABLE",
+  "EMAIL_UNDELIVERABLE",
+  "EMAIL_ALREADY_REGISTERED",
+];
+
+/**
  * Wording for a failure, in preference order: our copy for the code, the server's own detail, then a
  * generic line for anything unrecognisable (network failures, HTML error pages…).
  */

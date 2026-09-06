@@ -21,12 +21,15 @@ export function RoleTitleCombobox({
   value,
   templates,
   busy,
+  invalid,
   onChange,
   onPick,
 }: {
   value: string;
   templates: PositionTemplate[];
   busy: boolean;
+  /** Marks the typed title as rejected — a red border, and no green check claiming otherwise. */
+  invalid?: boolean;
   onChange: (roleTitle: string) => void;
   onPick: (template: PositionTemplate) => void;
 }) {
@@ -47,6 +50,7 @@ export function RoleTitleCombobox({
     <div className="relative">
       <CheckedInput
         role="combobox"
+        invalid={invalid}
         aria-expanded={showList}
         aria-controls="role-title-suggestions"
         aria-autocomplete="list"

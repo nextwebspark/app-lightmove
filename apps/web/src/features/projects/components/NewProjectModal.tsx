@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button, DateInput, Field, FormError, Input, Modal, Select, useToast } from "../../../components/ui";
-import { codeOf, messageFor } from "../../../lib/errorCodes";
+import { codeOf } from "../../../lib/errorCodes";
+import { fieldErrorsFrom } from "../../../lib/formErrors";
 import * as clientsApi from "../../clients/api/clientsApi";
 import type { Client } from "../../clients/api/types";
 import * as positionApi from "../../position/api/positionApi";
@@ -9,6 +10,12 @@ import { RoleTitleCombobox } from "../../position/components/RoleTitleCombobox";
 import * as projectsApi from "../api/projectsApi";
 
 const NEW_CLIENT = "__new__";
+
+/** Mirrors `@Size(max = 160)` on CreateProjectRequest.positionTitle, so the cap is met at the field. */
+const MAX_POSITION_TITLE_LENGTH = 160;
+
+/** The two inputs a rejected create can be attributed to; the client select offers ids only. */
+type ProjectField = "newClientName" | "positionTitle";
 
 /**
  * The New-project modal: client (pick or create inline), position (typed free, or picked from the
@@ -44,6 +51,7 @@ export function NewProjectModal({
   const [positionTitle, setPositionTitle] = useState("");
   const [targetDate, setTargetDate] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<ProjectField, string>>>({});
 
   // The picker's options, sharing the Position page's cache. A failed read leaves the field a plain
   // typeable input — the same degradation as there.
@@ -94,17 +102,44 @@ export function NewProjectModal({
       toast("Project created — you're its admin and lead");
       onClose();
     },
-    onError: (mutationError) => setError(messageFor(mutationError)),
+    onError: (mutationError) => {
+      // Two requests can fail here — the inline client create and the project create — so both DTOs'
+      // field names are mapped onto the field that carries them.
+      const { fields, formMessage } = fieldErrorsFrom(mutationError, {
+        customName: "newClientName",
+        positionTitle: "positionTitle",
+      });
+      setFieldErrors(fields);
+      setError(formMessage);
+    },
   });
+
+  // Cleared as the field is edited, not only on the next submit: react-hook-form's reValidateMode
+  // does this for every other form wearing `invalid=`, and without it a corrected value keeps the red
+  // border and a message that no longer describes it.
+  const clearFieldError = (field: ProjectField) =>
+    setFieldErrors((current) => (current[field] ? { ...current, [field]: undefined } : current));
+
+  const handlePositionTitleChange = (title: string) => {
+    setPositionTitle(title);
+    clearFieldError("positionTitle");
+  };
 
   const submit = () => {
     setError(null);
+    setFieldErrors({});
     if (creatingClient && !newClientName.trim()) {
-      setError("Enter the client's name");
+      setFieldErrors({ newClientName: "Enter the client's name" });
       return;
     }
     if (!positionTitle.trim()) {
-      setError("Enter the position title");
+      setFieldErrors({ positionTitle: "Enter the position title" });
+      return;
+    }
+    if (positionTitle.trim().length > MAX_POSITION_TITLE_LENGTH) {
+      setFieldErrors({
+        positionTitle: `That title is too long — keep it to ${MAX_POSITION_TITLE_LENGTH} characters or fewer`,
+      });
       return;
     }
     create.mutate();
@@ -142,10 +177,14 @@ export function NewProjectModal({
       </Field>
 
       {creatingClient && (
-        <Field label="Client name">
+        <Field label="Client name" error={fieldErrors.newClientName}>
           <Input
             value={newClientName}
-            onChange={(event) => setNewClientName(event.target.value)}
+            onChange={(event) => {
+              setNewClientName(event.target.value);
+              clearFieldError("newClientName");
+            }}
+            invalid={!!fieldErrors.newClientName}
             placeholder="e.g. Meridian Energy Group"
             autoFocus
           />
@@ -154,13 +193,14 @@ export function NewProjectModal({
 
       {/* Picking a template only fills the title: creation seeds the brief from the title on the
           server, through the same keyword match a typed one gets, so no id travels with the form. */}
-      <Field label="Position">
+      <Field label="Position" error={fieldErrors.positionTitle}>
         <RoleTitleCombobox
           value={positionTitle}
           templates={templates}
           busy={false}
-          onChange={setPositionTitle}
-          onPick={(template) => setPositionTitle(template.title)}
+          invalid={!!fieldErrors.positionTitle}
+          onChange={handlePositionTitleChange}
+          onPick={(template) => handlePositionTitleChange(template.title)}
         />
       </Field>
 

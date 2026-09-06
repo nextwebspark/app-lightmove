@@ -140,16 +140,25 @@ export function StepField({
   );
 }
 
-/** The step-one input that shows a green check once it holds something. */
-export function CheckedInput({ value, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
+/**
+ * The step-one input that shows a green check once it holds something — withheld when `invalid`,
+ * where a tick reading "this is fine" would contradict the error message under the field.
+ */
+export function CheckedInput({
+  invalid,
+  value,
+  ...rest
+}: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
   const filled = typeof value === "string" && value.trim().length > 0;
   return (
     <span className="relative block">
       <input
         {...rest}
         value={value}
+        aria-invalid={invalid}
         className={cn(
-          "w-full rounded-lg border border-line bg-panel2 py-2.5 pl-3 pr-9 text-[13.5px] font-medium",
+          "w-full rounded-lg border bg-panel2 py-2.5 pl-3 pr-9 text-[13.5px] font-medium",
+          invalid ? "border-red" : "border-line",
           "text-text outline-none transition focus:border-sky",
         )}
       />
@@ -158,7 +167,7 @@ export function CheckedInput({ value, ...rest }: InputHTMLAttributes<HTMLInputEl
         size={16}
         className={cn(
           "pointer-events-none absolute end-3 top-3 transition-colors",
-          filled ? "text-green" : "text-line",
+          filled && !invalid ? "text-green" : "text-line",
         )}
       />
     </span>

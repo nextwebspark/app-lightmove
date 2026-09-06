@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button, Field, FormError, Input, Modal, Select, useToast } from "../../../components/ui";
-import { messageFor } from "../../../lib/errorCodes";
+import { EMAIL_FIELD_ERROR_CODES, codeOf, messageFor } from "../../../lib/errorCodes";
+import { fieldErrorsFrom } from "../../../lib/formErrors";
 import { titleCase } from "../../../lib/format";
 import type { WorkspaceRole } from "../../auth/api/types";
 import { INVITE_ROLES } from "../../auth/schemas";
@@ -14,6 +15,7 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<WorkspaceRole>("MEMBER");
   const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   const send = useMutation({
     mutationFn: () => workspaceApi.invite([{ email: email.trim(), role }]),
@@ -22,13 +24,32 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
       toast(sent > 0 ? "Invitation sent" : "They're already a member");
       onClose();
     },
-    onError: (mutationError) => setError(messageFor(mutationError)),
+    onError: (mutationError) => {
+      // A domain rule the client cannot check — consumer, disposable, no mailbox behind it — is still
+      // a verdict on the address in the field, and arrives as a code rather than a fieldErrors entry.
+      // (The list's fourth code, EMAIL_ALREADY_REGISTERED, is signup's alone: an address that already
+      // has an account is skipped here by isAlreadyMember and surfaces as the `sent === 0` toast.)
+      const code = codeOf(mutationError);
+      if (code && EMAIL_FIELD_ERROR_CODES.includes(code)) {
+        setEmailError(messageFor(mutationError));
+        return;
+      }
+
+      // The endpoint takes a list, so a rejected address is attributed to its row, not to `email`.
+      const { fields, formMessage } = fieldErrorsFrom(mutationError, {
+        "requests.email": "email",
+        requests: "email",
+      });
+      setEmailError(fields.email ?? null);
+      setError(formMessage);
+    },
   });
 
   const submit = () => {
     setError(null);
+    setEmailError(null);
     if (!email.trim()) {
-      setError("Enter an email address");
+      setEmailError("Enter an email address");
       return;
     }
     send.mutate();
@@ -38,11 +59,21 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
     <Modal open={open} onClose={onClose} title="Invite a colleague">
       <FormError message={error} />
 
-      <Field label="Email" hint="Invitees get access immediately — your naming them is the approval.">
+      <Field
+        label="Email"
+        error={emailError ?? undefined}
+        hint="Invitees get access immediately — your naming them is the approval."
+      >
         <Input
           type="email"
           value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            // Cleared on edit rather than only on the next submit, matching react-hook-form's
+            // reValidateMode on every other form that renders an inline error.
+            setEmailError(null);
+          }}
+          invalid={!!emailError}
           placeholder="colleague@firm.com"
           autoFocus
         />
