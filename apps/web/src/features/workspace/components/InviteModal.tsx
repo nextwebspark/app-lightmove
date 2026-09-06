@@ -27,6 +27,8 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
     onError: (mutationError) => {
       // A domain rule the client cannot check — consumer, disposable, no mailbox behind it — is still
       // a verdict on the address in the field, and arrives as a code rather than a fieldErrors entry.
+      // (The list's fourth code, EMAIL_ALREADY_REGISTERED, is signup's alone: an address that already
+      // has an account is skipped here by isAlreadyMember and surfaces as the `sent === 0` toast.)
       const code = codeOf(mutationError);
       if (code && EMAIL_FIELD_ERROR_CODES.includes(code)) {
         setEmailError(messageFor(mutationError));
@@ -35,8 +37,8 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
 
       // The endpoint takes a list, so a rejected address is attributed to its row, not to `email`.
       const { fields, formMessage } = fieldErrorsFrom(mutationError, {
-        "requests[0].email": "email",
-        "requests[0]": "email",
+        "requests.email": "email",
+        requests: "email",
       });
       setEmailError(fields.email ?? null);
       setError(formMessage);

@@ -9,22 +9,20 @@ import { messageFor } from "./errorCodes";
  * `VALIDATION_FAILED` already names the field it rejected, so sending it to the banner throws that
  * away and leaves "One or more fields are invalid" pointing at nothing.
  *
- * `keys` maps a server field name onto this form's, because the two differ wherever the request is
- * not shaped like the form: an invite posts a list of rows, so its email arrives as
- * `requests[0].email`.
- *
- * Forms built on react-hook-form don't need this — they route the same map through `setError`.
+ * `serverFieldNames` maps a server field name onto this form's. Row indices are stripped before the
+ * lookup, so one `requests.email` entry answers `requests[0].email` and `requests[7].email` alike and
+ * a form posting many rows to one endpoint needs no entry per row.
  */
 export function fieldErrorsFrom<Name extends string>(
   error: unknown,
-  keys: Record<string, Name>,
+  serverFieldNames: Record<string, Name>,
 ): { fields: Partial<Record<Name, string>>; formMessage: string | null } {
   const fields: Partial<Record<Name, string>> = {};
   const unattributable: string[] = [];
 
   if (error instanceof ApiRequestError) {
     for (const [serverKey, message] of Object.entries(error.fieldErrors)) {
-      const name = keys[serverKey];
+      const name = serverFieldNames[serverKey] ?? serverFieldNames[withoutRowIndices(serverKey)];
       if (name) {
         fields[name] = message;
         continue;
@@ -33,9 +31,11 @@ export function fieldErrorsFrom<Name extends string>(
     }
   }
 
-  if (Object.keys(fields).length > 0) return { fields, formMessage: null };
-
-  // A rejected field this form does not render still carries a message the user needs, and its own
-  // words beat the generic sentence VALIDATION_FAILED's detail would supply.
-  return { fields, formMessage: unattributable[0] ?? messageFor(error) };
+  // The banner survives an attributed field beside it: one response can carry both a rejection this
+  // form renders and one it does not, and dropping the second shows the user the half they can fix,
+  // then refuses them again for a reason nothing ever named.
+  const attributedAny = Object.keys(fields).length > 0;
+  return { fields, formMessage: unattributable[0] ?? (attributedAny ? null : messageFor(error)) };
 }
+
+const withoutRowIndices = (serverKey: string) => serverKey.replace(/\[\d+\]/g, "");

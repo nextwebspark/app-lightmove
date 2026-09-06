@@ -12,7 +12,7 @@ import * as projectsApi from "../api/projectsApi";
 const NEW_CLIENT = "__new__";
 
 /** Mirrors `@Size(max = 160)` on CreateProjectRequest.positionTitle, so the cap is met at the field. */
-const MAX_POSITION_TITLE = 160;
+const MAX_POSITION_TITLE_LENGTH = 160;
 
 /** The two inputs a rejected create can be attributed to; the client select offers ids only. */
 type ProjectField = "newClientName" | "positionTitle";
@@ -136,9 +136,9 @@ export function NewProjectModal({
       setFieldErrors({ positionTitle: "Enter the position title" });
       return;
     }
-    if (positionTitle.trim().length > MAX_POSITION_TITLE) {
+    if (positionTitle.trim().length > MAX_POSITION_TITLE_LENGTH) {
       setFieldErrors({
-        positionTitle: `That title is too long — keep it to ${MAX_POSITION_TITLE} characters or fewer`,
+        positionTitle: `That title is too long — keep it to ${MAX_POSITION_TITLE_LENGTH} characters or fewer`,
       });
       return;
     }

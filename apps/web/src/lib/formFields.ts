@@ -20,8 +20,6 @@ export const optionalNumber = (label: string, max: number) =>
     .refine((value) => value === undefined || Number.isFinite(value), {
       message: `${label} must be a number`,
     })
-    // Its own refine, not folded into the one above: "-500" *is* a number, and reporting it with the
-    // message written for "abc" tells the user to do the one thing they already did.
     .refine((value) => value === undefined || !Number.isFinite(value) || value >= 0, {
       message: `${label} must be 0 or greater`,
     })

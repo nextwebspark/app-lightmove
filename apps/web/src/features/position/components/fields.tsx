@@ -141,11 +141,8 @@ export function StepField({
 }
 
 /**
- * The step-one input that shows a green check once it holds something.
- *
- * `invalid` withholds that check as well as reddening the border: the tick reads as "this is fine",
- * and left green beside a rejected value it contradicts the error message under the field — which is
- * the louder of the two signals, because it sits inside the control.
+ * The step-one input that shows a green check once it holds something — withheld when `invalid`,
+ * where a tick reading "this is fine" would contradict the error message under the field.
  */
 export function CheckedInput({
   invalid,
