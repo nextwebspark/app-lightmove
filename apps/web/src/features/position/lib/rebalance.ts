@@ -8,10 +8,11 @@ import type { Competency } from "../api/types";
  * tune the rest without watching the settled one drift. Everything else redistributes in proportion to
  * its current weight, or equally when those are all zero.
  *
- * <p>The conserved quantity is 100, not the panel's current total, and the pool gives up only the
- * weight it actually holds. Conserving the current total instead froze every slider in the two states
- * a panel is built in — a panel rebuilt from empty (all rows at 0, so there was nothing to move) and
- * one whose locked rows already held the whole total.
+ * <p>A row raises itself out of the panel's headroom first, and only takes from the others once the
+ * total would pass 100. Conserving the current total instead froze every slider in the two states a
+ * panel is built in — a panel rebuilt from empty (all rows at 0, so there was nothing to move) and
+ * one whose locked rows already held the whole total — and, once unfrozen, made each row somebody
+ * built up rob the one before it.
  */
 export function rebalance<T extends Competency>(
   rows: T[],
@@ -40,10 +41,12 @@ export function rebalance<T extends Competency>(
   if (pool.length === 0) {
     absorbed = 0;
   } else if (delta > 0) {
-    absorbed = Math.min(delta, poolSum);
+    const headroom = Math.max(0, 100 - rows.reduce((sum, row) => sum + row.weight, 0));
+    absorbed = Math.min(Math.max(0, delta - headroom), poolSum);
     for (const i of pool) {
-      next[i].weight =
-        poolSum > 0 ? Math.max(0, next[i].weight - absorbed * (next[i].weight / poolSum)) : 0;
+      if (poolSum > 0) {
+        next[i].weight = Math.max(0, next[i].weight - absorbed * (next[i].weight / poolSum));
+      }
     }
   } else {
     absorbed = delta;
@@ -55,10 +58,9 @@ export function rebalance<T extends Competency>(
   }
 
   for (const i of pool) next[i].weight = Math.round(next[i].weight);
-  // Reconciled against the total this move actually reached, not the one it started from: when the
-  // pool ran out there was less to give back than the row took, and the panel legitimately climbs.
-  // The remainder lands on a row that is allowed to move — a locked one would undo its lock by a
-  // fraction at a time.
+  // Reconciled against the total this move actually reached, not the one it started from: a row
+  // taking headroom leaves the others alone and the panel legitimately climbs. The remainder lands on
+  // a row that is allowed to move — a locked one would undo its lock by a fraction at a time.
   const achieved = rows.reduce((sum, row) => sum + row.weight, 0) + delta - absorbed;
   const drift = achieved - next.reduce((sum, row) => sum + row.weight, 0);
   if (drift !== 0 && pool.length > 0) {

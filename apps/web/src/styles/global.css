@@ -80,3 +80,45 @@ body * {
   --xy-selection-background-color: var(--color-sky-dim);
   --xy-selection-border: 1px solid var(--color-sky);
 }
+
+/*
+ * The weight sliders on the Position brief's assessment step. Tailwind's `accent-*` only recolours
+ * the native control — it cannot reach the track height, the pill radius, or the ring that makes the
+ * thumb read as sitting on the panel rather than in it. The mockup ships `-webkit-` only, which
+ * leaves Firefox on its default grey; the `-moz-` rules are ours. Colour comes from `--range-accent`
+ * so the panel picks its own accent with a Tailwind class.
+ */
+input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-line-soft);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  cursor: pointer;
+  background: var(--range-accent, var(--color-sky));
+  border: 2px solid var(--color-panel);
+}
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-line-soft);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  cursor: pointer;
+  background: var(--range-accent, var(--color-sky));
+  border: 2px solid var(--color-panel);
+}
+input[type="range"]:focus-visible::-webkit-slider-thumb,
+input[type="range"]:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--color-sky);
+  outline-offset: 2px;
+}

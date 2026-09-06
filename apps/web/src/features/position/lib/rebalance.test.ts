@@ -139,12 +139,26 @@ describe("rebalance below 100", () => {
     expect(rebalance(panel(30, 15, 0, 0), 2, 90, lock(0, 1))[2].weight).toBe(55);
   });
 
-  it("takes only what the other rows hold and lets the total climb", () => {
+  it("raises a row out of the headroom without touching the others", () => {
     const next = rebalance(panel(10, 5, 0), 0, 60);
     expect(next[0].weight).toBe(60);
-    expect(next[1].weight).toBe(0);
+    expect(next[1].weight).toBe(5);
     expect(next[2].weight).toBe(0);
-    expect(total(next)).toBe(60);
+    expect(total(next)).toBe(65);
+  });
+
+  it("takes from the others only once the move would pass 100", () => {
+    // 40 of headroom covers most of the 50 the row is asking for; the last 10 comes off row 1.
+    const next = rebalance(panel(50, 10), 0, 100);
+    expect(next[0].weight).toBe(100);
+    expect(next[1].weight).toBe(0);
+    expect(total(next)).toBe(100);
+  });
+
+  it("builds a panel up one row at a time without robbing the row before it", () => {
+    const first = rebalance(panel(0, 0), 0, 40);
+    const second = rebalance(first, 1, 35);
+    expect(second.map((row) => row.weight)).toEqual([40, 35]);
   });
 
   it("moves the only row of a one-row panel", () => {
@@ -154,7 +168,7 @@ describe("rebalance below 100", () => {
   it("lands rounding drift against the total the move reached", () => {
     const next = rebalance(panel(10, 3, 3, 3), 0, 50);
     expect(next[0].weight).toBe(50);
-    expect(total(next)).toBe(50);
+    expect(total(next)).toBe(59);
   });
 
   it("holds a balanced panel at 100 wherever the slider is dragged", () => {
