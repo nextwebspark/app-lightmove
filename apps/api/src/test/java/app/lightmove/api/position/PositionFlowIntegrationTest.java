@@ -431,6 +431,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
         JsonNode brief = readBrief(admin, projectId);
         assertThat(brief.get("details").get("narrative").asString()).hasSize(4000);
         assertThat(brief.get("context").get("businessDriver").asString()).hasSize(1000);
+        assertThat(brief.get("context").get("internalContext").asString()).hasSize(4000);
     }
 
     @Test
