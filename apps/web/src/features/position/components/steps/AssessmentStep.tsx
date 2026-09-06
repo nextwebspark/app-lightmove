@@ -33,7 +33,7 @@ export function AssessmentStep({
           title="Competency weighting"
           aside="drag to rank · lock a weight to hold it"
         />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="flex flex-col gap-5">
           <CompetencyPanel
             title="Technical Competencies"
             accent="sky"

@@ -264,13 +264,21 @@ export function AddRowButton({
 }
 
 /** The ✕ that removes one row of a list. */
-export function RemoveRowButton({ label, onClick }: { label: string; onClick: () => void }) {
+export function RemoveRowButton({
+  label,
+  onClick,
+  className,
+}: {
+  label: string;
+  onClick: () => void;
+  className?: string;
+}) {
   return (
     <button
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="rounded p-1 text-text3 transition hover:text-red"
+      className={cn("rounded p-1 text-text3 transition hover:text-red", className)}
     >
       <Icon d={ICONS.close} size={12} />
     </button>

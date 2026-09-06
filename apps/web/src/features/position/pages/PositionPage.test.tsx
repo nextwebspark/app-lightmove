@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -386,18 +386,102 @@ describe("PositionPage", () => {
     const rail = await screen.findByRole("complementary");
     await person.click(within(rail).getByRole("button", { name: /Assessment criteria/ }));
 
-    const treasurySlider = screen.getByRole("slider", { name: "Treasury slider" });
+    const treasurySlider = screen.getByRole("slider", { name: "Treasury (row 1) slider" });
     expect(treasurySlider).toBeEnabled();
 
-    await person.click(screen.getByRole("button", { name: "Lock Treasury" }));
+    await person.click(screen.getByRole("button", { name: "Lock Treasury (row 1)" }));
 
     // A locked row states itself: the slider and the number both stop accepting input, so the lock
     // is visible rather than something you discover by dragging and nothing moving.
-    expect(screen.getByRole("slider", { name: "Treasury slider" })).toBeDisabled();
-    expect(screen.getByRole("spinbutton", { name: "Treasury weight" })).toBeDisabled();
+    expect(screen.getByRole("slider", { name: "Treasury (row 1) slider" })).toBeDisabled();
+    expect(screen.getByRole("spinbutton", { name: "Treasury (row 1) weight" })).toBeDisabled();
 
-    await person.click(screen.getByRole("button", { name: "Unlock Treasury" }));
-    expect(screen.getByRole("slider", { name: "Treasury slider" })).toBeEnabled();
+    await person.click(screen.getByRole("button", { name: "Unlock Treasury (row 1)" }));
+    expect(screen.getByRole("slider", { name: "Treasury (row 1) slider" })).toBeEnabled();
+  });
+
+  it("adds a competency to the panel it was asked for and no other", async () => {
+    vi.mocked(positionApi.putCompetencies).mockResolvedValue(seeded);
+    renderPage();
+    const person = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await person.click(within(rail).getByRole("button", { name: /Assessment criteria/ }));
+
+    const technical = screen.getByRole("region", { name: "Technical Competencies" });
+    await person.click(within(technical).getByRole("button", { name: "+ Add competency" }));
+
+    await waitFor(() =>
+      expect(vi.mocked(positionApi.putCompetencies).mock.calls.at(-1)?.[1]).toHaveLength(3),
+    );
+    const [, technicalSent, behaviouralSent] =
+      vi.mocked(positionApi.putCompetencies).mock.calls.at(-1)!;
+    expect(technicalSent.at(-1)).toEqual({ name: "New competency", description: null, weight: 0 });
+    expect(behaviouralSent).toHaveLength(1);
+  });
+
+  it("lets the last competency in a panel be removed", async () => {
+    vi.mocked(positionApi.putCompetencies).mockResolvedValue(seeded);
+    renderPage();
+    const person = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await person.click(within(rail).getByRole("button", { name: /Assessment criteria/ }));
+
+    // The behavioural panel holds exactly one row, which is the state that used to hide its ✕ and
+    // leave a drafted competency impossible to replace.
+    await person.click(screen.getByRole("button", { name: "Remove Strategic Leadership (row 1)" }));
+
+    await waitFor(() =>
+      expect(vi.mocked(positionApi.putCompetencies).mock.calls.at(-1)?.[2]).toEqual([]),
+    );
+    const behavioural = screen.getByRole("region", { name: "Behavioural Competencies" });
+    expect(within(behavioural).getByText("No competencies yet.")).toBeInTheDocument();
+  });
+
+  it("moves a slider on a panel rebuilt from empty", async () => {
+    vi.mocked(positionApi.putCompetencies).mockResolvedValue(seeded);
+    renderPage();
+    const person = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await person.click(within(rail).getByRole("button", { name: /Assessment criteria/ }));
+
+    const behavioural = screen.getByRole("region", { name: "Behavioural Competencies" });
+    await person.click(screen.getByRole("button", { name: "Remove Strategic Leadership (row 1)" }));
+    await person.click(within(behavioural).getByRole("button", { name: "+ Add competency" }));
+
+    // Every row is added at 0, so the panel totals 0. Weight used to be conserved at whatever the
+    // panel held, which left this slider — and every other one on a rebuilt panel — frozen.
+    const slider = within(behavioural).getByRole("slider", { name: "New competency (row 1) slider" });
+    fireEvent.change(slider, { target: { value: "40" } });
+
+    expect(
+      within(behavioural).getByRole("spinbutton", { name: "New competency (row 1) weight" }),
+    ).toHaveValue(40);
+  });
+
+  it("keeps two default-named competencies tellable apart", async () => {
+    vi.mocked(positionApi.putCompetencies).mockResolvedValue(seeded);
+    renderPage();
+    const person = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await person.click(within(rail).getByRole("button", { name: /Assessment criteria/ }));
+
+    // Every added row is seeded with the same name, so an accessible name built from it alone leaves
+    // a screen-reader user two identical controls — and makes any query for one ambiguous.
+    const behavioural = screen.getByRole("region", { name: "Behavioural Competencies" });
+    const add = within(behavioural).getByRole("button", { name: "+ Add competency" });
+    await person.click(add);
+    await person.click(add);
+
+    expect(
+      within(behavioural).getByRole("slider", { name: "New competency (row 2) slider" }),
+    ).toBeInTheDocument();
+    expect(
+      within(behavioural).getByRole("slider", { name: "New competency (row 3) slider" }),
+    ).toBeInTheDocument();
   });
 
   it("offers every competency a keyboard-reachable reorder handle", async () => {
@@ -416,7 +500,7 @@ describe("PositionPage", () => {
     // fabricated layout and proves nothing about the real thing. The reordering logic is covered
     // where it actually lives — moveRow, in lib/competencyRows.test.ts — and the drag and keyboard
     // paths are checked in a browser.
-    const handle = screen.getByRole("button", { name: "Reorder Treasury" });
+    const handle = screen.getByRole("button", { name: "Reorder Treasury (row 1)" });
     expect(handle).toHaveAttribute("aria-roledescription", "sortable");
     handle.focus();
     expect(handle).toHaveFocus();

@@ -80,3 +80,50 @@ body * {
   --xy-selection-background-color: var(--color-sky-dim);
   --xy-selection-border: 1px solid var(--color-sky);
 }
+
+/*
+ * The weight slider on the Position brief's assessment step. Tailwind's `accent-*` recolours the
+ * native control and nothing else — it cannot reach the track geometry or the ring that lifts the
+ * thumb off the panel. The `-moz-` rules are ours; the mockup ships `-webkit-` only.
+ *
+ * Each engine rejects the other's vendor pseudo-element, and one bad selector invalidates a whole
+ * selector list — so every rule below stands alone. Grouping the two focus rules dropped both, which
+ * left the control with no focus ring at all, `appearance: none` having removed the native one.
+ */
+.weight-slider {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-line-soft);
+}
+.weight-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  cursor: pointer;
+  background: var(--range-accent);
+  border: 2px solid var(--color-panel);
+}
+.weight-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-line-soft);
+}
+.weight-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  cursor: pointer;
+  background: var(--range-accent);
+  border: 2px solid var(--color-panel);
+}
+.weight-slider:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--color-sky);
+  outline-offset: 2px;
+}
+.weight-slider:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--color-sky);
+  outline-offset: 2px;
+}

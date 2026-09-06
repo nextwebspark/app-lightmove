@@ -77,6 +77,11 @@ await shoot(browser, {
     await page.getByRole("button", { name: "Edit" }).nth(1).click();
   },
 });
+await shoot(browser, {
+  published: false,
+  name: "6-draft-assessment",
+  act: (page) => page.getByRole("button", { name: /Assessment criteria/ }).click(),
+});
 
 await browser.close();
 console.log(`\nshots in ${SHOTS}`);
