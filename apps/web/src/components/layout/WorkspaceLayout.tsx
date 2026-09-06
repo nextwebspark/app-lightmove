@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { Outlet } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import { isPureClient } from "../../features/auth/roles";
@@ -11,10 +12,23 @@ import { type SidebarGroup } from "./Sidebar";
 
 /**
  * The app shell: topbar, the workspace sidebar with live counts, and the main panel the routed page
- * renders into. The sidebar's counts ride the same queries the pages use — one cache, no extra
- * traffic.
+ * renders into.
  */
 export function WorkspaceLayout() {
+  return (
+    <WorkspaceShell>
+      <Outlet />
+    </WorkspaceShell>
+  );
+}
+
+/**
+ * The same chrome around content that isn't a routed child — the not-found screen a bad project id
+ * lands on, which cannot use the project rail because there is no project to build it from.
+ *
+ * The sidebar's counts ride the same queries the pages use — one cache, no extra traffic.
+ */
+export function WorkspaceShell({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const roles = user?.workspace?.roles ?? [];
   const clientOnly = isPureClient(roles);
@@ -77,7 +91,7 @@ export function WorkspaceLayout() {
       navGroups={groups}
       contentClassName="mx-auto max-w-[1440px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7"
     >
-      <Outlet />
+      {children}
     </AppShell>
   );
 }

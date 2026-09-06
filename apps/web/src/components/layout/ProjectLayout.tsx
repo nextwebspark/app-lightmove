@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
+import { Outlet, useLocation, useParams } from "react-router-dom";
+import { NotFoundPage } from "../../app/NotFoundPage";
 import * as projectsApi from "../../features/projects/api/projectsApi";
 import type { Project } from "../../features/projects/api/types";
 import { cn } from "../../lib/cn";
@@ -34,7 +35,7 @@ const FULL_BLEED_TABS = ["/companies/", "/strategy"];
  * and Strategy under "Mandate", the three triage stages under "Companies", the people tabs — and the
  * routed page.
  * The project itself is resolved from the cached list query; a deep link waits for the load and only
- * redirects once the id is confirmed absent.
+ * shows the not-found screen once the id is confirmed unreadable.
  */
 export function ProjectLayout() {
   const { projectId } = useParams();
@@ -67,7 +68,14 @@ export function ProjectLayout() {
         </div>
       );
     }
-    return <Navigate to="/" replace />;
+    // Not a redirect to the list: a deleted mandate and one the caller is not seated on both land
+    // here, and neither is a navigation the user asked for.
+    return (
+      <NotFoundPage
+        title="We couldn't open that project"
+        body="It may have been deleted, or you may not be on its team. Ask the mandate's lead if you think you should have access."
+      />
+    );
   }
 
   const base = `/projects/${project.id}`;
