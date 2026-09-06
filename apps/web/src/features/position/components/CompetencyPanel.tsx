@@ -40,11 +40,28 @@ const MAX_ROWS = 10;
 
 // Header strip and rows share one template so their columns cannot drift apart. Below md the row
 // wraps to three lines — a 390px viewport cannot hold seven columns without scrolling sideways.
+const ACCENTS = {
+  sky: {
+    border: "border-sky/30",
+    dot: "bg-sky",
+    slider: "[--range-accent:var(--color-sky)]",
+    badge: "border-sky/40 bg-sky-dim text-sky",
+  },
+  amber: {
+    border: "border-amber-btn/35",
+    dot: "bg-amber-btn",
+    slider: "[--range-accent:var(--color-amber-btn)]",
+    badge: "border-amber-btn/45 bg-amber-dim text-amber",
+  },
+} as const;
+
 const ROW_GRID =
   "grid grid-cols-[20px_minmax(0,1fr)_74px_24px_24px] gap-x-3.5 gap-y-1 " +
   "md:grid-cols-[20px_minmax(0,1.3fr)_minmax(0,1fr)_minmax(150px,1.7fr)_74px_24px_24px]";
-/** Cells that drop to their own line below md and rejoin the row at md. */
-const WRAPS = "col-start-2 col-span-4 md:col-auto md:col-span-1 md:row-auto";
+// md:col-span-1 is what restores auto-placement at md: a span with no explicit line auto-places, and
+// it beats the base col-start-2 from the media layer. `md:col-auto` would be dropped by twMerge as
+// the same class group, so it is not written here.
+const STACKS_BELOW_MD = "col-start-2 col-span-4 md:col-span-1 md:row-auto";
 
 export function CompetencyPanel({
   title,
@@ -64,10 +81,7 @@ export function CompetencyPanel({
   onReorder: (fromId: string, toId: string) => void;
 }) {
   const total = rows.reduce((sum, row) => sum + row.weight, 0);
-  const dot = accent === "sky" ? "bg-sky" : "bg-amber-btn";
-  const slider = accent === "sky" ? "" : "[--range-accent:var(--color-amber-btn)]";
-  const balanced =
-    accent === "sky" ? "border-sky/40 bg-sky-dim text-sky" : "border-amber-btn/45 bg-amber-dim text-amber";
+  const theme = ACCENTS[accent];
 
   // Hoisted, not inline: a fresh options object each render gives useSensor a new descriptor, which
   // hands DndContext a new sensors array and makes it re-initialise. Every keystroke on a weight
@@ -85,6 +99,12 @@ export function CompetencyPanel({
     rows.map((row, index) => (locked.has(row.id) ? index : -1)).filter((index) => index >= 0),
   );
 
+  const handleAddRow = () =>
+    onChange([
+      ...rows,
+      { id: crypto.randomUUID(), name: "New competency", description: null, weight: 0 },
+    ]);
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -94,13 +114,10 @@ export function CompetencyPanel({
   return (
     <section
       aria-label={title}
-      className={cn(
-        "overflow-hidden rounded-[10px] border bg-panel2",
-        accent === "sky" ? "border-sky/30" : "border-amber-btn/35",
-      )}
+      className={cn("overflow-hidden rounded-[10px] border bg-panel2", theme.border)}
     >
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-line-soft px-4 py-3">
-        <span className={cn("size-2 flex-none rounded-full", dot)} />
+        <span className={cn("size-2 flex-none rounded-full", theme.dot)} />
         <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-text2">
           {title}
         </span>
@@ -108,7 +125,7 @@ export function CompetencyPanel({
         <span
           className={cn(
             "ms-auto rounded-md border px-2.5 py-[3px] font-mono text-xs font-bold",
-            total === 100 ? balanced : "border-red/40 bg-red-dim text-red",
+            total === 100 ? theme.badge : "border-red/40 bg-red-dim text-red",
           )}
         >
           {total}%
@@ -146,7 +163,7 @@ export function CompetencyPanel({
                 row={row}
                 index={index}
                 panelTitle={title}
-                slider={slider}
+                sliderAccent={theme.slider}
                 locked={locked.has(row.id)}
                 onPatch={(changes) => patch(index, changes)}
                 onSlide={(weight) => onChange(rebalance(rows, index, weight, lockedIndices))}
@@ -166,25 +183,18 @@ export function CompetencyPanel({
 
       {rows.length < MAX_ROWS && (
         <div className="px-4 py-2.5">
-          <AddRowButton onClick={addRow}>+ Add competency</AddRowButton>
+          <AddRowButton onClick={handleAddRow}>+ Add competency</AddRowButton>
         </div>
       )}
     </section>
   );
-
-  function addRow() {
-    onChange([
-      ...rows,
-      { id: crypto.randomUUID(), name: "New competency", description: null, weight: 0 },
-    ]);
-  }
 }
 
 function CompetencyRow({
   row,
   index,
   panelTitle,
-  slider,
+  sliderAccent,
   locked,
   onPatch,
   onSlide,
@@ -194,7 +204,7 @@ function CompetencyRow({
   row: IdentifiedCompetency;
   index: number;
   panelTitle: string;
-  slider: string;
+  sliderAccent: string;
   locked: boolean;
   onPatch: (changes: Partial<IdentifiedCompetency>) => void;
   onSlide: (weight: number) => void;
@@ -204,12 +214,13 @@ function CompetencyRow({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: row.id,
   });
-  const named = row.name.trim() || `competency ${index + 1}`;
+  // Row-qualified, always: "+ Add competency" seeds every new row with the same name, so a bare
+  // row.name gives two controls in one panel the same accessible name and nothing to tell them apart.
+  const named = `${row.name.trim() || "Untitled competency"} (row ${index + 1})`;
 
   return (
-    // The transform lands on the grid row itself. Wrapping the row in a display:contents element
-    // instead would generate no box, so the transform would be a no-op and the sortable strategy
-    // would measure the row as zero-height.
+    // The transform has to land on the grid row itself: a box-less wrapper measures zero to the
+    // sortable strategy and takes no transform.
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
@@ -239,11 +250,11 @@ function CompetencyRow({
 
       <input
         value={row.description ?? ""}
-        aria-label={`${row.name} description`}
+        aria-label={`${named} description`}
         placeholder="What this measures…"
         onChange={(e) => onPatch({ description: e.target.value || null })}
         className={cn(
-          WRAPS,
+          STACKS_BELOW_MD,
           "row-start-2 min-w-0 bg-transparent text-[12.5px] text-text3 outline-none placeholder:text-text3/60",
         )}
       />
@@ -256,9 +267,9 @@ function CompetencyRow({
         max={100}
         value={row.weight}
         disabled={locked}
-        aria-label={`${row.name} slider`}
+        aria-label={`${named} slider`}
         onChange={(e) => onSlide(Number(e.target.value))}
-        className={cn(WRAPS, "row-start-3 w-full min-w-0 disabled:opacity-50", slider)}
+        className={cn(STACKS_BELOW_MD, "weight-slider row-start-3 w-full min-w-0 disabled:opacity-50", sliderAccent)}
       />
 
       <span className="col-start-3 row-start-1 flex items-center justify-end gap-1 md:col-auto md:row-auto">
@@ -268,7 +279,7 @@ function CompetencyRow({
           max={100}
           value={row.weight}
           disabled={locked}
-          aria-label={`${row.name} weight`}
+          aria-label={`${named} weight`}
           onChange={(e) => {
             const weight = Math.max(0, Math.min(100, Math.round(Number(e.target.value) || 0)));
             onPatch({ weight });
@@ -292,9 +303,11 @@ function CompetencyRow({
         <Icon d={locked ? ICONS.lock : ICONS.unlock} size={13} />
       </button>
 
-      <span className="col-start-5 row-start-1 justify-self-center md:col-auto md:row-auto">
-        <RemoveRowButton label={`Remove ${named}`} onClick={onRemove} />
-      </span>
+      <RemoveRowButton
+        label={`Remove ${named}`}
+        onClick={onRemove}
+        className="col-start-5 row-start-1 justify-self-center md:col-auto md:row-auto"
+      />
     </div>
   );
 }

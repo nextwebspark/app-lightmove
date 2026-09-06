@@ -8,11 +8,10 @@ import type { Competency } from "../api/types";
  * tune the rest without watching the settled one drift. Everything else redistributes in proportion to
  * its current weight, or equally when those are all zero.
  *
- * <p>A row raises itself out of the panel's headroom first, and only takes from the others once the
- * total would pass 100. Conserving the current total instead froze every slider in the two states a
- * panel is built in — a panel rebuilt from empty (all rows at 0, so there was nothing to move) and
- * one whose locked rows already held the whole total — and, once unfrozen, made each row somebody
- * built up rob the one before it.
+ * <p>A row raises itself out of the panel's headroom first and only takes from the others once the
+ * total would pass 100; releasing weight below 100 lowers the total rather than inflating rows nobody
+ * touched. Redistribution is what holds a *balanced* panel balanced — a half-built one is left to be
+ * built.
  */
 export function rebalance<T extends Competency>(
   rows: T[],
@@ -22,6 +21,7 @@ export function rebalance<T extends Competency>(
 ): T[] {
   if (rows.length === 0) return rows;
 
+  const total = rows.reduce((sum, row) => sum + row.weight, 0);
   const lockedSum = rows.reduce(
     (sum, row, i) => (i !== index && locked.has(i) ? sum + row.weight : sum),
     0,
@@ -35,25 +35,24 @@ export function rebalance<T extends Competency>(
   const pool = rows.map((_, i) => i).filter((i) => i !== index && !locked.has(i));
   const next = rows.map((row) => ({ ...row }));
   next[index].weight = target;
+  // Nothing may move, so the dragged row simply takes its ceiling and the total follows it.
+  if (pool.length === 0) return next;
 
   const poolSum = pool.reduce((sum, i) => sum + next[i].weight, 0);
-  let absorbed = 0;
-  if (pool.length === 0) {
-    absorbed = 0;
-  } else if (delta > 0) {
-    const headroom = Math.max(0, 100 - rows.reduce((sum, row) => sum + row.weight, 0));
-    absorbed = Math.min(Math.max(0, delta - headroom), poolSum);
-    for (const i of pool) {
-      if (poolSum > 0) {
-        next[i].weight = Math.max(0, next[i].weight - absorbed * (next[i].weight / poolSum));
-      }
-    }
-  } else {
-    absorbed = delta;
-    const share = delta / pool.length;
+  const absorbed =
+    delta > 0
+      ? Math.min(Math.max(0, delta - (100 - total)), poolSum)
+      : total >= 100
+        ? delta
+        : 0;
+
+  if (absorbed !== 0) {
+    const share = absorbed / pool.length;
     for (const i of pool) {
       next[i].weight =
-        poolSum > 0 ? next[i].weight - delta * (next[i].weight / poolSum) : next[i].weight - share;
+        poolSum > 0
+          ? Math.max(0, next[i].weight - absorbed * (next[i].weight / poolSum))
+          : next[i].weight - share;
     }
   }
 
@@ -61,9 +60,9 @@ export function rebalance<T extends Competency>(
   // Reconciled against the total this move actually reached, not the one it started from: a row
   // taking headroom leaves the others alone and the panel legitimately climbs. The remainder lands on
   // a row that is allowed to move — a locked one would undo its lock by a fraction at a time.
-  const achieved = rows.reduce((sum, row) => sum + row.weight, 0) + delta - absorbed;
+  const achieved = total + delta - absorbed;
   const drift = achieved - next.reduce((sum, row) => sum + row.weight, 0);
-  if (drift !== 0 && pool.length > 0) {
+  if (drift !== 0) {
     next[pool[0]].weight = Math.max(0, next[pool[0]].weight + drift);
   }
   return next;

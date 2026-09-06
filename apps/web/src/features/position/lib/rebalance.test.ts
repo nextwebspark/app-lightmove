@@ -171,6 +171,30 @@ describe("rebalance below 100", () => {
     expect(total(next)).toBe(59);
   });
 
+  it("lowers the total rather than inflating rows nobody touched", () => {
+    // The mirror of the build-up case: row 1 was set to 35 by hand and must stay there.
+    const next = rebalance(panel(40, 35), 0, 10);
+    expect(next.map((row) => row.weight)).toEqual([10, 35]);
+    expect(total(next)).toBe(45);
+  });
+
+  it("does not conjure weight onto rows sitting at zero when a row is dragged down", () => {
+    expect(rebalance(panel(40, 0, 0), 0, 0).map((row) => row.weight)).toEqual([0, 0, 0]);
+  });
+
+  it("still redistributes a decrease once the panel is balanced", () => {
+    const next = rebalance(panel(40, 35, 25), 0, 10);
+    expect(next[0].weight).toBe(10);
+    expect(total(next)).toBe(100);
+  });
+
+  it("redistributes a decrease away from a locked row on a balanced panel", () => {
+    const next = rebalance(panel(40, 35, 25), 0, 10, lock(1));
+    expect(next[1].weight).toBe(35);
+    expect(next[2].weight).toBe(55);
+    expect(total(next)).toBe(100);
+  });
+
   it("holds a balanced panel at 100 wherever the slider is dragged", () => {
     for (let target = 0; target <= 100; target++) {
       expect(total(rebalance(panel(30, 30, 20, 20), 0, target))).toBe(100);
