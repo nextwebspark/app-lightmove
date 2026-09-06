@@ -31,6 +31,7 @@ import { SettingsSecurityPage } from "../features/settings/pages/SettingsSecurit
 import { TriageStagePage } from "../features/triage/pages/TriageStagePage";
 import { StrategyPage } from "../features/strategy/pages/StrategyPage";
 import { TeamPage } from "../features/workspace/pages/TeamPage";
+import { NotFoundPage } from "./NotFoundPage";
 
 /**
  * Routing follows the user's actual state, not a step counter.
@@ -130,7 +131,8 @@ export function AppRoutes() {
         </Route>
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Anything else. Rendered rather than redirected, for the reason NotFoundPage carries. */}
+      <Route path="*" element={<RequireWorkspace><NotFoundPage /></RequireWorkspace>} />
     </Routes>
   );
 }
