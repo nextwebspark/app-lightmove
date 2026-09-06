@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { Button, Card, Field, FormError, Input, Logo } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
+import { EMAIL_FIELD_ERROR_CODES, type ApiErrorCode } from "../../../lib/errorCodes";
 import { ThemeToggle } from "../../theme/ThemeToggle";
 import { useAuth } from "../AuthProvider";
 import { OAuthButtons } from "../components/OAuthButtons";
@@ -48,16 +49,7 @@ export function SignupPage() {
         return;
       }
 
-      // Everything the server can reject about an email belongs on the email field, not floating
-      // above the form — a consumer address, a disposable one, one already registered.
-      const emailProblems = [
-        "EMAIL_NOT_WORK_ADDRESS",
-        "EMAIL_DISPOSABLE",
-        "EMAIL_UNDELIVERABLE",
-        "EMAIL_ALREADY_REGISTERED",
-      ];
-
-      if (emailProblems.includes(error.code)) {
+      if (EMAIL_FIELD_ERROR_CODES.includes(error.code as ApiErrorCode)) {
         setError("email", { message: error.problem.detail });
         // Already registered is the one email problem with a way forward: log in. The CTA carries the
         // typed address to prefill the login form — and deliberately nothing more. Which workspace the

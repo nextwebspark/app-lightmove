@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
+import { ApiRequestError } from "../../../lib/apiClient";
 import type { Client } from "../../clients/api/types";
 import * as positionApi from "../../position/api/positionApi";
 import type { PositionTemplate } from "../../position/api/types";
@@ -248,5 +249,100 @@ describe("NewProjectModal — the role-template picker on the Position field", (
 
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+/**
+ * The modal used to send every refusal — its own and the server's — to one banner reading "One or
+ * more fields are invalid", which named nothing the user could act on.
+ */
+describe("NewProjectModal — where a refusal is reported", () => {
+  const wrap = (children: ReactNode) => (
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <ToastProvider>{children}</ToastProvider>
+    </QueryClientProvider>
+  );
+
+  const refusal = (code: string, detail: string, fieldErrors?: Record<string, string>) =>
+    new ApiRequestError({ code, detail, status: 400, correlationId: "c1", fieldErrors });
+
+  // The suites above share this mock; a "was never called" assertion here would otherwise be reading
+  // their calls.
+  beforeEach(() => {
+    vi.mocked(projectsApi.createProject).mockReset();
+  });
+
+  it("reports a missing title at the Position field", async () => {
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+
+    await user.click(screen.getByRole("button", { name: "Create project" }));
+
+    expect(screen.getByText("Enter the position title")).toBeInTheDocument();
+    expect(projectsApi.createProject).not.toHaveBeenCalled();
+  });
+
+  // The client check mirrors @Size(max = 160) on CreateProjectRequest.positionTitle. Without it an
+  // over-long title posted, was refused, and came back as the anonymous banner.
+  it("refuses a title over 160 characters before it reaches the server", async () => {
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+
+    const field = screen.getByRole("combobox", { name: "Position" });
+    await user.type(field, "C".repeat(161));
+    await user.click(screen.getByRole("button", { name: "Create project" }));
+
+    expect(
+      screen.getByText("That title is too long — keep it under 160 characters"),
+    ).toBeInTheDocument();
+    expect(field).toHaveAttribute("aria-invalid", "true");
+    expect(projectsApi.createProject).not.toHaveBeenCalled();
+  });
+
+  it("lets a title of exactly 160 characters through", async () => {
+    vi.mocked(projectsApi.createProject).mockResolvedValue(created("acme"));
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+
+    const title = "C".repeat(160);
+    await user.type(screen.getByRole("combobox", { name: "Position" }), title);
+    await user.click(screen.getByRole("button", { name: "Create project" }));
+
+    await waitFor(() =>
+      expect(projectsApi.createProject).toHaveBeenCalledWith(
+        expect.objectContaining({ positionTitle: title }),
+      ),
+    );
+  });
+
+  it("routes the server's field message to the field it names", async () => {
+    vi.mocked(projectsApi.createProject).mockRejectedValue(
+      refusal("VALIDATION_FAILED", "One or more fields are invalid", {
+        positionTitle: "That title is too long",
+      }),
+    );
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+
+    await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
+    await user.click(screen.getByRole("button", { name: "Create project" }));
+
+    expect(await screen.findByText("That title is too long")).toBeInTheDocument();
+    expect(screen.queryByText("One or more fields are invalid")).not.toBeInTheDocument();
+  });
+
+  it("keeps a form-level refusal in the banner", async () => {
+    vi.mocked(projectsApi.createProject).mockRejectedValue(
+      refusal("FORBIDDEN", "You don't have permission to do this."),
+    );
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+
+    await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
+    await user.click(screen.getByRole("button", { name: "Create project" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "You don't have permission to do this.",
+    );
   });
 });
