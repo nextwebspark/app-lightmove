@@ -412,6 +412,28 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the brief's long prose fields save at their cap and are refused one character over")
+    void longProseFieldsAreCapped() throws Exception {
+        String admin = adminOf("Prose Firm");
+        String projectId = createProject(admin, createClient(admin, "Aldar", "UAE"), "CFO");
+
+        putStep(admin, projectId, "details", detailsWithNarrative("n".repeat(4000)))
+                .andExpect(jsonPath("$.details.narrative").value("n".repeat(4000)));
+        rejectStep(admin, projectId, "details", detailsWithNarrative("n".repeat(4001)));
+
+        putStep(admin, projectId, "context", contextWith("d".repeat(1000), "c".repeat(4000)))
+                .andExpect(jsonPath("$.context.businessDriver").value("d".repeat(1000)))
+                .andExpect(jsonPath("$.context.internalContext").value("c".repeat(4000)));
+        rejectStep(admin, projectId, "context", contextWith("d".repeat(1001), null));
+        rejectStep(admin, projectId, "context", contextWith(null, "c".repeat(4001)));
+
+        // The refusals stopped at the door: the last write that passed is still what is stored.
+        JsonNode brief = readBrief(admin, projectId);
+        assertThat(brief.get("details").get("narrative").asString()).hasSize(4000);
+        assertThat(brief.get("context").get("businessDriver").asString()).hasSize(1000);
+    }
+
+    @Test
     @DisplayName("a project whose position row is missing gets one seeded lazily on first read")
     void missingPositionRowIsSeededOnRead() throws Exception {
         String admin = adminOf("Legacy Firm");
@@ -452,15 +474,37 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .header("Authorization", "Bearer " + token));
     }
 
-    private void rejectChart(String token, String projectId, String chartJson) throws Exception {
-        mvc.perform(put(positionUrl(projectId) + "/reporting")
+    private static String detailsWithNarrative(String narrative) {
+        return """
+                {"roleTitle":"CFO","department":null,"location":null,"employmentType":null,
+                 "seniority":null,"responsibilities":[],"narrative":"%s"}""".formatted(narrative);
+    }
+
+    private static String contextWith(String businessDriver, String internalContext) {
+        return """
+                {"mandateReason":"BACKFILL","businessDriver":%s,"strategicPriorities":[],
+                 "confidential":false,"internalContext":%s}"""
+                .formatted(quoted(businessDriver), quoted(internalContext));
+    }
+
+    private static String quoted(String value) {
+        return value == null ? "null" : "\"%s\"".formatted(value);
+    }
+
+    private void rejectStep(String token, String projectId, String step, String bodyJson)
+            throws Exception {
+        mvc.perform(put(positionUrl(projectId) + "/" + step)
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"orgChart":%s,"teamSize":null,
-                                 "noticeValue":null,"noticeUnit":null}""".formatted(chartJson)))
+                        .content(bodyJson))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    private void rejectChart(String token, String projectId, String chartJson) throws Exception {
+        rejectStep(token, projectId, "reporting", """
+                {"orgChart":%s,"teamSize":null,
+                 "noticeValue":null,"noticeUnit":null}""".formatted(chartJson));
     }
 
     private JsonNode readBrief(String token, String projectId) throws Exception {
