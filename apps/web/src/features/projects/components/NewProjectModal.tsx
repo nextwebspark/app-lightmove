@@ -114,6 +114,17 @@ export function NewProjectModal({
     },
   });
 
+  // Cleared as the field is edited, not only on the next submit: react-hook-form's reValidateMode
+  // does this for every other form wearing `invalid=`, and without it a corrected value keeps the red
+  // border and a message that no longer describes it.
+  const clearFieldError = (field: ProjectField) =>
+    setFieldErrors((current) => (current[field] ? { ...current, [field]: undefined } : current));
+
+  const handlePositionTitleChange = (title: string) => {
+    setPositionTitle(title);
+    clearFieldError("positionTitle");
+  };
+
   const submit = () => {
     setError(null);
     setFieldErrors({});
@@ -127,7 +138,7 @@ export function NewProjectModal({
     }
     if (positionTitle.trim().length > MAX_POSITION_TITLE) {
       setFieldErrors({
-        positionTitle: `That title is too long — keep it under ${MAX_POSITION_TITLE} characters`,
+        positionTitle: `That title is too long — keep it to ${MAX_POSITION_TITLE} characters or fewer`,
       });
       return;
     }
@@ -169,7 +180,10 @@ export function NewProjectModal({
         <Field label="Client name" error={fieldErrors.newClientName}>
           <Input
             value={newClientName}
-            onChange={(event) => setNewClientName(event.target.value)}
+            onChange={(event) => {
+              setNewClientName(event.target.value);
+              clearFieldError("newClientName");
+            }}
             invalid={!!fieldErrors.newClientName}
             placeholder="e.g. Meridian Energy Group"
             autoFocus
@@ -185,8 +199,8 @@ export function NewProjectModal({
           templates={templates}
           busy={false}
           invalid={!!fieldErrors.positionTitle}
-          onChange={setPositionTitle}
-          onPick={(template) => setPositionTitle(template.title)}
+          onChange={handlePositionTitleChange}
+          onPick={(template) => handlePositionTitleChange(template.title)}
         />
       </Field>
 

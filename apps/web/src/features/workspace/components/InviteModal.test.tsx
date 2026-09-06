@@ -76,6 +76,21 @@ describe("InviteModal — where a refusal is reported", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  // The error used to outlive the edit that fixed it: it was cleared only by the next submit.
+  it("clears the email error as soon as the address is edited", async () => {
+    const user = userEvent.setup();
+    open();
+
+    const field = screen.getByPlaceholderText("colleague@firm.com");
+    await user.click(screen.getByRole("button", { name: "Send invite" }));
+    expect(screen.getByText("Enter an email address")).toBeInTheDocument();
+
+    await user.type(field, "c");
+
+    expect(screen.queryByText("Enter an email address")).not.toBeInTheDocument();
+    expect(field).not.toHaveAttribute("aria-invalid", "true");
+  });
+
   // FormError is still the right home for a failure no single input owns.
   it("keeps a form-level refusal in the banner", async () => {
     vi.mocked(workspaceApi.invite).mockRejectedValue(

@@ -65,7 +65,12 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
         <Input
           type="email"
           value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            // Cleared on edit rather than only on the next submit, matching react-hook-form's
+            // reValidateMode on every other form that renders an inline error.
+            setEmailError(null);
+          }}
           invalid={!!emailError}
           placeholder="colleague@firm.com"
           autoFocus

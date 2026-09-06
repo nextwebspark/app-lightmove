@@ -292,11 +292,42 @@ describe("NewProjectModal — where a refusal is reported", () => {
     await user.type(field, "C".repeat(161));
     await user.click(screen.getByRole("button", { name: "Create project" }));
 
+    // The guard is `> 160` and @Size(max = 160) is inclusive, so the copy must not send a user who
+    // trims to exactly 160 into the case it calls refused.
     expect(
-      screen.getByText("That title is too long — keep it under 160 characters"),
+      screen.getByText("That title is too long — keep it to 160 characters or fewer"),
     ).toBeInTheDocument();
     expect(field).toHaveAttribute("aria-invalid", "true");
     expect(projectsApi.createProject).not.toHaveBeenCalled();
+  });
+
+  // The error used to be cleared only by the next submit, so a corrected title kept the red border
+  // and a message that no longer described it.
+  it("clears the title error as soon as the title is edited", async () => {
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+
+    const field = screen.getByRole("combobox", { name: "Position" });
+    await user.click(screen.getByRole("button", { name: "Create project" }));
+    expect(screen.getByText("Enter the position title")).toBeInTheDocument();
+
+    await user.type(field, "C");
+
+    expect(screen.queryByText("Enter the position title")).not.toBeInTheDocument();
+    expect(field).not.toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("clears the client-name error as soon as that field is edited", async () => {
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+
+    await user.selectOptions(screen.getByRole("combobox", { name: /Client/ }), "__new__");
+    await user.click(screen.getByRole("button", { name: "Create project" }));
+    expect(screen.getByText("Enter the client's name")).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText(/Meridian Energy Group/), "M");
+
+    expect(screen.queryByText("Enter the client's name")).not.toBeInTheDocument();
   });
 
   it("lets a title of exactly 160 characters through", async () => {
