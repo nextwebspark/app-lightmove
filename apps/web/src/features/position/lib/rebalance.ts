@@ -1,15 +1,17 @@
 import type { Competency } from "../api/types";
 
 /**
- * Sets one competency's weight and absorbs the difference into the others, keeping the panel's total
- * exactly where it was.
+ * Sets one competency's weight and absorbs the difference into the others, so a panel that already
+ * totals 100 stays there.
  *
  * <p>Locked rows are excluded from that absorption: a consultant who has settled one weight can then
  * tune the rest without watching the settled one drift. Everything else redistributes in proportion to
  * its current weight, or equally when those are all zero.
  *
- * The total is whatever the panel currently holds, not 100 — a panel is deliberately allowed to sit
- * off-balance while somebody is still typing, and the screen is what reads that back to them.
+ * <p>The conserved quantity is 100, not the panel's current total, and the pool gives up only the
+ * weight it actually holds. Conserving the current total instead froze every slider in the two states
+ * a panel is built in — a panel rebuilt from empty (all rows at 0, so there was nothing to move) and
+ * one whose locked rows already held the whole total.
  */
 export function rebalance<T extends Competency>(
   rows: T[],
@@ -19,38 +21,47 @@ export function rebalance<T extends Competency>(
 ): T[] {
   if (rows.length === 0) return rows;
 
-  const pool = rows.map((_, i) => i).filter((i) => i !== index && !locked.has(i));
-  // Nothing left that may move, so there is nowhere for the difference to go. Refusing to change the
-  // dragged row is the only answer that keeps the total honest.
-  if (pool.length === 0) return rows;
-
-  const total = rows.reduce((sum, row) => sum + row.weight, 0);
-  const lockedSum = rows.reduce((sum, row, i) => (locked.has(i) ? sum + row.weight : sum), 0);
-
-  // The dragged row may only take what the locked rows are not already holding.
-  const ceiling = Math.max(0, total - lockedSum);
+  const lockedSum = rows.reduce(
+    (sum, row, i) => (i !== index && locked.has(i) ? sum + row.weight : sum),
+    0,
+  );
+  // The dragged row may take any headroom the locked rows are not already holding.
+  const ceiling = Math.max(0, 100 - lockedSum);
   const target = Math.max(0, Math.min(ceiling, Math.round(newWeight)));
   const delta = target - rows[index].weight;
   if (delta === 0) return rows;
 
+  const pool = rows.map((_, i) => i).filter((i) => i !== index && !locked.has(i));
   const next = rows.map((row) => ({ ...row }));
   next[index].weight = target;
 
   const poolSum = pool.reduce((sum, i) => sum + next[i].weight, 0);
-  if (poolSum <= 0) {
-    const share = delta / pool.length;
-    for (const i of pool) next[i].weight = Math.max(0, next[i].weight - share);
-  } else {
+  let absorbed = 0;
+  if (pool.length === 0) {
+    absorbed = 0;
+  } else if (delta > 0) {
+    absorbed = Math.min(delta, poolSum);
     for (const i of pool) {
-      next[i].weight = Math.max(0, next[i].weight - delta * (next[i].weight / poolSum));
+      next[i].weight =
+        poolSum > 0 ? Math.max(0, next[i].weight - absorbed * (next[i].weight / poolSum)) : 0;
+    }
+  } else {
+    absorbed = delta;
+    const share = delta / pool.length;
+    for (const i of pool) {
+      next[i].weight =
+        poolSum > 0 ? next[i].weight - delta * (next[i].weight / poolSum) : next[i].weight - share;
     }
   }
 
   for (const i of pool) next[i].weight = Math.round(next[i].weight);
-  // The rounding remainder lands on a row that is allowed to move. Putting it on a locked one would
-  // quietly undo the lock a fraction at a time.
-  const drift = total - next.reduce((sum, row) => sum + row.weight, 0);
-  if (drift !== 0) {
+  // Reconciled against the total this move actually reached, not the one it started from: when the
+  // pool ran out there was less to give back than the row took, and the panel legitimately climbs.
+  // The remainder lands on a row that is allowed to move — a locked one would undo its lock by a
+  // fraction at a time.
+  const achieved = rows.reduce((sum, row) => sum + row.weight, 0) + delta - absorbed;
+  const drift = achieved - next.reduce((sum, row) => sum + row.weight, 0);
+  if (drift !== 0 && pool.length > 0) {
     next[pool[0]].weight = Math.max(0, next[pool[0]].weight + drift);
   }
   return next;

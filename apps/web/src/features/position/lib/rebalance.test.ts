@@ -68,9 +68,16 @@ describe("rebalance with locked rows", () => {
     expect(total(next)).toBe(100);
   });
 
-  it("refuses to move a row when everything else is locked", () => {
+  it("refuses to raise a row past what the locked rows leave it", () => {
+    // 60 is locked away, so 40 is already this row's ceiling and the drag has nowhere to go.
     const rows = panel(40, 30, 30);
     expect(rebalance(rows, 0, 60, lock(1, 2))).toBe(rows);
+  });
+
+  it("still moves a row that has no unlocked row to draw from", () => {
+    const next = rebalance(panel(10, 30, 30), 0, 40, lock(1, 2));
+    expect(next[0].weight).toBe(40);
+    expect(total(next)).toBe(100);
   });
 
   it("clamps at what the locked rows are not holding", () => {
@@ -107,5 +114,52 @@ describe("rebalance with locked rows", () => {
     expect(rebalance(panel(30, 30, 20, 20), 0, 50)).toEqual(
       rebalance(panel(30, 30, 20, 20), 0, 50, new Set()),
     );
+  });
+});
+
+describe("rebalance below 100", () => {
+  const lock = (...indices: number[]) => new Set(indices);
+
+  it("moves a slider on a panel rebuilt from empty", () => {
+    const next = rebalance(panel(0, 0, 0), 0, 40);
+    expect(next[0].weight).toBe(40);
+    expect(total(next)).toBe(40);
+  });
+
+  it("moves a slider when the locked rows hold the whole total", () => {
+    const next = rebalance(panel(30, 15, 0, 0), 2, 40, lock(0, 1));
+    expect(next[2].weight).toBe(40);
+    expect(next[3].weight).toBe(0);
+    expect(next[0].weight).toBe(30);
+    expect(next[1].weight).toBe(15);
+    expect(total(next)).toBe(85);
+  });
+
+  it("still stops that slider at what the locked rows are not holding", () => {
+    expect(rebalance(panel(30, 15, 0, 0), 2, 90, lock(0, 1))[2].weight).toBe(55);
+  });
+
+  it("takes only what the other rows hold and lets the total climb", () => {
+    const next = rebalance(panel(10, 5, 0), 0, 60);
+    expect(next[0].weight).toBe(60);
+    expect(next[1].weight).toBe(0);
+    expect(next[2].weight).toBe(0);
+    expect(total(next)).toBe(60);
+  });
+
+  it("moves the only row of a one-row panel", () => {
+    expect(rebalance(panel(40), 0, 60)[0].weight).toBe(60);
+  });
+
+  it("lands rounding drift against the total the move reached", () => {
+    const next = rebalance(panel(10, 3, 3, 3), 0, 50);
+    expect(next[0].weight).toBe(50);
+    expect(total(next)).toBe(50);
+  });
+
+  it("holds a balanced panel at 100 wherever the slider is dragged", () => {
+    for (let target = 0; target <= 100; target++) {
+      expect(total(rebalance(panel(30, 30, 20, 20), 0, target))).toBe(100);
+    }
   });
 });

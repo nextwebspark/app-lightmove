@@ -35,6 +35,8 @@ import { AddRowButton, RemoveRowButton } from "./fields";
 const POINTER_SENSOR = { activationConstraint: { distance: 4 } };
 const KEYBOARD_SENSOR = { coordinateGetter: sortableKeyboardCoordinates };
 const DRAG_MODIFIERS = [restrictToVerticalAxis, restrictToParentElement];
+/** What PutCompetenciesRequest accepts; an 11th row would fail the autosave, not just the step. */
+const MAX_ROWS = 10;
 
 export function CompetencyPanel({
   title,
@@ -116,7 +118,6 @@ export function CompetencyPanel({
               panelTitle={title}
               slider={slider}
               locked={locked.has(row.id)}
-              canRemove={rows.length > 1}
               onPatch={(changes) => patch(index, changes)}
               onSlide={(weight) => onChange(rebalance(rows, index, weight, lockedIndices))}
               onToggleLock={() => onToggleLock(row.id)}
@@ -126,17 +127,23 @@ export function CompetencyPanel({
         </SortableContext>
       </DndContext>
 
-      <AddRowButton
-        className="w-full"
-        onClick={() =>
-          onChange([
-            ...rows,
-            { id: crypto.randomUUID(), name: "New competency", description: null, weight: 0 },
-          ])
-        }
-      >
-        + Add competency
-      </AddRowButton>
+      {rows.length === 0 && (
+        <p className="mb-3.5 text-[12.5px] text-text3">No competencies yet.</p>
+      )}
+
+      {rows.length < MAX_ROWS && (
+        <AddRowButton
+          className="w-full"
+          onClick={() =>
+            onChange([
+              ...rows,
+              { id: crypto.randomUUID(), name: "New competency", description: null, weight: 0 },
+            ])
+          }
+        >
+          + Add competency
+        </AddRowButton>
+      )}
     </div>
   );
 }
@@ -147,7 +154,6 @@ function CompetencyRow({
   panelTitle,
   slider,
   locked,
-  canRemove,
   onPatch,
   onSlide,
   onToggleLock,
@@ -158,7 +164,6 @@ function CompetencyRow({
   panelTitle: string;
   slider: string;
   locked: boolean;
-  canRemove: boolean;
   onPatch: (changes: Partial<IdentifiedCompetency>) => void;
   onSlide: (weight: number) => void;
   onToggleLock: () => void;
@@ -244,7 +249,7 @@ function CompetencyRow({
         >
           <Icon d={locked ? ICONS.lock : ICONS.unlock} size={13} />
         </button>
-        {canRemove && <RemoveRowButton label={`Remove ${named}`} onClick={onRemove} />}
+        <RemoveRowButton label={`Remove ${named}`} onClick={onRemove} />
       </div>
     </div>
   );
