@@ -24,5 +24,6 @@ public record PutPositionDetailsRequest(
         List<@NotBlank(message = "Enter the responsibility")
              @Size(max = 200, message = "That responsibility is too long") String> responsibilities,
 
+        @Size(max = 4000, message = "That narrative is too long")
         String narrative
 ) {}
