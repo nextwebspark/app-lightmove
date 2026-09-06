@@ -1,10 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Button, DateInput, Field, FormError, Input, Modal, Select, useToast } from "../../../components/ui";
+import { Button, DateInput, Field, FormError, Modal, Select, useToast } from "../../../components/ui";
 import { codeOf } from "../../../lib/errorCodes";
 import { fieldErrorsFrom } from "../../../lib/formErrors";
 import * as clientsApi from "../../clients/api/clientsApi";
 import type { Client } from "../../clients/api/types";
+import {
+  CompanyPicker,
+  createPayloadFor,
+  nameOf,
+  type CompanyPick,
+} from "../../clients/components/CompanyPicker";
 import * as positionApi from "../../position/api/positionApi";
 import { RoleTitleCombobox } from "../../position/components/RoleTitleCombobox";
 import * as projectsApi from "../api/projectsApi";
@@ -47,7 +53,7 @@ export function NewProjectModal({
   // null until the user picks: seeding from `clients` at mount mirrors server state, and the list is
   // still empty on the render where Projects opens this modal before its clients query has settled.
   const [pickedClientId, setPickedClientId] = useState<string | null>(null);
-  const [newClientName, setNewClientName] = useState("");
+  const [newClientPick, setNewClientPick] = useState<CompanyPick | null>(null);
   const [positionTitle, setPositionTitle] = useState("");
   const [targetDate, setTargetDate] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -75,16 +81,19 @@ export function NewProjectModal({
     mutationFn: async () => {
       let resolvedClientId = clientId;
       if (creatingClient) {
+        const pick = newClientPick!;
         try {
-          // A quick custom client from the project flow; the full registry create lives on Clients.
-          resolvedClientId = (await clientsApi.createClient({ customName: newClientName })).id;
+          // The same request the registry's New-client modal posts, so a company picked here is
+          // resolved against the universe rather than filed as a custom record that duplicates it.
+          resolvedClientId = (await clientsApi.createClient(createPayloadFor(pick))).id;
         } catch (clientError) {
           if (codeOf(clientError) !== "CLIENT_ALREADY_EXISTS") throw clientError;
           // The user meant that client. Re-fetch rather than trust the prop — a colleague may have
-          // created it after this modal's list was cached.
+          // created it after this modal's list was cached. The name is the universe's on a DB pick,
+          // which is the name the server refused as a duplicate.
           const fresh = await clientsApi.clients();
           const existing = fresh.find(
-            (c) => c.name.toLowerCase() === newClientName.trim().toLowerCase(),
+            (c) => c.name.toLowerCase() === nameOf(pick).toLowerCase(),
           );
           if (!existing) throw clientError;
           resolvedClientId = existing.id;
@@ -128,8 +137,8 @@ export function NewProjectModal({
   const submit = () => {
     setError(null);
     setFieldErrors({});
-    if (creatingClient && !newClientName.trim()) {
-      setFieldErrors({ newClientName: "Enter the client's name" });
+    if (creatingClient && !newClientPick) {
+      setFieldErrors({ newClientName: "Pick the client's company, or add it as a new one" });
       return;
     }
     if (!positionTitle.trim()) {
@@ -176,19 +185,36 @@ export function NewProjectModal({
         )}
       </Field>
 
+      {/* The registry's own company step, not a bare name box: a mandate opened this way resolves its
+          client against the universe exactly as Clients → New client does. */}
       {creatingClient && (
-        <Field label="Client name" error={fieldErrors.newClientName}>
-          <Input
-            value={newClientName}
-            onChange={(event) => {
-              setNewClientName(event.target.value);
+        <div className="mb-4">
+          <CompanyPicker
+            pick={newClientPick}
+            onPick={(pick) => {
+              setNewClientPick(pick);
               clearFieldError("newClientName");
             }}
-            invalid={!!fieldErrors.newClientName}
-            placeholder="e.g. Meridian Energy Group"
+            existingNames={new Set(clients.map((client) => client.name.toLowerCase()))}
+            // A company already on the books is not a dead end here: the registry has it, so the
+            // select is switched to that client rather than leaving the row inert under its badge.
+            onRejectExisting={(name) => {
+              const existing = clients.find(
+                (client) => client.name.toLowerCase() === name.toLowerCase(),
+              );
+              if (!existing) return;
+              setPickedClientId(existing.id);
+              setNewClientPick(null);
+              clearFieldError("newClientName");
+            }}
             autoFocus
           />
-        </Field>
+          {fieldErrors.newClientName && (
+            <p role="alert" className="mt-1.5 block font-mono text-[11px] text-red">
+              {fieldErrors.newClientName}
+            </p>
+          )}
+        </div>
       )}
 
       {/* Picking a template only fills the title: creation seeds the brief from the title on the

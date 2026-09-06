@@ -9,6 +9,8 @@ public record ClientDetailResponse(
         String name,
         String sector,
         String hqCountry,
+        String hqCity,
+        String logoUrl,
         String domain,
         String offLimitsNote,
         long activeMandates,

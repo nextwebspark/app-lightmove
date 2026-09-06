@@ -16,8 +16,8 @@ import lombok.Setter;
  * <p>Its provenance in the company universe is the {@code (companySource, companySourceId)} pair, or
  * both null when the client was typed in as a custom record. The universe is ETL-owned and unwritable
  * from here, so a "new company" lives on this row; the display columns (name, sector, hqCountry,
- * domain) are the editable snapshot, seeded from the universe on a DB pick and owned by the client
- * thereafter.
+ * hqCity, domain, logoUrl) are the write-time snapshot, seeded from the universe on a DB pick and
+ * owned by the client thereafter.
  *
  * <p>The pair is <b>deliberately still two loose columns</b> rather than a typed key, and it now holds
  * two vintages. Records created from today on carry {@code ('apollo', apollo_account_id)}; ones
@@ -51,6 +51,17 @@ public class Client extends BaseEntity {
     @Column(name = "hq_country", length = 64)
     private String hqCountry;
 
+    /**
+     * The city and the company's mark, snapshotted from the universe on a DB pick like the four fields
+     * above and left alone by the drawer's edit — they are how a client row renders, not what it says
+     * about itself. Null for a custom record, where {@code CompanyLogo}'s initial is the fallback.
+     */
+    @Column(name = "hq_city", length = 96)
+    private String hqCity;
+
+    @Column(name = "logo_url")
+    private String logoUrl;
+
     @Setter
     @Column(length = 160)
     private String domain;
@@ -75,10 +86,13 @@ public class Client extends BaseEntity {
      * source pair is recorded so the provenance survives an editable rename.
      */
     public static Client fromUniverse(UUID workspaceId, String apolloAccountId, String name,
-                                      String sector, String hqCountry, String domain, UUID createdBy) {
+                                      String sector, String hqCountry, String hqCity, String domain,
+                                      String logoUrl, UUID createdBy) {
         Client client = base(workspaceId, name, sector, hqCountry, domain, createdBy);
         client.companySource = UNIVERSE_SOURCE;
         client.companySourceId = apolloAccountId;
+        client.hqCity = hqCity;
+        client.logoUrl = logoUrl;
         return client;
     }
 

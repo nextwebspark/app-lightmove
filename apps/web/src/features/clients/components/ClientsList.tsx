@@ -1,3 +1,4 @@
+import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { initials } from "../../../lib/format";
 import type { Client, ClientRepStatus, ClientType, ViewerSummary } from "../api/types";
 
@@ -44,10 +45,15 @@ export function ClientsList({
           >
             <td className={`${td} ${pinned} whitespace-nowrap`}>
               <span className="flex items-center gap-2.5">
-                <span className="grid size-6 flex-none place-items-center rounded-md bg-amber-dim font-mono text-[10px] font-semibold text-amber">
-                  {initials(client.name)}
+                <CompanyLogo name={client.name} logo={client.logoUrl} size={26} />
+                <span className="min-w-0">
+                  <span className="block text-[13px] font-semibold text-text">{client.name}</span>
+                  {locationOf(client) && (
+                    <span className="block font-mono text-[11px] text-text3">
+                      {locationOf(client)}
+                    </span>
+                  )}
                 </span>
-                <span className="text-[13px] font-semibold text-text">{client.name}</span>
               </span>
             </td>
             <td className={td}>
@@ -82,9 +88,7 @@ function ClientCard({ client, onOpen }: { client: Client; onOpen: () => void }) 
       className="flex w-full flex-col gap-2.5 rounded-[10px] border border-line bg-panel p-3.5 text-left transition hover:bg-panel2"
     >
       <div className="flex items-start gap-2.5">
-        <span className="grid size-7 flex-none place-items-center rounded-md bg-amber-dim font-mono text-[10px] font-semibold text-amber">
-          {initials(client.name)}
-        </span>
+        <CompanyLogo name={client.name} logo={client.logoUrl} size={28} />
         <span className="min-w-0 flex-1 text-[13.5px] font-semibold text-text">{client.name}</span>
         <span className="flex-none">
           <TypePill type={client.type} />
@@ -92,7 +96,7 @@ function ClientCard({ client, onOpen }: { client: Client; onOpen: () => void }) 
       </div>
 
       <div className="font-mono text-[11.5px] text-text3">
-        {[client.sector, client.hqCountry].filter(Boolean).join(" · ") || "—"}
+        {[locationOf(client), client.sector].filter(Boolean).join(" · ") || "—"}
       </div>
 
       <div className="flex items-center gap-2.5 border-t border-line-soft pt-2.5">
@@ -172,4 +176,9 @@ function ViewerCell({ viewers }: { viewers: ViewerSummary }) {
       {label}
     </span>
   );
+}
+
+/** Where the client is, city first — the subtext under its name, matching the company picker's rows. */
+function locationOf(client: Client): string {
+  return [client.hqCity, client.hqCountry].filter(Boolean).join(", ");
 }

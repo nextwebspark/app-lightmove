@@ -1,19 +1,17 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { Button, Field, FormError, Input, Modal, Spinner, useToast } from "../../../components/ui";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Button, Field, FormError, Input, Modal, useToast } from "../../../components/ui";
 import { isValidEmail } from "../../../lib/email";
 import { messageFor } from "../../../lib/errorCodes";
-import { COMPANY_SEARCH_KEY, searchCompanies } from "../../strategy/api/companiesApi";
-import type { CompanySuggestion } from "../../strategy/api/types";
 import * as clientsApi from "../api/clientsApi";
+import { CompanyPicker, createPayloadFor, type CompanyPick } from "./CompanyPicker";
 
 /**
  * The New-client modal — company-database-first, matching Clients.dc.html.
  *
- * Stage one picks the company: search the universe, or add a custom record when it isn't there. Stage
- * two adds an optional primary contact, who is invited as a representative immediately. A DB pick
- * stores the company's Apollo account id; the server resolves its canonical name and domain, so a
- * client cannot file a company under a name of its own choosing.
+ * Stage one picks the company through the shared {@link CompanyPicker}: search the universe, or add a
+ * custom record when it isn't there. Stage two adds an optional primary contact, who is invited as a
+ * representative immediately.
  */
 export function NewClientModal({
   open,
@@ -30,33 +28,11 @@ export function NewClientModal({
   const queryClient = useQueryClient();
   const toast = useToast();
 
-  const [companyQuery, setCompanyQuery] = useState("");
-  const [debounced, setDebounced] = useState("");
-  const [selected, setSelected] = useState<CompanySuggestion | null>(null);
-  const [custom, setCustom] = useState<{ name: string; domain: string } | null>(null);
-  const [newCompanyOpen, setNewCompanyOpen] = useState(false);
-  const [newCompanyName, setNewCompanyName] = useState("");
-  const [newCompanyDomain, setNewCompanyDomain] = useState("");
-
+  const [pick, setPick] = useState<CompanyPick | null>(null);
   const [contactName, setContactName] = useState("");
   const [contactPosition, setContactPosition] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
-
-  const hasSelection = selected !== null || custom !== null;
-
-  useEffect(() => {
-    const handle = setTimeout(() => setDebounced(companyQuery.trim()), 250);
-    return () => clearTimeout(handle);
-  }, [companyQuery]);
-
-  // The same shared universe reader the Strategy pickers use — a non-empty query name-matches, so
-  // sectors/order are inert here, and the result shares one cache entry with those pickers.
-  const { data: hits = [], isFetching } = useQuery({
-    queryKey: COMPANY_SEARCH_KEY(debounced),
-    queryFn: () => searchCompanies(debounced).then((page) => page.companies),
-    enabled: open && !hasSelection && debounced.length >= 2,
-  });
 
   const create = useMutation({
     mutationFn: () => {
@@ -68,12 +44,7 @@ export function NewClientModal({
           }
         : null;
 
-      return clientsApi.createClient(
-        selected
-          ? { company: { apolloAccountId: selected.apolloAccountId },
-              sector: selected.industry ?? undefined, primaryContact }
-          : { customName: custom!.name, customDomain: custom!.domain || undefined, primaryContact },
-      );
+      return clientsApi.createClient({ ...createPayloadFor(pick!), primaryContact });
     },
     onSuccess: (client) => {
       void queryClient.invalidateQueries({ queryKey: clientsApi.CLIENTS_KEY });
@@ -88,33 +59,8 @@ export function NewClientModal({
     onError: (mutationError) => setError(messageFor(mutationError)),
   });
 
-  const pickHit = (hit: CompanySuggestion) => {
-    if (existingNames.has(hit.companyName.toLowerCase())) {
-      toast(`${hit.companyName} is already a client`);
-      return;
-    }
-    setSelected(hit);
-  };
-
-  const openNewCompany = () => {
-    setNewCompanyName(companyQuery.trim());
-    setNewCompanyDomain("");
-    setNewCompanyOpen(true);
-  };
-
-  const confirmNewCompany = () => {
-    if (!newCompanyName.trim()) {
-      setError("Enter the company name");
-      return;
-    }
-    setError(null);
-    setCustom({ name: newCompanyName.trim(), domain: newCompanyDomain.trim() });
-    setNewCompanyOpen(false);
-  };
-
-  const changeCompany = () => {
-    setSelected(null);
-    setCustom(null);
+  const handlePick = (next: CompanyPick | null) => {
+    setPick(next);
     setError(null);
   };
 
@@ -142,127 +88,16 @@ export function NewClientModal({
       </p>
       <FormError message={error} />
 
-      {!hasSelection ? (
+      <CompanyPicker
+        pick={pick}
+        onPick={handlePick}
+        existingNames={existingNames}
+        onRejectExisting={(name) => toast(`${name} is already a client`)}
+        autoFocus
+      />
+
+      {pick && (
         <>
-          <Field label="Company">
-            <Input
-              value={companyQuery}
-              onChange={(event) => setCompanyQuery(event.target.value)}
-              placeholder="Search company database…"
-              autoFocus
-            />
-          </Field>
-
-          {companyQuery.trim().length < 2 ? (
-            <p className="font-mono text-[11.5px] text-text3">
-              Type at least 2 characters to search the company database.
-            </p>
-          ) : (
-            <div className="max-h-[280px] overflow-y-auto rounded-lg border border-line-soft">
-              {isFetching && (
-                <div className="flex items-center gap-2 px-3 py-3 font-mono text-[11.5px] text-text3">
-                  <Spinner /> Searching…
-                </div>
-              )}
-              {!isFetching &&
-                hits.map((hit) => {
-                  const alreadyClient = existingNames.has(hit.companyName.toLowerCase());
-                  return (
-                    <button
-                      key={hit.apolloAccountId}
-                      type="button"
-                      onClick={() => pickHit(hit)}
-                      className="flex w-full items-center gap-2.5 border-b border-line-soft px-3 py-2.5 text-left last:border-0 hover:bg-panel2"
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-medium text-text">
-                          {hit.companyName}
-                        </span>
-                        <span className="block truncate font-mono text-[11px] text-text3">
-                          {[hit.industry, hit.companyCountry].filter(Boolean).join(" · ") || "—"}
-                        </span>
-                      </span>
-                      {alreadyClient ? (
-                        <span className="rounded-md bg-green-dim px-1.5 py-0.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-green">
-                          Client
-                        </span>
-                      ) : (
-                        <span className="font-mono text-[11px] text-sky">Select →</span>
-                      )}
-                    </button>
-                  );
-                })}
-              {!isFetching && hits.length === 0 && (
-                <p className="px-3 py-3 font-mono text-[11.5px] text-text3">
-                  No company found for “{debounced}”.
-                </p>
-              )}
-              {/* The add-a-company escape hatch waits for the search to settle, so it never sits under the
-                  "Searching…" spinner as a second, competing action. */}
-              {!isFetching && (
-                <button
-                  type="button"
-                  onClick={openNewCompany}
-                  className="flex w-full items-center gap-1.5 px-3 py-2.5 text-left font-mono text-[11.5px] text-amber hover:bg-panel2"
-                >
-                  ＋ None of these — add “{companyQuery.trim()}” as a new company
-                </button>
-              )}
-            </div>
-          )}
-
-          {newCompanyOpen && (
-            <div className="mt-4 rounded-lg border border-line-soft bg-panel2 p-3.5">
-              <div className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
-                New company record
-              </div>
-              <Field label="Company name">
-                <Input
-                  value={newCompanyName}
-                  onChange={(event) => setNewCompanyName(event.target.value)}
-                  placeholder="e.g. Meridian Energy Group"
-                  autoFocus
-                />
-              </Field>
-              <Field label="Domain · optional, helps us match the client">
-                <Input
-                  value={newCompanyDomain}
-                  onChange={(event) => setNewCompanyDomain(event.target.value)}
-                  placeholder="e.g. meridian.ae"
-                />
-              </Field>
-              <div className="flex justify-end gap-2">
-                <Button variant="secondary" onClick={() => setNewCompanyOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={confirmNewCompany}>Use this company</Button>
-              </div>
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          <div className="mb-4 flex items-center gap-2.5 rounded-lg border border-line-soft bg-panel2 px-3 py-2.5">
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[13px] font-semibold text-text">
-                {selected ? selected.companyName : custom!.name}
-              </span>
-              <span className="block truncate font-mono text-[11px] text-text3">
-                {selected
-                  ? [selected.industry, selected.companyCountry].filter(Boolean).join(" · ") +
-                    " · from company DB"
-                  : "new company record"}
-              </span>
-            </span>
-            <button
-              type="button"
-              onClick={changeCompany}
-              className="font-mono text-[11px] text-sky hover:underline"
-            >
-              Change
-            </button>
-          </div>
-
           <div className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
             Primary contact
             <span className="ml-1 font-normal normal-case tracking-normal text-text3">

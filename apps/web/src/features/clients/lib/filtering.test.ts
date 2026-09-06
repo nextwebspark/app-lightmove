@@ -10,6 +10,8 @@ const client = (overrides: Partial<Client>): Client => ({
   type: "RETAINED",
   sector: "Energy",
   hqCountry: "UAE",
+  hqCity: "Dubai",
+  logoUrl: null,
   activeMandates: 2,
   deliveredMandates: 1,
   contacts: [{ fullName: "Khalid Al-Otaibi", status: "ACTIVE" }],

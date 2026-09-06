@@ -11,6 +11,8 @@ public record ClientListResponse(
         ClientType type,
         String sector,
         String hqCountry,
+        String hqCity,
+        String logoUrl,
         long activeMandates,
         long deliveredMandates,
         List<RepAvatar> contacts,
