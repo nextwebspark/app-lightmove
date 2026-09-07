@@ -1,4 +1,5 @@
 import { Icon, ICONS } from "../layout/Icon";
+import { PAGER_ICON_BUTTON } from "./PaginationBar";
 
 /**
  * The pagination row's full-screen switch, drawn in {@code PaginationBar}'s square-button vocabulary
@@ -14,7 +15,7 @@ export function FullscreenButton({ active, onToggle }: { active: boolean; onTogg
       aria-label="Full screen"
       aria-pressed={active}
       onClick={onToggle}
-      className="grid size-10 place-items-center rounded-[6px] border border-line-soft text-text3 transition hover:border-line hover:text-text lg:size-8"
+      className={PAGER_ICON_BUTTON}
     >
       <Icon d={active ? ICONS.fullscreenExit : ICONS.fullscreen} size={14} />
     </button>

@@ -1064,9 +1064,9 @@ function stubFullscreenApi() {
   return {
     requestFullscreen,
     exitFullscreen,
-    /** What Escape, F11 and the browser's own exit control do: drop the element, then say so. */
-    exitFromTheBrowser: () => {
-      element = null;
+    /** The browser acting on its own — F11 in, Escape or its own exit control back out. */
+    setElement: (next: Element | null) => {
+      element = next;
       announce();
     },
     restore: () => {
@@ -1132,7 +1132,7 @@ describe("StrategyPage — full screen", () => {
     const button = await enterFullscreen();
     expect(button).toHaveAttribute("aria-pressed", "true");
 
-    act(() => fullscreenApi.exitFromTheBrowser());
+    act(() => fullscreenApi.setElement(null));
 
     // Escape, F11 and the browser's own control announce themselves only through fullscreenchange.
     expect(button).toHaveAttribute("aria-pressed", "false");
@@ -1160,6 +1160,33 @@ describe("StrategyPage — full screen", () => {
     expect(fullscreenApi.requestFullscreen).toHaveBeenCalledTimes(1);
     expect(fullscreenApi.exitFullscreen).toHaveBeenCalledTimes(1);
     expect(button).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("hands the window back even when the mandate closes before the request settles", async () => {
+    // The flag saying we asked used to be set in the request's `then`, so a mandate switched in the
+    // moment before it resolved skipped the exit and stranded the browser in fullscreen.
+    fullscreenApi.requestFullscreen.mockImplementation(function (this: Element) {
+      fullscreenApi.setElement(this);
+      return new Promise<void>(() => {});
+    });
+    const { unmount } = renderPage();
+    await enterFullscreen();
+
+    unmount();
+
+    expect(fullscreenApi.exitFullscreen).toHaveBeenCalled();
+  });
+
+  it("leaves a full screen it did not ask for alone", async () => {
+    // F11 is the user talking to the browser, not to this screen. Exiting on unmount because the
+    // document happens to be full would take away something this button never granted.
+    const { unmount } = renderPage();
+    await screen.findByRole("button", { name: "Full screen" });
+    act(() => fullscreenApi.setElement(document.documentElement));
+
+    unmount();
+
+    expect(fullscreenApi.exitFullscreen).not.toHaveBeenCalled();
   });
 
   it("hands the window back when the mandate is closed", async () => {

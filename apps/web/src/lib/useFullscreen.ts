@@ -15,14 +15,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
  */
 export function useFullscreen() {
   const [isFullscreen, setFullscreen] = useState(false);
-  const enteredNatively = useRef(false);
+  // Set when the request is *made*, not when it resolves. Flipping it in the promise's `then` left a
+  // window in which unmounting skipped the exit below and stranded the browser in fullscreen — a
+  // mandate switch right after the click is exactly that window.
+  const askedForFullscreen = useRef(false);
 
   useEffect(() => {
     // One-directional on purpose. Escape, F11 and the browser's own exit control announce themselves
     // only here, and without this the overlay would stay up over a window that is no longer full.
     const collapseOnNativeExit = () => {
       if (document.fullscreenElement) return;
-      enteredNatively.current = false;
+      askedForFullscreen.current = false;
       setFullscreen(false);
     };
     document.addEventListener("fullscreenchange", collapseOnNativeExit);
@@ -33,7 +36,11 @@ export function useFullscreen() {
   // mandates unmounts it and would otherwise strand the browser in fullscreen.
   useEffect(
     () => () => {
-      if (enteredNatively.current) void document.exitFullscreen?.().catch(() => {});
+      // Both halves: the ref so an F11 fullscreen this screen never asked for is not taken away from
+      // the user, and the live read because the request may still have been refused.
+      if (askedForFullscreen.current && document.fullscreenElement) {
+        void document.exitFullscreen?.().catch(() => {});
+      }
     },
     [],
   );
@@ -43,15 +50,12 @@ export function useFullscreen() {
     // Outside the updater: StrictMode double-invokes one in development, and this is a request to the
     // browser rather than a state calculation.
     if (isFullscreen) {
+      askedForFullscreen.current = false;
       if (document.fullscreenElement) void document.exitFullscreen?.().catch(() => {});
       return;
     }
-    void document.documentElement
-      .requestFullscreen?.()
-      .then(() => {
-        enteredNatively.current = true;
-      })
-      .catch(() => {});
+    askedForFullscreen.current = true;
+    void document.documentElement.requestFullscreen?.().catch(() => {});
   }, [isFullscreen]);
 
   return [isFullscreen, toggle] as const;

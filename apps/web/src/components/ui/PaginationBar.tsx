@@ -85,6 +85,15 @@ export function PaginationBar({
   );
 }
 
+/**
+ * The square icon button this row is built from, shared so a button standing beside the pagers is
+ * the same object as the pagers rather than a copy of their class string.
+ */
+export const PAGER_ICON_BUTTON =
+  "grid size-10 place-items-center rounded-[6px] border border-line-soft lg:size-8 text-text3 " +
+  "transition hover:border-line hover:text-text disabled:opacity-40 " +
+  "disabled:hover:border-line-soft disabled:hover:text-text3";
+
 function PageButton({
   label,
   path,
@@ -102,7 +111,7 @@ function PageButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="grid size-10 place-items-center rounded-[6px] border border-line-soft lg:size-8 text-text3 transition hover:border-line hover:text-text disabled:opacity-40 disabled:hover:border-line-soft disabled:hover:text-text3"
+      className={PAGER_ICON_BUTTON}
     >
       <Icon d={path} size={14} />
     </button>

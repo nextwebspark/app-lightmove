@@ -258,7 +258,11 @@ function StrategyEditor() {
         "flex min-h-0 flex-1 flex-col",
         // Its own background and no corners: full screen has no edges, and `main`'s rounded panel is
         // no longer behind the whole of this.
-        isFullscreen && "fixed inset-0 z-[70] bg-panel",
+        //
+        // 96 clears the mobile nav rail. That rail is a sibling rendered by AppShell, not a
+        // descendant, so it does not order inside this stacking context — at anything below 95 a
+        // keyboard user who tabbed past the nav scrim left it floating over "full screen".
+        isFullscreen && "fixed inset-0 z-[96] bg-panel",
       )}
     >
       <StrategyToolbar
