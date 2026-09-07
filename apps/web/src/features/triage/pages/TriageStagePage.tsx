@@ -5,7 +5,7 @@ import type { ProjectOutletContext } from "../../../components/layout/ProjectLay
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { useToast } from "../../../components/ui/Toast";
 import { messageFor } from "../../../lib/errorCodes";
-import { PAGE_SIZE } from "../../../lib/paging";
+import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
 import { useGridSort, type GridSort } from "../../../lib/useGridSort";
@@ -97,6 +97,7 @@ function TriageStage() {
   const canWrite = canExecuteProjectWork(project, user?.id, user?.workspace?.roles);
 
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -174,13 +175,13 @@ function TriageStage() {
   };
 
   const companies = useQuery({
-    queryKey: triageApi.TRIAGE_KEY(project.id, stage.status, page, PAGE_SIZE, debouncedQuery, sort),
+    queryKey: triageApi.TRIAGE_KEY(project.id, stage.status, page, pageSize, debouncedQuery, sort),
     queryFn: ({ signal }) =>
       triageApi.getTriageCompanies(
         project.id,
         stage.status,
         page,
-        PAGE_SIZE,
+        pageSize,
         debouncedQuery,
         sort,
         signal,
@@ -219,7 +220,7 @@ function TriageStage() {
   });
 
   const totalCount = companies.data?.totalCount;
-  const lastPage = Math.max(0, Math.ceil((totalCount ?? 0) / PAGE_SIZE) - 1);
+  const lastPage = Math.max(0, Math.ceil((totalCount ?? 0) / pageSize) - 1);
 
   /**
    * Executives whose employer is not in the mandate's universe at all. They belong to the mandate
@@ -404,7 +405,13 @@ function TriageStage() {
           </p>
         ))}
 
-        <PaginationBar page={page} size={PAGE_SIZE} totalCount={totalCount} onPage={setPage} />
+        <PaginationBar
+          page={page}
+          size={pageSize}
+          totalCount={totalCount}
+          onPage={setPage}
+          onSize={setPageSize}
+        />
       </div>
 
       <CompanyDrawer

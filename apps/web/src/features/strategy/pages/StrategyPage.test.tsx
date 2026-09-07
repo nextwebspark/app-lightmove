@@ -922,6 +922,25 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     // non-empty result.
     await waitFor(() => expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![1]).toBe(0));
   });
+
+  it("asks the server for the chosen page size, keeping the row at the top of the page", async () => {
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf({ totalCount: 4000 }));
+    renderPage();
+
+    await waitFor(() => expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![2]).toBe(50));
+
+    await userEvent.click(await screen.findByRole("button", { name: "Next page" }));
+    await waitFor(() => expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![1]).toBe(1));
+
+    await userEvent.selectOptions(screen.getByLabelText("Rows per page"), "25");
+
+    // Row 50 was at the top of page 2 of 50, and stays at the top of page 3 of 25. Resetting to page
+    // 1 instead would throw away the reader's place for changing how much of it they can see.
+    await waitFor(() => {
+      const [, page, size] = vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)!;
+      expect({ page, size }).toEqual({ page: 2, size: 25 });
+    });
+  });
   it("sorts on the server rather than reordering the page it happens to hold", async () => {
     vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf({ totalCount: 4000 }));
     renderPage();
@@ -931,7 +950,7 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     const table = await screen.findByRole("table", { name: "Companies" });
     await userEvent.click(within(table).getByRole("button", { name: /Revenue/ }));
 
-    // The table holds 25 of tens of thousands. Sorting those 25 client-side would reorder the page
+    // The table holds one page of tens of thousands. Sorting that page client-side would reorder it
     // while claiming to have ordered the result, so a header click has to become a new query.
     await waitFor(() =>
       expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![4]).toEqual({
