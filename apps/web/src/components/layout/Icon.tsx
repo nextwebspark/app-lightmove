@@ -83,6 +83,10 @@ export const ICONS = {
   outreach: "M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z",
   reports: "M9 12h6m-6 4h6M9 8h1M5 21h14a2 2 0 0 0 2-2V7l-5-5H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2Z",
   pencil: "M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z",
+  /** Two arrows to opposite corners — enter full screen. */
+  fullscreen: "M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7",
+  /** The same arrows turned inward — leave it. */
+  fullscreenExit: "M20 10h-6V4M4 14h6v6M14 10l7-7M3 21l7-7",
   /** An arrow into a tray — writing what is on screen onto something already saved. */
   recapture: "M12 3v10m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2",
 } as const;
