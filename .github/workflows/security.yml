@@ -33,10 +33,6 @@ jobs:
       security-events: write
     with:
       fail-on-vuln: false
-      scan-args: |-
-        --recursive
-        --skip-git
-        ./
 
   # The shipped artifact: OS packages in the runtime base image AND the full transitive Maven
   # closure inside the fat jar. The only job that sees what actually runs in Cloud Run, which is
