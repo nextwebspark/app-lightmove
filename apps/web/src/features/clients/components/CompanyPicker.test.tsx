@@ -4,7 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as companiesApi from "../../strategy/api/companiesApi";
 import type { CompanySuggestion } from "../../strategy/api/types";
-import { CompanyPicker, createPayloadFor, type CompanyPick } from "./CompanyPicker";
+import { createClientPayloadFor } from "../api/clientsApi";
+import type { CompanyPick } from "../lib/companyPick";
+import { CompanyPicker } from "./CompanyPicker";
 
 vi.mock("../../strategy/api/companiesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../strategy/api/companiesApi")>()),
@@ -87,6 +89,44 @@ describe("CompanyPicker", () => {
     expect(onPick).not.toHaveBeenCalled();
   });
 
+  // A refused read is not an empty universe: "no company found" over a failure is what sends a user to
+  // the escape hatch to file a duplicate of a company Apollo is holding.
+  it("says it could not reach the database rather than that nothing matched", async () => {
+    vi.mocked(companiesApi.searchCompanies).mockRejectedValue(new Error("500"));
+    const user = userEvent.setup();
+    renderPicker();
+
+    await user.type(screen.getByPlaceholderText("Search company database…"), "Meridian");
+
+    expect(
+      await screen.findByText("Couldn't reach the company database. Try again."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/No company found/)).not.toBeInTheDocument();
+  });
+
+  // The query is disabled for the first 250ms of every search, which is not the same as a search that
+  // came back empty — inferring one from the other rendered `No company found for “”.` on every keystroke.
+  it("claims nothing matched only once the search has settled", async () => {
+    const user = userEvent.setup();
+    renderPicker();
+
+    await user.type(screen.getByPlaceholderText("Search company database…"), "Meridian");
+
+    expect(screen.queryByText(/No company found/)).not.toBeInTheDocument();
+  });
+
+  it("marks the input when the caller refuses an empty pick", () => {
+    renderPicker({ error: "Pick the client's company, or add it as a new one" });
+
+    expect(screen.getByPlaceholderText("Search company database…")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(
+      screen.getByText("Pick the client's company, or add it as a new one"),
+    ).toBeInTheDocument();
+  });
+
   it("takes a company the market does not carry through the escape hatch", async () => {
     const user = userEvent.setup();
     const onPick = renderPicker();
@@ -108,11 +148,11 @@ describe("CompanyPicker", () => {
  * A universe pick posts an id and nothing the client saw: the server re-resolves the canonical name and
  * domain, so a client cannot be filed under a name of its own choosing.
  */
-describe("createPayloadFor", () => {
+describe("createClientPayloadFor", () => {
   it("sends only the account id for a universe pick", () => {
     const pick: CompanyPick = { source: "universe", company: MERIDIAN };
 
-    expect(createPayloadFor(pick)).toEqual({
+    expect(createClientPayloadFor(pick)).toEqual({
       company: { apolloAccountId: "apollo-1" },
       sector: "oil & energy",
     });
@@ -121,6 +161,6 @@ describe("createPayloadFor", () => {
   it("sends the typed record for a custom pick, and drops an empty domain", () => {
     const pick: CompanyPick = { source: "custom", name: "Northwind", domain: "" };
 
-    expect(createPayloadFor(pick)).toEqual({ customName: "Northwind", customDomain: undefined });
+    expect(createClientPayloadFor(pick)).toEqual({ customName: "Northwind", customDomain: undefined });
   });
 });

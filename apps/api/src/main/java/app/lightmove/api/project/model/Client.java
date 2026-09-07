@@ -56,7 +56,7 @@ public class Client extends BaseEntity {
      * above and left alone by the drawer's edit — they are how a client row renders, not what it says
      * about itself. Null for a custom record, where {@code CompanyLogo}'s initial is the fallback.
      */
-    @Column(name = "hq_city", length = 96)
+    @Column(name = "hq_city")
     private String hqCity;
 
     @Column(name = "logo_url")

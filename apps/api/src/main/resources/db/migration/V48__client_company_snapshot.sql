@@ -8,8 +8,12 @@
 -- pipeline reloads app_lm_apollo_companies wholesale, so a live join would blank a client the day its
 -- company stops being published.
 
+-- Both text, not varchar: the source columns are text (V23), and every other write-time city snapshot
+-- in this schema is text too (V3, V14, V31, V32, V36). A width here would put the backfill below —
+-- one statement over every Apollo-backed client — one over-long city away from aborting the migration
+-- and taking the deploy with it, and it buys nothing.
 ALTER TABLE app_lm_client
-    ADD COLUMN hq_city  varchar(96),
+    ADD COLUMN hq_city  text,
     ADD COLUMN logo_url text;
 
 -- The one deferred half of that write-time snapshot: clients created before this migration resolved

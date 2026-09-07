@@ -4,7 +4,8 @@ import { Button, Field, FormError, Input, Modal, useToast } from "../../../compo
 import { isValidEmail } from "../../../lib/email";
 import { messageFor } from "../../../lib/errorCodes";
 import * as clientsApi from "../api/clientsApi";
-import { CompanyPicker, createPayloadFor, type CompanyPick } from "./CompanyPicker";
+import type { CompanyPick } from "../lib/companyPick";
+import { CompanyPicker } from "./CompanyPicker";
 
 /**
  * The New-client modal — company-database-first, matching Clients.dc.html.
@@ -44,7 +45,10 @@ export function NewClientModal({
           }
         : null;
 
-      return clientsApi.createClient({ ...createPayloadFor(pick!), primaryContact });
+      return clientsApi.createClient({
+        ...clientsApi.createClientPayloadFor(pick!),
+        primaryContact,
+      });
     },
     onSuccess: (client) => {
       void queryClient.invalidateQueries({ queryKey: clientsApi.CLIENTS_KEY });

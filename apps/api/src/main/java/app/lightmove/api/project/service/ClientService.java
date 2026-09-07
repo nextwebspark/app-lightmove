@@ -120,8 +120,7 @@ public class ClientService {
                         request.primaryContact().email(), httpRequest);
 
         // A newborn client has no mandates; the row reflects only the invite just sent.
-        return new ClientListResponse(saved.getId(), saved.getName(), ClientType.PROSPECT,
-                saved.getSector(), saved.getHqCountry(), saved.getHqCity(), saved.getLogoUrl(), 0, 0,
+        return ClientListResponse.of(saved, ClientType.PROSPECT, 0, 0,
                 primaryContact == null ? List.of()
                         : List.of(new RepAvatar(primaryContact.fullName(), primaryContact.status())),
                 new ViewerSummary(
@@ -196,9 +195,7 @@ public class ClientService {
         long viewersActive = reps.stream().filter(rep -> rep.getStatus() == ClientRepStatus.ACTIVE).count();
         long viewersInvited = reps.stream().filter(rep -> rep.getStatus() == ClientRepStatus.INVITED).count();
 
-        return new ClientListResponse(client.getId(), client.getName(), type, client.getSector(),
-                client.getHqCountry(), client.getHqCity(), client.getLogoUrl(), active,
-                mandates.size() - active, contacts,
+        return ClientListResponse.of(client, type, active, mandates.size() - active, contacts,
                 new ViewerSummary(viewersActive, viewersInvited));
     }
 
