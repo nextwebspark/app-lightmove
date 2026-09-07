@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Icon, ICONS } from "../layout/Icon";
 import { PAGE_SIZE_OPTIONS } from "../../lib/paging";
 
@@ -15,12 +16,15 @@ export function PaginationBar({
   totalCount,
   onPage,
   onSize,
+  trailing,
 }: {
   page: number;
   size: number;
   totalCount: number | undefined;
   onPage: (page: number) => void;
   onSize: (size: number) => void;
+  /** Rendered at the far right of the row, after the page-size control. */
+  trailing?: ReactNode;
 }) {
   const known = totalCount ?? 0;
   const lastPage = Math.max(0, Math.ceil(known / size) - 1);
@@ -59,6 +63,8 @@ export function PaginationBar({
       />
       <span className="font-sans text-[13px] text-text3">{countLabel()}</span>
 
+      {/* `ms-auto` here rather than on `trailing`, so the size control and whatever the caller puts
+          beside it travel to the right edge as one group. */}
       <label className="ms-auto flex items-center gap-2 font-sans text-[13px] text-text3">
         Rows per page
         <select
@@ -73,6 +79,8 @@ export function PaginationBar({
           ))}
         </select>
       </label>
+
+      {trailing && <div className="flex items-center">{trailing}</div>}
     </div>
   );
 }

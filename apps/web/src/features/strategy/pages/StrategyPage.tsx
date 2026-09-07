@@ -2,13 +2,15 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
-import { Spinner } from "../../../components/ui";
+import { FullscreenButton, Spinner } from "../../../components/ui";
 import { useToast } from "../../../components/ui/Toast";
 import { useAuth } from "../../auth/AuthProvider";
+import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { hasRoomForRails } from "../../../lib/viewport";
 import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
 import { useAutosave } from "../../../lib/useAutosave";
+import { useFullscreen } from "../../../lib/useFullscreen";
 import * as reportApi from "../../reports/api/reportApi";
 import * as triageApi from "../../triage/api/triageApi";
 import * as companiesApi from "../api/companiesApi";
@@ -96,6 +98,7 @@ function StrategyEditor() {
     DEFAULT_COLUMN_VISIBILITY,
   );
   const [layout, setLayout] = useGridLayout("strategy", COMPANY_LAYOUT_COLUMNS);
+  const [isFullscreen, toggleFullscreen] = useFullscreen();
 
   // A keystroke should narrow the list, not fire a request per character.
   useEffect(() => {
@@ -250,7 +253,14 @@ function StrategyEditor() {
     /* No negative margins and no viewport arithmetic: the shell gives this tab the whole main area
        and a definite height (FULL_BLEED_TABS in ProjectLayout), so the height is inherited rather
        than guessed from a hard-coded 98px of chrome that any topbar change would falsify. */
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div
+      className={cn(
+        "flex min-h-0 flex-1 flex-col",
+        // Its own background and no corners: full screen has no edges, and `main`'s rounded panel is
+        // no longer behind the whole of this.
+        isFullscreen && "fixed inset-0 z-[70] bg-panel",
+      )}
+    >
       <StrategyToolbar
         filter={filter}
         searches={data?.searches ?? []}
@@ -316,6 +326,7 @@ function StrategyEditor() {
             totalCount={companies.data?.totalCount}
             onPage={setPage}
             onSize={setPageSize}
+            trailing={<FullscreenButton active={isFullscreen} onToggle={toggleFullscreen} />}
           />
         </div>
       </div>
