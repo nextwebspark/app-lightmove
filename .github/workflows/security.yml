@@ -33,10 +33,6 @@ jobs:
       security-events: write
     with:
       fail-on-vuln: false
-      scan-args: |-
-        --recursive
-        --skip-git
-        ./
 
   # The shipped artifact: OS packages in the runtime base image AND the full transitive Maven
   # closure inside the fat jar. The only job that sees what actually runs in Cloud Run, which is
@@ -49,7 +45,7 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build
         run: docker build -t lightmove:scan .
