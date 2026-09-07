@@ -15,15 +15,25 @@ export function PaginationBar({
   totalCount,
   onPage,
   onSize,
+  autoHide = false,
 }: {
   page: number;
   size: number;
   totalCount: number | undefined;
   onPage: (page: number) => void;
   onSize: (size: number) => void;
+  /**
+   * Drops the whole row once the result is smaller than the smallest page it could be cut into —
+   * every control on it would be a no-op. The workspace lists set it, because most firms never grow
+   * past one page; the market grids do not, where the row is how a reader knows where they are in
+   * 71,822 companies.
+   */
+  autoHide?: boolean;
 }) {
   const known = totalCount ?? 0;
   const lastPage = Math.max(0, Math.ceil(known / size) - 1);
+
+  if (autoHide && totalCount !== undefined && totalCount <= PAGE_SIZE_OPTIONS[0]) return null;
 
   // The row that was at the top of the page stays there, rather than the reader being dropped back
   // at row 1: at 25 rows a page, page 40 is row 1000, and that is what they are looking at.

@@ -1,8 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, EmptyState, TableSkeleton } from "../../../components/ui";
+import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
+import { ListToolbar } from "../../../components/ui/ListToolbar";
+import { PaginationBar } from "../../../components/ui/PaginationBar";
+import { useColumnVisibility } from "../../../lib/useColumnVisibility";
+import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
+import { useGridPaging } from "../../../lib/useGridPaging";
+import { useGridSort, WORKSPACE_SCOPE } from "../../../lib/useGridSort";
 import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
@@ -11,7 +18,18 @@ import * as projectsApi from "../api/projectsApi";
 import { NewProjectModal } from "../components/NewProjectModal";
 import { ProjectDrawer } from "../components/ProjectDrawer";
 import { ProjectsList } from "../components/ProjectsList";
-import { CHIPS, filterProjects, sortProjects, type ChipKey, type SortKey } from "../lib/filtering";
+import {
+  PROJECT_COLUMN_VISIBILITY,
+  PROJECT_SORT_FIELDS,
+  projectColumns,
+  type ProjectSortField,
+} from "../lib/projectColumns";
+import { CHIPS, filterProjects, type ChipKey } from "../lib/filtering";
+
+const PROJECT_LAYOUT_COLUMNS = layoutColumnsOf(projectColumns);
+const HIDEABLE_PROJECT_COLUMNS = hideableColumnsOf(projectColumns);
+
+const DEFAULT_PROJECT_SORT = { field: "target", direction: "asc" } as const;
 
 /**
  * The workspace home: the mandate list under My/All views, with the search box, stage chips and
@@ -25,10 +43,21 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
   const clientOnly = isPureClient(user?.workspace?.roles ?? []);
   const [query, setQuery] = useState("");
   const [chip, setChip] = useState<ChipKey>("active");
-  const [sortKey, setSortKey] = useState<SortKey>("date");
-  const [sortDirection, setSortDirection] = useState<1 | -1>(1);
   const [openProjectId, setOpenProjectId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [sort, setSort] = useGridSort<ProjectSortField>(
+    "projects",
+    WORKSPACE_SCOPE,
+    PROJECT_SORT_FIELDS,
+    DEFAULT_PROJECT_SORT,
+  );
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility(
+    "projects",
+    WORKSPACE_SCOPE,
+    PROJECT_COLUMN_VISIBILITY,
+  );
+  const [layout, setLayout] = useGridLayout("projects", PROJECT_LAYOUT_COLUMNS);
+  const paging = useGridPaging();
 
   const { data: projects = [], isPending } = useQuery({
     queryKey: projectsApi.PROJECTS_KEY,
@@ -50,22 +79,14 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
   const myMemberId = members.find((m) => m.userId === user?.id)?.memberId;
 
   const rows = useMemo(
-    () =>
-      sortProjects(
-        filterProjects(projects, { view: clientOnly ? "all" : view, myMemberId, chip, query }),
-        sortKey,
-        sortDirection,
-      ),
-    [projects, view, clientOnly, myMemberId, chip, query, sortKey, sortDirection],
+    () => filterProjects(projects, { view: clientOnly ? "all" : view, myMemberId, chip, query }),
+    [projects, view, clientOnly, myMemberId, chip, query],
   );
 
-  const onSort = (key: SortKey) => {
-    if (key === sortKey) setSortDirection((d) => (d === 1 ? -1 : 1));
-    else {
-      setSortKey(key);
-      setSortDirection(1);
-    }
-  };
+  // Narrowing the list returns to the first page. Staying on page 4 of a filter that now matches two
+  // mandates shows an empty grid over a non-empty result.
+  const { reset: resetPage } = paging;
+  useEffect(() => resetPage(), [resetPage, view, chip, query, sort]);
 
   const openProject = projects.find((p) => p.id === openProjectId) ?? null;
 
@@ -136,46 +157,52 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
         action={clientOnly ? undefined : newProjectButton}
       />
 
-      <div className="mb-3.5 flex flex-wrap items-center gap-2.5">
-        <div className="flex w-full items-center sm:w-[300px] gap-2 rounded-lg border border-line bg-panel2 px-[11px] py-[7px]">
-          <Icon d={ICONS.search} size={14} className="text-text3" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search client or position…"
-            className="w-full bg-transparent font-mono text-[13px] text-text outline-none placeholder:text-text3"
+      <ListToolbar
+        query={query}
+        onQuery={setQuery}
+        placeholder="Search client or position…"
+        chips={CHIPS}
+        chip={chip}
+        onChip={setChip}
+        trailing={
+          <ColumnPicker
+            columns={HIDEABLE_PROJECT_COLUMNS}
+            visibility={columnVisibility}
+            defaults={PROJECT_COLUMN_VISIBILITY}
+            onChange={setColumnVisibility}
+            onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}
           />
-        </div>
-
-        <div className="flex flex-wrap gap-1.5">
-          {CHIPS.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setChip(key)}
-              className={`rounded-full border px-[11px] py-[5px] font-mono text-xs font-medium transition hover:text-text ${
-                chip === key ? "border-amber bg-amber-dim text-amber" : "border-line text-text2"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <ProjectsList
-        projects={rows}
-        sortKey={sortKey}
-        sortDirection={sortDirection}
-        onSort={onSort}
-        onOpen={setOpenProjectId}
+        }
       />
 
-      {rows.length === 0 && (
-        <div className="p-12 text-center font-mono text-[13px] text-text3">
-          {clientOnly ? "No projects match. Clear filters." : "No projects match. Clear filters or create a new project."}
-        </div>
-      )}
+      <div className="flex flex-col gap-3">
+        <ProjectsList
+          projects={rows}
+          sort={sort}
+          onSortChange={setSort}
+          columnVisibility={columnVisibility}
+          onColumnVisibilityChange={setColumnVisibility}
+          layout={layout}
+          onLayoutChange={setLayout}
+          pagination={paging.pagination}
+          onPaginationChange={paging.onPaginationChange}
+          error={false}
+          emptyMessage={
+            clientOnly
+              ? "No projects match. Clear filters."
+              : "No projects match. Clear filters or create a new project."
+          }
+          onOpen={setOpenProjectId}
+        />
+        <PaginationBar
+          page={paging.page}
+          size={paging.size}
+          totalCount={rows.length}
+          onPage={paging.setPage}
+          onSize={paging.setSize}
+          autoHide
+        />
+      </div>
 
       <ProjectDrawer
         project={openProject}

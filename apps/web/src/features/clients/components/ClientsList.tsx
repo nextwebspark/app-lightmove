@@ -1,82 +1,76 @@
+import type { ColumnVisibilityState, OnChangeFn, PaginationState } from "@tanstack/react-table";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
-import { initials } from "../../../lib/format";
-import type { Client, ClientRepStatus, ClientType, ViewerSummary } from "../api/types";
+import { DataGrid } from "../../../components/ui/DataGrid";
+import { useDataGridTable } from "../../../lib/useDataGridTable";
+import type { GridLayout } from "../../../lib/useGridLayout";
+import type { GridSort } from "../../../lib/useGridSort";
+import type { Client } from "../api/types";
+import {
+  CLIENT_COLUMN_PINNING,
+  clientColumns,
+  clientTableFeatures,
+  locationOf,
+  RepStack,
+  TypePill,
+  ViewerCell,
+  type ClientSortField,
+} from "../lib/clientColumns";
 
-/** The client registry: a table on a wide screen, a stack of cards below `md`. */
+/** The client registry: the shared grid on a wide screen, a stack of cards below `md`. */
 export function ClientsList({
   clients,
+  sort,
+  onSortChange,
+  columnVisibility,
+  onColumnVisibilityChange,
+  layout,
+  onLayoutChange,
+  pagination,
+  onPaginationChange,
   onOpen,
 }: {
   clients: Client[];
+  sort: GridSort<ClientSortField>;
+  onSortChange: (sort: GridSort<ClientSortField>) => void;
+  columnVisibility: ColumnVisibilityState;
+  onColumnVisibilityChange: OnChangeFn<ColumnVisibilityState>;
+  layout: GridLayout;
+  onLayoutChange: (layout: GridLayout) => void;
+  pagination: PaginationState;
+  onPaginationChange: OnChangeFn<PaginationState>;
   onOpen: (clientId: string) => void;
 }) {
-  const th =
-    "whitespace-nowrap border-b border-line px-3 py-[9px] text-left font-mono text-[10.5px] " +
-    "font-semibold uppercase tracking-[0.12em] text-text3";
-  const td = "border-b border-line-soft px-3 py-[11px]";
-  const pinned = "sticky start-0 z-[1] bg-panel group-hover:bg-panel2";
+  const table = useDataGridTable<typeof clientTableFeatures, Client, ClientSortField>({
+    features: clientTableFeatures,
+    columns: clientColumns,
+    data: clients,
+    getRowId: (client) => client.id,
+    pinning: CLIENT_COLUMN_PINNING,
+    sort,
+    onSortChange,
+    columnVisibility,
+    onColumnVisibilityChange,
+    layout,
+    onLayoutChange,
+    pagination,
+    onPaginationChange,
+  });
 
   return (
-    <>
-      <div className="flex flex-col gap-2.5 md:hidden">
-        {clients.map((client) => (
-          <ClientCard key={client.id} client={client} onOpen={() => onOpen(client.id)} />
-        ))}
-      </div>
-
-      <div className="hidden overflow-x-auto md:block">
-      <table className="w-full min-w-[820px] border-collapse">
-      <thead>
-        <tr>
-          <th className={`${th} ${pinned}`}>Client</th>
-          <th className={th}>Type</th>
-          <th className={th}>Client contact</th>
-          <th className={th}>Sector</th>
-          <th className={th}>Mandates</th>
-          <th className={th}>Viewers</th>
-        </tr>
-      </thead>
-      <tbody>
-        {clients.map((client) => (
-          <tr
-            key={client.id}
-            className="group cursor-pointer hover:bg-panel2"
-            onClick={() => onOpen(client.id)}
-          >
-            <td className={`${td} ${pinned} whitespace-nowrap`}>
-              <span className="flex items-center gap-2.5">
-                <CompanyLogo name={client.name} logo={client.logoUrl} size={26} />
-                <span className="min-w-0">
-                  <span className="block text-[13px] font-semibold text-text">{client.name}</span>
-                  {locationOf(client) && (
-                    <span className="block font-mono text-[11px] text-text3">
-                      {locationOf(client)}
-                    </span>
-                  )}
-                </span>
-              </span>
-            </td>
-            <td className={td}>
-              <TypePill type={client.type} />
-            </td>
-            <td className={td}>
-              <RepStack contacts={client.contacts} />
-            </td>
-            <td className={`${td} whitespace-nowrap font-mono text-xs text-text2`}>
-              {client.sector ?? "—"}
-            </td>
-            <td className={`${td} whitespace-nowrap font-mono text-xs text-text2`}>
-              {client.activeMandates}
-            </td>
-            <td className={td}>
-              <ViewerCell viewers={client.viewers} />
-            </td>
-          </tr>
-        ))}
-      </tbody>
-        </table>
-      </div>
-    </>
+    <DataGrid
+      table={table}
+      label="Clients"
+      fit="content"
+      layout={layout}
+      onLayoutChange={onLayoutChange}
+      // The page answers the pending and refused reads before it renders this.
+      loading={false}
+      error={false}
+      errorMessage="That list could not be loaded. Refresh, or check you still have access."
+      emptyMessage="No clients match. Clear the search or add a new client."
+      onRowClick={(client) => onOpen(client.id)}
+      renderCard={(client) => <ClientCard client={client} onOpen={() => onOpen(client.id)} />}
+    />
   );
 }
 
@@ -108,77 +102,4 @@ function ClientCard({ client, onOpen }: { client: Client; onOpen: () => void }) 
       </div>
     </button>
   );
-}
-
-const TYPE_STYLES: Record<ClientType, { label: string; className: string }> = {
-  RETAINED: { label: "Retained", className: "text-sky bg-sky-dim border-transparent" },
-  PROSPECT: { label: "Prospect", className: "text-text3 border-line-soft" },
-};
-
-function TypePill({ type }: { type: ClientType }) {
-  const { label, className } = TYPE_STYLES[type];
-  return (
-    <span
-      className={`inline-flex items-center whitespace-nowrap rounded-md border px-[9px] py-[3px] font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] ${className}`}
-    >
-      {label}
-    </span>
-  );
-}
-
-const REP_TINT: Record<ClientRepStatus, string> = {
-  ACTIVE: "bg-green-dim text-green",
-  INVITED: "bg-amber-dim text-amber",
-};
-
-function RepStack({ contacts }: { contacts: { fullName: string; status: ClientRepStatus }[] }) {
-  if (contacts.length === 0) {
-    return <span className="font-mono text-xs text-text3">—</span>;
-  }
-  const shown = contacts.slice(0, 4);
-  const overflow = contacts.length - shown.length;
-  return (
-    <span className="flex items-center">
-      {shown.map((contact, index) => (
-        <span
-          key={`${contact.fullName}-${index}`}
-          title={contact.fullName}
-          className={`grid size-6 place-items-center rounded-full border-2 border-panel font-mono text-[10px] font-semibold ${
-            REP_TINT[contact.status]
-          } ${index > 0 ? "-ml-[7px]" : ""}`}
-        >
-          {initials(contact.fullName)}
-        </span>
-      ))}
-      {overflow > 0 && (
-        <span className="-ml-[7px] grid size-6 place-items-center rounded-full border-2 border-panel bg-panel2 font-mono text-[10px] font-semibold text-text3">
-          +{overflow}
-        </span>
-      )}
-    </span>
-  );
-}
-
-function ViewerCell({ viewers }: { viewers: ViewerSummary }) {
-  const dot = viewers.active > 0 ? "bg-green" : viewers.invited > 0 ? "bg-amber" : "bg-line";
-  const label =
-    viewers.active === 0 && viewers.invited === 0
-      ? "None"
-      : [
-          viewers.active > 0 ? `${viewers.active} active` : null,
-          viewers.invited > 0 ? `${viewers.invited} invited` : null,
-        ]
-          .filter(Boolean)
-          .join(" · ");
-  return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-xs text-text2">
-      <span className={`size-[7px] rounded-full ${dot}`} />
-      {label}
-    </span>
-  );
-}
-
-/** Where the client is, city first — the subtext under its name, matching the company picker's rows. */
-function locationOf(client: Client): string {
-  return [client.hqCity, client.hqCountry].filter(Boolean).join(", ");
 }

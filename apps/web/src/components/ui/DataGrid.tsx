@@ -2,13 +2,18 @@ import {
   columnOrderingFeature,
   columnPinningFeature,
   columnVisibilityFeature,
+  createPaginatedRowModel,
+  createSortedRowModel,
+  rowPaginationFeature,
   rowSortingFeature,
   type Column,
   type ReactTable,
+  type Row,
   type RowData,
   type TableFeatures,
 } from "@tanstack/react-table";
 import {
+  Fragment,
   useRef,
   useState,
   type CSSProperties,
@@ -30,6 +35,29 @@ export interface DataGridColumnLayout {
   share: number;
   min: number;
 }
+
+/**
+ * The four features every grid on this component registers. Spread into each grid's own
+ * `tableFeatures({...})` alongside its `columnMeta` and `tableMeta`, which are the only parts that
+ * differ — the call has to stay a literal, because v9 derives the whole table API from its keys.
+ */
+export const DATA_GRID_FEATURES = {
+  columnOrderingFeature,
+  columnPinningFeature,
+  columnVisibilityFeature,
+  rowSortingFeature,
+};
+
+/**
+ * What a grid adds when the rows it was handed are the whole result rather than one page of it: it
+ * sorts and pages them itself. A server-paged grid must not register these — a client row model would
+ * re-sort one page of tens of thousands as though it were everything there is.
+ */
+export const CLIENT_ROW_MODELS = {
+  rowPaginationFeature,
+  sortedRowModel: createSortedRowModel(),
+  paginatedRowModel: createPaginatedRowModel(),
+};
 
 /** `gap-3` in numbers, so the row's minimum width can be added up rather than guessed. */
 const ROW_GAP = 12;
@@ -97,6 +125,9 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   emptyMessage,
   layout,
   onLayoutChange,
+  fit = "fill",
+  renderCard,
+  onRowClick,
 }: {
   table: ReactTable<TFeatures, TData>;
   /** Names the grid for screen readers — "Companies", "Shortlisted companies". */
@@ -108,6 +139,20 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   /** Where the user has dragged the columns. Order is the table's; only the widths are read here. */
   layout: GridLayout;
   onLayoutChange: (layout: GridLayout) => void;
+  /**
+   * `fill` takes the height its flex parent has left and scrolls the rows inside it, which is what a
+   * screen showing one page of a large market wants. `content` is as tall as its rows and leaves the
+   * vertical scrolling to the page, for a list that sits under a heading in ordinary document flow.
+   */
+  fit?: "fill" | "content";
+  /**
+   * The same row as a card, for below `md`. Scanning a seven-column grid sideways on a phone is not
+   * scanning, so the lists people read rather than compare render as a stack there — supplying this
+   * is what turns the grid into the wide half of that pair.
+   */
+  renderCard?: (row: TData) => ReactNode;
+  /** Makes the whole row activate — click, Enter or Space. Rows without one stay inert. */
+  onRowClick?: (row: TData) => void;
 }) {
   /*
    * The one cast, and the reason GridFeatures exists. Every caller registers exactly those four
@@ -257,8 +302,16 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
 
   const track = { gridTemplateColumns: "var(--dg-cols)", minWidth: "var(--dg-min)" };
 
-  return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[8px] border border-line bg-panel">
+  const panel = (
+    <div
+      className={cn(
+        "min-h-0 flex-col overflow-hidden rounded-[8px] border border-line bg-panel",
+        fit === "fill" && "flex-1",
+        // Not `flex hidden md:flex`: twMerge resolves the two unprefixed display classes and the
+        // grid would be the one that lost.
+        renderCard ? "hidden md:flex" : "flex",
+      )}
+    >
       <span aria-live="polite" className="sr-only">
         {announcement}
       </span>
@@ -383,7 +436,25 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                 key={row.id}
                 role="row"
                 style={track}
-                className="group grid h-[52px] items-center gap-3 border-b border-line-soft transition hover:bg-panel2"
+                tabIndex={onRowClick ? 0 : undefined}
+                onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                // A row is not a button, so the keys one answers to have to be spelled out — and only
+                // when the row itself holds focus, or Space on a cell's own button would fire twice.
+                onKeyDown={
+                  onRowClick
+                    ? (event) => {
+                        if (event.target !== event.currentTarget) return;
+                        if (event.key !== "Enter" && event.key !== " ") return;
+                        event.preventDefault();
+                        onRowClick(row.original);
+                      }
+                    : undefined
+                }
+                className={cn(
+                  "group grid h-[52px] items-center gap-3 border-b border-line-soft transition hover:bg-panel2",
+                  onRowClick &&
+                    "cursor-pointer focus-visible:outline focus-visible:-outline-offset-2 focus-visible:outline-sky",
+                )}
               >
                 {row.getVisibleCells().map((cell) => {
                   const pinned = cell.column.getIsPinned();
@@ -408,6 +479,29 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
         </div>
       </div>
     </div>
+  );
+
+  if (!renderCard) return panel;
+
+  return (
+    <>
+      <div className="flex flex-col gap-2.5 md:hidden">
+        {/* Same order as the grid's body, and for the same reason: a refused read is not an empty
+            result, so the error is answered before the count. */}
+        {error ? (
+          <CardMessage>{errorMessage}</CardMessage>
+        ) : loading && rows.length === 0 ? (
+          <CardSkeleton />
+        ) : rows.length === 0 ? (
+          <CardMessage>{emptyMessage}</CardMessage>
+        ) : (
+          rows.map((row: Row<GridFeatures, TData>) => (
+            <Fragment key={row.id}>{renderCard(row.original)}</Fragment>
+          ))
+        )}
+      </div>
+      {panel}
+    </>
   );
 }
 
@@ -570,6 +664,24 @@ function GridMessage({ children }: { children: ReactNode }) {
       <Icon d={ICONS.search} size={18} className="mx-auto mb-2 text-text3" />
       {children}
     </div>
+  );
+}
+
+function CardMessage({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-[10px] border border-line bg-panel px-4 py-8 text-center font-mono text-[13px] text-text3">
+      {children}
+    </div>
+  );
+}
+
+function CardSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 4 }, (_, index) => (
+        <div key={index} className="h-[84px] animate-pulse rounded-[10px] border border-line bg-panel" />
+      ))}
+    </>
   );
 }
 
