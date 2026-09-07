@@ -17,10 +17,6 @@ import type { TriageCompany } from "../api/types";
 export interface TriageCompanyRow {
   company: TriageCompany | null;
   candidate: Candidate | null;
-  /** 1-based within this company, so a repeated company can read as a continuation. */
-  position: number;
-  /** How many lines this company occupies in total. */
-  siblings: number;
 }
 
 /** Stable and collision-free across both nullable sides — the empty slot needs an id of its own. */
@@ -53,22 +49,13 @@ export function toTriageRows(
   for (const company of companies) {
     const mapped = byCompany.get(company.id) ?? [];
     if (mapped.length === 0) {
-      rows.push({ company, candidate: null, position: 1, siblings: 1 });
+      rows.push({ company, candidate: null });
       continue;
     }
-    mapped.forEach((candidate, index) =>
-      rows.push({ company, candidate, position: index + 1, siblings: mapped.length }),
-    );
+    for (const candidate of mapped) rows.push({ company, candidate });
   }
 
-  unmappedCandidates.forEach((candidate, index) =>
-    rows.push({
-      company: null,
-      candidate,
-      position: index + 1,
-      siblings: unmappedCandidates.length,
-    }),
-  );
+  for (const candidate of unmappedCandidates) rows.push({ company: null, candidate });
 
   return rows;
 }

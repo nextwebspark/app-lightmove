@@ -538,6 +538,33 @@ describe("TriageStagePage", () => {
     expect(screen.queryByRole("button", { name: /\+ Add executive/i })).not.toBeInTheDocument();
   });
 
+  it("draws a repeated company the same on every line — logo, name and actions alike", async () => {
+    vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
+      pageOf({ companies: [{ ...acwa, logoUrl: "https://logo.example/acwa.png" }] }),
+    );
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(
+        scope.unmapped ? [] : [yasmin, { ...yasmin, id: "c2", fullName: "Omar Haddad", title: "CFO" }],
+      ),
+    );
+    renderStage();
+
+    await screen.findByText("Omar Haddad");
+    // The second line used to be an indented grey caption without the logo, which read as a company
+    // that could not be opened or acted on. Each line is a person; the company is whole on all of them.
+    const opens = screen.getAllByRole("button", { name: /Open ACWA Power/i });
+    expect(opens).toHaveLength(2);
+    for (const open of opens) {
+      expect(within(open).getByRole("presentation", { hidden: true })).toHaveAttribute(
+        "src",
+        "https://logo.example/acwa.png",
+      );
+    }
+    expect(opens.map((open) => open.className)).toEqual([opens[0].className, opens[0].className]);
+    expect(screen.getAllByRole("button", { name: /Shortlist: ACWA Power/i })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /Remove ACWA Power from this mandate/i })).toHaveLength(2);
+  });
+
   it("asks only for the people at the companies on this page", async () => {
     renderStage();
 
@@ -604,6 +631,32 @@ describe("TriageStagePage", () => {
     // The row says where they work and that it is not a company this screen can act on.
     expect(screen.getByText("An Unlisted Holding")).toBeInTheDocument();
     expect(screen.getByText(/Not in universe/i)).toBeInTheDocument();
+  });
+
+  it("lets an executive with no company in the universe be removed from the row", async () => {
+    const unmapped = {
+      ...yasmin, id: "c9", triageCompanyId: null, companyName: "An Unlisted Holding",
+      fullName: "Wei Ling Tan",
+    };
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [unmapped] : []),
+    );
+    vi.mocked(candidatesApi.deleteCandidate).mockResolvedValue(undefined);
+    renderStage();
+
+    await screen.findByText("Wei Ling Tan");
+    // No company to shortlist or decline, so the only move on the page is ACWA Power's own — but a
+    // row with nothing at all in Actions read as a row that was stuck. Removing the person is the
+    // mandate's to do.
+    expect(screen.getAllByRole("button", { name: /^Shortlist: /i })).toHaveLength(1);
+    await userEvent.click(
+      screen.getByRole("button", { name: /Remove Wei Ling Tan from this mandate/i }),
+    );
+
+    const dialog = await screen.findByRole("dialog", { name: /Remove Wei Ling Tan/i });
+    expect(candidatesApi.deleteCandidate).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: /Remove from mandate/i }));
+    await waitFor(() => expect(candidatesApi.deleteCandidate).toHaveBeenCalledWith("p1", "c9"));
   });
 
   it("says so when the server could not fit every executive on the page", async () => {
