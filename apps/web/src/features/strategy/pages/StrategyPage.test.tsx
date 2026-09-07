@@ -929,6 +929,9 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     await waitFor(() =>
       expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![2]).toBe(50),
     );
+    // 200 results at 50 a page is four of them, and the pill says so rather than leaving the reader
+    // to click Next until it greys out.
+    expect(await screen.findByText("of 4")).toBeInTheDocument();
 
     await userEvent.click(await screen.findByRole("button", { name: "Next page" }));
     await waitFor(() =>
@@ -943,6 +946,7 @@ describe("StrategyPage — the filter sidebar and its results", () => {
       const call = vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)!;
       expect([call[1], call[2]]).toEqual([0, 100]);
     });
+    expect(await screen.findByText("of 2")).toBeInTheDocument();
   });
 
   it("sorts on the server rather than reordering the page it happens to hold", async () => {

@@ -46,8 +46,17 @@ export function PaginationBar({
         disabled={page === 0}
         onClick={() => onPage(page - 1)}
       />
-      <span className="inline-flex items-center gap-2 rounded-[6px] border border-line-soft px-3 py-1.5 font-sans text-[13px] font-semibold text-text">
+      <span
+        aria-live="polite"
+        className="inline-flex items-center gap-1 rounded-[6px] border border-line-soft px-3 py-1.5 font-sans text-[13px] font-semibold text-text"
+      >
         {page + 1}
+        {/* The total is the server's count divided by the size asked for, so it is only knowable once
+            a page has answered — until then the pill carries the current page alone rather than
+            claiming a "of 1" the next render contradicts. */}
+        {totalCount !== undefined && totalCount > 0 && (
+          <span className="font-normal text-text3">of {(lastPage + 1).toLocaleString()}</span>
+        )}
       </span>
       <PageButton
         label="Next page"
