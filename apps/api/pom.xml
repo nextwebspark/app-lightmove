@@ -226,6 +226,30 @@
 					</compilerArgs>
 				</configuration>
 			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+				<version>3.6.3</version>
+				<executions>
+					<execution>
+						<id>enforce-upper-bound-deps</id>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<!-- Maven resolves conflicts nearest-wins, which can pick a version OLDER than another
+								     dependency demands and silently reinstate a patched-away CVE. WARN, not fail: the
+								     Boot parent and the Spring AI BOM pin the same Spring/Micrometer/Jackson artifacts
+								     a patch apart, and the rule reports every one of those. -->
+								<requireUpperBoundDeps>
+									<level>WARN</level>
+								</requireUpperBoundDeps>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
 </project>

@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
 import { ApiRequestError } from "../../../lib/apiClient";
 import type { Project } from "../../projects/api/types";
@@ -1026,5 +1026,177 @@ describe("StrategyPage — the filter sidebar and its results", () => {
 
     expect(within(screen.getByRole("table", { name: "Companies" })).getByText("Riyadh"))
       .toBeInTheDocument();
+  });
+});
+
+/**
+ * jsdom implements no part of the Fullscreen API — `requestFullscreen`, `exitFullscreen` and
+ * `fullscreenElement` are all absent, so `vi.spyOn` throws and `defineProperty` is the only way in.
+ * The fake announces every transition through `fullscreenchange`, which is the signal the whole
+ * feature hangs off.
+ */
+function stubFullscreenApi() {
+  let element: Element | null = null;
+  const announce = () => document.dispatchEvent(new Event("fullscreenchange"));
+  const requestFullscreen = vi.fn(function (this: Element) {
+    element = this;
+    announce();
+    return Promise.resolve();
+  });
+  const exitFullscreen = vi.fn(() => {
+    element = null;
+    announce();
+    return Promise.resolve();
+  });
+
+  Object.defineProperty(Element.prototype, "requestFullscreen", {
+    value: requestFullscreen,
+    configurable: true,
+    writable: true,
+  });
+  Object.defineProperty(document, "exitFullscreen", {
+    value: exitFullscreen,
+    configurable: true,
+    writable: true,
+  });
+  Object.defineProperty(document, "fullscreenElement", { get: () => element, configurable: true });
+
+  return {
+    requestFullscreen,
+    exitFullscreen,
+    /** The browser acting on its own — F11 in, Escape or its own exit control back out. */
+    setElement: (next: Element | null) => {
+      element = next;
+      announce();
+    },
+    restore: () => {
+      Reflect.deleteProperty(Element.prototype, "requestFullscreen");
+      Reflect.deleteProperty(document, "exitFullscreen");
+      Reflect.deleteProperty(document, "fullscreenElement");
+    },
+  };
+}
+
+describe("StrategyPage — full screen", () => {
+  let fullscreenApi: ReturnType<typeof stubFullscreenApi>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    fullscreenApi = stubFullscreenApi();
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(strategyOf());
+    vi.mocked(companiesApi.getFacets).mockResolvedValue(FACETS);
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf());
+  });
+
+  afterEach(() => fullscreenApi.restore());
+
+  const enterFullscreen = async () => {
+    const button = await screen.findByRole("button", { name: "Full screen" });
+    await userEvent.click(button);
+    return button;
+  };
+
+  it("is a switch, not a disclosure", async () => {
+    renderPage();
+
+    // Nothing is revealed beside it — the same screen is redrawn at a different size.
+    expect(await screen.findByRole("button", { name: "Full screen", pressed: false }))
+      .toBeInTheDocument();
+  });
+
+  it("keeps the toolbar, the filter rail and the pager — the screen expands, not the grid", async () => {
+    renderPage();
+    await enterFullscreen();
+
+    for (const control of ["Save Search", "Hide Filters", "AI Research", "Columns", "Add all to Universe →"]) {
+      expect(screen.getByRole("button", { name: new RegExp(control) })).toBeInTheDocument();
+    }
+    expect(screen.getByRole("textbox", { name: "Search companies" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Filters" })).toBeInTheDocument();
+    expect(within(screen.getByRole("table", { name: "Companies" })).getByText("ACWA Power"))
+      .toBeInTheDocument();
+    expect(screen.getByText("1 - 1 of 1")).toBeInTheDocument();
+  });
+
+  it("asks the browser for the whole document, so the toast and the cell tooltips stay inside it", async () => {
+    renderPage();
+    await enterFullscreen();
+
+    // Both portal to document.body. A request scoped to the results column would black them out.
+    expect(document.fullscreenElement).toBe(document.documentElement);
+  });
+
+  it("collapses when the browser leaves full screen on its own", async () => {
+    renderPage();
+    const button = await enterFullscreen();
+    expect(button).toHaveAttribute("aria-pressed", "true");
+
+    act(() => fullscreenApi.setElement(null));
+
+    // Escape, F11 and the browser's own control announce themselves only through fullscreenchange.
+    expect(button).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("still expands when the browser refuses the request", async () => {
+    fullscreenApi.requestFullscreen.mockRejectedValue(new Error("denied"));
+    renderPage();
+
+    const button = await enterFullscreen();
+
+    // iOS Safari has no element fullscreen at all. The overlay is the half that always works.
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    expect(within(screen.getByRole("table", { name: "Companies" })).getByText("ACWA Power"))
+      .toBeInTheDocument();
+  });
+
+  it("leaves through the same button it entered by", async () => {
+    renderPage();
+    const button = await enterFullscreen();
+
+    await userEvent.click(button);
+
+    // Our own exit fires fullscreenchange too; the listener must not re-enter on it.
+    expect(fullscreenApi.requestFullscreen).toHaveBeenCalledTimes(1);
+    expect(fullscreenApi.exitFullscreen).toHaveBeenCalledTimes(1);
+    expect(button).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("hands the window back even when the mandate closes before the request settles", async () => {
+    // The flag saying we asked used to be set in the request's `then`, so a mandate switched in the
+    // moment before it resolved skipped the exit and stranded the browser in fullscreen.
+    fullscreenApi.requestFullscreen.mockImplementation(function (this: Element) {
+      fullscreenApi.setElement(this);
+      return new Promise<void>(() => {});
+    });
+    const { unmount } = renderPage();
+    await enterFullscreen();
+
+    unmount();
+
+    expect(fullscreenApi.exitFullscreen).toHaveBeenCalled();
+  });
+
+  it("leaves a full screen it did not ask for alone", async () => {
+    // F11 is the user talking to the browser, not to this screen. Exiting on unmount because the
+    // document happens to be full would take away something this button never granted.
+    const { unmount } = renderPage();
+    await screen.findByRole("button", { name: "Full screen" });
+    act(() => fullscreenApi.setElement(document.documentElement));
+
+    unmount();
+
+    expect(fullscreenApi.exitFullscreen).not.toHaveBeenCalled();
+  });
+
+  it("hands the window back when the mandate is closed", async () => {
+    const { unmount } = renderPage();
+    await enterFullscreen();
+
+    unmount();
+
+    // StrategyEditor is keyed on the project, so switching mandates is an unmount — and would
+    // otherwise strand the browser in fullscreen with no way back but Escape.
+    expect(fullscreenApi.exitFullscreen).toHaveBeenCalled();
   });
 });
