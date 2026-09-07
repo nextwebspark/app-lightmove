@@ -1,4 +1,5 @@
 import { Icon, ICONS } from "../layout/Icon";
+import { PAGE_SIZE_OPTIONS } from "../../lib/paging";
 
 /**
  * The mockup's pagination row, wired for real: its own buttons were decorative because every row
@@ -13,14 +14,23 @@ export function PaginationBar({
   size,
   totalCount,
   onPage,
+  onSize,
 }: {
   page: number;
   size: number;
   totalCount: number | undefined;
   onPage: (page: number) => void;
+  onSize: (size: number) => void;
 }) {
   const known = totalCount ?? 0;
   const lastPage = Math.max(0, Math.ceil(known / size) - 1);
+
+  // The row that was at the top of the page stays there, rather than the reader being dropped back
+  // at row 1: at 25 rows a page, page 40 is row 1000, and that is what they are looking at.
+  const resize = (next: number) => {
+    onSize(next);
+    onPage(Math.floor((page * size) / next));
+  };
 
   const countLabel = () => {
     if (totalCount === undefined) return "";
@@ -48,6 +58,21 @@ export function PaginationBar({
         onClick={() => onPage(page + 1)}
       />
       <span className="font-sans text-[13px] text-text3">{countLabel()}</span>
+
+      <label className="ms-auto flex items-center gap-2 font-sans text-[13px] text-text3">
+        Rows per page
+        <select
+          value={size}
+          onChange={(event) => resize(Number(event.target.value))}
+          className="rounded-[6px] border border-line-soft bg-transparent px-3 py-1.5 font-sans text-[13px] font-semibold text-text outline-none transition hover:border-line focus:border-sky"
+        >
+          {PAGE_SIZE_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }

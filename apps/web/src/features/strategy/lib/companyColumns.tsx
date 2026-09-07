@@ -24,7 +24,7 @@ interface CompanyTableMeta {
 
 /**
  * No pagination, filtering or sorted row model registered: all three are the server's, and a client
- * row model would re-sort the 25 rows this page holds as though they were the whole result.
+ * row model would re-sort the one page of rows this holds as though they were the whole result.
  */
 export const companyTableFeatures = tableFeatures({
   columnOrderingFeature,

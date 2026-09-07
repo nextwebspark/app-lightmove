@@ -49,7 +49,7 @@ interface TriageTableMeta {
 
 /**
  * No pagination, filtering or sorted row model registered: all three are the server's, and a client
- * row model would re-sort the 25 rows this page holds as though they were the whole result. The same
+ * row model would re-sort the one page of rows this holds as though they were the whole result. The same
  * three features Strategy registers, because it is the same grid.
  */
 export const triageTableFeatures = tableFeatures({

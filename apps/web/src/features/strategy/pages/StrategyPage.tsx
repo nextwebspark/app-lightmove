@@ -7,7 +7,7 @@ import { useToast } from "../../../components/ui/Toast";
 import { useAuth } from "../../auth/AuthProvider";
 import { messageFor } from "../../../lib/errorCodes";
 import { hasRoomForRails } from "../../../lib/viewport";
-import { PAGE_SIZE } from "../../../lib/paging";
+import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
 import { useAutosave } from "../../../lib/useAutosave";
 import * as reportApi from "../../reports/api/reportApi";
 import * as triageApi from "../../triage/api/triageApi";
@@ -87,6 +87,7 @@ function StrategyEditor() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [sort, setSort] = useGridSort("strategy", project.id, COMPANY_SORT_FIELDS, DEFAULT_SORT);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility(
@@ -137,9 +138,9 @@ function StrategyEditor() {
   };
 
   const companies = useQuery({
-    queryKey: strategyApi.STRATEGY_COMPANIES_KEY(project.id, page, PAGE_SIZE, debouncedQuery, sort),
+    queryKey: strategyApi.STRATEGY_COMPANIES_KEY(project.id, page, pageSize, debouncedQuery, sort),
     queryFn: ({ signal }) =>
-      strategyApi.getCompanies(project.id, page, PAGE_SIZE, debouncedQuery, sort, signal),
+      strategyApi.getCompanies(project.id, page, pageSize, debouncedQuery, sort, signal),
     // Paging without blanking the table, which would make every page turn look like a reload.
     placeholderData: keepPreviousData,
   });
@@ -311,9 +312,10 @@ function StrategyEditor() {
           />
           <PaginationBar
             page={page}
-            size={PAGE_SIZE}
+            size={pageSize}
             totalCount={companies.data?.totalCount}
             onPage={setPage}
+            onSize={setPageSize}
           />
         </div>
       </div>
