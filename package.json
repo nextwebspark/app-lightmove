@@ -28,7 +28,8 @@
     "test:api": "cd apps/api && ./mvnw test",
     "test:web": "npm run test --workspace=apps/web",
     "build:extension": "npm run build --workspace=apps/extension",
-    "test:extension": "npm run test --workspace=apps/extension"
+    "test:extension": "npm run test --workspace=apps/extension",
+    "audit": "npm audit --omit=dev --audit-level=high"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
