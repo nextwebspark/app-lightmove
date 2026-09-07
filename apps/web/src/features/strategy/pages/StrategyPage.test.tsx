@@ -32,6 +32,7 @@ vi.mock("../../triage/api/triageApi", async (importOriginal) => ({
   ...(await importOriginal<typeof triageApi>()),
   addMarketCompany: vi.fn(),
   addAllInScope: vi.fn(),
+  addSelectedCompanies: vi.fn(),
 }));
 vi.mock("../api/companiesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof companiesApi>()),
@@ -138,6 +139,16 @@ const pageOf = (overrides: Partial<CompanyPage> = {}): CompanyPage => ({
   size: 25,
   ...overrides,
 });
+
+/** A second row of the same shape, for the tests that select more than one. */
+const secondCompany = () => ({
+  ...pageOf().companies[0],
+  apolloAccountId: "a2",
+  companyName: "Masdar",
+});
+
+const twoCompanies = () =>
+  pageOf({ companies: [pageOf().companies[0], secondCompany()], totalCount: 2 });
 
 const renderPage = (client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) =>
   render(
@@ -1026,5 +1037,107 @@ describe("StrategyPage — the filter sidebar and its results", () => {
 
     expect(within(screen.getByRole("table", { name: "Companies" })).getByText("Riyadh"))
       .toBeInTheDocument();
+  });
+});
+
+describe("StrategyPage — picking companies out of the market in bulk", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(strategyOf());
+    vi.mocked(companiesApi.getFacets).mockResolvedValue(FACETS);
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(twoCompanies());
+    vi.mocked(triageApi.addSelectedCompanies).mockResolvedValue({ added: 2, skipped: 0 });
+  });
+
+  it("raises the action bar only once something is ticked", async () => {
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    // No selection, no bar: it costs no chrome on the screen a consultant spends the day filtering on.
+    expect(screen.queryByRole("region", { name: /selected/ })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select ACWA Power" }));
+
+    expect(await screen.findByRole("region", { name: "1 company selected" })).toBeInTheDocument();
+  });
+
+  it("moves every ticked company to the stage the bar's button names, in one request", async () => {
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select all companies on this page" }));
+    expect(await screen.findByRole("region", { name: "2 companies selected" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Shortlisted" }));
+
+    await waitFor(() =>
+      expect(triageApi.addSelectedCompanies).toHaveBeenCalledWith("p1", ["a1", "a2"], "shortlisted"),
+    );
+    // The action consumed the selection, so the bar goes with it rather than inviting a second press.
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: /selected/ })).not.toBeInTheDocument(),
+    );
+    expect(await screen.findByText("2 companies moved to Shortlisted")).toBeInTheDocument();
+  });
+
+  it("declines a selection without first taking it into the universe", async () => {
+    // The whole point of the bar: ruling forty companies out is one gesture, not forty adds and
+    // forty moves.
+    vi.mocked(triageApi.addSelectedCompanies).mockResolvedValue({ added: 1, skipped: 1 });
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select Masdar" }));
+    await userEvent.click(screen.getByRole("button", { name: "Declined" }));
+
+    await waitFor(() =>
+      expect(triageApi.addSelectedCompanies).toHaveBeenCalledWith("p1", ["a2"], "declined"),
+    );
+    // A company the mandate already holds keeps its stage, and saying so is the difference between
+    // "nothing happened" and "it was already there".
+    expect(await screen.findByText("1 company moved to Declined, 1 already in this mandate"))
+      .toBeInTheDocument();
+  });
+
+  it("drops the selection on Escape", async () => {
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select ACWA Power" }));
+    await screen.findByRole("region", { name: "1 company selected" });
+
+    await userEvent.keyboard("{Escape}");
+
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: /selected/ })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("drops the selection when the filter moves under it", async () => {
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select ACWA Power" }));
+    await screen.findByRole("region", { name: "1 company selected" });
+
+    // A tick left over from a scope the user has abandoned would act on a company they can no longer
+    // see — and the bar would still offer to decline it.
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
+    await userEvent.click(within(filters).getByLabelText("Search industries"));
+    await userEvent.click(within(filters).getByRole("option", { name: /oil & energy/ }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: /selected/ })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("leaves the per-row Add button alone", async () => {
+    // One company is still one click. The bar is for the case the row action is bad at.
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    expect(screen.getByRole("button", { name: "Add ACWA Power to universe" })).toBeInTheDocument();
   });
 });

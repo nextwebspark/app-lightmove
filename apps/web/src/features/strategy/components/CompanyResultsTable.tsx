@@ -8,7 +8,9 @@ import {
 } from "@tanstack/react-table";
 import { useMemo } from "react";
 import { DataGrid } from "../../../components/ui/DataGrid";
+import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
 import type { GridLayout } from "../../../lib/useGridLayout";
+import type { RowSelection } from "../../../lib/useRowSelection";
 import type { CompanyResult, CompanySort, CompanySortField } from "../api/types";
 import { COLUMN_PINNING, companyColumns, companyTableFeatures } from "../lib/companyColumns";
 
@@ -20,6 +22,10 @@ const NO_COMPANIES: CompanyResult[] = [];
  * {@link DataGrid}. Everything about how the grid *looks* — the sticky header, the pinned Company
  * column, the scroll behaviour — lives there, so the Companies screens render identically without
  * either side owning a copy.
+ *
+ * <p>Every row carries a tick box in front of its name, and the header a select-all over the page —
+ * both handed to {@link DataGrid} as its leading slot, so they ride the pinned column and stay on
+ * screen when the row scrolls sideways.
  *
  * <p>Sorting and paging are the server's: this holds one page out of tens of thousands, so a
  * header click changes the query rather than the array. Single-column and non-clearable, because
@@ -37,6 +43,7 @@ export function CompanyResultsTable({
   error,
   onAddToUniverse,
   addingId,
+  selection,
 }: {
   companies: CompanyResult[];
   sort: CompanySort;
@@ -49,6 +56,8 @@ export function CompanyResultsTable({
   error: boolean;
   onAddToUniverse: (company: CompanyResult) => void;
   addingId: string | null;
+  /** Which rows are ticked, for the bulk bar the page floats over this grid. */
+  selection: RowSelection;
 }) {
   // The API's { field, direction } and the table's [{ id, desc }] are one fact in two shapes.
   const sorting = useMemo<SortingState>(
@@ -93,6 +102,20 @@ export function CompanyResultsTable({
       error={error}
       errorMessage="That list could not be loaded. Refresh, or check you still have access."
       emptyMessage="No companies match this filter. Widen it, or reset an accordion."
+      headerLead={
+        <SelectionCheckbox
+          checked={selection.allOnPage ? true : selection.someOnPage ? "mixed" : false}
+          label="Select all companies on this page"
+          onToggle={selection.toggleAllOnPage}
+        />
+      }
+      rowLead={(company) => (
+        <SelectionCheckbox
+          checked={selection.has(company.apolloAccountId)}
+          label={`Select ${company.companyName}`}
+          onToggle={(extend) => selection.toggle(company.apolloAccountId, extend)}
+        />
+      )}
     />
   );
 }
