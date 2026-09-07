@@ -1,4 +1,5 @@
 import { Icon, ICONS } from "../layout/Icon";
+import { Select } from "./index";
 
 /**
  * The mockup's pagination row, wired for real: its own buttons were decorative because every row
@@ -7,17 +8,24 @@ import { Icon, ICONS } from "../layout/Icon";
  * <p>An undefined {@code totalCount} means "not known yet" and is not the same as zero: rendering
  * "0 results" against a page that is still loading states as fact that nothing matched, next to a
  * table that is showing a skeleton.
+ *
+ * <p>The size picker is offered only to a caller that passes both {@code sizeOptions} and
+ * {@code onSizeChange}; a list whose size is fixed renders the row exactly as it did before.
  */
 export function PaginationBar({
   page,
   size,
   totalCount,
   onPage,
+  sizeOptions,
+  onSizeChange,
 }: {
   page: number;
   size: number;
   totalCount: number | undefined;
   onPage: (page: number) => void;
+  sizeOptions?: readonly number[];
+  onSizeChange?: (size: number) => void;
 }) {
   const known = totalCount ?? 0;
   const lastPage = Math.max(0, Math.ceil(known / size) - 1);
@@ -48,6 +56,20 @@ export function PaginationBar({
         onClick={() => onPage(page + 1)}
       />
       <span className="font-sans text-[13px] text-text3">{countLabel()}</span>
+      {sizeOptions && onSizeChange && (
+        <Select
+          aria-label="Rows per page"
+          value={size}
+          onChange={(event) => onSizeChange(Number(event.target.value))}
+          className="ms-auto w-auto flex-none rounded-[6px] border-line-soft px-2 py-1.5 font-sans"
+        >
+          {sizeOptions.map((option) => (
+            <option key={option} value={option}>
+              {option} per page
+            </option>
+          ))}
+        </Select>
+      )}
     </div>
   );
 }

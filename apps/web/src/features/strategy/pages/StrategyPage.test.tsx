@@ -135,7 +135,7 @@ const pageOf = (overrides: Partial<CompanyPage> = {}): CompanyPage => ({
   ],
   totalCount: 1,
   page: 0,
-  size: 25,
+  size: 50,
   ...overrides,
 });
 
@@ -922,6 +922,29 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     // non-empty result.
     await waitFor(() => expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![1]).toBe(0));
   });
+  it("asks for fifty rows until the reader picks another size", async () => {
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf({ totalCount: 200 }));
+    renderPage();
+
+    await waitFor(() =>
+      expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![2]).toBe(50),
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: "Next page" }));
+    await waitFor(() =>
+      expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![1]).toBe(1),
+    );
+
+    await userEvent.selectOptions(screen.getByLabelText("Rows per page"), "100");
+
+    // A wider page re-cuts the result, so page 2 of the old size names different companies than
+    // page 2 of the new one — the reader goes back to the top rather than somewhere arbitrary.
+    await waitFor(() => {
+      const call = vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)!;
+      expect([call[1], call[2]]).toEqual([0, 100]);
+    });
+  });
+
   it("sorts on the server rather than reordering the page it happens to hold", async () => {
     vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf({ totalCount: 4000 }));
     renderPage();
@@ -931,7 +954,7 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     const table = await screen.findByRole("table", { name: "Companies" });
     await userEvent.click(within(table).getByRole("button", { name: /Revenue/ }));
 
-    // The table holds 25 of tens of thousands. Sorting those 25 client-side would reorder the page
+    // The table holds one page of tens of thousands. Sorting that page client-side would reorder it
     // while claiming to have ordered the result, so a header click has to become a new query.
     await waitFor(() =>
       expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![4]).toEqual({

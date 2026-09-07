@@ -62,7 +62,8 @@ const PINNED_FILL = "flex items-center self-stretch bg-panel transition group-ho
  * rows scrolled sideways.
  *
  * <p>Sorting and paging belong to the caller and, in both current callers, to the server: a page
- * holds 25 rows out of tens of thousands, so a header click changes the query rather than the array.
+ * holds a hundred rows at most out of tens of thousands, so a header click changes the query rather
+ * than the array.
  *
  * <p>Columns move and resize by drag. Neither gesture re-renders while it is in flight: the grid
  * template lives in a CSS variable the handlers write straight to the DOM, and React only sees the
