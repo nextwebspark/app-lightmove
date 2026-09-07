@@ -5,7 +5,10 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
+import * as clientsApi from "../../clients/api/clientsApi";
 import type { Client } from "../../clients/api/types";
+import * as companiesApi from "../../strategy/api/companiesApi";
+import type { CompanySuggestion } from "../../strategy/api/types";
 import * as positionApi from "../../position/api/positionApi";
 import type { PositionTemplate } from "../../position/api/types";
 import * as projectsApi from "../api/projectsApi";
@@ -22,8 +25,31 @@ vi.mock("../../position/api/positionApi", async (importOriginal) => ({
   listTemplates: vi.fn(),
 }));
 
+vi.mock("../../clients/api/clientsApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../clients/api/clientsApi")>()),
+  createClient: vi.fn(),
+}));
+
+// The inline-client step is the registry's own company picker, so this suite reads the universe too.
+vi.mock("../../strategy/api/companiesApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../strategy/api/companiesApi")>()),
+  searchCompanies: vi.fn(),
+}));
+
+const suggestion: CompanySuggestion = {
+  apolloAccountId: "apollo-1",
+  companyName: "Meridian Energy Group",
+  industry: "oil & energy",
+  companyCity: "Abu Dhabi",
+  companyCountry: "United Arab Emirates",
+  website: "https://meridian.ae",
+  logoUrl: null,
+  numEmployees: 4200,
+};
+
 beforeEach(() => {
   vi.mocked(positionApi.listTemplates).mockResolvedValue([]);
+  vi.mocked(companiesApi.searchCompanies).mockResolvedValue({ companies: [suggestion] });
 });
 
 const client = (id: string, name: string): Client => ({
@@ -32,6 +58,8 @@ const client = (id: string, name: string): Client => ({
   type: "RETAINED",
   sector: null,
   hqCountry: null,
+  hqCity: null,
+  logoUrl: null,
   activeMandates: 0,
   deliveredMandates: 0,
   contacts: [],
@@ -108,7 +136,7 @@ describe("NewProjectModal — the client the entrance already decided", () => {
     expect(screen.getByRole("option", { name: "Globex" })).toBeInTheDocument();
 
     await user.selectOptions(field, "__new__");
-    expect(screen.getByPlaceholderText(/Meridian Energy Group/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search company database…")).toBeInTheDocument();
   });
 
   it("submits the client the prop names now, not the one it named at mount", async () => {
@@ -317,17 +345,50 @@ describe("NewProjectModal — where a refusal is reported", () => {
     expect(field).not.toHaveAttribute("aria-invalid", "true");
   });
 
-  it("clears the client-name error as soon as that field is edited", async () => {
+  // The inline client is a picked company now, not a typed name: submitting with nothing picked must
+  // say so at the picker, and picking must clear it without a second submit.
+  it("clears the inline-client error as soon as a company is picked", async () => {
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
 
     await user.selectOptions(screen.getByRole("combobox", { name: /Client/ }), "__new__");
     await user.click(screen.getByRole("button", { name: "Create project" }));
-    expect(screen.getByText("Enter the client's name")).toBeInTheDocument();
+    expect(
+      screen.getByText("Pick the client's company, or add it as a new one"),
+    ).toBeInTheDocument();
 
-    await user.type(screen.getByPlaceholderText(/Meridian Energy Group/), "M");
+    await user.type(screen.getByPlaceholderText("Search company database…"), "Meridian");
+    await user.click(await screen.findByText("Meridian Energy Group"));
 
-    expect(screen.queryByText("Enter the client's name")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Pick the client's company, or add it as a new one"),
+    ).not.toBeInTheDocument();
+  });
+
+  // The whole point of the shared picker: a mandate opened this way posts an apolloAccountId, so the
+  // server resolves the canonical name and domain instead of filing a custom duplicate.
+  it("creates the inline client from the universe pick, not from a typed name", async () => {
+    vi.mocked(clientsApi.createClient).mockResolvedValue(client("new-1", "Meridian Energy Group"));
+    vi.mocked(projectsApi.createProject).mockResolvedValue(created("new-1"));
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+
+    await user.selectOptions(screen.getByRole("combobox", { name: /Client/ }), "__new__");
+    await user.type(screen.getByPlaceholderText("Search company database…"), "Meridian");
+    await user.click(await screen.findByText("Meridian Energy Group"));
+    await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
+    await user.click(screen.getByRole("button", { name: "Create project" }));
+
+    await waitFor(() =>
+      expect(clientsApi.createClient).toHaveBeenCalledWith(
+        expect.objectContaining({ company: { apolloAccountId: "apollo-1" } }),
+      ),
+    );
+    await waitFor(() =>
+      expect(projectsApi.createProject).toHaveBeenCalledWith(
+        expect.objectContaining({ clientId: "new-1" }),
+      ),
+    );
   });
 
   it("lets a title of exactly 160 characters through", async () => {

@@ -29,6 +29,9 @@ export interface Client {
   type: ClientType;
   sector: string | null;
   hqCountry: string | null;
+  hqCity: string | null;
+  /** The company's mark, snapshotted at create time. Null for a custom record — initials are the fallback. */
+  logoUrl: string | null;
   activeMandates: number;
   deliveredMandates: number;
   contacts: RepAvatar[];
@@ -58,6 +61,8 @@ export interface ClientDetail {
   name: string;
   sector: string | null;
   hqCountry: string | null;
+  hqCity: string | null;
+  logoUrl: string | null;
   domain: string | null;
   offLimitsNote: string | null;
   activeMandates: number;

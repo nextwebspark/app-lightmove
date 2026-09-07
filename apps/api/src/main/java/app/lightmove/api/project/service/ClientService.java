@@ -92,8 +92,8 @@ public class ClientService {
                 .toList();
 
         return new ClientDetailResponse(client.getId(), client.getName(), client.getSector(),
-                client.getHqCountry(), client.getDomain(), client.getOffLimitsNote(),
-                active, mandates.size() - active, reps, mandates);
+                client.getHqCountry(), client.getHqCity(), client.getLogoUrl(), client.getDomain(),
+                client.getOffLimitsNote(), active, mandates.size() - active, reps, mandates);
     }
 
     @Transactional
@@ -120,8 +120,7 @@ public class ClientService {
                         request.primaryContact().email(), httpRequest);
 
         // A newborn client has no mandates; the row reflects only the invite just sent.
-        return new ClientListResponse(saved.getId(), saved.getName(), ClientType.PROSPECT,
-                saved.getSector(), saved.getHqCountry(), 0, 0,
+        return ClientListResponse.of(saved, ClientType.PROSPECT, 0, 0,
                 primaryContact == null ? List.of()
                         : List.of(new RepAvatar(primaryContact.fullName(), primaryContact.status())),
                 new ViewerSummary(
@@ -162,11 +161,12 @@ public class ClientService {
         CompanyRow row = companies.byAccountIds(List.of(accountId)).stream().findFirst()
                 .orElseThrow(() -> ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                         "That company is no longer in the database"));
-        // Name and domain are the universe's, not the request's; sector/HQ are the editable overrides.
-        // The universe publishes a website rather than a bare domain, so the domain is derived from it.
+        // Name, domain, city and logo are the universe's, not the request's; sector/HQ country are the
+        // editable overrides. The universe publishes a website rather than a bare domain, so the domain
+        // is derived from it.
         String hqCountry = request.hqCountry() != null ? request.hqCountry() : row.companyCountry();
         return Client.fromUniverse(workspaceId, accountId, row.companyName(), request.sector(),
-                hqCountry, WebsiteDomain.of(row.website()), userId);
+                hqCountry, row.companyCity(), WebsiteDomain.of(row.website()), row.logoUrl(), userId);
     }
 
 
@@ -195,8 +195,7 @@ public class ClientService {
         long viewersActive = reps.stream().filter(rep -> rep.getStatus() == ClientRepStatus.ACTIVE).count();
         long viewersInvited = reps.stream().filter(rep -> rep.getStatus() == ClientRepStatus.INVITED).count();
 
-        return new ClientListResponse(client.getId(), client.getName(), type, client.getSector(),
-                client.getHqCountry(), active, mandates.size() - active, contacts,
+        return ClientListResponse.of(client, type, active, mandates.size() - active, contacts,
                 new ViewerSummary(viewersActive, viewersInvited));
     }
 

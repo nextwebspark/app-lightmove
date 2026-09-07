@@ -11,6 +11,7 @@ import {
   stageLabel,
   useToast,
 } from "../../../components/ui";
+import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { isValidEmail } from "../../../lib/email";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatDate } from "../../../lib/format";
@@ -134,9 +135,17 @@ function ClientView({
         <div className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text3">
           Client record
         </div>
-        <div className="mt-1 text-[17px] font-semibold">{client.name}</div>
-        <div className="mt-0.5 font-mono text-[11px] text-text3">
-          {[client.sector, client.hqCountry, client.domain].filter(Boolean).join(" · ") || "—"}
+        <div className="mt-1 flex items-start gap-2.5">
+          <CompanyLogo name={client.name} logo={client.logoUrl} size={32} />
+          <div className="min-w-0">
+            <div className="text-[17px] font-semibold">{client.name}</div>
+            <div className="mt-0.5 font-mono text-[11px] text-text3">
+              {[client.hqCity, client.hqCountry].filter(Boolean).join(", ") || "—"}
+            </div>
+            <div className="font-mono text-[10px] text-text3">
+              {[client.sector, client.domain].filter(Boolean).join(" · ") || "—"}
+            </div>
+          </div>
         </div>
       </div>
 

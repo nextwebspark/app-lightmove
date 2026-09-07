@@ -1,4 +1,5 @@
 import { request } from "../../../lib/apiClient";
+import type { CompanyPick } from "../lib/companyPick";
 import type {
   Client,
   ClientDetail,
@@ -19,6 +20,20 @@ export function clients(): Promise<Client[]> {
 
 export function client(clientId: string): Promise<ClientDetail> {
   return request<ClientDetail>(`/clients/${clientId}`);
+}
+
+/**
+ * The body a picked company becomes. A universe pick sends its account id and nothing the client saw:
+ * the server re-resolves the canonical name and domain, so a client cannot be filed under a name of
+ * its own choosing.
+ */
+export function createClientPayloadFor(pick: CompanyPick): CreateClientPayload {
+  return pick.source === "universe"
+    ? {
+        company: { apolloAccountId: pick.company.apolloAccountId },
+        sector: pick.company.industry ?? undefined,
+      }
+    : { customName: pick.name, customDomain: pick.domain || undefined };
 }
 
 export function createClient(payload: CreateClientPayload): Promise<Client> {

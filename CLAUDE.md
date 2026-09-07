@@ -178,6 +178,9 @@ the definitions are rows and the values are a document. `field_key` is slugged o
 rewritten — every stored value points at it — while `label` is the header a user renames.
 V47 adds `'CSV'` to the triage company's `source` CHECK, the spelling V36 had already reserved on the
 candidate side.
+V48 gives `app_lm_client` the two snapshot columns V15 left out — `hq_city` and `logo_url` — and
+backfills them for existing Apollo-backed rows by their stored provenance id, so a client renders with
+its own mark rather than an initials tile.
 `app_lm_position_template` (V42) is the role-template library — the identity a picker lists as columns,
 the drafted brief as one `jsonb` body (V30's idiom, not V39's child tables: a template is a
 heterogeneous document read and written whole), and the match keywords as a child table because they
