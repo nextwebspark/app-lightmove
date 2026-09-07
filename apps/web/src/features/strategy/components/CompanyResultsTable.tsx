@@ -21,7 +21,7 @@ const NO_COMPANIES: CompanyResult[] = [];
  * column, the scroll behaviour — lives there, so the Companies screens render identically without
  * either side owning a copy.
  *
- * <p>Sorting and paging are the server's: this holds one page out of tens of thousands, so a
+ * <p>Sorting and paging are the server's: this holds one page of 25 out of tens of thousands, so a
  * header click changes the query rather than the array. Single-column and non-clearable, because
  * the API takes one field and one direction and a third click would send no ORDER BY at all.
  */
