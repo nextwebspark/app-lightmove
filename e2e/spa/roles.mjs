@@ -47,7 +47,11 @@ const section = (title) => console.log(`\n\x1b[1;36m== ${title}\x1b[0m`);
 const check = (id, what, expected, actual) =>
   String(expected) === String(actual) ? pass(id, what) : fail(id, what, `expected [${expected}] got [${actual}]`);
 
-const browser = await chromium.launch();
+// Same escape hatch as the screenshot drivers: a sandbox that ships its own Chromium sets this,
+// because the pinned Playwright would otherwise try to download a build it cannot reach.
+const browser = await chromium.launch(
+  process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
+);
 
 async function signIn(email, label) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
