@@ -1,14 +1,32 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Button, EmptyState, TableSkeleton } from "../../../components/ui";
+import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
+import { ListToolbar } from "../../../components/ui/ListToolbar";
+import { PaginationBar } from "../../../components/ui/PaginationBar";
+import { useColumnVisibility } from "../../../lib/useColumnVisibility";
+import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
+import { useGridPaging } from "../../../lib/useGridPaging";
+import { useGridSort, WORKSPACE_SCOPE } from "../../../lib/useGridSort";
 import { NewProjectModal } from "../../projects/components/NewProjectModal";
 import * as clientsApi from "../api/clientsApi";
 import { ClientDrawer } from "../components/ClientDrawer";
 import { ClientsList } from "../components/ClientsList";
 import { NewClientModal } from "../components/NewClientModal";
+import {
+  CLIENT_COLUMN_VISIBILITY,
+  CLIENT_SORT_FIELDS,
+  clientColumns,
+  type ClientSortField,
+} from "../lib/clientColumns";
 import { CHIPS, filterClients, type ChipKey } from "../lib/filtering";
+
+const CLIENT_LAYOUT_COLUMNS = layoutColumnsOf(clientColumns);
+const HIDEABLE_CLIENT_COLUMNS = hideableColumnsOf(clientColumns);
+
+const DEFAULT_CLIENT_SORT = { field: "name", direction: "asc" } as const;
 
 /**
  * The client registry: the list table, company-database-first create, and the record drawer. Records
@@ -20,6 +38,19 @@ export function ClientsPage() {
   const [openClientId, setOpenClientId] = useState<string | null>(null);
   const [newClientOpen, setNewClientOpen] = useState(false);
   const [newMandateOpen, setNewMandateOpen] = useState(false);
+  const [sort, setSort] = useGridSort<ClientSortField>(
+    "clients",
+    WORKSPACE_SCOPE,
+    CLIENT_SORT_FIELDS,
+    DEFAULT_CLIENT_SORT,
+  );
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility(
+    "clients",
+    WORKSPACE_SCOPE,
+    CLIENT_COLUMN_VISIBILITY,
+  );
+  const [layout, setLayout] = useGridLayout("clients", CLIENT_LAYOUT_COLUMNS);
+  const paging = useGridPaging();
 
   const { data: clients = [], isPending, isError } = useQuery({
     queryKey: clientsApi.CLIENTS_KEY,
@@ -31,6 +62,16 @@ export function ClientsPage() {
     () => new Set(clients.map((client) => client.name.toLowerCase())),
     [clients],
   );
+
+  // Narrowing the registry returns to the first page — page 3 of a two-row result is a blank grid —
+  // and a registry that shrank under the reader is clamped back onto its last page.
+  const { reset: resetPage, clampTo } = paging;
+  useEffect(() => {
+    resetPage();
+  }, [resetPage, chip, query, sort]);
+  useEffect(() => {
+    clampTo(rows.length);
+  }, [clampTo, rows.length]);
 
   const newClientButton = (
     <Button onClick={() => setNewClientOpen(true)} className="!px-3.5 !py-[7px] !text-[13px]">
@@ -84,40 +125,46 @@ export function ClientsPage() {
         </EmptyState>
       ) : (
         <>
-          <div className="mb-3.5 flex flex-wrap items-center gap-2.5">
-            <div className="flex w-full items-center sm:w-[300px] gap-2 rounded-lg border border-line bg-panel2 px-[11px] py-[7px]">
-              <Icon d={ICONS.search} size={14} className="text-text3" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search clients…"
-                className="w-full bg-transparent font-mono text-[13px] text-text outline-none placeholder:text-text3"
+          <ListToolbar
+            query={query}
+            onQueryChange={setQuery}
+            placeholder="Search clients…"
+            chips={CHIPS}
+            activeChip={chip}
+            onChipChange={setChip}
+            trailing={
+              <ColumnPicker
+                columns={HIDEABLE_CLIENT_COLUMNS}
+                visibility={columnVisibility}
+                defaults={CLIENT_COLUMN_VISIBILITY}
+                onChange={setColumnVisibility}
+                onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}
               />
-            </div>
+            }
+          />
 
-            <div className="flex flex-wrap gap-1.5">
-              {CHIPS.map(({ key, label }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setChip(key)}
-                  className={`rounded-full border px-[11px] py-[5px] font-mono text-xs font-medium transition hover:text-text ${
-                    chip === key ? "border-amber bg-amber-dim text-amber" : "border-line text-text2"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+          <div className="flex flex-col gap-3">
+            <ClientsList
+              clients={rows}
+              sort={sort}
+              onSortChange={setSort}
+              columnVisibility={columnVisibility}
+              onColumnVisibilityChange={setColumnVisibility}
+              layout={layout}
+              onLayoutChange={setLayout}
+              pagination={paging.pagination}
+              onPaginationChange={paging.onPaginationChange}
+              onOpen={setOpenClientId}
+            />
+            <PaginationBar
+              page={paging.page}
+              size={paging.size}
+              totalCount={rows.length}
+              onPage={paging.setPage}
+              onSize={paging.setSize}
+              autoHide
+            />
           </div>
-
-          <ClientsList clients={rows} onOpen={setOpenClientId} />
-
-          {rows.length === 0 && (
-            <div className="p-12 text-center font-mono text-[13px] text-text3">
-              No clients match. Clear the search or add a new client.
-            </div>
-          )}
         </>
       )}
 

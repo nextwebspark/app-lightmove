@@ -1,13 +1,7 @@
-import {
-  useTable,
-  type ColumnOrderState,
-  type ColumnVisibilityState,
-  type OnChangeFn,
-  type SortingState,
-  type Updater,
-} from "@tanstack/react-table";
+import type { ColumnVisibilityState, OnChangeFn } from "@tanstack/react-table";
 import { useMemo } from "react";
 import { DataGrid } from "../../../components/ui/DataGrid";
+import { useDataGridTable } from "../../../lib/useDataGridTable";
 import type { GridLayout } from "../../../lib/useGridLayout";
 import type { GridSort } from "../../../lib/useGridSort";
 import type { Candidate } from "../../candidates/api/types";
@@ -20,9 +14,6 @@ import {
 } from "../lib/triageCompanyColumns";
 import { triageRowId, type TriageCompanyRow } from "../lib/triageRows";
 
-/** A stable empty array: a fresh `[]` per render invalidates every data-dependent model. */
-const NO_ROWS: TriageCompanyRow[] = [];
-
 /**
  * The Companies half of the company grid: the mandate's own columns and its triage actions, over the
  * shared {@link DataGrid}. Everything about how the grid looks lives there, so this stage and
@@ -32,8 +23,7 @@ const NO_ROWS: TriageCompanyRow[] = [];
  * hands this the expanded lines and the grid never has to know how they were paired up.
  *
  * <p>Sorting and paging are the server's, exactly as on Strategy — a header click changes the query
- * rather than the array. Single-column and non-clearable, because the API takes one field and one
- * direction and a third click would send no ORDER BY at all.
+ * rather than the array.
  */
 export function TriageCompanyTable({
   rows,
@@ -79,41 +69,32 @@ export function TriageCompanyTable({
   busyId: string | null;
   canWrite: boolean;
 }) {
-  // The API's { field, direction } and the table's [{ id, desc }] are one fact in two shapes.
-  const sorting = useMemo<SortingState>(
-    () => [{ id: sort.field, desc: sort.direction === "desc" }],
-    [sort],
-  );
-
   // Rebuilt only when the project's column set changes: a fresh array every render would rebuild
   // every column def and lose the grid's own per-column state with it.
   const columns = useMemo(() => createTriageCompanyColumns(customColumns), [customColumns]);
 
-  const table = useTable({
+  const table = useDataGridTable<typeof triageTableFeatures, TriageCompanyRow, TriageSortField>({
     features: triageTableFeatures,
     columns,
-    data: rows.length > 0 ? rows : NO_ROWS,
+    data: rows,
     getRowId: triageRowId,
-    initialState: { columnPinning: TRIAGE_COLUMN_PINNING },
-    manualSorting: true,
-    enableMultiSort: false,
-    enableSortingRemoval: false,
-    state: { sorting, columnVisibility, columnOrder: layout.order },
-    onSortingChange: (updater) => {
-      const next = typeof updater === "function" ? updater(sorting) : updater;
-      const [first] = next;
-      if (!first) return;
-      onSortChange({
-        field: first.id as TriageSortField,
-        direction: first.desc ? "desc" : "asc",
-      });
-    },
+    pinning: TRIAGE_COLUMN_PINNING,
+    sort,
+    onSortChange,
+    columnVisibility,
     onColumnVisibilityChange,
-    onColumnOrderChange: (updater: Updater<ColumnOrderState>) => {
-      const order = typeof updater === "function" ? updater(layout.order) : updater;
-      onLayoutChange({ ...layout, order });
+    layout,
+    onLayoutChange,
+    meta: {
+      projectId,
+      onMove,
+      onDelete,
+      onAddExecutive,
+      onEditCandidate,
+      onOpenCompany,
+      busyId,
+      canWrite,
     },
-    meta: { projectId, onMove, onDelete, onAddExecutive, onEditCandidate, onOpenCompany, busyId, canWrite },
   });
 
   return (
