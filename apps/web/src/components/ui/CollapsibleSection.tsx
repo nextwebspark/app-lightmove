@@ -35,7 +35,7 @@ export function CollapsibleSection({
 }) {
   const bodyId = `${id}-section-body`;
   return (
-    <section className="border-b border-line-soft last:border-b-0">
+    <section className="group border-b border-line-soft last:border-b-0">
       <div className="flex items-center gap-2">
         <button
           type="button"

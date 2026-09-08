@@ -443,7 +443,12 @@ function TriageStage() {
         customColumns={candidateColumns}
         canWrite={canWrite}
         onClose={() => setProfile(null)}
-        onSaved={refreshEverything}
+        // The panel stays open on what the server answered: a corrected figure shows corrected
+        // before the grid has refetched, and an add moves straight on to the profile it made.
+        onSaved={(saved) => {
+          setProfile({ candidate: saved, company: null });
+          refreshEverything();
+        }}
         onDelete={canWrite ? setPendingCandidateRemoval : undefined}
       />
 

@@ -669,7 +669,7 @@ describe("TriageStagePage", () => {
     expect(within(drawer).getByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
     expect(within(drawer).queryByLabelText(/Full name/i)).not.toBeInTheDocument();
 
-    await userEvent.click(within(drawer).getByRole("button", { name: /^Edit$/i }));
+    await userEvent.click(within(drawer).getByRole("button", { name: /Edit details/i }));
     expect(within(drawer).getByLabelText(/Full name/i)).toHaveValue("Yasmin El-Sayed");
     expect(within(drawer).getByLabelText(/^Title$/i)).toHaveValue("VP Finance");
   });
@@ -893,9 +893,9 @@ describe("TriageStagePage", () => {
     expect(screen.queryByRole("button", { name: /^Columns$/i })).not.toBeInTheDocument();
   });
 
-  it("edits a mandate's own column in the same save as the built-in fields", async () => {
-    // One request, not two: the custom values ride on the request the drawer already posts, so a
-    // save cannot half-succeed and there is one audit event rather than a pair.
+  it("edits a mandate's own column as a section of its own, over the stored profile", async () => {
+    // The custom values ride on the same replace every section posts, so the row is never
+    // half-saved and the built-in fields around them are said again unchanged.
     vi.mocked(customColumnsApi.getCustomColumns).mockResolvedValue({ columns: [ethnicity] });
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
       peopleOf(scope.unmapped ? [] : [yasmin]),
@@ -905,10 +905,10 @@ describe("TriageStagePage", () => {
 
     await userEvent.click(await screen.findByText("Yasmin El-Sayed"));
     const drawer = await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i });
-    await userEvent.click(within(drawer).getByRole("button", { name: /^Edit$/i }));
+    await userEvent.click(within(drawer).getByRole("button", { name: /Edit your columns/i }));
 
     await userEvent.type(await within(drawer).findByLabelText("Ethnicity"), "Lebanese");
-    await userEvent.click(within(drawer).getByRole("button", { name: /Save changes/i }));
+    await userEvent.click(within(drawer).getByRole("button", { name: /^Save$/i }));
 
     await waitFor(() =>
       expect(candidatesApi.updateCandidate).toHaveBeenCalledWith(
