@@ -123,6 +123,38 @@ if [ ! -s "$PRIVATE_KEY" ] || [ ! -s "$PUBLIC_KEY" ]; then
   chmod 600 "$PRIVATE_KEY"
 fi
 
+# --- 2b. google application default credentials -----------------------------
+# The same problem as the signing keys, and the same answer. GoogleGenAiClientConfig builds a Vertex
+# `com.google.genai.Client` at startup, and that constructor resolves Application Default Credentials
+# eagerly — so on a runner, where nobody has run `gcloud auth application-default login`, the context
+# fails with "Failed to get application default credentials" and the API never starts. Every case then
+# answers 000, which is the several-hundred-failures-with-one-cause shape the JWT note above describes.
+#
+# `spring.ai.model.chat=none` is how application-test.yml avoids this, and it cannot be used here:
+# turning the chat model off removes the ChatModel bean, which removes Spring AI's ChatClient.Builder,
+# which ChatClientConfig requires — so the context fails either way. Credentials that merely *parse*
+# are what this needs, and that is all this file is.
+#
+# They are deliberately inert. Nothing in the matrix calls the model, and a token fetch is lazy, so no
+# request ever leaves the machine; if a future case does call one it fails loudly at authentication
+# rather than quietly billing a real project. Exported over any real ADC the developer happens to have,
+# for the same reason LIGHTMOVE_EMAIL_PROVIDER=log is forced over a live Resend key: a run of this
+# suite must not be able to reach a paid service.
+ADC_FILE="$RUN_DIR/keys/google-adc.json"
+if [ ! -s "$ADC_FILE" ]; then
+  say "writing inert Google ADC at $ADC_FILE (no LLM call in this suite may leave the machine)"
+  mkdir -p "$(dirname "$ADC_FILE")"
+  cat > "$ADC_FILE" <<'ADC'
+{
+  "type": "authorized_user",
+  "client_id": "lm-e2e-not-a-real-client.apps.googleusercontent.com",
+  "client_secret": "lm-e2e-not-a-real-secret",
+  "refresh_token": "lm-e2e-not-a-real-refresh-token"
+}
+ADC
+  chmod 600 "$ADC_FILE"
+fi
+
 # --- 3. api -----------------------------------------------------------------
 if curl -sf -o /dev/null "http://localhost:8080/api/v1/auth/providers"; then
   say "API already up on :8080 — leaving it alone"
@@ -140,6 +172,7 @@ else
       LIGHTMOVE_EMAIL_PROVIDER="$MAIL_PROVIDER" \
       JWT_PRIVATE_KEY_LOCATION="file:$PRIVATE_KEY" \
       JWT_PUBLIC_KEY_LOCATION="file:$PUBLIC_KEY" \
+      GOOGLE_APPLICATION_CREDENTIALS="$ADC_FILE" \
       ./mvnw -q spring-boot:run -Dspring-boot.run.profiles="$PROFILE" \
       > "$RUN_DIR/api.log" 2>&1 & echo $! > "$RUN_DIR/api.pid" )
 

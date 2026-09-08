@@ -59,6 +59,10 @@ Boot takes ~40 s: the Cloud SQL connector is bypassed but Flyway still applies t
 an empty schema. `up.sh` waits for the API to answer and refuses to continue unless the email provider
 is what the caller declared.
 
+**`CHROMIUM_PATH`** points the browser phase at a Chromium already on the machine, for a sandbox that
+ships one but cannot reach the build this Playwright is pinned to. All five `spa/*.mjs` honour it;
+unset, they use the browser `npx playwright install chromium` puts in place, which is what CI does.
+
 **The Apollo universe.** `api/14-strategy-company-search.sh` and `spa/strategy.mjs` read
 `app_lm_apollo_companies`, which is ETL-owned and pulled with gcloud. `stack/up.sh` builds an empty
 database, so on a runner those cases **skip themselves and exit 0** rather than reporting a few
@@ -83,7 +87,7 @@ and the only way this runs anywhere but a laptop, since `application-local.yml` 
 `local` on a runner silently inherits `application.yml`'s production defaults — a Secure/Strict refresh
 cookie no browser keeps over plain http, and signup capped at five an hour.
 
-## Four things that will bite you
+## Five things that will bite you
 
 **JWT signing keys.** `JwtConfig` lets the API generate its own keypair only on `local`, `dev` and
 `test` — `e2e` is deliberately not one of them, because a profile that mints its own signing key is one
@@ -92,6 +96,18 @@ refuses to boot at all. `up.sh` mints a disposable pair into `results/current/ke
 `JWT_PRIVATE_KEY_LOCATION` / `JWT_PUBLIC_KEY_LOCATION` at it, once per run and reused across the three
 legs — a fresh pair per leg would invalidate the previous leg's access tokens. This is why the first
 nightly run reported 466 failures: the API never started, and every case answered `000`.
+
+**Google credentials.** The same shape, and the reason to check `api.log` before believing a red run.
+`GoogleGenAiClientConfig` builds a Vertex client at startup, and that constructor resolves Application
+Default Credentials **eagerly** — so on a runner, where nobody has run `gcloud auth
+application-default login`, the context fails with "Failed to get application default credentials" and
+the API never boots. `application-test.yml` sidesteps this with `spring.ai.model.chat=none`, which
+cannot work here: no chat model means no `ChatClient.Builder`, and `ChatClientConfig` requires one, so
+the context fails either way. `up.sh` therefore writes an **inert** `authorized_user` file next to the
+JWT keys and points `GOOGLE_APPLICATION_CREDENTIALS` at it. Nothing in the matrix calls the model and a
+token fetch is lazy, so no request leaves the machine; a future case that does call one fails loudly at
+authentication instead of billing a real project. It is exported over any real ADC on the machine, for
+the same reason `provider=log` is forced over a live Resend key.
 
 **Email.** `application-local.yml` pins `provider: resend` with a live API key, so an unguarded local
 signup mails a real person. `up.sh` forces `LIGHTMOVE_EMAIL_PROVIDER=log` and aborts if the startup

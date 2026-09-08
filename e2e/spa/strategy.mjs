@@ -100,7 +100,11 @@ const clientId = (await api("/clients", { method: "POST", token, body: { customN
 const PROJECT = (await api("/projects", { method: "POST", token, body: { clientId, positionTitle: "Chief Technology Officer" } })).body.id;
 const STRATEGY_URL = `${WEB}/projects/${PROJECT}/strategy`;
 
-const browser = await chromium.launch();
+// Same escape hatch as the screenshot drivers: a sandbox that ships its own Chromium sets this,
+// because the pinned Playwright would otherwise try to download a build it cannot reach.
+const browser = await chromium.launch(
+  process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
+);
 const context = await browser.newContext({ viewport: { width: 1680, height: 1050 } });
 const page = await context.newPage();
 let facets = null;
