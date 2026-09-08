@@ -7,6 +7,7 @@ import {
   type PaginationState,
   type ReactTable,
   type RowData,
+  type RowSelectionState,
   type SortingState,
   type TableFeatures,
   type TableOptions,
@@ -46,6 +47,13 @@ export interface DataGridTableOptions<
    */
   pagination?: PaginationState;
   onPaginationChange?: OnChangeFn<PaginationState>;
+  /**
+   * Which rows are ticked, for a grid that offers bulk actions. Keyed by the id `getRowId` returns,
+   * so a tick survives the page turn that replaces every row object — which is why it is state the
+   * caller holds rather than something this hook could own.
+   */
+  rowSelection?: RowSelectionState;
+  onRowSelectionChange?: OnChangeFn<RowSelectionState>;
 }
 
 /**
@@ -56,6 +64,9 @@ export interface DataGridTableOptions<
  * so no row model is computed here and a header click only changes the query. With it, the caller
  * handed over every row it has and the table sorts and pages them — which is what the workspace lists
  * do, where one query answers with the firm's whole roster.
+ *
+ * <p>A grid that passes `rowSelection` also gets shift-click range selection, defined here so the
+ * gesture is the same wherever selection is offered.
  *
  * <p>Sorting is single-column and non-clearable either way: the paged APIs take one field and one
  * direction, and a third click that sent no ORDER BY at all would page over an undefined order.
@@ -79,6 +90,8 @@ export function useDataGridTable<
   meta,
   pagination,
   onPaginationChange,
+  rowSelection,
+  onRowSelectionChange,
 }: DataGridTableOptions<TFeatures, TData, TField>): ReactTable<TFeatures, TData> {
   // The API's { field, direction } and the table's [{ id, desc }] are one fact in two shapes.
   const sorting = useMemo<SortingState>(
@@ -103,7 +116,14 @@ export function useDataGridTable<
       columnOrder: layout.order,
       ...(columnVisibility && { columnVisibility }),
       ...(pagination && { pagination }),
+      ...(rowSelection && { rowSelection }),
     },
+    onRowSelectionChange,
+    // Shift extends the range, for every selectable grid rather than per screen. The selection
+    // feature owns the anchor and the interval but has no opinion about which gesture asks for one,
+    // and without this a shift-click is an ordinary click.
+    isRowRangeSelectionEvent: (event: unknown) =>
+      (event as { nativeEvent?: { shiftKey?: boolean } }).nativeEvent?.shiftKey === true,
     onSortingChange: (updater: Updater<SortingState>) => {
       const next = typeof updater === "function" ? updater(sorting) : updater;
       const [first] = next;

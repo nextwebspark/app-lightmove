@@ -1,6 +1,7 @@
 package app.lightmove.api.triagecompany.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.triagecompany.dto.AddSelectedTriageCompaniesRequest;
 import app.lightmove.api.triagecompany.dto.AddTriageCompanyRequest;
 import app.lightmove.api.triagecompany.dto.CaptureCompanyRequest;
 import app.lightmove.api.triagecompany.dto.EditCustomFieldsRequest;
@@ -99,6 +100,22 @@ public class TriageCompanyController {
                                                                HttpServletRequest httpRequest) {
         return ResponseEntity.ok(triage.addAllInScope(principal.userId(),
                 principal.requireWorkspaceId(), projectId, httpRequest));
+    }
+
+    /**
+     * The companies ticked on Strategy, taken in at one stage. Beside {@code /from-filter} rather than
+     * a variant of it: that one deliberately takes no body so the scope cannot be widened past the
+     * stored filter, and this one is a list the caller names — narrower than the filter by
+     * construction, and still resolved and off-limits-checked server-side.
+     */
+    @PostMapping("/bulk")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
+    public ResponseEntity<TriageBulkAddResponse> addSelected(@AuthenticationPrincipal AuthPrincipal principal,
+                                                             @PathVariable UUID projectId,
+                                                             @Valid @RequestBody AddSelectedTriageCompaniesRequest request,
+                                                             HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(triage.addSelected(principal.userId(),
+                principal.requireWorkspaceId(), projectId, request, httpRequest));
     }
 
     @PatchMapping("/{triageCompanyId}")

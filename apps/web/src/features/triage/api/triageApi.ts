@@ -170,6 +170,28 @@ export function addMarketCompany(
   });
 }
 
+/**
+ * The companies ticked on Strategy, taken in together at one stage — the selection bar's three
+ * buttons.
+ *
+ * <p>Ids only, as {@link addMarketCompany}: the server resolves every snapshot from the market. One
+ * request rather than a loop over that one, because forty POSTs would be forty audit events, forty
+ * chances for a partial failure nobody can describe, and a toast that could only guess at its number.
+ *
+ * <p>Companies the mandate already holds keep the stage they are at and count as skipped — declining
+ * a selection that happens to include an already-shortlisted company does not move it.
+ */
+export function addSelectedCompanies(
+  projectId: string,
+  apolloAccountIds: string[],
+  status: TriageCompanyStatus,
+): Promise<BulkAddResult> {
+  return request<BulkAddResult>(`/projects/${projectId}/triage/bulk`, {
+    method: "POST",
+    body: { apolloAccountIds, status },
+  });
+}
+
 export function addAllInScope(projectId: string): Promise<BulkAddResult> {
   // No body: the scope is the stored filter, so this cannot ask for a wider one than is on screen.
   return request<BulkAddResult>(`/projects/${projectId}/triage/from-filter`, { method: "POST" });

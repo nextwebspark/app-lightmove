@@ -19,7 +19,10 @@ searches saved against it, and the three Companies pages (In universe / Shortlis
 mandate triages what it took from it. A company reaches those pages four ways — out of the market
 (Strategy's per-row add, or the Companies screen's own picker over the same universe, both `POST
 /triage` with an id the server resolves), typed in by hand, captured by the browser plugin
-(`POST /triage/capture`), or **imported from a spreadsheet**.
+(`POST /triage/capture`), or **imported from a spreadsheet**. Strategy's rows also carry a tick box:
+a selection raises a floating bar over the grid whose three buttons file every ticked company at one
+stage in one request (`POST /triage/bulk`), so a mandate can decline forty companies without first
+taking them into the universe.
 Deleting one drops the project↔company row only: the Apollo universe is read-only to the app. On top of
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company

@@ -401,6 +401,144 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a selection lands together at the stage the caller names")
+    void selectedCompaniesLandAtOneStage() throws Exception {
+        String admin = adminOf("Universe Selection Firm");
+        String projectId = project(admin);
+        universe.company("a1", "Energy One").industry("oil & energy").employees(100).insert();
+        universe.company("a2", "Energy Two").industry("oil & energy").employees(90).insert();
+        universe.company("a3", "Shop Three").industry("retail").employees(80).insert();
+
+        // No filter is stored, so this is nothing "Add all" could have done: the ids are the scope.
+        mvc.perform(post(triageUrl(projectId) + "/bulk")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountIds":["a1","a3"],"status":"shortlisted"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.added").value(2))
+                .andExpect(jsonPath("$.skipped").value(0));
+
+        mvc.perform(get(triageUrl(projectId)).param("status", "shortlisted")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.totalCount").value(2));
+        // Only the two that were ticked. The one left alone is still nobody's decision.
+        mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.counts.inUniverse").value(0));
+    }
+
+    @Test
+    @DisplayName("declining a selection files it straight at declined, without a stop in the universe")
+    void selectedCompaniesCanBeDeclinedOutright() throws Exception {
+        String admin = adminOf("Universe Selection Decline Firm");
+        String projectId = project(admin);
+        universe.company("a1", "Energy One").industry("oil & energy").employees(100).insert();
+
+        mvc.perform(post(triageUrl(projectId) + "/bulk")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountIds":["a1"],"status":"declined"}"""))
+                .andExpect(jsonPath("$.added").value(1));
+
+        mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.counts.declined").value(1))
+                .andExpect(jsonPath("$.counts.inUniverse").value(0));
+    }
+
+    @Test
+    @DisplayName("a selection leaves a company the mandate already holds where it is")
+    void selectedCompaniesDoNotMoveWhatIsAlreadyHeld() throws Exception {
+        String admin = adminOf("Universe Selection Held Firm");
+        String projectId = project(admin);
+        universe.company("a1", "Energy One").industry("oil & energy").employees(100).insert();
+        universe.company("a2", "Energy Two").industry("oil & energy").employees(90).insert();
+
+        String declinedId = add(admin, projectId, "a1");
+        patchUniverse(admin, projectId, declinedId, """
+                {"status":"declined"}""");
+
+        // Ticking a declined company along with a new one must not walk it back into the universe:
+        // the same rule the single add and "Add all" hold.
+        mvc.perform(post(triageUrl(projectId) + "/bulk")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountIds":["a1","a2"]}"""))
+                .andExpect(jsonPath("$.added").value(1))
+                .andExpect(jsonPath("$.skipped").value(1));
+
+        mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.counts.declined").value(1))
+                .andExpect(jsonPath("$.counts.inUniverse").value(1));
+    }
+
+    @Test
+    @DisplayName("a selection drops an off-limits company rather than refusing the batch")
+    void selectedCompaniesHonourOffLimits() throws Exception {
+        String admin = adminOf("Universe Selection Barred Firm");
+        String projectId = project(admin);
+        universe.company("a1", "Energy One").industry("oil & energy").employees(100).insert();
+        universe.company("a2", "Barred Two").industry("oil & energy").employees(90).insert();
+        mvc.perform(put(strategyUrl(projectId) + "/off-limits")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountIds":["a2"]}"""))
+                .andExpect(status().isOk());
+
+        // A tick made before the bar went up is a stale screen, not an attack. Failing all of them
+        // over one would be the wrong answer to it.
+        mvc.perform(post(triageUrl(projectId) + "/bulk")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountIds":["a1","a2"]}"""))
+                .andExpect(jsonPath("$.added").value(1))
+                .andExpect(jsonPath("$.skipped").value(1));
+        mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.companies[0].companyName").value("Energy One"));
+    }
+
+    @Test
+    @DisplayName("a selection past the bulk-add limit is refused whole, and writes nothing")
+    void selectedCompaniesRefuseAnOversizedBatch() throws Exception {
+        String admin = adminOf("Universe Selection Oversized Firm");
+        String projectId = project(admin);
+        // One past the test profile's bulk-add-limit of 5.
+        for (int index = 1; index <= 6; index++) {
+            universe.company("a" + index, "Energy " + index).industry("oil & energy")
+                    .employees(100 - index).insert();
+        }
+
+        MvcResult refused = mvc.perform(post(triageUrl(projectId) + "/bulk")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountIds":["a1","a2","a3","a4","a5","a6"]}"""))
+                .andReturn();
+        assertThat(refused.getResponse().getStatus()).isEqualTo(409);
+        assertThat(codeOf(refused)).isEqualTo("BULK_ADD_SCOPE_TOO_LARGE");
+
+        mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.totalCount").value(0));
+    }
+
+    @Test
+    @DisplayName("a selection of nothing is a bad request, not an empty success")
+    void selectedCompaniesRefuseAnEmptyList() throws Exception {
+        String admin = adminOf("Universe Selection Empty Firm");
+        String projectId = project(admin);
+
+        mvc.perform(post(triageUrl(projectId) + "/bulk")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountIds":[]}"""))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("a single add honours the off-limits bar too")
     void addRefusesAnOffLimitsCompany() throws Exception {
         String admin = adminOf("Universe Add Off Limits Firm");

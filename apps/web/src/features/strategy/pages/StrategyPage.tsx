@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import type { RowSelectionState } from "@tanstack/react-table";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { FullscreenButton, Spinner } from "../../../components/ui";
@@ -13,6 +14,8 @@ import { useAutosave } from "../../../lib/useAutosave";
 import { useFullscreen } from "../../../lib/useFullscreen";
 import * as reportApi from "../../reports/api/reportApi";
 import * as triageApi from "../../triage/api/triageApi";
+import type { TriageCompanyStatus } from "../../triage/api/types";
+import { TRIAGE_STAGES, stageByStatus } from "../../triage/lib/triageStages";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
 import type { CompanyResult, CompanySort, SearchVisibility, StrategyFilter } from "../api/types";
@@ -24,11 +27,15 @@ import { useGridSort } from "../../../lib/useGridSort";
 import { COMPANY_SORT_FIELDS } from "../lib/companyColumns";
 import { FilterSidebar } from "../components/FilterSidebar";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
+import { SelectionAction, SelectionActionBar } from "../../../components/ui/SelectionActionBar";
 import { StrategyToolbar } from "../components/StrategyToolbar";
 
 const COMPANY_LAYOUT_COLUMNS = layoutColumnsOf(companyColumns);
 
 const DEFAULT_SORT: CompanySort = { field: "employees", direction: "desc" };
+
+/** A stable empty selection, so "nothing ticked" is one identity rather than a new object per render. */
+const NOTHING_SELECTED: RowSelectionState = {};
 
 export function StrategyPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
@@ -148,6 +155,21 @@ function StrategyEditor() {
     placeholderData: keepPreviousData,
   });
 
+  /*
+   * The grid's own `rowSelectionFeature` state, held here rather than inside the table because the
+   * bulk bar acts on it and outlives any one page of results. Keyed by `apolloAccountId` — the
+   * table's `getRowId` — and the feature deletes a key rather than storing `false`, so the keys are
+   * exactly what is ticked.
+   */
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>(NOTHING_SELECTED);
+  const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection]);
+  const clearSelection = useCallback(() => setRowSelection(NOTHING_SELECTED), []);
+
+  // A tick survives a page turn — picking twelve companies across three pages is the case the bulk
+  // bar exists for — but not a change to what is being asked. A selection made under the last filter
+  // would act on companies this scope no longer contains and the user can no longer see.
+  useEffect(() => clearSelection(), [filter, debouncedQuery, sort, clearSelection]);
+
   const saveSearch = useMutation({
     // Flush first, for the same reason "Add all" does: the request carries only a name and the server
     // snapshots the *stored* filter, so a save inside the debounce window records the scope as it was
@@ -247,6 +269,29 @@ function StrategyEditor() {
     onError: (error) => toast(messageFor(error)),
   });
 
+  /**
+   * The selection bar's three buttons. One request rather than a POST per company: the toast states a
+   * number, and a loop would leave it guessing after the fourth of forty failed.
+   *
+   * <p>No autosave flush, unlike "Add all": this carries the ids it is adding, so a filter edit still
+   * sitting in the timer cannot change what it means.
+   */
+  const addSelected = useMutation({
+    mutationFn: (status: TriageCompanyStatus) =>
+      triageApi.addSelectedCompanies(project.id, selectedIds, status),
+    onSuccess: (result, status) => {
+      void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
+      clearSelection();
+      // Every one skipped is a company the mandate already holds, and it keeps the stage it is at —
+      // so saying so is the difference between "nothing happened" and "they were already there".
+      toast(
+        `${result.added} ${result.added === 1 ? "company" : "companies"} moved to ${stageByStatus(status).label}` +
+          (result.skipped > 0 ? `, ${result.skipped} already in this mandate` : ""),
+      );
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
   const data = strategy.data;
 
   return (
@@ -308,22 +353,48 @@ function StrategyEditor() {
         )}
 
         <div className="flex min-w-0 flex-1 flex-col gap-3 p-3 sm:p-5">
-          <CompanyResultsTable
-            companies={companies.data?.companies ?? []}
-            sort={sort}
-            onSortChange={setSort}
-            columnVisibility={columnVisibility}
-            onColumnVisibilityChange={setColumnVisibility}
-            layout={layout}
-            onLayoutChange={setLayout}
-            loading={companies.isFetching}
-            error={companies.isError}
-            onAddToUniverse={(company) => {
-              setAddingId(company.apolloAccountId);
-              addOne.mutate(company);
-            }}
-            addingId={addingId}
-          />
+          {/* The bar floats over the grid rather than over the viewport, so it centres on the table
+              instead of drifting by half the width of the nav rail, and it never covers the paging
+              row underneath. */}
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            <CompanyResultsTable
+              companies={companies.data?.companies ?? []}
+              sort={sort}
+              onSortChange={setSort}
+              columnVisibility={columnVisibility}
+              onColumnVisibilityChange={setColumnVisibility}
+              layout={layout}
+              onLayoutChange={setLayout}
+              loading={companies.isFetching}
+              error={companies.isError}
+              onAddToUniverse={(company) => {
+                setAddingId(company.apolloAccountId);
+                addOne.mutate(company);
+              }}
+              addingId={addingId}
+              rowSelection={rowSelection}
+              onRowSelectionChange={setRowSelection}
+            />
+            {selectedIds.length > 0 && (
+              <SelectionActionBar
+                count={selectedIds.length}
+                noun="company"
+                plural="companies"
+                onClear={clearSelection}
+              >
+                {TRIAGE_STAGES.map((stage) => (
+                  <SelectionAction
+                    key={stage.status}
+                    icon={stage.icon}
+                    label={stage.label}
+                    tone={stage.status === "declined" ? "danger" : "neutral"}
+                    disabled={addSelected.isPending}
+                    onClick={() => addSelected.mutate(stage.status)}
+                  />
+                ))}
+              </SelectionActionBar>
+            )}
+          </div>
           <PaginationBar
             page={page}
             size={pageSize}
