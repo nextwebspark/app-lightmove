@@ -15,7 +15,8 @@ name: Dependabot auto-merge
 #
 #   gh api -X PATCH repos/nextwebspark/app-lightmove -F allow_auto_merge=true
 #   gh api -X PUT repos/nextwebspark/app-lightmove/branches/main/protection --input - <<'JSON'
-#   { "required_status_checks": { "strict": true, "contexts": ["API", "Web", "Extension"] },
+#   { "required_status_checks": { "strict": true,
+#       "contexts": ["API", "Web", "Extension", "Dependencies", "Container image"] },
 #     "enforce_admins": false, "required_pull_request_reviews": null, "restrictions": null }
 #   JSON
 #
