@@ -23,15 +23,14 @@ describe("toTriageRows", () => {
     expect(rows[0].company?.companyName).toBe("Almarai");
   });
 
-  it("gives each executive at a company its own line, numbered within that company", () => {
+  it("gives each executive at a company its own line, with the company on every one", () => {
     const rows = toTriageRows(
       [company("a", "Almarai")],
       [person("c1", "Omar Haddad", "a"), person("c2", "Yasmin El-Sayed", "a")],
     );
 
     expect(rows.map((row) => row.candidate?.fullName)).toEqual(["Omar Haddad", "Yasmin El-Sayed"]);
-    expect(rows.map((row) => row.position)).toEqual([1, 2]);
-    expect(rows.every((row) => row.siblings === 2)).toBe(true);
+    expect(rows.map((row) => row.company?.companyName)).toEqual(["Almarai", "Almarai"]);
   });
 
   it("keeps a company's lines contiguous and in the server's company order", () => {
@@ -69,12 +68,10 @@ describe("toTriageRows", () => {
   });
 
   it("gives the empty slot an id of its own, so it cannot collide with a person's row", () => {
-    const slot = triageRowId({ company: company("a", "Almarai"), candidate: null, position: 1, siblings: 1 });
+    const slot = triageRowId({ company: company("a", "Almarai"), candidate: null });
     const mapped = triageRowId({
       company: company("a", "Almarai"),
       candidate: person("c1", "Omar Haddad", "a"),
-      position: 1,
-      siblings: 1,
     });
 
     expect(slot).not.toEqual(mapped);

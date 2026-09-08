@@ -394,6 +394,7 @@ function TriageStage() {
             })
           }
           onEditCandidate={(candidate) => setProfile({ candidate, company: null })}
+          onRemoveCandidate={setPendingCandidateRemoval}
           onOpenCompany={(company) => setOpenCompany({ company })}
           busyId={busyId}
           canWrite={canWrite}
