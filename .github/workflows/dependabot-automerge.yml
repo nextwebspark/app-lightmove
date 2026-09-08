@@ -1,0 +1,51 @@
+name: Dependabot auto-merge
+
+# INERT ON PURPOSE. Merges a Dependabot PR automatically once every required check is green — but
+# only patch bumps and devDependencies; minors, majors and anything in the runtime tree wait for a
+# human.
+#
+# It is committed with `workflow_dispatch` as its only trigger because the two things that make
+# `gh pr merge --auto` safe are not in place yet, verified at the time of writing:
+#
+#   1. `allow_auto_merge` is false on the repo.
+#   2. `main` has no branch protection, so nothing is a *required* check. Without one, `--auto`
+#      does not wait for CI — it merges the moment the PR opens.
+#
+# To arm it, in this order, then replace `workflow_dispatch` below with `pull_request_target`:
+#
+#   gh api -X PATCH repos/nextwebspark/app-lightmove -F allow_auto_merge=true
+#   gh api -X PUT repos/nextwebspark/app-lightmove/branches/main/protection --input - <<'JSON'
+#   { "required_status_checks": { "strict": true, "contexts": ["API", "Web", "Extension"] },
+#     "enforce_admins": false, "required_pull_request_reviews": null, "restrictions": null }
+#   JSON
+#
+# SECURITY: `pull_request_target` runs with write access in the base-repo context. This workflow
+# must never check out or execute the PR's code — no actions/checkout of the head, no npm ci, no
+# build. Only the metadata action and the merge call. Anything more is a known repo-takeover vector.
+#
+# Known blind spot: playwright is a devDependency of apps/web but is exercised only by the nightly
+# e2e.yml, never by ci.yml — a playwright patch bump is green on CI by construction.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - id: metadata
+        uses: dependabot/fetch-metadata@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - if: >-
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          steps.metadata.outputs.dependency-type == 'direct:development'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "$PR_URL"
