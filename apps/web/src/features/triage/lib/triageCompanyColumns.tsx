@@ -17,6 +17,7 @@ import {
   type DataGridColumnLayout,
 } from "../../../components/ui/DataGrid";
 import { TruncatedText } from "../../../components/ui/TruncatedText";
+import { cn } from "../../../lib/cn";
 import { formatInstantDate, formatMoney } from "../../../lib/format";
 import type { Candidate } from "../../candidates/api/types";
 import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
@@ -139,30 +140,31 @@ const BUILT_IN_COLUMNS = helper.columns([
     enableHiding: false,
     meta: { share: 0, min: 134 },
     cell: (info) => {
-      const { company, candidate } = info.row.original;
+      const row = info.row.original;
       const meta = info.table.options.meta;
       if (!meta?.canWrite) {
         return <span className="font-sans text-[13px] text-text3">—</span>;
       }
-      // An executive whose employer is not in the universe: no company to move, but the person is
-      // still the mandate's to drop. A row with no action at all reads as a row that is stuck.
-      if (!company) {
-        return candidate ? (
+      // A row's actions are its company's — a mapped executive is removed from their own profile. An
+      // executive whose employer is not in the universe has no company to move, so their one action
+      // is the person's: a row with no action at all reads as a row that is stuck.
+      if (!row.company) {
+        const { candidate } = row;
+        return (
           <span className="flex justify-start gap-1.5">
             <button
               type="button"
-              title="Remove from this mandate"
+              title={`Remove ${candidate.fullName} from this mandate`}
               aria-label={`Remove ${candidate.fullName} from this mandate`}
               onClick={() => meta.onRemoveCandidate(candidate)}
-              className={`${GRID_ICON_BUTTON} hover:text-red`}
+              className={cn(GRID_ICON_BUTTON, "hover:text-red")}
             >
               <Icon d={ICONS.trash} size={14} />
             </button>
           </span>
-        ) : (
-          <span className="font-sans text-[13px] text-text3">—</span>
         );
       }
+      const { company } = row;
       const busy = meta.busyId === company.id;
       return (
         <span className="flex justify-start gap-1.5">
@@ -190,11 +192,11 @@ const BUILT_IN_COLUMNS = helper.columns([
           ))}
           <button
             type="button"
-            title="Remove from this mandate"
+            title={`Remove ${company.companyName} from this mandate`}
             aria-label={`Remove ${company.companyName} from this mandate`}
             disabled={busy}
             onClick={() => meta.onDelete(company)}
-            className={`${GRID_ICON_BUTTON} hover:text-red disabled:opacity-40`}
+            className={cn(GRID_ICON_BUTTON, "hover:text-red disabled:opacity-40")}
           >
             <Icon d={ICONS.trash} size={14} />
           </button>

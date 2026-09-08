@@ -10,14 +10,13 @@ import type { TriageCompany } from "../api/types";
  * "Add executive" slot, because a company nobody has looked at yet is the most important thing the
  * screen has to show.
  *
- * <p>Both sides are nullable and exactly one of them may be. `candidate: null` is that empty slot;
+ * <p>Exactly one side may be null, and the type says so: `candidate: null` is that empty slot;
  * `company: null` is an executive whose employer is not in the mandate's universe at all, which the
  * In-universe stage shows after the companies rather than hiding.
  */
-export interface TriageCompanyRow {
-  company: TriageCompany | null;
-  candidate: Candidate | null;
-}
+export type TriageCompanyRow =
+  | { company: TriageCompany; candidate: Candidate | null }
+  | { company: null; candidate: Candidate };
 
 /** Stable and collision-free across both nullable sides — the empty slot needs an id of its own. */
 export function triageRowId(row: TriageCompanyRow): string {

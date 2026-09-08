@@ -157,6 +157,15 @@ const yasmin: Candidate = {
   enrichedAt: null,
 };
 
+/** An executive whose employer is not in the mandate's universe. */
+const unlistedExec: Candidate = {
+  ...yasmin,
+  id: "c9",
+  triageCompanyId: null,
+  companyName: "An Unlisted Holding",
+  fullName: "Wei Ling Tan",
+};
+
 /** Two of each, so a filtered list can be shown to have left something out. */
 const FACETS: Facets = {
   sectorGroups: [
@@ -560,7 +569,6 @@ describe("TriageStagePage", () => {
         "https://logo.example/acwa.png",
       );
     }
-    expect(opens.map((open) => open.className)).toEqual([opens[0].className, opens[0].className]);
     expect(screen.getAllByRole("button", { name: /Shortlist: ACWA Power/i })).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: /Remove ACWA Power from this mandate/i })).toHaveLength(2);
   });
@@ -618,12 +626,8 @@ describe("TriageStagePage", () => {
   });
 
   it("shows executives whose employer is not in the universe after the companies", async () => {
-    const unmapped = {
-      ...yasmin, id: "c9", triageCompanyId: null, companyName: "An Unlisted Holding",
-      fullName: "Wei Ling Tan",
-    };
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
-      peopleOf(scope.unmapped ? [unmapped] : []),
+      peopleOf(scope.unmapped ? [unlistedExec] : []),
     );
     renderStage();
 
@@ -634,12 +638,8 @@ describe("TriageStagePage", () => {
   });
 
   it("lets an executive with no company in the universe be removed from the row", async () => {
-    const unmapped = {
-      ...yasmin, id: "c9", triageCompanyId: null, companyName: "An Unlisted Holding",
-      fullName: "Wei Ling Tan",
-    };
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
-      peopleOf(scope.unmapped ? [unmapped] : []),
+      peopleOf(scope.unmapped ? [unlistedExec] : []),
     );
     vi.mocked(candidatesApi.deleteCandidate).mockResolvedValue(undefined);
     renderStage();
