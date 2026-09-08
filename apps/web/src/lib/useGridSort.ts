@@ -13,10 +13,29 @@ export interface GridSort<TField extends string> {
   direction: GridSortDirection;
 }
 
-const storageKey = (namespace: string, projectId: string) => `lm.${namespace}.sort.${projectId}`;
+const storageKey = (namespace: string, scope: string) => `lm.${namespace}.sort.${scope}`;
 
 /**
- * Which column a grid is sorted by, remembered per project in `localStorage`, beside the column
+ * The scope a grid that belongs to no mandate remembers itself under — the mandate list, the client
+ * registry, the roster. They are one per workspace, so there is no id to key them by and no second
+ * instance to keep apart.
+ */
+export const WORKSPACE_SCOPE = "workspace";
+
+/**
+ * The columns a grid sorts by, read off its definitions the way `layoutColumnsOf` and
+ * `hideableColumnsOf` read theirs. Each grid's literal allowlist keeps its union type, and a test per
+ * column file holds the two to the same set — a column that gained a comparator but not an entry
+ * would sort on click and be forgotten on the next load.
+ */
+export function sortableFieldsOf(
+  columns: readonly { id?: string; enableSorting?: boolean }[],
+): string[] {
+  return columns.filter((column) => column.enableSorting !== false).map((column) => column.id as string);
+}
+
+/**
+ * Which column a grid is sorted by, remembered per scope in `localStorage`, beside the column
  * layout it belongs with. The filter is the server's and survives a navigation; a sort that resets
  * while the filter holds makes the same screen come back half-remembered.
  *
@@ -26,33 +45,31 @@ const storageKey = (namespace: string, projectId: string) => `lm.${namespace}.so
  */
 export function useGridSort<TField extends string>(
   namespace: string,
-  projectId: string,
+  scope: string,
   fields: readonly TField[],
   initial: GridSort<TField>,
 ) {
-  const [sort, setSort] = useState<GridSort<TField>>(() =>
-    read(namespace, projectId, fields, initial),
-  );
+  const [sort, setSort] = useState<GridSort<TField>>(() => read(namespace, scope, fields, initial));
 
   useEffect(() => {
     try {
-      localStorage.setItem(storageKey(namespace, projectId), JSON.stringify(sort));
+      localStorage.setItem(storageKey(namespace, scope), JSON.stringify(sort));
     } catch {
       // A blocked store costs a sort order, not the table.
     }
-  }, [namespace, projectId, sort]);
+  }, [namespace, scope, sort]);
 
   return [sort, setSort] as const;
 }
 
 function read<TField extends string>(
   namespace: string,
-  projectId: string,
+  scope: string,
   fields: readonly TField[],
   fallback: GridSort<TField>,
 ): GridSort<TField> {
   try {
-    const stored = localStorage.getItem(storageKey(namespace, projectId));
+    const stored = localStorage.getItem(storageKey(namespace, scope));
     if (!stored) return fallback;
     const parsed: unknown = JSON.parse(stored);
     if (typeof parsed !== "object" || parsed === null) return fallback;

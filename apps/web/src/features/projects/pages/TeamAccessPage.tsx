@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Avatar, useToast } from "../../../components/ui";
+import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { messageFor } from "../../../lib/errorCodes";
 import { initials } from "../../../lib/format";
+import { layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
+import { useGridPaging } from "../../../lib/useGridPaging";
+import { useGridSort } from "../../../lib/useGridSort";
 import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
@@ -14,7 +18,18 @@ import * as projectsApi from "../api/projectsApi";
 import type { AttachedRepresentative, StaffRole, TeamMember } from "../api/types";
 import { AddClientContactModal } from "../components/AddClientContactModal";
 import { AddTeamMemberModal } from "../components/AddTeamMemberModal";
-import { ProjectRoleChips, ProjectRoleLegend } from "../components/ProjectRoleChips";
+import { ProjectRoleLegend } from "../components/ProjectRoleChips";
+import { ProjectTeamTable } from "../components/ProjectTeamTable";
+import {
+  PROJECT_TEAM_SORT_FIELDS,
+  projectTeamColumns,
+  type ProjectTeamSortField,
+  type ProjectTeamTableMeta,
+} from "../lib/projectTeamColumns";
+
+const PROJECT_TEAM_LAYOUT_COLUMNS = layoutColumnsOf(projectTeamColumns);
+
+const DEFAULT_PROJECT_TEAM_SORT = { field: "roles", direction: "asc" } as const;
 
 /**
  * The Team & access tab (Project.dc.html): who staffs this mandate and what they may do, then the
@@ -29,11 +44,24 @@ import { ProjectRoleChips, ProjectRoleLegend } from "../components/ProjectRoleCh
  */
 export function TeamAccessPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
-  const { user } = useAuth();
+  const { user, reload } = useAuth();
   const queryClient = useQueryClient();
   const toast = useToast();
+  const navigate = useNavigate();
   const [addTeamOpen, setAddTeamOpen] = useState(false);
   const [addContactOpen, setAddContactOpen] = useState(false);
+  const [sort, setSort] = useGridSort<ProjectTeamSortField>(
+    "projectTeam",
+    project.id,
+    PROJECT_TEAM_SORT_FIELDS,
+    DEFAULT_PROJECT_TEAM_SORT,
+  );
+  const [layout, setLayout] = useGridLayout("projectTeam", PROJECT_TEAM_LAYOUT_COLUMNS);
+  const paging = useGridPaging();
+  const { reset: resetPage, clampTo } = paging;
+  useEffect(() => {
+    resetPage();
+  }, [resetPage, sort]);
 
   const clientOnly = isPureClient(user?.workspace?.roles ?? []);
   const seat = project.team.find((member) => member.userId === user?.id);
@@ -66,10 +94,62 @@ export function TeamAccessPage() {
   });
 
   // Staff only: a seat holding nothing but CLIENT belongs to the section below, not this table.
-  const staff = project.team.filter((member) =>
-    member.projectRoles.some((role) => role !== "CLIENT"),
+  const staff = useMemo(
+    () => project.team.filter((member) => member.projectRoles.some((role) => role !== "CLIENT")),
+    [project.team],
   );
-  const leadCount = staff.filter((member) => member.projectRoles.includes("LEAD")).length;
+  const leads = staff.filter((member) => member.projectRoles.includes("LEAD"));
+
+  // A seat removed from page two of a large team must not leave the reader on a page that is gone.
+  useEffect(() => {
+    clampTo(staff.length);
+  }, [clampTo, staff.length]);
+
+  // A change to your own seat changes what you may do here, so the session has to catch up before the
+  // page re-renders off it — otherwise a lead who just demoted themselves keeps the manage controls.
+  const refresh = async (member: TeamMember) => {
+    if (member.userId === user?.id) await reload();
+    void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
+  };
+
+  const changeRole = useMutation({
+    mutationFn: ({ member, role }: { member: TeamMember; role: StaffRole }) =>
+      projectsApi.putProjectMember(project.id, member.memberId, role),
+    onSuccess: async (_project, { member, role }) => {
+      await refresh(member);
+      toast(
+        role === "LEAD"
+          ? `${member.fullName} is now a lead on this project`
+          : `${member.fullName} is now a researcher`,
+      );
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  const remove = useMutation({
+    mutationFn: (member: TeamMember) => projectsApi.removeProjectMember(project.id, member.memberId),
+    onSuccess: async (_project, member) => {
+      await refresh(member);
+      toast(`${member.fullName} removed from project`);
+      // Removing your own seat can take the mandate with it — a non-lead loses WORK_VIEW entirely.
+      if (member.userId === user?.id) navigate("/projects");
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  const busyMemberId =
+    (changeRole.isPending ? changeRole.variables?.member.memberId : null) ??
+    (remove.isPending ? remove.variables?.memberId : null) ??
+    null;
+
+  const teamMeta: ProjectTeamTableMeta = {
+    viewerUserId: user?.id ?? null,
+    canManage,
+    soleLeadMemberId: leads.length === 1 ? leads[0]!.memberId : null,
+    busyMemberId,
+    onChangeRole: (member, role) => changeRole.mutate({ member, role }),
+    onRemove: (member) => remove.mutate(member),
+  };
 
   const contacts = project.representatives;
   const contactCount = `${contacts.length} contact${contacts.length === 1 ? "" : "s"}`;
@@ -99,23 +179,25 @@ export function TeamAccessPage() {
         <PermissionBanner canManage={canManage} />
         <ProjectRoleLegend />
 
-        <div className="overflow-hidden rounded-[11px] border border-line">
-          <div className="hidden grid-cols-[1.5fr_2.4fr_auto] gap-[14px] border-b border-line bg-panel2 px-4 py-2.5 md:grid font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
-            <div>Member</div>
-            <div>Roles on this project</div>
-            <div className="text-right">{canManage ? "Manage" : ""}</div>
-          </div>
-
-          {staff.map((member) => (
-            <TeamRow
-              key={member.memberId}
-              projectId={project.id}
-              member={member}
-              isSelf={member.userId === user?.id}
-              canManage={canManage}
-              isSoleLead={leadCount === 1 && member.projectRoles.includes("LEAD")}
-            />
-          ))}
+        <div className="flex flex-col gap-3">
+          <ProjectTeamTable
+            staff={staff}
+            meta={teamMeta}
+            sort={sort}
+            onSortChange={setSort}
+            layout={layout}
+            onLayoutChange={setLayout}
+            pagination={paging.pagination}
+            onPaginationChange={paging.onPaginationChange}
+          />
+          <PaginationBar
+            page={paging.page}
+            size={paging.size}
+            totalCount={staff.length}
+            onPage={paging.setPage}
+            onSize={paging.setSize}
+            autoHide
+          />
         </div>
 
         <p className="mt-3 font-mono text-[11.5px] text-text3">
@@ -202,108 +284,6 @@ function PermissionBanner({ canManage }: { canManage: boolean }) {
           ? "You're a lead on this mandate — you can add members and change their roles."
           : "You have view-only access to team roles. Ask a project lead to make changes."}
       </span>
-    </div>
-  );
-}
-
-function TeamRow({
-  projectId,
-  member,
-  isSelf,
-  canManage,
-  isSoleLead,
-}: {
-  projectId: string;
-  member: TeamMember;
-  isSelf: boolean;
-  canManage: boolean;
-  /** The last lead standing: the server refuses to demote or unseat them, so the row says so first. */
-  isSoleLead: boolean;
-}) {
-  const { reload } = useAuth();
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const navigate = useNavigate();
-
-  const role: StaffRole = member.projectRoles.includes("LEAD") ? "LEAD" : "RESEARCHER";
-
-  // A change to your own seat changes what you may do here, so the session has to catch up before the
-  // page re-renders off it — otherwise a lead who just demoted themselves keeps the manage controls.
-  const refresh = async () => {
-    if (isSelf) await reload();
-    void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
-  };
-
-  const changeRole = useMutation({
-    mutationFn: (next: StaffRole) => projectsApi.putProjectMember(projectId, member.memberId, next),
-    onSuccess: async (_project, next) => {
-      await refresh();
-      toast(
-        next === "LEAD"
-          ? `${member.fullName} is now a lead on this project`
-          : `${member.fullName} is now a researcher`,
-      );
-    },
-    onError: (error) => toast(messageFor(error)),
-  });
-
-  const remove = useMutation({
-    mutationFn: () => projectsApi.removeProjectMember(projectId, member.memberId),
-    onSuccess: async () => {
-      await refresh();
-      toast(`${member.fullName} removed from project`);
-      // Removing your own seat can take the mandate with it — a non-lead loses WORK_VIEW entirely.
-      if (isSelf) navigate("/projects");
-    },
-    onError: (error) => toast(messageFor(error)),
-  });
-
-  return (
-    <div className="grid grid-cols-1 gap-[14px] border-b border-line-soft px-4 py-[13px] md:grid-cols-[1.5fr_2.4fr_auto] md:items-center">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <Avatar
-          id={member.memberId}
-          name={member.fullName}
-          src={member.avatarUrl}
-          size="lg"
-          className="size-8"
-        />
-        <div className="min-w-0">
-          <div className="truncate text-[13.5px] font-medium">{member.fullName}</div>
-          {isSelf && <div className="mt-0.5 font-mono text-[11px] text-text3">You</div>}
-        </div>
-      </div>
-
-      <ProjectRoleChips
-        memberName={member.fullName}
-        role={role}
-        canManage={canManage}
-        isSoleLead={isSoleLead}
-        pending={changeRole.isPending || remove.isPending}
-        onChange={(next) => changeRole.mutate(next)}
-      />
-
-      <div className="flex justify-end">
-        {isSoleLead ? (
-          <span
-            title="A mandate must keep a lead — make someone else lead first"
-            className="p-2.5 text-text3 lg:p-1.5"
-          >
-            <Icon d={ICONS.lock} size={15} />
-          </span>
-        ) : canManage ? (
-          <button
-            type="button"
-            title="Remove from project"
-            aria-label={`Remove ${member.fullName}`}
-            disabled={remove.isPending || changeRole.isPending}
-            onClick={() => remove.mutate()}
-            className="rounded-md p-2.5 text-text3 hover:bg-red-dim hover:text-red disabled:opacity-50 lg:p-1.5"
-          >
-            <Icon d={ICONS.trash} size={15} />
-          </button>
-        ) : null}
-      </div>
     </div>
   );
 }

@@ -1,21 +1,14 @@
-import {
-  useTable,
-  type ColumnOrderState,
-  type ColumnVisibilityState,
-  type OnChangeFn,
-  type RowSelectionState,
-  type SortingState,
-  type Updater,
+import type {
+  ColumnVisibilityState,
+  OnChangeFn,
+  RowSelectionState,
 } from "@tanstack/react-table";
-import { useMemo } from "react";
 import { DataGrid } from "../../../components/ui/DataGrid";
 import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
+import { useDataGridTable } from "../../../lib/useDataGridTable";
 import type { GridLayout } from "../../../lib/useGridLayout";
 import type { CompanyResult, CompanySort, CompanySortField } from "../api/types";
 import { COLUMN_PINNING, companyColumns, companyTableFeatures } from "../lib/companyColumns";
-
-/** A stable empty array: a fresh `[]` per render invalidates every data-dependent model. */
-const NO_COMPANIES: CompanyResult[] = [];
 
 /**
  * Strategy's half of the company grid: the market's columns and its one row action, over the shared
@@ -30,8 +23,8 @@ const NO_COMPANIES: CompanyResult[] = [];
  * shift-click anchor so a range does not have to be tracked here.
  *
  * <p>Sorting and paging are the server's: this holds one page out of tens of thousands, so a
- * header click changes the query rather than the array. Single-column and non-clearable, because
- * the API takes one field and one direction and a third click would send no ORDER BY at all.
+ * header click changes the query rather than the array. That is what leaving `pagination` off
+ * {@link useDataGridTable} says.
  */
 export function CompanyResultsTable({
   companies,
@@ -67,41 +60,20 @@ export function CompanyResultsTable({
   rowSelection: RowSelectionState;
   onRowSelectionChange: OnChangeFn<RowSelectionState>;
 }) {
-  // The API's { field, direction } and the table's [{ id, desc }] are one fact in two shapes.
-  const sorting = useMemo<SortingState>(
-    () => [{ id: sort.field, desc: sort.direction === "desc" }],
-    [sort],
-  );
-
-  const table = useTable({
+  const table = useDataGridTable<typeof companyTableFeatures, CompanyResult, CompanySortField>({
     features: companyTableFeatures,
     columns: companyColumns,
-    data: companies.length > 0 ? companies : NO_COMPANIES,
+    data: companies,
     getRowId: (company) => company.apolloAccountId,
-    initialState: { columnPinning: COLUMN_PINNING },
-    manualSorting: true,
-    enableMultiSort: false,
-    enableSortingRemoval: false,
-    state: { sorting, columnVisibility, columnOrder: layout.order, rowSelection },
+    pinning: COLUMN_PINNING,
+    sort,
+    onSortChange,
+    columnVisibility,
+    rowSelection,
     onRowSelectionChange,
-    // What counts as "extend the range". The feature owns the anchor and the interval; it just has
-    // no opinion about which gesture asks for one, and without this shift-click is an ordinary click.
-    isRowRangeSelectionEvent: (event) =>
-      (event as { nativeEvent?: { shiftKey?: boolean } }).nativeEvent?.shiftKey === true,
-    onSortingChange: (updater) => {
-      const next = typeof updater === "function" ? updater(sorting) : updater;
-      const [first] = next;
-      if (!first) return;
-      onSortChange({
-        field: first.id as CompanySortField,
-        direction: first.desc ? "desc" : "asc",
-      });
-    },
     onColumnVisibilityChange,
-    onColumnOrderChange: (updater: Updater<ColumnOrderState>) => {
-      const order = typeof updater === "function" ? updater(layout.order) : updater;
-      onLayoutChange({ ...layout, order });
-    },
+    layout,
+    onLayoutChange,
     meta: { onAddToUniverse, addingId },
   });
 
