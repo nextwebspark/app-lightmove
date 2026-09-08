@@ -34,6 +34,13 @@ export interface CandidateCareerEntry {
   period: string | null;
 }
 
+/** One school, shaped like a career post and written only by enrichment — no screen edits it yet. */
+export interface CandidateEducationEntry {
+  school: string | null;
+  degree: string | null;
+  period: string | null;
+}
+
 /**
  * A package as it was quoted, in the currency it was quoted in. Nothing converts it — a rate applied
  * at write time is wrong by the time anyone reads the row.
@@ -74,6 +81,9 @@ export interface Candidate {
   compensation: CandidateCompensation;
   career: CandidateCareerEntry[];
   languages: string[];
+  /** Enrichment's, not the drawer's: empty until research has run, and never part of a save. */
+  education: CandidateEducationEntry[];
+  skills: string[];
   source: CandidateSource;
   sourceUrl: string | null;
   /** This mandate's own extra columns for this person, keyed by each column's `fieldKey`. */

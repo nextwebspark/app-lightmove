@@ -5,14 +5,12 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Field, FormError, Input, Select, TextArea, useToast } from "../../../components/ui";
-import {
-  DetailGrid,
-  DetailPill,
-  DetailTile,
-  DrawerSection,
-} from "../../../components/ui/DetailList";
+import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
+import { DetailGrid, DetailPill, DetailTile } from "../../../components/ui/DetailList";
 import { Drawer, DrawerCloseButton } from "../../../components/ui/Drawer";
+import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
+import { formatInstantDate } from "../../../lib/format";
 import { optionalNumber, optionalWebAddress } from "../../../lib/formFields";
 import { toBrowsableUrl } from "../../../lib/url";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
@@ -20,6 +18,7 @@ import { CustomFieldsFieldset } from "../../customcolumns/components/CustomField
 import * as candidatesApi from "../api/candidatesApi";
 import type {
   Candidate,
+  CandidateCareerEntry,
   CandidateSeniority,
   CandidateStatus,
   SaveCandidatePayload,
@@ -27,8 +26,17 @@ import type {
 import {
   candidateStatusStyle,
   CANDIDATE_SENIORITIES,
+  CANDIDATE_SOURCE_STYLES,
   CANDIDATE_STATUSES,
 } from "../lib/candidateVocabulary";
+import {
+  careerSummary,
+  groupCareer,
+  isCurrent,
+  parsePeriod,
+  tenureOf,
+} from "../lib/careerTimeline";
+import { useProfileSections, type ProfileSection } from "../lib/useProfileSections";
 import { CandidateAvatar } from "./CandidateAvatar";
 
 /**
@@ -248,7 +256,10 @@ export function CandidateDrawer({
               className="size-[44px] rounded-[10px] border border-line text-sm"
             />
             <div className="min-w-0 flex-1">
-              <h2 className="font-sans text-base font-semibold">{candidate.fullName}</h2>
+              <span className="flex items-center gap-1.5">
+                <h2 className="font-sans text-base font-semibold">{candidate.fullName}</h2>
+                <HeaderProfileLink linkedinUrl={candidate.linkedinUrl} />
+              </span>
               <p className="mt-0.5 font-mono text-[12.5px] text-text2">{candidate.title ?? "—"}</p>
               <p className="mt-1 font-mono text-[11.5px] text-text3">
                 {[employerLabel, candidate.locationCity, candidate.locationCountry]
@@ -257,6 +268,10 @@ export function CandidateDrawer({
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {candidate.seniority && <DetailPill label={candidate.seniority} />}
+                <DetailPill
+                  label={CANDIDATE_SOURCE_STYLES[candidate.source].label}
+                  className={CANDIDATE_SOURCE_STYLES[candidate.source].className}
+                />
                 {/* Live in view mode: the status is what a researcher came here to change while
                     reading, and it has a write of its own so the pill need not replace the profile. */}
                 {canWrite ? (
@@ -305,7 +320,11 @@ export function CandidateDrawer({
       </div>
 
       {candidate && !editing && (
-        <CandidateProfile candidate={candidate} onRemove={canWrite ? onDelete : undefined} />
+        <CandidateProfile
+          candidate={candidate}
+          customColumns={customColumns}
+          onRemove={canWrite ? onDelete : undefined}
+        />
       )}
 
       {editing && (
@@ -541,63 +560,100 @@ export function CandidateDrawer({
 }
 
 /**
- * The read-only half: everything the mandate knows about a person, in the mockup's sections and its
- * order. The note stays an inline textarea there and stays one here — but it is saved by the Edit
- * form rather than on its own, because unlike a company's note it sits among fields that are edited
- * together.
+ * The read-only half: everything the mandate knows about a person, each part behind its own fold.
+ *
+ * <p>A folded section still answers on its header — the current post, the package total, the email
+ * — so a reader who keeps Compensation shut is not blind to it. Which folds are open is the reader's
+ * preference and travels from one profile to the next; the bodies stay mounted so the fold is a
+ * matter of layout and never of state.
+ *
+ * <p>Education and skills are enrichment's alone and appear only when research produced them: no
+ * screen edits them, so an empty section would nag about something nobody here can supply.
  */
 function CandidateProfile({
   candidate,
+  customColumns,
   onRemove,
 }: {
   candidate: Candidate;
+  customColumns: readonly CustomColumn[];
   /** Absent for a reader who may not write, which is also who gets no Edit button. */
   onRemove?: (candidate: Candidate) => void;
 }) {
+  const sections = useProfileSections();
   const { compensation } = candidate;
   const profileUrl = toBrowsableUrl(candidate.linkedinUrl);
+  const capturedFrom = toBrowsableUrl(candidate.sourceUrl);
   const total =
     (compensation.baseSalary ?? 0) +
     (compensation.bonus ?? 0) +
     (compensation.allowances ?? 0) +
     (compensation.longTermIncentive ?? 0);
   const currency = compensation.currency ?? "";
+  const visibleColumns = customColumns.filter((column) => !column.hidden);
+
+  const foldProps = (id: ProfileSection) => ({
+    id,
+    open: sections.isOpen(id),
+    onToggle: () => sections.toggle(id),
+  });
 
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto px-5">
-        <DrawerSection title="Summary">
+        <div className="-mb-1 flex justify-end gap-3 pt-2.5">
+          <FoldAllButton label="Expand all" onClick={() => sections.setAll(true)} />
+          <FoldAllButton label="Collapse all" onClick={() => sections.setAll(false)} />
+        </div>
+
+        <CollapsibleSection {...foldProps("summary")} title="Summary" summary={firstLine(candidate.summary)}>
           <p className="text-[13px]/[1.6] text-text2">
             {candidate.summary ?? "No summary written yet."}
           </p>
-        </DrawerSection>
+        </CollapsibleSection>
 
-        <DrawerSection title="Career history">
-          {candidate.career.length === 0 ? (
-            <p className="font-mono text-[12.5px] text-text3">No history captured yet.</p>
-          ) : (
-            candidate.career.map((post, index) => (
-              <div
-                key={`${post.company}-${post.title}-${index}`}
-                className="flex items-baseline gap-2 py-1 font-mono text-[12.5px]"
-              >
-                <span className="font-medium text-text">{post.company ?? "—"}</span>
-                <span className="min-w-0 truncate text-text2">{post.title ?? ""}</span>
-                <span className="ms-auto flex-none text-text3">{post.period ?? ""}</span>
-              </div>
-            ))
-          )}
-        </DrawerSection>
+        <CollapsibleSection
+          {...foldProps("experience")}
+          title="Experience"
+          count={candidate.career.length > 0 ? candidate.career.length : undefined}
+          summary={careerSummary(candidate.career)}
+        >
+          {/* Keyed so "Show all" resets when the drawer moves on to another person. */}
+          <CareerTimeline key={candidate.id} career={candidate.career} />
+        </CollapsibleSection>
 
-        <DrawerSection
+        {candidate.education.length > 0 && (
+          <CollapsibleSection
+            {...foldProps("education")}
+            title="Education"
+            count={candidate.education.length}
+            summary={candidate.education[0].school ?? candidate.education[0].degree}
+          >
+            <ul className="flex flex-col gap-2.5">
+              {candidate.education.map((school, index) => (
+                <li key={`${school.school}-${school.degree}-${index}`}>
+                  {school.school && (
+                    <div className="font-sans text-[13px] font-semibold text-text">{school.school}</div>
+                  )}
+                  {school.degree && (
+                    <div className="mt-0.5 font-sans text-[13px] text-text2">{school.degree}</div>
+                  )}
+                  {school.period && (
+                    <div className="mt-0.5 font-mono text-[11.5px] text-text3">{school.period}</div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </CollapsibleSection>
+        )}
+
+        <CollapsibleSection
+          {...foldProps("compensation")}
           title="Compensation"
-          action={
-            total > 0 && (
-              <span className="font-mono text-[12px] font-semibold text-text">
-                {currency} {total.toLocaleString()}
-              </span>
-            )
-          }
+          summary={joinFacts([
+            total > 0 ? `${currency} ${total.toLocaleString()}`.trim() : null,
+            compensation.noticePeriod ? `${compensation.noticePeriod} notice` : null,
+          ])}
         >
           <DetailGrid>
             <DetailTile label="Base" value={formatAmount(currency, compensation.baseSalary)} />
@@ -606,9 +662,41 @@ function CandidateProfile({
             <DetailTile label="LTIP" value={formatAmount(currency, compensation.longTermIncentive)} />
             <DetailTile label="Notice period" value={compensation.noticePeriod} full />
           </DetailGrid>
-        </DrawerSection>
+          {total > 0 && (
+            <div className="mt-3 flex items-center justify-between rounded-[8px] border border-line-soft bg-panel2 px-3 py-2">
+              <span className="font-mono text-[12px] text-text2">Total</span>
+              <span className="font-mono text-[15px] font-bold text-text">
+                {`${currency} ${total.toLocaleString()}`.trim()}
+              </span>
+            </div>
+          )}
+        </CollapsibleSection>
 
-        <DrawerSection title="Contact &amp; background">
+        <CollapsibleSection
+          {...foldProps("background")}
+          title="Background"
+          summary={joinFacts([
+            candidate.nationality,
+            candidate.yearsExperience ? `${candidate.yearsExperience} yrs` : null,
+            candidate.languages.length > 0 ? countOf(candidate.languages.length, "language") : null,
+          ])}
+        >
+          <DetailGrid>
+            <DetailTile label="Nationality" value={candidate.nationality} />
+            <DetailTile
+              label="Experience"
+              value={candidate.yearsExperience ? `${candidate.yearsExperience} years` : null}
+            />
+          </DetailGrid>
+          <PillRow label="Languages" values={candidate.languages} empty="No languages recorded." />
+          {candidate.skills.length > 0 && <PillRow label="Skills" values={candidate.skills} />}
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          {...foldProps("contact")}
+          title="Contact"
+          summary={joinFacts([candidate.email, candidate.phone])}
+        >
           <DetailGrid>
             <DetailTile label="Email" value={candidate.email} />
             <DetailTile label="Phone" value={candidate.phone} />
@@ -634,24 +722,53 @@ function CandidateProfile({
                 ) : null
               }
             />
-            <DetailTile label="Nationality" value={candidate.nationality} />
-            <DetailTile
-              label="Experience"
-              value={candidate.yearsExperience ? `${candidate.yearsExperience} years` : null}
-            />
-            <DetailTile
-              label="Languages"
-              full
-              value={candidate.languages.length > 0 ? candidate.languages.join(", ") : null}
-            />
           </DetailGrid>
-        </DrawerSection>
+        </CollapsibleSection>
 
-        <DrawerSection title="Note">
+        {visibleColumns.length > 0 && (
+          <CollapsibleSection
+            {...foldProps("columns")}
+            title="Your columns"
+            count={visibleColumns.length}
+            summary={joinFacts(
+              visibleColumns.map((column) => customValueOf(column, candidate.customFields)),
+            )}
+          >
+            <DetailGrid>
+              {visibleColumns.map((column) => (
+                <DetailTile
+                  key={column.id}
+                  label={column.label}
+                  value={customValueOf(column, candidate.customFields)}
+                />
+              ))}
+            </DetailGrid>
+          </CollapsibleSection>
+        )}
+
+        <CollapsibleSection {...foldProps("note")} title="Note" summary={firstLine(candidate.note)}>
           <p className="whitespace-pre-wrap text-[13px]/[1.6] text-text2">
             {candidate.note ?? "No note on this person for this mandate."}
           </p>
-        </DrawerSection>
+        </CollapsibleSection>
+
+        <p className="py-4 font-mono text-[11px] text-text3">
+          Added {formatInstantDate(candidate.addedAt)}
+          {candidate.enrichedAt && ` · Researched ${formatInstantDate(candidate.enrichedAt)}`}
+          {capturedFrom && (
+            <>
+              {" · "}
+              <a
+                href={capturedFrom}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="hover:text-text hover:underline"
+              >
+                Captured from {new URL(capturedFrom).hostname}
+              </a>
+            </>
+          )}
+        </p>
       </div>
 
       {onRemove && (
@@ -668,6 +785,165 @@ function CandidateProfile({
       )}
     </>
   );
+}
+
+const VISIBLE_POSTS = 4;
+
+/**
+ * A career as a timeline: consecutive posts at one employer nest under it, the open-ended one is
+ * flagged, and a tenure is worked out beside any period the text allows. Long histories show four
+ * posts and offer the rest — enrichment routinely brings fifteen, and the reader came for the recent
+ * ones.
+ */
+function CareerTimeline({ career }: { career: readonly CandidateCareerEntry[] }) {
+  const [showAll, setShowAll] = useState(false);
+  if (career.length === 0) {
+    return <p className="font-mono text-[12.5px] text-text3">No history captured yet.</p>;
+  }
+  const shown = showAll ? career : career.slice(0, VISIBLE_POSTS);
+  const groups = groupCareer(shown);
+
+  return (
+    <>
+      <ol className="ms-[5px] border-s border-line ps-4">
+        {groups.map((group, index) => {
+          const current = group.posts.some((post) => isCurrent(post.period));
+          return (
+            <li key={`${group.company}-${index}`} className="relative pb-4 last:pb-0">
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "absolute -start-[21px] top-[5px] size-[9px] rounded-full border-2 border-panel",
+                  current ? "bg-sky ring-2 ring-sky-dim" : "bg-line",
+                )}
+              />
+              <div className="font-sans text-[13px] font-semibold text-text">
+                {group.company ?? "Employer not recorded"}
+              </div>
+              {group.posts.length === 1 ? (
+                <CareerPost post={group.posts[0]} />
+              ) : (
+                <ol className="mt-1.5 border-s border-line-soft ps-3.5">
+                  {group.posts.map((post, postIndex) => (
+                    <li key={`${post.title}-${post.period}-${postIndex}`} className="pb-2.5 last:pb-0">
+                      <CareerPost post={post} />
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      {career.length > VISIBLE_POSTS && (
+        <button
+          type="button"
+          onClick={() => setShowAll((current) => !current)}
+          className="mt-3 font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-sky transition hover:underline"
+        >
+          {showAll ? "Show fewer" : `Show all ${career.length} posts`}
+        </button>
+      )}
+    </>
+  );
+}
+
+function CareerPost({ post }: { post: CandidateCareerEntry }) {
+  const tenure = tenureOf(parsePeriod(post.period));
+  const current = isCurrent(post.period);
+  return (
+    <div>
+      {post.title && (
+        <div className="mt-0.5 font-sans text-[13px] font-medium text-text2">{post.title}</div>
+      )}
+      {(post.period || current) && (
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11.5px] text-text3">
+          {post.period && <span>{post.period}</span>}
+          {tenure && <span>· {tenure}</span>}
+          {current && <DetailPill label="Current" className="bg-green-dim text-green" />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The LinkedIn glyph beside the name, through the same guard as the Contact tile's text link. */
+function HeaderProfileLink({ linkedinUrl }: { linkedinUrl: string | null }) {
+  const profileUrl = toBrowsableUrl(linkedinUrl);
+  if (!profileUrl) return null;
+  return (
+    <a
+      href={profileUrl}
+      target="_blank"
+      rel="noreferrer noopener"
+      aria-label="LinkedIn profile"
+      className="flex-none text-text3 transition hover:text-sky"
+    >
+      <Icon d={ICONS.linkedin} size={14} />
+    </a>
+  );
+}
+
+function FoldAllButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="font-mono text-[11px] text-text3 transition hover:text-text"
+    >
+      {label}
+    </button>
+  );
+}
+
+/** The mockup's language pills, reused for skills: a row of small rounded tags under a tiny label. */
+function PillRow({ label, values, empty }: { label: string; values: readonly string[]; empty?: string }) {
+  return (
+    <div className="mt-3">
+      <div className="mb-1.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-text3">
+        {label}
+      </div>
+      {values.length === 0 ? (
+        <p className="font-mono text-[12.5px] text-text3">{empty}</p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {values.map((value) => (
+            <span
+              key={value}
+              className="inline-flex items-center rounded-full border border-line bg-panel2 px-2.5 py-1 font-mono text-[12px] font-medium text-text2"
+            >
+              {value}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A stored column value as the tile shows it: a boolean column's "true" reads as Yes. */
+function customValueOf(column: CustomColumn, values: CustomFieldValues): string | null {
+  const value = values[column.fieldKey];
+  if (!value) return null;
+  if (column.dataType === "boolean") return value === "true" ? "Yes" : value === "false" ? "No" : value;
+  return value;
+}
+
+/** The first line of a paragraph, cut to fit a folded header. */
+function firstLine(text: string | null, max = 100): string | null {
+  if (!text) return null;
+  const line = text.split("\n", 1)[0].trim();
+  if (!line) return null;
+  return line.length > max ? `${line.slice(0, max - 1).trimEnd()}…` : line;
+}
+
+function joinFacts(facts: readonly (string | null | undefined)[]): string | null {
+  const present = facts.filter((fact): fact is string => Boolean(fact));
+  return present.length > 0 ? present.join(" · ") : null;
+}
+
+function countOf(count: number, noun: string): string {
+  return `${count} ${count === 1 ? noun : `${noun}s`}`;
 }
 
 /**

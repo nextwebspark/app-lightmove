@@ -149,6 +149,8 @@ const yasmin: Candidate = {
     longTermIncentive: null, noticePeriod: null,
   },
   career: [],
+  education: [],
+  skills: [],
   languages: [],
   source: "manual",
   sourceUrl: null,

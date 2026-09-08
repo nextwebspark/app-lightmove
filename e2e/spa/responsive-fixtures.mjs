@@ -265,9 +265,13 @@ const CANDIDATES = [
   },
   career: [],
   languages: [],
+  education: [],
+  skills: [],
   source: "manual",
   sourceUrl: null,
+  customFields: {},
   addedAt: "2026-08-02T09:00:00.000Z",
+  enrichedAt: null,
 }));
 
 const POSITION = {
