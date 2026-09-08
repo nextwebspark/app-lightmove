@@ -23,10 +23,15 @@ mandate triages what it took from it. A company reaches those pages four ways �
 a selection raises a floating bar over the grid whose three buttons file every ticked company at one
 stage in one request (`POST /triage/bulk`), so a mandate can decline forty companies without first
 taking them into the universe.
-Deleting one drops the project↔company row only: the Apollo universe is read-only to the app. On top of
-that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
-companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
-with three of them is three lines and one with none keeps its "Add executive" slot. An executive is also
+Deleting one drops the project↔company row only: the Apollo universe is read-only to the app — and it
+is refused outright while any executive is mapped there, since a person's grid line is a company row. On top of
+that sits the **people half**: an executive mapped for a mandate against one of its triaged companies,
+added by hand from the Companies grid — where a row is a *person at a company*, so a company with three
+of them is three lines and one with none keeps its "Add executive" slot. **Naming an employer is the
+fifth door into the universe**: type one into the Add-executive drawer and that company is filed into
+the mandate and the person mapped to it, the same resolve-then-snapshot the import and the research
+already used. Only a person nobody named an employer for — a plugin capture before its research lands
+— has no company row. An executive is also
 captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`).
 The **spreadsheet import** is that fourth door and carries both halves at once: a CSV or Excel file
 whose rows are people at companies, mapped column-by-column onto our fields, then confirmed by a
@@ -84,8 +89,9 @@ company* is a decision. Searching goes in `strategy` however company-shaped its 
 holds only what a mandate *did* about a company. **`candidate` is the people side** — one row per
 executive a mandate has mapped, belonging to the *project* and only optionally to one of its triaged
 companies, because a researcher meets people at companies the universe does not carry. It depends on
-`triagecompany` through two public methods — resolving the company an executive is mapped to, and
-filing a researched employer into the universe — and `triagecompany` never depends back.
+`triagecompany` through two public methods — resolving by id the company an executive is mapped to, and
+filing a *named* employer into the universe (`captureEmployer`, whatever named it: the drawer, a
+spreadsheet, a vendor's research) — and `triagecompany` never depends back.
 **`customcolumn` is the columns a mandate added to its own grid** — definitions only, plus the one
 method (`applyTo`) that decides what a row may store in them, since the bag is open and nothing else
 stands between it and arbitrary caller-chosen keys. `triagecompany` and `candidate` depend on it; it
@@ -166,8 +172,9 @@ nullable and `source` records which door the row came through (V34).
 `app_lm_companies` is the retired brightdata copy — nothing reads it, nothing refills it, and it is
 left in place rather than dropped. A mandate's whole filter is one `jsonb` column on `app_lm_strategy`
 (V30 explains why). `app_lm_project_candidate` (V36) is the people half: `project_id` is the mapping and
-`triage_company_id` is nullable with **ON DELETE SET NULL** beside a snapshotted `company_name`, so
-removing a company from a mandate unmaps its executives rather than deleting them; career history and
+`triage_company_id` is nullable for a capture awaiting research and never for an employer somebody
+named; **ON DELETE SET NULL** beside a snapshotted `company_name` is the floor under that, not the
+route — the app refuses to remove a company any executive is mapped at, so nothing reaches it; career history and
 languages are one `profile` jsonb column for V30's reasons. `app_lm_position` and its six owned-list
 tables are the brief (V7, grown by V39): every list a step edits is a child table replaced wholesale by
 its step's write, so the aggregate keeps one idiom rather than mixing rows and jsonb.

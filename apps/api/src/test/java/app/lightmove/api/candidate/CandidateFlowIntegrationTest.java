@@ -64,8 +64,8 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("an executive whose employer is not in the universe is mapped to the project alone")
-    void unmappedExecutiveKeepsTheirTypedEmployer() throws Exception {
+    @DisplayName("an employer the mandate never triaged joins its universe and takes the executive with it")
+    void aTypedEmployerBecomesACompanyInTheUniverse() throws Exception {
         String projectId = mandate("Unmapped Executive Firm");
 
         JsonNode mapped = body(mvc.perform(post(candidatesUrl(projectId))
@@ -76,11 +76,58 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isCreated())
                 .andReturn());
 
-        assertThat(mapped.get("triageCompanyId").isNull()).isTrue();
+        // The row the Companies grid draws this person on. Before, the employer was a string on the
+        // person and the grid had nothing to draw: the line rendered as a caption with no logo, no
+        // stage and no action but delete.
+        assertThat(mapped.get("triageCompanyId").isNull()).isFalse();
         assertThat(mapped.get("companyName").asText()).isEqualTo("A Company We Never Triaged");
         // Nobody named a status, and identified is where a profile starts.
         assertThat(mapped.get("status").asText()).isEqualTo("identified");
         assertThat(mapped.get("source").asText()).isEqualTo("manual");
+
+        JsonNode universe = body(mvc.perform(get("/api/v1/projects/" + projectId + "/triage?status=inUniverse")
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(universe.get("totalCount").asInt()).isEqualTo(1);
+        JsonNode company = universe.get("companies").get(0);
+        assertThat(company.get("id").asText()).isEqualTo(mapped.get("triageCompanyId").asText());
+        assertThat(company.get("companyName").asText()).isEqualTo("A Company We Never Triaged");
+        // Typed on a person is still typed: the badge says the figures were never exported by anyone.
+        assertThat(company.get("source").asText()).isEqualTo("manual");
+    }
+
+    @Test
+    @DisplayName("two executives named at one employer land on one company, not two")
+    void oneEmployerNamedTwiceIsOneCompany() throws Exception {
+        String projectId = mandate("Shared Employer Firm");
+
+        String first = mapToEmployer(projectId, "Americana Foods", "Sultan Al-Harbi");
+        String second = mapToEmployer(projectId, "americana foods", "Manal Abadi");
+
+        // Case-insensitively the same company, resolved through the mandate's own rows — the door a
+        // spreadsheet import already used, so a second naming updates nothing and duplicates nothing.
+        assertThat(first).isEqualTo(second);
+        mvc.perform(get("/api/v1/projects/" + projectId + "/triage?status=inUniverse")
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(jsonPath("$.totalCount").value(1));
+    }
+
+    @Test
+    @DisplayName("an executive with no employer named at all stays off the universe")
+    void anExecutiveWithNoEmployerIsLeftUnmapped() throws Exception {
+        String projectId = mandate("Nameless Employer Firm");
+
+        // V36's optionality, kept: a researcher with a name and nothing else must not be refused, and
+        // a plugin capture is exactly this row until its research lands. There is nothing to file.
+        mapTo(projectId, null, "Wei Ling Tan");
+
+        mvc.perform(get(candidatesUrl(projectId) + "?unmapped=true")
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(jsonPath("$.totalCount").value(1));
+        mvc.perform(get("/api/v1/projects/" + projectId + "/triage?status=inUniverse")
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(jsonPath("$.totalCount").value(0));
     }
 
     @Test
@@ -258,7 +305,7 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("an edit can move someone to another company, or off the universe")
+    @DisplayName("an edit can move someone to another company, or to one the mandate has yet to hold")
     void anEditCanRemapTheEmployer() throws Exception {
         String projectId = mandate("Remap Firm");
         String almarai = captureCompany(projectId, "Almarai");
@@ -275,37 +322,47 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
                 .andReturn());
         assertThat(moved.get("companyName").asText()).isEqualTo("NADEC");
 
-        JsonNode unmapped = body(mvc.perform(put(candidatesUrl(projectId) + "/" + candidateId)
+        // Naming an employer the mandate does not hold is the same act as naming one on the way in,
+        // and it is also how a row the research never placed is repaired.
+        JsonNode elsewhere = body(mvc.perform(put(candidatesUrl(projectId) + "/" + candidateId)
                         .header("Authorization", "Bearer " + admin())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"fullName":"Omar Haddad","employerName":"An Unlisted Holding"}"""))
                 .andExpect(status().isOk())
                 .andReturn());
-        assertThat(unmapped.get("triageCompanyId").isNull()).isTrue();
-        assertThat(unmapped.get("companyName").asText()).isEqualTo("An Unlisted Holding");
+        assertThat(elsewhere.get("companyName").asText()).isEqualTo("An Unlisted Holding");
+        assertThat(elsewhere.get("triageCompanyId").asText())
+                .isNotEqualTo(nadec)
+                .isNotEqualTo(almarai);
     }
 
     @Test
-    @DisplayName("removing a company from the mandate unmaps its people rather than deleting them")
-    void removingACompanyLeavesItsPeopleUnmapped() throws Exception {
+    @DisplayName("a company an executive is mapped at cannot be removed from the mandate")
+    void removingACompanyIsRefusedWhileItHoldsPeople() throws Exception {
         String projectId = mandate("Company Removal Firm");
         String companyId = captureCompany(projectId, "Spinneys Group");
-        mapTo(projectId, companyId, "Wei Ling Tan");
+        String candidateId = mapTo(projectId, companyId, "Wei Ling Tan");
 
+        // V36's ON DELETE SET NULL would survive this, but surviving is not wanting it: what it leaves
+        // is a person on the grid with no company line to sit on. The refusal is published as a
+        // question before the delete, so nothing is half-done.
+        mvc.perform(delete("/api/v1/projects/" + projectId + "/triage/" + companyId)
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TRIAGE_COMPANY_HAS_EXECUTIVES"));
+
+        mvc.perform(get("/api/v1/projects/" + projectId + "/triage?status=inUniverse")
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(jsonPath("$.totalCount").value(1));
+
+        // With the person gone the company goes too — the order is the consultant's to choose.
+        mvc.perform(delete(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isNoContent());
         mvc.perform(delete("/api/v1/projects/" + projectId + "/triage/" + companyId)
                         .header("Authorization", "Bearer " + admin()))
                 .andExpect(status().isNoContent());
-
-        JsonNode survivor = body(mvc.perform(get(candidatesUrl(projectId) + "?unmapped=true")
-                        .header("Authorization", "Bearer " + admin()))
-                .andExpect(status().isOk())
-                .andReturn()).get("candidates").get(0);
-
-        assertThat(survivor.get("fullName").asText()).isEqualTo("Wei Ling Tan");
-        assertThat(survivor.get("triageCompanyId").isNull()).isTrue();
-        // The snapshot is why the row still says where they worked.
-        assertThat(survivor.get("companyName").asText()).isEqualTo("Spinneys Group");
     }
 
     @Test
@@ -632,6 +689,17 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
                         .content("{%s\"fullName\":\"%s\"}".formatted(companyClause, fullName)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
+    }
+
+    /** Adds an executive naming only where they work, and hands back the company they landed at. */
+    private String mapToEmployer(String projectId, String employerName, String fullName) throws Exception {
+        return body(mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"employerName":"%s","fullName":"%s"}""".formatted(employerName, fullName)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("triageCompanyId").asText();
     }
 
     /** Maps an executive at that seniority and hands back the token the API gives it back as. */

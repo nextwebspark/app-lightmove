@@ -142,7 +142,7 @@ export function SectionEditor<S extends ProfileFormSection>({
   // the mutation stays failed — so the same sentence reappeared over a form already corrected.
   const [submitError, setSubmitError] = useState<string | null>(null);
   const form = useForm<CandidateForm, unknown, SectionValues<S>>({
-    resolver: sectionResolver(section),
+    resolver: sectionResolver(section, candidate.triageCompanyId !== null),
     defaultValues: formOf(candidate),
   });
 

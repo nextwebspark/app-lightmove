@@ -34,6 +34,7 @@ import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.service.CustomColumnService;
 import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
@@ -54,11 +55,19 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * A mandate's mapped executives: adding one, replacing one whole, reading them back, and removing one.
  *
- * <p>The one decision this service makes that is not bookkeeping is where a candidate sits. Naming one
- * of the mandate's triaged companies maps the person to it <i>and</i> snapshots that company's name;
- * naming none leaves them unmapped with whatever employer the researcher typed. The caller's
+ * <p>The one decision this service makes that is not bookkeeping is where a candidate sits, and it has
+ * one answer: <b>an executive named with an employer is mapped to a company row, always.</b> Naming one
+ * of the mandate's triaged companies maps the person to it and snapshots that company's name; naming
+ * only an employer files that company into the universe first and then maps the person to it, through
+ * the same door the spreadsheet import and the enrichment worker use. The caller's
  * {@code employerName} is ignored in the first case on purpose — two fields that could disagree about
  * the same company would drift the moment either changed.
+ *
+ * <p>What is left unmapped is what genuinely has no employer <i>named</i>: a plugin capture, which
+ * posts a name and a profile URL and learns where the person works when the research lands, and a
+ * spreadsheet of bare names. That optionality is V36's and stays — refusing to store a name until its
+ * employer is triaged is what pushes the name into a spreadsheet. What does not stay is a company-less
+ * row for a company somebody actually named, which is what the Companies grid could not draw.
  */
 @Service
 @Slf4j
@@ -191,12 +200,14 @@ public class CandidateService {
                                  SaveCandidateRequest request, HttpServletRequest httpRequest) {
         requireProject(projectId, workspaceId);
         CandidateSource source = resolveSource(request.source());
-        CandidateDetails details = detailsOf(projectId, request);
+        TriageCompanyResponse employer = employerOf(projectId, userId, request, source);
+        CandidateDetails details = detailsOf(request, employer);
+        UUID triageCompanyId = employer == null ? null : employer.id();
 
-        refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), null);
+        refuseDuplicate(projectId, triageCompanyId, details.fullName(), null);
 
         Candidate candidate = candidates.save(Candidate.mapped(projectId, userId,
-                request.triageCompanyId(), source, details));
+                triageCompanyId, source, details));
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
 
@@ -216,8 +227,12 @@ public class CandidateService {
 
     /**
      * Replaces a candidate whole, including the company they are mapped to — moving someone to another
-     * of the mandate's companies, or off the universe entirely, is an ordinary edit of where they work
-     * rather than a separate verb.
+     * of the mandate's companies, or naming an employer the mandate never triaged, is an ordinary edit
+     * of where they work rather than a separate verb.
+     *
+     * <p>Naming an employer here is also how a row left with no company is repaired: the panel replays
+     * the stored snapshot on every section save, so the first edit of a person the research never
+     * placed files their employer into the universe and maps them to it.
      */
     @Transactional
     public CandidateResponse replace(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
@@ -226,10 +241,12 @@ public class CandidateService {
         Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
 
-        CandidateDetails details = detailsOf(projectId, request);
-        refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), candidateId);
+        TriageCompanyResponse employer = employerOf(projectId, userId, request, candidate.getSource());
+        CandidateDetails details = detailsOf(request, employer);
+        UUID triageCompanyId = employer == null ? null : employer.id();
+        refuseDuplicate(projectId, triageCompanyId, details.fullName(), candidateId);
 
-        candidate.remapTo(request.triageCompanyId());
+        candidate.remapTo(triageCompanyId);
         candidate.describe(details);
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
@@ -309,11 +326,12 @@ public class CandidateService {
                 && !candidate.getCompanyName().equalsIgnoreCase(enriched.employerName())) {
             return;
         }
-        TriageCompanyResponse company = triage.captureFromResearch(projectId,
+        TriageCompanyResponse company = triage.captureEmployer(projectId,
                 candidate.getAddedBy(), new CapturedCompanyDetails(
                         enriched.employerName(), null, null, null, null, null, null,
                         enriched.employerLinkedinUrl(), null, null, enriched.employerLogoUrl(),
-                        null, null));
+                        null, null),
+                TriageCompanySource.EXTENSION);
 
         boolean nameHeldThere = candidates
                 .findByProjectIdAndTriageCompanyIdAndFullNameIgnoreCase(
@@ -392,11 +410,58 @@ public class CandidateService {
     }
 
     /**
-     * Where a candidate sits, and the employer name that follows from it. A named company is resolved
-     * through {@code triagecompany}'s one public seam, which also proves it belongs to this mandate —
-     * so a candidate cannot be filed against another project's company by id.
+     * The company an executive is being filed at, or null when the request names neither a company nor
+     * an employer.
+     *
+     * <p>Two ways in, one outcome. A named company is resolved through {@code triagecompany}'s
+     * {@code requireCompanyOfProject}, which also proves it belongs to this mandate — so a candidate
+     * cannot be filed against another project's company by id. A typed employer goes through
+     * {@code captureEmployer}, which answers with the mandate's row of that name where it holds one,
+     * the market's company where the universe carries it, and a hand-shaped row where it does not.
+     *
+     * <p><b>This is why a person is never left floating beside the universe they were found in.</b>
+     * Before it existed, "Add executive" from the toolbar wrote a row whose employer was a string and
+     * nothing else: it could not be opened, moved, shortlisted or declined, it rendered as a caption
+     * under a grid built to show companies, and the same company typed twice was two of them. The
+     * employer is a company the moment it is named, and the researcher's next act — shortlisting where
+     * this person works — is available rather than blocked on re-typing the name into the other Add.
+     *
+     * <p>What comes back is the row, and the row's name is what the candidate remembers, so the
+     * mapping and the snapshot can never disagree — whichever spelling the caller used.
+     *
+     * <p>No widening of what the caller may do: adding an executive and capturing a company are both
+     * {@code WORK_EXECUTE} on the same mandate, so this writes nothing its caller could not have
+     * written through the Companies screen's own Add.
      */
-    private CandidateDetails detailsOf(UUID projectId, SaveCandidateRequest request) {
+    private TriageCompanyResponse employerOf(UUID projectId, UUID userId, SaveCandidateRequest request,
+                                             CandidateSource source) {
+        if (request.triageCompanyId() != null) {
+            return triage.requireCompanyOfProject(projectId, request.triageCompanyId());
+        }
+        String employerName = request.employerName() == null ? "" : request.employerName().trim();
+        if (employerName.isEmpty()) {
+            return null;
+        }
+        return triage.captureEmployer(projectId, userId,
+                new CapturedCompanyDetails(employerName, null, null, null, null, null, null, null,
+                        null, null, null, null, null),
+                triageSourceFor(source));
+    }
+
+    /** The company row's provenance is the person's: how they arrived is how their employer did. */
+    private static TriageCompanySource triageSourceFor(CandidateSource source) {
+        return switch (source) {
+            case MANUAL -> TriageCompanySource.MANUAL;
+            case CSV -> TriageCompanySource.CSV;
+            case EXTENSION -> TriageCompanySource.EXTENSION;
+        };
+    }
+
+    /**
+     * The profile as it will be stored, with the employer name the resolved company row carries — never
+     * the caller's, so the snapshot and the mapping cannot drift apart.
+     */
+    private CandidateDetails detailsOf(SaveCandidateRequest request, TriageCompanyResponse employer) {
         CandidateDetails details = new CandidateDetails(
                 request.fullName(), request.title(), resolveSeniority(request.seniority()),
                 resolveStatus(request.status()), request.employerName(), request.email(),
@@ -405,12 +470,7 @@ public class CandidateService {
                 request.summary(), request.note(), compensationOf(request.compensation()),
                 profileOf(request), request.sourceUrl());
 
-        if (request.triageCompanyId() == null) {
-            return details;
-        }
-        TriageCompanyResponse company =
-                triage.requireCompanyOfProject(projectId, request.triageCompanyId());
-        return details.employedAt(company.companyName());
+        return employer == null ? details : details.employedAt(employer.companyName());
     }
 
     /**

@@ -159,13 +159,25 @@ const yasmin: Candidate = {
   enrichedAt: null,
 };
 
-/** An executive whose employer is not in the mandate's universe. */
+/** An executive left with no company row — the company they were mapped at was removed. */
 const unlistedExec: Candidate = {
   ...yasmin,
   id: "c9",
   triageCompanyId: null,
   companyName: "An Unlisted Holding",
   fullName: "Wei Ling Tan",
+};
+
+/** A plugin capture posted seconds ago: a name and a profile URL, employer still being researched. */
+const capturedExec: Candidate = {
+  ...yasmin,
+  id: "c8",
+  triageCompanyId: null,
+  companyName: null,
+  fullName: "Manal Abadi",
+  source: "extension",
+  addedAt: new Date().toISOString(),
+  enrichedAt: null,
 };
 
 /** Two of each, so a filtered list can be shown to have left something out. */
@@ -657,6 +669,68 @@ describe("TriageStagePage", () => {
     );
   });
 
+  it("refuses an executive added from the toolbar until their employer is named", async () => {
+    renderStage();
+
+    await screen.findByText("ACWA Power");
+    await userEvent.click(screen.getByRole("button", { name: /^Add executive$/i }));
+
+    const drawer = await screen.findByRole("dialog", { name: /Add executive/i });
+    await userEvent.type(within(drawer).getByLabelText(/Full name/i), "Sultan Al-Harbi");
+    await userEvent.click(within(drawer).getByRole("button", { name: /^Add executive$/i }));
+
+    // The employer is not a detail here — it is which company line this person will sit on, and a
+    // row with none is what the grid could not draw.
+    expect(await within(drawer).findByText(/Their employer is required/i)).toBeInTheDocument();
+    expect(candidatesApi.createCandidate).not.toHaveBeenCalled();
+
+    // Not an anchored match: the field's label now carries its own error beside the word.
+    await userEvent.type(within(drawer).getByLabelText(/^Employer/i), "Americana Foods");
+    await userEvent.click(within(drawer).getByRole("button", { name: /^Add executive$/i }));
+
+    // No company id: the server resolves the typed name into one and maps the person to it.
+    await waitFor(() =>
+      expect(candidatesApi.createCandidate).toHaveBeenCalledWith(
+        "p1",
+        expect.objectContaining({
+          fullName: "Sultan Al-Harbi",
+          employerName: "Americana Foods",
+          triageCompanyId: null,
+        }),
+      ),
+    );
+  });
+
+  it("refuses to remove a company somebody is mapped at, and names them", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin]),
+    );
+    renderStage();
+
+    await screen.findByText("Yasmin El-Sayed");
+    await userEvent.click(screen.getByRole("button", { name: /Remove ACWA Power/i }));
+
+    // Named rather than counted: the reader's next act is opening that person and moving them.
+    expect(await screen.findByText(/Yasmin El-Sayed is mapped here/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Remove from mandate/i }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^Close$/i }));
+    expect(triageApi.deleteTriageCompany).not.toHaveBeenCalled();
+  });
+
+  it("says a fresh capture is being researched rather than that it has no company", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [capturedExec] : []),
+    );
+    renderStage();
+
+    expect(await screen.findByText("Manal Abadi")).toBeInTheDocument();
+    expect(screen.getByText(/Researching/i)).toBeInTheDocument();
+    expect(screen.queryByText(/No employer named/i)).not.toBeInTheDocument();
+  });
+
   it("opens an existing executive as a profile, and edits behind a second step", async () => {
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
       peopleOf(scope.unmapped ? [] : [yasmin]),
@@ -674,7 +748,7 @@ describe("TriageStagePage", () => {
     expect(within(drawer).getByLabelText(/^Title$/i)).toHaveValue("VP Finance");
   });
 
-  it("shows executives whose employer is not in the universe after the companies", async () => {
+  it("shows executives left with no company row after the companies", async () => {
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
       peopleOf(scope.unmapped ? [unlistedExec] : []),
     );
@@ -683,7 +757,7 @@ describe("TriageStagePage", () => {
     expect(await screen.findByText("Wei Ling Tan")).toBeInTheDocument();
     // The row says where they work and that it is not a company this screen can act on.
     expect(screen.getByText("An Unlisted Holding")).toBeInTheDocument();
-    expect(screen.getByText(/Not in universe/i)).toBeInTheDocument();
+    expect(screen.getByText(/No company/i)).toBeInTheDocument();
   });
 
   it("lets an executive with no company in the universe be removed from the row", async () => {

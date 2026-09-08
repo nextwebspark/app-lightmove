@@ -11,6 +11,7 @@ import * as candidatesApi from "../api/candidatesApi";
 import type { Candidate } from "../api/types";
 import {
   candidateSchema,
+  employedCandidateSchema,
   EMPTY_FORM,
   payloadOf,
   type CandidateForm,
@@ -38,8 +39,9 @@ export interface CandidateCompanyContext {
  *
  * <p>Where the panel was opened from a company's row the employer is that company and the field is
  * read-only: the mapping and the name must not be able to disagree, and the server ignores a typed
- * employer in that case anyway. Opened from the toolbar there is no company, the field is free text,
- * and the row lands unmapped — the executive whose employer is not in the mandate's universe.
+ * employer in that case anyway. Opened from the toolbar the field is free text and <b>required</b> —
+ * the server files whatever is typed into the mandate's universe and maps the person to it, so the
+ * grid gets a company line rather than a person beside one.
  *
  * <p>Mounted fresh each time the panel opens, so a reopen never shows the half-typed profile that
  * was abandoned last time.
@@ -66,7 +68,7 @@ export function AddCandidateForm({
   const [customFields, setCustomFields] = useState<CustomFieldValues>({});
 
   const form = useForm<CandidateForm, unknown, ParsedCandidateForm>({
-    resolver: zodResolver(candidateSchema),
+    resolver: zodResolver(company ? candidateSchema : employedCandidateSchema),
     defaultValues: { ...EMPTY_FORM, employerName: company?.companyName ?? "" },
   });
   const { register, formState } = form;
@@ -98,7 +100,7 @@ export function AddCandidateForm({
         <p className="mt-1 pe-8 font-mono text-[11.5px] text-text3">
           {company
             ? `At ${company.companyName}`
-            : "Not tied to a company in this mandate's universe — name their employer below."}
+            : "Name their employer below — it joins this mandate's universe if it isn't there yet."}
         </p>
       </div>
 

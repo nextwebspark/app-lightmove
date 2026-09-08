@@ -37,6 +37,7 @@ export type ApiErrorCode =
   | "BULK_ADD_SCOPE_TOO_LARGE"
   | "TRIAGE_COMPANY_ALREADY_HELD"
   | "TRIAGE_COMPANY_NOT_EDITABLE"
+  | "TRIAGE_COMPANY_HAS_EXECUTIVES"
   | "CANDIDATE_ALREADY_MAPPED"
   | "STRATEGY_SEARCH_NAME_TAKEN"
   | "FILE_TOO_LARGE"
@@ -83,6 +84,10 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CUSTOM_COLUMN_NAME_TAKEN: "This mandate already has a column with that name — map onto it instead.",
   TRIAGE_COMPANY_NOT_EDITABLE:
     "This company came from the market export, so its details are not yours to edit.",
+  // The dialog stops this before it is sent, using people it already has on screen. This is the copy
+  // for the race it cannot see: someone else mapped an executive there while the dialog was open.
+  TRIAGE_COMPANY_HAS_EXECUTIVES:
+    "Someone is mapped at this company — move or remove them before removing it.",
 };
 
 /**
