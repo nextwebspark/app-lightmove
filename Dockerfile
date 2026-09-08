@@ -9,7 +9,7 @@
 # a deploy step (FLYWAY_ENABLED=false on the service).
 
 # ── 1. The SPA ────────────────────────────────────────────────────────────────
-FROM node:22-slim AS web
+FROM node:26-slim AS web
 WORKDIR /src
 
 # Manifests first, so a source-only change reuses the cached npm install rather than refetching the
