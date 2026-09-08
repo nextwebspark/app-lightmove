@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import type { RowSelectionState } from "@tanstack/react-table";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { FullscreenButton, Spinner } from "../../../components/ui";
@@ -27,15 +28,14 @@ import { COMPANY_SORT_FIELDS } from "../lib/companyColumns";
 import { FilterSidebar } from "../components/FilterSidebar";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { SelectionAction, SelectionActionBar } from "../../../components/ui/SelectionActionBar";
-import { useRowSelection } from "../../../lib/useRowSelection";
 import { StrategyToolbar } from "../components/StrategyToolbar";
 
 const COMPANY_LAYOUT_COLUMNS = layoutColumnsOf(companyColumns);
 
 const DEFAULT_SORT: CompanySort = { field: "employees", direction: "desc" };
 
-/** A stable empty page of ids, so "still loading" is one identity rather than a new array per render. */
-const NO_IDS: string[] = [];
+/** A stable empty selection, so "nothing ticked" is one identity rather than a new object per render. */
+const NOTHING_SELECTED: RowSelectionState = {};
 
 export function StrategyPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
@@ -155,16 +155,20 @@ function StrategyEditor() {
     placeholderData: keepPreviousData,
   });
 
-  const pageIds = useMemo(
-    () => companies.data?.companies.map((company) => company.apolloAccountId) ?? NO_IDS,
-    [companies.data],
-  );
-  const selection = useRowSelection(pageIds);
+  /*
+   * The grid's own `rowSelectionFeature` state, held here rather than inside the table because the
+   * bulk bar acts on it and outlives any one page of results. Keyed by `apolloAccountId` — the
+   * table's `getRowId` — and the feature deletes a key rather than storing `false`, so the keys are
+   * exactly what is ticked.
+   */
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>(NOTHING_SELECTED);
+  const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection]);
+  const clearSelection = useCallback(() => setRowSelection(NOTHING_SELECTED), []);
 
   // A tick survives a page turn — picking twelve companies across three pages is the case the bulk
   // bar exists for — but not a change to what is being asked. A selection made under the last filter
   // would act on companies this scope no longer contains and the user can no longer see.
-  useEffect(() => selection.clear(), [filter, debouncedQuery, sort, selection.clear]);
+  useEffect(() => clearSelection(), [filter, debouncedQuery, sort, clearSelection]);
 
   const saveSearch = useMutation({
     // Flush first, for the same reason "Add all" does: the request carries only a name and the server
@@ -274,10 +278,10 @@ function StrategyEditor() {
    */
   const addSelected = useMutation({
     mutationFn: (status: TriageCompanyStatus) =>
-      triageApi.addSelectedCompanies(project.id, [...selection.ids], status),
+      triageApi.addSelectedCompanies(project.id, selectedIds, status),
     onSuccess: (result, status) => {
       void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
-      selection.clear();
+      clearSelection();
       // Every one skipped is a company the mandate already holds, and it keeps the stage it is at —
       // so saying so is the difference between "nothing happened" and "they were already there".
       toast(
@@ -368,14 +372,15 @@ function StrategyEditor() {
                 addOne.mutate(company);
               }}
               addingId={addingId}
-              selection={selection}
+              rowSelection={rowSelection}
+              onRowSelectionChange={setRowSelection}
             />
-            {selection.count > 0 && (
+            {selectedIds.length > 0 && (
               <SelectionActionBar
-                count={selection.count}
+                count={selectedIds.length}
                 noun="company"
                 plural="companies"
-                onClear={selection.clear}
+                onClear={clearSelection}
               >
                 {TRIAGE_STAGES.map((stage) => (
                   <SelectionAction

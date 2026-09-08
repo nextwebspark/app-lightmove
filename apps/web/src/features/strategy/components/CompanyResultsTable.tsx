@@ -3,6 +3,7 @@ import {
   type ColumnOrderState,
   type ColumnVisibilityState,
   type OnChangeFn,
+  type RowSelectionState,
   type SortingState,
   type Updater,
 } from "@tanstack/react-table";
@@ -10,7 +11,6 @@ import { useMemo } from "react";
 import { DataGrid } from "../../../components/ui/DataGrid";
 import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
 import type { GridLayout } from "../../../lib/useGridLayout";
-import type { RowSelection } from "../../../lib/useRowSelection";
 import type { CompanyResult, CompanySort, CompanySortField } from "../api/types";
 import { COLUMN_PINNING, companyColumns, companyTableFeatures } from "../lib/companyColumns";
 
@@ -25,7 +25,9 @@ const NO_COMPANIES: CompanyResult[] = [];
  *
  * <p>Every row carries a tick box in front of its name, and the header a select-all over the page —
  * both handed to {@link DataGrid} as its leading slot, so they ride the pinned column and stay on
- * screen when the row scrolls sideways.
+ * screen when the row scrolls sideways. The selection itself is the table's `rowSelectionFeature`:
+ * keyed by company id, so it survives the page turn that replaces every row object, and carrying the
+ * shift-click anchor so a range does not have to be tracked here.
  *
  * <p>Sorting and paging are the server's: this holds one page out of tens of thousands, so a
  * header click changes the query rather than the array. Single-column and non-clearable, because
@@ -43,7 +45,8 @@ export function CompanyResultsTable({
   error,
   onAddToUniverse,
   addingId,
-  selection,
+  rowSelection,
+  onRowSelectionChange,
 }: {
   companies: CompanyResult[];
   sort: CompanySort;
@@ -56,8 +59,13 @@ export function CompanyResultsTable({
   error: boolean;
   onAddToUniverse: (company: CompanyResult) => void;
   addingId: string | null;
-  /** Which rows are ticked, for the bulk bar the page floats over this grid. */
-  selection: RowSelection;
+  /**
+   * Which rows are ticked, keyed by company id. Held by the page rather than by this component,
+   * because the bulk bar it floats over the grid acts on the selection and outlives any one page of
+   * results.
+   */
+  rowSelection: RowSelectionState;
+  onRowSelectionChange: OnChangeFn<RowSelectionState>;
 }) {
   // The API's { field, direction } and the table's [{ id, desc }] are one fact in two shapes.
   const sorting = useMemo<SortingState>(
@@ -74,7 +82,12 @@ export function CompanyResultsTable({
     manualSorting: true,
     enableMultiSort: false,
     enableSortingRemoval: false,
-    state: { sorting, columnVisibility, columnOrder: layout.order },
+    state: { sorting, columnVisibility, columnOrder: layout.order, rowSelection },
+    onRowSelectionChange,
+    // What counts as "extend the range". The feature owns the anchor and the interval; it just has
+    // no opinion about which gesture asks for one, and without this shift-click is an ordinary click.
+    isRowRangeSelectionEvent: (event) =>
+      (event as { nativeEvent?: { shiftKey?: boolean } }).nativeEvent?.shiftKey === true,
     onSortingChange: (updater) => {
       const next = typeof updater === "function" ? updater(sorting) : updater;
       const [first] = next;
@@ -92,6 +105,14 @@ export function CompanyResultsTable({
     meta: { onAddToUniverse, addingId },
   });
 
+  /*
+   * `getIsAllPageRowsSelected` is the feature's own answer to this, but it reads the *paginated* row
+   * model — and paging here is the server's, so no pagination feature is registered to build one.
+   * The rows this table holds are the page.
+   */
+  const pageRows = table.getRowModel().rows;
+  const allOnPageSelected = pageRows.length > 0 && pageRows.every((row) => row.getIsSelected());
+
   return (
     <DataGrid
       table={table}
@@ -104,18 +125,22 @@ export function CompanyResultsTable({
       emptyMessage="No companies match this filter. Widen it, or reset an accordion."
       headerLead={
         <SelectionCheckbox
-          checked={selection.allOnPage ? true : selection.someOnPage ? "mixed" : false}
+          checked={allOnPageSelected}
+          indeterminate={!allOnPageSelected && table.getIsSomePageRowsSelected()}
           label="Select all companies on this page"
-          onToggle={selection.toggleAllOnPage}
+          onChange={table.getToggleAllPageRowsSelectedHandler()}
         />
       }
-      rowLead={(company) => (
-        <SelectionCheckbox
-          checked={selection.has(company.apolloAccountId)}
-          label={`Select ${company.companyName}`}
-          onToggle={(extend) => selection.toggle(company.apolloAccountId, extend)}
-        />
-      )}
+      rowLead={(company) => {
+        const row = table.getRow(company.apolloAccountId);
+        return (
+          <SelectionCheckbox
+            checked={row.getIsSelected()}
+            label={`Select ${company.companyName}`}
+            onChange={row.getToggleSelectedHandler()}
+          />
+        );
+      }}
     />
   );
 }

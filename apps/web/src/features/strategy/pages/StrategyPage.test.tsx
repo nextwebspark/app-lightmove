@@ -147,8 +147,17 @@ const secondCompany = () => ({
   companyName: "Masdar",
 });
 
+const thirdCompany = () => ({
+  ...pageOf().companies[0],
+  apolloAccountId: "a3",
+  companyName: "Yellow Door",
+});
+
 const twoCompanies = () =>
   pageOf({ companies: [pageOf().companies[0], secondCompany()], totalCount: 2 });
+
+const threeCompanies = () =>
+  pageOf({ companies: [pageOf().companies[0], secondCompany(), thirdCompany()], totalCount: 3 });
 
 const renderPage = (client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) =>
   render(
@@ -1131,6 +1140,58 @@ describe("StrategyPage — picking companies out of the market in bulk", () => {
     await waitFor(() =>
       expect(screen.queryByRole("region", { name: /selected/ })).not.toBeInTheDocument(),
     );
+  });
+
+  it("fills in the range on a shift-click, from the last box touched", async () => {
+    // The gesture every data grid has taught. It is the table's rowSelectionFeature that owns the
+    // anchor and the interval, but only because this screen tells it that shift is what asks for one
+    // — without `isRowRangeSelectionEvent` a shift-click is an ordinary click and this reads 2.
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(threeCompanies());
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    // One session for the whole gesture: a bare `userEvent.click` sets up its own, which drops the
+    // held Shift and makes this an ordinary click that selects 2 rather than filling in 3.
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox", { name: "Select ACWA Power" }));
+    await user.keyboard("{Shift>}");
+    await user.click(screen.getByRole("checkbox", { name: "Select Yellow Door" }));
+    await user.keyboard("{/Shift}");
+
+    expect(await screen.findByRole("region", { name: "3 companies selected" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Select Masdar" })).toBeChecked();
+  });
+
+  it("keeps ticks made on the page before — the case the bar exists for", async () => {
+    // A total past one page of DEFAULT_PAGE_SIZE, or Next is disabled and there is no page turn to
+    // survive.
+    vi.mocked(strategyApi.getCompanies).mockImplementation(async (_id, page) =>
+      page === 0
+        ? pageOf({ companies: [pageOf().companies[0], secondCompany()], totalCount: 120 })
+        : { ...pageOf({ companies: [thirdCompany()], totalCount: 120 }), page: 1 },
+    );
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select ACWA Power" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next page" }));
+    await screen.findByText("Yellow Door");
+
+    // The selection is keyed by company id, not by row index, so the page turn that replaced every
+    // row object leaves it alone.
+    expect(screen.getByRole("region", { name: "1 company selected" })).toBeInTheDocument();
+    // And nothing on this page is ticked, so the select-all reads unchecked rather than mixed.
+    expect(screen.getByRole("checkbox", { name: "Select all companies on this page" })).not.toBeChecked();
+  });
+
+  it("select-all over a part-ticked page fills it in rather than emptying it", async () => {
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select Masdar" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select all companies on this page" }));
+
+    expect(await screen.findByRole("region", { name: "2 companies selected" })).toBeInTheDocument();
   });
 
   it("leaves the per-row Add button alone", async () => {
