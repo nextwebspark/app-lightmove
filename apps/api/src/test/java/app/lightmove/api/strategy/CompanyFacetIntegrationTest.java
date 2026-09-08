@@ -8,12 +8,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -25,7 +23,6 @@ import org.springframework.test.web.servlet.MvcResult;
  * through the real HTTP endpoint as a workspace member.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class CompanyFacetIntegrationTest extends FlowTestSupport {
 
     private static final String KEYWORDS_URL = "/api/v1/companies/keywords";

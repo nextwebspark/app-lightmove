@@ -18,7 +18,6 @@ import org.springframework.security.oauth2.client.web.HttpSessionOAuth2Authoriza
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -28,21 +27,11 @@ import org.springframework.web.util.UriComponentsBuilder;
  * <p>The registrations are declared here as properties and nowhere in Java, which is the whole
  * claim: configuring a provider is enough to offer it. LinkedIn's endpoints come from the
  * {@code provider.linkedin} block in {@code application.yml} — if that block were missing, this
- * context would fail to start rather than quietly hand back a broken button.
+ * context would fail to start rather than quietly hand back a broken button. The registrations
+ * themselves are {@link ConfiguredOAuthProviders}.
  */
 @IntegrationTest
-@TestPropertySource(properties = {
-        "spring.security.oauth2.client.registration.google.client-id=test-google-id",
-        "spring.security.oauth2.client.registration.google.client-secret=test-google-secret",
-        "spring.security.oauth2.client.registration.linkedin.client-id=test-linkedin-id",
-        "spring.security.oauth2.client.registration.linkedin.client-secret=test-linkedin-secret",
-        "spring.security.oauth2.client.registration.linkedin.scope=openid,profile,email",
-        "spring.security.oauth2.client.registration.linkedin.authorization-grant-type=authorization_code",
-        "spring.security.oauth2.client.registration.linkedin.client-authentication-method=client_secret_post",
-        "spring.security.oauth2.client.registration.linkedin.redirect-uri={baseUrl}/login/oauth2/code/{registrationId}",
-        "lightmove.auth.oauth.pkce-unsupported-registrations=linkedin",
-        "lightmove.auth.oauth.nonce-unsupported-registrations=linkedin",
-})
+@ConfiguredOAuthProviders
 class ConfiguredProvidersTest {
 
     @Autowired MockMvc mvc;
