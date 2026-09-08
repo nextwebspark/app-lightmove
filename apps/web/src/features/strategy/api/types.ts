@@ -24,7 +24,7 @@ export interface SectorGroup {
  * Everything the filter sidebar counts, in one read. Counts are over the whole universe rather than
  * the current selection, so this is the same for every mandate and no chip click invalidates it.
  *
- * <p>Location is not here: its vocabulary is the six fixed GCC markets in {@link GCC_COUNTRIES}, so
+ * <p>Location is not here: its vocabulary is the fixed market list in {@link MARKET_COUNTRIES}, so
  * the panel offers them without waiting on this read at all.
  */
 export interface Facets {

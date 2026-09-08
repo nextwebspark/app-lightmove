@@ -72,7 +72,7 @@ class CompanyFacetIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("Location is not counted: the sidebar holds the six GCC markets itself")
+    @DisplayName("Location is not counted: the sidebar holds the market list itself")
     void noCountryFacet() throws Exception {
         String admin = adminOf("Facet Country Firm");
         universe.company("a1", "One").country("United Arab Emirates").employees(10).insert();

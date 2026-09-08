@@ -219,13 +219,23 @@ describe("StrategyPage — the filter sidebar and its results", () => {
   });
 
   it("offers Location without the facets read, so a refused count cannot take the axis with it", async () => {
-    // The vocabulary is the six GCC markets and the chips carry no count, so nothing about this
+    // The vocabulary is a fixed market list and the chips carry no count, so nothing about this
     // panel waits on /companies/facets — which is also why it survives that read being refused.
     vi.mocked(companiesApi.getFacets).mockRejectedValue(new Error("Forbidden"));
     renderPage();
 
     const filters = await screen.findByRole("region", { name: "Filters" });
-    for (const country of ["United Arab Emirates", "Saudi Arabia", "Qatar", "Kuwait", "Oman", "Bahrain"]) {
+    const countries = [
+      "United Arab Emirates",
+      "Saudi Arabia",
+      "Qatar",
+      "Kuwait",
+      "Oman",
+      "Bahrain",
+      "Türkiye",
+      "Egypt",
+    ];
+    for (const country of countries) {
       expect(within(filters).getByRole("button", { name: country })).toBeInTheDocument();
     }
   });
@@ -501,8 +511,8 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
 
-    // Location is six countries and reads as pills, named and nothing else — an axis that shallow
-    // has nothing a count would decide.
+    // Location is a short country list and reads as pills, named and nothing else — an axis that
+    // shallow has nothing a count would decide.
     expect(within(filters).getByRole("button", { name: "Qatar" })).toBeInTheDocument();
     expect(within(filters).queryByRole("checkbox", { name: /Qatar/ })).not.toBeInTheDocument();
 

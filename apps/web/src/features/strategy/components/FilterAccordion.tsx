@@ -119,7 +119,7 @@ export function FilterAccordion({
         </div>
       )}
 
-      {open && <div className="border-b border-line-soft p-4">{children}</div>}
+      {open && <div className="border-b border-line-soft px-4 py-3">{children}</div>}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import type { CompanyRef, FacetOption, Facets, NumericRange, StrategyFilter } from "../api/types";
-import { GCC_COUNTRIES } from "../lib/countries";
+import { MARKET_COUNTRIES } from "../lib/countries";
 import { FacetsUnavailable } from "./FacetsUnavailable";
 import { FilterAccordion, type SelectedTag } from "./FilterAccordion";
 import { FilterCheckRow } from "../../../components/ui/FilterCheckRow";
@@ -23,7 +23,7 @@ const RANGE_TAG = "__range__";
 const KEYWORD_TAG = "keyword:";
 
 /**
- * The filter rail: a share of the results row, floored at 300px and capped at 360px. `shrink-0`
+ * The filter rail: a share of the results row, floored at 264px and capped at 312px. `shrink-0`
  * because below the floor the accordion labels wrap.
  *
  * <p>Single-open, like the wireframe: opening one closes the last, and clicking an open header closes
@@ -31,7 +31,7 @@ const KEYWORD_TAG = "keyword:";
  * 148 labels, so two open panels would put the second below the fold.
  *
  * <p><b>Each axis gets the control its values deserve, which is the wireframe's point.</b> Location
- * is six GCC countries and reads as pills, where the shape of the set is the information — a fixed
+ * is a short fixed country list and reads as pills, where the shape of the set is the information — a
  * vocabulary and no counts, so it is the one panel that draws before the facets read. Employees,
  * Revenue and Market Segments are ordered or long, so they are checkbox lists — wrapped pills lose
  * the order of an ordered axis and turn a long one into a wall. Industry and its keywords are
@@ -87,7 +87,7 @@ export function FilterSidebar({
   const tagsOf = (axis: ListAxis) => {
     const options: readonly FacetOption[] | undefined = {
       industries: facets?.sectorGroups.flatMap((group) => group.industries),
-      countries: GCC_COUNTRIES,
+      countries: MARKET_COUNTRIES,
       employeeBands: facets?.employeeBands,
       revenueBands: facets?.revenueBands,
       marketSegments: facets?.marketSegments,
@@ -136,9 +136,9 @@ export function FilterSidebar({
       aria-label="Filters"
       className={cn(
         "overflow-y-auto border-line-soft bg-panel",
-        // A 300px rail beside the table does not fit a phone, so below `lg` it overlays the results.
-        "fixed inset-y-0 start-0 z-[95] w-[min(320px,88vw)] border-e shadow-panel",
-        "lg:static lg:z-auto lg:w-[22%] lg:min-w-[300px] lg:max-w-[360px] lg:shrink-0 lg:shadow-none",
+        // A 264px rail beside the table does not fit a phone, so below `lg` it overlays the results.
+        "fixed inset-y-0 start-0 z-[95] w-[min(288px,86vw)] border-e shadow-panel",
+        "lg:static lg:z-auto lg:w-[19%] lg:min-w-[264px] lg:max-w-[312px] lg:shrink-0 lg:shadow-none",
       )}
     >
       <div className="flex items-center justify-between border-b border-line-soft px-4 py-2.5 lg:hidden">
@@ -162,8 +162,8 @@ export function FilterSidebar({
         onToggleOpen={() => toggleOpen("location")}
         onReset={() => onChange({ ...filter, countries: [] })}
       >
-        <div className="flex flex-wrap gap-2">
-          {GCC_COUNTRIES.map((option) => (
+        <div className="flex flex-wrap gap-1.5">
+          {MARKET_COUNTRIES.map((option) => (
             <FilterChip
               key={option.value}
               label={option.label}
@@ -307,7 +307,7 @@ function ChipSkeleton() {
         <div
           key={width}
           style={{ width }}
-          className="h-[34px] animate-pulse rounded-full border border-line-soft bg-panel"
+          className="h-[24px] animate-pulse rounded-full border border-line-soft bg-panel"
         />
       ))}
     </div>

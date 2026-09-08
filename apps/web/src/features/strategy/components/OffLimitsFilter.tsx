@@ -38,7 +38,7 @@ export function OffLimitsFilter({
   };
 
   return (
-    <div className="flex flex-col gap-[14px]">
+    <div className="flex flex-col gap-3">
       <p className="font-sans text-[12px] leading-relaxed text-text3">
         Companies added here will be completely excluded from your active search results.
       </p>
