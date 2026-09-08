@@ -34,6 +34,7 @@ import app.lightmove.api.triagecompany.dto.UpdateTriageCompanyRequest;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.model.TriageCompanyCapturedEvent;
+import app.lightmove.api.triagecompany.model.TriageCompanyRemovalRequested;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
 import jakarta.servlet.http.HttpServletRequest;
@@ -294,17 +295,24 @@ public class TriageCompanyService {
     }
 
     /**
-     * The research door: the enrichment worker files a captured executive's employer into the
-     * mandate's universe. Unlike {@link #capture}, a name the mandate already holds answers with the
-     * existing row rather than a refusal — the worker is resolving "where does this person work",
-     * not asserting a new company. No audit event of its own: the capture the consultant made is
-     * already audited, and this row is its consequence rather than a second user action.
+     * The employer door: the {@code candidate} feature files the company an executive works at into
+     * the mandate's universe — the employer a researcher typed into the drawer, or the one a
+     * capture's research came back with. Unlike {@link #capture}, a name the mandate already holds
+     * answers with the existing row rather than a refusal: the caller is resolving "where does this
+     * person work", not asserting a new company. No audit event of its own — the add or the capture
+     * that led here is already audited, and this row is its consequence rather than a second user
+     * action.
+     *
+     * <p>{@code source} is the door the <i>person</i> came through, so the company's Source badge
+     * says where the fact came from: a name typed in the drawer reads {@code manual}, an employer a
+     * vendor answered with reads {@code extension}.
      */
     @Transactional
-    public TriageCompanyResponse captureFromResearch(UUID projectId, UUID addedBy,
-                                                     CapturedCompanyDetails details) {
-        ResolvedCapture resolved = resolveCapture(projectId, addedBy, details,
-                TriageCompanySource.EXTENSION, TriageCompanyStatus.IN_UNIVERSE);
+    public TriageCompanyResponse captureEmployer(UUID projectId, UUID addedBy,
+                                                 CapturedCompanyDetails details,
+                                                 TriageCompanySource source) {
+        ResolvedCapture resolved = resolveCapture(projectId, addedBy, details, source,
+                TriageCompanyStatus.IN_UNIVERSE);
         if (resolved.created()) {
             announceForResearch(resolved.company(), projectId);
         }
@@ -640,6 +648,12 @@ public class TriageCompanyService {
      * <p>Unlike Declining, this is not remembered. A later "Add all to Universe" over a filter that
      * matches the company may take it back in as In universe, which is the accepted trade for a delete
      * that leaves nothing behind: to rule a company out durably, decline it.
+     *
+     * <p><b>The publish below can refuse this removal.</b> {@link TriageCompanyRemovalRequested} is a
+     * question asked synchronously before the delete, and a listener holding rows that point at this
+     * company answers by throwing — today that is an executive mapped here, who would otherwise be
+     * left on the grid with no company line to sit on. Do not move it after the delete or make it
+     * async: both turn the refusal into a row that is already gone.
      */
     @Transactional
     public void removeFromProject(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
@@ -647,6 +661,9 @@ public class TriageCompanyService {
         requireProject(projectId, workspaceId);
         TriageCompany company = triaged.findByIdAndProjectId(triageCompanyId, projectId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+
+        events.publishEvent(new TriageCompanyRemovalRequested(
+                projectId, triageCompanyId, company.getCompanyName()));
 
         triaged.delete(company);
 

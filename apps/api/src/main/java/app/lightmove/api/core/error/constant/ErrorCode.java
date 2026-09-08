@@ -114,6 +114,15 @@ public enum ErrorCode {
             "A company taken from the market cannot be edited"),
 
     /**
+     * A company removal that would strand the executives mapped at it. A mandate's decision about a
+     * company is removable; the people researched at it are not collateral, and a person with no
+     * company row has no line to sit on. Distinct from CONFLICT so the grid can name how many are
+     * mapped there rather than offering "try again" for something retrying will never fix.
+     */
+    TRIAGE_COMPANY_HAS_EXECUTIVES(HttpStatus.CONFLICT,
+            "Executives are mapped at this company"),
+
+    /**
      * An executive already mapped under that name — at the same company, or, for someone whose
      * employer is not in the universe, anywhere in the mandate. Distinct from CONFLICT so the drawer
      * can mark the name field rather than offering "try again" for something retrying will never fix.

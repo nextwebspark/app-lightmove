@@ -11,8 +11,11 @@ import type { TriageCompany } from "../api/types";
  * screen has to show.
  *
  * <p>Exactly one side may be null, and the type says so: `candidate: null` is that empty slot;
- * `company: null` is an executive whose employer is not in the mandate's universe at all, which the
- * In-universe stage shows after the companies rather than hiding.
+ * `company: null` is an executive with no company row yet, which the In-universe stage shows after the
+ * companies rather than hiding. Naming an employer files it into the universe and a company somebody
+ * is mapped at cannot be removed, so the remaining ways to be that row are narrow: a plugin capture
+ * whose research has not landed (it posts a name and a profile URL and learns the employer
+ * afterwards), one whose research never will, and rows written before either rule existed.
  */
 export type TriageCompanyRow =
   | { company: TriageCompany; candidate: Candidate | null }
@@ -66,15 +69,22 @@ export function toTriageRows(
 const RESEARCH_WINDOW_MS = 3 * 60 * 1000;
 
 /**
- * Whether some visible executive is still being researched — a plugin capture, not yet enriched,
- * young enough that the answer is still coming. The page polls while this holds and stops by itself:
- * either the research lands (enrichedAt fills in) or the window expires (it failed).
+ * Whether this executive's research is still coming — a plugin capture, not yet enriched, young
+ * enough that the answer is on its way. Also what the grid says instead of a company on such a row:
+ * the employer is a few seconds out, not missing.
+ */
+export function isAwaitingResearch(candidate: Candidate, now: number = Date.now()): boolean {
+  return (
+    candidate.source === "extension" &&
+    !candidate.enrichedAt &&
+    now - new Date(candidate.addedAt).getTime() < RESEARCH_WINDOW_MS
+  );
+}
+
+/**
+ * Whether some visible executive is still being researched. The page polls while this holds and stops
+ * by itself: either the research lands (enrichedAt fills in) or the window expires (it failed).
  */
 export function awaitingResearch(candidates: Candidate[], now: number = Date.now()): boolean {
-  return candidates.some(
-    (candidate) =>
-      candidate.source === "extension" &&
-      !candidate.enrichedAt &&
-      now - new Date(candidate.addedAt).getTime() < RESEARCH_WINDOW_MS,
-  );
+  return candidates.some((candidate) => isAwaitingResearch(candidate, now));
 }

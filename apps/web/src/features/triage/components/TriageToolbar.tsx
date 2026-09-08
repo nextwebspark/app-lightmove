@@ -22,9 +22,10 @@ const TOOLBAR_BUTTON =
  * is no market behind either of these, which is the point — they are how a company the export does not
  * carry, and an executive no export has ever carried, get into a mandate at all.
  *
- * <p>"Add executive" here maps someone with no company selected, so the row lands unmapped: the
- * executive a researcher met at a company this mandate never triaged. Adding someone <i>at</i> a
- * company is that company's own row action, where the company is already known.
+ * <p>"Add executive" here is for the executive a researcher met at a company this mandate never
+ * triaged: the drawer asks for the employer and the server files it into the universe, so the person
+ * lands at a company either way. Adding someone <i>at</i> a company is that company's own row action,
+ * where the company is already known.
  */
 export function TriageToolbar({
   query,

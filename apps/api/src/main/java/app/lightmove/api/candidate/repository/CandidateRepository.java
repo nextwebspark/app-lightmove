@@ -36,6 +36,9 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
 
     boolean existsByIdAndProjectId(UUID id, UUID projectId);
 
+    /** How many people a company still holds — what stands between it and being removed. */
+    long countByProjectIdAndTriageCompanyId(UUID projectId, UUID triageCompanyId);
+
     /**
      * The duplicate guard for someone mapped at one of the mandate's companies, and its partner below
      * for someone who is not. Two questions rather than one, because "the same person twice" means

@@ -29,9 +29,11 @@ import org.hibernate.type.SqlTypes;
  * also meets people at companies the universe does not carry, and those rows carry none.
  *
  * <p>{@code companyName} is a write-time snapshot of the employer, and it outlives the mapping. V36's
- * {@code ON DELETE SET NULL} is the other half of that pair: removing a company from a mandate drops
- * the mandate's decision about the company and must not silently delete the people mapped at it, so
- * they fall back to unmapped rows that still say where the person works.
+ * {@code ON DELETE SET NULL} is the other half of that pair, and it is now a floor rather than a
+ * route: a company any executive is mapped at cannot be removed from the mandate at all
+ * ({@code CompanyRemovalGuard}), because what the unmap produced was a person on the Companies grid
+ * with no company line to sit on. The constraint stays for the paths that bypass the guard — a
+ * project deleted whole, a statement run by hand.
  *
  * <p>{@code status}, {@code seniorityLevel} and {@code source} are stored as their enum names rather
  * than their wire tokens, matching V36's CHECK constraints — {@code N-1} is not a legal identifier,

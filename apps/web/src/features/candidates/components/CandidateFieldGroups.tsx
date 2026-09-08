@@ -71,6 +71,7 @@ export function IdentityFields({
             {...register("employerName")}
             readOnly={employerLocked}
             placeholder="Al Rawabi Dairy"
+            invalid={Boolean(errors.employerName)}
             className={employerLocked ? "text-text3" : undefined}
           />
         </Field>

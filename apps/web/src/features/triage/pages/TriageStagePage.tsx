@@ -223,10 +223,11 @@ function TriageStage() {
   const lastPage = Math.max(0, Math.ceil((totalCount ?? 0) / pageSize) - 1);
 
   /**
-   * Executives whose employer is not in the mandate's universe at all. They belong to the mandate
-   * rather than to any company, so they sit after the companies on the universe's last page — the one
-   * place a reader reaches by scrolling to the end of the mapping. Grouping the grid by company is
-   * where they eventually get a heading of their own; until then, invisible would be worse.
+   * Executives with no company row: a plugin capture whose research has not landed yet, and rows
+   * written before an employer had to be one. They belong to the mandate rather than to any company,
+   * so they sit after the companies on the universe's last page — the one place a reader reaches by scrolling to
+   * the end of the mapping. Nearly always empty now that naming an employer files it into the
+   * universe, and still read, because invisible would be worse than a short tail.
    */
   const unmappedPeople = useQuery({
     queryKey: candidatesApi.CANDIDATES_KEY(project.id, { unmapped: true }),
@@ -274,8 +275,8 @@ function TriageStage() {
     void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
 
   /**
-   * Removing a company unmaps its people rather than deleting them, and adding one changes which
-   * people the grid should be asking about — so the two caches move together on every write. The
+   * A removal is refused while the company holds people, and adding one changes which people the grid
+   * should be asking about — so the two caches move together on every write. The
    * columns move with them because an import defines new ones: refreshing the rows without their
    * headers leaves the imported values in columns the grid does not yet know how to render.
    */
@@ -454,6 +455,9 @@ function TriageStage() {
 
       <RemoveCompanyDialog
         company={pendingRemoval}
+        mappedExecutives={(mappedPeople.data?.candidates ?? []).filter(
+          (candidate) => candidate.triageCompanyId === pendingRemoval?.id,
+        )}
         removing={remove.isPending}
         onCancel={() => setPendingRemoval(null)}
         onConfirm={(company) => {

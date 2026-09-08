@@ -272,9 +272,11 @@ write-time snapshot rather than a foreign key because the Apollo pipeline reload
 consultant works from. **The project is the mapping and the company is optional** — a candidate belongs
 to the mandate they were researched for (the note, the status and the compensation reading are all
 mandate-specific), and carries a triage company only when their employer happens to be in the universe.
-The employer name is snapshotted beside the link so V36's `ON DELETE SET NULL` can unmap without
-deleting: removing a company from a mandate drops the mandate's decision about the company, never the
-people mapped at it.
+The employer name is snapshotted beside the link because it has to outlive the row it was copied from.
+V36's `ON DELETE SET NULL` is the floor under that, not a route anyone takes: `CompanyRemovalGuard`
+refuses to remove a company an executive is mapped at, listening for the
+`TriageCompanyRemovalRequested` question `triagecompany` publishes before its delete — a synchronous
+veto in primitives, so the company side still never learns that people exist.
 
 Strategy answers "which companies match?"; triagecompany answers "what did this mandate do about that
 one?"; candidate answers "who sits there, and where has this mandate got to with them?" If a new type is
@@ -292,13 +294,16 @@ method plus the records it returns — never another feature's internals:
   a company snapshot at write time, and `StrategyService.scopeOf` to resolve the saved filter behind
   "Add all to Universe". `strategy` never looks back at a mandate's triaged companies.
 - `candidate` calls `triagecompany` through exactly two public methods, both answering in
-  triagecompany's own DTO: `CandidateService.save` calls
-  `TriageCompanyService.requireCompanyOfProject` to resolve and scope-check the company an executive
-  is being mapped to, and `CandidateService.applyResearch` calls `captureFromResearch` to file a
-  captured executive's researched employer into the mandate's universe — that one takes
-  triagecompany's `CapturedCompanyDetails` and,
-  unlike `capture`, answers a company the mandate already holds with the existing row rather than a
-  refusal, because the worker is resolving where a person works rather than asserting a new company.
+  triagecompany's own DTO: `TriageCompanyService.requireCompanyOfProject` resolves and scope-checks a
+  company an executive is being mapped to by id, and `captureEmployer` files an employer somebody
+  *named* into the mandate's universe — the drawer's typed employer, a spreadsheet's company cell, or
+  the one a capture's research came back with. That one takes triagecompany's `CapturedCompanyDetails`
+  and, unlike `capture`, answers a company the mandate already holds with the existing row rather than
+  a refusal, because the caller is resolving where a person works rather than asserting a new company.
+  **A named employer is always a company row**: a candidate mapped to nothing is one nobody named an
+  employer for (a plugin capture before its research lands, a sheet of bare names), never one whose
+  employer is merely untriaged — the Companies grid draws a company per line and had nothing to draw
+  for the latter.
   **`triagecompany` never learns that people exist**, which is why the Companies grid composes the two
   sides in the SPA (one read for the page's companies, one for the people at them) rather than
   embedding candidates in the company list — and why the employer is filed by a call rather than by an

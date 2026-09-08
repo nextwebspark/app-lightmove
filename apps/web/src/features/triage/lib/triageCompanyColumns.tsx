@@ -25,7 +25,7 @@ import { candidateStatusStyle } from "../../candidates/lib/candidateVocabulary";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
 import { MOVES, SOURCE_STYLES } from "./triageVocabulary";
-import type { TriageCompanyRow } from "./triageRows";
+import { isAwaitingResearch, type TriageCompanyRow } from "./triageRows";
 
 /**
  * Where a grid line is, for the Country and City columns.
@@ -110,20 +110,22 @@ const BUILT_IN_COLUMNS = helper.columns([
     // The floor covers a twenty-odd-character name: logo and gutters eat 54px before a letter draws.
     meta: { share: 22, min: 230 },
     cell: (info) => {
-      const { company } = info.row.original;
+      const { company, candidate } = info.row.original;
       const name = info.getValue();
 
-      // An executive whose employer is not in this mandate's universe. The name is what the
-      // researcher typed rather than a company this screen can act on, so it reads as a caption.
+      // An executive with no company row: a plugin capture whose research is still coming or never
+      // came, or a row written before naming an employer filed it into the universe. The caption says
+      // which, because "researching" resolves itself in seconds and the rest is the reader's to fix.
       if (!company) {
+        const researching = isAwaitingResearch(candidate);
         return (
           <span className="flex min-w-0 flex-col justify-center">
             <TruncatedText
-              value={name ?? "No employer named"}
+              value={name ?? (researching ? "Finding employer" : "No employer named")}
               className="font-sans text-[13px] text-text2"
             />
             <span className="font-mono text-[10px] uppercase tracking-[0.04em] text-text3">
-              Not in universe
+              {researching ? "Researching" : "No company"}
             </span>
           </span>
         );

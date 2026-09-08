@@ -13,9 +13,10 @@ import type {
 /**
  * The executive profile as a form: one schema, cut into the sections the panel edits one at a time.
  *
- * <p>Only the name is required, matching the server. Research arrives in pieces — a name, a company
- * and a rough title from a conference — and demanding a complete profile would send that name into a
- * spreadsheet, which is what these screens exist to replace.
+ * <p>Only the name is required here, matching the server. Research arrives in pieces — a name, a
+ * company and a rough title from a conference — and demanding a complete profile would send that name
+ * into a spreadsheet, which is what these screens exist to replace. See {@link employedCandidateSchema}
+ * for the one field the panel asks for beyond that.
  */
 export const candidateSchema = z.object({
   fullName: z.string().trim().min(1, "A name is required").max(200),
@@ -56,6 +57,19 @@ export const candidateSchema = z.object({
       }),
     )
     .max(25, "A career history holds 25 posts at most"),
+});
+
+/**
+ * The same schema with the employer required, used wherever no company row was chosen for the person.
+ *
+ * <p>The server accepts an executive with no employer — a plugin capture is exactly that until its
+ * research lands — so this is the panel's rule rather than the API's, and it is about the grid: the
+ * employer is not really a field on a person, it is which company line they sit on, and someone typing
+ * a name into this drawer knows where they work. A form opened from a company's row has its employer
+ * already, read-only and ignored by the server, so it keeps the plain schema.
+ */
+export const employedCandidateSchema = candidateSchema.extend({
+  employerName: z.string().trim().min(1, "Their employer is required").max(200),
 });
 
 /** A figure typed with the thousands separators the field shows it with — "420,000" is 420000. */
@@ -135,11 +149,13 @@ export type SectionValues<S extends ProfileFormSection> = Pick<ParsedCandidateFo
  */
 export function sectionResolver<S extends ProfileFormSection>(
   section: S,
+  mapped: boolean,
 ): Resolver<CandidateForm, unknown, SectionValues<S>> {
   const mask = Object.fromEntries(SECTION_FIELDS[section].map((key) => [key, true])) as {
     [K in keyof CandidateForm]?: true;
   };
-  return zodResolver(candidateSchema.pick(mask)) as unknown as Resolver<
+  const schema = mapped ? candidateSchema : employedCandidateSchema;
+  return zodResolver(schema.pick(mask)) as unknown as Resolver<
     CandidateForm,
     unknown,
     SectionValues<S>
@@ -220,7 +236,9 @@ export function replayOf(candidate: Candidate): SaveCandidatePayload {
  * log lie about what was typed.
  *
  * <p>Identity's employer is only sent for someone mapped to no company: where a company row is
- * named the server snapshots that company's name and the two must not be able to disagree.
+ * named the server snapshots that company's name and the two must not be able to disagree. Sending it
+ * is how an unmapped row is repaired — the server files that employer into the mandate's universe and
+ * maps the person to it, so the next read of this row draws a company.
  */
 const PATCHES: {
   [S in ProfileFormSection]: (
@@ -283,7 +301,8 @@ export function patchOf<S extends ProfileFormSection>(
 /**
  * The whole form as the request that adds an executive: every section's patch at once, plus the
  * status and the company link, which no section owns. The company link is where the form was opened
- * from; without one the executive lands unmapped, with the employer they were typed with.
+ * from; without one the server resolves the typed employer into a company row of its own, so either
+ * way the executive lands at a company.
  */
 export function payloadOf(
   parsed: ParsedCandidateForm,
