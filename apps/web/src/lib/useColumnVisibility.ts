@@ -1,16 +1,15 @@
 import { useEffect, useState } from "react";
 import type { ColumnVisibilityState } from "@tanstack/react-table";
 
-const storageKey = (namespace: string, projectId: string) =>
-  `lm.${namespace}.columns.${projectId}`;
+const storageKey = (namespace: string, scope: string) => `lm.${namespace}.columns.${scope}`;
 
 /**
- * Which columns a grid shows, remembered per project in `localStorage`.
+ * Which columns a grid shows, remembered per scope in `localStorage`.
  *
- * <p>Per project because two mandates want different columns, and local because a column tick is
- * not worth an audit event. The `namespace` separates the grids that share this hook — Strategy is
- * looking at the market and Companies at what the mandate took from it, and a user who hides Revenue
- * on one has said nothing about the other.
+ * <p>Scoped per mandate where a grid belongs to one, because two mandates want different columns, and
+ * local because a column tick is not worth an audit event. The `namespace` separates the grids that
+ * share this hook — Strategy is looking at the market and Companies at what the mandate took from it,
+ * and a user who hides Revenue on one has said nothing about the other.
  *
  * <p>A stored record is merged over the defaults rather than replacing them, so a column added after
  * it was written takes its declared default. The other way round — trusting absence to mean visible —
@@ -18,31 +17,31 @@ const storageKey = (namespace: string, projectId: string) =>
  */
 export function useColumnVisibility(
   namespace: string,
-  projectId: string,
+  scope: string,
   initial: ColumnVisibilityState,
 ) {
   const [visibility, setVisibility] = useState<ColumnVisibilityState>(() =>
-    read(namespace, projectId, initial),
+    read(namespace, scope, initial),
   );
 
   useEffect(() => {
     try {
-      localStorage.setItem(storageKey(namespace, projectId), JSON.stringify(visibility));
+      localStorage.setItem(storageKey(namespace, scope), JSON.stringify(visibility));
     } catch {
       // A blocked store costs a column layout, not the table.
     }
-  }, [namespace, projectId, visibility]);
+  }, [namespace, scope, visibility]);
 
   return [visibility, setVisibility] as const;
 }
 
 function read(
   namespace: string,
-  projectId: string,
+  scope: string,
   fallback: ColumnVisibilityState,
 ): ColumnVisibilityState {
   try {
-    const stored = localStorage.getItem(storageKey(namespace, projectId));
+    const stored = localStorage.getItem(storageKey(namespace, scope));
     if (!stored) return fallback;
     const parsed: unknown = JSON.parse(stored);
     // localStorage can hold anything, including a truncated write from another release.

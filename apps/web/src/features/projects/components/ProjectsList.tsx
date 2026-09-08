@@ -1,107 +1,77 @@
-import { Avatar, HealthDot, StagePill } from "../../../components/ui";
+import type { ColumnVisibilityState, OnChangeFn, PaginationState } from "@tanstack/react-table";
+import { HealthDot, StagePill } from "../../../components/ui";
+import { DataGrid } from "../../../components/ui/DataGrid";
+import { useDataGridTable } from "../../../lib/useDataGridTable";
+import type { GridLayout } from "../../../lib/useGridLayout";
+import type { GridSort } from "../../../lib/useGridSort";
 import { formatDate } from "../../../lib/format";
-import type { Project, TeamMember } from "../api/types";
-import type { SortKey } from "../lib/filtering";
+import type { Project } from "../api/types";
+import {
+  leadOf,
+  PROJECT_COLUMN_PINNING,
+  projectColumns,
+  projectTableFeatures,
+  TeamStack,
+  type ProjectSortField,
+} from "../lib/projectColumns";
 
-/** The mandate list: a sortable table on a wide screen, a stack of cards below `md`. */
+/** The mandate list: the shared grid on a wide screen, a stack of cards below `md`. */
 export function ProjectsList({
   projects,
-  sortKey,
-  sortDirection,
-  onSort,
+  sort,
+  onSortChange,
+  columnVisibility,
+  onColumnVisibilityChange,
+  layout,
+  onLayoutChange,
+  pagination,
+  onPaginationChange,
+  emptyMessage,
   onOpen,
 }: {
   projects: Project[];
-  sortKey: SortKey;
-  sortDirection: 1 | -1;
-  onSort: (key: SortKey) => void;
+  sort: GridSort<ProjectSortField>;
+  onSortChange: (sort: GridSort<ProjectSortField>) => void;
+  columnVisibility: ColumnVisibilityState;
+  onColumnVisibilityChange: OnChangeFn<ColumnVisibilityState>;
+  layout: GridLayout;
+  onLayoutChange: (layout: GridLayout) => void;
+  pagination: PaginationState;
+  onPaginationChange: OnChangeFn<PaginationState>;
+  emptyMessage: string;
   onOpen: (projectId: string) => void;
 }) {
-  const arrow = (key: SortKey) => (sortKey === key ? (sortDirection === 1 ? "↑" : "↓") : "");
-
-  const th =
-    "whitespace-nowrap border-b border-line px-3 py-[9px] text-left font-mono text-[10.5px] " +
-    "font-semibold uppercase tracking-[0.12em] text-text3";
-  const td = "border-b border-line-soft px-3 py-[11px]";
-  // A sticky cell is transparent by default, so the scrolled columns would slide under it.
-  const pinned = "sticky start-0 z-[1] bg-panel group-hover:bg-panel2";
+  const table = useDataGridTable<typeof projectTableFeatures, Project, ProjectSortField>({
+    features: projectTableFeatures,
+    columns: projectColumns,
+    data: projects,
+    getRowId: (project) => project.id,
+    pinning: PROJECT_COLUMN_PINNING,
+    sort,
+    onSortChange,
+    columnVisibility,
+    onColumnVisibilityChange,
+    layout,
+    onLayoutChange,
+    pagination,
+    onPaginationChange,
+  });
 
   return (
-    <>
-      <div className="flex flex-col gap-2.5 md:hidden">
-        {projects.map((project) => (
-          <ProjectCard key={project.id} project={project} onOpen={() => onOpen(project.id)} />
-        ))}
-      </div>
-
-      <div className="hidden overflow-x-auto md:block">
-      <table className="w-full min-w-[860px] border-collapse">
-      <thead>
-        <tr>
-          <th className={`${th} ${pinned} cursor-pointer`} onClick={() => onSort("client")}>
-            Client <span className="text-amber">{arrow("client")}</span>
-          </th>
-          <th className={th}>Position</th>
-          <th className={`${th} cursor-pointer`} onClick={() => onSort("stage")}>
-            Stage <span className="text-amber">{arrow("stage")}</span>
-          </th>
-          <th className={th}>Health</th>
-          <th className={th}>Team</th>
-          <th className={`${th} cursor-pointer`} onClick={() => onSort("date")}>
-            Target <span className="text-amber">{arrow("date")}</span>
-          </th>
-          <th className={th}>Pipeline</th>
-        </tr>
-      </thead>
-      <tbody>
-        {projects.map((project) => (
-          <tr
-            key={project.id}
-            className="group cursor-pointer hover:bg-panel2"
-            onClick={() => onOpen(project.id)}
-          >
-            <td className={`${td} ${pinned} whitespace-nowrap font-mono text-[12.5px] font-medium text-text2`}>
-              {project.clientName}
-            </td>
-            <td className={`${td} whitespace-nowrap`}>
-              <span className="text-[13px] font-semibold text-text">{project.positionTitle}</span>
-              <span className="mt-0.5 block font-mono text-[11px] text-text3">
-                Lead · {leadOf(project.team)?.fullName ?? "—"}
-              </span>
-            </td>
-            <td className={td}>
-              <StagePill stage={project.stage} />
-            </td>
-            <td className={td}>
-              <HealthDot health={project.health} />
-            </td>
-            <td className={td}>
-              <span className="flex">
-                {project.team.map((seat, index) => (
-                  <Avatar
-                    key={seat.memberId}
-                    id={seat.memberId}
-                    name={seat.fullName}
-                    src={seat.avatarUrl}
-                    size="sm"
-                    className={`border-2 border-panel ${index > 0 ? "-ml-[7px]" : ""}`}
-                  />
-                ))}
-              </span>
-            </td>
-            <td className={`${td} whitespace-nowrap font-mono text-xs text-text2`}>
-              {formatDate(project.targetDate)}
-            </td>
-            <td className={`${td} whitespace-nowrap font-mono text-xs text-text2`}>
-              <b className="font-semibold text-text">{project.companies}</b> cos ·{" "}
-              <b className="font-semibold text-text">{project.candidates}</b> cand
-            </td>
-          </tr>
-        ))}
-      </tbody>
-        </table>
-      </div>
-    </>
+    <DataGrid
+      table={table}
+      label="Projects"
+      fit="content"
+      layout={layout}
+      onLayoutChange={onLayoutChange}
+      // The page answers the pending and refused reads before it renders this.
+      loading={false}
+      error={false}
+      errorMessage="That list could not be loaded. Refresh, or check you still have access."
+      emptyMessage={emptyMessage}
+      onRowClick={(project) => onOpen(project.id)}
+      renderCard={(project) => <ProjectCard project={project} onOpen={() => onOpen(project.id)} />}
+    />
   );
 }
 
@@ -130,18 +100,7 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
       </div>
 
       <div className="flex items-center gap-2.5 border-t border-line-soft pt-2.5">
-        <span className="flex">
-          {project.team.map((seat, index) => (
-            <Avatar
-              key={seat.memberId}
-              id={seat.memberId}
-              name={seat.fullName}
-              src={seat.avatarUrl}
-              size="sm"
-              className={`border-2 border-panel ${index > 0 ? "-ml-[7px]" : ""}`}
-            />
-          ))}
-        </span>
+        <TeamStack team={project.team} />
         <span className="ml-auto font-mono text-[11px] text-text2">
           <b className="font-semibold text-text">{project.companies}</b> cos ·{" "}
           <b className="font-semibold text-text">{project.candidates}</b> cand
@@ -150,9 +109,4 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
       </div>
     </button>
   );
-}
-
-export function leadOf(team: TeamMember[]): TeamMember | undefined {
-  // Leads are plural — a mandate always has at least one, and the first is who the list names.
-  return team.find((seat) => seat.projectRoles.includes("LEAD"));
 }
