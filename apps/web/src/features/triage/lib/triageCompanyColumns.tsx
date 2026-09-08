@@ -28,6 +28,22 @@ import { MOVES, SOURCE_STYLES } from "./triageVocabulary";
 import type { TriageCompanyRow } from "./triageRows";
 
 /**
+ * Where a grid line is, for the Country and City columns.
+ *
+ * <p>A line is a person at a company and the person is what it is about, so the executive's own
+ * location wins and the company's HQ is what an empty "Add executive" slot falls back to. Taken as a
+ * unit rather than field by field: a profile that recorded only a city must not borrow its employer's
+ * country and read as somewhere neither of them is.
+ */
+function rowLocation(row: TriageCompanyRow): { country: string | null; city: string | null } {
+  const { candidate, company } = row;
+  if (candidate && (candidate.locationCountry || candidate.locationCity)) {
+    return { country: candidate.locationCountry, city: candidate.locationCity };
+  }
+  return { country: company?.companyCountry ?? null, city: company?.companyCity ?? null };
+}
+
+/**
  * What the Actions and Executive columns need, supplied per render rather than baked into the column
  * defs — the page owns the mutations, the columns only say which moves exist.
  */
@@ -232,9 +248,7 @@ const BUILT_IN_COLUMNS = helper.columns([
     },
   }),
 
-  // The company's HQ when the row knows it; otherwise the person's own location, which is what an
-  // extension-captured executive (and their research-captured employer) actually carries.
-  helper.accessor((row) => row.company?.companyCountry ?? row.candidate?.locationCountry ?? null, {
+  helper.accessor((row) => rowLocation(row).country, {
     id: "country",
     header: "Country",
     meta: { share: 12, min: 82 },
@@ -312,7 +326,7 @@ const BUILT_IN_COLUMNS = helper.columns([
     cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
-  helper.accessor((row) => row.company?.companyCity ?? row.candidate?.locationCity ?? null, {
+  helper.accessor((row) => rowLocation(row).city, {
     id: "location",
     header: "City",
     meta: { share: 11, min: 82 },
