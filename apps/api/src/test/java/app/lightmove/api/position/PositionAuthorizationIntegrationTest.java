@@ -10,11 +10,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import java.nio.charset.StandardCharsets;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MvcResult;
@@ -26,7 +24,6 @@ import org.springframework.test.web.servlet.MvcResult;
  * 404 masking.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class PositionAuthorizationIntegrationTest extends FlowTestSupport {
 
     @Test
@@ -46,14 +43,21 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a seated researcher reads the brief but does not define it")
-    void researcherReadsButCannotWriteTheBrief() throws Exception {
+    @DisplayName("a seated researcher reads the brief, the catalog and the document, and writes none of them")
+    void researcherReadsEverythingAndWritesNothing() throws Exception {
         Fixture f = fixture("Researcher Position Firm");
         seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
         String sara = login(f.saraEmail);
 
         mvc.perform(get(positionUrl(f.projectId)).header("Authorization", "Bearer " + sara))
                 .andExpect(status().isOk());
+        // The catalog itself is workspace reference data, browsable by any member.
+        mvc.perform(get("/api/v1/position-templates").header("Authorization", "Bearer " + sara))
+                .andExpect(status().isOk());
+        // Reading the document is WORK_VIEW: there is none yet, so a 404 rather than a 403 is the pass.
+        mvc.perform(get(positionUrl(f.projectId) + "/document")
+                        .header("Authorization", "Bearer " + sara))
+                .andExpect(status().isNotFound());
 
         mvc.perform(put(positionUrl(f.projectId) + "/criteria")
                         .header("Authorization", "Bearer " + sara)
@@ -61,55 +65,24 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"criteria":[{"text":"X","mode":"REQUIRED","fromBrief":false}]}"""))
                 .andExpect(status().isForbidden());
-
         mvc.perform(put(positionUrl(f.projectId) + "/details")
                         .header("Authorization", "Bearer " + sara)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(DETAILS_STEP))
                 .andExpect(status().isForbidden());
-    }
-
-    @Test
-    @DisplayName("drafting from a template is an ordinary write, so a researcher cannot do it")
-    void researcherCannotApplyATemplate() throws Exception {
-        Fixture f = fixture("Template Matrix Firm");
-        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
-        String sara = login(f.saraEmail);
-
-        // The catalog itself is workspace reference data, browsable by any member.
-        mvc.perform(get("/api/v1/position-templates").header("Authorization", "Bearer " + sara))
-                .andExpect(status().isOk());
-
+        // Drafting from a template, publishing and the attached document are ordinary writes.
         mvc.perform(post(positionUrl(f.projectId) + "/template")
                         .header("Authorization", "Bearer " + sara)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"templateId":"11111111-1111-4111-8111-111111111111"}"""))
                 .andExpect(status().isForbidden());
-    }
-
-    @Test
-    @DisplayName("publishing is an ordinary write, so a researcher cannot do it either")
-    void researcherCannotPublish() throws Exception {
-        Fixture f = fixture("Publish Matrix Firm");
-        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
-        String sara = login(f.saraEmail);
-
         mvc.perform(post(positionUrl(f.projectId) + "/publish")
                         .header("Authorization", "Bearer " + sara))
                 .andExpect(status().isForbidden());
         mvc.perform(delete(positionUrl(f.projectId) + "/publish")
                         .header("Authorization", "Bearer " + sara))
                 .andExpect(status().isForbidden());
-    }
-
-    @Test
-    @DisplayName("a researcher opens the mandate's position description but cannot change it")
-    void researcherReadsTheDocumentButCannotAttachOne() throws Exception {
-        Fixture f = fixture("Document Matrix Firm");
-        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
-        String sara = login(f.saraEmail);
-
         mvc.perform(multipart(positionUrl(f.projectId) + "/document")
                         .file(new MockMultipartFile("file", "brief.pdf", "application/pdf",
                                 "draft".getBytes(StandardCharsets.UTF_8)))
@@ -118,11 +91,6 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
         mvc.perform(delete(positionUrl(f.projectId) + "/document")
                         .header("Authorization", "Bearer " + sara))
                 .andExpect(status().isForbidden());
-
-        // Reading is WORK_VIEW: there is no document yet, so a 404 rather than a 403 is the pass.
-        mvc.perform(get(positionUrl(f.projectId) + "/document")
-                        .header("Authorization", "Bearer " + sara))
-                .andExpect(status().isNotFound());
     }
 
     @Test

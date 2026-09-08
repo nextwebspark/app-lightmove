@@ -9,12 +9,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import jakarta.servlet.http.Cookie;
 import tools.jackson.databind.JsonNode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -29,7 +27,6 @@ import org.springframework.test.web.servlet.MvcResult;
  * an authenticated caller</b> while spending one does not.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class ExtensionPairingIntegrationTest extends FlowTestSupport {
 
     @Test

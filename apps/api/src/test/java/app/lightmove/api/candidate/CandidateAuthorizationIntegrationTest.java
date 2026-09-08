@@ -8,10 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 
 /**
@@ -24,63 +22,47 @@ import org.springframework.http.MediaType;
  * they would rather not see on the list.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class CandidateAuthorizationIntegrationTest extends FlowTestSupport {
 
     @Test
-    @DisplayName("an unseated member cannot read a mandate's candidates")
-    void unseatedMemberCannotRead() throws Exception {
-        Fixture f = fixture("Candidate Unseated Firm");
-        String sara = login(f.saraEmail);
-
-        mvc.perform(get(candidatesUrl(f.projectId)).header("Authorization", "Bearer " + sara))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    @DisplayName("a seated researcher can read a mandate's candidates")
-    void seatedResearcherCanRead() throws Exception {
-        Fixture f = fixture("Candidate Researcher Firm");
-        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
-
-        mvc.perform(get(candidatesUrl(f.projectId))
-                        .header("Authorization", "Bearer " + login(f.saraEmail)))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @DisplayName("a seated lead can read a mandate's candidates")
-    void seatedLeadCanRead() throws Exception {
-        Fixture f = fixture("Candidate Lead Firm");
-        seat(f.admin, f.projectId, f.saraId, "LEAD");
-
-        mvc.perform(get(candidatesUrl(f.projectId))
-                        .header("Authorization", "Bearer " + login(f.saraEmail)))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @DisplayName("the workspace admin reads every project's candidates without a seat")
-    void workspaceAdminBypasses() throws Exception {
-        Fixture f = fixture("Candidate Workspace Admin Firm");
+    @DisplayName("reading follows the seat: none is refused, either role reads, the workspace admin needs none")
+    void readGateFollowsTheSeat() throws Exception {
+        Fixture f = fixture("Candidate Read Gate Firm");
 
         mvc.perform(get(candidatesUrl(f.projectId)).header("Authorization", "Bearer " + f.admin))
                 .andExpect(status().isOk());
+        mvc.perform(get(candidatesUrl(f.projectId)).header("Authorization", "Bearer " + login(f.saraEmail)))
+                .andExpect(status().isForbidden());
+
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+        mvc.perform(get(candidatesUrl(f.projectId)).header("Authorization", "Bearer " + login(f.saraEmail)))
+                .andExpect(status().isOk());
+
+        seat(f.admin, f.projectId, f.saraId, "LEAD");
+        mvc.perform(get(candidatesUrl(f.projectId)).header("Authorization", "Bearer " + login(f.saraEmail)))
+                .andExpect(status().isOk());
     }
 
     @Test
-    @DisplayName("a seated researcher may map an executive")
-    void seatedResearcherCanWrite() throws Exception {
-        Fixture f = fixture("Candidate Researcher Write Firm");
-        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+    @DisplayName("mapping an executive is the seat's work: refused unseated, allowed to a researcher")
+    void writeGateFollowsTheSeat() throws Exception {
+        Fixture f = fixture("Candidate Write Gate Firm");
+        String executive = """
+                {"fullName":"Yasmin El-Sayed"}""";
 
-        // WORK_EXECUTE, not PROJECT_EDIT: mapping people is the daily work of the seat, not an edit to
-        // the mandate's own definition, so a researcher does it.
         mvc.perform(post(candidatesUrl(f.projectId))
                         .header("Authorization", "Bearer " + login(f.saraEmail))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"fullName":"Yasmin El-Sayed"}"""))
+                        .content(executive))
+                .andExpect(status().isForbidden());
+
+        // WORK_EXECUTE, not PROJECT_EDIT: mapping people is the daily work of the seat, not an edit to
+        // the mandate's own definition, so a researcher does it.
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+        mvc.perform(post(candidatesUrl(f.projectId))
+                        .header("Authorization", "Bearer " + login(f.saraEmail))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(executive))
                 .andExpect(status().isCreated());
     }
 
@@ -113,20 +95,6 @@ class CandidateAuthorizationIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"status":"contacted"}"""))
                 .andExpect(status().isOk());
-    }
-
-    @Test
-    @DisplayName("an unseated member cannot map an executive")
-    void unseatedMemberCannotWrite() throws Exception {
-        Fixture f = fixture("Candidate Unseated Write Firm");
-        String sara = login(f.saraEmail);
-
-        mvc.perform(post(candidatesUrl(f.projectId))
-                        .header("Authorization", "Bearer " + sara)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"fullName":"Yasmin El-Sayed"}"""))
-                .andExpect(status().isForbidden());
     }
 
     // ── fixture ──────────────────────────────────────────────────────────────

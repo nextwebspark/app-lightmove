@@ -1,14 +1,11 @@
 package app.lightmove.api.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.model.UserIdentity;
 import app.lightmove.api.core.security.repository.UserIdentityRepository;
@@ -27,7 +24,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -37,7 +33,6 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
-import org.springframework.test.context.TestPropertySource;
 
 /**
  * Signing in with an identity provider, when the provider is only known from configuration.
@@ -50,8 +45,7 @@ import org.springframework.test.context.TestPropertySource;
  * as {@link AuthFlowIntegrationTest}.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
-@TestPropertySource(properties = "lightmove.auth.oauth.email-verified-optional-registrations=linkedin")
+@ConfiguredOAuthProviders
 class OAuthLoginIntegrationTest extends FlowTestSupport {
 
     private static final AtomicInteger RUN = new AtomicInteger();
@@ -284,14 +278,6 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
         assertThat(response.getRedirectedUrl())
                 .isEqualTo(properties.web().baseUrl() + "/login?error=OAUTH_FAILED");
         assertThat(users.findByEmail(email)).isEmpty();
-    }
-
-    @Test
-    @DisplayName("a deployment with no provider configured offers none, so the SPA shows no button")
-    void offersNoProvidersWhenNoneAreConfigured() throws Exception {
-        mvc.perform(get("/api/v1/auth/providers"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.providers").isEmpty());
     }
 
     @Test

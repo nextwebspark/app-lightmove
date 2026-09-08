@@ -7,7 +7,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
@@ -15,7 +14,6 @@ import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
@@ -27,7 +25,6 @@ import tools.jackson.databind.JsonNode;
  * or spent as something it is not.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class PasswordResetFlowIntegrationTest extends FlowTestSupport {
 
     private static final String NEW_PASSWORD = "brandnew42";

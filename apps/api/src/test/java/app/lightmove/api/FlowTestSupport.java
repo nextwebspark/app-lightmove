@@ -17,7 +17,7 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * The signup-to-workspace plumbing shared by every flow suite: each test works in its own email
  * domain (nothing rolls back — audit writes commit on another thread), and helpers speak real HTTP.
- * Subclasses declare {@code @IntegrationTest @Import(RecordingEmailSender.Config.class)} themselves.
+ * Subclasses declare {@code @IntegrationTest} themselves; the recording doubles come with it.
  */
 public abstract class FlowTestSupport {
 
@@ -27,12 +27,18 @@ public abstract class FlowTestSupport {
     @Autowired protected MockMvc mvc;
     @Autowired protected ObjectMapper json;
     @Autowired protected RecordingEmailSender email;
+    @Autowired private RecordingProfileEnricher profileEnricher;
+    @Autowired private RecordingCompanyEnricher companyEnricher;
 
     protected String domain;
 
     @BeforeEach
     void resetNamespace() {
         email.clear();
+        // The enrichers are shared with every other suite in the context: an answer one class scripted
+        // must not be what the next class's capture comes back with.
+        profileEnricher.clear();
+        companyEnricher.clear();
         domain = "firm%d-%s.example".formatted(RUN.incrementAndGet(),
                 getClass().getSimpleName().toLowerCase());
     }
