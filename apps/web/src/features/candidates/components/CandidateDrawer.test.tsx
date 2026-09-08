@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
@@ -50,11 +51,14 @@ const yasmin: Candidate = {
   enrichedAt: null,
 };
 
-const renderDrawer = (props: Partial<Parameters<typeof CandidateDrawer>[0]> = {}) =>
+const renderDrawer = (
+  props: Partial<Parameters<typeof CandidateDrawer>[0]> = {},
+  Panel: typeof CandidateDrawer = CandidateDrawer,
+) =>
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <ToastProvider>
-        <CandidateDrawer
+        <Panel
           open
           projectId="p1"
           candidate={null}
@@ -70,9 +74,28 @@ const renderDrawer = (props: Partial<Parameters<typeof CandidateDrawer>[0]> = {}
   );
 
 /**
+ * What the page does with a save's answer: shows it. The panel renders whatever it is handed, so a
+ * test of "the profile now reads as saved" needs a caller that hands the answer back.
+ */
+function LiveDrawer(props: Parameters<typeof CandidateDrawer>[0]) {
+  const [candidate, setCandidate] = useState(props.candidate);
+  return (
+    <CandidateDrawer
+      {...props}
+      candidate={candidate}
+      onSaved={(saved) => {
+        setCandidate(saved);
+        props.onSaved(saved);
+      }}
+    />
+  );
+}
+
+/**
  * The profile panel and the form behind it. Three things are worth holding onto: a name opens a
- * profile rather than a form, status is the one control that stays live while reading, and an edit is
- * a full replace — every field the drawer shows is a field the next save decides the value of.
+ * profile rather than a form, status is the one control that stays live while reading, and a section
+ * is saved over the stored profile — the wire is a full replace, so what a section does not show is
+ * said again exactly as it was.
  */
 describe("CandidateDrawer", () => {
   beforeEach(() => {
@@ -152,27 +175,108 @@ describe("CandidateDrawer", () => {
     expect(candidatesApi.createCandidate).not.toHaveBeenCalled();
   });
 
-  it("loads an existing profile whole, and saves it as a replace", async () => {
-    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
-    renderDrawer({ candidate: yasmin, company: null });
+  it("corrects one section over the stored profile, and keeps the panel open", async () => {
+    const onSaved = vi.fn();
+    const onClose = vi.fn();
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue({
+      ...yasmin,
+      compensation: { ...yasmin.compensation, baseSalary: 500000 },
+    });
+    renderDrawer({ candidate: yasmin, company: null, onSaved, onClose }, LiveDrawer);
 
-    await userEvent.click(screen.getByRole("button", { name: /^Edit$/i }));
+    await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
 
-    expect(screen.getByLabelText(/Full name/i)).toHaveValue("Yasmin El-Sayed");
-    expect(screen.getByLabelText(/Languages/i)).toHaveValue("English, Arabic");
-    expect(screen.getByLabelText(/Career 1 company/i)).toHaveValue("Regional Foods Co.");
-    expect(screen.getByLabelText(/^Base$/i)).toHaveValue("420000");
+    // The section's fields, as stored, with the figures in the shape they are read in.
+    expect(screen.getByLabelText(/^Currency$/i)).toHaveValue("AED");
+    expect(screen.getByLabelText(/^Base$/i)).toHaveValue("420,000");
+    // The rest of the profile stays readable around it — this is not the old whole-record form.
+    expect(screen.getByText("Regional Foods Co.")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Full name/i)).not.toBeInTheDocument();
+    // Every other pencil waits its turn.
+    expect(screen.getByRole("button", { name: /Edit contact/i })).toBeDisabled();
 
     await userEvent.clear(screen.getByLabelText(/^Base$/i));
-    await userEvent.click(screen.getByRole("button", { name: /Save changes/i }));
+    await userEvent.type(screen.getByLabelText(/^Base$/i), "500,000");
+    // The total follows the typing, so a figure can be checked against what was said on the phone.
+    expect(screen.getByTestId("package-total")).toHaveTextContent("AED 500,000");
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
 
     await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
     const [, candidateId, payload] = vi.mocked(candidatesApi.updateCandidate).mock.calls[0];
     expect(candidateId).toBe("c1");
-    // A cleared figure is a cleared figure: the whole point of a replace over a merge.
-    expect(payload.compensation?.baseSalary).toBeNull();
-    // Editing someone from their own row must not quietly unmap them.
+    expect(payload.compensation?.baseSalary).toBe(500000);
+    // The wire is still a full replace, so what the section did not show is said again unchanged.
+    expect(payload.fullName).toBe("Yasmin El-Sayed");
+    expect(payload.languages).toEqual(["English", "Arabic"]);
     expect(payload.triageCompanyId).toBe("co1");
+    // And the columns are left to their own section: omitted, the server leaves every one alone.
+    expect(payload.customFields).toBeUndefined();
+
+    // The reader had not finished: the panel shows what the server now holds, and stays.
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }));
+    expect(onClose).not.toHaveBeenCalled();
+    // Twice: the Base tile and the total, which for a package with only a base are equal.
+    expect(await screen.findAllByText("AED 500,000")).toHaveLength(2);
+    expect(screen.queryByLabelText(/^Base$/i)).not.toBeInTheDocument();
+  });
+
+  it("clears a figure that was blanked — a replace, not a merge", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
+    await userEvent.clear(screen.getByLabelText(/^Base$/i));
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].compensation?.baseSalary).toBeNull();
+  });
+
+  it("offers the currency as a pick, and keeps a stored code the list does not carry", async () => {
+    renderDrawer({
+      candidate: { ...yasmin, compensation: { ...yasmin.compensation, currency: "INR" } },
+      company: null,
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
+
+    // A select whose value matched no option would post blank and clear a fact nobody touched.
+    const currency = screen.getByLabelText(/^Currency$/i);
+    expect(currency).toHaveValue("INR");
+    expect(within(currency).getByRole("option", { name: "AED" })).toBeInTheDocument();
+    expect(within(currency).getByRole("option", { name: "Not set" })).toBeInTheDocument();
+  });
+
+  it("saves the note on its own, the moment it differs from what is stored", async () => {
+    const onSaved = vi.fn();
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue({ ...yasmin, note: "Call in May" });
+    renderDrawer({ candidate: yasmin, company: null, onSaved });
+
+    // No pencil: the note is always a textarea, and Save appears with the first keystroke.
+    expect(screen.queryByRole("button", { name: /Save note/i })).not.toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/Note on this executive/i), "Call in May");
+    await userEvent.click(screen.getByRole("button", { name: /Save note/i }));
+
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    const payload = vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2];
+    expect(payload.note).toBe("Call in May");
+    expect(payload.fullName).toBe("Yasmin El-Sayed");
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ note: "Call in May" }));
+    // Stored now, so there is nothing left to save.
+    expect(screen.queryByRole("button", { name: /Save note/i })).not.toBeInTheDocument();
+  });
+
+  it("moves on to the profile it added rather than back to the grid", async () => {
+    const onSaved = vi.fn();
+    const onClose = vi.fn();
+    vi.mocked(candidatesApi.createCandidate).mockResolvedValue(yasmin);
+    renderDrawer({ onSaved, onClose });
+
+    await userEvent.type(screen.getByLabelText(/Full name/i), "Yasmin El-Sayed");
+    await userEvent.click(screen.getByRole("button", { name: /^Add executive$/i }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(yasmin));
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("opens an existing executive as a profile, not as a form", async () => {
@@ -363,20 +467,29 @@ describe("CandidateDrawer", () => {
     renderDrawer({ candidate: yasmin, company: null, canWrite: false });
 
     expect(screen.getByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Edit$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Edit / })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/^Status$/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Note on this executive/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Remove from mandate/i })).not.toBeInTheDocument();
   });
 
-  it("returns to the profile when an edit is cancelled, rather than to the grid", async () => {
+  it("cancels a section on Escape and leaves the panel open", async () => {
     const onClose = vi.fn();
     renderDrawer({ candidate: yasmin, company: null, onClose });
 
-    await userEvent.click(screen.getByRole("button", { name: /^Edit$/i }));
-    await userEvent.click(screen.getByRole("button", { name: /^Cancel$/i }));
+    await userEvent.click(screen.getByRole("button", { name: /Edit summary/i }));
+    expect(screen.getByLabelText(/Profile summary/i)).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
 
-    // The reader had not finished reading.
+    // Escape means "not this section", not "not this person": the reader had not finished.
+    expect(screen.queryByLabelText(/Profile summary/i)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Cancel does the same.
+    await userEvent.click(screen.getByRole("button", { name: /Edit summary/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^Cancel$/i }));
+    expect(screen.queryByLabelText(/Profile summary/i)).not.toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
   });
 });
