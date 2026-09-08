@@ -127,6 +127,8 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   emptyMessage,
   layout,
   onLayoutChange,
+  headerLead,
+  rowLead,
   fit = "fill",
   renderCard,
   onRowClick,
@@ -141,6 +143,18 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   /** Where the user has dragged the columns. Order is the table's; only the widths are read here. */
   layout: GridLayout;
   onLayoutChange: (layout: GridLayout) => void;
+  /**
+   * A control drawn at the very start of the first column, before its header text and before each
+   * row's first cell — the select-all box and the per-row box of a multi-select grid.
+   *
+   * <p>A slot rather than a checkbox column of its own, and rather than something the caller renders
+   * inside its own first cell. A leading column would be a second pinned region and `sticky start-0`
+   * only holds one, so the two would stack on top of each other the moment the grid scrolled
+   * sideways. And a box rendered inside the first *header* cell would land inside the sort button,
+   * which is both invalid markup and a select-all that re-sorts the table.
+   */
+  headerLead?: ReactNode;
+  rowLead?: (row: TData) => ReactNode;
   /**
    * `fill` takes the height its flex parent has left and scrolls the rows inside it, which is what a
    * screen showing one page of a large market wants. `content` is as tall as its rows and leaves the
@@ -344,7 +358,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
             style={track}
             className="sticky top-0 z-20 grid flex-none items-center gap-3 border-b border-line bg-panel2 py-2.5"
           >
-            {headerGroup.headers.map((header) => {
+            {headerGroup.headers.map((header, index) => {
               const column = header.column;
               const sortable = column.getCanSort();
               const sorted = column.getIsSorted();
@@ -381,24 +395,28 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                     !pinned && "first:ps-4 last:pe-4",
                   )}
                 >
-                  {sortable ? (
-                    <button
-                      type="button"
-                      // A drag that crossed the threshold is a move, and must not also sort.
-                      onClick={(event) => {
-                        if (draggedRef.current) {
-                          draggedRef.current = false;
-                          return;
-                        }
-                        column.getToggleSortingHandler()?.(event);
-                      }}
-                      className="block w-full text-left transition hover:opacity-80"
-                    >
-                      {label}
-                    </button>
-                  ) : (
-                    label
-                  )}
+                  {/* The slot rides the first column, which in every caller is the pinned one, so
+                      the boxes stay on screen when the row scrolls away from its own name. */}
+                  <LeadingSlot lead={index === 0 && headerLead}>
+                    {sortable ? (
+                      <button
+                        type="button"
+                        // A drag that crossed the threshold is a move, and must not also sort.
+                        onClick={(event) => {
+                          if (draggedRef.current) {
+                            draggedRef.current = false;
+                            return;
+                          }
+                          column.getToggleSortingHandler()?.(event);
+                        }}
+                        className="block w-full text-left transition hover:opacity-80"
+                      >
+                        {label}
+                      </button>
+                    ) : (
+                      label
+                    )}
+                  </LeadingSlot>
 
                   <span
                     role="separator"
@@ -468,7 +486,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                     "cursor-pointer focus-visible:outline focus-visible:-outline-offset-2 focus-visible:outline-sky",
                 )}
               >
-                {row.getVisibleCells().map((cell) => {
+                {row.getVisibleCells().map((cell, index) => {
                   const pinned = cell.column.getIsPinned();
                   return (
                     <div
@@ -481,7 +499,9 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                         !pinned && "first:ps-4 last:pe-4",
                       )}
                     >
-                      <grid.FlexRender cell={cell} />
+                      <LeadingSlot lead={index === 0 && rowLead?.(row.original)}>
+                        <grid.FlexRender cell={cell} />
+                      </LeadingSlot>
                     </div>
                   );
                 })}
@@ -667,6 +687,20 @@ export function DataGridCell({ value, muted }: { value: string | null; muted?: b
 /** The icon button every grid's row actions and links are built from. */
 export const GRID_ICON_BUTTON =
   "grid size-9 place-items-center rounded-[5px] text-text3 transition hover:bg-panel2 hover:text-text lg:size-6";
+
+/**
+ * The first column's content, with `lead` in front of it when there is one. Renders the child alone
+ * otherwise, so a grid with no selection keeps exactly the markup it had.
+ */
+function LeadingSlot({ lead, children }: { lead: ReactNode; children: ReactNode }) {
+  if (!lead) return children;
+  return (
+    <span className="flex min-w-0 items-center gap-2.5">
+      {lead}
+      <span className="min-w-0 flex-1">{children}</span>
+    </span>
+  );
+}
 
 function GridMessage({ children }: { children: ReactNode }) {
   return (
