@@ -8,7 +8,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.RecordingProfileEnricher;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateEducationEntry;
@@ -19,7 +18,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
@@ -34,7 +32,6 @@ import tools.jackson.databind.JsonNode;
  * into the mandate's universe with the person mapped to it.
  */
 @IntegrationTest
-@Import({RecordingEmailSender.Config.class, RecordingProfileEnricher.Config.class})
 class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
 
     private static final byte[] PHOTO_BYTES = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0};

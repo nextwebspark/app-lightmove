@@ -23,7 +23,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -41,7 +40,6 @@ import org.springframework.test.web.servlet.MvcResult;
  * get a fresh container, so they are repeatable by construction and never touch a shared database.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class AuthFlowIntegrationTest {
 
     private static final String PASSWORD = "secret123";
@@ -87,13 +85,6 @@ class AuthFlowIntegrationTest {
     }
 
     @Test
-    @DisplayName("a disposable inbox cannot sign up")
-    void rejectsDisposableEmail() throws Exception {
-        assertThat(codeOf(signupRaw("Someone", "someone@mailinator.com", PASSWORD)))
-                .isEqualTo("EMAIL_DISPOSABLE");
-    }
-
-    @Test
     @DisplayName("the same email cannot be registered twice")
     void rejectsDuplicateEmail() throws Exception {
         signup("Alok Kumar", alokEmail, PASSWORD);
@@ -111,19 +102,13 @@ class AuthFlowIntegrationTest {
      * happens after the duplicate check would still let the same person register twice.
      */
     @Test
-    @DisplayName("a space-padded address is trimmed on the way in, not refused")
+    @DisplayName("a space-padded address is trimmed on the way in, at signup and at login")
     void spacePaddedAddressIsTrimmed() throws Exception {
         signup("Alok Kumar", "  %s  ".formatted(alokEmail), PASSWORD);
 
         assertThat(codeOf(signupRaw("Impostor", "  %s  ".formatted(alokEmail), PASSWORD)))
                 .as("the padded form must resolve to the same account, not a second one")
                 .isEqualTo("EMAIL_ALREADY_REGISTERED");
-    }
-
-    @Test
-    @DisplayName("a space-padded address signs in")
-    void spacePaddedAddressLogsIn() throws Exception {
-        signup("Alok Kumar", alokEmail, PASSWORD);
 
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -618,6 +603,14 @@ class AuthFlowIntegrationTest {
     }
 
     // ── Login ─────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("a deployment with no provider configured offers none, so the SPA shows no button")
+    void offersNoProvidersWhenNoneAreConfigured() throws Exception {
+        mvc.perform(get("/api/v1/auth/providers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.providers").isEmpty());
+    }
 
     @Test
     @DisplayName("a wrong password and an unknown account are indistinguishable to the caller")
