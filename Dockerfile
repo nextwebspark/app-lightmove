@@ -9,7 +9,7 @@
 # a deploy step (FLYWAY_ENABLED=false on the service).
 
 # ── 1. The SPA ────────────────────────────────────────────────────────────────
-FROM node:22-slim AS web
+FROM node:26-slim AS web
 WORKDIR /src
 
 # Manifests first, so a source-only change reuses the cached npm install rather than refetching the
@@ -23,7 +23,7 @@ COPY apps/web ./apps/web
 RUN npm run build --workspace=apps/web
 
 # ── 2. The API ────────────────────────────────────────────────────────────────
-FROM eclipse-temurin:21-jdk AS api
+FROM eclipse-temurin:25-jdk AS api
 WORKDIR /src
 
 COPY apps/api/.mvn ./.mvn
@@ -40,7 +40,7 @@ COPY --from=web /src/apps/web/dist ./src/main/resources/static
 RUN ./mvnw -B -q clean package -DskipTests
 
 # ── 3. Runtime ────────────────────────────────────────────────────────────────
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
 
 # Not root. A container that never needs to write anywhere has no reason to be able to.
