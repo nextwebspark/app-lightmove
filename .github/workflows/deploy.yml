@@ -43,7 +43,7 @@ jobs:
       id-token: write   # mints the OIDC token that Workload Identity Federation trades for GCP creds
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # The commit CI actually passed on — not whatever is at the head of main by now. On a manual
           # dispatch there is no such commit, so fall back to the ref that was dispatched.
@@ -51,12 +51,12 @@ jobs:
 
       # Keyless. No JSON service-account key exists, so there is none to leak or rotate.
       - name: Authenticate to GCP
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOY_SA }}
 
-      - uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v3
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
@@ -84,7 +84,7 @@ jobs:
       # applied — the role split is what finally takes DDL away from the runtime role.
       - name: Fetch migration credentials
         id: secrets
-        uses: google-github-actions/get-secretmanager-secrets@v2
+        uses: google-github-actions/get-secretmanager-secrets@v3
         with:
           secrets: |-
             flyway_password:${{ vars.GCP_PROJECT }}/lightmove-flyway-password
