@@ -24,6 +24,10 @@
 		<commons-csv.version>1.14.1</commons-csv.version>
 		<poi.version>5.4.1</poi.version>
 		<spring-ai.version>2.0.1</spring-ai.version>
+		<!-- Overrides the 11.0.22 Boot 4.1.0 manages, which carries three critical
+		     authentication advisories (CVE-2026-65905, CVE-2026-65182, CVE-2026-68525).
+		     Remove once the parent manages 11.0.25 or later. -->
+		<tomcat.version>11.0.25</tomcat.version>
 	</properties>
 
 	<dependencyManagement>

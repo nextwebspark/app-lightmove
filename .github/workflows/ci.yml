@@ -26,13 +26,14 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # `verify`, not `test`: the suite is Testcontainers and boots a real Postgres 16, because the
-      # schema is Postgres — partial unique indexes, citext, an append-only trigger — and a suite green
-      # against H2 would prove the code works on a database we do not ship. GitHub's ubuntu runners have
-      # a Docker daemon, which is exactly why this job lives here and not in a Cloud Build step.
+      # The suite is Testcontainers and boots a real Postgres 16, because the schema is Postgres —
+      # partial unique indexes, citext, an append-only trigger — and a suite green against H2 would
+      # prove the code works on a database we do not ship. GitHub's ubuntu runners have a Docker
+      # daemon, which is exactly why this job lives here and not in a Cloud Build step. `test`, not
+      # `verify`: nothing here consumes the jar, and repackaging it is time spent on nothing.
       - name: Test
         working-directory: apps/api
-        run: ./mvnw -B verify
+        run: ./mvnw -B test
 
   web:
     name: Web

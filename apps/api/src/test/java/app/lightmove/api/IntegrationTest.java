@@ -1,6 +1,7 @@
 package app.lightmove.api;
 
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.context.ImportTestcontainers;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
@@ -19,10 +20,12 @@ import java.lang.annotation.Target;
  * caught the {@code citext} mismatch, or the {@code inet} cast failure, both of which were real and
  * both of which were Postgres being Postgres.
  *
- * <p>The container is started once and reused across every test class (see
- * {@link TestcontainersConfig}), so the whole suite pays for one Postgres, not one per class. Nothing
- * here touches Cloud SQL, and no test needs a database reset: the container is created fresh, migrated
- * by Flyway, and thrown away.
+ * <p>One container for the whole JVM (see {@link TestcontainersConfig}) and, as far as possible, one
+ * Spring context: the three recording doubles are imported here rather than per class, because every
+ * distinct {@code @Import} combination is another context to boot. A class that needs its own
+ * properties ({@code @TestPropertySource}) still pays for one, so there are four, not one. Nothing here
+ * touches Cloud SQL, and no test needs a database reset: the container is created fresh, migrated by
+ * Flyway, and thrown away.
  *
  * <p>Audit writes run inline here rather than on their own thread — see {@link SynchronousAuditWrites}
  * for why a test that reads {@code app_lm_audit_event} otherwise races the writer.
@@ -37,7 +40,9 @@ import java.lang.annotation.Target;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({TestcontainersConfig.class, SynchronousAuditWrites.class, StubChatModel.Config.class,
-        StubEmbeddingModel.Config.class})
+@ImportTestcontainers(TestcontainersConfig.class)
+@Import({SynchronousAuditWrites.class, StubChatModel.Config.class, StubEmbeddingModel.Config.class,
+        RecordingEmailSender.Config.class, RecordingProfileEnricher.Config.class,
+        RecordingCompanyEnricher.Config.class})
 public @interface IntegrationTest {
 }

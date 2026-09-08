@@ -8,14 +8,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.MediaType;
 import tools.jackson.databind.JsonNode;
@@ -25,7 +23,6 @@ import tools.jackson.databind.JsonNode;
  * what it deliberately leaves alone, and that every seeded template is a document the API can read.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class PositionTemplateIntegrationTest extends FlowTestSupport {
 
     private static final String FIRM_TEMPLATE_BODY = """
