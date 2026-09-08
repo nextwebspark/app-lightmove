@@ -1,0 +1,12 @@
+# Dependency findings the Security workflow must not block on. Read by both the scan and the gate in
+# .github/workflows/security.yml, which passes it explicitly — osv-scanner otherwise looks for this
+# file next to each manifest it scans, and apps/api/pom.xml would not see one at the repo root.
+#
+# A waiver is a decision with a date on it, not a mute button: give the reason, and give ignoreUntil
+# so "waiting on upstream" cannot quietly become permanent. Lowering the CVSS threshold in the
+# workflow instead is the wrong fix.
+#
+# [[IgnoredVulns]]
+# id = "GHSA-xxxx-xxxx-xxxx"
+# ignoreUntil = 2026-12-31
+# reason = "No fixed version published; the affected parser is not reachable from our code."
