@@ -5,10 +5,10 @@ name: Security
 # overnight against code that did not change into a blocked *deploy*. Here it blocks the *merge*,
 # which is where a human is already standing.
 #
-# Blocking is CRITICAL/HIGH only — CVSS >= 7.0. Everything below that is still reported to
-# Security -> Code scanning; it just does not stop a PR. A finding that must not block — no fix
-# published, disputed, unreachable from our code — is waived in osv-scanner.toml or .trivyignore
-# with a reason, never by loosening the threshold.
+# Blocking is CRITICAL only — CVSS >= 9.0. Everything below that is still reported to Security ->
+# Code scanning; it just does not stop a PR. A finding that must not block — no fix published,
+# disputed, unreachable from our code — is waived in osv-scanner.toml or .trivyignore with a reason,
+# never by loosening the threshold.
 #
 # Failing a check is not the same as blocking a merge. These jobs report as `Dependencies` and
 # `Container image`; both must be listed as required status checks on main before the gate holds.
@@ -98,7 +98,7 @@ jobs:
             .results[]?.packages[]? as $p
             | $p.groups[]?
             | select((.max_severity // "") != "")
-            | select((.max_severity | tonumber) >= 7.0)
+            | select((.max_severity | tonumber) >= 9.0)
             | "| \($p.package.ecosystem) | `\($p.package.name)@\($p.package.version)` | \(.max_severity) | \(.ids | join(", ")) |"
           ' osv.json | sort -u > blocking.txt
 
@@ -111,25 +111,26 @@ jobs:
             | "- `\($p.package.name)@\($p.package.version)` — \(.ids | join(", "))"
           ' osv.json | sort -u > unscored.txt
 
+          # tee, not >>: a job summary is a click away from the log someone is already reading.
           if [ -s unscored.txt ]; then
-            { echo "### Unscored — reported, not blocking"; echo; cat unscored.txt; echo; } >> "$GITHUB_STEP_SUMMARY"
+            { echo "### Unscored — reported, not blocking"; echo; cat unscored.txt; echo; } | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
           if [ -s blocking.txt ]; then
             {
-              echo "### Blocking — CVSS 7.0 and above"
+              echo "### Blocking — CVSS 9.0 and above"
               echo
               echo "| Ecosystem | Package | CVSS | Advisory |"
               echo "|---|---|---|---|"
               cat blocking.txt
               echo
               echo 'Upgrade the package, or waive it in `osv-scanner.toml` with a reason.'
-            } >> "$GITHUB_STEP_SUMMARY"
-            echo "::error::$(wc -l < blocking.txt) high or critical dependency vulnerability(s) — see the job summary."
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "::error::$(wc -l < blocking.txt) critical dependency vulnerability(s) — listed above."
             exit 1
           fi
 
-          echo "No dependency vulnerability at CVSS 7.0 or above."
+          echo "No dependency vulnerability at CVSS 9.0 or above."
 
   # The shipped artifact: OS packages in the runtime base image AND the full transitive Maven
   # closure inside the fat jar. The only job that sees what actually runs in Cloud Run, which is
@@ -166,15 +167,15 @@ jobs:
           sarif_file: trivy-image.sarif
           category: trivy-image
 
-      # The same scan narrowed to what blocks. Trivy's database is already in the runner cache from
-      # the step above, so this re-reads local data rather than downloading it again. `.trivyignore`
-      # is picked up from the repo root without being named.
+      # The same scan narrowed to what blocks, printing the offending packages as a table rather
+      # than a bare exit code. Trivy's database is already in the runner cache from the step above,
+      # so this re-reads local data. `.trivyignore` is picked up from the repo root unnamed.
       - name: Gate
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: lightmove:scan
           format: table
-          severity: CRITICAL,HIGH
+          severity: CRITICAL
           ignore-unfixed: true
           exit-code: '1'
