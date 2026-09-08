@@ -111,6 +111,12 @@ class TriageAuthorizationIntegrationTest extends FlowTestSupport {
         mvc.perform(post(triageUrl(f.projectId) + "/from-filter")
                         .header("Authorization", "Bearer " + sara))
                 .andExpect(status().isForbidden());
+        mvc.perform(post(triageUrl(f.projectId) + "/bulk")
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountIds":["a1"]}"""))
+                .andExpect(status().isForbidden());
     }
 
     // ── fixture ──────────────────────────────────────────────────────────────

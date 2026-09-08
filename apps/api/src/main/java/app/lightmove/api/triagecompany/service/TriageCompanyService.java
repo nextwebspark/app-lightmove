@@ -21,6 +21,7 @@ import app.lightmove.api.strategy.service.StrategyService;
 import app.lightmove.api.triagecompany.constant.TriageCompanySortField;
 import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
+import app.lightmove.api.triagecompany.dto.AddSelectedTriageCompaniesRequest;
 import app.lightmove.api.triagecompany.dto.AddTriageCompanyRequest;
 import app.lightmove.api.triagecompany.dto.CaptureCompanyRequest;
 import app.lightmove.api.triagecompany.dto.EditTriageCompanyRequest;
@@ -472,6 +473,55 @@ public class TriageCompanyService {
                 .detail("added", String.valueOf(added))
                 .record();
         return new TriageBulkAddResponse(added, rows.size() - added);
+    }
+
+    /**
+     * The companies a consultant ticked on Strategy, taken into the mandate at one stage — the
+     * selection bar's three buttons are this method with three different statuses.
+     *
+     * <p>Beside {@link #addAllInScope} rather than inside it, because the two answer different
+     * questions. That one adds whatever the stored filter matches and takes no body precisely so a
+     * request cannot widen the scope; this one adds a list the caller names, which is narrower than
+     * the filter by construction and is the only way a consultant can decline forty companies without
+     * first taking them into the universe.
+     *
+     * <p>Every id is still resolved against the universe and checked against the mandate's off-limits
+     * list, so a hand-crafted request buys nothing a click could not: an off-limits company is dropped
+     * rather than refusing the batch, since a selection made before the exclusion was added is a stale
+     * screen, not an attack, and failing all forty over one of them would be the wrong answer either
+     * way. Companies the mandate already holds keep the stage they are at — re-adding a declined
+     * company must not walk it back into the universe, here as in {@link #add}.
+     */
+    @Transactional
+    public TriageBulkAddResponse addSelected(UUID userId, UUID workspaceId, UUID projectId,
+                                             AddSelectedTriageCompaniesRequest request,
+                                             HttpServletRequest httpRequest) {
+        TriageCompanyStatus landingStatus = resolveStatus(request.status());
+        // Distinct and ordered: a duplicate id in the request would bind two placeholder sets for one
+        // company, and ON CONFLICT DO NOTHING cannot deduplicate rows inside the statement writing them.
+        List<String> accountIds = request.apolloAccountIds().stream().distinct().toList();
+
+        int limit = listConfig.bulkAddLimit();
+        if (accountIds.size() > limit) {
+            throw ApiException.userFacing(ErrorCode.BULK_ADD_SCOPE_TOO_LARGE,
+                    "You selected %,d companies. You can add %,d at a time."
+                            .formatted(accountIds.size(), limit));
+        }
+
+        CompanyScope scope = strategy.scopeOf(workspaceId, projectId);
+        List<CompanyRow> rows = market.byAccountIds(accountIds).stream()
+                .filter(row -> !scope.offLimitsAccountIds().contains(row.apolloAccountId()))
+                .toList();
+
+        int added = writer.insertIgnoringHeld(projectId, userId, rows,
+                TriageCompanySource.STRATEGY, landingStatus, null, null);
+
+        audit.event(ProjectEventType.TRIAGE_BULK_ADDED)
+                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                .detail("added", String.valueOf(added))
+                .detail("status", landingStatus.name())
+                .record();
+        return new TriageBulkAddResponse(added, accountIds.size() - added);
     }
 
     @Transactional

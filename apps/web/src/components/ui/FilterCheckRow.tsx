@@ -63,12 +63,16 @@ export function FilterCheckRow({
 /**
  * The wireframe's square: an inset ring rather than a border, so ticking a row cannot shift the text
  * beside it by the half-pixel a border-width change would cost.
+ *
+ * <p>Purely visual — no role and no handler of its own. The thing that is actually checkable is the
+ * control around it, which is a filter row here and a grid checkbox on the selectable tables.
  */
 export function CheckBox({
   checked,
   size = "md",
 }: {
-  checked: boolean;
+  /** `"mixed"` is a select-all box over a partial selection — a dash, not a tick. */
+  checked: boolean | "mixed";
   size?: "sm" | "md";
 }) {
   const box = size === "md" ? "h-[18px] w-[18px]" : "h-[15px] w-[15px]";
@@ -91,7 +95,7 @@ export function CheckBox({
         strokeWidth={3.2}
         className={cn("text-amber", checked ? "opacity-100" : "opacity-0")}
       >
-        <path d="M20 6 9 17l-5-5" />
+        <path d={checked === "mixed" ? "M5 12h14" : "M20 6 9 17l-5-5"} />
       </svg>
     </span>
   );

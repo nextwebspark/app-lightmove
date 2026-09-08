@@ -1,0 +1,59 @@
+version: 2
+
+# This file governs *version* updates only. Security updates are a separate feature, toggled in
+# repo settings (Insights → Dependency graph → Dependabot), and are NOT suppressed by the limits
+# below — which is the whole design here: routine bumps off, CVE-driven bumps on.
+#
+#   gh api -X PUT repos/nextwebspark/app-lightmove/vulnerability-alerts
+#   gh api -X PUT repos/nextwebspark/app-lightmove/automated-security-fixes
+updates:
+  # One npm entry covers apps/web AND apps/extension: they are npm workspaces sharing the single
+  # root package-lock.json, which is also why ci.yml runs a bare `npm ci` for both jobs.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    # Disables routine version bumps. Security-update PRs are unaffected.
+    open-pull-requests-limit: 0
+    groups:
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: maven
+    directory: /apps/api
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 0
+    groups:
+      maven-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  # The one ecosystem where routine updates stay ON. deploy.yml holds `id-token: write` and mints
+  # production GCP credentials through Workload Identity Federation, and every action it calls is
+  # referenced by a mutable major tag. Dependabot also maintains SHA pins, so once those refs are
+  # pinned to commit SHAs this keeps them current rather than frozen.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Tracks the tags written in the Dockerfile (node:22-slim, eclipse-temurin:21-jre-alpine). It
+  # cannot see CVEs *inside* a floating tag — that is what the Trivy job in security.yml is for.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      base-images:
+        patterns: ["*"]
