@@ -12,6 +12,11 @@ export interface GridPaging {
   onPaginationChange: OnChangeFn<PaginationState>;
   /** Back to the first page, for when what is being asked changed. Idempotent, so an effect may call it. */
   reset: () => void;
+  /**
+   * Pulls the page back onto the last one that still exists, for when the rows themselves shrank —
+   * a seat removed, a client deleted by someone else and refetched. Idempotent like {@link reset}.
+   */
+  clampTo: (totalCount: number) => void;
 }
 
 /**
@@ -20,8 +25,10 @@ export interface GridPaging {
  * <p>Local rather than remembered: a page number is a position in one sitting's reading, and coming
  * back to a screen at page 14 of a list that has since been refilled is not where anyone left off.
  *
- * <p>{@link reset} returns the same state object when it is already on page one, so the effect that
- * calls it whenever the filter changes cannot loop.
+ * <p>{@link reset} and {@link clampTo} return the same state object when there is nothing to change,
+ * so the effects that call them on every filter edit and every row count cannot loop. Between them
+ * they are why the table's own `autoResetPageIndex` is off: a refetch that brought back the same
+ * rows would otherwise bounce a reader to page one for nothing.
  */
 export function useGridPaging(initialSize: number = DEFAULT_PAGE_SIZE): GridPaging {
   const [pagination, setPagination] = useState<PaginationState>({
@@ -41,6 +48,14 @@ export function useGridPaging(initialSize: number = DEFAULT_PAGE_SIZE): GridPagi
     () => setPagination((current) => (current.pageIndex === 0 ? current : { ...current, pageIndex: 0 })),
     [],
   );
+  const clampTo = useCallback(
+    (totalCount: number) =>
+      setPagination((current) => {
+        const last = Math.max(0, Math.ceil(totalCount / current.pageSize) - 1);
+        return current.pageIndex <= last ? current : { ...current, pageIndex: last };
+      }),
+    [],
+  );
 
   return useMemo(
     () => ({
@@ -51,7 +66,8 @@ export function useGridPaging(initialSize: number = DEFAULT_PAGE_SIZE): GridPagi
       setSize,
       onPaginationChange: setPagination,
       reset,
+      clampTo,
     }),
-    [pagination, setPage, setSize, reset],
+    [pagination, setPage, setSize, reset, clampTo],
   );
 }

@@ -1,5 +1,4 @@
-import type { ColumnVisibilityState, OnChangeFn } from "@tanstack/react-table";
-import type { PaginationState } from "@tanstack/react-table";
+import type { ColumnVisibilityState, OnChangeFn, PaginationState } from "@tanstack/react-table";
 import { HealthDot, StagePill } from "../../../components/ui";
 import { DataGrid } from "../../../components/ui/DataGrid";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
@@ -27,7 +26,6 @@ export function ProjectsList({
   onLayoutChange,
   pagination,
   onPaginationChange,
-  error,
   emptyMessage,
   onOpen,
 }: {
@@ -40,7 +38,6 @@ export function ProjectsList({
   onLayoutChange: (layout: GridLayout) => void;
   pagination: PaginationState;
   onPaginationChange: OnChangeFn<PaginationState>;
-  error: boolean;
   emptyMessage: string;
   onOpen: (projectId: string) => void;
 }) {
@@ -67,9 +64,9 @@ export function ProjectsList({
       fit="content"
       layout={layout}
       onLayoutChange={onLayoutChange}
-      // The page gates on `isPending` before it renders this, so a row model is never in flight here.
+      // The page answers the pending and refused reads before it renders this.
       loading={false}
-      error={error}
+      error={false}
       errorMessage="That list could not be loaded. Refresh, or check you still have access."
       emptyMessage={emptyMessage}
       onRowClick={(project) => onOpen(project.id)}

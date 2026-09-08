@@ -23,6 +23,19 @@ describe("useGridPaging", () => {
     expect(result.current.page).toBe(2);
   });
 
+  it("clamps onto the last page that still exists, and leaves a page that does when nothing shrank", () => {
+    const { result } = renderHook(() => useGridPaging(25));
+    act(() => result.current.setPage(3));
+    const before = result.current.pagination;
+    act(() => result.current.clampTo(100));
+    expect(result.current.pagination).toBe(before);
+
+    act(() => result.current.clampTo(30));
+    expect(result.current.page).toBe(1);
+    act(() => result.current.clampTo(0));
+    expect(result.current.page).toBe(0);
+  });
+
   it("resets to the first page without a new state object when it is already there", () => {
     const { result } = renderHook(() => useGridPaging());
     const before = result.current.pagination;

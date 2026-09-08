@@ -59,7 +59,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
   const [layout, setLayout] = useGridLayout("projects", PROJECT_LAYOUT_COLUMNS);
   const paging = useGridPaging();
 
-  const { data: projects = [], isPending } = useQuery({
+  const { data: projects = [], isPending, isError } = useQuery({
     queryKey: projectsApi.PROJECTS_KEY,
     queryFn: projectsApi.projects,
   });
@@ -83,10 +83,16 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
     [projects, view, clientOnly, myMemberId, chip, query],
   );
 
-  // Narrowing the list returns to the first page. Staying on page 4 of a filter that now matches two
-  // mandates shows an empty grid over a non-empty result.
-  const { reset: resetPage } = paging;
-  useEffect(() => resetPage(), [resetPage, view, chip, query, sort]);
+  // Narrowing the list returns to the first page — staying on page 4 of a filter that now matches
+  // two mandates shows an empty grid over a non-empty result — and a list that shrank under the
+  // reader, from a refetch, is clamped back onto its last page.
+  const { reset: resetPage, clampTo } = paging;
+  useEffect(() => {
+    resetPage();
+  }, [resetPage, view, chip, query, sort]);
+  useEffect(() => {
+    clampTo(rows.length);
+  }, [clampTo, rows.length]);
 
   const openProject = projects.find((p) => p.id === openProjectId) ?? null;
 
@@ -109,6 +115,24 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
         />
         <TableSkeleton
           columns={["Client", "Position", "Stage", "Health", "Team", "Target", "Pipeline"]}
+        />
+      </>
+    );
+  }
+
+  // A refused read falls back to the [] default too, and "create your first project" over a 403
+  // states as fact that the firm has none. Say what happened instead.
+  if (isError) {
+    return (
+      <>
+        <PageHeader
+          title={view === "my" ? "My projects" : "All projects"}
+          subtitle={`workspace ${user?.workspace?.name ?? ""}`}
+        />
+        <EmptyState
+          icon={<Icon d={ICONS.lock} size={24} />}
+          title="Couldn't load the projects"
+          body="You may no longer have access to them, or the request failed. Reload the page, and ask an admin if it keeps happening."
         />
       </>
     );
@@ -159,11 +183,11 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
 
       <ListToolbar
         query={query}
-        onQuery={setQuery}
+        onQueryChange={setQuery}
         placeholder="Search client or position…"
         chips={CHIPS}
-        chip={chip}
-        onChip={setChip}
+        activeChip={chip}
+        onChipChange={setChip}
         trailing={
           <ColumnPicker
             columns={HIDEABLE_PROJECT_COLUMNS}
@@ -186,7 +210,6 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
           onLayoutChange={setLayout}
           pagination={paging.pagination}
           onPaginationChange={paging.onPaginationChange}
-          error={false}
           emptyMessage={
             clientOnly
               ? "No projects match. Clear filters."
