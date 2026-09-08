@@ -5,6 +5,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The merge queue's batch branch. The ruleset requires API / Web / Extension on every entry, and a
+  # check that never reports leaves the entry stuck until the queue times it out.
+  merge_group:
 
 concurrency:
   group: ci-${{ github.ref }}
