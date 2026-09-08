@@ -1,21 +1,32 @@
 name: Security
 
-# Report-only, and deliberately its own workflow: ci.yml is the gate deploy.yml keys off, so a scanner
-# living there would turn a CVE published overnight into a blocked deploy. Findings land in
-# Security → Code scanning. Flipping this to a gate later is `fail-on-vuln: true` and dropping
-# `exit-code: '0'` below — nothing structural.
+# The vulnerability gate for what we ship, and deliberately its own workflow rather than a job inside
+# ci.yml: ci.yml is what deploy.yml keys off, so a scanner living there would turn a CVE published
+# overnight against code that did not change into a blocked *deploy*. Here it blocks the *merge*,
+# which is where a human is already standing.
+#
+# Blocking is CRITICAL/HIGH only — CVSS >= 7.0. Everything below that is still reported to
+# Security -> Code scanning; it just does not stop a PR. A finding that must not block — no fix
+# published, disputed, unreachable from our code — is waived in osv-scanner.toml or .trivyignore
+# with a reason, never by loosening the threshold.
+#
+# Failing a check is not the same as blocking a merge. These jobs report as `Dependencies` and
+# `Container image`; both must be listed as required status checks on main before the gate holds.
 on:
-  # The schedule matters more than the PR trigger: most new CVEs arrive on code that did not change.
+  push:
+    branches: [main]
+  pull_request:
+  # The merge queue's batch branch. A required check that never reports leaves the entry stuck until
+  # the queue times it out — the same reason ci.yml carries this trigger.
+  merge_group:
+  # Still matters more than the PR trigger: most new CVEs arrive on code that did not change.
   schedule:
     - cron: '0 3 * * 1'
-  pull_request:
-    paths:
-      - package-lock.json
-      - '**/package.json'
-      - apps/api/pom.xml
-      - Dockerfile
-      - .github/workflows/security.yml
   workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -26,13 +37,99 @@ jobs:
   # false positives.
   dependencies:
     name: Dependencies
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.5.1
+    runs-on: ubuntu-latest
     permissions:
       actions: read
       contents: read
       security-events: write
-    with:
-      fail-on-vuln: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # These three steps are what osv-scanner-reusable.yml does, inlined because the gate needs the
+      # scanner's JSON and that workflow cannot hand it over: its `export-results` output reads
+      # `osv-results.json` while the scan writes `results.json`, so the output is always empty.
+      # Scanning once and gating on that same JSON also means the report and the verdict can never
+      # disagree. Upstream calls these two actions internal and reserves the right to change them in
+      # a patch release, which is why the version here is exact rather than a floating major.
+      - name: Scan
+        uses: google/osv-scanner-action/osv-scanner-action@v2.5.1
+        with:
+          scan-args: |-
+            --format=json
+            --output=osv.json
+            --config=osv-scanner.toml
+            -r
+            ./
+        # The scanner exits non-zero on a finding of any severity. Which severities block is this
+        # workflow's decision, taken in Gate below.
+        continue-on-error: true
+
+      - name: Report
+        uses: google/osv-scanner-action/osv-reporter-action@v2.5.1
+        with:
+          scan-args: |-
+            --output=osv.sarif
+            --new=osv.json
+            --gh-annotations=false
+            --fail-on-vuln=false
+
+      # Before Gate, so a blocked PR still files its findings where they can be read and triaged.
+      - name: Upload
+        if: ${{ !cancelled() }}
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: osv.sarif
+          category: osv-scanner
+
+      - name: Gate
+        run: |
+          set -euo pipefail
+
+          if ! jq -e 'has("results")' osv.json > /dev/null 2>&1; then
+            echo "::error::osv-scanner wrote no parsable results — that is a failed scan, not a clean one."
+            exit 1
+          fi
+
+          # osv-scanner already collapses each vulnerability group to one CVSS score, so the
+          # threshold reads max_severity rather than re-deriving it from the v3/v4 vectors.
+          jq -r '
+            .results[]?.packages[]? as $p
+            | $p.groups[]?
+            | select((.max_severity // "") != "")
+            | select((.max_severity | tonumber) >= 7.0)
+            | "| \($p.package.ecosystem) | `\($p.package.name)@\($p.package.version)` | \(.max_severity) | \(.ids | join(", ")) |"
+          ' osv.json | sort -u > blocking.txt
+
+          # A record OSV carries no CVSS for cannot be compared against the threshold. Name those
+          # rather than let them through unremarked.
+          jq -r '
+            .results[]?.packages[]? as $p
+            | $p.groups[]?
+            | select((.max_severity // "") == "")
+            | "- `\($p.package.name)@\($p.package.version)` — \(.ids | join(", "))"
+          ' osv.json | sort -u > unscored.txt
+
+          if [ -s unscored.txt ]; then
+            { echo "### Unscored — reported, not blocking"; echo; cat unscored.txt; echo; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ -s blocking.txt ]; then
+            {
+              echo "### Blocking — CVSS 7.0 and above"
+              echo
+              echo "| Ecosystem | Package | CVSS | Advisory |"
+              echo "|---|---|---|---|"
+              cat blocking.txt
+              echo
+              echo 'Upgrade the package, or waive it in `osv-scanner.toml` with a reason.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::$(wc -l < blocking.txt) high or critical dependency vulnerability(s) — see the job summary."
+            exit 1
+          fi
+
+          echo "No dependency vulnerability at CVSS 7.0 or above."
 
   # The shipped artifact: OS packages in the runtime base image AND the full transitive Maven
   # closure inside the fat jar. The only job that sees what actually runs in Cloud Run, which is
@@ -61,8 +158,23 @@ jobs:
           ignore-unfixed: true
           exit-code: '0'
 
+      # Before Gate, so a blocked PR still files its findings where they can be read and triaged.
       - name: Upload
+        if: ${{ !cancelled() }}
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-image.sarif
           category: trivy-image
+
+      # The same scan narrowed to what blocks. Trivy's database is already in the runner cache from
+      # the step above, so this re-reads local data rather than downloading it again. `.trivyignore`
+      # is picked up from the repo root without being named.
+      - name: Gate
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: lightmove:scan
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'

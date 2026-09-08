@@ -1,0 +1,8 @@
+# Container-image findings the Security workflow must not block on — one advisory id per line, with
+# the reason above it. Trivy reads this file from the repo root without being pointed at it.
+#
+# The image job already passes --ignore-unfixed, so anything listed here is a vulnerability that
+# *has* a fix we are choosing not to take yet. Say why, and put an expiry on it.
+#
+# Base image lags the advisory; the CLI it affects is not installed in the runtime stage.
+# CVE-0000-00000 exp:2026-12-31
