@@ -109,6 +109,9 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         assertThat(researched.get("locationCity").asText()).isEqualTo("Dubai");
         assertThat(researched.get("career")).hasSize(1);
         assertThat(researched.get("languages")).hasSize(2);
+        assertThat(researched.get("education").get(0).get("school").asText()).isEqualTo("AUC");
+        assertThat(researched.get("education").get(0).get("degree").asText()).isEqualTo("MBA, Finance");
+        assertThat(researched.get("skills").get(0).asText()).isEqualTo("Financial Planning");
         assertThat(researched.get("enrichedAt").isNull()).isFalse();
 
         // The employer went into the universe — logo and all — and the person is mapped at it.
@@ -195,6 +198,8 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         assertThat(captured.get("fullName").asText()).isEqualTo("Sample Person");
         assertThat(captured.get("title").isNull()).isTrue();
         assertThat(captured.get("career")).isEmpty();
+        assertThat(captured.get("education")).isEmpty();
+        assertThat(captured.get("skills")).isEmpty();
         assertThat(captured.get("enrichedAt").isNull()).isTrue();
     }
 

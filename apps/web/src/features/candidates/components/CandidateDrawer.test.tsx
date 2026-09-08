@@ -41,6 +41,8 @@ const yasmin: Candidate = {
   },
   career: [{ company: "Regional Foods Co.", title: "Finance Director", period: "2017–2021" }],
   languages: ["English", "Arabic"],
+  education: [],
+  skills: [],
   source: "manual",
   sourceUrl: null,
   customFields: {},
@@ -75,6 +77,8 @@ const renderDrawer = (props: Partial<Parameters<typeof CandidateDrawer>[0]> = {}
 describe("CandidateDrawer", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    // The folds are remembered per viewer; one test's folding must not reach the next.
+    localStorage.clear();
   });
 
   it("refuses a nameless executive without posting", async () => {
@@ -179,10 +183,131 @@ describe("CandidateDrawer", () => {
     expect(screen.getByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
     expect(screen.getByText("Regional Foods Co.")).toBeInTheDocument();
     expect(screen.getByText("3 months")).toBeInTheDocument();
-    expect(screen.getByText("English, Arabic")).toBeInTheDocument();
+    expect(screen.getByText("English")).toBeInTheDocument();
+    expect(screen.getByText("Arabic")).toBeInTheDocument();
     // Twice: the Base tile and the section's total, which for a package with only a base are equal.
     expect(screen.getAllByText(/AED 420,000/)).toHaveLength(2);
     expect(screen.queryByLabelText(/Full name/i)).not.toBeInTheDocument();
+  });
+
+  it("reads a career as a timeline: one employer for consecutive posts, the open one flagged", async () => {
+    renderDrawer({
+      candidate: {
+        ...yasmin,
+        career: [
+          { company: "Almarai", title: "CFO", period: "Jan 2021 – Present" },
+          { company: "Almarai", title: "Finance Director", period: "2017 – 2021" },
+          { company: "Regional Foods Co.", title: "Controller", period: "2012 – 2017" },
+        ],
+      },
+      company: null,
+    });
+
+    // Two posts, one employer heading — the way a profile shows a promotion.
+    expect(screen.getAllByText("Almarai")).toHaveLength(1);
+    expect(screen.getByText("CFO")).toBeInTheDocument();
+    expect(screen.getByText("Finance Director")).toBeInTheDocument();
+    expect(screen.getByText("Current")).toBeInTheDocument();
+    // The raw period is what the source said; the tenure is worked out beside it, never instead.
+    expect(screen.getByText("2017 – 2021")).toBeInTheDocument();
+    expect(screen.getByText("· 4 yrs")).toBeInTheDocument();
+  });
+
+  it("shows four posts of a long history and offers the rest", async () => {
+    const career = Array.from({ length: 6 }, (_, index) => ({
+      company: `Employer ${index + 1}`,
+      title: `Post ${index + 1}`,
+      period: null,
+    }));
+    renderDrawer({ candidate: { ...yasmin, career }, company: null });
+
+    expect(screen.getByText("Post 4")).toBeInTheDocument();
+    expect(screen.queryByText("Post 5")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Show all 6 posts/i }));
+
+    expect(screen.getByText("Post 6")).toBeInTheDocument();
+  });
+
+  it("folds a section on its header, and keeps that fold for the next profile", async () => {
+    const { unmount } = renderDrawer({ candidate: yasmin, company: null });
+
+    const summary = screen.getByRole("button", { name: /^Summary/ });
+    expect(summary).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(summary);
+    expect(summary).toHaveAttribute("aria-expanded", "false");
+
+    // A fold is the reader's preference, not a fact about one candidate.
+    unmount();
+    renderDrawer({ candidate: { ...yasmin, id: "c2", fullName: "Omar Haddad" }, company: null });
+    expect(screen.getByRole("button", { name: /^Summary/ })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /Expand all/i }));
+    expect(screen.getByRole("button", { name: /^Summary/ })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+  });
+
+  it("shows education and skills only when research produced them", async () => {
+    const { unmount } = renderDrawer({ candidate: yasmin, company: null });
+    // Nothing edits them, so an empty section would nag about something nobody here can supply.
+    expect(screen.queryByRole("button", { name: /^Education/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Skills$/)).not.toBeInTheDocument();
+    unmount();
+
+    renderDrawer({
+      candidate: {
+        ...yasmin,
+        education: [{ school: "AUC", degree: "MBA, Finance", period: "2010 – 2012" }],
+        skills: ["Financial Planning"],
+      },
+      company: null,
+    });
+
+    expect(screen.getByRole("button", { name: /^Education/ })).toBeInTheDocument();
+    expect(screen.getByText("MBA, Finance")).toBeInTheDocument();
+    expect(screen.getByText("Financial Planning")).toBeInTheDocument();
+  });
+
+  it("shows the mandate's own columns on the profile, read-only", async () => {
+    const { unmount } = renderDrawer({ candidate: yasmin, company: null });
+    expect(screen.queryByRole("button", { name: /Your columns/ })).not.toBeInTheDocument();
+    unmount();
+
+    renderDrawer({
+      candidate: { ...yasmin, customFields: { board_seats: "3", chartered: "true" } },
+      company: null,
+      customColumns: [
+        {
+          id: "col1",
+          target: "candidate",
+          fieldKey: "board_seats",
+          label: "Board seats",
+          dataType: "number",
+          displayOrder: 0,
+          hidden: false,
+        },
+        {
+          id: "col2",
+          target: "candidate",
+          fieldKey: "chartered",
+          label: "Chartered",
+          dataType: "boolean",
+          displayOrder: 1,
+          hidden: false,
+        },
+      ],
+    });
+
+    expect(screen.getByText("Board seats")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText("Yes")).toBeInTheDocument();
+    // Values are edited through Edit like every other field, never in the profile.
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   });
 
   it("will not render a stored profile URL a browser should not follow", async () => {
@@ -194,16 +319,23 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    // Folded sections are hidden from the accessibility tree; `hidden` looks inside them too.
+    expect(screen.queryByRole("link", { hidden: true })).not.toBeInTheDocument();
     expect(screen.queryByText("javascript:alert(1)")).not.toBeInTheDocument();
   });
 
-  it("renders a real profile URL as a link", async () => {
+  it("renders a real profile URL as a link, beside the name and under Contact", async () => {
     renderDrawer({
       candidate: { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin" },
       company: null,
     });
 
+    expect(screen.getByRole("link", { name: /LinkedIn profile/i })).toHaveAttribute(
+      "href",
+      "https://linkedin.com/in/yasmin",
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /^Contact/ }));
     expect(screen.getByRole("link", { name: /linkedin.com\/in\/yasmin/i })).toHaveAttribute(
       "href",
       "https://linkedin.com/in/yasmin",

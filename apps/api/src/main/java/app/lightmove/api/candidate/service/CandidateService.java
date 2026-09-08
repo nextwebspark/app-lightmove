@@ -5,6 +5,7 @@ import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.dto.CandidateCareerEntryDto;
 import app.lightmove.api.candidate.dto.CandidateCompensationDto;
+import app.lightmove.api.candidate.dto.CandidateEducationEntryDto;
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
@@ -530,6 +531,11 @@ public class CandidateService {
                         .map(entry -> new CandidateCareerEntryDto(entry.company(), entry.title(), entry.period()))
                         .toList(),
                 candidate.getProfile().languages(),
+                candidate.getProfile().education().stream()
+                        .map(school -> new CandidateEducationEntryDto(school.school(), school.degree(),
+                                school.period()))
+                        .toList(),
+                candidate.getProfile().skills(),
                 candidate.getSource().value(),
                 candidate.getSourceUrl(),
                 candidate.getCustomFields().asMap(),
