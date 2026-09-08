@@ -549,6 +549,53 @@ describe("TriageStagePage", () => {
     expect(screen.queryByRole("button", { name: /\+ Add executive/i })).not.toBeInTheDocument();
   });
 
+  it("locates a line by its executive, not by their employer's head office", async () => {
+    // A line is a person at a company: a Dubai-based executive of a Riyadh company is in Dubai, and
+    // the plugin captures exactly that pairing.
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(
+        scope.unmapped
+          ? []
+          : [{ ...yasmin, locationCountry: "United Arab Emirates", locationCity: "Dubai" }],
+      ),
+    );
+    renderStage();
+
+    // The people are a second read: wait for the executive on the line before reading its location,
+    // or the assertion lands on the company-only render that precedes it.
+    await screen.findByText("Yasmin El-Sayed");
+    const grid = screen.getByRole("table", { name: /In universe companies/i });
+    expect(within(grid).getByText("United Arab Emirates")).toBeInTheDocument();
+    expect(within(grid).getByText("Dubai")).toBeInTheDocument();
+    expect(within(grid).queryByText("Saudi Arabia")).not.toBeInTheDocument();
+    expect(within(grid).queryByText("Riyadh")).not.toBeInTheDocument();
+  });
+
+  it("takes the executive's location as a unit rather than field by field", async () => {
+    // Half of one location and half of the other would read as a place neither of them is.
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [{ ...yasmin, locationCity: "Dubai" }]),
+    );
+    renderStage();
+
+    await screen.findByText("Yasmin El-Sayed");
+    const grid = screen.getByRole("table", { name: /In universe companies/i });
+    expect(within(grid).getByText("Dubai")).toBeInTheDocument();
+    expect(within(grid).queryByText("Saudi Arabia")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the company's head office where no executive says otherwise", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin]),
+    );
+    renderStage();
+
+    await screen.findByText("Yasmin El-Sayed");
+    const grid = screen.getByRole("table", { name: /In universe companies/i });
+    expect(within(grid).getByText("Saudi Arabia")).toBeInTheDocument();
+    expect(within(grid).getByText("Riyadh")).toBeInTheDocument();
+  });
+
   it("draws a repeated company the same on every line — logo, name and actions alike", async () => {
     vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
       pageOf({ companies: [{ ...acwa, logoUrl: "https://logo.example/acwa.png" }] }),
