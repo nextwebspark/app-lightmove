@@ -37,8 +37,8 @@ export function RangeFilter({
   const isCustom = range !== null;
 
   return (
-    <div className="flex flex-col gap-[14px]">
-      <div className="flex flex-col gap-[6px]">
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
         <ModeOption
           label="Predefined Range"
           selected={!isCustom}
@@ -106,21 +106,23 @@ function ModeOption({
       aria-checked={selected}
       onClick={onSelect}
       className={cn(
-        "flex items-center gap-[10px] rounded-md border px-3 py-[10px] text-left transition",
+        "flex items-center gap-2 rounded-md border px-[10px] py-[6px] text-left transition",
         selected ? "border-amber bg-amber-dim" : "border-line bg-transparent hover:border-text3",
       )}
     >
       <span
         className={cn(
-          "grid h-4 w-4 flex-none place-items-center rounded-full shadow-[inset_0_0_0_1.5px_currentColor]",
+          "grid h-[14px] w-[14px] flex-none place-items-center rounded-full shadow-[inset_0_0_0_1.5px_currentColor]",
           selected ? "text-amber" : "text-line",
         )}
       >
-        <span className={cn("h-2 w-2 rounded-full bg-amber", selected ? "opacity-100" : "opacity-0")} />
+        <span
+          className={cn("h-[7px] w-[7px] rounded-full bg-amber", selected ? "opacity-100" : "opacity-0")}
+        />
       </span>
       <span
         className={cn(
-          "font-sans text-[13px] font-semibold",
+          "font-sans text-[12px] font-semibold",
           selected ? "text-amber" : "text-text",
         )}
       >
@@ -158,16 +160,16 @@ function BoundInput({
         const raw = event.target.value.replace(/[^\d]/g, "").slice(0, MAX_BOUND_DIGITS);
         onChange(raw === "" ? null : Number(raw));
       }}
-      className="w-0 flex-1 rounded-md border border-line bg-panel2 px-[10px] py-2 font-sans text-[13px] font-medium text-text outline-none focus:border-amber"
+      className="w-0 flex-1 rounded-md border border-line bg-panel2 px-2 py-[5px] font-sans text-[12px] font-medium text-text outline-none focus:border-amber"
     />
   );
 }
 
 function RowSkeleton() {
   return (
-    <div className="flex flex-col gap-[6px]">
+    <div className="flex flex-col gap-1">
       {[0, 1, 2, 3, 4].map((row) => (
-        <div key={row} className="h-[34px] animate-pulse rounded-[5px] bg-panel2" />
+        <div key={row} className="h-[28px] animate-pulse rounded-[5px] bg-panel2" />
       ))}
     </div>
   );

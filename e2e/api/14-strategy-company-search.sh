@@ -71,11 +71,11 @@ note 14.4 "sector groups sum to $(printf '%s' "$FACETS" | jq '[.sectorGroups[].i
 check 14.5 "Unknown revenue is exactly the rows carrying no figure" \
   "$(sql 'SELECT count(*) FROM app_lm_apollo_companies WHERE annual_revenue IS NULL')" \
   "$(printf '%s' "$FACETS" | jq '[.revenueBands[] | select(.value=="unknown")][0].count')"
-# Location is not counted: the sidebar holds the six GCC markets itself. This asserts the axis it
-# offers is still the axis the universe carries — a seventh country in the data would mean a market
-# the rail cannot reach.
+# Location is not counted: the sidebar holds the market list itself. This asserts the axis it offers
+# is still the axis the universe carries — a country in the data that the list omits would mean a
+# market the rail cannot reach. Keep this IN list in step with MARKET_COUNTRIES in the SPA.
 check 14.6 "the universe carries no country the fixed Location list omits" "0" \
-  "$(sql "SELECT count(distinct company_country) FROM app_lm_apollo_companies WHERE company_country IS NOT NULL AND company_country <> '' AND company_country NOT IN ('United Arab Emirates','Saudi Arabia','Qatar','Kuwait','Oman','Bahrain')")"
+  "$(sql "SELECT count(distinct company_country) FROM app_lm_apollo_companies WHERE company_country IS NOT NULL AND company_country <> '' AND company_country NOT IN ('United Arab Emirates','Saudi Arabia','Qatar','Kuwait','Oman','Bahrain','Türkiye','Egypt')")"
 # Segments overlap on purpose — a company can be B2B and SaaS and Fintech at once — so their counts
 # add up to more than the universe, which is the honest answer and not something to assert a sum on.
 note 14.7 "market segments overlap and sum to $(facet_sum marketSegments) over $UNIVERSE rows"

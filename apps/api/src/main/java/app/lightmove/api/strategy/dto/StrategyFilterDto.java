@@ -16,8 +16,9 @@ import java.util.List;
  * is not, because it has no sub-chips to expand into. See {@code StrategyFilter} and
  * {@code MarketSegments}.
  *
- * <p>The size caps are a scope, not an attack: the universe carries 148 industries and six countries,
- * so a request naming hundreds of either is a client bug worth failing loudly rather than a search.
+ * <p>The size caps are a scope, not an attack: the universe carries 148 industries and a handful of
+ * countries, so a request naming hundreds of either is a client bug worth failing loudly rather than
+ * a search.
  */
 public record StrategyFilterDto(
         @NotNull(message = "industries must be present, even if empty")

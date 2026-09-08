@@ -352,7 +352,7 @@ function StrategyEditor() {
           </>
         )}
 
-        <div className="flex min-w-0 flex-1 flex-col gap-3 p-3 sm:p-5">
+        <div className="flex min-w-0 flex-1 flex-col gap-3 p-2">
           {/* The bar floats over the grid rather than over the viewport, so it centres on the table
               instead of drifting by half the width of the nav rail, and it never covers the paging
               row underneath. */}

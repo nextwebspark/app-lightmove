@@ -24,9 +24,9 @@ import java.util.List;
  *       resolves each to its keyword aliases through {@code MarketSegments}, because the universe
  *       expresses go-to-market through a free-text {@code keywords} array rather than a column.
  *   <li><b>{@code countries} are Apollo's spelled-out names</b> ("United Arab Emirates"), not ISO
- *       codes. The live universe holds exactly six values, all GCC, which is why the mockup's six
- *       Location chips are literally the whole vocabulary — and why the SPA holds that list itself
- *       rather than counting it back out of the universe on every facets read.
+ *       codes. The universe holds a handful of values, so the Location chips are literally the
+ *       whole vocabulary — and that is why the SPA holds that list itself rather than counting it
+ *       back out of the universe on every facets read.
  *   <li><b>{@code employeeRange} / {@code revenueRange} are the custom-range mode</b> and take
  *       precedence over their axis's band list when set. Non-null <i>is</i> the mode; there is no
  *       flag that could disagree with the data.

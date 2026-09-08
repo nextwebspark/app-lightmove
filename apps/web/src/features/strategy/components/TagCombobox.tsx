@@ -75,7 +75,7 @@ export function TagCombobox({
             ))}
           </div>
         )}
-        <div className="flex h-9 items-center gap-2 px-[10px]">
+        <div className="flex h-8 items-center gap-2 px-[10px]">
           <Icon d={ICONS.search} size={13} className="flex-none text-text3" />
           <input
             role="combobox"
@@ -130,11 +130,11 @@ export function TagCombobox({
               onMouseDown={(event) => list.commitFromPointer(event, index)}
               onMouseEnter={() => list.setActive(index)}
               className={cn(
-                "flex cursor-pointer items-center gap-2 px-3 py-[7px]",
+                "flex cursor-pointer items-center gap-2 px-[10px] py-[5px]",
                 index === list.active ? "bg-panel2" : "",
               )}
             >
-              <span className="truncate font-sans text-[13px] font-medium text-text">
+              <span className="truncate font-sans text-[12px] font-medium text-text">
                 {option.label}
               </span>
               {option.count !== undefined && (

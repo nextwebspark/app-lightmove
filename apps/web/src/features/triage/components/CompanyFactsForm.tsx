@@ -11,7 +11,7 @@ import { CustomFieldsFieldset } from "../../customcolumns/components/CustomField
 import * as companiesApi from "../../strategy/api/companiesApi";
 import type { FacetCount, FacetOption } from "../../strategy/api/types";
 import { FacetCombobox } from "../../strategy/components/FacetCombobox";
-import { GCC_COUNTRIES } from "../../strategy/lib/countries";
+import { MARKET_COUNTRIES } from "../../strategy/lib/countries";
 import type { CaptureCompanyPayload, EditCompanyPayload, TriageCompany } from "../api/types";
 
 /**
@@ -194,7 +194,7 @@ export function CompanyFactsForm({
               control={control}
               listId="company-country"
               noun="countries"
-              options={GCC_COUNTRIES}
+              options={MARKET_COUNTRIES}
               // The country vocabulary is fixed rather than read, so this box has nothing to lose.
               unavailable={false}
               placeholder="United Arab Emirates"
