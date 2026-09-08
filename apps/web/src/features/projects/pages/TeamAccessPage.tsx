@@ -8,7 +8,6 @@ import { Avatar, useToast } from "../../../components/ui";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { messageFor } from "../../../lib/errorCodes";
 import { initials } from "../../../lib/format";
-import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
 import { useGridPaging } from "../../../lib/useGridPaging";
 import { useGridSort } from "../../../lib/useGridSort";
@@ -22,7 +21,6 @@ import { AddTeamMemberModal } from "../components/AddTeamMemberModal";
 import { ProjectRoleLegend } from "../components/ProjectRoleChips";
 import { ProjectTeamTable } from "../components/ProjectTeamTable";
 import {
-  PROJECT_TEAM_COLUMN_VISIBILITY,
   PROJECT_TEAM_SORT_FIELDS,
   projectTeamColumns,
   type ProjectTeamSortField,
@@ -58,15 +56,12 @@ export function TeamAccessPage() {
     PROJECT_TEAM_SORT_FIELDS,
     DEFAULT_PROJECT_TEAM_SORT,
   );
-  const [columnVisibility, setColumnVisibility] = useColumnVisibility(
-    "projectTeam",
-    project.id,
-    PROJECT_TEAM_COLUMN_VISIBILITY,
-  );
   const [layout, setLayout] = useGridLayout("projectTeam", PROJECT_TEAM_LAYOUT_COLUMNS);
   const paging = useGridPaging();
-  const { reset: resetPage } = paging;
-  useEffect(() => resetPage(), [resetPage, sort]);
+  const { reset: resetPage, clampTo } = paging;
+  useEffect(() => {
+    resetPage();
+  }, [resetPage, sort]);
 
   const clientOnly = isPureClient(user?.workspace?.roles ?? []);
   const seat = project.team.find((member) => member.userId === user?.id);
@@ -104,6 +99,11 @@ export function TeamAccessPage() {
     [project.team],
   );
   const leads = staff.filter((member) => member.projectRoles.includes("LEAD"));
+
+  // A seat removed from page two of a large team must not leave the reader on a page that is gone.
+  useEffect(() => {
+    clampTo(staff.length);
+  }, [clampTo, staff.length]);
 
   // A change to your own seat changes what you may do here, so the session has to catch up before the
   // page re-renders off it — otherwise a lead who just demoted themselves keeps the manage controls.
@@ -185,8 +185,6 @@ export function TeamAccessPage() {
             meta={teamMeta}
             sort={sort}
             onSortChange={setSort}
-            columnVisibility={columnVisibility}
-            onColumnVisibilityChange={setColumnVisibility}
             layout={layout}
             onLayoutChange={setLayout}
             pagination={paging.pagination}

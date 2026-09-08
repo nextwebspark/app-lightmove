@@ -23,6 +23,18 @@ const storageKey = (namespace: string, scope: string) => `lm.${namespace}.sort.$
 export const WORKSPACE_SCOPE = "workspace";
 
 /**
+ * The columns a grid sorts by, read off its definitions the way `layoutColumnsOf` and
+ * `hideableColumnsOf` read theirs. Each grid's literal allowlist keeps its union type, and a test per
+ * column file holds the two to the same set — a column that gained a comparator but not an entry
+ * would sort on click and be forgotten on the next load.
+ */
+export function sortableFieldsOf(
+  columns: readonly { id?: string; enableSorting?: boolean }[],
+): string[] {
+  return columns.filter((column) => column.enableSorting !== false).map((column) => column.id as string);
+}
+
+/**
  * Which column a grid is sorted by, remembered per scope in `localStorage`, beside the column
  * layout it belongs with. The filter is the server's and survives a navigation; a sort that resets
  * while the filter holds makes the same screen come back half-remembered.

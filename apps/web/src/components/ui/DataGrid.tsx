@@ -8,7 +8,6 @@ import {
   rowSortingFeature,
   type Column,
   type ReactTable,
-  type Row,
   type RowData,
   type TableFeatures,
 } from "@tanstack/react-table";
@@ -53,7 +52,7 @@ export const DATA_GRID_FEATURES = {
  * sorts and pages them itself. A server-paged grid must not register these — a client row model would
  * re-sort one page of tens of thousands as though it were everything there is.
  */
-export const CLIENT_ROW_MODELS = {
+export const LOCAL_ROW_MODELS = {
   rowPaginationFeature,
   sortedRowModel: createSortedRowModel(),
   paginatedRowModel: createPaginatedRowModel(),
@@ -64,6 +63,9 @@ const ROW_GAP = 12;
 
 /** Below this a pointer is still a click, so a header drag cannot steal the sort. */
 const DRAG_THRESHOLD = 4;
+
+/** What a click inside a row belongs to instead of the row: a cell's own button, link or field. */
+const NESTED_CONTROL = "button, a, input, select, textarea, [role='button']";
 
 const KEYBOARD_RESIZE_STEP = 16;
 const KEYBOARD_RESIZE_LEAP = 64;
@@ -151,13 +153,16 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
    * is what turns the grid into the wide half of that pair.
    */
   renderCard?: (row: TData) => ReactNode;
-  /** Makes the whole row activate — click, Enter or Space. Rows without one stay inert. */
+  /**
+   * Makes the whole row activate — click, Enter or Space. Rows without one stay inert. A control
+   * inside a cell keeps its own click: a button or link in a row is never also the row.
+   */
   onRowClick?: (row: TData) => void;
 }) {
   /*
-   * The one cast, and the reason GridFeatures exists. Every caller registers exactly those four
-   * features and differs only in its `tableMeta` — which this component never reads, and which is
-   * what stops two concrete table types being assignable to one another directly.
+   * The one cast, and the reason GridFeatures exists. Every caller registers at least those four
+   * features and this file reads nothing beyond them; what a caller adds — a pagination feature, its
+   * own `tableMeta` — is what stops two concrete table types being assignable to one another directly.
    */
   const grid = table as unknown as ReactTable<GridFeatures, TData>;
   const visibleColumns = grid.getVisibleLeafColumns();
@@ -437,7 +442,14 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                 role="row"
                 style={track}
                 tabIndex={onRowClick ? 0 : undefined}
-                onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                onClick={
+                  onRowClick
+                    ? (event) => {
+                        if (event.target instanceof Element && event.target.closest(NESTED_CONTROL)) return;
+                        onRowClick(row.original);
+                      }
+                    : undefined
+                }
                 // A row is not a button, so the keys one answers to have to be spelled out — and only
                 // when the row itself holds focus, or Space on a cell's own button would fire twice.
                 onKeyDown={
@@ -495,9 +507,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
         ) : rows.length === 0 ? (
           <CardMessage>{emptyMessage}</CardMessage>
         ) : (
-          rows.map((row: Row<GridFeatures, TData>) => (
-            <Fragment key={row.id}>{renderCard(row.original)}</Fragment>
-          ))
+          rows.map((row) => <Fragment key={row.id}>{renderCard(row.original)}</Fragment>)
         )}
       </div>
       {panel}

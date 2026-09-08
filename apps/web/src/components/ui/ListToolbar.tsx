@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Icon, ICONS } from "../layout/Icon";
+import { cn } from "../../lib/cn";
 
 /**
  * The filter row above a workspace list: search on the left, the stage/type chips beside it, and
@@ -10,19 +11,19 @@ import { Icon, ICONS } from "../layout/Icon";
  */
 export function ListToolbar<TChip extends string>({
   query,
-  onQuery,
+  onQueryChange,
   placeholder,
   chips,
-  chip,
-  onChip,
+  activeChip,
+  onChipChange,
   trailing,
 }: {
   query: string;
-  onQuery: (query: string) => void;
+  onQueryChange: (query: string) => void;
   placeholder: string;
   chips: readonly { key: TChip; label: string }[];
-  chip: TChip;
-  onChip: (chip: TChip) => void;
+  activeChip: TChip;
+  onChipChange: (chip: TChip) => void;
   /** The grid's own controls — the Columns menu. Shown only where the grid is, from `md` up. */
   trailing?: ReactNode;
 }) {
@@ -32,8 +33,10 @@ export function ListToolbar<TChip extends string>({
         <Icon d={ICONS.search} size={14} className="text-text3" />
         <input
           value={query}
-          onChange={(event) => onQuery(event.target.value)}
+          onChange={(event) => onQueryChange(event.target.value)}
           placeholder={placeholder}
+          // A placeholder is a hint, not a name: it is gone the moment a letter is typed.
+          aria-label={placeholder}
           className="w-full bg-transparent font-mono text-[13px] text-text outline-none placeholder:text-text3"
         />
       </div>
@@ -43,10 +46,11 @@ export function ListToolbar<TChip extends string>({
           <button
             key={key}
             type="button"
-            onClick={() => onChip(key)}
-            className={`rounded-full border px-[11px] py-[5px] font-mono text-xs font-medium transition hover:text-text ${
-              chip === key ? "border-amber bg-amber-dim text-amber" : "border-line text-text2"
-            }`}
+            onClick={() => onChipChange(key)}
+            className={cn(
+              "rounded-full border px-[11px] py-[5px] font-mono text-xs font-medium transition hover:text-text",
+              activeChip === key ? "border-amber bg-amber-dim text-amber" : "border-line text-text2",
+            )}
           >
             {label}
           </button>

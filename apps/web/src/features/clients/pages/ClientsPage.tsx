@@ -63,9 +63,15 @@ export function ClientsPage() {
     [clients],
   );
 
-  // Narrowing the registry returns to the first page — page 3 of a two-row result is a blank grid.
-  const { reset: resetPage } = paging;
-  useEffect(() => resetPage(), [resetPage, chip, query, sort]);
+  // Narrowing the registry returns to the first page — page 3 of a two-row result is a blank grid —
+  // and a registry that shrank under the reader is clamped back onto its last page.
+  const { reset: resetPage, clampTo } = paging;
+  useEffect(() => {
+    resetPage();
+  }, [resetPage, chip, query, sort]);
+  useEffect(() => {
+    clampTo(rows.length);
+  }, [clampTo, rows.length]);
 
   const newClientButton = (
     <Button onClick={() => setNewClientOpen(true)} className="!px-3.5 !py-[7px] !text-[13px]">
@@ -121,11 +127,11 @@ export function ClientsPage() {
         <>
           <ListToolbar
             query={query}
-            onQuery={setQuery}
+            onQueryChange={setQuery}
             placeholder="Search clients…"
             chips={CHIPS}
-            chip={chip}
-            onChip={setChip}
+            activeChip={chip}
+            onChipChange={setChip}
             trailing={
               <ColumnPicker
                 columns={HIDEABLE_CLIENT_COLUMNS}

@@ -2,12 +2,11 @@ import {
   createColumnHelper,
   tableFeatures,
   type ColumnPinningState,
-  type ColumnVisibilityState,
 } from "@tanstack/react-table";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Avatar } from "../../../components/ui";
 import {
-  CLIENT_ROW_MODELS,
+  LOCAL_ROW_MODELS,
   DATA_GRID_FEATURES,
   GRID_ICON_BUTTON,
   type DataGridColumnLayout,
@@ -31,7 +30,7 @@ export interface ProjectTeamTableMeta {
 /** A mandate's team is a handful of seats, held on the project itself, so the grid sorts them here. */
 export const projectTeamTableFeatures = tableFeatures({
   ...DATA_GRID_FEATURES,
-  ...CLIENT_ROW_MODELS,
+  ...LOCAL_ROW_MODELS,
   columnMeta: {} as DataGridColumnLayout,
   tableMeta: {} as ProjectTeamTableMeta,
 });
@@ -110,36 +109,48 @@ export const projectTeamColumns = helper.columns([
     enableHiding: false,
     meta: { share: 0, min: 96 },
     cell: (info) => {
-      const member = info.row.original;
       const meta = info.table.options.meta;
-      if (meta?.soleLeadMemberId === member.memberId) {
-        return (
-          <span title={SOLE_LEAD_TITLE} className="grid size-9 place-items-center text-text3 lg:size-6">
-            <Icon d={ICONS.lock} size={15} />
-          </span>
-        );
-      }
-      if (!meta?.canManage) return null;
-      return (
-        <button
-          type="button"
-          title="Remove from project"
-          aria-label={`Remove ${member.fullName}`}
-          disabled={meta.busyMemberId === member.memberId}
-          onClick={() => meta.onRemove(member)}
-          className={`${GRID_ICON_BUTTON} hover:bg-red-dim hover:text-red disabled:opacity-50`}
-        >
-          <Icon d={ICONS.trash} size={15} />
-        </button>
-      );
+      return meta ? <TeamSeatManageControl member={info.row.original} meta={meta} /> : null;
     },
   }),
 ]);
 
+/**
+ * The one control that unseats a member, or says why it cannot: the last lead standing is locked,
+ * because the server would refuse. Spelled once and rendered from both the grid's Manage column and
+ * the card below `md`, so the invariant cannot drift between the two.
+ */
+export function TeamSeatManageControl({
+  member,
+  meta,
+}: {
+  member: TeamMember;
+  meta: ProjectTeamTableMeta;
+}) {
+  if (meta.soleLeadMemberId === member.memberId) {
+    return (
+      <span title={SOLE_LEAD_TITLE} className="grid size-9 place-items-center text-text3 lg:size-6">
+        <Icon d={ICONS.lock} size={15} />
+      </span>
+    );
+  }
+  if (!meta.canManage) return null;
+  return (
+    <button
+      type="button"
+      title="Remove from project"
+      aria-label={`Remove ${member.fullName}`}
+      disabled={meta.busyMemberId === member.memberId}
+      onClick={() => meta.onRemove(member)}
+      className={`${GRID_ICON_BUTTON} hover:bg-red-dim hover:text-red disabled:opacity-50`}
+    >
+      <Icon d={ICONS.trash} size={15} />
+    </button>
+  );
+}
+
 export const PROJECT_TEAM_SORT_FIELDS = ["member", "roles"] as const;
 
 export type ProjectTeamSortField = (typeof PROJECT_TEAM_SORT_FIELDS)[number];
-
-export const PROJECT_TEAM_COLUMN_VISIBILITY: ColumnVisibilityState = {};
 
 export const PROJECT_TEAM_COLUMN_PINNING: ColumnPinningState = { start: ["member"], end: [] };

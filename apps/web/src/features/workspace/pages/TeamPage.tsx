@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, EmptyState } from "../../../components/ui";
@@ -55,14 +55,30 @@ export function TeamPage() {
     queryFn: projectsApi.projects,
   });
 
+  // One pass over the mandates, because the column reads this per cell and its comparator twice per
+  // comparison: walking every seat on each call would make a sort click quadratic in the roster.
+  const activeCountByMember = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const project of projects) {
+      if (!isActive(project)) continue;
+      for (const seat of project.team) {
+        counts.set(seat.memberId, (counts.get(seat.memberId) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [projects]);
   const activeCount = useCallback(
-    (memberId: string) =>
-      projects.filter((p) => isActive(p) && p.team.some((seat) => seat.memberId === memberId)).length,
-    [projects],
+    (memberId: string) => activeCountByMember.get(memberId) ?? 0,
+    [activeCountByMember],
   );
 
-  const { reset: resetPage } = paging;
-  useEffect(() => resetPage(), [resetPage, sort]);
+  const { reset: resetPage, clampTo } = paging;
+  useEffect(() => {
+    resetPage();
+  }, [resetPage, sort]);
+  useEffect(() => {
+    clampTo(members.length);
+  }, [clampTo, members.length]);
 
   // A refused roster falls back to the [] default, and the header would then report "0 members" — a
   // count the caller was never allowed to read, stated as fact. Say what happened instead.

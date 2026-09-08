@@ -1,10 +1,10 @@
 import { createColumnHelper, tableFeatures, type ColumnVisibilityState } from "@tanstack/react-table";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import {
-  CLIENT_ROW_MODELS,
+  LOCAL_ROW_MODELS,
   DATA_GRID_FEATURES,
   DataGrid,
   type DataGridColumnLayout,
@@ -23,7 +23,7 @@ interface Row {
 
 const features = tableFeatures({
   ...DATA_GRID_FEATURES,
-  ...CLIENT_ROW_MODELS,
+  ...LOCAL_ROW_MODELS,
   columnMeta: {} as DataGridColumnLayout,
 });
 
@@ -41,6 +41,13 @@ const columns = helper.columns([
     header: "Size",
     meta: { share: 0, min: 80 },
     sortFn: (a, b) => compareNumber(a.original.size, b.original.size),
+  }),
+  helper.display({
+    id: "act",
+    header: "Act",
+    enableSorting: false,
+    meta: { share: 0, min: 60 },
+    cell: (info) => <button type="button">act on {info.row.original.id}</button>,
   }),
 ]);
 
@@ -61,7 +68,7 @@ function Harness({
   rows?: Row[];
   initialSort?: GridSort<Field>;
   onRowClick?: (row: Row) => void;
-  renderCard?: (row: Row) => React.ReactNode;
+  renderCard?: (row: Row) => ReactNode;
 }) {
   const [sort, setSort] = useState<GridSort<Field>>(initialSort);
   const [visibility, setVisibility] = useState<ColumnVisibilityState>({});
@@ -155,6 +162,10 @@ describe("useDataGridTable in client mode", () => {
     first!.focus();
     await userEvent.keyboard("{Enter}");
     await userEvent.keyboard(" ");
+    expect(onRowClick).toHaveBeenCalledTimes(3);
+
+    // A cell's own button keeps its click: pressing it must not also open the row.
+    await userEvent.click(within(first!).getByRole("button", { name: "act on r0" }));
     expect(onRowClick).toHaveBeenCalledTimes(3);
   });
 

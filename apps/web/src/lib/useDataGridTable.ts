@@ -32,8 +32,9 @@ export interface DataGridTableOptions<
   pinning: ColumnPinningState;
   sort: GridSort<TField>;
   onSortChange: (sort: GridSort<TField>) => void;
-  columnVisibility: ColumnVisibilityState;
-  onColumnVisibilityChange: OnChangeFn<ColumnVisibilityState>;
+  /** Left off by a grid whose every column is `enableHiding: false` — there is nothing to remember. */
+  columnVisibility?: ColumnVisibilityState;
+  onColumnVisibilityChange?: OnChangeFn<ColumnVisibilityState>;
   layout: GridLayout;
   onLayoutChange: (layout: GridLayout) => void;
   /** What the row actions need, supplied per render. Grids whose rows only read have none. */
@@ -97,7 +98,12 @@ export function useDataGridTable<
     // A filter that shrank the result is the caller's to answer for: it owns the page index, and
     // resetting it here on every new array would bounce a reader to page one on a refetch.
     autoResetPageIndex: false,
-    state: { sorting, columnVisibility, columnOrder: layout.order, ...(pagination && { pagination }) },
+    state: {
+      sorting,
+      columnOrder: layout.order,
+      ...(columnVisibility && { columnVisibility }),
+      ...(pagination && { pagination }),
+    },
     onSortingChange: (updater: Updater<SortingState>) => {
       const next = typeof updater === "function" ? updater(sorting) : updater;
       const [first] = next;

@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-table";
 import { Avatar } from "../../../components/ui";
 import {
-  CLIENT_ROW_MODELS,
+  LOCAL_ROW_MODELS,
   DATA_GRID_FEATURES,
   DataGridCell,
   type DataGridColumnLayout,
@@ -24,7 +24,7 @@ interface MemberTableMeta {
 /** A firm's roster is one query of tens of rows, so the grid sorts and pages it itself. */
 export const memberTableFeatures = tableFeatures({
   ...DATA_GRID_FEATURES,
-  ...CLIENT_ROW_MODELS,
+  ...LOCAL_ROW_MODELS,
   columnMeta: {} as DataGridColumnLayout,
   tableMeta: {} as MemberTableMeta,
 });
@@ -82,7 +82,6 @@ export const memberColumns = helper.columns([
       return <DataGridCell value={`${count} active ${count === 1 ? "project" : "projects"}`} muted />;
     },
   }),
-
 ]);
 
 export const MEMBER_SORT_FIELDS = ["name", "email", "projects"] as const;

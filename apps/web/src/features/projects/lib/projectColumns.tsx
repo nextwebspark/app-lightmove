@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-table";
 import { Avatar, HealthDot, StagePill } from "../../../components/ui";
 import {
-  CLIENT_ROW_MODELS,
+  LOCAL_ROW_MODELS,
   DATA_GRID_FEATURES,
   DataGridCell,
   type DataGridColumnLayout,
@@ -23,7 +23,7 @@ import { STAGE_ORDER } from "./filtering";
  */
 export const projectTableFeatures = tableFeatures({
   ...DATA_GRID_FEATURES,
-  ...CLIENT_ROW_MODELS,
+  ...LOCAL_ROW_MODELS,
   columnMeta: {} as DataGridColumnLayout,
 });
 

@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-table";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import {
-  CLIENT_ROW_MODELS,
+  LOCAL_ROW_MODELS,
   DATA_GRID_FEATURES,
   DataGridCell,
   type DataGridColumnLayout,
@@ -19,7 +19,7 @@ import type { Client, ClientRepStatus, ClientType, ViewerSummary } from "../api/
 /** The registry is one query of tens of rows, so the grid sorts and pages it itself. */
 export const clientTableFeatures = tableFeatures({
   ...DATA_GRID_FEATURES,
-  ...CLIENT_ROW_MODELS,
+  ...LOCAL_ROW_MODELS,
   columnMeta: {} as DataGridColumnLayout,
 });
 

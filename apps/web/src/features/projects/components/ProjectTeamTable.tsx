@@ -1,5 +1,4 @@
-import type { ColumnVisibilityState, OnChangeFn, PaginationState } from "@tanstack/react-table";
-import { Icon, ICONS } from "../../../components/layout/Icon";
+import type { OnChangeFn, PaginationState } from "@tanstack/react-table";
 import { Avatar } from "../../../components/ui";
 import { DataGrid } from "../../../components/ui/DataGrid";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
@@ -11,6 +10,7 @@ import {
   projectTeamColumns,
   projectTeamTableFeatures,
   staffRoleOf,
+  TeamSeatManageControl,
   type ProjectTeamSortField,
   type ProjectTeamTableMeta,
 } from "../lib/projectTeamColumns";
@@ -26,8 +26,6 @@ export function ProjectTeamTable({
   meta,
   sort,
   onSortChange,
-  columnVisibility,
-  onColumnVisibilityChange,
   layout,
   onLayoutChange,
   pagination,
@@ -37,8 +35,6 @@ export function ProjectTeamTable({
   meta: ProjectTeamTableMeta;
   sort: GridSort<ProjectTeamSortField>;
   onSortChange: (sort: GridSort<ProjectTeamSortField>) => void;
-  columnVisibility: ColumnVisibilityState;
-  onColumnVisibilityChange: OnChangeFn<ColumnVisibilityState>;
   layout: GridLayout;
   onLayoutChange: (layout: GridLayout) => void;
   pagination: PaginationState;
@@ -52,8 +48,6 @@ export function ProjectTeamTable({
     pinning: PROJECT_TEAM_COLUMN_PINNING,
     sort,
     onSortChange,
-    columnVisibility,
-    onColumnVisibilityChange,
     layout,
     onLayoutChange,
     pagination,
@@ -79,8 +73,6 @@ export function ProjectTeamTable({
 }
 
 function TeamSeatCard({ member, meta }: { member: TeamMember; meta: ProjectTeamTableMeta }) {
-  const isSoleLead = meta.soleLeadMemberId === member.memberId;
-  const busy = meta.busyMemberId === member.memberId;
   return (
     <div className="flex flex-col gap-3 rounded-[10px] border border-line bg-panel p-3.5">
       <div className="flex items-center gap-2.5">
@@ -91,32 +83,14 @@ function TeamSeatCard({ member, meta }: { member: TeamMember; meta: ProjectTeamT
             <div className="mt-0.5 font-mono text-[11px] text-text3">You</div>
           )}
         </div>
-        {isSoleLead ? (
-          <span
-            title="A mandate must keep a lead — make someone else lead first"
-            className="p-2.5 text-text3"
-          >
-            <Icon d={ICONS.lock} size={15} />
-          </span>
-        ) : meta.canManage ? (
-          <button
-            type="button"
-            title="Remove from project"
-            aria-label={`Remove ${member.fullName}`}
-            disabled={busy}
-            onClick={() => meta.onRemove(member)}
-            className="rounded-md p-2.5 text-text3 hover:bg-red-dim hover:text-red disabled:opacity-50"
-          >
-            <Icon d={ICONS.trash} size={15} />
-          </button>
-        ) : null}
+        <TeamSeatManageControl member={member} meta={meta} />
       </div>
       <ProjectRoleChips
         memberName={member.fullName}
         role={staffRoleOf(member)}
         canManage={meta.canManage}
-        isSoleLead={isSoleLead}
-        pending={busy}
+        isSoleLead={meta.soleLeadMemberId === member.memberId}
+        pending={meta.busyMemberId === member.memberId}
         onChange={(role) => meta.onChangeRole(member, role)}
       />
     </div>
