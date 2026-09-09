@@ -126,6 +126,21 @@ keeps PKCE and the nonce, and a test pins that so one provider's shortcomings ca
 weaken another's. Dropping the nonce costs the id_token→browser binding; what remains is the code
 exchange itself (single-use, server-to-server over TLS with our secret) plus `state` for CSRF.
 
+**The authorisation request rides a cookie, not a session.** The `state`, the PKCE `code_verifier` and
+the `nonce` have to survive the trip to the provider, and Spring's default parks them in an in-memory
+`HttpSession` on one instance — so a callback landing on another Cloud Run instance, or after a
+restart, or past a session timeout, found nothing and told the user their sign-in had failed.
+`CookieAuthorizationRequestStore` writes them to `lm_oauth_request` instead, single-use and cleared at
+the callback, which is why the service needs no session affinity and nothing in `src/main` touches
+`HttpSession` at all. Three things about it are load-bearing: **`SameSite=Lax`, never `Strict`** — the
+callback is a top-level cross-site GET the provider initiates, and `Strict` withholds a cookie on
+exactly that navigation, which is the bug it exists to remove; `Secure` and `domain` come from
+`lightmove.auth.cookie.*` so there is one answer to "is this deployment on TLS" rather than two; and
+the value is **deliberately unsigned** — nothing in it is a capability, the code is still redeemed
+server-to-server with our secret, and the binding that matters is that the stored `state` equals the
+one the callback carries. (Login CSRF is neither introduced nor fixed by this: planting a cookie is
+the same primitive as planting a `JSESSIONID` was.)
+
 Five things this cost an afternoon each to learn:
 
 - A provider Boot ships no `CommonOAuth2Provider` preset for (LinkedIn) needs its endpoints — in the
