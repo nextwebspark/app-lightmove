@@ -1,21 +1,23 @@
 name: Deploy
 
-# Push to main, CI green, and the service is updated. Nothing else deploys.
+# Merging to main deploys nothing. Only a release does, and a release names the tag it is shipping.
+#
+# `release.yml` cuts the tag and calls this workflow. The dispatch entry is the same door held open by
+# hand: it is how you redeploy a tag, or roll back to an older one, without cutting a new version.
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
+  workflow_call:
+    inputs:
+      ref:
+        description: The release tag to deploy.
+        required: true
+        type: string
 
-  # The escape hatch, and it earns its keep twice.
-  #
-  # GitHub only fires `workflow_run` for a workflow file that is already on the DEFAULT branch — so on
-  # the very first merge, when this file arrives *with* the merge, the trigger is at best racing itself.
-  # A green CI and no deploy, with nothing to click, is a bad way to meet your own pipeline.
-  #
-  # It is also how you redeploy a revision without an empty commit, which is what a rollback usually
-  # turns out to need.
   workflow_dispatch:
+    inputs:
+      ref:
+        description: Release tag to deploy, e.g. v1.4.0. Use this to redeploy or to roll back.
+        required: true
+        type: string
 
 # Two deploys of different commits racing each other would leave whichever finished last serving,
 # which is not necessarily the newer one. Queue them.
@@ -32,10 +34,6 @@ env:
 
 jobs:
   deploy:
-    # A red CI run must not deploy — workflow_run fires on failure too, so this cannot be omitted.
-    # A manual dispatch has no workflow_run to inspect, and is a deliberate act by someone who can see
-    # the CI result for themselves.
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
 
     permissions:
@@ -43,11 +41,23 @@ jobs:
       id-token: write   # mints the OIDC token that Workload Identity Federation trades for GCP creds
 
     steps:
+      # A dispatched ref is free text, and it goes on to be a Docker tag and a Cloud Run label, neither
+      # of which accepts everything. Checked here rather than where it is used because Flyway runs first:
+      # a ref rejected later would leave production migrated with no new revision serving.
+      - name: Check the ref is a release tag
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          case "$REF" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::'${REF}' is not a release tag (vX.Y.Z)."; exit 1 ;;
+          esac
+
       - uses: actions/checkout@v7
         with:
-          # The commit CI actually passed on — not whatever is at the head of main by now. On a manual
-          # dispatch there is no such commit, so fall back to the ref that was dispatched.
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # The tag, never a branch. What is deployed is whatever the release named, however far main
+          # has moved on since.
+          ref: ${{ inputs.ref }}
 
       # Keyless. No JSON service-account key exists, so there is none to leak or rotate.
       - name: Authenticate to GCP
@@ -61,17 +71,49 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
+      # Needed twice — the bundle is built against it and the API allow-lists it for CORS — so it is
+      # resolved once, here, rather than in both places.
+      #
+      # No default: the manifest key is committed, so the development id is reproducible by anyone, and
+      # defaulting to it would have production trust an origin the public can speak from. Set the
+      # EXTENSION_ID repository variable to the id the Chrome Web Store assigned, or to `dev` to allow
+      # the development one on purpose.
+      - name: Resolve the extension id
+        id: extension
+        env:
+          CONFIGURED: ${{ vars.EXTENSION_ID }}
+        run: |
+          EXTENSION_ID="$CONFIGURED"
+          if [ -z "$EXTENSION_ID" ]; then
+            echo "::error::EXTENSION_ID is not set. Use the Chrome Web Store id, or 'dev' for the committed development id."
+            exit 1
+          fi
+          if [ "$EXTENSION_ID" = "dev" ]; then
+            EXTENSION_ID="kllpamcdcnecpdblgdkehgbhdjdlbofh"
+          fi
+          echo "id=$EXTENSION_ID" >> "$GITHUB_OUTPUT"
+
       # ── Build ────────────────────────────────────────────────────────────────
-      # Tagged with the git SHA, never `latest`. You must be able to say which commit is serving, and
-      # roll back to a specific one — `latest` can answer neither question.
+      # Two tags, one image, never `latest`. The version is what a human asks for; the SHA is what
+      # answers "which commit is serving" when the tag has been moved or deleted. `latest` answers
+      # neither question, which is why it is not here.
       - name: Build and push
         id: build
+        env:
+          VERSION: ${{ inputs.ref }}
+          EXTENSION_ID: ${{ steps.extension.outputs.id }}
         run: |
-          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
-          IMAGE="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/${AR_REPO}/${SERVICE}:${SHA}"
-          docker build -t "$IMAGE" .
-          docker push "$IMAGE"
-          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          SHA="$(git rev-parse HEAD)"
+          BASE="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/${AR_REPO}/${SERVICE}"
+
+          docker build \
+            --build-arg APP_VERSION="${VERSION}" \
+            --build-arg GIT_SHA="${SHA}" \
+            --build-arg EXTENSION_ID="${EXTENSION_ID}" \
+            -t "${BASE}:${VERSION}" -t "${BASE}:${SHA}" .
+          docker push "${BASE}:${VERSION}"
+          docker push "${BASE}:${SHA}"
+          echo "image=${BASE}:${VERSION}" >> "$GITHUB_OUTPUT"
 
       # ── Migrate ──────────────────────────────────────────────────────────────
       # Before the new revision goes live, and never inside the container (FLYWAY_ENABLED=false there).
@@ -132,6 +174,8 @@ jobs:
         env:
           IMAGE: ${{ steps.build.outputs.image }}
           BASE_URL: ${{ steps.url.outputs.url }}
+          VERSION: ${{ inputs.ref }}
+          EXTENSION_ID: ${{ steps.extension.outputs.id }}
         run: |
           # Each identity provider is wired only when it is actually configured. Spring validates every
           # declared registration at startup and REJECTS an empty client-id, so passing these through
@@ -188,20 +232,6 @@ jobs:
             OAUTH_ENV="${OAUTH_ENV}|LIGHTMOVE_AUTH_OAUTH_EMAIL_VERIFIED_OPTIONAL_REGISTRATIONS=linkedin"
           fi
 
-          # The browser extension's id, which decides the chrome-extension:// origin the API allows for
-          # CORS. No default: the manifest key is committed, so the development id is reproducible by
-          # anyone, and defaulting to it would have production trust an origin the public can speak
-          # from. Set the EXTENSION_ID repository variable to the id the Chrome Web Store assigned, or
-          # to `dev` to allow the development one on purpose.
-          EXTENSION_ID="${{ vars.EXTENSION_ID }}"
-          if [ -z "$EXTENSION_ID" ]; then
-            echo "::error::EXTENSION_ID is not set. Use the Chrome Web Store id, or 'dev' for the committed development id."
-            exit 1
-          fi
-          if [ "$EXTENSION_ID" = "dev" ]; then
-            EXTENSION_ID="kllpamcdcnecpdblgdkehgbhdjdlbofh"
-          fi
-
           # Same for Resend: EMAIL_PROVIDER=resend without a key fails fast at startup, by design. The
           # sending domain (lightmove.ai) is verified, so the provider defaults to `resend` and the
           # lightmove-resend-api-key secret is mounted below — a deploy fails if that secret has no
@@ -236,9 +266,13 @@ jobs:
           # ^|^ separates on | rather than a comma, because WEB_CORS_ORIGINS and the OAuth scope are both
           # comma-lists. It must be a character no value contains — @ is wrong, because EMAIL_FROM is an email
           # address and gcloud would split it mid-way and reject the domain half as a malformed entry.
+          #
+          # A Cloud Run label may not contain a dot, so v1.4.0 is stored as v1-4-0. Nothing reads it —
+          # it is there so the console can say what is live without anyone mapping a SHA by hand.
           gcloud run deploy "$SERVICE" \
             --image "$IMAGE" \
             --region "$REGION" \
+            --update-labels "release=${VERSION//./-}" \
             --service-account "${{ vars.GCP_RUNTIME_SA }}" \
             --allow-unauthenticated \
             --min-instances 0 \
@@ -253,6 +287,8 @@ jobs:
       # Verification emails and the OAuth redirect are built from WEB_BASE_URL, so this cannot be left.
       - name: Correct WEB_BASE_URL on first deploy
         if: steps.url.outputs.known == ''
+        env:
+          EXTENSION_ID: ${{ steps.extension.outputs.id }}
         run: |
           URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
           gcloud run services update "$SERVICE" --region "$REGION" \
@@ -263,6 +299,8 @@ jobs:
       # `gcloud run deploy` succeeding means the revision started, not that it serves. These three assert
       # the properties that this deployment exists to preserve.
       - name: Smoke test
+        env:
+          VERSION: ${{ inputs.ref }}
         run: |
           URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
 
@@ -278,4 +316,4 @@ jobs:
           echo "the API is still shut to anonymous callers"
           [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/v1/onboarding/workspaces")" = "401" ]
 
-          echo "::notice::Deployed ${{ github.event.workflow_run.head_sha || github.sha }} to ${URL}"
+          echo "::notice::Deployed ${VERSION} ($(git rev-parse --short HEAD)) to ${URL}"

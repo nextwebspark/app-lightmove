@@ -6,17 +6,13 @@ import * as extensionApi from "../api/extensionApi";
 /**
  * The extension this page hands the session to.
  *
- * Configurable because it has to be: the id below is the one the pinned manifest key produces when the
- * extension is **loaded unpacked**, which is right for development and wrong for anything published —
- * the Chrome Web Store assigns its own id when the item is created. Set `VITE_EXTENSION_ID` at build
- * time to whatever the store assigned.
+ * Resolved at build time from the EXTENSION_ID build arg, falling back to the development id — see
+ * `vite.config.ts`, which owns that fallback along with the other build parameters.
  *
  * It must stay in step with the API's `lightmove.web.cors-allowed-origins`, which allow-lists the
  * matching `chrome-extension://` origin. Two places, one value; the extension README says how.
  */
-const DEVELOPMENT_EXTENSION_ID = "kllpamcdcnecpdblgdkehgbhdjdlbofh";
-
-const EXTENSION_ID = import.meta.env.VITE_EXTENSION_ID || DEVELOPMENT_EXTENSION_ID;
+const EXTENSION_ID = __EXTENSION_ID__;
 
 /** Shared verbatim with the extension's service worker — the one contract between them. */
 const STORE_PAIRED_SESSION = "storePairedSession";

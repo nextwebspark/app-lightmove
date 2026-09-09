@@ -243,9 +243,10 @@ fake placeholder and warns; `build:release` refuses outright.
 
 **The extension id differs between development and the store.** The pinned manifest key fixes it for
 unpacked loading only; the Web Store assigns its own when the item is created. Two places take it as
-configuration and both default to the development id: `EXTENSION_ID` for the API's CORS allow-list
-(deploy) and `VITE_EXTENSION_ID` for the pairing page (`apps/web` build). Get either wrong after
-publishing and the extension is refused with nothing useful in the response. Never re-hardcode either.
+configuration from **one** variable, `EXTENSION_ID`, which defaults to the development id: the deploy
+puts it in the API's CORS allow-list and passes it as a `--build-arg` that `apps/web/vite.config.ts`
+freezes into the bundle for the pairing page. Get it wrong after publishing and the extension is
+refused with nothing useful in the response. Never re-hardcode it.
 
 **The allow-listed origin is a browser convenience, not a gate.** The development key is committed, so
 anyone can build an extension carrying it and speak from that origin — and the entry applies to the

@@ -365,6 +365,17 @@ lightmove:
       - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
       - application/octet-stream
 
+# What /actuator/info reports. APP_VERSION is baked into the image by the Dockerfile's build arg, so
+# this is the same release the SPA bundle was built with — one input, and nothing at runtime can move
+# one half without the other.
+#
+# NOT the spring-boot-maven-plugin `build-info` goal, which is the usual reflex here: it reports the
+# Maven project.version, which is 0.1.0-SNAPSHOT and is never bumped, because a release is a git tag.
+# It would sit a second, wrong version beside the right one.
+info:
+  app:
+    version: ${APP_VERSION:dev}
+
 management:
   # Actuator listens on its own port, bound to loopback — it is not reachable from the internet at all.
   #
@@ -388,6 +399,12 @@ management:
     web:
       exposure:
         include: health, info, prometheus, metrics
+  # Off by default since Boot 2.6, and without it the `info:` block above surfaces nothing. It turns on
+  # the whole `info.` prefix, and /actuator/info is permitAll (SecurityConfig) — so anything added
+  # there is world-readable. A release tag is meant to be; a commit sha or an environment name is not.
+  info:
+    env:
+      enabled: true
   endpoint:
     health:
       show-details: when-authorized
