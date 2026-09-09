@@ -13,6 +13,7 @@
 # A global ARG is visible to no stage until that stage re-declares it — hence the repeats below.
 ARG APP_VERSION=dev
 ARG GIT_SHA=
+ARG EXTENSION_ID=
 
 # ── 1. The SPA ────────────────────────────────────────────────────────────────
 FROM node:26-slim AS web
@@ -26,9 +27,13 @@ RUN npm ci
 
 COPY apps/web ./apps/web
 
-# A build parameter, read by vite.config.ts through loadEnv and frozen into the bundle.
+# Build parameters, read by vite.config.ts through loadEnv and frozen into the bundle. EXTENSION_ID
+# decides the chrome-extension:// origin the pairing page looks for; without it the page falls back to
+# the development id and pairing reports "extension not detected" forever.
 ARG APP_VERSION
+ARG EXTENSION_ID
 ENV APP_VERSION=$APP_VERSION
+ENV EXTENSION_ID=$EXTENSION_ID
 
 # `tsc -b && vite build` — a type error fails the image, not just the editor.
 RUN npm run build --workspace=apps/web

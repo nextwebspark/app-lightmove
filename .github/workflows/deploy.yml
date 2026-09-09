@@ -59,6 +59,26 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
+      # Needed twice — the bundle is built against it and the API allow-lists it for CORS — so it is
+      # resolved once, here, rather than in both places.
+      #
+      # No default: the manifest key is committed, so the development id is reproducible by anyone, and
+      # defaulting to it would have production trust an origin the public can speak from. Set the
+      # EXTENSION_ID repository variable to the id the Chrome Web Store assigned, or to `dev` to allow
+      # the development one on purpose.
+      - name: Resolve the extension id
+        id: extension
+        run: |
+          EXTENSION_ID="${{ vars.EXTENSION_ID }}"
+          if [ -z "$EXTENSION_ID" ]; then
+            echo "::error::EXTENSION_ID is not set. Use the Chrome Web Store id, or 'dev' for the committed development id."
+            exit 1
+          fi
+          if [ "$EXTENSION_ID" = "dev" ]; then
+            EXTENSION_ID="kllpamcdcnecpdblgdkehgbhdjdlbofh"
+          fi
+          echo "id=$EXTENSION_ID" >> "$GITHUB_OUTPUT"
+
       # ── Build ────────────────────────────────────────────────────────────────
       # Two tags, one image, never `latest`. The version is what a human asks for; the SHA is what
       # answers "which commit is serving" when the tag has been moved or deleted. `latest` answers
@@ -67,6 +87,7 @@ jobs:
         id: build
         env:
           VERSION: ${{ inputs.ref }}
+          EXTENSION_ID: ${{ steps.extension.outputs.id }}
         run: |
           SHA="$(git rev-parse HEAD)"
           BASE="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/${AR_REPO}/${SERVICE}"
@@ -76,6 +97,7 @@ jobs:
           docker build \
             --build-arg APP_VERSION="${VERSION}" \
             --build-arg GIT_SHA="${SHA}" \
+            --build-arg EXTENSION_ID="${EXTENSION_ID}" \
             -t "${BASE}:${VERSION}" -t "${BASE}:${SHA}" .
           docker push "${BASE}:${VERSION}"
           docker push "${BASE}:${SHA}"
@@ -141,6 +163,7 @@ jobs:
           IMAGE: ${{ steps.build.outputs.image }}
           BASE_URL: ${{ steps.url.outputs.url }}
           VERSION: ${{ inputs.ref }}
+          EXTENSION_ID: ${{ steps.extension.outputs.id }}
         run: |
           # Each identity provider is wired only when it is actually configured. Spring validates every
           # declared registration at startup and REJECTS an empty client-id, so passing these through
@@ -195,20 +218,6 @@ jobs:
             # registration is named here. Omit this and every LinkedIn sign-in ends in
             # EMAIL_NOT_VERIFIED.
             OAUTH_ENV="${OAUTH_ENV}|LIGHTMOVE_AUTH_OAUTH_EMAIL_VERIFIED_OPTIONAL_REGISTRATIONS=linkedin"
-          fi
-
-          # The browser extension's id, which decides the chrome-extension:// origin the API allows for
-          # CORS. No default: the manifest key is committed, so the development id is reproducible by
-          # anyone, and defaulting to it would have production trust an origin the public can speak
-          # from. Set the EXTENSION_ID repository variable to the id the Chrome Web Store assigned, or
-          # to `dev` to allow the development one on purpose.
-          EXTENSION_ID="${{ vars.EXTENSION_ID }}"
-          if [ -z "$EXTENSION_ID" ]; then
-            echo "::error::EXTENSION_ID is not set. Use the Chrome Web Store id, or 'dev' for the committed development id."
-            exit 1
-          fi
-          if [ "$EXTENSION_ID" = "dev" ]; then
-            EXTENSION_ID="kllpamcdcnecpdblgdkehgbhdjdlbofh"
           fi
 
           # Same for Resend: EMAIL_PROVIDER=resend without a key fails fast at startup, by design. The
@@ -267,6 +276,8 @@ jobs:
       # Verification emails and the OAuth redirect are built from WEB_BASE_URL, so this cannot be left.
       - name: Correct WEB_BASE_URL on first deploy
         if: steps.url.outputs.known == ''
+        env:
+          EXTENSION_ID: ${{ steps.extension.outputs.id }}
         run: |
           URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
           gcloud run services update "$SERVICE" --region "$REGION" \
