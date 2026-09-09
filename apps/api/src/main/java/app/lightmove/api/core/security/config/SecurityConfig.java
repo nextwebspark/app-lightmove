@@ -1,5 +1,6 @@
 package app.lightmove.api.core.security.config;
 import app.lightmove.api.core.security.jwt.JwtPrincipalConverter;
+import app.lightmove.api.core.security.service.CookieAuthorizationRequestStore;
 import app.lightmove.api.core.security.service.OAuth2LoginFailureHandler;
 import app.lightmove.api.core.security.service.ProviderQuirkAwareRequestResolver;
 import app.lightmove.api.core.security.service.OAuth2LoginSuccessHandler;
@@ -243,6 +244,7 @@ public class SecurityConfig {
                                  JwtPrincipalConverter principalConverter,
                                  OAuth2LoginSuccessHandler oauthSuccessHandler,
                                  OAuth2LoginFailureHandler oauthFailureHandler,
+                                 CookieAuthorizationRequestStore authorizationRequestStore,
                                  ObjectProvider<ClientRegistrationRepository> clientRegistrations,
                                  ProblemAccessDeniedHandler accessDenied,
                                  LightMoveProperties properties) throws Exception {
@@ -337,8 +339,11 @@ public class SecurityConfig {
                     properties.auth().oauth().nonceUnsupportedRegistrations());
 
             http.oauth2Login(login -> login
-                    .authorizationEndpoint(endpoint ->
-                            endpoint.authorizationRequestResolver(authorizationRequests))
+                    .authorizationEndpoint(endpoint -> endpoint
+                            .authorizationRequestResolver(authorizationRequests)
+                            // Set here and it reaches both filters: the one that redirects out to the
+                            // provider and the one that handles the callback back.
+                            .authorizationRequestRepository(authorizationRequestStore))
                     .successHandler(oauthSuccessHandler)
                     .failureHandler(oauthFailureHandler));
         }
