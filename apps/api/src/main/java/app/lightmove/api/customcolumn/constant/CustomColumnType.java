@@ -26,12 +26,10 @@ public enum CustomColumnType {
         this.wireToken = wireToken;
     }
 
-    /** The wire value; the frontend picks a cell renderer and an input from the same tokens. */
     public String value() {
         return wireToken;
     }
 
-    /** Resolve a wire value to its type, or {@code null} if unknown. */
     public static CustomColumnType fromValue(String value) {
         for (CustomColumnType type : values()) {
             if (type.wireToken.equals(value)) {

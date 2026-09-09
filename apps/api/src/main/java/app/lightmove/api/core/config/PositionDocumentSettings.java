@@ -33,9 +33,8 @@ public record PositionDocumentSettings(
                     "lightmove.position.document.max-file-size-bytes must be positive, but was "
                             + maxFileSizeBytes);
         }
-        // @DefaultValue on a List binds an operator's empty override to [""], not to [] — the trap that
-        // once emptied the consumer-domain blocklist. An allowlist of one blank string accepts nothing,
-        // so it is refused loudly here rather than silently rejecting every upload.
+        // @DefaultValue("") on a List binds to [""], not [] — see PublicEmailDomains. An allowlist of
+        // one blank string would accept nothing, so it is refused loudly rather than rejected silently.
         if (allowedContentTypes.stream().anyMatch(String::isBlank)) {
             throw new IllegalArgumentException(
                     "lightmove.position.document.allowed-content-types must not contain a blank entry");

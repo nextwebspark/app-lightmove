@@ -82,8 +82,6 @@ public class CandidateService {
     private final ProjectStreamPublisher stream;
     private final CompanyListSettings listConfig;
 
-    // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
-    // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public CandidateService(CandidateRepository candidates, CandidatePhotoRepository photos,
                             ProjectRepository projects, TriageCompanyService triage,
                             CustomColumnService customColumns, AuditService audit,

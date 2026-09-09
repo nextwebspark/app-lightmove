@@ -62,8 +62,6 @@ public class SpreadsheetReader {
 
     private final SpreadsheetImportSettings settings;
 
-    // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
-    // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public SpreadsheetReader(LightMoveProperties properties) {
         this.settings = properties.spreadsheetImport();
     }

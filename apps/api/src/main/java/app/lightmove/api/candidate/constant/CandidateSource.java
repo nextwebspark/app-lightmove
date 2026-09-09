@@ -30,7 +30,6 @@ public enum CandidateSource {
         return wireToken;
     }
 
-    /** Resolve a wire value to its source, or {@code null} if unknown. */
     public static CandidateSource fromValue(String value) {
         for (CandidateSource source : values()) {
             if (source.wireToken.equals(value)) {

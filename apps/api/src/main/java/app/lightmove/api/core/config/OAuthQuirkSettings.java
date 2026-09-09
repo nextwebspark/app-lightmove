@@ -48,8 +48,7 @@ public record OAuthQuirkSettings(
          */
         List<String> emailVerifiedOptionalRegistrations
 ) {
-    // Not @DefaultValue: on a List that binds the operator's "unset" to a *populated* list —
-    // @DefaultValue("") yields [""], and an empty array is no clearer. See the blocklist trap.
+    // Not @DefaultValue: on a List it binds "unset" to a populated [""] — see PublicEmailDomains.
     public OAuthQuirkSettings {
         pkceUnsupportedRegistrations = pkceUnsupportedRegistrations == null
                 ? List.of()

@@ -114,7 +114,6 @@ public enum ImportTargetField {
         return target;
     }
 
-    /** The wire value; the mapping dropdown and the model's answer both speak these. */
     public String value() {
         return wireToken;
     }
@@ -129,7 +128,6 @@ public enum ImportTargetField {
         return synonyms;
     }
 
-    /** Resolve a wire value to its field, or {@code null} if unknown. */
     public static ImportTargetField fromValue(String value) {
         for (ImportTargetField field : values()) {
             if (field.wireToken.equals(value)) {

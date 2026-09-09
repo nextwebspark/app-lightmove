@@ -39,12 +39,10 @@ public enum CandidateStatus {
         this.wireToken = wireToken;
     }
 
-    /** The wire value; the grid's status pills carry the same tokens. */
     public String value() {
         return wireToken;
     }
 
-    /** Resolve a wire value to its status, or {@code null} if unknown. */
     public static CandidateStatus fromValue(String value) {
         for (CandidateStatus status : values()) {
             if (status.wireToken.equals(value)) {

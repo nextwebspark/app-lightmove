@@ -94,8 +94,6 @@ public class TriageCompanyService {
     private final ProjectStreamPublisher stream;
     private final CompanyListSettings listConfig;
 
-    // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
-    // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public TriageCompanyService(TriageCompanyRepository triaged, TriageCompanyWriter writer,
                                 ProjectRepository projects, StrategyService strategy,
                                 CustomColumnService customColumns, AuditService audit,
@@ -334,7 +332,6 @@ public class TriageCompanyService {
         }, () -> log.info("Company {} was removed before its research landed", companyId));
     }
 
-    /** A captured company and whether this call is what put it in the mandate's universe. */
     private record ResolvedCapture(TriageCompany company, boolean created) {}
 
     /**

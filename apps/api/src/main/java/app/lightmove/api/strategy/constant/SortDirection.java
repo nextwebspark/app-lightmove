@@ -18,7 +18,6 @@ public enum SortDirection {
         this.sqlKeyword = sqlKeyword;
     }
 
-    /** The wire value; the frontend mirror carries the same tokens. */
     public String value() {
         return wireToken;
     }
@@ -28,7 +27,6 @@ public enum SortDirection {
         return sqlKeyword;
     }
 
-    /** Resolve a wire value to its direction, or {@code null} if unknown. */
     public static SortDirection fromValue(String value) {
         for (SortDirection direction : values()) {
             if (direction.wireToken.equals(value)) {

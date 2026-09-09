@@ -127,8 +127,7 @@ public class ColumnMappingProposer {
     private final LlmBudgetGuard llmBudget;
     private final SpreadsheetImportSettings settings;
 
-    // Hand-written rather than @RequiredArgsConstructor: Lombok cannot annotate a constructor
-    // parameter with @Value, and this also derives the settings branch from the properties root.
+    // Hand-written: Lombok cannot put @Value on a generated constructor parameter.
     public ColumnMappingProposer(ChatClient chatClient,
                                  HeuristicColumnMatcher heuristics,
                                  @Value("classpath:prompts/import-column-mapping-system.st") Resource systemPrompt,

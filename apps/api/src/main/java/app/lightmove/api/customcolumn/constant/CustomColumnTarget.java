@@ -23,12 +23,10 @@ public enum CustomColumnTarget {
         this.wireToken = wireToken;
     }
 
-    /** The wire value; the frontend addresses columns by the same tokens. */
     public String value() {
         return wireToken;
     }
 
-    /** Resolve a wire value to its target, or {@code null} if unknown. */
     public static CustomColumnTarget fromValue(String value) {
         for (CustomColumnTarget target : values()) {
             if (target.wireToken.equals(value)) {

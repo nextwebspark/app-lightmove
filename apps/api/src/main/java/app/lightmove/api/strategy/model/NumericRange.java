@@ -25,7 +25,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record NumericRange(Long min, Long max) {
 
-    /** True when neither end is set, in which case the axis is unconstrained. */
     @JsonIgnore
     public boolean isEmpty() {
         return min == null && max == null;

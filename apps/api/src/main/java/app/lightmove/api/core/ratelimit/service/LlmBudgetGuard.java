@@ -32,8 +32,6 @@ public class LlmBudgetGuard {
     private final RateLimiter limiter;
     private final LlmRateLimitSettings settings;
 
-    // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
-    // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public LlmBudgetGuard(RateLimiter limiter, LightMoveProperties properties) {
         this.limiter = limiter;
         this.settings = properties.llm().rateLimit();

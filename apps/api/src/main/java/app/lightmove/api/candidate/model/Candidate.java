@@ -219,7 +219,6 @@ public class Candidate extends BaseEntity {
         this.customFields = values == null ? CustomFieldValues.empty() : values;
     }
 
-    /** Moves the person along the line, leaving the rest of the profile as it was. */
     public void moveTo(CandidateStatus newStatus) {
         this.status = newStatus;
     }

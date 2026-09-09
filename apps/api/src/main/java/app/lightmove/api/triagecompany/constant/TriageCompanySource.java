@@ -37,12 +37,10 @@ public enum TriageCompanySource {
         this.wireToken = wireToken;
     }
 
-    /** The wire value; the frontend's source labels carry the same tokens. */
     public String value() {
         return wireToken;
     }
 
-    /** Resolve a wire value to its source, or {@code null} if unknown. */
     public static TriageCompanySource fromValue(String value) {
         for (TriageCompanySource source : values()) {
             if (source.wireToken.equals(value)) {

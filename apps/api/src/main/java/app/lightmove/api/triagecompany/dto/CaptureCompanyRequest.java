@@ -70,10 +70,8 @@ public record CaptureCompanyRequest(
         String note,
 
         /**
-         * Values for this mandate's custom columns, keyed by each column's {@code fieldKey}. Null
-         * leaves every custom column alone — a client that does not render them (an older SPA, the
-         * extension, a script) must be able to save a row without wiping columns it never showed.
-         * A key the mandate has not defined is dropped, and a blank value clears that one column.
+         * Values for this mandate's custom columns, keyed by each column's {@code fieldKey}.
+         * CustomColumnService.applyTo states what a row may store.
          */
         Map<String, String> customFields
 ) {}

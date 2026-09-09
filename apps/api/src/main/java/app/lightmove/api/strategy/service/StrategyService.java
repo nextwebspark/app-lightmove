@@ -76,8 +76,6 @@ public class StrategyService {
     private final CompanyListSettings listConfig;
     private final CompanySearchSettings searchConfig;
 
-    // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
-    // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public StrategyService(StrategyRepository strategies, ProjectRepository projects,
                            StrategySearchService searches, AuditService audit,
                            ApolloCompanyQueryService companies, LightMoveProperties properties) {

@@ -30,7 +30,6 @@ public enum CompanySortField {
         this.columns = columns;
     }
 
-    /** The wire value; the frontend column definitions carry the same tokens as their column ids. */
     public String value() {
         return wireToken;
     }
@@ -48,7 +47,6 @@ public enum CompanySortField {
                 .toList());
     }
 
-    /** Resolve a wire value to its field, or {@code null} if unknown. */
     public static CompanySortField fromValue(String value) {
         for (CompanySortField field : values()) {
             if (field.wireToken.equals(value)) {

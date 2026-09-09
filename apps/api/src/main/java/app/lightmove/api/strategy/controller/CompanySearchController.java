@@ -39,8 +39,6 @@ public class CompanySearchController {
     private final IndustryAdjacency adjacency;
     private final CompanySearchSettings searchConfig;
 
-    // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
-    // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public CompanySearchController(ApolloCompanyQueryService companies, IndustryAdjacency adjacency,
                                    LightMoveProperties properties) {
         this.companies = companies;

@@ -32,7 +32,6 @@ public enum TriageCompanySortField {
         this.property = property;
     }
 
-    /** The wire value; the frontend column definitions carry the same tokens as their column ids. */
     public String value() {
         return wireToken;
     }
@@ -42,7 +41,6 @@ public enum TriageCompanySortField {
         return property;
     }
 
-    /** Resolve a wire value to its field, or {@code null} if unknown. */
     public static TriageCompanySortField fromValue(String value) {
         for (TriageCompanySortField field : values()) {
             if (field.wireToken.equals(value)) {
