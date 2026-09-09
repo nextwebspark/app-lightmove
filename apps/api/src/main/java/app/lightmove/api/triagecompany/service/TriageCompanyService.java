@@ -55,13 +55,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A mandate's triaged companies: taking one out of the market, capturing one the market does not
- * carry, moving it between the three stages, and removing it altogether.
+ * carry, moving it between the three stages, and removing it.
  *
  * <p>A company taken from Strategy is a snapshot resolved from the market at write time — the client
- * names an id and nothing else, so it cannot file a company under a name of its own choosing, and the
- * row keeps rendering after the Apollo pipeline stops publishing its subject. A company the mandate
- * supplies itself has no id to resolve against, so the caller carries the fields and
- * {@link TriageCompanySource} records that they were not Apollo's.
+ * names an id and nothing else, so it cannot file a company under a name of its own choosing. A
+ * company the mandate supplies itself has no id to resolve against, so the caller carries the fields
+ * and {@link TriageCompanySource} records that they were not Apollo's.
  */
 @Service
 @Slf4j
@@ -72,11 +71,9 @@ public class TriageCompanyService {
             Set.of(TriageCompanySource.MANUAL, TriageCompanySource.EXTENSION, TriageCompanySource.CSV);
 
     /**
-     * The doors a person comes through one company at a time, which is what makes two things
-     * affordable that a spreadsheet cannot afford: resolving the name against the universe, and
-     * researching it. A file states its own figures and is the reason it was uploaded — replacing
-     * them with the market's would discard the import — and it arrives a thousand rows at once, where
-     * a billed vendor call per row is a bill nobody authorised by pressing one button.
+     * The doors a person comes through one company at a time, which is what makes resolving the name
+     * against the universe and researching it affordable. A file states its own figures and arrives a
+     * thousand rows at once, so an import does neither.
      */
     private static final Set<TriageCompanySource> SUPPLIED_ONE_AT_A_TIME =
             Set.of(TriageCompanySource.MANUAL, TriageCompanySource.EXTENSION);
@@ -113,8 +110,8 @@ public class TriageCompanyService {
 
     /**
      * One stage, ordered and narrowed as the grid asks. The three counts travel with every page
-     * because the stage switcher is always visible, and a badge that only refreshed on its own tab
-     * would be wrong on the tab you were looking at — which is exactly the tab a move was made from.
+     * because the stage switcher is always visible, and the tab a move was made from is exactly the
+     * one a stale badge would be wrong on.
      */
     @Transactional(readOnly = true)
     public TriageCompaniesResponse list(UUID workspaceId, UUID projectId,
@@ -144,14 +141,11 @@ public class TriageCompanyService {
     }
 
     /**
-     * One of this mandate's own company rows, by id. The seam the {@code candidate} feature maps an
-     * executive to a company through: it is one method wide and answers in this package's public DTO,
-     * so the people side never learns how a triage row is stored, scoped or snapshotted — and this
-     * package never learns that people exist.
+     * One of this mandate's own company rows, by id — the seam {@code candidate} maps an executive to
+     * a company through.
      *
-     * <p>The project is resolved against the workspace by the caller, as everywhere else here; what
-     * this adds is that the company belongs to <i>that</i> project, so a candidate cannot be filed
-     * against another mandate's company by id.
+     * <p>What this adds over the caller's own workspace check is that the company belongs to
+     * <i>that</i> project, so a candidate cannot be filed against another mandate's company by id.
      */
     @Transactional(readOnly = true)
     public TriageCompanyResponse requireCompanyOfProject(UUID projectId, UUID triageCompanyId) {
@@ -161,13 +155,11 @@ public class TriageCompanyService {
     }
 
     /**
-     * The mandate's company of that name, if it holds one — the seam the spreadsheet import resolves a
-     * company cell through, so a second import of the same list updates rows rather than duplicating
-     * them.
+     * The mandate's company of that name — the seam a spreadsheet import resolves a company cell
+     * through, so a second import of the same list updates rows rather than duplicating them.
      *
-     * <p>Name-matched, because a company typed into a spreadsheet has no other identity. Oldest first
-     * when a mandate somehow holds two: nothing stops the Apollo export publishing two accounts under
-     * one name, and a bulk add takes both, so this has to answer deterministically rather than throw.
+     * <p>Oldest first when a mandate holds two: nothing stops the Apollo export publishing two
+     * accounts under one name, so this has to answer deterministically rather than throw.
      */
     @Transactional(readOnly = true)
     public Optional<TriageCompanyResponse> findCompanyOfProjectByName(UUID projectId, String companyName) {
@@ -188,10 +180,9 @@ public class TriageCompanyService {
         // already holds the company — the same reason resolveSort settles both its tokens up front.
         TriageCompanyStatus landingStatus = resolveStatus(request.status());
 
-        // Already held is not an error: the button is on every row and a second click means the same
-        // thing as the first. Returning the existing row makes the response idempotent — and leaves
-        // its stage and its note untouched, so re-adding cannot walk a declined company back into the
-        // universe or overwrite the remark that says why it was ruled out.
+        // Already held is not an error: a second click means the same thing as the first. Returning
+        // the existing row leaves its stage and note untouched, so re-adding cannot walk a declined
+        // company back into the universe.
         Optional<TriageCompany> held = triaged.findByProjectIdAndApolloAccountId(projectId, accountId);
         if (held.isPresent()) {
             return toDto(held.get());
@@ -208,8 +199,7 @@ public class TriageCompanyService {
                         "Not in the universe: " + accountId));
 
         // The check above is a fast path, not the guard: a second click racing this one passes it too.
-        // The insert ignores the conflict and the row is read back either way, so both callers get the
-        // company and only the one that actually wrote it records an event.
+        // The insert ignores the conflict, so only the caller that actually wrote it records an event.
         int inserted = writer.insertIgnoringHeld(projectId, userId, List.of(row),
                 TriageCompanySource.STRATEGY, landingStatus, request.note(), null);
         TriageCompany taken = triaged.findByProjectIdAndApolloAccountId(projectId, accountId)
@@ -225,21 +215,14 @@ public class TriageCompanyService {
     }
 
     /**
-     * A company the mandate supplies itself — typed in on the Companies screen, or read off a live page
-     * by the plugin. The market is never consulted: there is nothing to consult it about, which is the
-     * entire reason this path exists.
+     * A company the mandate supplies itself — typed in on the Companies screen, or read off a live
+     * page by the plugin.
      *
-     * <p>Refused if the mandate already holds that name under <i>any</i> source. That is wider than the
-     * partial unique index V34 adds, which can only see the manual rows, and it is the question a
-     * consultant is actually asking — a company already taken from Apollo is "already there" whether or
-     * not it arrived the same way.
+     * <p>Refused if the mandate already holds that name under <i>any</i> source. That is wider than
+     * the partial unique index V34 adds, which can only see the manual rows.
      *
-     * <p><b>The guard is deliberately one-directional</b>, and that is a product decision rather than an
-     * oversight: a capture will not duplicate a name the mandate holds, but a later bulk add from
-     * Strategy still will, because the alternatives are worse. Skipping the Apollo row would leave the
-     * mandate with the thin hand-typed one and silently withhold the richer market record it matched;
-     * merging the two is a real feature with a real UI, not something a bulk insert should decide. So
-     * two same-named rows from different doors are possible, they are distinguishable by their Source
+     * <p><b>The guard is one-directional by decision:</b> a later bulk add from Strategy can still
+     * land a second row under a name a capture holds. The two are distinguishable by their Source
      * badge, and either can be removed.
      */
     @Transactional
@@ -293,10 +276,9 @@ public class TriageCompanyService {
 
     /**
      * The research door: the enrichment worker files a captured executive's employer into the
-     * mandate's universe. Unlike {@link #capture}, a name the mandate already holds answers with the
-     * existing row rather than a refusal — the worker is resolving "where does this person work",
-     * not asserting a new company. No audit event of its own: the capture the consultant made is
-     * already audited, and this row is its consequence rather than a second user action.
+     * mandate's universe. Unlike {@link #capture}, a name already held answers with the existing row
+     * rather than a refusal — the worker is resolving "where does this person work". No audit event
+     * of its own: this row is a consequence of the capture, not a second user action.
      */
     @Transactional
     public TriageCompanyResponse captureFromResearch(UUID projectId, UUID addedBy,
@@ -310,20 +292,16 @@ public class TriageCompanyService {
     }
 
     /**
-     * The short transactional tail of a company enrichment: re-read the row project-scoped, fill in
-     * the facts nobody typed, announce the change, commit.
+     * The short transactional tail of a company enrichment.
      *
      * <p>{@code REQUIRES_NEW} because the enrichment worker calls this from an {@code AFTER_COMMIT}
      * callback, where the completed transaction's resources are still bound to the thread and joining
-     * them writes nothing. A row deleted while the provider was answering, or one that turned out to
-     * be market-backed after all, is left alone.
+     * them writes nothing.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void applyEnrichment(UUID projectId, UUID companyId, CapturedCompanyDetails details) {
         triaged.findByIdAndProjectId(companyId, projectId).ifPresentOrElse(company -> {
-            // Unreachable through the only producer today — announceForResearch fires solely for a
-            // row with no apollo id, and the column is updatable = false. Kept as the guard a second
-            // producer would need, not as protection this path currently relies on.
+            // Unreachable through today's only producer; kept as the guard a second one would need.
             if (company.getApolloAccountId() != null) {
                 return;
             }
@@ -336,13 +314,11 @@ public class TriageCompanyService {
 
     /**
      * Where a captured company lands: the full market snapshot when the universe carries it, a
-     * hand-shaped row when it does not — and, either way, the row the mandate already holds rather
-     * than a second copy of it. The slug is the strong key and an exact unique name the only
-     * fallback; see {@code matchEmployer}.
+     * hand-shaped row when it does not, and either way the row the mandate already holds. The slug is
+     * the strong key and an exact unique name the only fallback.
      *
      * <p>Deliberately no off-limits check, unlike {@link #add}: a person the consultant captured
-     * works where they work, and hiding the employer would leave the mapping lying about it — the
-     * user's call, made explicitly.
+     * works where they work, and hiding the employer would leave the mapping lying about it.
      */
     private ResolvedCapture resolveCapture(UUID projectId, UUID addedBy,
                                            CapturedCompanyDetails details,
@@ -356,10 +332,10 @@ public class TriageCompanyService {
             if (held.isPresent()) {
                 return new ResolvedCapture(held.get(), false);
             }
-            // The count, not a hard-coded true: the insert is ON CONFLICT DO NOTHING, so the loser of
-            // a race gets zero rows and must not be told it created the row. Reporting true to both
-            // fired the audit event and the stream broadcast twice, and sent a second billed company
-            // lookup after a row that was already being researched.
+            // The count, not a hard-coded true: the insert is ON CONFLICT DO NOTHING, so the loser
+            // of a race gets zero rows. Reporting true to both fired the audit event and the stream
+            // broadcast twice, and sent a second billed company lookup after a row that was already
+            // being researched.
             int inserted = writer.insertIgnoringHeld(projectId, addedBy, List.of(row), source, status,
                     details.note(), details.sourceUrl());
             return new ResolvedCapture(
@@ -388,10 +364,9 @@ public class TriageCompanyService {
     }
 
     /**
-     * Which of several same-named rows a capture answers with. The mandate can legitimately hold two
-     * (see {@link #capture}'s note on the bulk-add carve-out), and an unordered {@code getFirst}
-     * mapped people to whichever row Postgres happened to return — including a declined one, where
-     * a freshly researched executive would never be looked for.
+     * Which of several same-named rows a capture answers with. The mandate can legitimately hold two,
+     * and an unordered {@code getFirst} mapped people to whichever row Postgres happened to return —
+     * including a declined one, where a freshly researched executive would never be looked for.
      */
     private static TriageCompany preferred(List<TriageCompany> rows) {
         return rows.stream()
@@ -403,11 +378,10 @@ public class TriageCompanyService {
     }
 
     /**
-     * Saves a hand-shaped row, answering with the winner's row when a concurrent capture of the same
+     * Saves a hand-shaped row, answering with the winner's when a concurrent capture of the same
      * employer got there first. Two enrichment workers researching colleagues at one company both
      * pass the held-check before either commits, and V34's partial unique index refuses the loser —
-     * whose transaction is the candidate's whole enrichment, so letting it escape would discard a
-     * researched profile and photo over a company row that already exists.
+     * whose transaction is the candidate's whole enrichment.
      */
     private ResolvedCapture saveCaptured(UUID projectId, UUID addedBy, TriageCompanySource source,
                                          TriageCompanyStatus status, CapturedCompanyDetails details) {
@@ -425,8 +399,8 @@ public class TriageCompanyService {
     }
 
     /**
-     * A freshly captured row the market could not resolve still has a LinkedIn page — announce it so
-     * the company enrichment worker can research the facts the plugin could not read off the page.
+     * A row the market could not resolve still has a LinkedIn page — announce it so the company
+     * enrichment worker can research what the plugin could not read.
      */
     private void announceForResearch(TriageCompany company, UUID projectId) {
         String slug = LinkedInUrls.companySlugOrNull(company.getCompanyLinkedinUrl());
@@ -437,9 +411,9 @@ public class TriageCompanyService {
 
     /**
      * "Add all to Universe". A filter matching more than {@code bulkAddLimit} is <b>refused whole</b>:
-     * an untouched one matches all 71,822 companies, and taking the first {@code bulkAddLimit} of them
-     * would silently decide which ones a mandate got. Companies the mandate already holds are skipped,
-     * declined ones included: re-running after widening must not resurrect a ruled-out company.
+     * an untouched one matches all 71,822 companies, and taking the first {@code bulkAddLimit} would
+     * silently decide which ones a mandate got. Companies already held are skipped, declined ones
+     * included.
      */
     @Transactional
     public TriageBulkAddResponse addAllInScope(UUID userId, UUID workspaceId, UUID projectId,
@@ -448,9 +422,9 @@ public class TriageCompanyService {
         int limit = listConfig.bulkAddLimit();
         long matching = market.count(scope);
         if (matching > limit) {
-            // Interpolated into a user-facing message, which the class doc otherwise reserves for
-            // literals. Neither number came from the caller: the scope is the mandate's stored filter
-            // — this endpoint takes no body — and the limit is configuration.
+            // Interpolated into a user-facing message, which is otherwise reserved for literals.
+            // Neither number came from the caller: the scope is the mandate's stored filter — this
+            // endpoint takes no body — and the limit is configuration.
             throw ApiException.userFacing(ErrorCode.BULK_ADD_SCOPE_TOO_LARGE,
                     "%,d companies match this filter. You can add %,d at a time — narrow it and try again."
                             .formatted(matching, limit));
@@ -459,9 +433,8 @@ public class TriageCompanyService {
         List<CompanyRow> rows = market.search(scope, CompanySortField.EMPLOYEES, SortDirection.DESC,
                 0, limit);
 
-        // No read-then-filter: the insert ignores the companies the mandate already holds, so the
-        // count it answers with is the number that were new. A row already declined stays declined —
-        // re-running after widening the filter must not resurrect a ruled-out company.
+        // No read-then-filter: the insert ignores companies the mandate already holds, so the count
+        // is the number that were new, and a declined row stays declined.
         int added = writer.insertIgnoringHeld(projectId, userId, rows,
                 TriageCompanySource.STRATEGY, TriageCompanyStatus.IN_UNIVERSE, null, null);
 
@@ -476,18 +449,10 @@ public class TriageCompanyService {
      * The companies a consultant ticked on Strategy, taken into the mandate at one stage — the
      * selection bar's three buttons are this method with three different statuses.
      *
-     * <p>Beside {@link #addAllInScope} rather than inside it, because the two answer different
-     * questions. That one adds whatever the stored filter matches and takes no body precisely so a
-     * request cannot widen the scope; this one adds a list the caller names, which is narrower than
-     * the filter by construction and is the only way a consultant can decline forty companies without
-     * first taking them into the universe.
-     *
-     * <p>Every id is still resolved against the universe and checked against the mandate's off-limits
-     * list, so a hand-crafted request buys nothing a click could not: an off-limits company is dropped
-     * rather than refusing the batch, since a selection made before the exclusion was added is a stale
-     * screen, not an attack, and failing all forty over one of them would be the wrong answer either
-     * way. Companies the mandate already holds keep the stage they are at — re-adding a declined
-     * company must not walk it back into the universe, here as in {@link #add}.
+     * <p>Every id is resolved against the universe and checked against the off-limits list, so a
+     * hand-crafted request buys nothing a click could not. An off-limits company is dropped rather
+     * than refusing the batch: a selection made before the exclusion was added is a stale screen, not
+     * an attack. Companies already held keep the stage they are at.
      */
     @Transactional
     public TriageBulkAddResponse addSelected(UUID userId, UUID workspaceId, UUID projectId,
@@ -529,8 +494,8 @@ public class TriageCompanyService {
         TriageCompany company = triaged.findByIdAndProjectId(triageCompanyId, projectId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
 
-        // Null leaves that half alone. Moving a company to Declined must not silently clear the note
-        // explaining why, and clearing a note is an explicit empty string rather than an omission.
+        // Null leaves that half alone: moving a company to Declined must not clear the note saying
+        // why, so clearing one is an explicit empty string rather than an omission.
         if (request.status() != null) {
             TriageCompanyStatus status = TriageCompanyStatus.fromValue(request.status());
             if (status == null) {
@@ -550,16 +515,15 @@ public class TriageCompanyService {
     }
 
     /**
-     * Replaces a company's own facts. Only for a company the mandate supplied itself: a row taken from
-     * the market carries the export's snapshot, and letting a mandate rewrite it would make the Source
-     * badge a claim about provenance the figures no longer support.
+     * Replaces a company's own facts. Only for a company the mandate supplied itself: a market row
+     * carries the export's snapshot, and rewriting it would make the Source badge a claim the figures
+     * no longer support.
      *
-     * <p><b>The rule lives here, not in the button.</b> The Companies panel hides Edit on a market row,
-     * but the endpoint is the thing that has to hold — the plugin posts here directly and a hidden
-     * button is not an access control.
+     * <p><b>The rule lives here, not in the button.</b> The Companies panel hides Edit on a market
+     * row, but the plugin posts here directly and a hidden button is not an access control.
      *
-     * <p>A rename re-runs the capture guard, excluding the row being renamed so that saving a company
-     * without touching its name cannot collide with itself.
+     * <p>A rename re-runs the capture guard, excluding the row being renamed so a save that does not
+     * touch the name cannot collide with itself.
      */
     @Transactional
     public TriageCompanyResponse edit(UUID userId, UUID workspaceId, UUID projectId,
@@ -601,13 +565,9 @@ public class TriageCompanyService {
     /**
      * Writes only the mandate's custom-column values onto a company, leaving its own facts alone.
      *
-     * <p>Exists for the case {@link #edit} cannot serve: a company taken out of the Apollo universe.
-     * Its fields are the export's snapshot and rewriting them would make the Source badge a lie, which
-     * is why {@code edit} refuses one outright — but the mandate's <i>own</i> columns beside it are not
-     * the export's. Without this a market company, which is most of them, could never carry a value in
-     * a column the mandate added — and an import that filled those columns in for every hand-typed
-     * company while silently skipping every market one would be arbitrary from the user's side of the
-     * screen.
+     * <p>Exists for the case {@link #edit} refuses: a company taken out of the Apollo universe. Its
+     * fields are the export's, but the mandate's <i>own</i> columns beside them are not, and without
+     * this a market company could never carry a value in a column the mandate added.
      */
     @Transactional
     public TriageCompanyResponse editCustomFields(UUID userId, UUID workspaceId, UUID projectId,
@@ -630,13 +590,11 @@ public class TriageCompanyService {
 
     /**
      * Drops this mandate's decision about a company. <b>Nothing of the company itself is deleted</b>:
-     * {@code app_lm_apollo_companies} is ETL-owned and read-only to this application, so the company
-     * stays in the universe, stays findable on Strategy, and stays untouched for every other mandate.
-     * What goes is the one project↔company row — the mapping and the stage it had reached.
+     * {@code app_lm_apollo_companies} is ETL-owned and read-only here, so the company stays in the
+     * universe and untouched for every other mandate.
      *
-     * <p>Unlike Declining, this is not remembered. A later "Add all to Universe" over a filter that
-     * matches the company may take it back in as In universe, which is the accepted trade for a delete
-     * that leaves nothing behind: to rule a company out durably, decline it.
+     * <p>Unlike Declining, this is not remembered — a later "Add all to Universe" may take the company
+     * back in. To rule one out durably, decline it.
      */
     @Transactional
     public void removeFromProject(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
@@ -647,8 +605,8 @@ public class TriageCompanyService {
 
         triaged.delete(company);
 
-        // The name is recorded because the row that carried it is about to stop existing, and an audit
-        // entry naming only an id nobody can resolve answers no question later.
+        // The name is recorded because the row carrying it is about to stop existing, and an audit
+        // entry naming only an unresolvable id answers no question later.
         audit.event(ProjectEventType.TRIAGE_COMPANY_REMOVED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .detail("triageCompanyId", triageCompanyId.toString())
@@ -666,20 +624,17 @@ public class TriageCompanyService {
     /**
      * Newest first unless the grid asked otherwise.
      *
-     * <p>{@code NULLS LAST} regardless of direction, for the same reason {@code CompanySortField}
-     * spells out: a missing figure is a data gap, not a small one, and a page of blanks is never what
-     * "sort by revenue" was asking for. Apollo publishes a revenue figure on about one row in ten, and
-     * those blanks travel into the snapshot, so without this an ascending revenue sort opens on the
-     * very rows the ordering means to bury.
+     * <p>{@code NULLS LAST} regardless of direction: Apollo publishes a revenue figure on about one
+     * row in ten and those blanks travel into the snapshot, so without it an ascending revenue sort
+     * opens on the very rows the ordering means to bury.
      *
-     * <p>The secondary sort on {@code createdAt} keeps paging stable: the snapshot columns are full of
-     * ties — a whole page can share one country — and Postgres is free to order tied rows differently
-     * per query, which shuffles rows across page boundaries.
+     * <p>The secondary sort on {@code createdAt} keeps paging stable — the snapshot columns are full
+     * of ties, and Postgres is free to order tied rows differently per query.
      */
     private static Sort resolveSort(TriageCompanyListCriteria criteria) {
-        // Both tokens are resolved before either is used, so a bad direction is a 400 whether or not a
-        // field came with it. Returning the default early instead would have let ?direction=sideways
-        // through with a 200 — and silently ignored a well-formed ?direction=asc on its own.
+        // Both tokens are resolved before either is used, so a bad direction is a 400 whether or not
+        // a field came with it. Returning the default early would have let ?direction=sideways
+        // through with a 200.
         SortDirection direction = resolveDirection(criteria.direction());
         TriageCompanySortField field = resolveSortField(criteria.sort());
         if (field == null) {

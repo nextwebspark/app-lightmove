@@ -30,10 +30,9 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
     Optional<TriageCompany> findByProjectIdAndApolloAccountId(UUID projectId, String apolloAccountId);
 
     /**
-     * The duplicate guard behind a capture, and wider than the partial unique index V34 adds: that
-     * index can only see the manual rows, so a company typed in under a name the mandate already took
-     * out of Apollo would pass it. Matching across every source is also what a consultant means by
-     * "already there" — where the row came from is not the question they are asking.
+     * The duplicate guard behind a capture, wider than the partial unique index V34 adds: that index
+     * can only see the manual rows, so a company typed in under a name already taken out of Apollo
+     * would pass it.
      *
      * <p>{@code exists}, not a finder: the name is not unique within a project and cannot be made so.
      * Nothing stops the Apollo export carrying two accounts under one name, and a bulk add takes both;

@@ -36,15 +36,10 @@ import org.springframework.transaction.annotation.Transactional;
  * other feature actually calls — deciding what a row is allowed to store in them.
  *
  * <p>{@link #applyTo} is the gate. The values live in an open jsonb bag, so without it any caller
- * could write any key into a row and the "columns" would be whatever happened to be in the map. It
- * drops keys the project has not defined, checks each value against its column's declared type, and
- * merges over what the row already held — which is also what makes a partial edit possible on a
- * column set the caller may only know half of.
+ * could write any key into a row and the "columns" would be whatever happened to be in the map.
  *
- * <p>Deleting a column removes the definition and <b>not</b> the values under it. The rows keep them,
- * unrendered, so a column deleted by mistake comes back with its data when it is defined again under
- * the same name. A sweep that erased them would make one misclick unrecoverable, for no benefit
- * beyond a slightly smaller document.
+ * <p>Deleting a column removes the definition and <b>not</b> the values under it, so a column deleted
+ * by mistake comes back with its data when it is defined again under the same name.
  */
 @Service
 public class CustomColumnService {
@@ -98,15 +93,13 @@ public class CustomColumnService {
     }
 
     /**
-     * Defines a column if the project has not got one by that name, and answers the existing one if it
-     * has. The import's entry point, and the reason importing the same file twice does not mint a
-     * second Ethnicity column: matching is on the <i>label</i>, case-insensitively, because that is
-     * what a user reading two identical headers would call the same column.
+     * Defines a column if the project has not got one by that name, and answers the existing one if
+     * it has. The import's entry point, and the reason importing the same file twice does not mint a
+     * second Ethnicity column: matching is on the <i>label</i>, case-insensitively.
      *
      * <p>{@code @Transactional} in its own right, unlike the rest of this class's writes, because the
      * import that calls it deliberately runs without an outer transaction — see
-     * {@code ProjectImportService}. A column has to be committed before the row loop can write values
-     * under it.
+     * {@code ProjectImportService}. A column has to be committed before the row loop writes under it.
      */
     @Transactional
     public CustomColumnDto defineIfAbsent(UUID projectId, UUID userId, CustomColumnTarget target,
@@ -151,16 +144,12 @@ public class CustomColumnService {
     }
 
     /**
-     * Applies a whole new order. Every id must belong to this project and to one grid: reordering the
-     * company columns cannot be allowed to renumber the candidate ones behind them, and an id from
-     * another mandate is a scope error rather than something to skip past.
+     * Applies a whole new order. Every id must belong to this project and to one grid, and the list
+     * must be that grid's <b>whole</b> set, each column once.
      *
-     * <p>The list must also be that grid's <b>whole</b> set, each column once. Only the ids sent are
-     * renumbered, so a short list — a stale tab that read the columns before a third was added, or one
-     * carrying a duplicate — leaves the columns it omitted on their old positions, now colliding with
-     * the ones it did move. Nothing in the schema catches that: {@code display_order} is not unique,
-     * because two columns sharing a position is a display quirk rather than corrupt data. Refused here
-     * instead, since a caller sending a partial order is asking for something it cannot mean.
+     * <p>Only the ids sent are renumbered, so a short list leaves the columns it omitted on their old
+     * positions, now colliding with the ones it moved. {@code display_order} is not unique, so nothing
+     * in the schema catches that; it is refused here instead.
      */
     @Transactional
     public CustomColumnsResponse reorder(UUID userId, UUID workspaceId, UUID projectId,
@@ -202,8 +191,8 @@ public class CustomColumnService {
         ProjectCustomColumn column = require(projectId, columnId);
         String fieldKey = column.getFieldKey();
 
-        // The definition only. See the class doc: the rows keep their values, so defining the column
-        // again under the same name brings the data back rather than starting from blank cells.
+        // The definition only — the rows keep their values, so redefining the column under the same
+        // name brings the data back.
         columns.delete(column);
 
         audit.event(ProjectEventType.CUSTOM_COLUMN_REMOVED)
@@ -259,10 +248,8 @@ public class CustomColumnService {
      * Checks a value against its column's type and answers the form to store.
      *
      * <p>Only the canonical forms are rewritten — a boolean to {@code true}/{@code false}, a number
-     * with its grouping commas taken out — because those are the two a spreadsheet reliably mangles
-     * and the two a cell renderer has to be able to trust. Everything else is stored verbatim: this is
-     * a validator, not a formatter, and a date the user typed the way their region writes dates is not
-     * ours to rewrite.
+     * with its grouping commas taken out — because those are the two a spreadsheet reliably mangles.
+     * Everything else is stored verbatim: this is a validator, not a formatter.
      */
     private static String coerce(CustomColumnType type, String value, String fieldKey) {
         return switch (type) {
@@ -292,14 +279,11 @@ public class CustomColumnService {
         if (columns.existsByProjectIdAndTargetAndLabelIgnoreCase(projectId, target, label)) {
             throw ApiException.of(ErrorCode.CUSTOM_COLUMN_NAME_TAKEN);
         }
-        // Check-then-act, and knowingly so: unlike the name check above — which a unique index still
-        // catches if two requests race it — nothing in the schema backs this one, so two concurrent
-        // adds at the ceiling can both pass and land. Accepted rather than fixed: it is a limit on how
-        // wide a grid gets, not a security boundary, and the cost of enforcing it properly (a lock, or
-        // a count constraint) is out of proportion to one column over on a genuine race.
+        // Check-then-act, knowingly: nothing in the schema backs this one, so two concurrent adds at
+        // the ceiling can both land. Accepted — it is a limit on how wide a grid gets, not a security
+        // boundary.
         if (columns.countByProjectId(projectId) >= settings.maxPerProject()) {
-            // The ceiling is configured, not request input, so naming it is what turns a refusal into
-            // something the caller can act on — remove a column, or import fewer.
+            // The ceiling is configuration, not request input, so it is safe to name in the message.
             throw ApiException.userFacing(ErrorCode.CUSTOM_COLUMN_LIMIT_REACHED,
                     "This mandate already has its " + settings.maxPerProject() + " custom columns.");
         }

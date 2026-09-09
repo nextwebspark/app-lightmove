@@ -24,10 +24,9 @@ import tools.jackson.databind.ObjectMapper;
  * The aliases below must therefore be written lower-case; {@code MarketSegmentsTest} asserts that.
  *
  * <p><b>The segment name is what a filter stores</b>, not its aliases — the opposite of
- * {@link SectorTaxonomy}, and deliberately. A sector group is a shorthand for industries the user can
- * also pick individually, so storing the group would let a re-tuned taxonomy silently widen a saved
- * mandate. A segment has no sub-chips: it <i>is</i> the selection, and adding an alias to it later
- * should improve an existing saved search rather than leave it matching the old spelling only.
+ * {@link SectorTaxonomy}, where storing the group would let a re-tuned taxonomy widen a saved
+ * mandate. A segment has no sub-chips, so adding an alias later improves an existing saved search
+ * rather than leaving it on the old spelling.
  */
 @Component
 public class MarketSegments {
