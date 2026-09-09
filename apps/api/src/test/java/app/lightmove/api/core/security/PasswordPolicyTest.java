@@ -74,7 +74,7 @@ class PasswordPolicyTest {
                 // Null extension too, for the same reason as oauth below: nothing here pairs one.
                 null,
                 Duration.ofMinutes(15), Duration.ofDays(30), Duration.ofHours(24),
-                Duration.ofMinutes(30), Duration.ofDays(7),
+                Duration.ofMinutes(30), Duration.ofDays(7), Duration.ofMinutes(10),
                 // Null oauth: nothing here signs in through a provider, and AuthSettings defaults it.
                 true, false, 4, null);
         return new LightMoveProperties(auth, null, null, null, null, null, null, null, null, null);

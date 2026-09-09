@@ -165,6 +165,9 @@ lightmove:
     # standing invitation to whoever reads that inbox later.
     password-reset-token-ttl: 30m
     invitation-ttl: 7d
+    # The lifetime of the cookie that carries the OAuth authorisation request between the redirect out
+    # to the provider and the callback back. Long enough for a consent screen and a second factor.
+    oauth-request-ttl: 10m
     # A user's email domain decides their organisation, so an unverified address proves nothing —
     # anyone could type sara@nextwebspark.com and walk into that firm's workspace. Verification is
     # what turns a claim to an address into evidence of employment, so it gates workspace access.
