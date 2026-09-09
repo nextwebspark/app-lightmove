@@ -5,11 +5,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import static app.lightmove.api.auth.OAuthFlowSupport.AUTHORIZATION_REQUEST_COOKIE;
+import static app.lightmove.api.auth.OAuthFlowSupport.stateOf;
+
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.core.security.service.CookieAuthorizationRequestStore;
 import jakarta.servlet.http.Cookie;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +21,6 @@ import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequ
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * What the SPA is told to render a button for.
@@ -37,7 +37,7 @@ class ConfiguredProvidersTest {
 
     @Autowired MockMvc mvc;
     @Autowired ClientRegistrationRepository registrations;
-    @Autowired CookieAuthorizationRequestStore authorizationRequests;
+    @Autowired CookieAuthorizationRequestStore authorizationRequestStore;
 
     @Test
     @DisplayName("every configured registration is offered, by its id")
@@ -118,24 +118,13 @@ class ConfiguredProvidersTest {
 
     /** Reads back what the redirect stashed in the browser, the way the callback will. */
     private OAuth2AuthorizationRequest storedRequestOf(MockHttpServletResponse redirect) {
-        Cookie cookie = redirect.getCookie("lm_oauth_request");
+        Cookie cookie = redirect.getCookie(AUTHORIZATION_REQUEST_COOKIE);
         assertThat(cookie).as("the authorisation request should ride back in a cookie").isNotNull();
 
         MockHttpServletRequest callback = new MockHttpServletRequest();
         callback.setCookies(cookie);
         callback.setParameter("state", stateOf(redirect.getRedirectedUrl()));
-        return authorizationRequests.loadAuthorizationRequest(callback);
+        return authorizationRequestStore.loadAuthorizationRequest(callback);
     }
 
-    /**
-     * Decoded on the way out: the query is percent-encoded and the store compares the raw value, so a
-     * state ending in %3D would simply never match.
-     */
-    private static String stateOf(String authorizationUri) {
-        String state = UriComponentsBuilder.fromUriString(authorizationUri)
-                .build()
-                .getQueryParams()
-                .getFirst("state");
-        return URLDecoder.decode(state, StandardCharsets.UTF_8);
-    }
 }

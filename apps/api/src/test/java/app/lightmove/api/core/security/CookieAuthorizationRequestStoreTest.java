@@ -2,11 +2,10 @@ package app.lightmove.api.core.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import app.lightmove.api.core.config.AuthSettings;
-import app.lightmove.api.core.config.CookieSettings;
-import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.security.service.CookieAuthorizationRequestStore;
 import jakarta.servlet.http.Cookie;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
@@ -32,7 +31,7 @@ class CookieAuthorizationRequestStoreTest {
     private static final String COOKIE = "lm_oauth_request";
 
     private final CookieAuthorizationRequestStore store =
-            new CookieAuthorizationRequestStore(JsonMapper.builder().build(), properties());
+            new CookieAuthorizationRequestStore(JsonMapper.builder().build(), TestAuthSettings.production());
 
     @Test
     @DisplayName("everything the callback reads off the request comes back")
@@ -104,15 +103,36 @@ class CookieAuthorizationRequestStoreTest {
     @Test
     @DisplayName("a cookie written by an older format is discarded, not guessed at")
     void refusesACookieFromAnotherFormatVersion() {
-        String previousFormat = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
-                ("""
-                 {"version":0,"authorizationUri":"https://accounts.google.com/o/oauth2/v2/auth",\
-                 "clientId":"client","redirectUri":"https://app.example/login/oauth2/code/google",\
-                 "scopes":["openid"],"state":"state-value","parameters":{},"attributes":{}}""")
-                        .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertThat(store.loadAuthorizationRequest(callbackCarrying(cookieHolding("""
+                {"version":0,"authorizationUri":"https://accounts.google.com/o/oauth2/v2/auth",\
+                "clientId":"client","redirectUri":"https://app.example/login/oauth2/code/google",\
+                "scopes":["openid"],"state":"state-value","parameters":{},"attributes":{}}"""),
+                "state-value"))).isNull();
+    }
 
-        assertThat(store.loadAuthorizationRequest(
-                callbackCarrying(new Cookie(COOKIE, previousFormat), "state-value"))).isNull();
+    /**
+     * The half a mangled-base64 case cannot reach. Each of these parses as JSON and then dies further
+     * in — {@code null} in the version check, a missing {@code scopes} in the rebuild, a missing
+     * {@code authorizationUri} in the builder — and each one escaping would be a container error page
+     * on the callback instead of the sign-in screen.
+     */
+    @Test
+    @DisplayName("well-formed JSON of the wrong shape is refused too, not thrown")
+    void refusesACookieWhoseJsonIsNotAStoredRequest() {
+        String[] readableButWrong = {
+                "null",
+                """
+                {"version":1,"state":"state-value"}""",
+                """
+                {"version":1,"state":"state-value","scopes":[],"parameters":{},"attributes":{}}""",
+        };
+
+        for (String payload : readableButWrong) {
+            assertThat(store.loadAuthorizationRequest(
+                    callbackCarrying(cookieHolding(payload), "state-value")))
+                    .as(payload)
+                    .isNull();
+        }
     }
 
     /**
@@ -143,6 +163,11 @@ class CookieAuthorizationRequestStoreTest {
                 callbackCarrying(response.getCookie(COOKIE), request.getState()));
     }
 
+    private static Cookie cookieHolding(String payload) {
+        return new Cookie(COOKIE, Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(payload.getBytes(StandardCharsets.UTF_8)));
+    }
+
     private static MockHttpServletRequest callbackCarrying(Cookie cookie, String state) {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setCookies(cookie);
@@ -163,15 +188,4 @@ class CookieAuthorizationRequestStoreTest {
                 .build();
     }
 
-    /** Production's cookie settings — the test profile overrides none of them. */
-    private static LightMoveProperties properties() {
-        AuthSettings auth = new AuthSettings(
-                null,
-                new CookieSettings("lm_refresh", "/api/v1/auth", true, true, "Strict", null),
-                null, null, null,
-                Duration.ofMinutes(15), Duration.ofDays(30), Duration.ofHours(24),
-                Duration.ofMinutes(30), Duration.ofDays(7), Duration.ofMinutes(10),
-                true, false, 12, null);
-        return new LightMoveProperties(auth, null, null, null, null, null, null, null, null, null);
-    }
 }

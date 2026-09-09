@@ -341,8 +341,6 @@ public class SecurityConfig {
             http.oauth2Login(login -> login
                     .authorizationEndpoint(endpoint -> endpoint
                             .authorizationRequestResolver(authorizationRequests)
-                            // Set here and it reaches both filters: the one that redirects out to the
-                            // provider and the one that handles the callback back.
                             .authorizationRequestRepository(authorizationRequestStore))
                     .successHandler(oauthSuccessHandler)
                     .failureHandler(oauthFailureHandler));
