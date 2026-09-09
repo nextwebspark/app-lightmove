@@ -126,10 +126,25 @@ if [ "${USE_CLOUD_BUILD:-false}" = "true" ]; then
     # that works: `docker build --platform linux/amd64` runs under QEMU, whose missing tar syscall breaks
     # the Maven layer ("Cannot open: Function not implemented"). Same Dockerfile, same amd64 image, pushed
     # straight to Artifact Registry — just built where amd64 is native.
+    #
+    # `gcloud builds submit --tag` takes no --build-arg, so the bundle here is built from the
+    # Dockerfile's defaults: version `dev`, and the DEVELOPMENT extension id. Harmless while the id is
+    # the development one, and a mismatch worth naming when it is not.
+    if [ "$EXTENSION_ID" != "kllpamcdcnecpdblgdkehgbhdjdlbofh" ]; then
+        echo "  ! Cloud Build cannot pass build args, so the SPA in this image is pinned to the" >&2
+        echo "    development extension id while the API allow-lists ${EXTENSION_ID}. Pairing will" >&2
+        echo "    fail against it. Use the docker path, or cut a release, once bootstrap is done." >&2
+    fi
     gcloud builds submit --project "$PROJECT" --tag "$IMAGE" .
 else
     gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet >/dev/null
-    docker build --platform linux/amd64 -t "$IMAGE" .
+    # The same three the pipeline passes. `dev` is the honest version: a hand-run bootstrap is not a
+    # release, and claiming a tag it never cut would be worse than saying so.
+    docker build --platform linux/amd64 \
+        --build-arg APP_VERSION=dev \
+        --build-arg GIT_SHA="${SHA}" \
+        --build-arg EXTENSION_ID="${EXTENSION_ID}" \
+        -t "$IMAGE" .
     docker push "$IMAGE"
 fi
 

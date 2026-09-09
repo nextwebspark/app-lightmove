@@ -41,6 +41,18 @@ jobs:
       id-token: write   # mints the OIDC token that Workload Identity Federation trades for GCP creds
 
     steps:
+      # A dispatched ref is free text, and it goes on to be a Docker tag and a Cloud Run label, neither
+      # of which accepts everything. Checked here rather than where it is used because Flyway runs first:
+      # a ref rejected later would leave production migrated with no new revision serving.
+      - name: Check the ref is a release tag
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          case "$REF" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::'${REF}' is not a release tag (vX.Y.Z)."; exit 1 ;;
+          esac
+
       - uses: actions/checkout@v7
         with:
           # The tag, never a branch. What is deployed is whatever the release named, however far main
@@ -68,8 +80,10 @@ jobs:
       # the development one on purpose.
       - name: Resolve the extension id
         id: extension
+        env:
+          CONFIGURED: ${{ vars.EXTENSION_ID }}
         run: |
-          EXTENSION_ID="${{ vars.EXTENSION_ID }}"
+          EXTENSION_ID="$CONFIGURED"
           if [ -z "$EXTENSION_ID" ]; then
             echo "::error::EXTENSION_ID is not set. Use the Chrome Web Store id, or 'dev' for the committed development id."
             exit 1
@@ -92,8 +106,6 @@ jobs:
           SHA="$(git rev-parse HEAD)"
           BASE="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/${AR_REPO}/${SERVICE}"
 
-          # Baked in, not set on the service: an image that could be told at deploy time which release
-          # it is could be told wrong, and the SPA bundle inside it would still say something else.
           docker build \
             --build-arg APP_VERSION="${VERSION}" \
             --build-arg GIT_SHA="${SHA}" \
@@ -256,8 +268,7 @@ jobs:
           # address and gcloud would split it mid-way and reject the domain half as a malformed entry.
           #
           # A Cloud Run label may not contain a dot, so v1.4.0 is stored as v1-4-0. Nothing reads it —
-          # it is there so the console can say what is live without anyone mapping a SHA by hand. The
-          # version the application itself reports comes from the image, not from here.
+          # it is there so the console can say what is live without anyone mapping a SHA by hand.
           gcloud run deploy "$SERVICE" \
             --image "$IMAGE" \
             --region "$REGION" \
@@ -288,6 +299,8 @@ jobs:
       # `gcloud run deploy` succeeding means the revision started, not that it serves. These three assert
       # the properties that this deployment exists to preserve.
       - name: Smoke test
+        env:
+          VERSION: ${{ inputs.ref }}
         run: |
           URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
 
@@ -303,4 +316,4 @@ jobs:
           echo "the API is still shut to anonymous callers"
           [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/v1/onboarding/workspaces")" = "401" ]
 
-          echo "::notice::Deployed ${{ inputs.ref }} ($(git rev-parse --short HEAD)) to ${URL}"
+          echo "::notice::Deployed ${VERSION} ($(git rev-parse --short HEAD)) to ${URL}"
