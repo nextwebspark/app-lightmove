@@ -319,6 +319,7 @@ so no data is lost); leaking it lets anyone mint a token for any user.
 |---|---|
 | `min-instances 0` | $0 idle. The price is a cold start — measured at **~5s**, not the 15s a Spring Boot app usually costs |
 | `max-instances 2` | **Not** the default of 100. 2 × `DB_POOL_MAX=5` = 10 connections, under the `db-f1-micro`'s ~25 — which the `brightdata` ETL also draws on. Raise this and you can take down the neighbours |
+| Version | One `--build-arg` (`APP_VERSION`, the release tag) feeds both halves of the image: vite freezes it into the bundle, where the left rail renders it, and Spring reports it at `/actuator/info`. Baked, never set on the service — an image must not be able to disagree with itself. Every local build reads `dev` |
 | Image tag | The release version **and** the git SHA, never `latest`. The version is what you ask for; the SHA still answers which commit is serving if a tag is ever moved |
 | Frontend bundle | The `vite build` output and nothing else: **no sourcemaps** and no build-machine paths. A scan of a *developer's* machine sees `/src/...` and an absolute local path because that is the Vite **dev server** serving unbundled modules — it only ever runs under `npm run dev` and is never in the image |
 | Flyway | **Not in the container.** It runs in the deploy pipeline as `lm_migrate`, so a bad migration fails the deploy and the old revision keeps serving. `lm_app` holds no DDL, which is what finally lets `harden.sql` be applied |

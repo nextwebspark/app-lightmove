@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.IntegrationTest;
@@ -132,5 +133,22 @@ class SpaSecurityTest {
     void healthIsOpen() throws Exception {
         mvc.perform(get("/actuator/health"))
                 .andExpect(status().isOk());
+    }
+
+    /**
+     * The release the image was built as, which is how you ask a running service what it is without
+     * reading a Cloud Run revision. It arrives as APP_VERSION, baked into the image by the Dockerfile's
+     * build arg — the same one the SPA bundle was built with, so the two halves cannot disagree.
+     *
+     * <p>Nothing sets it here, so this asserts the fallback. That is the assertion worth having: it
+     * fails if {@code management.info.env.enabled} is ever dropped, which would leave the endpoint
+     * answering {@code {}} exactly as it did before, with nothing else to notice.
+     */
+    @Test
+    @DisplayName("reports its version at /actuator/info")
+    void infoReportsVersion() throws Exception {
+        mvc.perform(get("/actuator/info"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.app.version").value("dev"));
     }
 }

@@ -70,7 +70,13 @@ jobs:
         run: |
           SHA="$(git rev-parse HEAD)"
           BASE="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/${AR_REPO}/${SERVICE}"
-          docker build -t "${BASE}:${VERSION}" -t "${BASE}:${SHA}" .
+
+          # Baked in, not set on the service: an image that could be told at deploy time which release
+          # it is could be told wrong, and the SPA bundle inside it would still say something else.
+          docker build \
+            --build-arg APP_VERSION="${VERSION}" \
+            --build-arg GIT_SHA="${SHA}" \
+            -t "${BASE}:${VERSION}" -t "${BASE}:${SHA}" .
           docker push "${BASE}:${VERSION}"
           docker push "${BASE}:${SHA}"
           echo "image=${BASE}:${VERSION}" >> "$GITHUB_OUTPUT"
@@ -240,9 +246,9 @@ jobs:
           # comma-lists. It must be a character no value contains — @ is wrong, because EMAIL_FROM is an email
           # address and gcloud would split it mid-way and reject the domain half as a malformed entry.
           #
-          # A Cloud Run label may not contain a dot, so v1.4.0 is stored as v1-4-0. Neither the label
-          # nor APP_VERSION is read by the application: they are there so the console can say what is
-          # live without anyone mapping a SHA by hand.
+          # A Cloud Run label may not contain a dot, so v1.4.0 is stored as v1-4-0. Nothing reads it —
+          # it is there so the console can say what is live without anyone mapping a SHA by hand. The
+          # version the application itself reports comes from the image, not from here.
           gcloud run deploy "$SERVICE" \
             --image "$IMAGE" \
             --region "$REGION" \
@@ -254,7 +260,7 @@ jobs:
             --cpu 1 --memory 1Gi --cpu-boost \
             --concurrency 80 \
             --timeout 60s \
-            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@lightmove.ai' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem|APP_VERSION=${VERSION}${OAUTH_ENV}${ENRICHMENT_ENV}" \
+            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@lightmove.ai' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem${OAUTH_ENV}${ENRICHMENT_ENV}" \
             --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}"
 
       # First deploy only: the service now has a URL, and it is not the placeholder we booted with.
