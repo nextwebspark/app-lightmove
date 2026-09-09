@@ -20,7 +20,7 @@ import type { CompanyResult, CompanySortField } from "../api/types";
 /** What the Actions column needs, supplied per render rather than baked into the column defs. */
 interface CompanyTableMeta {
   onAddToUniverse: (company: CompanyResult) => void;
-  addingId: string | null;
+  addingIds: ReadonlySet<string>;
 }
 
 /**
@@ -84,7 +84,7 @@ export const companyColumns = helper.columns([
             title="Add to universe"
             aria-label={`Add ${company.companyName} to universe`}
             onClick={() => meta?.onAddToUniverse(company)}
-            disabled={meta?.addingId === company.apolloAccountId}
+            disabled={meta?.addingIds.has(company.apolloAccountId)}
             className={`${GRID_ICON_BUTTON} disabled:opacity-40`}
           >
             <Icon d={ICONS.plus} size={14} />

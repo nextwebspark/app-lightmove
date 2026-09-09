@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
 import { AuthProvider } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
@@ -14,6 +14,7 @@ import * as companiesApi from "../../strategy/api/companiesApi";
 import type { CompanyResult, Facets } from "../../strategy/api/types";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompaniesPage, TriageCompany } from "../api/types";
+import { stubFullscreenApi } from "../../../test/fullscreen";
 import { TriageStagePage } from "./TriageStagePage";
 
 vi.mock("../../auth/api/authApi");
@@ -920,5 +921,50 @@ describe("TriageStagePage", () => {
         }),
       ),
     );
+  });
+});
+
+describe("TriageStagePage — full screen", () => {
+  let fullscreenApi: ReturnType<typeof stubFullscreenApi>;
+
+  beforeEach(async () => {
+    vi.resetAllMocks();
+    fullscreenApi = stubFullscreenApi();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    const authApi = await import("../../auth/api/authApi");
+    vi.mocked(authApi.me).mockResolvedValue(lead);
+    vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(pageOf());
+    vi.mocked(candidatesApi.getCandidates).mockResolvedValue(peopleOf([]));
+    vi.mocked(customColumnsApi.getCustomColumns).mockResolvedValue({ columns: [] });
+  });
+
+  afterEach(() => fullscreenApi.restore());
+
+  it.each(["universe", "shortlisted", "declined"])("is offered on %s", async (slug) => {
+    renderStage(slug);
+
+    expect(await screen.findByRole("button", { name: "Full screen", pressed: false }))
+      .toBeInTheDocument();
+  });
+
+  it("redraws the same screen — the toolbar, grid and pager all survive the switch", async () => {
+    renderStage();
+    await userEvent.click(await screen.findByRole("button", { name: "Full screen" }));
+
+    expect(screen.getByRole("textbox", { name: /Search companies/i })).toBeInTheDocument();
+    expect(within(await screen.findByRole("table", { name: /In universe companies/i }))
+      .getByText("ACWA Power")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Full screen" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("collapses when the browser leaves full screen on its own", async () => {
+    renderStage();
+    const button = await screen.findByRole("button", { name: "Full screen" });
+    await userEvent.click(button);
+
+    await act(async () => fullscreenApi.setElement(null));
+
+    // Escape, F11 and the browser's own control announce themselves only through fullscreenchange.
+    expect(button).toHaveAttribute("aria-pressed", "false");
   });
 });

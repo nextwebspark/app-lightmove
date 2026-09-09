@@ -37,9 +37,10 @@ export function CompanyResultsTable({
   loading,
   error,
   onAddToUniverse,
-  addingId,
+  addingIds,
   rowSelection,
   onRowSelectionChange,
+  onOpenCompany,
 }: {
   companies: CompanyResult[];
   sort: CompanySort;
@@ -51,7 +52,8 @@ export function CompanyResultsTable({
   loading: boolean;
   error: boolean;
   onAddToUniverse: (company: CompanyResult) => void;
-  addingId: string | null;
+  /** Every company with an add still in flight, so one row's request cannot re-enable another's. */
+  addingIds: ReadonlySet<string>;
   /**
    * Which rows are ticked, keyed by company id. Held by the page rather than by this component,
    * because the bulk bar it floats over the grid acts on the selection and outlives any one page of
@@ -59,6 +61,9 @@ export function CompanyResultsTable({
    */
   rowSelection: RowSelectionState;
   onRowSelectionChange: OnChangeFn<RowSelectionState>;
+  /** Opens the market panel on a row. The tick box, the add button and the link icons keep their
+      own clicks — {@link DataGrid} excludes every nested control from the row's. */
+  onOpenCompany: (company: CompanyResult) => void;
 }) {
   const table = useDataGridTable<typeof companyTableFeatures, CompanyResult, CompanySortField>({
     features: companyTableFeatures,
@@ -74,7 +79,7 @@ export function CompanyResultsTable({
     onColumnVisibilityChange,
     layout,
     onLayoutChange,
-    meta: { onAddToUniverse, addingId },
+    meta: { onAddToUniverse, addingIds },
   });
 
   /*
@@ -95,6 +100,7 @@ export function CompanyResultsTable({
       error={error}
       errorMessage="That list could not be loaded. Refresh, or check you still have access."
       emptyMessage="No companies match this filter. Widen it, or reset an accordion."
+      onRowClick={onOpenCompany}
       headerLead={
         <SelectionCheckbox
           checked={allOnPageSelected}
