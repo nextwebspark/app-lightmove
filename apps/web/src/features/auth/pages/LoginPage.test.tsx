@@ -46,7 +46,7 @@ describe("LoginPage", () => {
     renderAt("/login?error=OAUTH_CANCELLED");
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument());
-    expect(screen.queryByText(/did not complete/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/didn't complete/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -61,7 +61,7 @@ describe("LoginPage", () => {
   it("falls back to one plain sentence for a code it does not know", async () => {
     renderAt("/login?error=SOMETHING_NEW");
 
-    expect(await screen.findByText(/Sign-in did not complete/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Sign-in didn't complete/i)).toBeInTheDocument();
   });
 
   /** Left in place it survives a reload and resurrects a banner for an attempt that is long over. */

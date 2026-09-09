@@ -29,6 +29,12 @@ export function messageForOAuthError(code: string): string | null {
     case "EMAIL_UNDELIVERABLE":
       return "That address does not appear to exist. Check it with your provider, then try again.";
     default:
-      return "Sign-in did not complete. Try again, or use your password.";
+      // Not "or use your password": the account may well not have one — someone who has only ever
+      // signed in with a provider has no password to fall back to, and the form sits directly above
+      // this message anyway for anyone who does. Retrying is also the honest advice, because the
+      // likeliest cause is ours: the authorisation request lives in the server's session, and a
+      // restart, a 30-minute timeout, or a callback landing on a second instance loses it. A fresh
+      // attempt starts a fresh request and works.
+      return "Sign-in didn't complete. Please try again.";
   }
 }
