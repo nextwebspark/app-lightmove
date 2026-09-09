@@ -167,7 +167,7 @@ class ActiveSessionsIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isUnauthorized());
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // Helpers
 
     /** What a browser holds after signing in: a bearer token in memory and a refresh cookie. */
     private record SignedInDevice(String bearerToken, Cookie refreshCookie) {}

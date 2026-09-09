@@ -336,7 +336,7 @@ class ReportIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.marketsInScope").value(1));
     }
 
-    // ── fixture ──────────────────────────────────────────────────────────────
+    // fixture
 
     private void putFilter(String token, String projectId, String bodyJson) throws Exception {
         mvc.perform(put("/api/v1/projects/" + projectId + "/strategy/filter")

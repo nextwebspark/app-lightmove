@@ -334,7 +334,7 @@ class CustomColumnIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isNotFound());
     }
 
-    // ── helpers ───────────────────────────────────────────────────────────────
+    // helpers
 
     private static String columnsUrl(String projectId) {
         return "/api/v1/projects/" + projectId + "/custom-columns";

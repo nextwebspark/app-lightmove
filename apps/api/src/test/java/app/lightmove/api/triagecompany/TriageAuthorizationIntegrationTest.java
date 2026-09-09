@@ -87,7 +87,7 @@ class TriageAuthorizationIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isForbidden());
     }
 
-    // ── fixture ──────────────────────────────────────────────────────────────
+    // fixture
 
     private static String triageUrl(String projectId) {
         return "/api/v1/projects/" + projectId + "/triage";

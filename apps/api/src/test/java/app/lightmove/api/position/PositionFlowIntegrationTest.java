@@ -448,7 +448,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.reporting.orgChart[1].title").value("Board of Directors"));
     }
 
-    // ── helpers ──────────────────────────────────────────────────────────────
+    // helpers
 
     private static String positionUrl(String projectId) {
         return "/api/v1/projects/" + projectId + "/position";

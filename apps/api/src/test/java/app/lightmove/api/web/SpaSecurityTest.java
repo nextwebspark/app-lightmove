@@ -32,7 +32,7 @@ class SpaSecurityTest {
 
     @Autowired MockMvc mvc;
 
-    // ── The SPA is served ─────────────────────────────────────────────────────
+    // The SPA is served
 
     /**
      * The root is Boot's own welcome-page mapping, which <i>forwards</i> to index.html rather than
@@ -85,7 +85,7 @@ class SpaSecurityTest {
                 .andExpect(status().isNotFound());
     }
 
-    // ── The API is still shut ─────────────────────────────────────────────────
+    // The API is still shut
 
     /**
      * The line the SPA chain must not cross. If its matcher ever starts claiming {@code /api/}, this is

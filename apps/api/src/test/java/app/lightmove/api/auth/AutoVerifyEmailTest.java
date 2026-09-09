@@ -109,7 +109,7 @@ class AutoVerifyEmailTest {
                 .andExpect(jsonPath("$.workspace.id").exists());
     }
 
-    // ── helpers ───────────────────────────────────────────────────────────────
+    // helpers
 
     private JsonNode signup(String name, String emailAddress) throws Exception {
         MvcResult result = mvc.perform(post("/api/v1/auth/signup")

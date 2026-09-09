@@ -204,7 +204,7 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
         assertThat(codeOf(masked)).isEqualTo("NOT_A_MEMBER");
     }
 
-    // ── fixture ──────────────────────────────────────────────────────────────
+    // fixture
 
     private record Fixture(String admin, String clientId, String projectId, String saraEmail,
                            String saraId, String omarId) {}
