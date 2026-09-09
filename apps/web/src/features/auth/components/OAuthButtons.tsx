@@ -1,7 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { type ReactElement } from "react";
+import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../../../components/ui";
+import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
+import { homeFor } from "../homeFor";
+import { messageForOAuthError } from "../oauthErrors";
+import { startOAuthSignIn } from "../oauthPopup";
+import { takeReturnTo } from "../returnTo";
 
 /**
  * The "Continue with …" buttons, one per identity provider the server has configured.
@@ -11,13 +17,26 @@ import * as authApi from "../api/authApi";
  * than no button — and it is a list of registration ids rather than a fixed set of flags, so wiring
  * up another provider stays a yml block on the API. An id this file has no mark for still gets a
  * working button, just a generic one.
+ *
+ * Sign-in runs in a popup, so this page stays exactly where it is while the provider's consent
+ * screen is up — and a user who backs out of that screen returns to it untouched, with no error and
+ * nothing lost. See `oauthPopup` for the mechanism, including the redirect it falls back to when a
+ * browser blocks the popup.
  */
 const PROVIDER_MARKS: Record<string, { label: string; mark: () => ReactElement }> = {
   google: { label: "Google", mark: GoogleMark },
   linkedin: { label: "LinkedIn", mark: LinkedInMark },
 };
 
-export function OAuthButtons() {
+export interface OAuthButtonsProps {
+  /**
+   * Shown where the host screen shows its own failures. Null clears it — a cancelled sign-in reports
+   * null, which is how "say nothing" reaches the screen.
+   */
+  onError: (message: string | null) => void;
+}
+
+export function OAuthButtons({ onError }: OAuthButtonsProps) {
   // Server state stays in the query cache rather than useState, so Login and Signup share one fetch.
   // What this deployment has configured cannot change while the page is open — hence no refetching.
   const { data } = useQuery({
@@ -27,6 +46,54 @@ export function OAuthButtons() {
     retry: false,
   });
   const providers = data?.providers ?? [];
+
+  const navigate = useNavigate();
+  const { adoptRestoredSession } = useAuth();
+
+  // Which provider's popup is open. One at a time: the others are disabled while it is.
+  const [pendingProviderId, setPendingProviderId] = useState<string | null>(null);
+
+  // Abandons an attempt still in flight when this component goes away, so no handler outlives it.
+  const abandonAttempt = useRef<(() => void) | null>(null);
+  useEffect(() => () => abandonAttempt.current?.(), []);
+
+  const signIn = useCallback(
+    (providerId: string) => {
+      // Belt and braces: the buttons disable while one attempt is open, so this should never find a
+      // live attempt — but leaving one listening would let a stale popup resolve the new attempt.
+      abandonAttempt.current?.();
+
+      onError(null);
+      setPendingProviderId(providerId);
+
+      abandonAttempt.current = startOAuthSignIn(providerId, {
+        onSuccess: () => {
+          void (async () => {
+            const user = await adoptRestoredSession();
+            if (!user) {
+              setPendingProviderId(null);
+              onError(messageForOAuthError("OAUTH_FAILED"));
+              return;
+            }
+
+            // Same ordering the redirect callback uses: a provider sign-in may still land on an
+            // invitee or an unfinished wizard, and homeFor is the one place that knows.
+            const returnTo = takeReturnTo();
+            navigate(returnTo && user.workspace ? returnTo : homeFor(user), { replace: true });
+          })();
+        },
+        onError: (code) => {
+          setPendingProviderId(null);
+          onError(messageForOAuthError(code));
+        },
+        onCancel: () => {
+          // Nothing to say. They closed the window, or backed out at the provider.
+          setPendingProviderId(null);
+        },
+      });
+    },
+    [adoptRestoredSession, navigate, onError],
+  );
 
   if (providers.length === 0) {
     return null;
@@ -45,18 +112,18 @@ export function OAuthButtons() {
           const { label, mark: Mark } = PROVIDER_MARKS[id] ?? { label: titleCase(id), mark: SsoMark };
           return (
             /*
-              A full page navigation, not fetch(). This is an OAuth redirect: the browser has to
-              actually leave for the provider's consent screen and come back. An XHR would be blocked
-              by CORS and could not show the user the provider's own UI even if it were not.
+              A window, not fetch(). This is an OAuth flow: the browser has to actually visit the
+              provider's consent screen and come back. An XHR would be blocked by CORS and could not
+              show the user the provider's own UI even if it were not.
             */
             <Button
               key={id}
               type="button"
               variant="secondary"
               className="w-full"
-              onClick={() => {
-                window.location.href = `/oauth2/authorization/${id}`;
-              }}
+              loading={pendingProviderId === id}
+              disabled={pendingProviderId !== null && pendingProviderId !== id}
+              onClick={() => signIn(id)}
             >
               <Mark />
               Continue with {label}

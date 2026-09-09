@@ -202,6 +202,16 @@ public class SecurityConfig {
      * <p>The consequence is worth stating plainly, because it is the cost of matching this way: any
      * future endpoint <b>outside</b> {@code /api/v1} is public. Every endpoint in this codebase lives
      * under {@code /api/v1}. Keep it that way — {@code SpaSecurityTest} holds that line.
+     *
+     * <p><b>Do not give this chain {@code Cross-Origin-Opener-Policy: same-origin}.</b> OAuth sign-in
+     * runs the provider's consent screen in a popup, and that value severs {@code window.opener}, so
+     * the popup returns from the provider unable to reach the tab that opened it. The failure is
+     * silent — no console error, no network error, just a button that hangs on "Connecting…" — which
+     * is what makes it worth a paragraph. {@code same-origin-allow-popups} is the popup-compatible
+     * value if the header is ever wanted; it is left unset today because the callback document
+     * itself would then carry it, and a policy mismatch on the hop back from the provider can swap
+     * the browsing context group and sever the opener anyway. {@code SpaSecurityTest} pins that the
+     * header is never {@code same-origin}.
      */
     @Bean
     @Order(2)

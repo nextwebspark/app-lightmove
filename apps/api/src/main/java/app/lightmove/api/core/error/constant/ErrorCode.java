@@ -34,6 +34,14 @@ public enum ErrorCode {
      */
     OAUTH_FAILED(HttpStatus.UNAUTHORIZED, "Sign-in did not complete. Please try again"),
 
+    /**
+     * The person said no at the provider's consent screen. Travels the same {@code ?error=} redirect
+     * as {@link #OAUTH_FAILED} and is deliberately kept apart from it: a deliberate "not now" is not
+     * a fault, and answering it with "sign-in did not complete, try again" reads as a broken button.
+     * The SPA shows nothing for this one.
+     */
+    OAUTH_CANCELLED(HttpStatus.UNAUTHORIZED, "Sign-in was cancelled"),
+
     EMAIL_ALREADY_REGISTERED(HttpStatus.CONFLICT, "An account with this email already exists"),
     EMAIL_UNDELIVERABLE(HttpStatus.BAD_REQUEST, "This email address does not appear to exist"),
     EMAIL_DISPOSABLE(HttpStatus.BAD_REQUEST, "Please use your work email address"),
