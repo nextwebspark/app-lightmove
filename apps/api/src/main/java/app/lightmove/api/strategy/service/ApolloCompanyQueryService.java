@@ -73,9 +73,8 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * One page of the scope, sorted by a column from {@link CompanySortField}'s allowlist. The caller
-     * supplies the page, the size and the sort; the scope itself is resolved server-side from the
-     * mandate's saved filter and never from a request parameter.
+     * One page of the scope, sorted by a column from {@link CompanySortField}'s allowlist. The scope
+     * is resolved server-side from the saved filter, never from a request parameter.
      */
     public List<CompanyRow> search(CompanyScope scope, CompanySortField sort, SortDirection direction,
                                    int page, int size) {
@@ -134,9 +133,9 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * The one company a research answer names, or nothing. The LinkedIn slug is the strong key —
-     * two firms cannot share one — and an exact name is trusted only when it is unique, because
-     * silently mapping the wrong "Alpha" is worse than mapping none. Nothing here is ever fuzzy.
+     * The one company a research answer names, or nothing. The LinkedIn slug is the strong key; an
+     * exact name is trusted only when unique, because mapping the wrong "Alpha" is worse than mapping
+     * none. Nothing here is ever fuzzy.
      */
     public Optional<CompanyRow> matchEmployer(String linkedInSlug, String companyName) {
         if (linkedInSlug != null && !linkedInSlug.isBlank()) {
@@ -172,12 +171,9 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * The Industry accordion, arranged into the taxonomy's groups. Groups keep the file's order so
-     * the sidebar does not rearrange itself when the pipeline reloads; industries inside a group are
-     * ranked most populous first.
-     *
-     * <p>An industry the taxonomy does not cover is dropped here and would vanish from the sidebar.
-     * {@code SectorTaxonomyCoverageIntegrationTest} asserts that set is empty against the real table.
+     * The Industry accordion, in the taxonomy's groups — file order, so the sidebar does not
+     * rearrange when the pipeline reloads. An industry the taxonomy does not cover is dropped and
+     * would vanish; {@code SectorTaxonomyCoverageIntegrationTest} asserts that set is empty.
      */
     public List<SectorGroup> sectorGroups() {
         Map<String, Long> countByIndustry = new LinkedHashMap<>();
@@ -205,11 +201,9 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * The Market Segments accordion: how many companies each segment's keywords reach.
-     *
-     * <p>One query per segment rather than one GROUP BY, because segments <b>overlap</b> — a company
-     * can be B2B and SaaS at once, and a grouped count would have to pick one. The counts therefore
-     * add up to more than the universe. Segments keep the file's order, not size order.
+     * The Market Segments accordion. One query per segment rather than a GROUP BY, because segments
+     * <b>overlap</b> — a company can be B2B and SaaS at once — so the counts add up to more than the
+     * universe.
      */
     public List<FacetCount> marketSegmentFacets() {
         List<FacetCount> facets = new ArrayList<>();
@@ -227,12 +221,9 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * The Company Keywords box. Ranked like {@link #typeahead}: a prefix match beats one buried
-     * mid-word, then the biggest slice of the market first.
-     *
-     * <p>Reads {@code app_lm_apollo_keywords}, which V33 materialises; it follows the universe only
-     * when the pipeline refreshes it. {@code LIKE} rather than {@code ILIKE} because every keyword in
-     * that table is already lower-case.
+     * The Company Keywords box, ranked like {@link #typeahead}. Reads V33's materialised
+     * {@code app_lm_apollo_keywords}, which follows the universe only when the pipeline refreshes it.
+     * {@code LIKE} rather than {@code ILIKE} because every keyword in that table is lower-case.
      */
     public List<FacetCount> keywordSuggestions(String query, int limit, int minCompanies) {
         String pattern = escapeLikePattern(query.toLowerCase(Locale.ROOT));
@@ -257,8 +248,7 @@ public class ApolloCompanyQueryService {
 
     /**
      * The two size accordions. One GROUP BY over a CASE built from the enum's own bounds, so the chip
-     * counts and the filter behind the chip cannot disagree. Bands come back in enum order including
-     * any counting zero: a missing band reads as "no such size", a zero as "none in this market".
+     * counts and the filter behind it cannot disagree. Bands come back in enum order, zeroes included.
      */
     public List<FacetCount> employeeBandFacets() {
         Map<String, Object> params = new LinkedHashMap<>();

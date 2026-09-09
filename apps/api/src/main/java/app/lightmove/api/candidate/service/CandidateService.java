@@ -52,13 +52,12 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * A mandate's mapped executives: adding one, replacing one whole, reading them back, and removing one.
+ * A mandate's mapped executives: adding one, replacing one whole, reading them back, removing one.
  *
- * <p>The one decision this service makes that is not bookkeeping is where a candidate sits. Naming one
- * of the mandate's triaged companies maps the person to it <i>and</i> snapshots that company's name;
- * naming none leaves them unmapped with whatever employer the researcher typed. The caller's
- * {@code employerName} is ignored in the first case on purpose — two fields that could disagree about
- * the same company would drift the moment either changed.
+ * <p>The one decision here that is not bookkeeping is where a candidate sits. Naming one of the
+ * mandate's triaged companies maps the person to it <i>and</i> snapshots that company's name, and the
+ * caller's {@code employerName} is ignored — two fields that could disagree about the same company
+ * would drift the moment either changed.
  */
 @Service
 @Slf4j
@@ -98,16 +97,13 @@ public class CandidateService {
     }
 
     /**
-     * One page of people, narrowed by whichever company filter the caller asked for.
+     * One page of people. {@code triageCompanyIds} is how the Companies grid reads, and an empty list
+     * is answered without a query — a page with no companies on it, not a request for everyone.
      *
-     * <p>{@code triageCompanyIds} is how the Companies grid reads: one page of companies, then the
-     * people at exactly those. An empty list is answered without a query — a page with no companies
-     * on it, not a request for everyone.
-     *
-     * <p><b>A caller that names no size and does name a company filter gets the ceiling, not the
-     * default.</b> The SPA used to name a size computed as a multiple of its page size, which landed
-     * exactly on {@code maxPageSize}, so lowering the deployment knob under it would have 400'd the
-     * people read on every Companies page. An <i>explicit</i> oversized size is still refused.
+     * <p><b>A caller naming no size but a company filter gets the ceiling, not the default.</b> The
+     * SPA used to name a size computed as a multiple of its page size, which landed exactly on
+     * {@code maxPageSize}, so lowering that knob would have 400'd the people read on every Companies
+     * page. An <i>explicit</i> oversized size is still refused.
      */
     @Transactional(readOnly = true)
     public CandidatesResponse list(UUID workspaceId, UUID projectId, CandidateListCriteria criteria) {
@@ -141,13 +137,12 @@ public class CandidateService {
     }
 
     /**
-     * The person this mandate already has for a spreadsheet row — the seam an import resolves a person
-     * through, so a second import updates profiles rather than colliding on every row.
+     * The person this mandate already has for a spreadsheet row, so a second import updates profiles
+     * rather than colliding on every row.
      *
-     * <p>Email first, name second. An address survives two exports spelling the name differently; a
-     * name only identifies someone <i>within</i> a company, which is the scope V36's unique indexes
-     * draw, and matching on it across the whole mandate would merge two different people who share
-     * one. Oldest first when more than one row answers: nothing makes either column unique.
+     * <p>Email first, name second: a name only identifies someone <i>within</i> a company, which is
+     * the scope V36's unique indexes draw, so matching on it across the mandate would merge two people
+     * who share one. Oldest first when more than one answers — nothing makes either column unique.
      */
     @Transactional(readOnly = true)
     public Optional<CandidateResponse> findCandidateOfProject(UUID projectId, UUID triageCompanyId,
@@ -200,9 +195,8 @@ public class CandidateService {
     }
 
     /**
-     * Replaces a candidate whole, including the company they are mapped to — moving someone to another
-     * of the mandate's companies, or off the universe entirely, is an ordinary edit of where they work
-     * rather than a separate verb.
+     * Replaces a candidate whole, the mapped company included: moving someone is an ordinary edit of
+     * where they work rather than a separate verb.
      */
     @Transactional
     public CandidateResponse replace(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
@@ -227,9 +221,9 @@ public class CandidateService {
     }
 
     /**
-     * Moves someone along the line and touches nothing else — the status pill on the read-only panel.
-     * Deliberately not a {@link #replace} with one field changed: the panel may have been open a
-     * while, and re-submitting a stale profile would quietly undo whatever was edited meanwhile.
+     * Moves someone along the line and touches nothing else. Not a {@link #replace} with one field
+     * changed: the panel may have been open a while, and re-submitting a stale profile would undo
+     * whatever was edited meanwhile.
      */
     @Transactional
     public CandidateResponse changeStatus(UUID userId, UUID workspaceId, UUID projectId,
@@ -370,9 +364,8 @@ public class CandidateService {
     }
 
     /**
-     * Where a candidate sits, and the employer name that follows from it. A named company is resolved
-     * through {@code triagecompany}'s one public seam, which also proves it belongs to this mandate —
-     * so a candidate cannot be filed against another project's company by id.
+     * Where a candidate sits. A named company is resolved through {@code triagecompany}'s public seam,
+     * which proves it belongs to this mandate — so one cannot be filed against another project's.
      */
     private CandidateDetails detailsOf(UUID projectId, SaveCandidateRequest request) {
         CandidateDetails details = new CandidateDetails(
@@ -430,9 +423,8 @@ public class CandidateService {
     }
 
     /**
-     * Only a page the plugin actually read is worth a billed research call, and "worth billing" is
-     * exactly "a slug came back" — the providers are keyed by the slug rather than the URL, so the
-     * gate and the lookup must agree on what counts.
+     * Only a page the plugin actually read is worth a billed call, and "worth billing" is exactly "a
+     * slug came back" — the providers key on the slug, so gate and lookup must agree.
      */
     private static boolean isLinkedInProfileUrl(String url) {
         return LinkedInUrls.profileSlugOrNull(url) != null;

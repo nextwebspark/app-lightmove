@@ -55,12 +55,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A mandate's triaged companies: taking one out of the market, capturing one the market does not
- * carry, moving it between the three stages, and removing it.
- *
- * <p>A company taken from Strategy is a snapshot resolved from the market at write time — the client
- * names an id and nothing else, so it cannot file a company under a name of its own choosing. A
- * company the mandate supplies itself has no id to resolve against, so the caller carries the fields
- * and {@link TriageCompanySource} records that they were not Apollo's.
+ * carry, moving it between stages, and removing it. A company taken from Strategy is resolved from
+ * the market server-side, so a client cannot file one under a name of its own choosing.
  */
 @Service
 @Slf4j
@@ -70,11 +66,7 @@ public class TriageCompanyService {
     private static final Set<TriageCompanySource> CAPTURABLE_SOURCES =
             Set.of(TriageCompanySource.MANUAL, TriageCompanySource.EXTENSION, TriageCompanySource.CSV);
 
-    /**
-     * The doors a person comes through one company at a time, which is what makes resolving the name
-     * against the universe and researching it affordable. A file states its own figures and arrives a
-     * thousand rows at once, so an import does neither.
-     */
+    /** The doors that come one company at a time, so resolving and researching each is affordable. */
     private static final Set<TriageCompanySource> SUPPLIED_ONE_AT_A_TIME =
             Set.of(TriageCompanySource.MANUAL, TriageCompanySource.EXTENSION);
 
@@ -108,11 +100,7 @@ public class TriageCompanyService {
         this.listConfig = properties.company().list();
     }
 
-    /**
-     * One stage, ordered and narrowed as the grid asks. The three counts travel with every page
-     * because the stage switcher is always visible, and the tab a move was made from is exactly the
-     * one a stale badge would be wrong on.
-     */
+    /** One stage, with all three counts: the stage switcher is always visible, so a badge cannot lag. */
     @Transactional(readOnly = true)
     public TriageCompaniesResponse list(UUID workspaceId, UUID projectId,
                                         TriageCompanyListCriteria criteria) {
@@ -141,11 +129,9 @@ public class TriageCompanyService {
     }
 
     /**
-     * One of this mandate's own company rows, by id — the seam {@code candidate} maps an executive to
-     * a company through.
-     *
-     * <p>What this adds over the caller's own workspace check is that the company belongs to
-     * <i>that</i> project, so a candidate cannot be filed against another mandate's company by id.
+     * One of this mandate's own company rows — the seam {@code candidate} maps an executive through.
+     * It adds that the company belongs to <i>that</i> project, so a candidate cannot be filed against
+     * another mandate's company by id.
      */
     @Transactional(readOnly = true)
     public TriageCompanyResponse requireCompanyOfProject(UUID projectId, UUID triageCompanyId) {
@@ -155,11 +141,9 @@ public class TriageCompanyService {
     }
 
     /**
-     * The mandate's company of that name — the seam a spreadsheet import resolves a company cell
-     * through, so a second import of the same list updates rows rather than duplicating them.
-     *
-     * <p>Oldest first when a mandate holds two: nothing stops the Apollo export publishing two
-     * accounts under one name, so this has to answer deterministically rather than throw.
+     * The mandate's company of that name — how an import resolves a company cell. Oldest first when a
+     * mandate holds two: nothing stops Apollo publishing two accounts under one name, so this has to
+     * answer deterministically rather than throw.
      */
     @Transactional(readOnly = true)
     public Optional<TriageCompanyResponse> findCompanyOfProjectByName(UUID projectId, String companyName) {
@@ -276,9 +260,8 @@ public class TriageCompanyService {
 
     /**
      * The research door: the enrichment worker files a captured executive's employer into the
-     * mandate's universe. Unlike {@link #capture}, a name already held answers with the existing row
-     * rather than a refusal — the worker is resolving "where does this person work". No audit event
-     * of its own: this row is a consequence of the capture, not a second user action.
+     * universe. Unlike {@link #capture}, a name already held answers with the existing row rather
+     * than a refusal. No audit event of its own — this row is a consequence of the capture.
      */
     @Transactional
     public TriageCompanyResponse captureFromResearch(UUID projectId, UUID addedBy,
@@ -313,12 +296,9 @@ public class TriageCompanyService {
     private record ResolvedCapture(TriageCompany company, boolean created) {}
 
     /**
-     * Where a captured company lands: the full market snapshot when the universe carries it, a
-     * hand-shaped row when it does not, and either way the row the mandate already holds. The slug is
-     * the strong key and an exact unique name the only fallback.
-     *
-     * <p>Deliberately no off-limits check, unlike {@link #add}: a person the consultant captured
-     * works where they work, and hiding the employer would leave the mapping lying about it.
+     * Where a captured company lands: the market snapshot when the universe carries it, a hand-shaped
+     * row when it does not. Deliberately no off-limits check, unlike {@link #add} — a person the
+     * consultant captured works where they work.
      */
     private ResolvedCapture resolveCapture(UUID projectId, UUID addedBy,
                                            CapturedCompanyDetails details,
@@ -411,9 +391,7 @@ public class TriageCompanyService {
 
     /**
      * "Add all to Universe". A filter matching more than {@code bulkAddLimit} is <b>refused whole</b>:
-     * an untouched one matches all 71,822 companies, and taking the first {@code bulkAddLimit} would
-     * silently decide which ones a mandate got. Companies already held are skipped, declined ones
-     * included.
+     * taking the first {@code bulkAddLimit} would silently decide which companies a mandate got.
      */
     @Transactional
     public TriageBulkAddResponse addAllInScope(UUID userId, UUID workspaceId, UUID projectId,
@@ -446,13 +424,9 @@ public class TriageCompanyService {
     }
 
     /**
-     * The companies a consultant ticked on Strategy, taken into the mandate at one stage — the
-     * selection bar's three buttons are this method with three different statuses.
-     *
-     * <p>Every id is resolved against the universe and checked against the off-limits list, so a
-     * hand-crafted request buys nothing a click could not. An off-limits company is dropped rather
-     * than refusing the batch: a selection made before the exclusion was added is a stale screen, not
-     * an attack. Companies already held keep the stage they are at.
+     * The companies a consultant ticked on Strategy, taken in at one stage. Every id is resolved and
+     * off-limits-checked server-side, so a hand-crafted request buys nothing a click could not; an
+     * off-limits company is dropped rather than refusing the batch.
      */
     @Transactional
     public TriageBulkAddResponse addSelected(UUID userId, UUID workspaceId, UUID projectId,
@@ -515,15 +489,12 @@ public class TriageCompanyService {
     }
 
     /**
-     * Replaces a company's own facts. Only for a company the mandate supplied itself: a market row
-     * carries the export's snapshot, and rewriting it would make the Source badge a claim the figures
-     * no longer support.
+     * Replaces a company's own facts. Only for a company the mandate supplied itself.
      *
      * <p><b>The rule lives here, not in the button.</b> The Companies panel hides Edit on a market
      * row, but the plugin posts here directly and a hidden button is not an access control.
      *
-     * <p>A rename re-runs the capture guard, excluding the row being renamed so a save that does not
-     * touch the name cannot collide with itself.
+     * <p>A rename re-runs the capture guard, excluding the row being renamed.
      */
     @Transactional
     public TriageCompanyResponse edit(UUID userId, UUID workspaceId, UUID projectId,
