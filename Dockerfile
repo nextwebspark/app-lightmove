@@ -8,6 +8,13 @@
 # Built and pushed by .github/workflows/deploy.yml. Flyway does NOT run here or at boot — migrations are
 # a deploy step (FLYWAY_ENABLED=false on the service).
 
+# The build's one input for identity. APP_VERSION is the release tag, and it is baked in rather than
+# set on the service: an image must not be able to disagree with itself about which release it is.
+# A global ARG is visible to no stage until that stage re-declares it — hence the repeats below.
+ARG APP_VERSION=dev
+ARG GIT_SHA=
+ARG EXTENSION_ID=
+
 # ── 1. The SPA ────────────────────────────────────────────────────────────────
 FROM node:26-slim AS web
 WORKDIR /src
@@ -19,6 +26,15 @@ COPY apps/web/package.json ./apps/web/
 RUN npm ci
 
 COPY apps/web ./apps/web
+
+# Build parameters, read by vite.config.ts through loadEnv and frozen into the bundle. EXTENSION_ID
+# decides the chrome-extension:// origin the pairing page looks for; without it the page falls back to
+# the development id and pairing reports "extension not detected" forever.
+ARG APP_VERSION
+ARG EXTENSION_ID
+ENV APP_VERSION=$APP_VERSION
+ENV EXTENSION_ID=$EXTENSION_ID
+
 # `tsc -b && vite build` — a type error fails the image, not just the editor.
 RUN npm run build --workspace=apps/web
 
@@ -51,6 +67,14 @@ USER app
 # Cloud Run overrides this with its own PORT; the default keeps `docker run` honest.
 ENV PORT=8080
 EXPOSE 8080
+
+# The same value the bundle was built with, one stage earlier. Spring reads it into /actuator/info.
+ARG APP_VERSION
+ARG GIT_SHA
+ENV APP_VERSION=$APP_VERSION
+LABEL org.opencontainers.image.version="$APP_VERSION"
+LABEL org.opencontainers.image.revision="$GIT_SHA"
+LABEL org.opencontainers.image.source="https://github.com/nextwebspark/app-lightmove"
 
 # MaxRAMPercentage, not -Xmx: the JVM should size itself from the memory Cloud Run actually gave the
 # container, which changes with --memory and is not knowable here.
