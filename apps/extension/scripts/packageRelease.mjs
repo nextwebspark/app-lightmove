@@ -60,6 +60,6 @@ console.log(
   `\n\x1b[32m  ✓ ${zipPath}\x1b[0m\n` +
     `    Built against ${workspaceOrigin}\n\n` +
     "    Upload it at https://chrome.google.com/webstore/devconsole — then take the id the store\n" +
-    "    assigns and set it as EXTENSION_ID (deploy) and VITE_EXTENSION_ID (web build), or the API\n" +
-    "    will refuse the extension's requests by CORS.\n",
+    "    assigns and set it as the EXTENSION_ID repository variable, or the API will refuse the\n" +
+    "    extension's requests by CORS and the pairing page will not find it.\n",
 );
