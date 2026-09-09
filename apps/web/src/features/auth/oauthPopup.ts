@@ -32,8 +32,10 @@ import { deleteCookie, readCookie, writeCookie } from "../../lib/cookies";
  * "Connecting…" forever. A `BroadcastChannel` is same-origin by construction and survives that, so
  * the outcome goes out on both and whichever arrives first wins.
  *
- * Broadcasting reaches *every* tab of this app, which is why each attempt mints a handshake id: a
- * message whose id was not issued by this tab is ignored.
+ * Broadcasting reaches *every* tab of this app, so an outcome has to be tied back to the attempt
+ * that asked for it. `postMessage` is tied exactly, by the window handle we opened. The broadcast
+ * has no such handle and leans on the handshake id, which is why that id is kept where the tab that
+ * minted it can be told apart from any other — see {@link HANDSHAKE_COOKIE}.
  */
 
 /** Identifies our messages on a channel we do not exclusively own. */
@@ -43,13 +45,24 @@ const BROADCAST_CHANNEL_NAME = "lightmove.oauth";
 
 /**
  * Tells the page the provider redirects to that it is running inside a popup, and which attempt it
- * belongs to.
+ * belongs to. A nonce, never a credential.
  *
- * A cookie rather than `window.opener`, `window.name` or `sessionStorage` because it is the only one
- * of the four guaranteed to survive the cross-origin hop out to the provider and back under every
- * browsing-context rule. It holds a nonce, never a credential.
+ * It is kept in **two** places, and the pairing is the point.
+ *
+ * `sessionStorage` is scoped to one browsing context and a popup opened with `window.open` inherits
+ * a copy of its opener's, so a popup reads the id of the attempt that actually opened it even while
+ * another tab is running an attempt of its own. That is the property a cookie cannot give: cookies
+ * are per *origin*, so two tabs signing in at once would overwrite one another and each popup would
+ * read back whichever id was written last — the first tab hanging on a sign-in that in fact
+ * succeeded, the second adopting an outcome it never asked for.
+ *
+ * The cookie is the fallback, because it is the only carrier guaranteed to survive the cross-origin
+ * hop under every browsing-context rule: a `Cross-Origin-Opener-Policy` in the round trip can swap
+ * the browsing context group, and a popup that comes back in a fresh context has lost the inherited
+ * `sessionStorage` along with its opener.
  */
 const HANDSHAKE_COOKIE = "lm_oauth_popup";
+const HANDSHAKE_STORAGE_KEY = "lightmove.oauth.handshake";
 
 /** Long enough to read a consent screen and type a password; short enough that an abandoned attempt expires. */
 const HANDSHAKE_TTL_SECONDS = 600;
@@ -100,16 +113,18 @@ export function startOAuthSignIn(providerId: string, handlers: OAuthSignInHandle
   const url = authorizationUrl(providerId);
   const handshakeId = mintHandshakeId();
 
-  // Written before the window is opened: the popup may reach the callback before this line would
-  // otherwise have run, and a handshake it cannot read leaves it unable to report anything.
-  writeCookie(HANDSHAKE_COOKIE, handshakeId, HANDSHAKE_TTL_SECONDS);
+  // Written before the window is opened, and it has to be: a popup inherits its opener's
+  // sessionStorage as it is created, so an id written afterwards would never reach it.
+  rememberHandshake(handshakeId);
 
   // Synchronously, in the click that called us. Anything awaited first — even a resolved promise —
   // breaks the user-gesture tie and the popup is blocked.
   const popup = window.open(url, "_blank", popupFeatures());
 
   if (!popup) {
-    deleteCookie(HANDSHAKE_COOKIE);
+    // Nothing must be left telling the redirect's landing page it is a popup — it would close the
+    // user's own tab instead of signing them in.
+    forgetHandshake();
     window.location.assign(url);
     return () => {};
   }
@@ -139,6 +154,13 @@ function listenForOutcome(popup: Window, handshakeId: string, handlers: OAuthSig
     }
     settled = true;
     stop();
+
+    // The attempt is over, so nothing may still answer for it. A handshake left behind outlives its
+    // popup for the rest of its TTL, and the next top-level arrival at the callback route — a
+    // redirect sign-in, a popup the browser turned into an ordinary tab — would read it, believe it
+    // is a popup, and close the user's real tab without ever establishing the session.
+    forgetHandshake();
+
     closeQuietly(popup);
     deliver();
   };
@@ -152,8 +174,11 @@ function listenForOutcome(popup: Window, handshakeId: string, handlers: OAuthSig
   };
 
   const onWindowMessage = (event: MessageEvent) => {
-    // The popup lands back on our own origin, so anything from elsewhere is not ours to read.
-    if (event.origin === window.location.origin) {
+    // Two checks, and the second is the exact one. The popup lands back on our own origin, so
+    // anything from elsewhere is not ours to read; and `source` is the window we opened, which no
+    // other tab's popup and no other attempt can impersonate. The id `accept` goes on to check adds
+    // nothing here — it is what the broadcast channel, which carries no source, has to rely on.
+    if (event.origin === window.location.origin && event.source === popup) {
       accept(event.data);
     }
   };
@@ -179,16 +204,30 @@ function listenForOutcome(popup: Window, handshakeId: string, handlers: OAuthSig
 
 /**
  * The handshake id this document was opened under, consumed — an attempt is answered once, and a
- * cookie left behind would make the *next* full-page sign-in believe it is a popup.
+ * handshake left behind would make the *next* full-page sign-in believe it is a popup.
+ *
+ * The tab-scoped copy is preferred: it belongs to the attempt that opened *this* window, where the
+ * cookie only ever holds whichever attempt wrote last. The cookie answers when the browsing context
+ * was swapped on the way back and took the inherited storage with it.
  *
  * Null when this is an ordinary redirect sign-in, which is the signal to behave as we always have.
  */
 export function takeHandshakeId(): string | null {
-  const handshakeId = readCookie(HANDSHAKE_COOKIE);
-  if (handshakeId) {
-    deleteCookie(HANDSHAKE_COOKIE);
-  }
+  const handshakeId = readSessionValue(HANDSHAKE_STORAGE_KEY) ?? readCookie(HANDSHAKE_COOKIE);
+  forgetHandshake();
   return handshakeId || null;
+}
+
+/** Records an attempt in both carriers. See {@link HANDSHAKE_COOKIE} for why it takes two. */
+function rememberHandshake(handshakeId: string): void {
+  writeSessionValue(HANDSHAKE_STORAGE_KEY, handshakeId);
+  writeCookie(HANDSHAKE_COOKIE, handshakeId, HANDSHAKE_TTL_SECONDS);
+}
+
+/** Leaves nothing that could make a later document believe it is answering for an attempt. */
+function forgetHandshake(): void {
+  removeSessionValue(HANDSHAKE_STORAGE_KEY);
+  deleteCookie(HANDSHAKE_COOKIE);
 }
 
 /**
@@ -235,6 +274,35 @@ function outcomeFrom(data: unknown, expectedHandshakeId: string): OAuthOutcome |
     return { status: "error", code: outcome.code };
   }
   return null;
+}
+
+/**
+ * Storage can be refused outright — private mode, a browser set to block site data — and there the
+ * accessor itself throws. A refused read is simply "no tab-scoped copy", which falls through to the
+ * cookie; a refused write costs the tab-scoping and nothing else. Neither may take sign-in down.
+ */
+function readSessionValue(key: string): string | null {
+  try {
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionValue(key: string, value: string): void {
+  try {
+    sessionStorage.setItem(key, value);
+  } catch {
+    // The cookie still carries the attempt.
+  }
+}
+
+function removeSessionValue(key: string): void {
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    // Nothing was stored, or storage is refused. The cookie is cleared either way.
+  }
 }
 
 function openBroadcastChannel(): BroadcastChannel | null {

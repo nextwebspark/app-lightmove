@@ -24,8 +24,15 @@ describe("oauthPopup", () => {
     outcome,
   });
 
-  const deliver = (data: unknown, origin = window.location.origin) => {
-    window.dispatchEvent(new MessageEvent("message", { data, origin }));
+  /**
+   * `source` has to be set after construction: jsdom's MessageEvent only accepts a real window there,
+   * and the assertion under test is precisely that the listener compares it against the window it
+   * opened.
+   */
+  const deliver = (data: unknown, origin = window.location.origin, source: unknown = popup) => {
+    const event = new MessageEvent("message", { data, origin });
+    Object.defineProperty(event, "source", { value: source });
+    window.dispatchEvent(event);
   };
 
   const currentHandshakeId = () => {
@@ -51,6 +58,7 @@ describe("oauthPopup", () => {
 
   afterEach(() => {
     document.cookie = `${HANDSHAKE_COOKIE}=; Path=/; Max-Age=0`;
+    sessionStorage.clear();
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
@@ -109,6 +117,23 @@ describe("oauthPopup", () => {
     startOAuthSignIn("linkedin", listeners);
 
     deliver(outcomeMessage("a-different-tabs-attempt", { status: "success" }));
+
+    expect(listeners.onSuccess).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The handshake cookie is shared by every tab of the origin, so a second tab starting its own
+   * sign-in overwrites it. What ties an outcome to this attempt is the window we opened, which no
+   * other tab's popup can be.
+   */
+  it("ignores an outcome posted by a window it did not open", () => {
+    const listeners = handlers();
+    startOAuthSignIn("linkedin", listeners);
+
+    deliver(outcomeMessage(currentHandshakeId(), { status: "success" }), window.location.origin, {
+      closed: false,
+      close: vi.fn(),
+    });
 
     expect(listeners.onSuccess).not.toHaveBeenCalled();
   });
@@ -181,12 +206,66 @@ describe("oauthPopup", () => {
     expect(listeners.onCancel).toHaveBeenCalledTimes(1);
   });
 
+  /**
+   * A handshake outliving its attempt is not inert. The next top-level arrival at the callback route
+   * would read it, believe it is a popup, and close the user's real tab instead of signing them in.
+   */
+  describe("leaves nothing behind once the attempt is over", () => {
+    const nothingRemembered = () => {
+      expect(readCookie(HANDSHAKE_COOKIE)).toBeNull();
+      expect(sessionStorage.getItem("lightmove.oauth.handshake")).toBeNull();
+    };
+
+    it("after the user closes the popup", () => {
+      startOAuthSignIn("linkedin", handlers());
+
+      popup.closed = true;
+      vi.advanceTimersByTime(500);
+
+      nothingRemembered();
+    });
+
+    it("after the attempt times out", () => {
+      startOAuthSignIn("linkedin", handlers());
+
+      vi.advanceTimersByTime(11 * 60 * 1000);
+
+      nothingRemembered();
+    });
+
+    it("after the popup reports an outcome", () => {
+      startOAuthSignIn("linkedin", handlers());
+
+      deliver(outcomeMessage(currentHandshakeId(), { status: "success" }));
+
+      nothingRemembered();
+    });
+  });
+
   describe("the popup's side", () => {
     it("consumes the handshake id, so the next redirect sign-in is not mistaken for a popup", () => {
       startOAuthSignIn("linkedin", handlers());
 
       expect(takeHandshakeId()).toMatch(/^[0-9a-f]{32}$/);
       expect(takeHandshakeId()).toBeNull();
+    });
+
+    /**
+     * The popup inherits its opener's sessionStorage as it is created, so its own attempt's id is
+     * there even after another tab has overwritten the shared cookie with a later attempt's.
+     */
+    it("prefers the attempt that opened this window over whatever wrote the cookie last", () => {
+      sessionStorage.setItem("lightmove.oauth.handshake", "the-attempt-that-opened-me");
+      document.cookie = `${HANDSHAKE_COOKIE}=a-later-attempt-in-another-tab; Path=/`;
+
+      expect(takeHandshakeId()).toBe("the-attempt-that-opened-me");
+    });
+
+    /** A browsing-context swap on the way back takes the inherited storage with it. */
+    it("falls back to the cookie when the inherited storage did not survive", () => {
+      document.cookie = `${HANDSHAKE_COOKIE}=carried-by-the-cookie; Path=/`;
+
+      expect(takeHandshakeId()).toBe("carried-by-the-cookie");
     });
 
     it("posts the outcome to the opener, pinned to this exact origin", () => {
