@@ -44,6 +44,9 @@ const DEFAULT_SORT: CompanySort = { field: "employees", direction: "desc" };
 /** A stable empty selection, so "nothing ticked" is one identity rather than a new object per render. */
 const NOTHING_SELECTED: RowSelectionState = {};
 
+/** The same, for "no add in flight". */
+const NOTHING_ADDING: ReadonlySet<string> = new Set();
+
 export function StrategyPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
   const strategy = useQuery({
@@ -105,7 +108,7 @@ function StrategyEditor() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [sort, setSort] = useGridSort("strategy", project.id, COMPANY_SORT_FIELDS, DEFAULT_SORT);
-  const [addingId, setAddingId] = useState<string | null>(null);
+  const [addingIds, setAddingIds] = useState<ReadonlySet<string>>(NOTHING_ADDING);
   const [openCompany, setOpenCompany] = useState<CompanyResult | null>(null);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility(
     "strategy",
@@ -231,22 +234,52 @@ function StrategyEditor() {
   });
 
   /**
-   * Off-limits is a separate endpoint and writes immediately rather than through the autosave timer:
-   * barring a company is a decision, not a draft, and the list is short enough that every change is
-   * deliberate. It invalidates the same scoped reads, since an exclusion changes what the table
-   * matches.
+   * The one way the off-limits list is written, whoever asked. It takes what the list should become
+   * from what it currently *is* — read from the cache here rather than trusted from a caller's render
+   * — because the endpoint replaces the list wholesale, so an edit built on a stale copy silently
+   * unbars everything that arrived after it.
+   *
+   * <p>It writes immediately rather than through the autosave timer: barring a company is a decision,
+   * not a draft. The flush is still needed because the response is the whole Strategy and goes
+   * straight into the cache, so a filter edit still sitting in the timer would be overwritten by the
+   * copy the server had before it.
    */
+  const writeOffLimits = async (next: (barred: string[]) => string[]) => {
+    await autosave.flush();
+    const stored = queryClient.getQueryData<Strategy>(strategyApi.STRATEGY_KEY(project.id));
+    const barred = (stored?.offLimits ?? []).map((entry) => entry.apolloAccountId);
+    const wanted = next(barred);
+    if (wanted.length === barred.length && wanted.every((id) => barred.includes(id))) return;
+    queryClient.setQueryData(
+      strategyApi.STRATEGY_KEY(project.id),
+      await strategyApi.putOffLimits(project.id, wanted),
+    );
+    await refreshScopedReads();
+  };
+
+  /*
+   * Both writers share one `scope`, so the rail and the panel queue behind each other instead of
+   * racing to replace the same list.
+   */
+  const OFF_LIMITS_SCOPE = { id: `off-limits-${project.id}` };
+
+  /** The rail, which renders the whole list and hands back the whole list it wants. */
   const offLimitsWrite = useMutation({
-    mutationFn: async (apolloAccountIds: string[]) => {
-      // The response is the whole Strategy and it goes straight into the cache, so a filter edit still
-      // sitting in the timer would be overwritten by the copy the server had before it.
-      await autosave.flush();
-      queryClient.setQueryData(
-        strategyApi.STRATEGY_KEY(project.id),
-        await strategyApi.putOffLimits(project.id, apolloAccountIds),
+    scope: OFF_LIMITS_SCOPE,
+    mutationFn: (apolloAccountIds: string[]) => writeOffLimits(() => apolloAccountIds),
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  /** The panel, which knows only the one company it is barring. */
+  const barCompany = useMutation({
+    scope: OFF_LIMITS_SCOPE,
+    mutationFn: async (company: CompanyResult) => {
+      await writeOffLimits((barred) =>
+        barred.includes(company.apolloAccountId) ? barred : [...barred, company.apolloAccountId],
       );
-      await refreshScopedReads();
+      return company;
     },
+    onSuccess: (company) => toast(`${company.companyName} is off-limits for this mandate`),
     onError: (error) => toast(messageFor(error)),
   });
 
@@ -265,31 +298,17 @@ function StrategyEditor() {
       );
     },
     onError: (error) => toast(messageFor(error)),
-    onSettled: () => setAddingId(null),
-  });
-
-  /**
-   * Barring one company from the panel. The stored list is read inside the mutation rather than off
-   * the render that opened the drawer: the endpoint replaces the whole list, so a second bar built
-   * from a stale copy would unbar the first. `scope` serialises them for the same reason.
-   */
-  const barCompany = useMutation({
-    scope: { id: `off-limits-${project.id}` },
-    mutationFn: async (company: CompanyResult) => {
-      await autosave.flush();
-      const stored = queryClient.getQueryData<Strategy>(strategyApi.STRATEGY_KEY(project.id));
-      const barred = (stored?.offLimits ?? []).map((entry) => entry.apolloAccountId);
-      if (!barred.includes(company.apolloAccountId)) {
-        queryClient.setQueryData(
-          strategyApi.STRATEGY_KEY(project.id),
-          await strategyApi.putOffLimits(project.id, [...barred, company.apolloAccountId]),
-        );
-        await refreshScopedReads();
-      }
-      return company;
-    },
-    onSuccess: (company) => toast(`${company.companyName} is off-limits for this mandate`),
-    onError: (error) => toast(messageFor(error)),
+    // Tracked per company rather than as one id: the row's "+" and the panel both fire this, so a
+    // second add starting would otherwise re-enable the first row's button while its POST was still
+    // out, and whichever settled first would clear the other's spinner too.
+    onMutate: ({ company }) =>
+      setAddingIds((busy) => new Set(busy).add(company.apolloAccountId)),
+    onSettled: (_added, _error, { company }) =>
+      setAddingIds((busy) => {
+        const next = new Set(busy);
+        next.delete(company.apolloAccountId);
+        return next;
+      }),
   });
 
   const addAll = useMutation({
@@ -395,11 +414,8 @@ function StrategyEditor() {
               onLayoutChange={setLayout}
               loading={companies.isFetching}
               error={companies.isError}
-              onAddToUniverse={(company) => {
-                setAddingId(company.apolloAccountId);
-                addOne.mutate({ company, status: "inUniverse" });
-              }}
-              addingId={addingId}
+              onAddToUniverse={(company) => addOne.mutate({ company, status: "inUniverse" })}
+              addingIds={addingIds}
               rowSelection={rowSelection}
               onRowSelectionChange={setRowSelection}
               onOpenCompany={setOpenCompany}
@@ -440,7 +456,6 @@ function StrategyEditor() {
         onClose={() => setOpenCompany(null)}
         onTriage={(company, status) => {
           setOpenCompany(null);
-          setAddingId(company.apolloAccountId);
           addOne.mutate({ company, status });
         }}
         onOffLimits={(company) => {

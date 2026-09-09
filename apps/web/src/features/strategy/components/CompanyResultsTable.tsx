@@ -37,7 +37,7 @@ export function CompanyResultsTable({
   loading,
   error,
   onAddToUniverse,
-  addingId,
+  addingIds,
   rowSelection,
   onRowSelectionChange,
   onOpenCompany,
@@ -52,7 +52,8 @@ export function CompanyResultsTable({
   loading: boolean;
   error: boolean;
   onAddToUniverse: (company: CompanyResult) => void;
-  addingId: string | null;
+  /** Every company with an add still in flight, so one row's request cannot re-enable another's. */
+  addingIds: ReadonlySet<string>;
   /**
    * Which rows are ticked, keyed by company id. Held by the page rather than by this component,
    * because the bulk bar it floats over the grid acts on the selection and outlives any one page of
@@ -78,7 +79,7 @@ export function CompanyResultsTable({
     onColumnVisibilityChange,
     layout,
     onLayoutChange,
-    meta: { onAddToUniverse, addingId },
+    meta: { onAddToUniverse, addingIds },
   });
 
   /*

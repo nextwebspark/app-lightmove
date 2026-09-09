@@ -1289,6 +1289,32 @@ describe("StrategyPage — the market company panel", () => {
     expect(screen.queryByText(/added to Shortlisted/i)).not.toBeInTheDocument();
   });
 
+  it("keeps one company's add from re-enabling another's button", async () => {
+    // The "+" and the panel both fire the same mutation. A single pending id could only remember the
+    // latest, so a second add re-enabled the first row's button while its POST was still out and let
+    // the user file the same company twice.
+    const release: ((row: unknown) => void)[] = [];
+    vi.mocked(triageApi.addMarketCompany).mockImplementation(
+      () => new Promise((resolve) => release.push(resolve)) as never,
+    );
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(twoCompanies());
+    renderPage();
+
+    const addAcwa = await screen.findByRole("button", { name: "Add ACWA Power to universe" });
+    await userEvent.click(addAcwa);
+    await waitFor(() => expect(addAcwa).toBeDisabled());
+
+    await userEvent.click(screen.getByRole("button", { name: "Add Masdar to universe" }));
+    await waitFor(() => expect(release).toHaveLength(2));
+
+    // Both POSTs are still out, so neither button may come back.
+    expect(addAcwa).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add Masdar to universe" })).toBeDisabled();
+
+    release.forEach((resolve) => resolve(triagedAs("inUniverse")));
+    await waitFor(() => expect(addAcwa).toBeEnabled());
+  });
+
   it("shows each tag once, however the market spells it into both lists", async () => {
     vi.mocked(strategyApi.getCompanies).mockResolvedValue(
       pageOf({
