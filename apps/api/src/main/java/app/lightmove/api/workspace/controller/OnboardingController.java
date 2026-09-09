@@ -35,11 +35,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The organisation and invite steps of signup, and invitation redemption.
- *
- * <p>The only authenticated area a user with no workspace can reach — see {@code SecurityConfig}.
- * Everything else in the API needs a tenant claim, which nobody has until they create a workspace or
- * accept an invitation. Those are the only two ways in; there is no join request.
+ * The organisation and invite steps of signup, and invitation redemption — the only authenticated
+ * area a user with no workspace can reach. Everything else needs a tenant claim, which nobody has
+ * until they create a workspace or accept an invitation.
  */
 @RestController
 @RequestMapping("/api/v1/onboarding")
@@ -53,10 +51,8 @@ public class OnboardingController {
     private final RefreshCookieFactory refreshCookie;
 
     /**
-     * Signup step 3 — create your workspace. You are its ADMIN.
-     *
-     * <p>The client must then call {@code /auth/refresh}: the access token it holds was minted before
-     * the workspace existed and carries no tenant claim.
+     * Signup step 3 — create your workspace. The client must then call {@code /auth/refresh}: the
+     * access token it holds was minted before the workspace existed and carries no tenant claim.
      */
     @PostMapping("/workspace")
     public ResponseEntity<UserResponse> createWorkspace(@AuthenticationPrincipal AuthPrincipal principal,
@@ -72,10 +68,8 @@ public class OnboardingController {
     }
 
     /**
-     * Corrects a workspace you already run — what "Back" means once the step has committed.
-     *
-     * <p>The workspace id comes from the principal, never the request: accepting it as a parameter
-     * would let anyone edit anyone's organisation by guessing an id.
+     * Corrects a workspace you already run — what "Back" means once the step has committed. The
+     * workspace id comes from the principal: as a parameter it would let anyone edit anyone's.
      */
     @PatchMapping("/workspace")
     public ResponseEntity<UserResponse> updateWorkspace(@AuthenticationPrincipal AuthPrincipal principal,

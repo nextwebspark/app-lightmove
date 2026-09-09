@@ -30,12 +30,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Proves that a user controls the email address they signed up with.
- *
- * <p>This is not a nicety here. A user's email domain decides which organisation they belong to, so
- * verification is the step that turns "I typed sara@nextwebspark.com" into evidence that the person
- * actually works at NextWebSpark. Until it happens, {@code require-verified-email} keeps them out of
- * every workspace endpoint.
+ * Proves that a user controls the email address they signed up with. Their domain decides which
+ * organisation they belong to, so this is the step that turns a typed address into evidence; until it
+ * happens, {@code require-verified-email} keeps them out of every workspace endpoint.
  */
 @Service
 @RequiredArgsConstructor
@@ -54,8 +51,8 @@ public class VerificationService {
     /**
      * Issues a fresh verification link and emails it.
      *
-     * <p>Any outstanding token is burned first, so a user who clicks "resend" three times ends up with
-     * exactly one working link rather than three live credentials scattered across their inbox.
+     * <p>Any outstanding token is burned first, so three clicks on "resend" leave one working link
+     * rather than three live credentials in an inbox.
      */
     @Transactional
     public void sendVerificationEmail(User user, HttpServletRequest request) {
@@ -69,8 +66,7 @@ public class VerificationService {
                 TokenPurpose.EMAIL_VERIFICATION,
                 now.plus(properties.auth().verificationTokenTtl())));
 
-        // The link points at the SPA, not at the API. The frontend owns the "verifying…" screen and
-        // then calls the API — which keeps the user inside the app rather than staring at raw JSON.
+        // The link points at the SPA, not the API: the frontend owns the "verifying…" screen.
         String link = "%s/auth/verify?token=%s".formatted(
                 properties.web().baseUrl(),
                 URLEncoder.encode(plaintext, StandardCharsets.UTF_8));
@@ -86,12 +82,8 @@ public class VerificationService {
     /**
      * Redeems a verification link and signs the user straight in.
      *
-     * <p>Issuing a session here is the same judgement {@code PasswordResetService.reset} and invited
-     * signup already made: a token mailed only to this address proves what a login would prove. It
-     * matters because the mail client opens the link in whatever browser it likes — usually not the one
-     * that filled in signup, which has the only session that existed.
-     *
-     * @return a session for the user who was verified.
+     * <p>The same judgement {@code PasswordResetService.reset} makes. It matters because the mail
+     * client opens the link in whatever browser it likes — usually not the one holding the session.
      */
     @Transactional
     public AuthenticatedSession verify(String plaintextToken, HttpServletRequest request) {
@@ -116,10 +108,9 @@ public class VerificationService {
         User user = users.findById(token.getUserId())
                 .orElseThrow(() -> new ApiException(ErrorCode.TOKEN_INVALID, "Token references a missing user"));
 
-        // Before consume, and mirroring PasswordResetService.reset: this method issues a session, so it
-        // owes the same status check every other session-minting path makes. Nothing sets SUSPENDED
-        // today, which is exactly why it is easy to leave out — and why whoever builds the suspension
-        // surface would inherit a link that signs a suspended account straight back in.
+        // Before consume, and mirroring PasswordResetService.reset: this issues a session, so it owes
+        // the same status check. Nothing sets SUSPENDED today, which is why it is easy to leave out —
+        // and why whoever builds that surface would inherit a link that signs one straight back in.
         if (user.getStatus() == UserStatus.SUSPENDED || user.getStatus() == UserStatus.DELETED) {
             audit.event(AuthEventType.EMAIL_VERIFIED).failed().actor(user.getId()).from(request)
                     .reason("status_" + user.getStatus()).record();
@@ -142,9 +133,8 @@ public class VerificationService {
     /**
      * Resends the link.
      *
-     * <p>Succeeds silently for an unknown address, and for one that is already verified. Reporting
-     * either would turn this endpoint into an account-enumeration oracle: anyone could feed it a list
-     * of addresses and learn which are LightMove customers. Rate limiting is applied by the caller.
+     * <p>Succeeds silently for an unknown or already-verified address: reporting either would make
+     * this an account-enumeration oracle.
      */
     @Transactional
     public void resend(String email, HttpServletRequest request) {

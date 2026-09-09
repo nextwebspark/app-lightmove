@@ -8,17 +8,14 @@ import org.springframework.core.io.Resource;
  * How one prompt is guarded and its answer checked — everything {@code LlmCallPolicy} needs, and
  * nothing about the prompt's own text.
  *
- * @param promptId                   names the feature in the shared client's log line; without it
- *                                   every line says only that <i>something</i> called the model
- * @param answerSchema               JSON Schema the reply must fit, or null for a prompt answering in
- *                                   prose. When set, an answer that does not fit is put back to the
- *                                   model before being given up on
- * @param blockedAnswer              what the guard replies with in place of the model. For a prompt
- *                                   with a schema it must also <b>bind</b> to the reply type — a
- *                                   sentence where a document is expected surfaces a block as a parse
- *                                   error indistinguishable from the provider being down
- * @param additionalInjectionPhrases refused on top of the configured baseline, for a prompt whose own
- *                                   vocabulary makes something dangerous that is harmless elsewhere
+ * @param promptId                   names the feature in the shared client's log line
+ * @param answerSchema               JSON Schema the reply must fit, or null for a prose answer. When
+ *                                   set, an answer that does not fit is put back to the model once
+ * @param blockedAnswer              what the guard replies with in place of the model. With a schema
+ *                                   it must also <b>bind</b> to the reply type — a sentence where a
+ *                                   document is expected surfaces a block as a parse error
+ *                                   indistinguishable from the provider being down
+ * @param additionalInjectionPhrases refused on top of the configured baseline
  */
 public record PromptGuardSpec(
         String promptId,
@@ -44,10 +41,8 @@ public record PromptGuardSpec(
     }
 
     /**
-     * A prompt answering as a document.
-     *
-     * @param blockedAnswer required rather than defaulted because it has to bind to the same type the
-     *                      reply does, which only the calling feature knows
+     * A prompt answering as a document. {@code blockedAnswer} is required rather than defaulted
+     * because only the calling feature knows the type the reply binds to.
      */
     public static PromptGuardSpec structured(String promptId, Resource answerSchema, String blockedAnswer) {
         if (answerSchema == null) {
@@ -60,12 +55,7 @@ public record PromptGuardSpec(
         return new PromptGuardSpec(promptId, answerSchema, blockedAnswer, List.of());
     }
 
-    /**
-     * The same prompt, refusing these phrases as well as the ones it already refuses.
-     *
-     * <p>Additive on purpose, and named for it: replacing would let a second call silently drop the
-     * first's phrases.
-     */
+    /** Additive on purpose, and named for it: replacing would let a call drop an earlier one's phrases. */
     public PromptGuardSpec alsoRefusing(List<String> phrases) {
         if (phrases == null || phrases.isEmpty()) {
             return this;

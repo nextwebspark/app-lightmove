@@ -48,11 +48,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The auth endpoints.
- *
- * <p>Thin on purpose: this class translates HTTP to commands and back, and owns exactly one piece of
- * knowledge the services do not have — that the refresh token belongs in an httpOnly cookie and must
- * never appear in a response body.
+ * The auth endpoints. Thin on purpose, and owning one piece of knowledge the services do not: the
+ * refresh token belongs in an httpOnly cookie and must never appear in a response body.
  */
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -93,10 +90,8 @@ public class AuthController {
     }
 
     /**
-     * Exchanges the refresh cookie for a new session.
-     *
-     * <p>The cookie is the credential and no bearer token is required: this is how the SPA recovers a
-     * session after a page reload. It is also why this is one of only two CSRF-protected routes.
+     * Exchanges the refresh cookie for a new session — how the SPA recovers one after a page reload.
+     * The cookie being the credential is why this is one of only two CSRF-protected routes.
      */
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(
@@ -157,9 +152,7 @@ public class AuthController {
     }
 
     /**
-     * Emails a password-reset link.
-     *
-     * <p>Always 202, even for an address we have never seen — same reasoning as {@code /verify/resend}.
+     * Emails a password-reset link. Always 202, for {@code /verify/resend}'s reason.
      */
     @PostMapping("/password/forgot")
     public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request,
@@ -179,11 +172,8 @@ public class AuthController {
     }
 
     /**
-     * Settings → Security: change a password you already know.
-     *
-     * <p>Answers a full session, exactly as {@code /password/reset} does, because the change revokes
-     * every session including the caller's — {@code respond} sets the replacement cookie, so the tab
-     * that made the change stays signed in and the others do not.
+     * Settings → Security: change a password you already know. Answers a full session because the
+     * change revokes every session including the caller's, so the tab that made it stays signed in.
      */
     @PostMapping("/password/change")
     public ResponseEntity<AuthResponse> changePassword(@AuthenticationPrincipal AuthPrincipal principal,
@@ -205,16 +195,11 @@ public class AuthController {
     }
 
     /**
-     * Settings → Profile.
+     * Settings → Profile. Which user is edited comes from the principal and never from the request,
+     * so there is nothing to authorise.
      *
-     * <p>Same URL as the {@code GET}, because it is the same resource: the caller themselves. Which
-     * user is edited comes from the principal and never from the request, so there is nothing here to
-     * authorise — and no {@code @PreAuthorize}, exactly as on {@code GET /me}.
-     *
-     * <p>Two consequences of living on the auth chain, both intended. It is <b>CSRF-protected</b> like
-     * every other state change under {@code /auth} — the SPA sends the double-submit header. And it is
-     * authenticated but <b>not verified-email gated</b>: this row is the caller's own account, not
-     * tenant data, and someone still waiting on their inbox may already type their name into signup.
+     * <p>CSRF-protected like every state change under {@code /auth}, and authenticated but <b>not</b>
+     * verified-email gated: this row is the caller's own account, not tenant data.
      */
     @PatchMapping("/me")
     public ResponseEntity<UserResponse> updateProfile(@AuthenticationPrincipal AuthPrincipal principal,
@@ -244,13 +229,9 @@ public class AuthController {
     }
 
     /**
-     * Which sign-in methods this deployment actually offers, as the OAuth registration ids.
-     *
-     * <p>The frontend asks rather than assumes — a "Continue with LinkedIn" button that leads to a 404
-     * is worse than no button. It returns <i>ids</i> and not a fixed set of flags so that wiring up
-     * another provider stays a yml block: the id is the button and the authorisation path
-     * ({@code /oauth2/authorization/{id}}), and the SPA falls back to a generic label for one it has
-     * no icon for.
+     * Which sign-in methods this deployment offers, as OAuth registration ids rather than a fixed set
+     * of flags — so wiring up another provider stays a yml block. The id is both the button and the
+     * authorisation path, and the SPA falls back to a generic label for one it has no icon for.
      */
     @GetMapping("/providers")
     public ResponseEntity<AuthProviders> providers() {
