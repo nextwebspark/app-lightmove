@@ -41,15 +41,12 @@ public class LlmCallPolicy {
     /**
      * The advisors and log attribution one prompt is called with, as {@code .advisors(...)} takes them.
      *
-     * <p>Resolve it once in the caller's constructor and hold the result: the advisors are immutable,
-     * and any schema is read here, so one that will not load fails the context at startup rather than
-     * every request that needed it.
+     * <p>Resolve it once in the caller's constructor and hold the result: any schema is read here, so
+     * one that will not load fails the context at startup rather than every request that needed it.
      *
-     * <p>Deliberately not the shared {@code ChatClient} bean's default advisors, tempting as that is
-     * for making the guard impossible to forget: a block answers in place of the model, so its canned
-     * answer has to bind to whatever <i>that</i> call expects back, and one default cannot serve both
-     * a prose reply and a typed record. {@link PromptGuardSpec} refuses the specs that would get that
-     * wrong.
+     * <p>Deliberately not the shared {@code ChatClient} bean's default advisors: a block answers in
+     * place of the model, so its canned answer has to bind to whatever <i>that</i> call expects back,
+     * and one default cannot serve both a prose reply and a typed record.
      */
     public Consumer<ChatClient.AdvisorSpec> forPrompt(PromptGuardSpec spec) {
         List<Advisor> advisors = new ArrayList<>(2);
@@ -73,10 +70,8 @@ public class LlmCallPolicy {
     /**
      * The model's own answer, or a refusal — never the guard's canned reply passed off as one.
      *
-     * <p>Here rather than at each call site because the check is the piece most easily forgotten, and
-     * forgetting it serves a canned refusal as a real answer. A null reply is refused for the same
-     * reason: {@code content()} is nullable, and an empty answer rendered as a verdict is the same
-     * failure in a different shape.
+     * <p>Here rather than at each call site because forgetting the check serves a canned refusal as a
+     * real answer. A null reply is refused for the same reason: {@code content()} is nullable.
      */
     public String requireModelAnswer(String promptId, String answer) {
         if (BlockedAnswer.matches(answer)) {

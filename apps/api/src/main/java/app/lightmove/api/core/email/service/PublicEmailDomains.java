@@ -7,22 +7,16 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Consumer email providers — gmail, outlook, yahoo and friends.
- *
- * <p>Two jobs, and they are separate:
+ * Consumer email providers — gmail, outlook, yahoo and friends. Two jobs, and they are separate:
  *
  * <ul>
- *   <li><b>Blocking signup</b> (when {@code block-public-domains} is on). LightMove is sold to search
- *       firms, so the signup form asks for a work address and this is what enforces it.
- *   <li><b>Suppressing the colleague list</b> — always, regardless of the setting above. At signup we
- *       offer to show the workspaces already on your email domain, which is how you find your firm.
- *       {@code gmail.com} is not a firm: that list would be every Gmail user on the platform, and
- *       showing it would leak the existence of unrelated customers' workspaces to a stranger. So even
- *       with blocking switched off, a consumer domain never gets a colleague list.
+ *   <li><b>Blocking signup</b>, when {@code block-public-domains} is on.
+ *   <li><b>Suppressing the colleague list</b>, always. At signup we offer to show the workspaces
+ *       already on your email domain; for {@code gmail.com} that list would be every Gmail user on
+ *       the platform, leaking unrelated customers' workspaces to a stranger.
  * </ul>
  *
- * <p>Distinct from {@link DisposableDomains}, which blocks throwaway inboxes. Gmail is not disposable;
- * it is simply not a company.
+ * <p>Distinct from {@link DisposableDomains}: Gmail is not disposable, it is simply not a company.
  */
 final class PublicEmailDomains {
 

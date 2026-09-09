@@ -23,9 +23,8 @@ import org.springframework.stereotype.Component;
  *       of addresses defeats an IP limit entirely; only the per-account budget sees it.
  * </ul>
  *
- * <p>Deliberately not a servlet filter: the email lives in the request body, and a filter that parses
- * the body has to buffer and re-serve the stream. Calling this from the service, where the parsed
- * command is already in hand, is simpler and easier to test.
+ * <p>Deliberately not a servlet filter: the email lives in the request body, and a filter parsing it
+ * would have to buffer and re-serve the stream.
  */
 @Component
 public class RateLimitGuard {
@@ -74,10 +73,9 @@ public class RateLimitGuard {
     }
 
     /**
-     * Guards minting a browser-extension token. The caller is already authenticated, so this is not
-     * about guessing — it is about blast radius: the route hands back a long-lived refresh token in a
-     * response body, and script holding a stolen in-memory access token must not be able to mint them
-     * repeatedly before anyone notices.
+     * Guards minting a browser-extension token. Not about guessing but about blast radius: the route
+     * hands back a long-lived refresh token in a response body, and script holding a stolen in-memory
+     * access token must not be able to mint them repeatedly.
      */
     public void checkExtensionPairing(String email, HttpServletRequest request) {
         checkRateLimit("extension-pairing", email, request, config.extensionPairingsPerHour(),

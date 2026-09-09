@@ -28,17 +28,15 @@ public record AuthSettings(
         /**
          * When true, an unverified user may sign in but cannot reach any workspace data.
          *
-         * <p>On, and it must stay on. A user's email domain decides which organisation they belong
-         * to, so an <i>unverified</i> address is just an unproven claim — without this gate anyone
-         * could type {@code sara@nextwebspark.com} and be let into that firm's workspace. The
-         * verification email is what turns the claim into evidence.
+         * <p>On, and it must stay on. An email domain decides which organisation a user belongs to,
+         * so an <i>unverified</i> address is an unproven claim: without this gate anyone could type
+         * {@code sara@nextwebspark.com} and be let into that firm's workspace.
          */
         @DefaultValue("true") boolean requireVerifiedEmail,
 
         /**
          * Development only: a new signup is marked verified on the spot and no verification email is
-         * sent. It skips one step — proving the mailbox — and moves nothing else: a join request still
-         * waits for an admin, and the role is still the admin's to pick.
+         * sent. It skips one step — proving the mailbox — and moves nothing else.
          *
          * <p>Off, and it must stay off outside a developer's machine. On in production, anyone could
          * claim {@code sara@nextwebspark.com} and be let into that firm's workspace — the address is

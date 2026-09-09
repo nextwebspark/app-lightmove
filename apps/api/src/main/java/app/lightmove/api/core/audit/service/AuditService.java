@@ -39,8 +39,7 @@ public class AuditService {
     }
 
     /**
-     * Collects the request-scoped context (IP, user agent, correlation id) that every event wants and
-     * no caller should have to remember to attach.
+     * Collects the request-scoped context (IP, user agent, correlation id) every event wants.
      */
     public static final class Builder {
 

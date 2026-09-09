@@ -63,8 +63,8 @@ public record PromptGuardSpec(
     /**
      * The same prompt, refusing these phrases as well as the ones it already refuses.
      *
-     * <p>Additive on purpose, and named for it: replacing would make two calls silently drop the first
-     * one's phrases, and a guard that quietly stops refusing something is the failure worth avoiding.
+     * <p>Additive on purpose, and named for it: replacing would let a second call silently drop the
+     * first's phrases.
      */
     public PromptGuardSpec alsoRefusing(List<String> phrases) {
         if (phrases == null || phrases.isEmpty()) {

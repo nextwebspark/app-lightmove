@@ -6,16 +6,13 @@ import java.net.URI;
  * Normalisation for text a <i>client</i> supplied directly, where the server has no source of truth to
  * resolve the value against — a typed-in form field, or a value the browser plugin scraped off a page.
  *
- * <p>Both rules exist because of what happens downstream if they do not. An untouched text input posts
- * as {@code ""}, and an empty string stored in a snapshot column renders as a present-but-blank cell
- * and sorts ahead of real values, so "supplied but empty" has to become null once rather than at each
- * place that later asks whether a field is known.
+ * <p>An untouched text input posts as {@code ""}, which stored in a snapshot column renders as a
+ * present-but-blank cell and sorts ahead of real values, so "supplied but empty" becomes null once
+ * rather than at each place that later asks whether a field is known.
  *
- * <p>The URL rule is a security boundary as much as a convenience. A consultant types {@code acme.com},
- * which as an {@code href} is a <i>relative</i> link that navigates inside the SPA rather than to the
- * company, so a bare host gains {@code https://}. Anything that is not then http(s) is dropped rather
- * than stored — {@code javascript:} in an href is the interesting case, and a link the grid refuses to
- * render is better than one every future use site must remember to sanitise.
+ * <p>The URL rule is a security boundary. {@code acme.com} as an {@code href} is a <i>relative</i>
+ * link that navigates inside the SPA, so a bare host gains {@code https://}; anything that is not
+ * then http(s) is dropped rather than stored, {@code javascript:} being the interesting case.
  */
 public final class SuppliedText {
 

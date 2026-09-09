@@ -9,22 +9,17 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 /**
- * Caps how often one user may spend billed model time.
+ * Caps how often one user may spend billed model time. Every endpoint that calls Vertex has
+ * authentication as its only other gate, so without this an authenticated caller can loop one in a
+ * script and run up the project's GCP bill.
  *
- * <p>Every endpoint that calls Vertex has authentication as its only other gate, so without this an
- * authenticated caller can loop one in a script and run up the project's GCP bill.
- *
- * <p><b>It counts requests, not billed calls.</b> One request can become several: a structured prompt
+ * <p><b>It counts requests, not billed calls.</b> One request can become several — a structured prompt
  * spends up to {@code lightmove.llm.answer-repair-attempts} extra calls re-asking an answer that did
- * not fit. Ten requests a minute can therefore cost more than ten calls, which matters the day
- * somebody tunes these numbers against a GCP bill. A coarse brake to stop a runaway, not a meter.
+ * not fit — so ten requests a minute can cost more than ten calls. A coarse brake, not a meter.
  *
- * <p>Keyed by user id alone, unlike {@link RateLimitGuard}, which checks an IP budget and an email
- * budget because it guards the pre-auth flows where neither identifies a caller on its own. Here the
- * caller is already authenticated, so there is exactly one honest key. That difference is why this is
- * a separate component rather than more methods on that one: the two answer different questions and
- * record different things — an exhausted login budget is a security event worth an audit row, an
- * exhausted model budget is a cost control.
+ * <p>Keyed by user id alone, unlike {@link RateLimitGuard}, which guards the pre-auth flows where
+ * neither an IP nor an email identifies a caller on its own. An exhausted login budget is a security
+ * event worth an audit row; an exhausted model budget is a cost control.
  */
 @Component
 public class LlmBudgetGuard {
@@ -37,30 +32,19 @@ public class LlmBudgetGuard {
         this.settings = properties.llm().rateLimit();
     }
 
-    /**
-     * Spends one of this user's shortlist calls for the current minute.
-     *
-     * @throws ApiException RATE_LIMITED when they have none left
-     */
+    /** @throws ApiException RATE_LIMITED when this user has no shortlist calls left this minute */
     public void requireShortlistBudget(UUID userId) {
         requireBudget("shortlist", userId, settings.shortlistRequestsPerMinute());
     }
 
-    /**
-     * Spends one of this user's embedding calls for the current minute.
-     *
-     * @throws ApiException RATE_LIMITED when they have none left
-     */
+    /** @throws ApiException RATE_LIMITED when this user has no embedding calls left this minute */
     public void requireEmbeddingBudget(UUID userId) {
         requireBudget("embed", userId, settings.embedRequestsPerMinute());
     }
 
     /**
-     * Spends one of this user's column-mapping calls, the model call behind an import preview.
-     *
-     * <p>Its own meter, sized off the shortlist's number, so a large import cannot eat the shortlist a
-     * consultant is about to run. Keyed as the prompt id the call is logged under, which is what an
-     * investigation greps for after meeting a RATE_LIMITED.
+     * Spends one of this user's column-mapping calls — its own meter, so a large import cannot eat
+     * the shortlist a consultant is about to run. Keyed as the prompt id the call is logged under.
      *
      * @throws ApiException RATE_LIMITED when they have none left
      */
