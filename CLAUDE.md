@@ -12,7 +12,7 @@ workspace `CLIENT` role grants nothing; access is the project `CLIENT` seat, whi
 (read a mandate's content, never edit).
 
 **Built so far: auth, workspace management, projects, the RBAC layer, and the search layer.** Signup
-(3 steps), login, OAuth sign-in (Google and LinkedIn), invitations, the roster, the projects/clients
+(3 steps), login, OAuth sign-in (Google and LinkedIn, run in a popup), invitations, the roster, the projects/clients
 screens, a project's Team & access tab, the client registry with representative invites and their
 scoped read-only project access, and **Strategy → Companies**: a filter over the company universe, the
 searches saved against it, and the three Companies pages (In universe / Shortlisted / Declined) where a

@@ -5,21 +5,22 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import static app.lightmove.api.auth.OAuthFlowSupport.AUTHORIZATION_REQUEST_COOKIE;
+import static app.lightmove.api.auth.OAuthFlowSupport.stateOf;
+
 import app.lightmove.api.IntegrationTest;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
+import app.lightmove.api.core.security.service.CookieAuthorizationRequestStore;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.mock.web.MockHttpSession;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
-import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizationRequestRepository;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * What the SPA is told to render a button for.
@@ -36,6 +37,7 @@ class ConfiguredProvidersTest {
 
     @Autowired MockMvc mvc;
     @Autowired ClientRegistrationRepository registrations;
+    @Autowired CookieAuthorizationRequestStore authorizationRequestStore;
 
     @Test
     @DisplayName("every configured registration is offered, by its id")
@@ -61,12 +63,8 @@ class ConfiguredProvidersTest {
     @Test
     @DisplayName("a registration listed as lacking PKCE and nonce is sent neither, and keeps no verifier")
     void omitsPkceAndNonceForTheRegistrationsThatCannotTakeThem() throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        String authorizationUri = mvc.perform(get("/oauth2/authorization/linkedin").session(session))
-                .andExpect(status().is3xxRedirection())
-                .andReturn()
-                .getResponse()
-                .getRedirectedUrl();
+        MockHttpServletResponse redirect = redirectFor("linkedin");
+        String authorizationUri = redirect.getRedirectedUrl();
 
         // Not merely absent from the parameter map: absent from the URI the browser actually follows,
         // which is a different thing — the request carries a pre-rendered URI that survives a naive
@@ -77,40 +75,56 @@ class ConfiguredProvidersTest {
         // The stored request is the load-bearing half: the verifier lives there and is replayed at the
         // token exchange, which is where LinkedIn answered invalid_client. A URL clean of the challenge
         // while the attribute survived would fail in exactly the same way, and look fixed.
-        OAuth2AuthorizationRequest stored = new HttpSessionOAuth2AuthorizationRequestRepository()
-                .loadAuthorizationRequest(requestCarrying(session, authorizationUri));
+        OAuth2AuthorizationRequest stored = storedRequestOf(redirect);
 
         assertThat(stored).isNotNull();
-        assertThat(stored.getAttributes()).doesNotContainKeys("code_verifier", "nonce");
-    }
-
-    /** The stored request is keyed on `state`, so the lookup needs the value the redirect carried. */
-    private static MockHttpServletRequest requestCarrying(MockHttpSession session, String authorizationUri) {
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setSession(session);
-        // Decoded on the way in: the query is percent-encoded and the repository keys on the raw
-        // value, so a state ending in %3D would simply never be found.
-        String state = UriComponentsBuilder.fromUriString(authorizationUri)
-                .build()
-                .getQueryParams()
-                .getFirst("state");
-        request.setParameter("state", URLDecoder.decode(state, StandardCharsets.UTF_8));
-        return request;
+        assertThat(stored.getAttributes())
+                .doesNotContainKeys("code_verifier", "nonce")
+                .containsEntry("registration_id", "linkedin");
     }
 
     @Test
     @DisplayName("a provider that implements them keeps PKCE and nonce, so one quirk cannot weaken another")
     void keepsPkceAndNonceForEveryOtherRegistration() throws Exception {
-        String authorizationUri = redirectFor("google");
+        MockHttpServletResponse redirect = redirectFor("google");
 
-        assertThat(authorizationUri).contains("code_challenge").contains("nonce=");
+        assertThat(redirect.getRedirectedUrl()).contains("code_challenge").contains("nonce=");
+
+        // The positive half of the round trip, and it has to be asserted rather than inferred: a store
+        // that dropped these would look identical to one correctly honouring the quirk lists.
+        assertThat(storedRequestOf(redirect).getAttributes())
+                .containsKeys("code_verifier", "nonce")
+                .containsEntry("registration_id", "google");
     }
 
-    private String redirectFor(String registrationId) throws Exception {
+    @Test
+    @DisplayName("the whole request round-trips, not just the parts a quirk touches")
+    void roundTripsEveryFieldTheCallbackNeeds() throws Exception {
+        MockHttpServletResponse redirect = redirectFor("google");
+        OAuth2AuthorizationRequest stored = storedRequestOf(redirect);
+
+        assertThat(stored.getState()).isEqualTo(stateOf(redirect.getRedirectedUrl()));
+        assertThat(stored.getClientId()).isEqualTo("test-google-id");
+        assertThat(stored.getRedirectUri()).endsWith("/login/oauth2/code/google");
+        assertThat(stored.getScopes()).contains("openid");
+    }
+
+    private MockHttpServletResponse redirectFor(String registrationId) throws Exception {
         return mvc.perform(get("/oauth2/authorization/" + registrationId))
                 .andExpect(status().is3xxRedirection())
                 .andReturn()
-                .getResponse()
-                .getRedirectedUrl();
+                .getResponse();
     }
+
+    /** Reads back what the redirect stashed in the browser, the way the callback will. */
+    private OAuth2AuthorizationRequest storedRequestOf(MockHttpServletResponse redirect) {
+        Cookie cookie = redirect.getCookie(AUTHORIZATION_REQUEST_COOKIE);
+        assertThat(cookie).as("the authorisation request should ride back in a cookie").isNotNull();
+
+        MockHttpServletRequest callback = new MockHttpServletRequest();
+        callback.setCookies(cookie);
+        callback.setParameter("state", stateOf(redirect.getRedirectedUrl()));
+        return authorizationRequestStore.loadAuthorizationRequest(callback);
+    }
+
 }

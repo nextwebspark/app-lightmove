@@ -2,12 +2,15 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useOutletContext, useParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
+import { FullscreenButton } from "../../../components/ui";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { useToast } from "../../../components/ui/Toast";
+import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
+import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import { useGridSort, type GridSort } from "../../../lib/useGridSort";
 import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
@@ -108,6 +111,7 @@ function TriageStage() {
   const [importing, setImporting] = useState(false);
   const [managingColumns, setManagingColumns] = useState(false);
   const [sort, setSort] = useGridSort("companies", project.id, TRIAGE_SORT_FIELDS, DEFAULT_SORT);
+  const [isFullscreen, toggleFullscreen] = useFullscreen();
 
   /**
    * The mandate's own extra columns. Read once for the screen and shared by the grid, the toolbar's
@@ -336,7 +340,7 @@ function TriageStage() {
     /* No negative margins and no viewport arithmetic: the shell gives this tab the whole main area
        and a definite height (FULL_BLEED_TABS in ProjectLayout), so the height is inherited rather
        than guessed from a hard-coded amount of chrome that any topbar change would falsify. */
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
       <TriageToolbar
         query={query}
         onQuery={setQuery}
@@ -367,7 +371,10 @@ function TriageStage() {
         onClose={() => setManagingColumns(false)}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col gap-3 p-3 sm:p-5">
+      {/* `min-h-0`: a `flex-1` child of a flex *column* keeps `min-height: auto` and refuses to
+          shrink, so without it the grid grows to the height of every row it holds and the whole
+          screen scrolls — header and pager included — rather than the rows scrolling under them. */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-3 sm:p-5">
         <TriageCompanyTable
           rows={rows}
           projectId={project.id}
@@ -412,6 +419,7 @@ function TriageStage() {
           totalCount={totalCount}
           onPage={setPage}
           onSize={setPageSize}
+          trailing={<FullscreenButton active={isFullscreen} onToggle={toggleFullscreen} />}
         />
       </div>
 

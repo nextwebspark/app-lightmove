@@ -1,5 +1,6 @@
 package app.lightmove.api.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -31,6 +32,25 @@ import org.springframework.test.web.servlet.MockMvc;
 class SpaSecurityTest {
 
     @Autowired MockMvc mvc;
+
+    /**
+     * OAuth sign-in runs the provider's consent screen in a popup, and
+     * {@code Cross-Origin-Opener-Policy: same-origin} severs the {@code window.opener} link that popup
+     * needs to report back through. The failure is silent — just a "Continue with…" button that hangs
+     * forever — so nothing else would catch it. {@code same-origin-allow-popups} is the value to use if
+     * the header is ever wanted; {@code same-origin} must never appear.
+     */
+    @Test
+    @DisplayName("never sends a Cross-Origin-Opener-Policy that would break sign-in popups")
+    void keepsTheOpenerLinkSignInPopupsDependOn() throws Exception {
+        String policy = mvc.perform(get("/index.html"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getHeader("Cross-Origin-Opener-Policy");
+
+        assertThat(policy).isIn(null, "same-origin-allow-popups", "unsafe-none");
+    }
 
     // The SPA is served
 

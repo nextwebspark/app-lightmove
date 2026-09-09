@@ -11,15 +11,22 @@ import { messageFor } from "../../../lib/errorCodes";
 import { hasRoomForRails } from "../../../lib/viewport";
 import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
 import { useAutosave } from "../../../lib/useAutosave";
-import { useFullscreen } from "../../../lib/useFullscreen";
+import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import * as reportApi from "../../reports/api/reportApi";
 import * as triageApi from "../../triage/api/triageApi";
 import type { TriageCompanyStatus } from "../../triage/api/types";
 import { TRIAGE_STAGES, stageByStatus } from "../../triage/lib/triageStages";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
-import type { CompanyResult, CompanySort, SearchVisibility, StrategyFilter } from "../api/types";
+import type {
+  CompanyResult,
+  CompanySort,
+  SearchVisibility,
+  Strategy,
+  StrategyFilter,
+} from "../api/types";
 import { CompanyResultsTable } from "../components/CompanyResultsTable";
+import { MarketCompanyDrawer } from "../components/MarketCompanyDrawer";
 import { DEFAULT_COLUMN_VISIBILITY, companyColumns } from "../lib/companyColumns";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
@@ -36,6 +43,9 @@ const DEFAULT_SORT: CompanySort = { field: "employees", direction: "desc" };
 
 /** A stable empty selection, so "nothing ticked" is one identity rather than a new object per render. */
 const NOTHING_SELECTED: RowSelectionState = {};
+
+/** The same, for "no add in flight". */
+const NOTHING_ADDING: ReadonlySet<string> = new Set();
 
 export function StrategyPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
@@ -98,7 +108,8 @@ function StrategyEditor() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [sort, setSort] = useGridSort("strategy", project.id, COMPANY_SORT_FIELDS, DEFAULT_SORT);
-  const [addingId, setAddingId] = useState<string | null>(null);
+  const [addingIds, setAddingIds] = useState<ReadonlySet<string>>(NOTHING_ADDING);
+  const [openCompany, setOpenCompany] = useState<CompanyResult | null>(null);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility(
     "strategy",
     project.id,
@@ -223,34 +234,81 @@ function StrategyEditor() {
   });
 
   /**
-   * Off-limits is a separate endpoint and writes immediately rather than through the autosave timer:
-   * barring a company is a decision, not a draft, and the list is short enough that every change is
-   * deliberate. It invalidates the same scoped reads, since an exclusion changes what the table
-   * matches.
+   * The one way the off-limits list is written, whoever asked. It takes what the list should become
+   * from what it currently *is* — read from the cache here rather than trusted from a caller's render
+   * — because the endpoint replaces the list wholesale, so an edit built on a stale copy silently
+   * unbars everything that arrived after it.
+   *
+   * <p>It writes immediately rather than through the autosave timer: barring a company is a decision,
+   * not a draft. The flush is still needed because the response is the whole Strategy and goes
+   * straight into the cache, so a filter edit still sitting in the timer would be overwritten by the
+   * copy the server had before it.
    */
+  const writeOffLimits = async (next: (barred: string[]) => string[]) => {
+    await autosave.flush();
+    const stored = queryClient.getQueryData<Strategy>(strategyApi.STRATEGY_KEY(project.id));
+    const barred = (stored?.offLimits ?? []).map((entry) => entry.apolloAccountId);
+    const wanted = next(barred);
+    if (wanted.length === barred.length && wanted.every((id) => barred.includes(id))) return;
+    queryClient.setQueryData(
+      strategyApi.STRATEGY_KEY(project.id),
+      await strategyApi.putOffLimits(project.id, wanted),
+    );
+    await refreshScopedReads();
+  };
+
+  /*
+   * Both writers share one `scope`, so the rail and the panel queue behind each other instead of
+   * racing to replace the same list.
+   */
+  const OFF_LIMITS_SCOPE = { id: `off-limits-${project.id}` };
+
+  /** The rail, which renders the whole list and hands back the whole list it wants. */
   const offLimitsWrite = useMutation({
-    mutationFn: async (apolloAccountIds: string[]) => {
-      // The response is the whole Strategy and it goes straight into the cache, so a filter edit still
-      // sitting in the timer would be overwritten by the copy the server had before it.
-      await autosave.flush();
-      queryClient.setQueryData(
-        strategyApi.STRATEGY_KEY(project.id),
-        await strategyApi.putOffLimits(project.id, apolloAccountIds),
+    scope: OFF_LIMITS_SCOPE,
+    mutationFn: (apolloAccountIds: string[]) => writeOffLimits(() => apolloAccountIds),
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  /** The panel, which knows only the one company it is barring. */
+  const barCompany = useMutation({
+    scope: OFF_LIMITS_SCOPE,
+    mutationFn: async (company: CompanyResult) => {
+      await writeOffLimits((barred) =>
+        barred.includes(company.apolloAccountId) ? barred : [...barred, company.apolloAccountId],
       );
-      await refreshScopedReads();
+      return company;
     },
+    onSuccess: (company) => toast(`${company.companyName} is off-limits for this mandate`),
     onError: (error) => toast(messageFor(error)),
   });
 
   const addOne = useMutation({
-    mutationFn: (company: CompanyResult) =>
-      triageApi.addMarketCompany(project.id, company.apolloAccountId),
-    onSuccess: (_result, company) => {
+    mutationFn: ({ company, status }: { company: CompanyResult; status: TriageCompanyStatus }) =>
+      triageApi.addMarketCompany(project.id, company.apolloAccountId, { status }),
+    onSuccess: (added, { company, status }) => {
       void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
-      toast(`${company.companyName} added to universe`);
+      // The stage that comes back, never the one asked for: a company the mandate already holds is
+      // returned untouched, so "Shortlisted" on a declined row files nothing. Saying it did would
+      // leave a mandate believing in a shortlist entry that is not there.
+      toast(
+        added.status === status
+          ? `${company.companyName} added to ${stageByStatus(status).label}`
+          : `${company.companyName} is already in this mandate, at ${stageByStatus(added.status).label}`,
+      );
     },
     onError: (error) => toast(messageFor(error)),
-    onSettled: () => setAddingId(null),
+    // Tracked per company rather than as one id: the row's "+" and the panel both fire this, so a
+    // second add starting would otherwise re-enable the first row's button while its POST was still
+    // out, and whichever settled first would clear the other's spinner too.
+    onMutate: ({ company }) =>
+      setAddingIds((busy) => new Set(busy).add(company.apolloAccountId)),
+    onSettled: (_added, _error, { company }) =>
+      setAddingIds((busy) => {
+        const next = new Set(busy);
+        next.delete(company.apolloAccountId);
+        return next;
+      }),
   });
 
   const addAll = useMutation({
@@ -298,18 +356,7 @@ function StrategyEditor() {
     /* No negative margins and no viewport arithmetic: the shell gives this tab the whole main area
        and a definite height (FULL_BLEED_TABS in ProjectLayout), so the height is inherited rather
        than guessed from a hard-coded 98px of chrome that any topbar change would falsify. */
-    <div
-      className={cn(
-        "flex min-h-0 flex-1 flex-col",
-        // Its own background and no corners: full screen has no edges, and `main`'s rounded panel is
-        // no longer behind the whole of this.
-        //
-        // 96 clears the mobile nav rail. That rail is a sibling rendered by AppShell, not a
-        // descendant, so it does not order inside this stacking context — at anything below 95 a
-        // keyboard user who tabbed past the nav scrim left it floating over "full screen".
-        isFullscreen && "fixed inset-0 z-[96] bg-panel",
-      )}
-    >
+    <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
       <StrategyToolbar
         filter={filter}
         searches={data?.searches ?? []}
@@ -367,13 +414,11 @@ function StrategyEditor() {
               onLayoutChange={setLayout}
               loading={companies.isFetching}
               error={companies.isError}
-              onAddToUniverse={(company) => {
-                setAddingId(company.apolloAccountId);
-                addOne.mutate(company);
-              }}
-              addingId={addingId}
+              onAddToUniverse={(company) => addOne.mutate({ company, status: "inUniverse" })}
+              addingIds={addingIds}
               rowSelection={rowSelection}
               onRowSelectionChange={setRowSelection}
+              onOpenCompany={setOpenCompany}
             />
             {selectedIds.length > 0 && (
               <SelectionActionBar
@@ -405,6 +450,20 @@ function StrategyEditor() {
           />
         </div>
       </div>
+
+      <MarketCompanyDrawer
+        company={openCompany}
+        onClose={() => setOpenCompany(null)}
+        onTriage={(company, status) => {
+          setOpenCompany(null);
+          addOne.mutate({ company, status });
+        }}
+        onOffLimits={(company) => {
+          setOpenCompany(null);
+          barCompany.mutate(company);
+        }}
+        barring={barCompany.isPending}
+      />
     </div>
   );
 }

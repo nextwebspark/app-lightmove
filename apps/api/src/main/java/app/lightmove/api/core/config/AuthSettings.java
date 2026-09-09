@@ -26,6 +26,14 @@ public record AuthSettings(
         @DefaultValue("7d") Duration invitationTtl,
 
         /**
+         * How long a sign-in has to come back from the identity provider. It is the lifetime of the
+         * cookie carrying the authorisation request — long enough for a consent screen and a second
+         * factor, short enough that an abandoned attempt does not leave a {@code code_verifier} in the
+         * browser for the afternoon.
+         */
+        @DefaultValue("10m") Duration oauthRequestTtl,
+
+        /**
          * When true, an unverified user may sign in but cannot reach any workspace data.
          *
          * <p>On, and it must stay on. An email domain decides which organisation a user belongs to,

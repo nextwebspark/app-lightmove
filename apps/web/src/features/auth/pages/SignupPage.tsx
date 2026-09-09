@@ -165,7 +165,7 @@ export function SignupPage() {
         {/* Signing up with a provider lands in exactly the same place this form does — an account
             with no workspace, on step 2 — because the callback routes on what is true of the user
             rather than on how they arrived. */}
-        <OAuthButtons />
+        <OAuthButtons onError={setFormError} />
       </Card>
 
       <p className="animate-fade-up text-[12.5px] text-text2 [animation-delay:120ms]">

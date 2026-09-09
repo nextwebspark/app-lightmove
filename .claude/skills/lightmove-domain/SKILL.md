@@ -126,6 +126,21 @@ keeps PKCE and the nonce, and a test pins that so one provider's shortcomings ca
 weaken another's. Dropping the nonce costs the id_token→browser binding; what remains is the code
 exchange itself (single-use, server-to-server over TLS with our secret) plus `state` for CSRF.
 
+**The authorisation request rides a cookie, not a session.** The `state`, the PKCE `code_verifier` and
+the `nonce` have to survive the trip to the provider, and Spring's default parks them in an in-memory
+`HttpSession` on one instance — so a callback landing on another Cloud Run instance, or after a
+restart, or past a session timeout, found nothing and told the user their sign-in had failed.
+`CookieAuthorizationRequestStore` writes them to `lm_oauth_request` instead, single-use and cleared at
+the callback, which is why the service needs no session affinity and nothing in `src/main` touches
+`HttpSession` at all. Three things about it are load-bearing: **`SameSite=Lax`, never `Strict`** — the
+callback is a top-level cross-site GET the provider initiates, and `Strict` withholds a cookie on
+exactly that navigation, which is the bug it exists to remove; `Secure` and `domain` come from
+`lightmove.auth.cookie.*` so there is one answer to "is this deployment on TLS" rather than two; and
+the value is **deliberately unsigned** — nothing in it is a capability, the code is still redeemed
+server-to-server with our secret, and the binding that matters is that the stored `state` equals the
+one the callback carries. (Login CSRF is neither introduced nor fixed by this: planting a cookie is
+the same primitive as planting a `JSESSIONID` was.)
+
 Five things this cost an afternoon each to learn:
 
 - A provider Boot ships no `CommonOAuth2Provider` preset for (LinkedIn) needs its endpoints — in the
@@ -154,7 +169,29 @@ Five things this cost an afternoon each to learn:
 `/login?error` on the *API's* host, which in development is the API and answers 404 JSON — so the
 real error never reaches anyone. Ours logs the provider's wording (configuration detail, useless to
 the person signing in) and sends the browser to the SPA with `OAUTH_FAILED`. Both handlers route
-refusals through `LoginErrorRedirector`.
+refusals through `LoginErrorRedirector`, which lands on `web.oauth-success-path` (`/auth/callback`)
+rather than `/login`: **one SPA route owns both outcomes**, because that route is what runs inside
+the sign-in popup and a login screen rendered in a 500×640 window helps nobody. Outside a popup it
+forwards to `/login?error=` and nothing looks different.
+
+**Cancelling is not failing.** A provider answers a pressed Cancel with `error=access_denied`
+(RFC 6749 §4.1.2.1; LinkedIn also spells it `user_cancelled_login` / `user_cancelled_authorize`),
+which arrives at the failure handler indistinguishable from a bad client secret. It used to be
+reported as one — "sign-in did not complete, try again" for someone who had simply changed their
+mind. `OAUTH_CANCELLED` keeps them apart, and the SPA maps it to *no message at all*. The handler
+branches on the **error code**, never on the provider: that distinction is what keeps it on the
+right side of the yml-block rule.
+
+**Sign-in runs in a popup** (`apps/web/src/features/auth/oauthPopup.ts`), so the app never unloads
+and someone who backs out returns to the page they left. Three things about it are load-bearing:
+`window.open` must be called *synchronously* in the click or the browser blocks it; a blocked popup
+falls back to the full-page redirect, which is why that path must keep working; and **no credential
+crosses between the windows** — the popup discards the access token in its URL unread and reports
+only an outcome, while the opener mints its own token from the refresh cookie the server already
+set. The popup reports over `postMessage` *and* a `BroadcastChannel`, because a
+`Cross-Origin-Opener-Policy` anywhere in the round trip can sever `window.opener` silently; for the
+same reason the SPA must never be served `Cross-Origin-Opener-Policy: same-origin`
+(`SpaSecurityTest` pins that).
 
 The profile picture is the provider's CDN URL, copied to `app_lm_user.avatar_url`, and **owned by
 whoever supplied it** (`avatar_source`, V25). That source may re-stamp it on every sign-in — LinkedIn's

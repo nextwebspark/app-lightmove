@@ -1,5 +1,6 @@
 package app.lightmove.api.core.security.config;
 import app.lightmove.api.core.security.jwt.JwtPrincipalConverter;
+import app.lightmove.api.core.security.service.CookieAuthorizationRequestStore;
 import app.lightmove.api.core.security.service.OAuth2LoginFailureHandler;
 import app.lightmove.api.core.security.service.ProviderQuirkAwareRequestResolver;
 import app.lightmove.api.core.security.service.OAuth2LoginSuccessHandler;
@@ -198,6 +199,13 @@ public class SecurityConfig {
      * <p>The cost of matching this way: any future endpoint <b>outside</b> {@code /api/v1} is public.
      * Every endpoint in this codebase lives under {@code /api/v1}. Keep it that way —
      * {@code SpaSecurityTest} holds that line.
+     *
+     * <p><b>Do not give this chain {@code Cross-Origin-Opener-Policy: same-origin}.</b> OAuth sign-in
+     * runs the provider's consent screen in a popup, and that value severs {@code window.opener}, so
+     * the popup returns unable to reach the tab that opened it — silently, with no console or network
+     * error, just a button hanging on "Connecting…". {@code same-origin-allow-popups} is the
+     * popup-compatible value if the header is ever wanted. {@code SpaSecurityTest} pins that it is
+     * never {@code same-origin}.
      */
     @Bean
     @Order(2)
@@ -229,6 +237,7 @@ public class SecurityConfig {
                                  JwtPrincipalConverter principalConverter,
                                  OAuth2LoginSuccessHandler oauthSuccessHandler,
                                  OAuth2LoginFailureHandler oauthFailureHandler,
+                                 CookieAuthorizationRequestStore authorizationRequestStore,
                                  ObjectProvider<ClientRegistrationRepository> clientRegistrations,
                                  ProblemAccessDeniedHandler accessDenied,
                                  LightMoveProperties properties) throws Exception {
@@ -318,8 +327,9 @@ public class SecurityConfig {
                     properties.auth().oauth().nonceUnsupportedRegistrations());
 
             http.oauth2Login(login -> login
-                    .authorizationEndpoint(endpoint ->
-                            endpoint.authorizationRequestResolver(authorizationRequests))
+                    .authorizationEndpoint(endpoint -> endpoint
+                            .authorizationRequestResolver(authorizationRequests)
+                            .authorizationRequestRepository(authorizationRequestStore))
                     .successHandler(oauthSuccessHandler)
                     .failureHandler(oauthFailureHandler));
         }

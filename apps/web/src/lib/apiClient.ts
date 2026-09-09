@@ -1,4 +1,5 @@
 import type { ApiError } from "../features/auth/api/types";
+import { readCookie } from "./cookies";
 import { createSseParser, type SseEvent } from "./sse";
 
 /**
@@ -196,11 +197,6 @@ async function sendWithCsrf(send: (csrf: string | null) => Promise<Response>): P
   }
 
   return send(await fetchCsrfToken());
-}
-
-function readCookie(name: string): string | null {
-  const match = document.cookie.match(new RegExp(`(^|;\\s*)${name}=([^;]*)`));
-  return match ? decodeURIComponent(match[2]) : null;
 }
 
 interface RequestOptions {
