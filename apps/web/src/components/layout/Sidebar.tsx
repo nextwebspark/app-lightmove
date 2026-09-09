@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { useTheme } from "../../features/theme/useTheme";
 import { cn } from "../../lib/cn";
+import { APP_VERSION } from "../../lib/version";
 import { Icon, ICONS } from "./Icon";
 import { useSidebarCollapsed } from "./useSidebarCollapsed";
 
@@ -163,6 +164,9 @@ export function Sidebar({
           <Icon d={ICONS.close} className="flex-none" />
           <span className="whitespace-nowrap">Close menu</span>
         </button>
+        <p className={cn("px-2.5 pt-2 font-mono text-[11px] text-text3", labelsHidden)}>
+          {APP_VERSION}
+        </p>
       </div>
     </nav>
   );
