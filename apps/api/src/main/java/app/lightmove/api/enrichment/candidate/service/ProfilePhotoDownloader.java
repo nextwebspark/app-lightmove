@@ -31,9 +31,8 @@ import org.springframework.web.client.RestClient;
  * later be served from our own origin.
  *
  * <p>Deliberately its own bare {@link RestClient}: the adapters' clients carry vendor credentials as
- * default headers, and a CDN must never see those keys. It bypasses the vendor layer for the same
- * reason — nothing here is metered, so there is no rate to pace and no failure worth classifying.
- * Only a transport failure is retried; a CDN's 404 means the photo is gone.
+ * default headers, and a CDN must never see those keys. Nothing here is metered, so it bypasses the
+ * vendor layer too. Only a transport failure is retried; a CDN's 404 means the photo is gone.
  */
 @Slf4j
 @Component
@@ -63,8 +62,7 @@ public class ProfilePhotoDownloader {
      * The transfer itself, on its own bean so the retry is not swallowed before it happens.
      * {@code @Retryable} is proxy-based, so a transport failure has to escape the retried method to be
      * seen — and {@link ProfilePhotoDownloader#fetchOrNull} exists precisely to let nothing escape.
-     * Calling it on {@code this} would bypass the proxy, the same trap {@code AuditService} documents
-     * for {@code @Async}.
+     * Calling it on {@code this} would bypass the proxy.
      */
     @Component
     static class ProfilePhotoTransfer {
@@ -121,8 +119,7 @@ public class ProfilePhotoDownloader {
             InetAddress resolved = InetAddress.getByName(parsed.getHost());
             if (resolved.isAnyLocalAddress() || resolved.isLoopbackAddress()
                     || resolved.isLinkLocalAddress() || resolved.isSiteLocalAddress()) {
-                // The host, not the URL: this one stays at warn because it is a security event worth
-                // seeing, and a CDN hostname names no one — the path is the part that would.
+                // The host, not the URL: a CDN hostname names no one, the path would.
                 log.warn("Refusing a profile photo whose host resolves inside the network: {}",
                         parsed.getHost());
                 return null;

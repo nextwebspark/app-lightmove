@@ -20,27 +20,19 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Writes a template's content onto a brief. One class for both callers on purpose: a mandate seeded at
- * creation and a mandate whose consultant picked a different template afterwards must end up with the
- * same brief, and two code paths drafting the same document would not stay identical for long.
+ * Writes a template's content onto a brief. One class for both callers on purpose: a mandate seeded
+ * at creation and one whose consultant picked a different template afterwards must end up with the
+ * same brief.
  *
- * <p><b>What the template writes, and what survives it.</b> Choosing a template is choosing a draft, so
- * everything the template speaks for is replaced — the responsibilities, the narrative, the org chart,
- * the package's shape, the criteria and both competency panels. What a person put in by hand survives,
- * because none of it is the template's to have an opinion about:
+ * <p><b>What the template writes, and what survives it.</b> Everything the template speaks for is
+ * replaced — the responsibilities, the narrative, the org chart, the package's shape, the criteria
+ * and both competency panels. What survives is what is not the template's to have an opinion about:
+ * every field a template does not carry (the location, the salary band, the publication stamp);
+ * criteria a consultant wrote themselves, which {@code fromBrief} has marked since V7 for exactly
+ * this; and which strategic priorities are lit.
  *
- * <ul>
- *   <li>every field a template does not carry — the location, the salary band, why the mandate exists,
- *       the internal context, the team size, the publication stamp and the attached document;</li>
- *   <li>criteria a consultant wrote themselves. {@code fromBrief} has marked the drafted ones since
- *       V7 for exactly this: the template's own rows are replaced and hand-written ones are kept;</li>
- *   <li>which strategic priorities are lit. The palette becomes the new template's, but a priority
- *       already selected stays selected, and one somebody added by hand is carried across.</li>
- * </ul>
- *
- * <p>The org chart is rebuilt rather than merged. A chart is a tree of seats around <i>this</i> role,
- * and a merge of two role's charts is neither — the consultant who has arranged one and then changes
- * template is asking for the other one.
+ * <p>The org chart is rebuilt rather than merged: a chart is a tree of seats around <i>this</i> role,
+ * and a merge of two roles' charts is neither.
  */
 final class PositionTemplateApplier {
 
@@ -101,9 +93,8 @@ final class PositionTemplateApplier {
      * The template's palette, keeping every choice already made against it, with anything the
      * consultant added of their own appended.
      *
-     * <p>Matched on the lower-cased name because that is the identity {@code PositionService} enforces
-     * uniqueness on — merging on anything looser would produce the pair of same-looking chips that
-     * write refuses.
+     * <p>Matched on the lower-cased name, the identity {@code PositionService} enforces uniqueness
+     * on: merging on anything looser would produce the same-looking pair that write refuses.
      */
     private static List<PositionPriority> mergedPriorities(List<PositionPriority> current,
                                                            List<String> palette) {
