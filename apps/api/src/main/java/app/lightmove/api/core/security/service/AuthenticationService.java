@@ -34,10 +34,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Registration and sign-in.
  *
- * <p>Signup creates a user and stops there — deliberately. A user's email domain says which <i>firm</i>
- * they work at, but not which <i>workspace</i>: one firm may run several, and membership is
- * invitation-only. So step 2 has them create their own workspace (they become its ADMIN); being invited
- * into an existing one is the other way in. See {@code OnboardingService} / {@code InvitationService}.
+ * <p>Signup creates a user and stops there, deliberately: an email domain says which <i>firm</i>
+ * someone works at, not which <i>workspace</i>, since one firm may run several and membership is
+ * invitation-only. Step 2 has them create their own or accept an invitation.
  */
 @Service
 @Slf4j
@@ -80,11 +79,8 @@ public class AuthenticationService {
     }
 
     /**
-     * Signup step 1 — create the account.
-     *
-     * <p>Creates the user and nothing else. Which workspace they end up in is step 2's problem: they
-     * create their own (becoming its ADMIN), or accept an admin's invitation. See
-     * {@code OnboardingService}.
+     * Signup step 1 — create the account and nothing else. Which workspace they end up in is step
+     * 2's problem; see {@code OnboardingService}.
      */
     @Transactional
     public AuthenticatedSession signup(SignupCommand command, HttpServletRequest request) {
@@ -122,9 +118,8 @@ public class AuthenticationService {
         identities.save(UserIdentity.link(user.getId(), UserIdentity.LOCAL_PROVIDER, email, email));
 
         if (config.autoVerifyEmail()) {
-            // Dev shortcut. The user is managed and we are in a transaction, so this flushes with it, and
-            // it happens before the token is issued below — so the session handed back already carries
-            // emailVerified, and there is no second login.
+            // Dev shortcut, flushed before the token is issued below, so the session handed back
+            // already carries emailVerified and there is no second login.
             user.markEmailVerified(now);
             log.warn("lightmove.auth.auto-verify-email is ON — {} was verified without proving the address",
                     email);
@@ -144,15 +139,13 @@ public class AuthenticationService {
     /**
      * Creates a local account whose email is already proven, for the invitation-accept path.
      *
-     * <p>No verification email, and the account is marked verified straight away: the invitation token
-     * was mailed only to this address, so holding it is the proof of the mailbox that verification would
-     * otherwise establish. The safety hinge is that {@code rawEmail} is the invitation's, resolved from
-     * the token server-side — never a client-supplied value — so the token can only ever mint the one
-     * identity it was addressed to.
+     * <p>No verification email: the invitation token was mailed only to this address, so holding it is
+     * the mailbox proof verification would otherwise establish. The safety hinge is that
+     * {@code rawEmail} is the invitation's, resolved from the token server-side and never a
+     * client-supplied value, so the token can only mint the identity it was addressed to.
      *
-     * <p>No {@code validateWorkEmail} either: the address was vetted as a work address when the
-     * invitation was issued (see {@code InvitationService#invite}), and re-checking now could reject a
-     * contractor whose domain rules have since changed.
+     * <p>No {@code validateWorkEmail} either: the address was vetted when the invitation was issued,
+     * and re-checking could reject a contractor whose domain rules have since changed.
      */
     @Transactional
     public User createVerifiedLocalUser(String rawEmail, String fullName, String rawPassword,
@@ -195,13 +188,12 @@ public class AuthenticationService {
      * the pair did not match.
      *
      * <p>That includes the lockout, which used to answer its own 423. It was reachable only for an
-     * address that exists, so five wrong guesses confirmed an account — cheaper and more certain than
-     * any timing attack. A locked-out user is told by <i>email</i> instead, at the moment the lock arms:
-     * the mailbox already proves ownership, so it can carry what the login response must not.
+     * address that exists, so five wrong guesses confirmed an account. A locked-out user is told by
+     * <i>email</i> instead, which already proves ownership.
      *
      * <p>Every refusal also pays for one BCrypt comparison, via
-     * {@link PasswordPolicy#equaliseFailureCost}. Identical answers arriving in 26 ms and 276 ms are not
-     * identical answers.
+     * {@link PasswordPolicy#equaliseFailureCost}: identical answers arriving in 26 ms and 276 ms are
+     * not identical answers.
      *
      * <p><b>{@code noRollbackFor = ApiException.class}, and the lockout depends on it:</b> otherwise the
      * failed-attempt increment is rolled back with the thrown ApiException, the counter never climbs,

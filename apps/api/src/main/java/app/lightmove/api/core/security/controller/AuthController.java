@@ -72,11 +72,8 @@ public class AuthController {
     private final ObjectProvider<ClientRegistrationRepository> oauthRegistrations;
 
     /**
-     * Signup step 1.
-     *
-     * <p>Returns 201 with a session but <i>no workspace</i> — the user has an account and no
-     * organisation yet. The token carries no tenant claim, so the filter chain admits them only to the
-     * onboarding endpoints, which is precisely where the wizard is taking them next.
+     * Signup step 1. Returns 201 with a session but <i>no workspace</i>: the token carries no tenant
+     * claim, so the filter chain admits them only to the onboarding endpoints.
      */
     @PostMapping("/signup")
     public ResponseEntity<AuthResponse> signup(@Valid @RequestBody SignupRequest request,
@@ -98,9 +95,8 @@ public class AuthController {
     /**
      * Exchanges the refresh cookie for a new session.
      *
-     * <p>The cookie is the credential — no bearer token required, which is the whole point: this is how
-     * the SPA recovers a session after a page reload, once the in-memory access token is gone. It is
-     * also why this is one of only two CSRF-protected routes (see {@code SecurityConfig}).
+     * <p>The cookie is the credential and no bearer token is required: this is how the SPA recovers a
+     * session after a page reload. It is also why this is one of only two CSRF-protected routes.
      */
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(
@@ -115,9 +111,9 @@ public class AuthController {
         try {
             return respond(HttpStatus.OK, authentication.refresh(refreshToken, httpRequest));
         } catch (ApiException e) {
-            // Expire the cookie on the way out: a rejected token is dead, and leaving it in place makes
-            // the browser re-present it every page load — an endless stream of TOKEN_REUSE_DETECTED. The
-            // header is set before the handler sees the exception, so it survives onto the 401.
+            // Expire the cookie on the way out: leaving a rejected token in place has the browser
+            // re-present it every page load, an endless stream of TOKEN_REUSE_DETECTED. The header is
+            // set before the handler sees the exception, so it survives onto the 401.
             httpResponse.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.expire().toString());
             throw e;
         }
@@ -137,8 +133,8 @@ public class AuthController {
     }
 
     /**
-     * Redeems a verification link and signs the user straight in — the token proved the mailbox, which
-     * is everything a login would have proved. {@code respond} sets the refresh cookie, exactly as login.
+     * Redeems a verification link and signs the user straight in: the token proved the mailbox, which
+     * is everything a login would have proved.
      */
     @PostMapping("/verify")
     public ResponseEntity<AuthResponse> verify(@Valid @RequestBody VerifyEmailRequest request,
@@ -163,8 +159,7 @@ public class AuthController {
     /**
      * Emails a password-reset link.
      *
-     * <p>Always 202, even for an address we have never seen — same reasoning as {@code /verify/resend}:
-     * confirming which addresses exist is a free account-enumeration oracle.
+     * <p>Always 202, even for an address we have never seen — same reasoning as {@code /verify/resend}.
      */
     @PostMapping("/password/forgot")
     public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request,
@@ -175,8 +170,7 @@ public class AuthController {
     }
 
     /**
-     * Redeems the emailed link and signs the user straight in — the token proved the mailbox, which is
-     * everything a login would have proved. {@code respond} sets the refresh cookie, exactly as login.
+     * Redeems the emailed link and signs the user straight in, as {@code /verify} does.
      */
     @PostMapping("/password/reset")
     public ResponseEntity<AuthResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request,

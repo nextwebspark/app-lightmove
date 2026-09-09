@@ -10,10 +10,9 @@ import org.springframework.stereotype.Component;
 /**
  * Hashes and checks passwords, and knows what makes one acceptable.
  *
- * <p>The strength rule is the mockup's, verbatim: <i>"at least 8 characters, with one number"</i>.
- * Deliberately not a maze of character-class requirements — those push people towards
- * {@code Password1!}, which is both compliant and among the first thousand guesses any attacker
- * makes. Length and a real lockout do more than complexity theatre.
+ * <p>The strength rule is the mockup's: <i>"at least 8 characters, with one number"</i>. Deliberately
+ * not a maze of character-class requirements, which push people towards {@code Password1!} — both
+ * compliant and among the first thousand guesses anyone makes.
  */
 @Component
 public class PasswordPolicy {
@@ -36,10 +35,9 @@ public class PasswordPolicy {
     /**
      * A hash of a value nobody knows, compared against when there is no real hash to compare against.
      *
-     * <p>Derived rather than hardcoded so its cost always tracks {@code bcrypt-strength}: a constant
-     * baked at one strength would stop matching the real work the moment the setting moved, and the
-     * timing it exists to hide would reopen. Costs one BCrypt encode at startup (~250 ms at strength
-     * 12) — that is the bean's construction, not a slow application.
+     * <p>Derived rather than hardcoded so its cost tracks {@code bcrypt-strength}: a constant baked at
+     * one strength would stop matching the real work the moment the setting moved, reopening the
+     * timing it exists to hide. Costs one BCrypt encode at startup.
      */
     private final String decoyHash;
 

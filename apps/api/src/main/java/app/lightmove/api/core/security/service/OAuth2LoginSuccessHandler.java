@@ -39,21 +39,16 @@ import org.springframework.web.util.UriComponentsBuilder;
  * What happens after an identity provider says who you are.
  *
  * <p>The important boundary: <b>the provider authenticates, it does not get to be our session.</b>
- * Once it has proved the user's identity we mint our <i>own</i> access and refresh tokens, so every
- * downstream check — tenant claims, roles, verification, revocation — works identically whether
- * someone signed in with a password, with Google, or with LinkedIn. There is exactly one session
- * model in this system.
+ * We mint our own access and refresh tokens, so every downstream check works identically whether
+ * someone signed in with a password, with Google, or with LinkedIn.
  *
- * <p><b>Nothing here names a provider.</b> Which one authenticated is the OAuth registration id,
- * read off the authentication token and stored uppercased on the identity row, and every claim read
- * is standard OIDC ({@code sub}, {@code email}, {@code email_verified}, {@code name},
- * {@code picture}). That is what makes adding a provider a yml block and no code at all — a branch
- * on the provider here would quietly undo it.
+ * <p><b>Nothing here names a provider.</b> Which one authenticated is the OAuth registration id, and
+ * every claim read is standard OIDC ({@code sub}, {@code email}, {@code email_verified},
+ * {@code name}, {@code picture}). That is what makes adding a provider a yml block and no code at
+ * all — a branch on the provider here would quietly undo it.
  *
- * <p>The work-email rule applies here too, because it is the product rather than an artefact of the
- * password flow: a {@code @gmail.com} federated account is still a {@code @gmail.com} address, and
- * is refused when the blocklist is on. A new user arrives with no workspace and is sent into
- * onboarding, exactly as a password signup is.
+ * <p>The work-email rule applies here too: a {@code @gmail.com} federated account is still a
+ * {@code @gmail.com} address, and is refused when the blocklist is on.
  */
 @Component
 @RequiredArgsConstructor
@@ -81,9 +76,9 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                                         Authentication authentication) throws IOException {
         if (!(authentication.getPrincipal() instanceof OidcUser oidcUser)
                 || !(authentication instanceof OAuth2AuthenticationToken oauthToken)) {
-            // Overwhelmingly this means a registration configured without the `openid` scope, which
-            // yields a plain OAuth2User. Naming what arrived is the difference between a one-line
-            // config fix and an afternoon: the browser only ever sees ?error=INVALID_CREDENTIALS.
+            // Overwhelmingly a registration configured without the `openid` scope, which yields a
+            // plain OAuth2User. Naming what arrived is the difference between a one-line config fix
+            // and an afternoon: the browser only ever sees ?error=INVALID_CREDENTIALS.
             log.warn("OAuth sign-in produced no OIDC identity: authentication={}, principal={}",
                     authentication.getClass().getSimpleName(),
                     authentication.getPrincipal() == null
@@ -119,11 +114,10 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             log.info("{} sign-in refused: {} ({})", provider, ex.getCode(), ex.getMessage());
             loginErrors.send(response, ex.getCode());
         } catch (Exception ex) {
-            // This handler is invoked by the security filter chain, so GlobalExceptionHandler never
-            // sees what escapes it — an uncaught exception here is a raw container error page. Two
-            // concurrent first sign-ins of the same new user can race into register() and the loser
-            // dies on the unique email constraint; whatever else lands here, the browser must still
-            // come back to the SPA with a code.
+            // Invoked by the security filter chain, so GlobalExceptionHandler never sees what
+            // escapes it — an uncaught exception here is a raw container error page. Two concurrent
+            // first sign-ins of the same new user race into register() and the loser dies on the
+            // unique email constraint; whatever lands here, the browser must still return to the SPA.
             log.error("{} sign-in failed unexpectedly", provider, ex);
             loginErrors.send(response, ErrorCode.OAUTH_FAILED);
         }
@@ -132,10 +126,9 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     /**
      * Finds or creates the local user behind a federated account, and issues our tokens.
      *
-     * <p>Matched on the provider's stable subject id where possible, and only then on email. The
-     * subject id is what actually persists — an email address can be renamed at the provider, and
-     * matching solely on it would either lose the link or, worse, attach a provider account to
-     * whoever now holds a recycled address.
+     * <p>Matched on the provider's stable subject id where possible, and only then on email: an
+     * address can be renamed at the provider, and matching solely on it would lose the link or attach
+     * a provider account to whoever now holds a recycled address.
      */
     // No @Transactional: this is called from onAuthenticationSuccess on this same bean, so the proxy
     // is bypassed and the annotation would be inert — the TransactionTemplate around the call is what
@@ -155,7 +148,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         if (email == null || email.isBlank()) {
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS, provider + " returned no email address");
         }
-        // A provider will happily tell us the address is unverified. Believing it anyway would let
+        // A provider will happily say the address is unverified. Believing it anyway would let
         // someone attach an address they do not own — and here that address decides which firm they
         // join, and links them into an account that already exists.
         if (!emailProvenBy(provider, oidcUser)) {
@@ -193,9 +186,8 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         return users.findByEmail(email)
                 .map(existing -> {
                     // Same address, so the same person: the provider has verified it, and only the
-                    // mailbox's owner could have. Linking rather than creating a second account is what
-                    // keeps one human from becoming two users with one email — which the schema forbids
-                    // anyway.
+                    // mailbox's owner could have. Linking rather than creating a second account is
+                    // what the schema's unique email requires anyway.
                     identities.save(UserIdentity.link(existing.getId(), provider, subject, email));
 
                     // Signing in with the provider proves the same mailbox a verification email exists

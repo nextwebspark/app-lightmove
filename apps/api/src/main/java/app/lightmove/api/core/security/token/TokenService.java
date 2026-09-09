@@ -75,9 +75,9 @@ public class TokenService {
     /**
      * Redeems a refresh token for a new pair, and burns the one presented.
      *
-     * <p>Where theft is caught: a token already rotated away should never reappear, so if one does the
-     * whole family is revoked and both parties re-authenticate. A lost session is an acceptable cost;
-     * leaving a thief a working token is not.
+     * <p>Where theft is caught: a token already rotated away should never reappear, so if one does
+     * the whole family is revoked. A lost session is an acceptable cost; a thief's working token
+     * is not.
      *
      * <p><b>{@code noRollbackFor = ApiException.class} is what makes the revocation stick:</b> otherwise
      * {@link #handleReuse} revokes the family, throws REFRESH_TOKEN_REUSED, and the revocation is rolled
@@ -108,8 +108,8 @@ public class TokenService {
                         "No refresh token matches the presented hash"));
 
         // Hard in both directions. A web refresh token exists only as an httpOnly SameSite=Strict
-        // cookie; redeemed at /auth/extension/refresh its successor would come back in a plaintext body,
-        // laundering a credential kept out of script's reach into a bearer token.
+        // cookie; redeemed at /auth/extension/refresh its successor would come back in a plaintext
+        // body, laundering a credential kept out of script's reach.
         if (existing.getClient() != client) {
             throw new ApiException(ErrorCode.REFRESH_TOKEN_INVALID,
                     "Refresh token belongs to a different client than " + client);
