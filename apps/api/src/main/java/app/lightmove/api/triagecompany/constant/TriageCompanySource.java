@@ -1,14 +1,10 @@
 package app.lightmove.api.triagecompany.constant;
 
 /**
- * Which door a company came through into a mandate's universe.
+ * Which door a company came through into a mandate's universe — provenance the grid shows.
  *
- * <p>This is provenance the grid shows, not bookkeeping. A headcount exported by Apollo and one typed
- * in by a researcher from a company's own careers page are not equally trustworthy, and a consultant
- * reading a row should be able to tell which they are looking at before acting on it.
- *
- * <p>The distinction is also a write rule: only {@link #STRATEGY} rows carry an
- * {@code apolloAccountId}, because only they were taken out of a universe that has ids. V34's
+ * <p>It is also a write rule: only {@link #STRATEGY} rows are guaranteed an
+ * {@code apolloAccountId}, and V34's
  * {@code app_lm_project_triage_company_apollo_source_chk} enforces that half in the schema.
  */
 public enum TriageCompanySource {
@@ -23,11 +19,9 @@ public enum TriageCompanySource {
     EXTENSION("extension"),
 
     /**
-     * Read out of a spreadsheet a consultant imported. Like MANUAL it carries no universe id — the
-     * name in a file is all there is to identify a company by — and it is kept distinct so the grid's
-     * Source badge can say that a headcount came out of somebody's export rather than being typed in
-     * after checking. V47 added it to the column's CHECK; V36 had already reserved the same spelling on
-     * the candidate side.
+     * Read out of an imported spreadsheet. Carries no universe id, and is kept distinct from MANUAL so
+     * the Source badge can say a figure came out of an export rather than being checked by hand.
+     * V47 added it to the column's CHECK; V36 had reserved the spelling on the candidate side.
      */
     CSV("csv");
 

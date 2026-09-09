@@ -1,27 +1,16 @@
 package app.lightmove.api.strategy.constant;
 
 /**
- * The headcount bands the Strategy filter selects from, matching the wireframe's rows exactly.
+ * The headcount bands the Strategy filter selects from.
  *
- * <p>These are <b>numeric bounds, not range strings</b>. The brightdata warehouse shipped a
- * pre-bucketed {@code employee_range} column a band could be compared to directly; Apollo ships only
- * a raw {@code num_employees} integer, so every band states the range it means and the query builder
- * turns it into a BETWEEN. The bounds are closed on both ends and abut without overlapping — 20 is
- * the top of {@code B_11_20}, 21 the bottom of {@code B_21_50} — so a company falls in exactly one
- * band.
+ * <p>These are <b>numeric bounds, not range strings</b>: Apollo ships a raw {@code num_employees}
+ * integer and no pre-bucketed column, so every band states the range it means and the query builder
+ * turns it into a BETWEEN. The bounds are closed on both ends and abut without overlapping, so a
+ * company falls in exactly one band.
  *
- * <p><b>The cut is deliberately fine at the bottom.</b> Eleven bands rather than a handful, and five
- * of them under 500 people, because that is where the universe actually sits: a coarse "1-50" bucket
- * would put over a third of the market behind one row and make the filter useless for exactly the
- * searches that need it most. The wireframe cuts it this way and the data agrees.
- *
- * <p>{@link #value} is a slug, not the label. The label is presentation and will change; the slug is
- * what a saved search stores, and a stored filter that stops resolving because someone retitled a
- * row is a silent scope change on a live mandate. The label travels beside the slug in the facets
- * response, so the client never mirrors it.
- *
- * <p>Every row in {@code app_lm_apollo_companies} carries a headcount — the column is 100% populated
- * across all 71,822 rows — so unlike {@link RevenueBand} this axis needs no Unknown band.
+ * <p>{@link #value} is a slug, not the label — see {@link app.lightmove.api.strategy.model.StrategyFilter}
+ * for why a stored filter never holds a label. Every row in the universe carries a headcount, so
+ * unlike {@link RevenueBand} this axis needs no Unknown band.
  */
 public enum EmployeeBand {
 

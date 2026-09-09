@@ -8,20 +8,15 @@ import jakarta.validation.constraints.Size;
 import java.util.Map;
 
 /**
- * The company's own facts, replaced whole — what the Companies panel's Edit form submits for a company
- * the mandate supplied itself.
+ * The company's own facts, replaced whole — what the Companies panel's Edit form submits for a
+ * company the mandate supplied itself.
  *
- * <p>A PUT rather than more optional fields on {@link UpdateTriageCompanyRequest}, because the two
- * writes mean different things. That one is a triage change: a status, a note, either alone, and a
- * null leaves the other half be. This one is the panel's whole form, which holds every field and
- * submits every field — so an omitted field is a <i>cleared</i> field, and folding it into a
- * partial-merge endpoint would make clearing a headcount impossible to express.
+ * <p>A PUT rather than more optional fields on {@link UpdateTriageCompanyRequest}: that one is a
+ * triage change where a null leaves the other half be, while this is the whole form, so an omitted
+ * field is a <i>cleared</i> field and a partial-merge endpoint could not express clearing a headcount.
  *
- * <p>{@link CaptureCompanyRequest} is its sibling and carries three things this one deliberately does
- * not: {@code source}, {@code status} and {@code sourceUrl} are provenance, set when the row was
- * written and never rewritable. {@code note} is absent for a different reason — it stays on the PATCH,
- * because it is the mandate's own remark and remains editable on the very companies this endpoint
- * refuses.
+ * <p>{@code source}, {@code status} and {@code sourceUrl} are provenance and are not rewritable.
+ * {@code note} stays on the PATCH, because it remains editable on the companies this endpoint refuses.
  */
 public record EditTriageCompanyRequest(
         @NotBlank(message = "A company name is required")

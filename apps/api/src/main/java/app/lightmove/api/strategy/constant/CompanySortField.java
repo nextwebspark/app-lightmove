@@ -3,14 +3,12 @@ package app.lightmove.api.strategy.constant;
 import java.util.List;
 
 /**
- * The columns a scoped company list can be sorted by. This enum is the allowlist that keeps a
- * caller-supplied string out of an ORDER BY: a request names a wire token, and only a token resolving
- * here ever reaches SQL. The free-text columns the table can show — {@code short_description} behind
- * the Notes column — are deliberately absent; alphabetising a description answers no question.
+ * The columns a scoped company list can be sorted by — the allowlist that keeps a caller-supplied
+ * string out of an ORDER BY. Free-text columns are deliberately absent.
  *
  * <p>{@code NULLIF} guards the columns where Apollo encodes "we don't know" as a zero rather than a
- * null. Only the null form sinks under {@code NULLS LAST} on its own, so an ascending sort would
- * otherwise open on the very rows the ordering means to bury.
+ * null. Only the null form sinks under {@code NULLS LAST}, so an ascending sort would otherwise open
+ * on the very rows the ordering means to bury.
  */
 public enum CompanySortField {
 
@@ -35,11 +33,9 @@ public enum CompanySortField {
     }
 
     /**
-     * The ORDER BY terms for this field in the given direction. {@code NULLS LAST} regardless of
-     * direction: a missing figure is a data gap, and a page of blanks is never what "sort by revenue"
-     * was asking for. That matters more here than it did against the warehouse — Apollo publishes a
-     * revenue figure on one row in ten, so an ascending revenue sort without this is nine pages of
-     * nothing.
+     * The ORDER BY terms for this field. {@code NULLS LAST} regardless of direction: Apollo publishes
+     * a revenue figure on one row in ten, so an ascending revenue sort without it is nine pages of
+     * blanks.
      */
     public String orderByTerms(SortDirection direction) {
         return String.join(", ", columns.stream()

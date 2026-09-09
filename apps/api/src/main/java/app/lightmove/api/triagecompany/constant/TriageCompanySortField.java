@@ -2,16 +2,12 @@ package app.lightmove.api.triagecompany.constant;
 
 /**
  * The columns a mandate's triaged companies can be sorted by — the allowlist that keeps a
- * caller-supplied string out of an ORDER BY.
+ * caller-supplied string out of an ORDER BY. The wire tokens deliberately match
+ * {@code CompanySortField}'s, because the Companies and Strategy grids are one table over two sources.
  *
- * <p>The wire tokens are deliberately the same ones {@code CompanySortField} uses, because the
- * Companies grid and the Strategy grid are the same table rendering two sources: a user who sorted
- * Strategy by {@code employees} and then opened Shortlisted means the same thing by the word.
- *
- * <p>Unlike Strategy's, these are <b>JPA property names</b> rather than SQL fragments: this list is a
- * few hundred rows read through the repository, not a filtered scan of 71,822, so Spring Data builds
- * the ORDER BY and there is no string to inject into. {@link #ADDED} exists here and not there — when
- * a company entered this mandate is a fact about the decision, which the market has no opinion on.
+ * <p>Unlike Strategy's, these are <b>JPA property names</b> rather than SQL fragments: Spring Data
+ * builds the ORDER BY, so there is no string to inject into. {@link #ADDED} exists only here — when a
+ * company entered this mandate is a fact about the decision, not about the market.
  */
 public enum TriageCompanySortField {
 

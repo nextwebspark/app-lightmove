@@ -32,15 +32,13 @@ import lombok.NoArgsConstructor;
 
 /**
  * The position brief — the mandate's role definition, 1:1 with its project. Seeded from the template
- * library when the project is created, then edited a wizard step at a time.
+ * library at project creation, then edited a wizard step at a time.
  *
- * <p>One apply method per step, rather than one taking the whole document. That is not tidiness: the
- * brief holds six adjacent {@code Long} salary and incentive figures, two {@code Integer} counts and
- * several same-typed strings, and a single positional constructor over all of them is a transposition
- * the compiler cannot see. A step-shaped record can only be filled from its own step.
+ * <p>One apply method per step rather than one taking the whole document: the brief holds six
+ * adjacent {@code Long} salary figures, two {@code Integer} counts and several same-typed strings,
+ * and a single positional constructor over all of them is a transposition the compiler cannot see.
  *
- * <p>Publishing stamps who declared the brief ready and when. It is not a lock — V38 retired that —
- * so every write above stays available afterwards.
+ * <p>Publishing stamps who declared the brief ready. It is not a lock — V38 retired that.
  */
 @Entity
 @Table(name = "app_lm_position")
@@ -51,7 +49,7 @@ public class Position extends BaseEntity {
     @Column(name = "project_id", nullable = false, updatable = false)
     private UUID projectId;
 
-    // ── Step 1 · Position details ───────────────────────────────────────────
+    // Step 1 · Position details
 
     @Column(name = "department", length = 160)
     private String department;
@@ -77,7 +75,7 @@ public class Position extends BaseEntity {
     @Column(name = "narrative")
     private String narrative;
 
-    // ── Step 2 · Mandate context ────────────────────────────────────────────
+    // Step 2 · Mandate context
 
     @Enumerated(EnumType.STRING)
     @Column(name = "mandate_reason", nullable = false, length = 32)
@@ -98,7 +96,7 @@ public class Position extends BaseEntity {
     @Column(name = "internal_context")
     private String internalContext;
 
-    // ── Step 3 · Reporting structure ────────────────────────────────────────
+    // Step 3 · Reporting structure
 
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "app_lm_position_org_node",
@@ -116,7 +114,7 @@ public class Position extends BaseEntity {
     @Column(name = "notice_unit", length = 8)
     private NoticeUnit noticeUnit;
 
-    // ── Step 4 · Compensation package ───────────────────────────────────────
+    // Step 4 · Compensation package
 
     @Column(name = "currency", nullable = false, length = 3)
     private String currency = "USD";
@@ -154,7 +152,7 @@ public class Position extends BaseEntity {
     @OrderColumn(name = "sort_order")
     private List<PositionBenefit> benefits = new ArrayList<>();
 
-    // ── Step 5 · Assessment criteria ────────────────────────────────────────
+    // Step 5 · Assessment criteria
 
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "app_lm_position_criterion",
@@ -168,7 +166,7 @@ public class Position extends BaseEntity {
     @OrderColumn(name = "sort_order")
     private List<PositionCompetency> competencies = new ArrayList<>();
 
-    // ── Step 6 · Publication ────────────────────────────────────────────────
+    // Step 6 · Publication
 
     @Column(name = "published_at")
     private Instant publishedAt;
@@ -177,9 +175,8 @@ public class Position extends BaseEntity {
     private UUID publishedBy;
 
     /**
-     * A blank brief for a mandate, opened at the client's home country. The location is a constructor
-     * argument rather than a later write because it is the one thing about a fresh brief that comes
-     * from the client: a role template has never met them, so applying one must leave it alone.
+     * A blank brief, opened at the client's home country. The location is a constructor argument
+     * because a role template has never met the client, so applying one must leave it alone.
      */
     public static Position forProject(UUID projectId, String location) {
         Position position = new Position();
@@ -256,9 +253,8 @@ public class Position extends BaseEntity {
     }
 
     /**
-     * Records that somebody declared the brief ready, once. A repeat publish keeps the first stamp:
-     * the date can end up on a client-facing document, and a stray second click must not rewrite it.
-     * When the brief last changed is {@code updatedAt}, which is a different question.
+     * Records that somebody declared the brief ready, once. A repeat publish keeps the first stamp —
+     * the date can reach a client-facing document. When the brief last changed is {@code updatedAt}.
      */
     public void publish(UUID actorId) {
         if (publishedAt != null) {

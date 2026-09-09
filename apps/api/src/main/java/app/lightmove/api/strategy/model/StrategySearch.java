@@ -15,18 +15,15 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * A named filter a mandate saved so it could come back to it. The toolbar's "Save Search".
+ * A named filter a mandate saved so it could come back to it.
  *
- * <p>Holds the same {@link StrategyFilter} document the live strategy does, deliberately by value:
- * loading a saved search copies its filter onto the strategy, and the two then move independently.
- * A reference would make every subsequent chip click silently rewrite the saved search — which is
- * exactly the thing it exists not to do. Re-capturing the current filter onto a search is therefore
- * an explicit act ({@link #replaceFilter}), never a side effect of editing the sidebar.
+ * <p>Holds the same {@link StrategyFilter} document the live strategy does, deliberately by value: a
+ * reference would make every subsequent chip click silently rewrite the saved search. Re-capturing
+ * the current filter is therefore an explicit act ({@link #replaceFilter}).
  *
  * <p>What {@code createdBy} means depends on {@link #visibility}. On a {@code SHARED} search it is
- * provenance: the search belongs to the mandate, and a LEAD reworking a RESEARCHER's search is
- * ordinary collaboration. On a {@code PRIVATE} one it is a fence — the author is the only person who
- * may read it, rename it or delete it, and to everyone else the row does not exist.
+ * provenance; on a {@code PRIVATE} one it is a fence — the author is the only person who may read,
+ * rename or delete it, and to everyone else the row does not exist.
  */
 @Entity
 @Table(name = "app_lm_strategy_search")

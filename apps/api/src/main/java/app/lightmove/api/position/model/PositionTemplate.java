@@ -27,13 +27,11 @@ import org.hibernate.type.SqlTypes;
  * One role template: the brief a mandate for this kind of role starts from.
  *
  * <p><b>Two owners, one table.</b> A null {@link #workspaceId} is a LightMove library template every
- * workspace can read and none can edit; a non-null one belongs to that workspace alone. Nothing writes
- * the second kind yet — the library is seeded by V42 and managed as migrations — but every read is
- * already scoped, so the template-management screen is a write path rather than a re-modelling.
+ * workspace can read and none can edit; a non-null one belongs to that workspace alone. Nothing
+ * writes the second kind yet, but every read is already scoped.
  *
- * <p>The content is a jsonb document ({@link PositionTemplateBody}) and the match keywords are a child
- * table, and the split is deliberate: the body is read whole and never queried, while the keywords are
- * the catalog's lookup key. V42's header carries the full argument.
+ * <p>The content is a jsonb document ({@link PositionTemplateBody}) read whole and never queried,
+ * while the match keywords are a child table because they are the catalog's lookup key.
  */
 @Entity
 @Table(name = "app_lm_position_template")
@@ -86,15 +84,13 @@ public class PositionTemplate extends BaseEntity {
     }
 
     /**
-     * Whether a mandate's role title lands on this template: a case-insensitive substring match on any
-     * keyword. A template with no keywords never matches — the generic fallback is reached by code,
-     * not by matching a title nothing else recognised.
+     * Whether a mandate's role title lands on this template: a case-insensitive substring match on
+     * any keyword. A template with no keywords never matches — the generic fallback is reached by
+     * code.
      *
-     * <p>Both sides are lower-cased, not just the title. V42's seed is lower-case throughout and the
-     * table comment says so, but a comment cannot hold an invariant: the management screen that will
-     * write these rows takes them from a text box, and a keyword typed as "CFO" against a title
-     * lower-cased to "cfo" would simply stop matching — silently, with the mandate landing on the
-     * generic fallback and nothing anywhere reporting a fault.
+     * <p>Both sides are lower-cased, not just the title. V42's seed is lower-case throughout, but the
+     * management screen that will write these rows takes them from a text box, and a keyword typed as
+     * "CFO" would silently stop matching a title lower-cased to "cfo".
      */
     public boolean matchesTitle(String roleTitle) {
         if (roleTitle == null) {

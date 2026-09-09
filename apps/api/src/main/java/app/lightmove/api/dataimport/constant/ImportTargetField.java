@@ -5,17 +5,15 @@ import java.util.List;
 
 /**
  * Every field of a Companies-grid row a spreadsheet column can be mapped onto — the catalogue the
- * mapping step offers, the model is asked to choose from, and the heuristic matches against.
+ * mapping step offers, the model chooses from, and the heuristic matches against.
  *
  * <p>One enum rather than a company list and a candidate list, because a mapping is a flat decision
- * per header: "Employer" and "Ethnicity" are answered from the same dropdown, and the target is what
- * says which half of the row each one lands on. {@link #synonyms} are what the heuristic matches
- * before it ever reaches token overlap, and they are the real ones — the headers consultants' files
- * actually carry, not a tidy alias per field.
+ * per header and the target is what says which half of the row it lands on. {@link #synonyms} are the
+ * headers consultants' files actually carry, not a tidy alias per field.
  *
- * <p>What is deliberately absent: anything the mandate decides rather than the file. Triage stage is
- * not here because the import lands every company In universe, and the candidate's status is not here
- * because a spreadsheet's "status" column is the sender's pipeline, not this mandate's.
+ * <p>Deliberately absent: anything the mandate decides rather than the file. An import lands every
+ * company In universe, and a spreadsheet's "status" column is the sender's pipeline, not this
+ * mandate's.
  */
 public enum ImportTargetField {
 

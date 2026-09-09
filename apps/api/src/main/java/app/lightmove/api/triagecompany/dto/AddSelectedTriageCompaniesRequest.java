@@ -7,14 +7,10 @@ import java.util.List;
 /**
  * Taking the companies a consultant ticked on Strategy into the mandate, all at one stage.
  *
- * <p>Identities only, for the reason {@link AddTriageCompanyRequest} carries only one: the snapshot
- * is resolved from the universe server-side, so a client cannot file a company under figures of its
- * own choosing. The list is bounded here at a size no selection over a page of results can reach; the
- * real ceiling is the configured bulk-add limit, checked in the service beside the one
- * {@code /from-filter} enforces.
- *
- * <p>{@code status} is the stage all of them land at — the whole point of the selection bar, whose
- * three buttons are this one field. Omitted, they land in universe.
+ * <p>Identities only, for {@link AddTriageCompanyRequest}'s reason: the snapshot is resolved
+ * server-side. The list is bounded here at a size no page's selection can reach; the real ceiling is
+ * the configured bulk-add limit, checked in the service. {@code status} is the stage they all land
+ * at, and omitted they land in universe.
  */
 public record AddSelectedTriageCompaniesRequest(
         @NotEmpty(message = "Select at least one company")

@@ -8,17 +8,15 @@ import jakarta.validation.constraints.Size;
 import java.util.Map;
 
 /**
- * A company the mandate supplies itself — typed in on the Companies screen, or read off a live page by
- * the browser plugin.
+ * A company the mandate supplies itself — typed in on the Companies screen, or read off a live page
+ * by the browser plugin.
  *
- * <p>The mirror image of {@link AddTriageCompanyRequest}, which names a universe id and lets the server
- * resolve everything else. Here there is no universe row to resolve against, so the caller carries the
- * fields; the trade is that {@code source} must say so, and {@code strategy} is refused — a company
- * claiming to come from the market must come through the endpoint that reads the market.
+ * <p>The mirror image of {@link AddTriageCompanyRequest}: there is no universe row to resolve
+ * against, so the caller carries the fields, {@code source} must say so, and {@code strategy} is
+ * refused — a company claiming to come from the market must come through the endpoint that reads it.
  *
- * <p>{@code status} is the landing stage. It exists for the plugin's two destination buttons ("Add to
- * universe" / "Add to shortlist" in {@code Extension.dc.html}), which are one capture with two
- * different answers to where it lands. Omitted, it lands in universe like everything else.
+ * <p>{@code status} is the landing stage, for the plugin's two destination buttons. Omitted, it lands
+ * in universe.
  */
 public record CaptureCompanyRequest(
         @NotBlank(message = "A company name is required")
