@@ -37,8 +37,20 @@ interface AuthContextValue {
 
   /** Re-reads the user from the server. Call after anything that changes their workspace or role. */
   reload: () => Promise<User | null>;
-  /** Adopts a session established elsewhere — currently the Google OAuth callback. */
+  /** Adopts a session established elsewhere — the OAuth callback, after a full-page redirect. */
   adopt: (token: string, user: User) => void;
+  /**
+   * Adopts a session the server established for us in another window, and answers who it belongs to.
+   *
+   * This is the popup sign-in's landing point. The popup is handed an access token in its URL and
+   * throws it away unread: the refresh cookie the server set alongside it is the whole session, and
+   * exchanging that here keeps the access token in this tab's memory and nowhere else — no
+   * credential ever crosses the message channel between the two windows.
+   *
+   * Answers null when there is no session to adopt, which is what a popup reporting success it did
+   * not have would look like.
+   */
+  adoptRestoredSession: () => Promise<User | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -215,9 +227,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [startFreshSession],
   );
 
+  /**
+   * Mints an access token from the refresh cookie, learns who it belongs to, and adopts both.
+   *
+   * Reuses `restoreSession` — the same exchange a cold page load performs — rather than a second way
+   * of turning that cookie into a session, and hands off to `adopt` so the query cache is cleared
+   * exactly as it is for every other way of signing in.
+   */
+  const adoptRestoredSession = useCallback(async () => {
+    const token = await restoreSession();
+    if (!token) {
+      return null;
+    }
+
+    try {
+      const adopted = await authApi.me();
+      adopt(token, adopted);
+      return adopted;
+    } catch {
+      setAccessToken(null);
+      return null;
+    }
+  }, [adopt]);
+
   const value = useMemo(
-    () => ({ user, loading, signIn, signUp, acceptInviteSignup, verifyEmail, resetPassword, signOut, reload, adopt }),
-    [user, loading, signIn, signUp, acceptInviteSignup, verifyEmail, resetPassword, signOut, reload, adopt],
+    () => ({
+      user,
+      loading,
+      signIn,
+      signUp,
+      acceptInviteSignup,
+      verifyEmail,
+      resetPassword,
+      signOut,
+      reload,
+      adopt,
+      adoptRestoredSession,
+    }),
+    [
+      user,
+      loading,
+      signIn,
+      signUp,
+      acceptInviteSignup,
+      verifyEmail,
+      resetPassword,
+      signOut,
+      reload,
+      adopt,
+      adoptRestoredSession,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
