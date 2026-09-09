@@ -136,13 +136,9 @@ class SpaSecurityTest {
     }
 
     /**
-     * The release the image was built as, which is how you ask a running service what it is without
-     * reading a Cloud Run revision. It arrives as APP_VERSION, baked into the image by the Dockerfile's
-     * build arg — the same one the SPA bundle was built with, so the two halves cannot disagree.
-     *
-     * <p>Nothing sets it here, so this asserts the fallback. That is the assertion worth having: it
-     * fails if {@code management.info.env.enabled} is ever dropped, which would leave the endpoint
-     * answering {@code {}} exactly as it did before, with nothing else to notice.
+     * Nothing sets APP_VERSION here, so this asserts the fallback — which is the assertion worth
+     * having. It fails if {@code management.info.env.enabled} is ever dropped, and the endpoint would
+     * otherwise answer {@code {}} exactly as it did before, with nothing else to notice.
      */
     @Test
     @DisplayName("reports its version at /actuator/info")

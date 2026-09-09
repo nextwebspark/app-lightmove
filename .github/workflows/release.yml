@@ -47,12 +47,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           SHA="$(git rev-parse HEAD)"
-          RUNS="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/check-runs?per_page=100" \
-                    --jq '.check_runs[] | [.name, .conclusion // "pending"] | @tsv')"
-
           FAILED=0
           for GATE in API Web Extension; do
-            CONCLUSION="$(printf '%s\n' "$RUNS" | awk -F'\t' -v n="$GATE" '$1 == n { print $2; exit }')"
+            # Asked per gate rather than filtered out of one listing: a busy commit can push a check off
+            # the first page, and a gate that is merely unlisted would then read as missing.
+            CONCLUSION="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/check-runs?check_name=${GATE}" \
+                            --jq '.check_runs[0].conclusion // "pending"')"
             if [ "$CONCLUSION" != "success" ]; then
               echo "::error::CI check '${GATE}' is ${CONCLUSION:-missing} on ${SHA}."
               FAILED=1
@@ -72,6 +72,12 @@ jobs:
           BUMP: ${{ inputs.bump }}
         run: |
           LATEST="$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
+
+          case "${LATEST#v}" in
+            *[!0-9.]*)
+              echo "::error::Latest tag ${LATEST} is not a plain vX.Y.Z. Cut the next one by hand."
+              exit 1 ;;
+          esac
 
           if [ -z "$LATEST" ]; then
             # The first release ignores the bump: there is nothing to increment, and 0.1.0 is what
@@ -119,6 +125,10 @@ jobs:
     permissions:
       contents: read
       id-token: write   # a called workflow cannot widen this; the caller has to grant it
+    # A locally-referenced reusable workflow resolves at the CALLER's ref, so the tag is deployed by
+    # main's deploy.yml, not by the copy the tag itself contains. That is what you want — a rollback
+    # should use today's WIF config and secret names — but it means a change here reaches old tags
+    # without a release.
     uses: ./.github/workflows/deploy.yml
     with:
       ref: ${{ needs.tag.outputs.version }}
