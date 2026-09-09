@@ -20,6 +20,9 @@ import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandida
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import { canExecuteProjectWork } from "../../projects/lib/access";
+import * as talentMapApi from "../../talentmap/api/talentMapApi";
+import { TalentMapView } from "../../talentmap/components/TalentMapView";
+import { useTalentMapPreferences } from "../../talentmap/lib/useTalentMapPreferences";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
 import { CompanyDrawer } from "../components/CompanyDrawer";
@@ -50,6 +53,9 @@ const EMPTY_CUSTOM_COLUMNS: CustomColumn[] = [];
 
 /** How hard the In-universe screen looks for research landing on a fresh plugin capture. */
 const RESEARCH_POLL_MS = 4_000;
+
+/** How often the map asks again while the server is still placing rows it could not place yet. */
+const GEOCODING_POLL_MS = 3_000;
 
 /** Newest first, matching the server's default, so the first paint is not a re-sort. */
 const DEFAULT_SORT: GridSort<TriageSortField> = { field: "added", direction: "desc" };
@@ -108,6 +114,21 @@ function TriageStage() {
   const [importing, setImporting] = useState(false);
   const [managingColumns, setManagingColumns] = useState(false);
   const [sort, setSort] = useGridSort("companies", project.id, TRIAGE_SORT_FIELDS, DEFAULT_SORT);
+  const [mapPreferences, setMapPreferences] = useTalentMapPreferences(project.id);
+
+  /**
+   * Whether this deployment draws a map at all. A refused or failed read means no toggle rather than
+   * a broken globe — the grid is the screen, the map is the second reading of it. Read once and kept:
+   * a token does not change while a tab is open.
+   */
+  const mapConfig = useQuery({
+    queryKey: talentMapApi.TALENT_MAP_CONFIG_KEY,
+    queryFn: ({ signal }) => talentMapApi.getTalentMapConfig(signal),
+    staleTime: Infinity,
+  });
+  const mapOffered =
+    stage.status === "inUniverse" && mapConfig.data?.enabled === true && !!mapConfig.data.publicToken;
+  const view = mapOffered ? mapPreferences.view : "table";
 
   /**
    * The mandate's own extra columns. Read once for the screen and shared by the grid, the toolbar's
@@ -186,6 +207,8 @@ function TriageStage() {
         sort,
         signal,
       ),
+    // The grid's reads are the grid's: the map reads the whole stage in one request of its own.
+    enabled: view === "table",
     // Paging without blanking the grid, which would make every page turn look like a reload.
     placeholderData: keepPreviousData,
     refetchInterval: researchPoll,
@@ -213,7 +236,7 @@ function TriageStage() {
     queryKey: candidatesApi.CANDIDATES_KEY(project.id, { triageCompanyIds: companyIds }),
     queryFn: ({ signal }) =>
       candidatesApi.getCandidates(project.id, { triageCompanyIds: companyIds }, signal),
-    enabled: companyIds.length > 0,
+    enabled: view === "table" && companyIds.length > 0,
     placeholderData: keepPreviousData,
     refetchInterval: researchPoll,
     refetchOnWindowFocus: true,
@@ -232,7 +255,7 @@ function TriageStage() {
     queryKey: candidatesApi.CANDIDATES_KEY(project.id, { unmapped: true }),
     queryFn: ({ signal }) =>
       candidatesApi.getCandidates(project.id, { unmapped: true }, signal),
-    enabled: stage.status === "inUniverse" && !debouncedQuery && page === lastPage,
+    enabled: view === "table" && stage.status === "inUniverse" && !debouncedQuery && page === lastPage,
     refetchInterval: researchPoll,
     refetchOnWindowFocus: true,
   });
@@ -241,6 +264,21 @@ function TriageStage() {
     ...(mappedPeople.data?.candidates ?? []),
     ...(unmappedPeople.data?.candidates ?? []),
   ];
+
+  /**
+   * The whole stage as points, read only while the globe is showing. Polls while the server is still
+   * placing rows it could not place in one read — a big import fills in over a few of them — and
+   * stops by itself once nothing is pending.
+   */
+  const talentMap = useQuery({
+    queryKey: talentMapApi.TALENT_MAP_KEY(project.id, stage.status),
+    queryFn: ({ signal }) => talentMapApi.getTalentMap(project.id, stage.status, signal),
+    enabled: view === "map",
+    placeholderData: keepPreviousData,
+    refetchInterval: (query) =>
+      (query.state.data?.geocodingPending ?? 0) > 0 ? GEOCODING_POLL_MS : false,
+    refetchOnWindowFocus: true,
+  });
 
   const rows = useMemo(
     () =>
@@ -286,6 +324,9 @@ function TriageStage() {
     });
     void queryClient.invalidateQueries({
       queryKey: customColumnsApi.CUSTOM_COLUMNS_KEY(project.id),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: talentMapApi.TALENT_MAP_KEY_PREFIX(project.id),
     });
   };
 
@@ -350,6 +391,8 @@ function TriageStage() {
         onManageColumns={() => setManagingColumns(true)}
         canWrite={canWrite}
         canImport={stage.status === "inUniverse"}
+        view={view}
+        onViewChange={mapOffered ? (next) => setMapPreferences({ view: next }) : undefined}
       />
 
       <ImportSpreadsheetDialog
@@ -367,6 +410,27 @@ function TriageStage() {
         onClose={() => setManagingColumns(false)}
       />
 
+      {view === "map" ? (
+        <TalentMapView
+          projectId={project.id}
+          page={talentMap.data}
+          query={query}
+          accessToken={mapConfig.data?.publicToken ?? ""}
+          canWrite={canWrite}
+          loading={talentMap.isFetching}
+          error={talentMap.isError}
+          preferences={mapPreferences}
+          onPreferences={setMapPreferences}
+          onOpenCompany={(company) => setOpenCompany({ company })}
+          onOpenCandidate={(candidate) => setProfile({ candidate, company: null })}
+          onAddExecutive={(company) =>
+            setProfile({
+              candidate: null,
+              company: { triageCompanyId: company.id, companyName: company.companyName },
+            })
+          }
+        />
+      ) : (
       <div className="flex min-w-0 flex-1 flex-col gap-3 p-3 sm:p-5">
         <TriageCompanyTable
           rows={rows}
@@ -414,6 +478,7 @@ function TriageStage() {
           onSize={setPageSize}
         />
       </div>
+      )}
 
       <CompanyDrawer
         open={openCompany !== null}

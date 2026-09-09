@@ -11,6 +11,8 @@ import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import type { Project } from "../../projects/api/types";
 import * as companiesApi from "../../strategy/api/companiesApi";
+import * as talentMapApi from "../../talentmap/api/talentMapApi";
+import type { TalentMapPage } from "../../talentmap/api/types";
 import type { CompanyResult, Facets } from "../../strategy/api/types";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompaniesPage, TriageCompany } from "../api/types";
@@ -44,6 +46,30 @@ vi.mock("../api/triageApi", async (importOriginal) => ({
   captureCompany: vi.fn(),
   addMarketCompany: vi.fn(),
   editTriageCompany: vi.fn(),
+}));
+vi.mock("../../talentmap/api/talentMapApi", async (importOriginal) => ({
+  // Keys are real; only the calls are mocked.
+  ...(await importOriginal<typeof talentMapApi>()),
+  getTalentMapConfig: vi.fn(),
+  getTalentMap: vi.fn(),
+}));
+// jsdom has no WebGL and mapbox-gl breaks at import; the globe is a stub drawing each pin as a button.
+vi.mock("../../talentmap/components/TalentMapGlobe", () => ({
+  default: ({
+    features,
+    onSelect,
+  }: {
+    features: { features: { id: string; properties: { label: string } }[] };
+    onSelect: (id: string | null) => void;
+  }) => (
+    <div data-testid="globe-stub">
+      {features.features.map((feature) => (
+        <button key={feature.id} type="button" onClick={() => onSelect(feature.id)}>
+          pin: {feature.properties.label}
+        </button>
+      ))}
+    </div>
+  ),
 }));
 vi.mock("../../strategy/api/companiesApi", async (importOriginal) => ({
   // The Add form reads the market: its picker searches the universe and its Sector and Country
@@ -233,6 +259,15 @@ const pageOf = (overrides: Partial<TriageCompaniesPage> = {}): TriageCompaniesPa
   ...overrides,
 });
 
+const mapPageOf = (): TalentMapPage => ({
+  companies: [acwa],
+  totalCompanies: 1,
+  candidates: [yasmin],
+  totalCandidates: 1,
+  locations: { u1: { latitude: 24.7, longitude: 46.7, precision: "CITY", placeLabel: "Riyadh, Saudi Arabia" } },
+  geocodingPending: 0,
+});
+
 /** The page reads the project from ProjectLayout's outlet — a bare shell stands in for the layout. */
 const renderStage = (slug = "universe") =>
   render(
@@ -268,6 +303,9 @@ describe("TriageStagePage", () => {
     vi.mocked(companiesApi.searchCompanies).mockResolvedValue({ companies: [] });
     vi.mocked(companiesApi.getCompany).mockResolvedValue(marketAcwa);
     vi.mocked(customColumnsApi.getCustomColumns).mockResolvedValue({ columns: [] });
+    vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue({ enabled: false, publicToken: null });
+    vi.mocked(talentMapApi.getTalentMap).mockResolvedValue(mapPageOf());
+    localStorage.clear();
   });
 
   it("reads the stage from the URL and asks the API for that status", async () => {
@@ -920,5 +958,58 @@ describe("TriageStagePage", () => {
         }),
       ),
     );
+  });
+
+  describe("map view", () => {
+    const mapEnabled = { enabled: true, publicToken: "pk.test" };
+
+    it("offers Table | Map on the universe only, and only when a Mapbox account is configured", async () => {
+      vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
+      const { unmount } = renderStage();
+      expect(await screen.findByRole("radiogroup", { name: "View" })).toBeInTheDocument();
+      unmount();
+
+      renderStage("shortlisted");
+      await screen.findByText("ACWA Power");
+      expect(screen.queryByRole("radiogroup", { name: "View" })).not.toBeInTheDocument();
+    });
+
+    it("keeps the grid when the deployment has no map", async () => {
+      renderStage();
+      await screen.findByText("ACWA Power");
+      expect(screen.queryByRole("radiogroup", { name: "View" })).not.toBeInTheDocument();
+      expect(talentMapApi.getTalentMap).not.toHaveBeenCalled();
+    });
+
+    it("reads the whole stage as points, opens the same company panel from the panel, and remembers the choice", async () => {
+      vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
+      const { unmount } = renderStage();
+
+      await userEvent.click(await screen.findByRole("radio", { name: "Map" }));
+      await waitFor(() => expect(talentMapApi.getTalentMap).toHaveBeenCalledWith("p1", "inUniverse", expect.anything()));
+      const tree = await screen.findByRole("tree", { name: "Mapping" });
+      expect(within(tree).getByRole("treeitem", { name: /Saudi Arabia/ })).toBeInTheDocument();
+      // The grid's own reads stop while the globe is showing — the map reads the stage itself.
+      expect(screen.queryByRole("table", { name: /In universe companies/i })).not.toBeInTheDocument();
+
+      await userEvent.click(within(tree).getByRole("button", { name: "Open ACWA Power" }));
+      expect(await screen.findByRole("dialog", { name: "ACWA Power" })).toBeInTheDocument();
+      unmount();
+
+      // Remembered per mandate: the next visit opens on the globe.
+      renderStage();
+      expect(await screen.findByRole("tree", { name: "Mapping" })).toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: "Map" })).toHaveAttribute("aria-checked", "true");
+    });
+
+    it("opens an executive's profile from a pin", async () => {
+      vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
+      renderStage();
+      await userEvent.click(await screen.findByRole("radio", { name: "Map" }));
+
+      await userEvent.click(await screen.findByRole("button", { name: "pin: Yasmin El-Sayed" }));
+      await userEvent.click(screen.getByRole("button", { name: "Open Yasmin El-Sayed" }));
+      expect(await screen.findByRole("dialog", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
+    });
   });
 });

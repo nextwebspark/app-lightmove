@@ -263,6 +263,18 @@ jobs:
             ENRICHMENT_SECRETS=",HARVESTAPI_API_KEY=lightmove-harvestapi-api-key:latest"
           fi
 
+          # The Companies screen's map view, same shape again: off unless MAPBOX_ENABLED=true, because
+          # the branch mounts two secrets gcloud refuses to name unless they exist. The public token
+          # reaches the browser (URL-restrict it to the service's URL in the Mapbox account); the
+          # geocoding token stays server-side and must not be URL-restricted. Prerequisites:
+          #   gcloud secrets create lightmove-mapbox-public-token --data-file=-
+          #   gcloud secrets create lightmove-mapbox-geocoding-token --data-file=-
+          MAPBOX_SECRETS=""
+          if [ "${{ vars.MAPBOX_ENABLED }}" = "true" ]; then
+            MAPBOX_SECRETS=",MAPBOX_PUBLIC_TOKEN=lightmove-mapbox-public-token:latest"
+            MAPBOX_SECRETS="${MAPBOX_SECRETS},MAPBOX_GEOCODING_TOKEN=lightmove-mapbox-geocoding-token:latest"
+          fi
+
           # ^|^ separates on | rather than a comma, because WEB_CORS_ORIGINS and the OAuth scope are both
           # comma-lists. It must be a character no value contains — @ is wrong, because EMAIL_FROM is an email
           # address and gcloud would split it mid-way and reject the domain half as a malformed entry.
@@ -281,7 +293,7 @@ jobs:
             --concurrency 80 \
             --timeout 60s \
             --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@lightmove.ai' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem${OAUTH_ENV}${ENRICHMENT_ENV}" \
-            --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}"
+            --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}${MAPBOX_SECRETS}"
 
       # First deploy only: the service now has a URL, and it is not the placeholder we booted with.
       # Verification emails and the OAuth redirect are built from WEB_BASE_URL, so this cannot be left.

@@ -100,6 +100,14 @@ lightmove:
   #   harvestapi:
   #     api-key: CHANGEME
 
+  # The Companies screen's map view. Mint a public token at account.mapbox.com → Tokens (the default
+  # public token works on a laptop; in production restrict it to the SPA's URL). Without it the
+  # Table | Map toggle is not offered and nothing else changes. A second, unrestricted token for the
+  # server's geocoding is optional locally — see application.yml's lightmove.mapbox block.
+  # mapbox:
+  #   public-token: pk.CHANGEME
+  #   geocoding-token: pk.CHANGEME
+
 logging:
   level:
     app.lightmove.api: DEBUG

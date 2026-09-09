@@ -1,0 +1,30 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "dXJuOm1ieHBsYzpBUVpU",
+      "geometry": { "type": "Point", "coordinates": [55.296249, 25.276987] },
+      "properties": {
+        "mapbox_id": "dXJuOm1ieHBsYzpBUVpU",
+        "feature_type": "place",
+        "full_address": "Dubai, United Arab Emirates",
+        "name": "Dubai",
+        "name_preferred": "Dubai",
+        "coordinates": { "longitude": 55.296249, "latitude": 25.276987 },
+        "place_formatted": "United Arab Emirates",
+        "bbox": [54.89, 24.79, 55.55, 25.36],
+        "context": {
+          "region": { "mapbox_id": "dXJuOm1ieHBsYzpBUVpU", "name": "Dubai", "region_code": "DU" },
+          "country": {
+            "mapbox_id": "dXJuOm1ieHBsYzpJbVU",
+            "name": "United Arab Emirates",
+            "country_code": "AE",
+            "country_code_alpha_3": "ARE"
+          }
+        }
+      }
+    }
+  ],
+  "attribution": "NOTICE: © 2026 Mapbox and its suppliers. All rights reserved."
+}

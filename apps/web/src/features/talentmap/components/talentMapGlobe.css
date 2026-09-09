@@ -1,0 +1,20 @@
+/*
+ * The Mapbox popup chrome, neutralised: the panel inside is drawn with the app's own tokens, so the
+ * library's white box, padding and shadow would put a second frame around it.
+ */
+.lm-map-popup .mapboxgl-popup-content {
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  border-radius: 10px;
+}
+
+.lm-map-popup .mapboxgl-popup-tip {
+  border-top-color: var(--color-line);
+  border-bottom-color: var(--color-line);
+}
+
+/* The attribution and logo sit over the globe's own ground rather than the app's. */
+.lm-map-globe .mapboxgl-ctrl-bottom-right .mapboxgl-ctrl-attrib {
+  font-size: 10px;
+}

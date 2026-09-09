@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.ExpectedCount.times;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.headerDoesNotExist;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.queryParam;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
@@ -146,6 +148,27 @@ class VendorCallResilienceTest {
     }
 
     @Test
+    @DisplayName("a vendor that authenticates by query parameter gets the key on the URL and no header")
+    void aQueryTokenTravelsOnTheUrl() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer queryVendor = MockRestServiceServer.bindTo(builder).build();
+        RestClient queryClient = clientFactory.createKeepingTransport(
+                VendorClientSpec.queryToken("querystub", "https://vendor.example", "access_token",
+                        "pk.test-key", Duration.ofSeconds(5), 100),
+                builder, rateLimiter);
+
+        queryVendor.expect(once(), requestTo(org.hamcrest.Matchers.startsWith(LOOKUP_URL)))
+                .andExpect(queryParam("access_token", "pk.test-key"))
+                .andExpect(queryParam("q", "Dubai"))
+                .andExpect(headerDoesNotExist("Authorization"))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        queryClient.get().uri(uri -> uri.path("/lookup").queryParam("q", "Dubai").build())
+                .retrieve().body(Map.class);
+        queryVendor.verify();
+    }
+
+    @Test
     @DisplayName("a vendor's error body never reaches the exception a log would carry")
     void theErrorBodyIsNotInTheMessage() {
         // The body echoes the query, so on a real lookup this is the researched person's name.
@@ -206,7 +229,7 @@ class VendorCallResilienceTest {
             ResilienceSettings resilience = new ResilienceSettings(Duration.ofSeconds(5), 2,
                     Duration.ofMillis(10), 1.0, Duration.ZERO, Duration.ofMillis(50),
                     Duration.ofSeconds(2));
-            return new LightMoveProperties(null, null, null, null, null, null, null, resilience, null, null);
+            return new LightMoveProperties(null, null, null, null, null, null, null, resilience, null, null, null, null);
         }
 
         @Bean

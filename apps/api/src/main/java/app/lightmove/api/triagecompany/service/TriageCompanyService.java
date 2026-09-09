@@ -146,6 +146,27 @@ public class TriageCompanyService {
     }
 
     /**
+     * The whole of one stage, unpaged, for a reader that has no pager — the talent map draws every
+     * company of a stage on one globe. The seam {@code talentmap} reads companies through; it answers
+     * in this package's DTO and takes a cap the caller states, because a globe with a page two is no
+     * globe and a mandate past the cap is told the total rather than shown a map that looks complete.
+     *
+     * <p>Name order, not newest first: the caller groups by country and sorts by name itself, and a
+     * stable order here keeps the cut at the cap deterministic across reads.
+     */
+    @Transactional(readOnly = true)
+    public TriageCompaniesResponse listAllOfStage(UUID workspaceId, UUID projectId,
+                                                  TriageCompanyStatus status, int cap) {
+        requireProject(projectId, workspaceId);
+        PageRequest wholeStage = PageRequest.of(0, cap, Sort.by(Sort.Direction.ASC, "companyName")
+                .and(NEWEST_FIRST));
+        Page<TriageCompany> found = triaged.findByProjectIdAndStatus(projectId, status, wholeStage);
+        return new TriageCompaniesResponse(
+                found.getContent().stream().map(TriageCompanyService::toDto).toList(),
+                found.getTotalElements(), 0, cap, countsFor(projectId));
+    }
+
+    /**
      * One of this mandate's own company rows, by id. The seam the {@code candidate} feature maps an
      * executive to a company through: it is one method wide and answers in this package's public DTO,
      * so the people side never learns how a triage row is stored, scoped or snapshotted — and this
