@@ -10,6 +10,7 @@ import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
 import type { CompanyPage, Facets, SavedSearch, Strategy, StrategyFilter } from "../api/types";
 import * as triageApi from "../../triage/api/triageApi";
+import { stubFullscreenApi } from "../../../test/fullscreen";
 import { StrategyPage } from "./StrategyPage";
 
 vi.mock("../api/strategyApi", async (importOriginal) => ({
@@ -158,6 +159,19 @@ const twoCompanies = () =>
 
 const threeCompanies = () =>
   pageOf({ companies: [pageOf().companies[0], secondCompany(), thirdCompany()], totalCount: 3 });
+
+/** What POST /triage answers with — the stage it reports is the one the toast must believe. */
+const triagedAs = (status: string) =>
+  ({
+    id: "t1",
+    apolloAccountId: "a1",
+    companyName: "ACWA Power",
+    status,
+    source: "strategy",
+    note: null,
+    customFields: {},
+    addedAt: "2026-09-08T00:00:00Z",
+  }) as never;
 
 const renderPage = (client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) =>
   render(
@@ -1213,53 +1227,109 @@ describe("StrategyPage — picking companies out of the market in bulk", () => {
   });
 });
 
-/**
- * jsdom implements no part of the Fullscreen API — `requestFullscreen`, `exitFullscreen` and
- * `fullscreenElement` are all absent, so `vi.spyOn` throws and `defineProperty` is the only way in.
- * The fake announces every transition through `fullscreenchange`, which is the signal the whole
- * feature hangs off.
- */
-function stubFullscreenApi() {
-  let element: Element | null = null;
-  const announce = () => document.dispatchEvent(new Event("fullscreenchange"));
-  const requestFullscreen = vi.fn(function (this: Element) {
-    element = this;
-    announce();
-    return Promise.resolve();
-  });
-  const exitFullscreen = vi.fn(() => {
-    element = null;
-    announce();
-    return Promise.resolve();
+describe("StrategyPage — the market company panel", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(strategyOf());
+    vi.mocked(companiesApi.getFacets).mockResolvedValue(FACETS);
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf());
+    vi.mocked(triageApi.addMarketCompany).mockResolvedValue(triagedAs("shortlisted"));
+    vi.mocked(strategyApi.putOffLimits).mockResolvedValue(strategyOf());
   });
 
-  Object.defineProperty(Element.prototype, "requestFullscreen", {
-    value: requestFullscreen,
-    configurable: true,
-    writable: true,
-  });
-  Object.defineProperty(document, "exitFullscreen", {
-    value: exitFullscreen,
-    configurable: true,
-    writable: true,
-  });
-  Object.defineProperty(document, "fullscreenElement", { get: () => element, configurable: true });
-
-  return {
-    requestFullscreen,
-    exitFullscreen,
-    /** The browser acting on its own — F11 in, Escape or its own exit control back out. */
-    setElement: (next: Element | null) => {
-      element = next;
-      announce();
-    },
-    restore: () => {
-      Reflect.deleteProperty(Element.prototype, "requestFullscreen");
-      Reflect.deleteProperty(document, "exitFullscreen");
-      Reflect.deleteProperty(document, "fullscreenElement");
-    },
+  const openPanel = async () => {
+    const row = await screen.findByText("ACWA Power");
+    await userEvent.click(row);
+    return screen.findByRole("dialog", { name: "ACWA Power" });
   };
-}
+
+  it("opens on the row, showing the market's own figures", async () => {
+    renderPage();
+    const panel = await openPanel();
+
+    expect(within(panel).getByText("IPP leader")).toBeInTheDocument();
+    expect(within(panel).getByText("$6B")).toBeInTheDocument();
+    expect(within(panel).getByText("3,000")).toBeInTheDocument();
+  });
+
+  it("leaves the row's own controls to themselves", async () => {
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add ACWA Power to universe" }));
+
+    // The button is inside the row, and a click that added a company must not also open a panel
+    // asking whether to add it.
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("files the company at the stage the button names", async () => {
+    renderPage();
+    const panel = await openPanel();
+
+    await userEvent.click(within(panel).getByRole("button", { name: "Shortlisted" }));
+
+    expect(triageApi.addMarketCompany).toHaveBeenCalledWith("p1", "a1", { status: "shortlisted" });
+    // Reading is done once a decision is made; leaving it open invites a second one on the same row.
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(await screen.findByText(/added to Shortlisted/i)).toBeInTheDocument();
+  });
+
+  it("says a company was left where it is rather than claiming the move", async () => {
+    // The market list carries companies the mandate already holds, and POST /triage returns such a
+    // row untouched. Reporting the stage that was asked for would have a mandate believing in a
+    // shortlist entry that does not exist.
+    vi.mocked(triageApi.addMarketCompany).mockResolvedValue(triagedAs("declined"));
+    renderPage();
+    const panel = await openPanel();
+
+    await userEvent.click(within(panel).getByRole("button", { name: "Shortlisted" }));
+
+    expect(await screen.findByText(/already in this mandate, at Declined/i)).toBeInTheDocument();
+    expect(screen.queryByText(/added to Shortlisted/i)).not.toBeInTheDocument();
+  });
+
+  it("shows each tag once, however the market spells it into both lists", async () => {
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(
+      pageOf({
+        companies: [
+          { ...pageOf().companies[0], keywords: ["solar", "saas"], technologies: ["saas", "wordpress"] },
+        ],
+      }),
+    );
+    renderPage();
+    const panel = await openPanel();
+
+    // "saas" is a keyword AND a technology on most Apollo rows; two pills would be a duplicate key.
+    expect(within(panel).getAllByText("saas")).toHaveLength(1);
+    expect(within(panel).getByText("solar")).toBeInTheDocument();
+    expect(within(panel).getByText("wordpress")).toBeInTheDocument();
+  });
+
+  it("bars a company by adding it to the list already stored, not by replacing it", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue({
+      ...strategyOf(),
+      offLimits: [
+        {
+          apolloAccountId: "a9",
+          companyName: "Barred Co",
+          industry: null,
+          companyCity: null,
+          companyCountry: null,
+          logoUrl: null,
+        },
+      ],
+    });
+    renderPage();
+    const panel = await openPanel();
+
+    await userEvent.click(within(panel).getByRole("button", { name: "Off limits" }));
+
+    // The endpoint takes the whole list, so sending only the new id would unbar everything else.
+    await waitFor(() => expect(strategyApi.putOffLimits).toHaveBeenCalledWith("p1", ["a9", "a1"]));
+    expect(await screen.findByText(/Barred Co|off-limits for this mandate/i)).toBeInTheDocument();
+  });
+});
 
 describe("StrategyPage — full screen", () => {
   let fullscreenApi: ReturnType<typeof stubFullscreenApi>;

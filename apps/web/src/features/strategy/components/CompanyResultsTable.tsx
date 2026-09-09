@@ -40,6 +40,7 @@ export function CompanyResultsTable({
   addingId,
   rowSelection,
   onRowSelectionChange,
+  onOpenCompany,
 }: {
   companies: CompanyResult[];
   sort: CompanySort;
@@ -59,6 +60,9 @@ export function CompanyResultsTable({
    */
   rowSelection: RowSelectionState;
   onRowSelectionChange: OnChangeFn<RowSelectionState>;
+  /** Opens the market panel on a row. The tick box, the add button and the link icons keep their
+      own clicks — {@link DataGrid} excludes every nested control from the row's. */
+  onOpenCompany: (company: CompanyResult) => void;
 }) {
   const table = useDataGridTable<typeof companyTableFeatures, CompanyResult, CompanySortField>({
     features: companyTableFeatures,
@@ -95,6 +99,7 @@ export function CompanyResultsTable({
       error={error}
       errorMessage="That list could not be loaded. Refresh, or check you still have access."
       emptyMessage="No companies match this filter. Widen it, or reset an accordion."
+      onRowClick={onOpenCompany}
       headerLead={
         <SelectionCheckbox
           checked={allOnPageSelected}

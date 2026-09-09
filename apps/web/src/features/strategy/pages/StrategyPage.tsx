@@ -11,15 +11,22 @@ import { messageFor } from "../../../lib/errorCodes";
 import { hasRoomForRails } from "../../../lib/viewport";
 import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
 import { useAutosave } from "../../../lib/useAutosave";
-import { useFullscreen } from "../../../lib/useFullscreen";
+import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import * as reportApi from "../../reports/api/reportApi";
 import * as triageApi from "../../triage/api/triageApi";
 import type { TriageCompanyStatus } from "../../triage/api/types";
 import { TRIAGE_STAGES, stageByStatus } from "../../triage/lib/triageStages";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
-import type { CompanyResult, CompanySort, SearchVisibility, StrategyFilter } from "../api/types";
+import type {
+  CompanyResult,
+  CompanySort,
+  SearchVisibility,
+  Strategy,
+  StrategyFilter,
+} from "../api/types";
 import { CompanyResultsTable } from "../components/CompanyResultsTable";
+import { MarketCompanyDrawer } from "../components/MarketCompanyDrawer";
 import { DEFAULT_COLUMN_VISIBILITY, companyColumns } from "../lib/companyColumns";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
@@ -99,6 +106,7 @@ function StrategyEditor() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [sort, setSort] = useGridSort("strategy", project.id, COMPANY_SORT_FIELDS, DEFAULT_SORT);
   const [addingId, setAddingId] = useState<string | null>(null);
+  const [openCompany, setOpenCompany] = useState<CompanyResult | null>(null);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility(
     "strategy",
     project.id,
@@ -243,14 +251,45 @@ function StrategyEditor() {
   });
 
   const addOne = useMutation({
-    mutationFn: (company: CompanyResult) =>
-      triageApi.addMarketCompany(project.id, company.apolloAccountId),
-    onSuccess: (_result, company) => {
+    mutationFn: ({ company, status }: { company: CompanyResult; status: TriageCompanyStatus }) =>
+      triageApi.addMarketCompany(project.id, company.apolloAccountId, { status }),
+    onSuccess: (added, { company, status }) => {
       void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
-      toast(`${company.companyName} added to universe`);
+      // The stage that comes back, never the one asked for: a company the mandate already holds is
+      // returned untouched, so "Shortlisted" on a declined row files nothing. Saying it did would
+      // leave a mandate believing in a shortlist entry that is not there.
+      toast(
+        added.status === status
+          ? `${company.companyName} added to ${stageByStatus(status).label}`
+          : `${company.companyName} is already in this mandate, at ${stageByStatus(added.status).label}`,
+      );
     },
     onError: (error) => toast(messageFor(error)),
     onSettled: () => setAddingId(null),
+  });
+
+  /**
+   * Barring one company from the panel. The stored list is read inside the mutation rather than off
+   * the render that opened the drawer: the endpoint replaces the whole list, so a second bar built
+   * from a stale copy would unbar the first. `scope` serialises them for the same reason.
+   */
+  const barCompany = useMutation({
+    scope: { id: `off-limits-${project.id}` },
+    mutationFn: async (company: CompanyResult) => {
+      await autosave.flush();
+      const stored = queryClient.getQueryData<Strategy>(strategyApi.STRATEGY_KEY(project.id));
+      const barred = (stored?.offLimits ?? []).map((entry) => entry.apolloAccountId);
+      if (!barred.includes(company.apolloAccountId)) {
+        queryClient.setQueryData(
+          strategyApi.STRATEGY_KEY(project.id),
+          await strategyApi.putOffLimits(project.id, [...barred, company.apolloAccountId]),
+        );
+        await refreshScopedReads();
+      }
+      return company;
+    },
+    onSuccess: (company) => toast(`${company.companyName} is off-limits for this mandate`),
+    onError: (error) => toast(messageFor(error)),
   });
 
   const addAll = useMutation({
@@ -298,18 +337,7 @@ function StrategyEditor() {
     /* No negative margins and no viewport arithmetic: the shell gives this tab the whole main area
        and a definite height (FULL_BLEED_TABS in ProjectLayout), so the height is inherited rather
        than guessed from a hard-coded 98px of chrome that any topbar change would falsify. */
-    <div
-      className={cn(
-        "flex min-h-0 flex-1 flex-col",
-        // Its own background and no corners: full screen has no edges, and `main`'s rounded panel is
-        // no longer behind the whole of this.
-        //
-        // 96 clears the mobile nav rail. That rail is a sibling rendered by AppShell, not a
-        // descendant, so it does not order inside this stacking context — at anything below 95 a
-        // keyboard user who tabbed past the nav scrim left it floating over "full screen".
-        isFullscreen && "fixed inset-0 z-[96] bg-panel",
-      )}
-    >
+    <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
       <StrategyToolbar
         filter={filter}
         searches={data?.searches ?? []}
@@ -369,11 +397,12 @@ function StrategyEditor() {
               error={companies.isError}
               onAddToUniverse={(company) => {
                 setAddingId(company.apolloAccountId);
-                addOne.mutate(company);
+                addOne.mutate({ company, status: "inUniverse" });
               }}
               addingId={addingId}
               rowSelection={rowSelection}
               onRowSelectionChange={setRowSelection}
+              onOpenCompany={setOpenCompany}
             />
             {selectedIds.length > 0 && (
               <SelectionActionBar
@@ -405,6 +434,21 @@ function StrategyEditor() {
           />
         </div>
       </div>
+
+      <MarketCompanyDrawer
+        company={openCompany}
+        onClose={() => setOpenCompany(null)}
+        onTriage={(company, status) => {
+          setOpenCompany(null);
+          setAddingId(company.apolloAccountId);
+          addOne.mutate({ company, status });
+        }}
+        onOffLimits={(company) => {
+          setOpenCompany(null);
+          barCompany.mutate(company);
+        }}
+        barring={barCompany.isPending}
+      />
     </div>
   );
 }
