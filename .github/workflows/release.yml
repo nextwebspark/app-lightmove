@@ -1,0 +1,124 @@
+name: Release
+
+# The one button that ships. Merging to main proves the code is releasable and stops there; this cuts
+# a version out of whatever main has reached and hands that tag to Deploy.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the version to increment.
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+      force:
+        description: Release even if CI is not green on main.
+        type: boolean
+        default: false
+
+# Two releases cutting versions at once would race for the same number.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write   # pushes the tag and publishes the release
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          # Every tag, so the version can be computed, and the whole history, so the release notes
+          # have something to be generated from.
+          fetch-depth: 0
+
+      # CI runs on every push to main, so a green main is already established — this only refuses to
+      # release a commit where it is not. A SHA CI never ran on is not releasable either, which is why
+      # a missing check fails rather than passing by absence.
+      - name: Require a green CI on main
+        if: ${{ !inputs.force }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA="$(git rev-parse HEAD)"
+          RUNS="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/check-runs?per_page=100" \
+                    --jq '.check_runs[] | [.name, .conclusion // "pending"] | @tsv')"
+
+          FAILED=0
+          for GATE in API Web Extension; do
+            CONCLUSION="$(printf '%s\n' "$RUNS" | awk -F'\t' -v n="$GATE" '$1 == n { print $2; exit }')"
+            if [ "$CONCLUSION" != "success" ]; then
+              echo "::error::CI check '${GATE}' is ${CONCLUSION:-missing} on ${SHA}."
+              FAILED=1
+            fi
+          done
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo "::error::main is not releasable. Wait for CI, or re-run with force to override."
+            exit 1
+          fi
+
+      # The latest tag decides the next one, so nothing is written down anywhere and nothing can drift.
+      # -v:refname sorts by version, not lexically, so v1.10.0 outranks v1.9.0.
+      - name: Work out the next version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          LATEST="$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
+
+          if [ -z "$LATEST" ]; then
+            # The first release ignores the bump: there is nothing to increment, and 0.1.0 is what
+            # package.json and pom.xml already say.
+            NEXT="v0.1.0"
+          else
+            IFS='.' read -r MAJOR MINOR PATCH <<<"${LATEST#v}"
+            case "$BUMP" in
+              major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+              minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+              patch) PATCH=$((PATCH + 1)) ;;
+              *) echo "::error::Unknown bump '${BUMP}'."; exit 1 ;;
+            esac
+            NEXT="v${MAJOR}.${MINOR}.${PATCH}"
+          fi
+
+          if git rev-parse -q --verify "refs/tags/${NEXT}" >/dev/null; then
+            echo "::error::Tag ${NEXT} already exists."
+            exit 1
+          fi
+
+          echo "version=${NEXT}" >> "$GITHUB_OUTPUT"
+          echo "::notice::Releasing ${NEXT} from ${LATEST:-no previous release} at $(git rev-parse --short HEAD)."
+
+      - name: Tag it
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"
+
+      # The merged PR titles since the last tag, which is the changelog nobody then has to write.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: gh release create "$VERSION" --title "$VERSION" --generate-notes
+
+  # A tag pushed by GITHUB_TOKEN does not fire `push: tags` workflows — GitHub suppresses that to stop
+  # a workflow triggering itself. Calling Deploy directly is what makes the release actually ship.
+  deploy:
+    needs: tag
+    permissions:
+      contents: read
+      id-token: write   # a called workflow cannot widen this; the caller has to grant it
+    uses: ./.github/workflows/deploy.yml
+    with:
+      ref: ${{ needs.tag.outputs.version }}

@@ -264,7 +264,9 @@ fills it from the `brightdata` warehouse.
 ## Deploying
 
 **One Cloud Run service, serving both halves.** The SPA is built into the jar and served by Spring from
-`static/`; the API is the same process. Push to `main`, CI goes green, `deploy.yml` ships it.
+`static/`; the API is the same process. **Merging to `main` ships nothing** — it runs CI and stops
+there. Shipping is a separate, deliberate act: the **Release** workflow cuts a `vX.Y.Z` tag and deploys
+that tag.
 
 That is not a packaging shortcut — it is the auth model. The refresh cookie is `SameSite=Strict` and
 **host-only**, and the SPA calls a relative `/api/v1`, so the browser only ever returns that cookie to the
@@ -279,6 +281,25 @@ This rules out the obvious splits, which is worth knowing before someone re-prop
   and only one can be called `__session`. There is no rename that saves it.
 - **A CDN proxying `/api` from another origin** — the refresh token **rotates on every use**, so any hop
   that drops a `Set-Cookie` on the way back trips theft detection and revokes the whole family.
+
+### Releasing
+
+Actions → **Release** → *Run workflow*, and pick `patch`, `minor` or `major`. It refuses to run unless
+CI is green on `main`, works the next version out from the latest tag, pushes it, publishes a release
+whose notes are the merged PR titles since the last one, and hands that tag to **Deploy**. The first
+release is `v0.1.0` — there is nothing yet to bump from.
+
+To redeploy a tag, or roll back to an older one, run **Deploy** by itself and give it the tag. It
+rebuilds from that commit, so it costs a few minutes. When a revision for the image is still around,
+moving traffic is instant instead:
+
+```bash
+gcloud run services update-traffic lightmove --region us-central1 --to-revisions=lightmove-00042-abc=100
+```
+
+**Rolling the image back does not roll the schema back.** Flyway only goes forwards, so an older tag
+is safe only where the older code tolerates the newer schema — true of an added column, false of a
+renamed or dropped one. Crossing one of those needs a compensating migration, not an older tag.
 
 ### First time
 
@@ -298,7 +319,7 @@ so no data is lost); leaking it lets anyone mint a token for any user.
 |---|---|
 | `min-instances 0` | $0 idle. The price is a cold start — measured at **~5s**, not the 15s a Spring Boot app usually costs |
 | `max-instances 2` | **Not** the default of 100. 2 × `DB_POOL_MAX=5` = 10 connections, under the `db-f1-micro`'s ~25 — which the `brightdata` ETL also draws on. Raise this and you can take down the neighbours |
-| Image tag | The **git SHA**, never `latest`. You must be able to say which commit is serving, and roll back to a specific one |
+| Image tag | The release version **and** the git SHA, never `latest`. The version is what you ask for; the SHA still answers which commit is serving if a tag is ever moved |
 | Frontend bundle | The `vite build` output and nothing else: **no sourcemaps** and no build-machine paths. A scan of a *developer's* machine sees `/src/...` and an absolute local path because that is the Vite **dev server** serving unbundled modules — it only ever runs under `npm run dev` and is never in the image |
 | Flyway | **Not in the container.** It runs in the deploy pipeline as `lm_migrate`, so a bad migration fails the deploy and the old revision keeps serving. `lm_app` holds no DDL, which is what finally lets `harden.sql` be applied |
 | Email | `EMAIL_PROVIDER=log` until a domain is verified with Resend. The verification link goes to **Cloud Logging**, and you complete a signup by reading it out |
@@ -326,7 +347,7 @@ set the variable and assert it with a test.
 | `ops/dev/` | `db.sh` (the local Docker Postgres) and `api.sh` (the API pointed at it) — what `npm run dev` runs |
 | `ops/cloudsql/` | Database bootstrap, hardening, the `lm_migrate` role, and `psql.sh` |
 | `ops/gcp/` | `bootstrap.sh` — everything on GCP the first deploy needs, idempotent |
-| `.github/workflows/` | `ci.yml` gates; `deploy.yml` builds, migrates, deploys, smoke-tests |
+| `.github/workflows/` | `ci.yml` gates; `release.yml` tags and releases; `deploy.yml` builds, migrates, deploys, smoke-tests |
 | `docs/` | [Login & authentication](docs/login-and-authentication.md) — every signup/login/invite scenario, end to end |
 
 [CLAUDE.md](CLAUDE.md) has the rules that shape the code, and the traps this codebase has already fallen

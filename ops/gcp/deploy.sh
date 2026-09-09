@@ -11,7 +11,7 @@
 # first pipeline run is also your first deploy, and a red X could be WIF, IAM, the migration role, or the
 # application, on a four-minute feedback loop.
 #
-# After it works: merge to main and let .github/workflows/deploy.yml own every deploy from then on.
+# After it works: run the Release workflow, and let .github/workflows/ own every deploy from then on.
 set -euo pipefail
 
 PROJECT="${GCP_PROJECT:-hak-talent-mapping}"
