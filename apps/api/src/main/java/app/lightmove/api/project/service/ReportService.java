@@ -24,33 +24,19 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The read behind a mandate's Reports screen: the shape of the universe the saved Strategy scopes,
- * aggregated live rather than stored. A report nobody generated is still a true report — the figures
- * are a view of the scope as it stands, so a snapshot table would only let the screen go stale.
+ * aggregated live rather than stored, so the figures cannot go stale.
  *
- * <p>The scope resolves through {@link StrategyScope} — the same translation the Strategy screen's own
- * list uses, against the same table. That is new: the report used to measure Apollo while triage
- * measured the brightdata warehouse copy, so the two legitimately disagreed on every count and the
- * difference had to be explained in caveats. With one universe they agree, and two of the three
- * caveats have gone with the second source.
+ * <p>Apollo publishes a revenue figure on 7,132 of 71,822 rows, so a revenue-scoped report measures a
+ * tenth of the market unless the Unknown band is among those selected. That is reported beside the
+ * figures rather than silently lowering them.
  *
- * <p>One remains, and it is about the data rather than the plumbing: Apollo publishes a revenue figure
- * on 7,132 of 71,822 rows, so a revenue-scoped report is measuring a tenth of the market unless the
- * Unknown band is among those selected. That is reported beside the figures rather than silently
- * lowering them.
+ * <p>Deliberately narrow: everything the mockup derives from mapped executives has no data behind it
+ * yet, and the screen says so rather than rendering a zero as a finding.
  *
- * <p>Deliberately narrow: everything the mockup's report derives from mapped executives has no data
- * behind it yet, and the screen says so rather than being handed a zero to render as a finding.
- *
- * <p>This is a sanctioned {@code project} → {@code strategy} seam, and it is deliberately one method
- * wide: {@link StrategyService#scopeOf} hands back the resolved scope, so the report never learns how
- * a filter is stored, validated or translated. The universe read beside it crosses into the same
- * feature, and is the same shape of seam: one public method over {@code strategy}'s own records.
- *
- * <p>The band beside them is not that shape yet. This class reads {@code position}'s repository and
- * entity directly, which is a feature reaching into another feature's internals in the one direction
- * {@code position} already depends on back. It is left standing rather than papered over: the report
- * composes three features and belongs to none of them, so the fix is to lift it out of {@code project}
- * into its own package, not to add a seam method that makes the cycle look intentional.
+ * <p>A sanctioned {@code project} to {@code strategy} seam, one method wide.
+ * {@link StrategyService#scopeOf} hands back the resolved scope, so the report never learns how a
+ * filter is stored. The band beside it is not that shape yet: this class reads {@code position}'s
+ * repository directly, which is a known reverse edge left standing rather than disguised as a seam.
  */
 @Service
 @RequiredArgsConstructor
@@ -65,7 +51,6 @@ public class ReportService {
 
     private final ProjectRepository projects;
     // The one thing this feature needs from strategy: the scope a mandate's saved filter defines.
-    // A single public method, so the report never learns how a filter is stored or resolved.
     private final StrategyService strategy;
     // Reached into directly rather than through a seam — see the class doc.
     private final PositionRepository positions;
@@ -74,10 +59,9 @@ public class ReportService {
     @Transactional(readOnly = true)
     public ReportResponse get(UUID workspaceId, UUID projectId) {
         requireProject(projectId, workspaceId);
-        // Unlike the Strategy screen's own read, an unsaved strategy is not seeded here: a report is a
-        // read, and writing a row to answer one would make a client representative's page load a write.
-        // scopeOf resolves the mandate's project against the workspace a second time; that is a cheap
-        // lookup and the alternative is a method that trusts a project id it was handed.
+        // An unsaved strategy is not seeded here: a report is a read, and writing a row to answer one
+        // would make a client representative's page load a write. scopeOf resolves the project against
+        // the workspace a second time rather than trusting a project id it was handed.
         CompanyScope scope = strategy.scopeOf(workspaceId, projectId);
 
         return new ReportResponse(
@@ -100,9 +84,9 @@ public class ReportService {
     /**
      * A band with neither bound is no band at all — null, so the screen states its absence.
      *
-     * <p>Annualised on the way out. A brief quoting its base monthly is ordinary here, and reporting
-     * those figures as an annual band understates the role by a factor of twelve — the reader has no
-     * way to tell, because the report never shows the period.
+     * <p>Annualised on the way out: a brief quoting its base monthly is ordinary in the GCC, and
+     * reporting those figures as an annual band understates the role twelvefold with nothing on the
+     * screen saying so.
      */
     private static CompensationBandDto mandateBandOf(Optional<Position> position) {
         return position
@@ -125,10 +109,9 @@ public class ReportService {
      * True when the scope narrows by revenue without taking the Unknown band with it — the case where
      * the figures below describe a tenth of the market and look like the whole of it.
      *
-     * <p>A custom range counts too. Bands and {@code revenueRange} are the two modes of one axis, and
-     * {@code annual_revenue BETWEEN ...} excludes every null just as a band list does — 64,690 rows of
-     * 71,822. Reading only the band list left Custom Range reporting a tenth of the market with no
-     * caveat beside it, which is the failure this flag exists to prevent.
+     * <p>A custom range counts too: {@code annual_revenue BETWEEN ...} excludes every null just as a
+     * band list does. Reading only the band list left Custom Range reporting a tenth of the market
+     * with no caveat beside it.
      */
     private static boolean excludesUnknownRevenue(CompanyScope scope) {
         return scope.revenueRange() != null

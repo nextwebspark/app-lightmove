@@ -6,16 +6,9 @@ import java.util.List;
  * A mandate's report: what the search's saved scope amounts to, measured against the company
  * universe, plus the compensation band the brief states.
  *
- * <p>Carries only what the client cannot already read from {@code ProjectResponse} — the position
- * title, client, stage, target date and team seats all arrive with the project itself, and
- * duplicating them here would give the screen two sources for the same fact.
- *
- * <p>{@code mandateBand} is null until the position brief carries a salary range — the screen says so
- * rather than showing a band of zero, which would read as a stated figure.
- *
- * <p>There is no relevance breakdown any more. It split the scope across direct / adjacent / inferred
- * match tiers, which the criteria model produced and the flat filter that replaced it does not: every
- * company in scope now matches every selected criterion, so a tier chart would be one bar.
+ * <p>Carries only what the client cannot already read from {@code ProjectResponse}, so the screen has
+ * one source per fact. {@code mandateBand} is null until the brief carries a salary range — the
+ * screen says so rather than showing a band of zero, which would read as a stated figure.
  */
 public record ReportResponse(
         long universeCount,

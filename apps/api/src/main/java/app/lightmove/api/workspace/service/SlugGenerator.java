@@ -36,14 +36,13 @@ final class SlugGenerator {
             }
         }
 
-        // A hundred firms with the same name is not a real scenario, but silently reusing a taken slug
-        // would hand one workspace's URL to another. Fail instead.
+        // Silently reusing a taken slug would hand one workspace's URL to another. Fail instead.
         throw new IllegalStateException("Could not find a free slug for: " + name);
     }
 
     /**
-     * Strips accents ("Zürich" → "zurich") before dropping non-alphanumerics, so an accented name
-     * yields a readable slug rather than being gutted down to a handful of surviving letters.
+     * Strips accents ("Zürich" becomes "zurich") before dropping non-alphanumerics, so an accented
+     * name yields a readable slug rather than a handful of surviving letters.
      */
     private static String slugify(String name) {
         String normalised = Normalizer.normalize(name == null ? "" : name, Normalizer.Form.NFD)
