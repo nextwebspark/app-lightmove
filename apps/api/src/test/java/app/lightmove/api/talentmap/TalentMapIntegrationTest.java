@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.StubGeocoder;
+import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -89,9 +90,11 @@ class TalentMapIntegrationTest extends FlowTestSupport {
         assertThat(locations.has(nowhere)).isFalse();
         assertThat(locations.has(omar)).isFalse();
 
-        // Two companies in one city cost one vendor call, and a second read costs none.
+        // Two companies in one city cost one vendor call, and a second read costs none. The vendor is
+        // asked with the normalised key — lower-cased — which is what makes "Riyadh" and "riyadh" one call.
         assertThat(geocoder.asked()).containsExactlyInAnyOrder(
-                "city:" + riyadh, "city:" + dubai, "city:" + muscat, "country:Oman");
+                "city:" + riyadh.toLowerCase(Locale.ROOT), "city:" + dubai.toLowerCase(Locale.ROOT),
+                "city:" + muscat.toLowerCase(Locale.ROOT), "country:oman");
         geocoder.clear();
         mvc.perform(get(mapUrl(f.projectId)).header("Authorization", "Bearer " + f.admin))
                 .andExpect(status().isOk())
