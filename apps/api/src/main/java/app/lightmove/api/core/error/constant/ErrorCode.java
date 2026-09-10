@@ -123,8 +123,10 @@ public enum ErrorCode {
 
     /**
      * An executive already mapped under that name — at the same company, or, for someone whose
-     * employer is not in the universe, anywhere in the mandate. Distinct from CONFLICT so the drawer
-     * can mark the name field rather than offering "try again" for something retrying will never fix.
+     * employer is not in the universe, anywhere in the mandate. It also answers a capture of a
+     * LinkedIn profile the mandate already maps, which the name scopes cannot see across a research
+     * mapping. Distinct from CONFLICT so the drawer can mark the name field rather than offering
+     * "try again" for something retrying will never fix.
      */
     CANDIDATE_ALREADY_MAPPED(HttpStatus.CONFLICT,
             "This mandate already maps someone with that name"),

@@ -30,6 +30,10 @@ import org.springframework.web.client.RestClient;
  * however many megabytes it actually is. Raster formats only — an SVG is a script the workspace would
  * later be served from our own origin.
  *
+ * <p>The cap is what a CDN sends, not what is stored: an ordinary LinkedIn PNG runs past half a
+ * megabyte, and a tighter cap here refused real photos on their declared length before a byte was
+ * read. {@link ProfilePhotoThumbnail} shrinks what arrives to the size an avatar actually draws.
+ *
  * <p>Deliberately its own bare {@link RestClient}: the adapters' clients carry vendor credentials as
  * default headers, and a CDN must never see those keys. It bypasses the vendor layer for the same
  * reason — nothing here is metered, so there is no rate to pace and no failure worth classifying.
@@ -41,7 +45,7 @@ import org.springframework.web.client.RestClient;
 public class ProfilePhotoDownloader {
 
     private static final Set<String> RASTER_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
-    private static final int MAX_BYTES = 512 * 1024;
+    private static final int MAX_DOWNLOAD_BYTES = 2 * 1024 * 1024;
     private static final RestClient CLIENT = bareClient();
 
     private final ProfilePhotoTransfer transfer;
@@ -52,9 +56,11 @@ public class ProfilePhotoDownloader {
             return null;
         }
         try {
-            return transfer.download(address);
-        } catch (RuntimeException ex) {
-            log.debug("Profile photo fetch failed for {}: {}", photoUrl, ex.getMessage());
+            EnrichedPhoto downloaded = transfer.download(address);
+            return downloaded == null ? null : ProfilePhotoThumbnail.shrink(downloaded);
+        } catch (RuntimeException failed) {
+            // The host, never the URL: the path names the person the photo is of.
+            log.info("Profile photo fetch failed for {}: {}", address.getHost(), failed.getMessage());
             return null;
         }
     }
@@ -76,7 +82,7 @@ public class ProfilePhotoDownloader {
                 String type = contentType == null ? null
                         : contentType.getType() + "/" + contentType.getSubtype();
                 long declared = response.getHeaders().getContentLength();
-                if (type == null || !RASTER_TYPES.contains(type) || declared > MAX_BYTES) {
+                if (type == null || !RASTER_TYPES.contains(type) || declared > MAX_DOWNLOAD_BYTES) {
                     log.info("Skipping profile photo ({}, {} declared bytes)", type, declared);
                     return null;
                 }
@@ -88,9 +94,10 @@ public class ProfilePhotoDownloader {
 
     /** Reads at most the cap; a body that keeps going past it is refused rather than buffered whole. */
     private static byte[] readBounded(InputStream body) throws IOException {
-        byte[] content = body.readNBytes(MAX_BYTES);
+        byte[] content = body.readNBytes(MAX_DOWNLOAD_BYTES);
         if (content.length == 0 || body.read() != -1) {
-            log.info("Skipping profile photo (empty, or larger than the {}KB cap)", MAX_BYTES / 1024);
+            log.info("Skipping profile photo (empty, or larger than the {}KB cap)",
+                    MAX_DOWNLOAD_BYTES / 1024);
             return null;
         }
         return content;

@@ -42,7 +42,7 @@ import {
 } from "../lib/triageCompanyColumns";
 import { awaitingResearch, toTriageRows } from "../lib/triageRows";
 import { stageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
-import { useProjectStream } from "../lib/useProjectStream";
+import { useProjectStream, type ProjectStreamKind } from "../lib/useProjectStream";
 
 /**
  * The grid's built-in columns for the layout hook. A mandate's own custom columns are deliberately
@@ -184,11 +184,65 @@ function TriageStage() {
   useEffect(() => setPage(0), [debouncedQuery, sort]);
 
   /**
-   * The screen's ordinary freshness is the project stream (mounted below): the server says when
-   * something under the mandate moved, and the grid refetches. This poll is the degraded mode —
-   * while a visible plugin capture is still being researched, the grid also looks for itself every
-   * few seconds, so a dropped stream costs a capture nothing worse than the old polling did. It
-   * stops once nothing is pending; there is no ambient interval any more.
+   * Every write invalidates the whole prefix rather than this stage's key. A move changes two stages
+   * and all three counts, and a page that refreshed only the list it was looking at would show the
+   * company gone and the sidebar's shortlist badge still one short.
+   */
+  const refreshEveryStage = () =>
+    void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
+
+  const refreshPeople = () =>
+    void queryClient.invalidateQueries({
+      queryKey: candidatesApi.CANDIDATES_KEY_PREFIX(project.id),
+    });
+
+  const refreshMap = () =>
+    void queryClient.invalidateQueries({
+      queryKey: talentMapApi.TALENT_MAP_KEY_PREFIX(project.id),
+    });
+
+  /**
+   * Removing a company unmaps its people rather than deleting them, and adding one changes which
+   * people the grid should be asking about — so the two caches move together on every write. The
+   * columns move with them because an import defines new ones: refreshing the rows without their
+   * headers leaves the imported values in columns the grid does not yet know how to render.
+   */
+  const refreshEverything = () => {
+    refreshEveryStage();
+    refreshPeople();
+    void queryClient.invalidateQueries({
+      queryKey: customColumnsApi.CUSTOM_COLUMNS_KEY(project.id),
+    });
+    refreshMap();
+  };
+
+  /**
+   * A write is one action and refreshes everything; an announcement says what moved, so it refreshes
+   * that. One capture is announced up to three times — the capture itself, the research landing, and
+   * the employer being filed into the universe and researched in turn — and refetching the whole
+   * screen for each of them is where the grid's visible churn came from. The columns stay out of it
+   * entirely: only an import defines one, and the import dialog refreshes them itself.
+   */
+  const refreshWhatMoved = (kinds: ProjectStreamKind[]) => {
+    if (kinds.some((kind) => kind.startsWith("company-"))) {
+      refreshEveryStage();
+    }
+    if (kinds.some((kind) => kind.startsWith("candidate-"))) {
+      refreshPeople();
+    }
+    // Both halves are points on the globe. Free while the grid is the view: the map's reads are
+    // disabled there, and an inactive query is marked stale rather than refetched.
+    refreshMap();
+  };
+
+  const streamIsLive = useProjectStream(project.id, refreshWhatMoved);
+
+  /**
+   * The screen's ordinary freshness is the project stream above: the server says when something
+   * under the mandate moved, and the grid refetches. This poll is the degraded mode, and only that —
+   * while the stream is down *and* a visible plugin capture is still being researched, the grid
+   * looks for itself every few seconds. With the stream up it announces the same research within a
+   * second, so polling beside it was one wasted page read per tick, per open tab.
    *
    * <p>A ref rather than the queries themselves: react-query evaluates this while the first query is
    * still being declared, so reading the people queries here directly is a use-before-init. The ref
@@ -196,7 +250,7 @@ function TriageStage() {
    */
   const visiblePeople = useRef<Candidate[]>([]);
   const researchPoll = () => {
-    if (stage.status !== "inUniverse") return false;
+    if (streamIsLive || stage.status !== "inUniverse") return false;
     return awaitingResearch(visiblePeople.current) ? RESEARCH_POLL_MS : false;
   };
 
@@ -217,8 +271,6 @@ function TriageStage() {
     // Paging without blanking the grid, which would make every page turn look like a reload.
     placeholderData: keepPreviousData,
     refetchInterval: researchPoll,
-    // Against a reconnect race: a tab coming back is fresh even if the stream missed something.
-    refetchOnWindowFocus: true,
   });
 
   const companyIds = useMemo(
@@ -244,7 +296,6 @@ function TriageStage() {
     enabled: view === "table" && companyIds.length > 0,
     placeholderData: keepPreviousData,
     refetchInterval: researchPoll,
-    refetchOnWindowFocus: true,
   });
 
   const totalCount = companies.data?.totalCount;
@@ -262,7 +313,6 @@ function TriageStage() {
       candidatesApi.getCandidates(project.id, { unmapped: true }, signal),
     enabled: view === "table" && stage.status === "inUniverse" && !debouncedQuery && page === lastPage,
     refetchInterval: researchPoll,
-    refetchOnWindowFocus: true,
   });
 
   visiblePeople.current = [
@@ -276,7 +326,6 @@ function TriageStage() {
     queryFn: ({ signal }) => talentMapApi.getTalentMap(project.id, stage.status, signal),
     enabled: view === "map",
     placeholderData: keepPreviousData,
-    refetchOnWindowFocus: true,
   });
 
   /**
@@ -329,36 +378,6 @@ function TriageStage() {
     peopleNotShown(mappedPeople.data, "at these companies"),
     peopleNotShown(unmappedPeople.data, "with no company in this mandate"),
   ].filter((line): line is string => line !== null);
-
-  /**
-   * Every write invalidates the whole prefix rather than this stage's key. A move changes two stages
-   * and all three counts, and a page that refreshed only the list it was looking at would show the
-   * company gone and the sidebar's shortlist badge still one short.
-   */
-  const refreshEveryStage = () =>
-    void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
-
-  /**
-   * Removing a company unmaps its people rather than deleting them, and adding one changes which
-   * people the grid should be asking about — so the two caches move together on every write. The
-   * columns move with them because an import defines new ones: refreshing the rows without their
-   * headers leaves the imported values in columns the grid does not yet know how to render.
-   */
-  const refreshEverything = () => {
-    refreshEveryStage();
-    void queryClient.invalidateQueries({
-      queryKey: candidatesApi.CANDIDATES_KEY_PREFIX(project.id),
-    });
-    void queryClient.invalidateQueries({
-      queryKey: customColumnsApi.CUSTOM_COLUMNS_KEY(project.id),
-    });
-    void queryClient.invalidateQueries({
-      queryKey: talentMapApi.TALENT_MAP_KEY_PREFIX(project.id),
-    });
-  };
-
-  // The live half: the server announces a capture or landed research, this side just refetches.
-  useProjectStream(project.id, refreshEverything);
 
   const move = useMutation({
     mutationFn: ({ company, status }: { company: TriageCompany; status: TriageCompanyStatus }) =>
