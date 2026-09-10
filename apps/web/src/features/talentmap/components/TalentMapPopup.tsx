@@ -4,7 +4,7 @@ import { countOf } from "../lib/talentMapFeatures";
 import type { TreeCompany, TreeExecutive } from "../lib/talentMapTree";
 
 const POPUP_BUTTON =
-  "inline-flex items-center gap-1 rounded-[6px] border px-2.5 py-1.5 font-sans text-[12px] font-medium transition";
+  "inline-flex cursor-pointer items-center gap-1 rounded-[6px] border px-2.5 py-1.5 font-sans text-[12px] font-medium transition";
 
 /**
  * What a clicked pin says: who this is, where, and the one thing to do next. Small on purpose — the
@@ -49,7 +49,7 @@ export function TalentMapPopup({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="ms-auto -mt-1 -me-1 rounded-md p-1 text-text3 transition hover:bg-panel2 hover:text-text"
+          className="ms-auto -mt-1 -me-1 cursor-pointer rounded-md p-1 text-text3 transition hover:bg-panel2 hover:text-text"
         >
           <Icon d={ICONS.close} size={13} />
         </button>
@@ -57,7 +57,7 @@ export function TalentMapPopup({
       <button
         type="button"
         onClick={onOpen}
-        className="mt-1.5 block w-full text-start text-[13.5px] font-semibold leading-tight text-text underline-offset-2 transition hover:text-amber hover:underline"
+        className="mt-1.5 block w-full cursor-pointer text-start text-[13.5px] font-semibold leading-tight text-text underline-offset-2 transition hover:text-amber hover:underline"
       >
         {title}
       </button>

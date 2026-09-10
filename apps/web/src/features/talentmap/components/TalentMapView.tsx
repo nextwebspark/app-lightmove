@@ -147,7 +147,7 @@ export function TalentMapView({
             aria-expanded={!collapsed}
             aria-label={collapsed ? "Show mapping panel" : "Hide mapping panel"}
             title={collapsed ? "Show mapping panel" : "Hide mapping panel"}
-            className="flex-none rounded-md p-1 text-text3 transition hover:bg-panel2 hover:text-text"
+            className="flex-none cursor-pointer rounded-md p-1 text-text3 transition hover:bg-panel2 hover:text-text"
           >
             <Icon d={collapsed ? ICONS.expand : ICONS.collapse} size={15} />
           </button>

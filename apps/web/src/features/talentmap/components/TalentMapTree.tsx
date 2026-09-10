@@ -234,7 +234,7 @@ function NodeRow({
             onToggle();
           }}
           aria-label={open ? `Collapse ${name}` : `Expand ${name}`}
-          className="-ms-1 flex-none rounded p-0.5 text-text3 hover:text-text"
+          className="-ms-1 flex-none cursor-pointer rounded p-0.5 text-text3 hover:text-text"
         >
           <Icon d={ICONS.chevronRight} size={12} className={cn("transition-transform", open && "rotate-90")} />
         </button>
@@ -279,7 +279,7 @@ function NodeRow({
         }}
         aria-label={`Open ${name}`}
         title="Open"
-        className="flex-none rounded p-1 text-text3 opacity-0 transition hover:bg-panel hover:text-text group-hover:opacity-100 focus-visible:opacity-100"
+        className="flex-none cursor-pointer rounded p-1 text-text3 opacity-0 transition hover:bg-panel hover:text-text group-hover:opacity-100 focus-visible:opacity-100"
       >
         <Icon d={ICONS.arrowRight} size={13} />
       </button>

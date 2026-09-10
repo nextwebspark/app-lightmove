@@ -44,7 +44,7 @@ export function SegmentedControl<TValue extends string>({
             aria-checked={selected}
             onClick={() => onChange(option.value)}
             className={cn(
-              "inline-flex items-center gap-1.5 whitespace-nowrap rounded-[4px] px-2.5 py-1.5 font-sans text-[12.5px] font-medium transition",
+              "inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[4px] px-2.5 py-1.5 font-sans text-[12.5px] font-medium transition",
               selected ? "bg-amber-dim text-text" : "text-text3 hover:text-text",
             )}
           >

@@ -26,8 +26,8 @@ const AMBER = "#e2b65c";
 const GROUND = { light: "#ffffff", dark: "#16171a" };
 
 const CONTROL_BUTTON =
-  "grid size-8 place-items-center rounded-[6px] border border-line bg-panel text-text2 shadow-panel " +
-  "transition hover:text-text";
+  "grid size-8 cursor-pointer place-items-center rounded-[6px] border border-line bg-panel text-text2 " +
+  "shadow-panel transition hover:text-text";
 
 /**
  * The globe itself — the one component that imports `mapbox-gl`, and loaded lazily for it, so the
