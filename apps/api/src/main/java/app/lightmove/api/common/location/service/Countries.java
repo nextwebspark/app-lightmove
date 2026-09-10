@@ -49,11 +49,15 @@ public final class Countries {
         Map<String, Entry> file = read();
         Map<String, String> names = namesByCode();
         NAME_BY_CODE = names;
-        // Passed rather than read back off the field: these three assignments are order-dependent,
-        // and a reordering that left the map empty would fail nothing loudly — every country would
-        // simply stop resolving.
-        CODE_BY_SPELLING = codesByName(file, names, false);
-        CODE_BY_NAME = codesByName(file, names, true);
+        // Passed rather than read back off the field: these assignments are order-dependent, and a
+        // reordering that left the map empty would fail nothing loudly — every country would simply
+        // stop resolving.
+        Map<String, String> spellings = codesByName(file, names);
+        CODE_BY_SPELLING = Map.copyOf(spellings);
+        // One map grown into the other, never built twice: the two differ by the bare-code pass
+        // alone, and building each from scratch left room for them to drift apart.
+        names.keySet().forEach(code -> spellings.putIfAbsent(code.toLowerCase(Locale.ROOT), code));
+        CODE_BY_NAME = Map.copyOf(spellings);
         CITY_BY_NAME = citiesByName(file);
     }
 
@@ -166,8 +170,7 @@ public final class Countries {
         return Map.copyOf(byCode);
     }
 
-    private static Map<String, String> codesByName(Map<String, Entry> file, Map<String, String> names,
-                                                   boolean acceptBareCodes) {
+    private static Map<String, String> codesByName(Map<String, Entry> file, Map<String, String> names) {
         Map<String, String> byName = new HashMap<>();
         names.forEach((code, name) -> byName.put(normalise(name), code));
         file.forEach((code, entry) -> {
@@ -184,11 +187,7 @@ public final class Countries {
                 }
             }
         });
-        // Bare codes last and only where no name claimed the spelling.
-        if (acceptBareCodes) {
-            names.keySet().forEach(code -> byName.putIfAbsent(code.toLowerCase(Locale.ROOT), code));
-        }
-        return Map.copyOf(byName);
+        return byName;
     }
 
     private static Map<String, String> citiesByName(Map<String, Entry> file) {

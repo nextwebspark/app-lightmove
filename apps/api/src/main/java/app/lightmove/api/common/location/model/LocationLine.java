@@ -30,7 +30,10 @@ public record LocationLine(String city, String country) {
         String country = parts.length > 1 ? Countries.resolveSpelling(tail).map(Country::name).orElse(null) : null;
         if (country == null) {
             // No country on the end: the whole line is the city, and a line that is only a country
-            // name ("United Arab Emirates") is that country with no city.
+            // name ("United Arab Emirates") is that country with no city. Only the first segment,
+            // unlike the resolved-tail branch below: an unresolved tail is a region or a state
+            // ("San Francisco, California"), and the city column is read as one city — geocoding
+            // keys its cache on it and the alias catalog folds it, and neither survives a join.
             return Countries.resolveSpelling(cleaned)
                     .map(only -> new LocationLine(null, only.name()))
                     .orElseGet(() -> new LocationLine(Countries.cityOf(firstOf(parts)), null));

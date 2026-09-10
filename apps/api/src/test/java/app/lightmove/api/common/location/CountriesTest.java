@@ -38,6 +38,19 @@ class CountriesTest {
     }
 
     @Test
+    @DisplayName("a bare code is a country where a picker sent it and never in a line of prose")
+    void bareCodesResolveOnlyWhereTheyAreMeant() {
+        // The two catalogs differ by this one pass and nothing else, so they are built one from the
+        // other rather than twice from scratch. A drift here is what filed Chicago under Israel.
+        assertThat(Countries.resolve("ae")).contains(new Country("AE", "United Arab Emirates"));
+        assertThat(Countries.resolveSpelling("ae")).isEmpty();
+        // Everything a spelled-out name or an alias reaches is reachable from both.
+        assertThat(Countries.resolveSpelling("UAE")).contains(new Country("AE", "United Arab Emirates"));
+        assertThat(Countries.resolveSpelling("United Arab Emirates"))
+                .contains(new Country("AE", "United Arab Emirates"));
+    }
+
+    @Test
     @DisplayName("a name the catalog does not know is kept, not dropped")
     void unknownIsKept() {
         assertThat(Countries.resolve("Atlantis")).isEmpty();

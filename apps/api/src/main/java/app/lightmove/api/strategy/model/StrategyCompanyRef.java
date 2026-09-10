@@ -1,5 +1,6 @@
 package app.lightmove.api.strategy.model;
 
+import app.lightmove.api.common.location.service.Countries;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import lombok.AccessLevel;
@@ -47,8 +48,8 @@ public class StrategyCompanyRef {
         ref.apolloAccountId = row.apolloAccountId();
         ref.companyName = row.companyName();
         ref.industry = row.industry();
-        ref.companyCity = row.companyCity();
-        ref.companyCountry = row.companyCountry();
+        ref.companyCity = Countries.cityOf(row.companyCity());
+        ref.companyCountry = Countries.nameOf(row.companyCountry());
         ref.logoUrl = row.logoUrl();
         return ref;
     }

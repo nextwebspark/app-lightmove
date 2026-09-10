@@ -7,11 +7,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
 
 /**
@@ -21,6 +25,33 @@ import org.springframework.test.web.servlet.MvcResult;
  */
 @IntegrationTest
 class ClientFlowIntegrationTest extends FlowTestSupport {
+
+    @Autowired JdbcTemplate db;
+
+    private ApolloUniverse universe;
+
+    @BeforeEach
+    void freshUniverse() {
+        universe = new ApolloUniverse(db);
+        universe.reset();
+    }
+
+    @Test
+    @DisplayName("a universe-backed client stores the catalog's spelling of its city, not the export's")
+    void universeClientCityIsCanonicalised() throws Exception {
+        // The drawer's edit never touches hqCity, so a city written off-canon here is never corrected.
+        String admin = adminOf("Client Universe City Firm");
+        universe.company("a1", "Aramco").country("KSA").city("khobar").employees(10).insert();
+
+        mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"company":{"apolloAccountId":"a1"}}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.hqCity").value("Al Khobar"))
+                .andExpect(jsonPath("$.hqCountry").value("Saudi Arabia"));
+    }
 
     @Test
     @DisplayName("a custom client is created with an empty mandate count and no contacts")

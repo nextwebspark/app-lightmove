@@ -92,7 +92,7 @@ public class Client extends BaseEntity {
         Client client = base(workspaceId, name, sector, hqCountry, domain, createdBy);
         client.companySource = UNIVERSE_SOURCE;
         client.companySourceId = apolloAccountId;
-        client.hqCity = hqCity;
+        client.hqCity = Countries.cityOf(hqCity);
         client.logoUrl = logoUrl;
         return client;
     }

@@ -131,9 +131,18 @@ client_city AS (
     WHERE lower(btrim(target.hq_city)) = spelling.typed
       AND target.hq_city <> spelling.canonical
     RETURNING 1
+),
+off_limits_city AS (
+    UPDATE app_lm_strategy_off_limits_company AS target
+    SET company_city = spelling.canonical
+    FROM spelling
+    WHERE lower(btrim(target.company_city)) = spelling.typed
+      AND target.company_city <> spelling.canonical
+    RETURNING 1
 )
 SELECT count(*) FROM (
     SELECT 1 FROM triaged_city
     UNION ALL SELECT 1 FROM mapped_city
     UNION ALL SELECT 1 FROM client_city
+    UNION ALL SELECT 1 FROM off_limits_city
 ) AS rewritten_cities;
