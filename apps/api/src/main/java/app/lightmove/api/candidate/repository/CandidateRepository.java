@@ -8,6 +8,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 /**
  * A mandate's mapped executives. Every finder carries the project id — a candidate is mandate content,
@@ -70,4 +71,18 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
 
     List<Candidate> findByProjectIdAndTriageCompanyIdIsNullAndFullNameIgnoreCase(
             UUID projectId, String fullName);
+
+    /**
+     * The mandate's rows that might name one LinkedIn profile — the narrowing half of the duplicate
+     * guard the name finders above cannot answer. {@code like} rather than equality because the column
+     * holds whatever the plugin read off the page, and one profile is written several ways: a trailing
+     * slash, a locale prefix, {@code www} or not.
+     *
+     * <p>It narrows rather than decides. A slug that is a prefix of another matches here — {@code john}
+     * against {@code /in/johnny} — so the caller settles identity on the slug itself, which is the only
+     * spelling {@code LinkedInUrls} treats as the profile's name.
+     */
+    @Query("select c from Candidate c where c.projectId = :projectId "
+            + "and lower(c.linkedinUrl) like concat('%/in/', :slug, '%')")
+    List<Candidate> findByProjectIdAndProfileSlugLike(UUID projectId, String slug);
 }

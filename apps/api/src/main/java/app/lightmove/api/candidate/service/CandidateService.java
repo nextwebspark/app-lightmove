@@ -213,6 +213,7 @@ public class CandidateService {
         CandidateDetails details = detailsOf(projectId, request);
 
         refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), null);
+        refuseHeldProfile(projectId, details.linkedinUrl(), null);
 
         Candidate candidate = candidates.save(Candidate.mapped(projectId, userId,
                 request.triageCompanyId(), source, details));
@@ -247,6 +248,7 @@ public class CandidateService {
 
         CandidateDetails details = detailsOf(projectId, request);
         refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), candidateId);
+        refuseHeldProfile(projectId, details.linkedinUrl(), candidateId);
 
         candidate.remapTo(request.triageCompanyId());
         candidate.describe(details);
@@ -453,6 +455,34 @@ public class CandidateService {
                         projectId, triageCompanyId, fullName);
 
         boolean held = sameName.stream().anyMatch(other -> !other.getId().equals(selfId));
+        if (held) {
+            throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
+        }
+    }
+
+    /**
+     * Refuses a LinkedIn profile the mandate already maps, wherever that row currently sits. The name
+     * rule above cannot answer this one: a second capture arrives with no company, so it is checked
+     * against the unmapped scope only, while the first has since been researched and mapped to its
+     * employer and sits in the company scope. The two look past each other, the row is created, and
+     * {@link #mapToEmployer} then finds the name held at that company and leaves the duplicate
+     * unmapped — a second line reading "Not in universe" that nobody asked for.
+     *
+     * <p>The slug rather than the stored URL, because {@link LinkedInUrls} already rules that
+     * {@code /in/John-Smith} and {@code /in/john-smith} are one profile. The finder only narrows, so
+     * identity is settled here.
+     *
+     * <p>{@code selfId} is the row being edited, excluded so that saving someone without changing
+     * their URL does not collide with themselves.
+     */
+    private void refuseHeldProfile(UUID projectId, String linkedinUrl, UUID selfId) {
+        String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
+        if (slug == null) {
+            return;
+        }
+        boolean held = candidates.findByProjectIdAndProfileSlugLike(projectId, slug).stream()
+                .filter(other -> !other.getId().equals(selfId))
+                .anyMatch(other -> slug.equals(LinkedInUrls.profileSlugOrNull(other.getLinkedinUrl())));
         if (held) {
             throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
         }
