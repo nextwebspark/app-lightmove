@@ -8,6 +8,8 @@ import { createClientPayloadFor } from "../api/clientsApi";
 import type { CompanyPick } from "../lib/companyPick";
 import { CompanyPicker } from "./CompanyPicker";
 
+vi.mock("../../../lib/countries", () => import("../../../test/countries"));
+
 vi.mock("../../strategy/api/companiesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../strategy/api/companiesApi")>()),
   searchCompanies: vi.fn(),
@@ -140,6 +142,7 @@ describe("CompanyPicker", () => {
       source: "custom",
       name: "Northwind",
       domain: "northwind.ae",
+      hqCountry: "",
     });
   });
 });
@@ -159,8 +162,23 @@ describe("createClientPayloadFor", () => {
   });
 
   it("sends the typed record for a custom pick, and drops an empty domain", () => {
-    const pick: CompanyPick = { source: "custom", name: "Northwind", domain: "" };
+    const pick: CompanyPick = { source: "custom", name: "Northwind", domain: "", hqCountry: "" };
 
-    expect(createClientPayloadFor(pick)).toEqual({ customName: "Northwind", customDomain: undefined });
+    expect(createClientPayloadFor(pick)).toEqual({
+      customName: "Northwind",
+      customDomain: undefined,
+      hqCountry: undefined,
+    });
+  });
+
+  it("sends the country a typed record was given — a universe pick brings its own", () => {
+    const pick: CompanyPick = {
+      source: "custom",
+      name: "Northwind",
+      domain: "",
+      hqCountry: "United Arab Emirates",
+    };
+
+    expect(createClientPayloadFor(pick).hqCountry).toBe("United Arab Emirates");
   });
 });

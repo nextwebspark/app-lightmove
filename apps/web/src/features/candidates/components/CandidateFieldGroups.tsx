@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import {
+  Controller,
   useFieldArray,
   type Control,
   type FieldErrors,
@@ -10,6 +11,7 @@ import {
 } from "react-hook-form";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Field, Input, Select, TextArea } from "../../../components/ui";
+import { CountryField } from "../../../components/ui/CountryField";
 import { cn } from "../../../lib/cn";
 import { CURRENCIES } from "../../../lib/currencies";
 import { formatNumber } from "../../../lib/format";
@@ -29,13 +31,15 @@ export interface FieldGroupProps {
   errors: FieldErrors<CandidateForm>;
 }
 
-export function IdentityFields({
+export function IdentityFields<TTransformed>({
   register,
   errors,
+  control,
   employerLocked,
   autoFocus,
   statusField,
 }: FieldGroupProps & {
+  control: Control<CandidateForm, unknown, TTransformed>;
   /** True where the employer is one of the mandate's companies — the mapping and the name must not disagree. */
   employerLocked: boolean;
   autoFocus?: boolean;
@@ -79,7 +83,19 @@ export function IdentityFields({
           <Input {...register("locationCity")} placeholder="Dubai" />
         </Field>
         <Field label="Country" error={errors.locationCountry?.message}>
-          <Input {...register("locationCountry")} placeholder="United Arab Emirates" />
+          <Controller
+            name="locationCountry"
+            control={control}
+            render={({ field }) => (
+              <CountryField
+                listId="candidate-country"
+                value={field.value}
+                invalid={Boolean(errors.locationCountry)}
+                placeholder="United Arab Emirates"
+                onChange={field.onChange}
+              />
+            )}
+          />
         </Field>
       </div>
     </>

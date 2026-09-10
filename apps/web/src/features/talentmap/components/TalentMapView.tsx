@@ -256,6 +256,7 @@ export function TalentMapView({
                 return (
                   <TalentMapPopup
                     node={node}
+                    projectId={projectId}
                     canWrite={canWrite}
                     onOpen={() => open(node)}
                     onAddExecutive={

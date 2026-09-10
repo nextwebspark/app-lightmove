@@ -19,6 +19,8 @@ import type { TriageCompaniesPage, TriageCompany } from "../api/types";
 import { stubFullscreenApi } from "../../../test/fullscreen";
 import { TriageStagePage } from "./TriageStagePage";
 
+vi.mock("../../../lib/countries", () => import("../../../test/countries"));
+
 vi.mock("../../auth/api/authApi");
 vi.mock("../../candidates/api/candidatesApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
@@ -266,7 +268,7 @@ const mapPageOf = (): TalentMapPage => ({
   totalCompanies: 1,
   candidates: [yasmin],
   totalCandidates: 1,
-  locations: { u1: { latitude: 24.7, longitude: 46.7, precision: "CITY", placeLabel: "Riyadh, Saudi Arabia" } },
+  locations: { u1: { latitude: 24.7, longitude: 46.7, precision: "CITY", placeLabel: "Riyadh, Saudi Arabia", country: "Saudi Arabia", countryCode: "SA" } },
   geocodingPending: 0,
 });
 
@@ -1023,7 +1025,7 @@ describe("TriageStagePage", () => {
       vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
       vi.mocked(talentMapApi.getTalentMap).mockResolvedValue({ ...mapPageOf(), locations: {}, geocodingPending: 1 });
       vi.mocked(talentMapApi.getTalentMapLocations).mockResolvedValue({
-        locations: { u1: { latitude: 24.7, longitude: 46.7, precision: "CITY", placeLabel: "Riyadh, Saudi Arabia" } },
+        locations: { u1: { latitude: 24.7, longitude: 46.7, precision: "CITY", placeLabel: "Riyadh, Saudi Arabia", country: "Saudi Arabia", countryCode: "SA" } },
         geocodingPending: 0,
       });
       renderStage();

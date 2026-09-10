@@ -3,6 +3,8 @@ package app.lightmove.api.triagecompany.model;
 import static app.lightmove.api.core.text.service.SuppliedText.blankToNull;
 import static app.lightmove.api.core.text.service.SuppliedText.browsableUrlOrNull;
 
+import app.lightmove.api.common.location.service.Countries;
+
 /**
  * The company fields a mandate supplies itself, when there is no universe row to snapshot from.
  *
@@ -30,8 +32,11 @@ public record CapturedCompanyDetails(String companyName, String industry, String
     public CapturedCompanyDetails {
         companyName = companyName == null ? null : companyName.trim();
         industry = blankToNull(industry);
-        companyCountry = blankToNull(companyCountry);
-        companyCity = blankToNull(companyCity);
+        // Every door a mandate-supplied company arrives through builds this record — the plugin, the
+        // Add-by-hand form, the Edit form, the spreadsheet and Bright Data — so one country spelling
+        // is settled here rather than at five call sites.
+        companyCountry = Countries.nameOf(blankToNull(companyCountry));
+        companyCity = Countries.cityOf(blankToNull(companyCity));
         website = browsableUrlOrNull(website);
         companyLinkedinUrl = browsableUrlOrNull(companyLinkedinUrl);
         shortDescription = blankToNull(shortDescription);

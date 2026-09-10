@@ -60,9 +60,9 @@ const person = (overrides: Partial<Candidate>): Candidate => ({
   ...overrides,
 });
 
-const riyadh: MapLocation = { latitude: 24.7, longitude: 46.7, precision: "CITY", placeLabel: "Riyadh, Saudi Arabia" };
-const dubai: MapLocation = { latitude: 25.3, longitude: 55.3, precision: "CITY", placeLabel: "Dubai, United Arab Emirates" };
-const oman: MapLocation = { latitude: 21, longitude: 57, precision: "COUNTRY", placeLabel: "Oman" };
+const riyadh: MapLocation = { latitude: 24.7, longitude: 46.7, precision: "CITY", placeLabel: "Riyadh, Saudi Arabia", country: "Saudi Arabia", countryCode: "SA" };
+const dubai: MapLocation = { latitude: 25.3, longitude: 55.3, precision: "CITY", placeLabel: "Dubai, United Arab Emirates", country: "United Arab Emirates", countryCode: "AE" };
+const oman: MapLocation = { latitude: 21, longitude: 57, precision: "COUNTRY", placeLabel: "Oman", country: "Oman", countryCode: "OM" };
 
 const page: TalentMapPage = {
   companies: [
@@ -81,7 +81,7 @@ const page: TalentMapPage = {
     person({ id: "c6", triageCompanyId: "u4", companyName: "Gulf Trader", fullName: "Sara Noor" }),
   ],
   totalCandidates: 6,
-  locations: { u1: riyadh, u2: riyadh, u3: dubai, c3: riyadh, c4: oman },
+  locations: { u1: riyadh, u2: riyadh, u3: riyadh, c3: riyadh, c4: oman },
   geocodingPending: 0,
 };
 
@@ -89,13 +89,13 @@ describe("buildTree", () => {
   it("groups country → company → executives, most companies first, people by seniority", () => {
     const tree = buildTree(page);
 
-    expect(tree.countries.map((country) => country.name)).toEqual(["Saudi Arabia", "United Arab Emirates", "Oman"]);
+    expect(tree.countries.map((country) => country.name)).toEqual(["Saudi Arabia", "Oman"]);
     const saudi = tree.countries[0];
-    expect(saudi.companies.map((c) => c.company.companyName)).toEqual(["ACWA Power", "Almarai"]);
+    expect(saudi.companies.map((c) => c.company.companyName)).toEqual(["ACWA Power", "Almarai", "Emaar"]);
     // The C-Suite executive leads the N-1, whatever order they were mapped in.
     expect(saudi.companies[0].executives.map((e) => e.candidate.fullName)).toEqual(["Ahmed Bakr", "Yasmin El-Sayed"]);
-    expect(saudi.companyCount).toBe(2);
-    expect(saudi.executiveCount).toBe(2);
+    expect(saudi.companyCount).toBe(3);
+    expect(saudi.executiveCount).toBe(3);
   });
 
   it("seats an executive without a place at their company, and draws one with a place at it", () => {
@@ -104,14 +104,14 @@ describe("buildTree", () => {
     expect(acwa.executives[0].seatedAt).toBe("u1");
     expect(acwa.executives[0].location).toBeNull();
 
-    const emaar = tree.countries[1].companies[0];
+    const emaar = tree.countries[0].companies[2];
     expect(emaar.executives[0].location).toEqual(riyadh);
     expect(emaar.executives[0].seatedAt).toBeNull();
   });
 
   it("files an unmapped executive under their own country, and the placeless under No location", () => {
     const tree = buildTree(page);
-    const oman = tree.countries[2];
+    const oman = tree.countries[1];
     expect(oman.companies).toHaveLength(0);
     expect(oman.unmapped.map((e) => e.candidate.fullName)).toEqual(["Lina Said"]);
 
@@ -123,7 +123,47 @@ describe("buildTree", () => {
 
   it("counts what it holds, located and not", () => {
     const tree = buildTree(page);
-    expect(tree.counts).toEqual({ countries: 3, companies: 4, executives: 6, unlocated: 3 });
+    expect(tree.counts).toEqual({ countries: 2, companies: 4, executives: 6, unlocated: 3 });
+  });
+
+  it("files a company under the country it was drawn in, not the one its snapshot names", () => {
+    // Emaar's snapshot says Dubai; its only executive is in Riyadh, so that is where the server drew
+    // it — and where the panel must list it. Grouping on the snapshot put a Saudi pin under the UAE.
+    const tree = buildTree(page);
+    const emaar = tree.countries[0].companies[2];
+
+    expect(emaar.company.companyCountry).toBe("United Arab Emirates");
+    expect(tree.countries[0].name).toBe("Saudi Arabia");
+    expect(tree.countries.map((country) => country.name)).not.toContain("United Arab Emirates");
+  });
+
+  it("folds two spellings of one country into the group the server put a code to", () => {
+    const tree = buildTree({
+      ...page,
+      companies: [
+        company({ id: "u5", companyName: "Emaar", companyCountry: "United Arab Emirates" }),
+        // No country resolved for this one — an executive with a city and no country beside it — so
+        // it falls back to its own spelling, which must still land in the group above.
+        company({ id: "u6", companyName: "Majid Al Futtaim", companyCountry: "UNITED ARAB EMIRATES " }),
+      ],
+      candidates: [],
+      locations: { u5: dubai, u6: { ...dubai, country: null, countryCode: null } },
+    });
+
+    expect(tree.countries.map((country) => country.name)).toEqual(["United Arab Emirates"]);
+    expect(tree.countries[0].key).toBe("ae");
+  });
+
+  it("files a located company with no country of its own under the country of its point", () => {
+    const tree = buildTree({
+      ...page,
+      companies: [company({ id: "u7", companyName: "Gulf Trader", companyCountry: null, companyCity: null })],
+      candidates: [],
+      locations: { u7: oman },
+    });
+
+    expect(tree.countries.map((country) => country.name)).toEqual(["Oman"]);
+    expect(tree.unlocated.companies).toHaveLength(0);
   });
 
   it("counts an executive filed under a country with no point as unlocated, not as placed", () => {
@@ -168,9 +208,9 @@ describe("filterTree", () => {
 describe("pathTo / nodesOf", () => {
   it("names the branches above a row so a pin click can open them", () => {
     const tree = buildTree(page);
-    expect(pathTo(tree, "c1")).toEqual({ country: "saudi arabia", company: "u1" });
-    expect(pathTo(tree, "u3")).toEqual({ country: "united arab emirates", company: null });
-    expect(pathTo(tree, "c4")).toEqual({ country: "oman", company: null });
+    expect(pathTo(tree, "c1")).toEqual({ country: "sa", company: "u1" });
+    expect(pathTo(tree, "u3")).toEqual({ country: "sa", company: null });
+    expect(pathTo(tree, "c4")).toEqual({ country: "om", company: null });
     expect(pathTo(tree, "c6")).toEqual({ country: UNLOCATED_KEY, company: "u4" });
     expect(pathTo(tree, "nope")).toEqual({ country: null, company: null });
     expect(nodesOf(tree).map((node) => node.id)).toEqual(["u1", "c2", "c1", "u2", "u3", "c3", "c4", "u4", "c6", "c5"]);

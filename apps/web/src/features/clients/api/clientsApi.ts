@@ -33,7 +33,11 @@ export function createClientPayloadFor(pick: CompanyPick): CreateClientPayload {
         company: { apolloAccountId: pick.company.apolloAccountId },
         sector: pick.company.industry ?? undefined,
       }
-    : { customName: pick.name, customDomain: pick.domain || undefined };
+    : {
+        customName: pick.name,
+        customDomain: pick.domain || undefined,
+        hqCountry: pick.hqCountry || undefined,
+      };
 }
 
 export function createClient(payload: CreateClientPayload): Promise<Client> {

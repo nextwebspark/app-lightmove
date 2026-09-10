@@ -1,5 +1,6 @@
 package app.lightmove.api.position.model;
 
+import app.lightmove.api.common.location.model.LocationLine;
 import app.lightmove.api.position.constant.EmploymentType;
 import app.lightmove.api.common.constant.Seniority;
 import java.util.List;
@@ -18,4 +19,19 @@ public record PositionDetails(
         List<String> responsibilities,
         String narrative
 ) {
+
+    public PositionDetails {
+        // Free text on purpose — a role can be "Remote" or name two cities, and a picker cannot say
+        // either. Only the country half is settled, so a brief and the mandate's companies spell one
+        // country the same way.
+        location = canonicalLocation(location);
+    }
+
+    private static String canonicalLocation(String location) {
+        LocationLine line = LocationLine.of(location);
+        if (line.country() == null) {
+            return line.city();
+        }
+        return line.city() == null ? line.country() : line.city() + ", " + line.country();
+    }
 }

@@ -1,5 +1,6 @@
 package app.lightmove.api.project.model;
 
+import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -91,7 +92,7 @@ public class Client extends BaseEntity {
         Client client = base(workspaceId, name, sector, hqCountry, domain, createdBy);
         client.companySource = UNIVERSE_SOURCE;
         client.companySourceId = apolloAccountId;
-        client.hqCity = hqCity;
+        client.hqCity = Countries.cityOf(hqCity);
         client.logoUrl = logoUrl;
         return client;
     }
@@ -108,7 +109,7 @@ public class Client extends BaseEntity {
         client.workspaceId = workspaceId;
         client.name = name.trim();
         client.sector = sector;
-        client.hqCountry = hqCountry;
+        client.hqCountry = Countries.nameOf(hqCountry);
         client.domain = domain;
         client.createdBy = createdBy;
         return client;
@@ -119,7 +120,7 @@ public class Client extends BaseEntity {
                              String offLimitsNote) {
         this.name = name.trim();
         this.sector = sector;
-        this.hqCountry = hqCountry;
+        this.hqCountry = Countries.nameOf(hqCountry);
         this.domain = domain;
         this.offLimitsNote = offLimitsNote;
     }

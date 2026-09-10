@@ -9,9 +9,9 @@ import { optionalNumber, optionalWebAddress } from "../../../lib/formFields";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import * as companiesApi from "../../strategy/api/companiesApi";
+import { CountryField } from "../../../components/ui/CountryField";
+import { FacetCombobox } from "../../../components/ui/FacetCombobox";
 import type { FacetCount, FacetOption } from "../../strategy/api/types";
-import { FacetCombobox } from "../../strategy/components/FacetCombobox";
-import { MARKET_COUNTRIES } from "../../strategy/lib/countries";
 import type { CaptureCompanyPayload, EditCompanyPayload, TriageCompany } from "../api/types";
 
 /**
@@ -189,15 +189,18 @@ export function CompanyFactsForm({
             />
           </Field>
           <Field label="Country" error={errors.companyCountry?.message}>
-            <VocabularyField
+            <Controller
               name="companyCountry"
               control={control}
-              listId="company-country"
-              noun="countries"
-              options={MARKET_COUNTRIES}
-              // The country vocabulary is fixed rather than read, so this box has nothing to lose.
-              unavailable={false}
-              placeholder="United Arab Emirates"
+              render={({ field }) => (
+                <CountryField
+                  listId="company-country"
+                  value={field.value}
+                  invalid={Boolean(errors.companyCountry)}
+                  placeholder="United Arab Emirates"
+                  onChange={field.onChange}
+                />
+              )}
             />
           </Field>
 
@@ -271,7 +274,7 @@ function VocabularyField({
   unavailable,
   placeholder,
 }: {
-  name: "industry" | "companyCountry";
+  name: "industry";
   control: Control<CompanyFactsValues, unknown, ParsedCompanyFacts>;
   listId: string;
   noun: string;

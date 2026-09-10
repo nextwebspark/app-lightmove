@@ -31,7 +31,10 @@ vi.mock("./TalentMapGlobe", () => ({
     </div>
   ),
 }));
-vi.mock("../../candidates/lib/useCandidatePhoto", () => ({ useCandidatePhoto: () => null }));
+vi.mock("../../candidates/lib/useCandidatePhoto", () => ({
+  useCandidatePhoto: (_projectId: string, candidate: { enrichedAt: string | null } | null) =>
+    candidate?.enrichedAt ? "blob:photo" : null,
+}));
 
 const company = (overrides: Partial<TriageCompany>): TriageCompany => ({
   id: "u1",
@@ -91,19 +94,19 @@ const person = (overrides: Partial<Candidate>): Candidate => ({
 
 const page: TalentMapPage = {
   companies: [
-    company({ id: "u1", companyName: "ACWA Power" }),
+    company({ id: "u1", companyName: "ACWA Power", logoUrl: "https://logos.test/acwa.png" }),
     company({ id: "u3", companyName: "Emaar", companyCountry: "United Arab Emirates", companyCity: "Dubai" }),
   ],
   totalCompanies: 2,
   candidates: [
-    person({ id: "c1", fullName: "Yasmin El-Sayed" }),
+    person({ id: "c1", fullName: "Yasmin El-Sayed", enrichedAt: "2026-08-03T09:00:00Z" }),
     person({ id: "c4", triageCompanyId: null, companyName: "Untriaged Co", fullName: "Lina Said", locationCountry: "Oman" }),
   ],
   totalCandidates: 2,
   locations: {
-    u1: { latitude: 24.7, longitude: 46.7, precision: "CITY", placeLabel: "Riyadh, Saudi Arabia" },
-    u3: { latitude: 25.3, longitude: 55.3, precision: "CITY", placeLabel: "Dubai, United Arab Emirates" },
-    c4: { latitude: 21, longitude: 57, precision: "COUNTRY", placeLabel: "Oman" },
+    u1: { latitude: 24.7, longitude: 46.7, precision: "CITY", placeLabel: "Riyadh, Saudi Arabia", country: "Saudi Arabia", countryCode: "SA" },
+    u3: { latitude: 25.3, longitude: 55.3, precision: "CITY", placeLabel: "Dubai, United Arab Emirates", country: "United Arab Emirates", countryCode: "AE" },
+    c4: { latitude: 21, longitude: 57, precision: "COUNTRY", placeLabel: "Oman", country: "Oman", countryCode: "OM" },
   },
   geocodingPending: 0,
 };
@@ -169,6 +172,22 @@ describe("TalentMapView", () => {
     expect(within(popup).queryByRole("button", { name: /^Open$/ })).not.toBeInTheDocument();
     await userEvent.click(within(popup).getByRole("button", { name: "Yasmin El-Sayed" }));
     expect(handlers.onOpenCandidate).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }));
+  });
+
+  it("shows the company's logo and the executive's photo on the popup", async () => {
+    renderView();
+
+    await userEvent.click(screen.getByRole("button", { name: "pin: ACWA Power" }));
+    expect(screen.getByTestId("popup").querySelector("img")).toHaveAttribute(
+      "src",
+      "https://logos.test/acwa.png",
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "pin: Yasmin El-Sayed" }));
+    expect(within(screen.getByTestId("popup")).getByAltText("Yasmin El-Sayed")).toHaveAttribute(
+      "src",
+      "blob:photo",
+    );
   });
 
   it("offers Add executive on a company's popup only to someone who may write", async () => {

@@ -2,6 +2,7 @@ package app.lightmove.api.candidate.model;
 
 import static app.lightmove.api.core.text.service.SuppliedText.blankToNull;
 
+import app.lightmove.api.common.location.service.Countries;
 import java.util.List;
 
 /**
@@ -27,8 +28,8 @@ public record EnrichedProfile(String title, String about, String employerName,
         employerName = blankToNull(employerName);
         employerLinkedinUrl = blankToNull(employerLinkedinUrl);
         employerLogoUrl = blankToNull(employerLogoUrl);
-        locationCity = blankToNull(locationCity);
-        locationCountry = blankToNull(locationCountry);
+        locationCity = Countries.cityOf(blankToNull(locationCity));
+        locationCountry = Countries.nameOf(blankToNull(locationCountry));
         career = career == null ? List.of()
                 : career.stream().filter(entry -> !entry.isEmpty()).toList();
         education = education == null ? List.of()

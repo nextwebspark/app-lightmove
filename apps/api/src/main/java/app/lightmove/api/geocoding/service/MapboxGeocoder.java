@@ -1,5 +1,6 @@
 package app.lightmove.api.geocoding.service;
 
+import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.MapboxSettings;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorClientSpec;
@@ -64,7 +65,7 @@ public class MapboxGeocoder implements Geocoder {
             multiplierString = "${lightmove.resilience.retry-multiplier}",
             maxDelayString = "${lightmove.resilience.retry-max-delay}")
     public Optional<GeoPoint> city(String city, String country) {
-        Optional<String> isoCode = CountryCodes.isoCodeOf(country);
+        Optional<String> isoCode = Optional.ofNullable(Countries.codeOf(country));
         // A country we cannot code is still worth naming: "Salalah, Oman" beats "Salalah" alone.
         String query = isoCode.isPresent() || country == null ? city : city + ", " + country;
         MapboxFeatureCollection answer = guard.call(VendorCall.of(VENDOR, "forward-city"),
@@ -84,7 +85,7 @@ public class MapboxGeocoder implements Geocoder {
             multiplierString = "${lightmove.resilience.retry-multiplier}",
             maxDelayString = "${lightmove.resilience.retry-max-delay}")
     public Optional<GeoPoint> country(String country) {
-        Optional<String> isoCode = CountryCodes.isoCodeOf(country);
+        Optional<String> isoCode = Optional.ofNullable(Countries.codeOf(country));
         MapboxFeatureCollection answer = guard.call(VendorCall.of(VENDOR, "forward-country"),
                 () -> client.get()
                         .uri(uri -> forward(uri, country, COUNTRY_TYPES, isoCode.orElse(null)))

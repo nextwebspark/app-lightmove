@@ -13,6 +13,8 @@ import * as triageApi from "../../triage/api/triageApi";
 import { stubFullscreenApi } from "../../../test/fullscreen";
 import { StrategyPage } from "./StrategyPage";
 
+vi.mock("../../../lib/countries", () => import("../../../test/countries"));
+
 vi.mock("../api/strategyApi", async (importOriginal) => ({
   ...(await importOriginal<typeof strategyApi>()),
   getStrategy: vi.fn(),
