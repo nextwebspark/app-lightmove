@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { requestBlob } from "../../../lib/apiClient";
+import { ApiRequestError, requestBlob } from "../../../lib/apiClient";
 import type { Candidate } from "../api/types";
 
 /**
@@ -21,7 +21,7 @@ export function useCandidatePhoto(
 ): string | null {
   const photo = useQuery({
     queryKey: ["candidate-photo", projectId, candidate?.id ?? "none", candidate?.enrichedAt ?? null],
-    queryFn: () => requestBlob(`/projects/${projectId}/candidates/${candidate!.id}/photo`),
+    queryFn: () => photoOrNothing(projectId, candidate!.id),
     // Only a candidate the research has touched can have one; skipping the rest keeps a page of
     // rows from firing a 404 apiece.
     enabled: candidate?.enrichedAt != null,
@@ -44,4 +44,21 @@ export function useCandidatePhoto(
   }, [blob]);
 
   return objectUrl;
+}
+
+/**
+ * A candidate with no stored photo answers 404, which is an answer rather than a failure — so it
+ * resolves null instead of throwing. A rejected query is held in an error state, and an errored query
+ * ignores `staleTime`: every avatar that remounted asked again for a photo already known not to exist,
+ * and the map's tree remounts the lot on every toggle.
+ */
+async function photoOrNothing(projectId: string, candidateId: string): Promise<Blob | null> {
+  try {
+    return await requestBlob(`/projects/${projectId}/candidates/${candidateId}/photo`);
+  } catch (error) {
+    if (error instanceof ApiRequestError && error.code === "NOT_FOUND") {
+      return null;
+    }
+    throw error;
+  }
 }
