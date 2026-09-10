@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { useCountries } from "../../../lib/countries";
 import { cn } from "../../../lib/cn";
 import type { CompanyRef, FacetOption, Facets, NumericRange, StrategyFilter } from "../api/types";
-import { MARKET_COUNTRIES } from "../lib/countries";
 import { FacetsUnavailable } from "./FacetsUnavailable";
 import { FilterAccordion, type SelectedTag } from "./FilterAccordion";
 import { FilterCheckRow } from "../../../components/ui/FilterCheckRow";
@@ -62,6 +62,9 @@ export function FilterSidebar({
   /** Dismisses the rail where it overlays the results, below `lg`. */
   onClose: () => void;
 }) {
+  // The Location panel opens by default, so a refused or still-arriving read would otherwise open the
+  // rail onto a blank section — which is the trap every other accordion here already guards.
+  const { markets, isPending: marketsPending, isError: marketsError } = useCountries();
   const [open, setOpen] = useState<AccordionKey | null>("location");
 
   const toggleOpen = (key: AccordionKey) => setOpen((current) => (current === key ? null : key));
@@ -87,7 +90,7 @@ export function FilterSidebar({
   const tagsOf = (axis: ListAxis) => {
     const options: readonly FacetOption[] | undefined = {
       industries: facets?.sectorGroups.flatMap((group) => group.industries),
-      countries: MARKET_COUNTRIES,
+      countries: markets.map((market) => ({ value: market, label: market })),
       employeeBands: facets?.employeeBands,
       revenueBands: facets?.revenueBands,
       marketSegments: facets?.marketSegments,
@@ -162,16 +165,22 @@ export function FilterSidebar({
         onToggleOpen={() => toggleOpen("location")}
         onReset={() => onChange({ ...filter, countries: [] })}
       >
-        <div className="flex flex-wrap gap-1.5">
-          {MARKET_COUNTRIES.map((option) => (
-            <FilterChip
-              key={option.value}
-              label={option.label}
-              selected={filter.countries.includes(option.value)}
-              onToggle={() => toggleValue("countries", option.value)}
-            />
-          ))}
-        </div>
+        {marketsError ? (
+          <FacetsUnavailable />
+        ) : marketsPending ? (
+          <ChipSkeleton />
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {markets.map((market) => (
+              <FilterChip
+                key={market}
+                label={market}
+                selected={filter.countries.includes(market)}
+                onToggle={() => toggleValue("countries", market)}
+              />
+            ))}
+          </div>
+        )}
       </FilterAccordion>
 
       <FilterAccordion

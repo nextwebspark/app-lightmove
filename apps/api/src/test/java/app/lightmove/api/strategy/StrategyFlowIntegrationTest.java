@@ -349,6 +349,25 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an off-limits snapshot spells its country and city the way every other row does")
+    void offLimitsSnapshotIsCanonicalised() throws Exception {
+        // The snapshot is copied from a universe row that may carry an older vintage's spelling, and
+        // the same company triaged and barred has to read as one place on both lists.
+        String admin = adminOf("Strategy Spelling Firm");
+        String projectId = project(admin);
+        universe.company("a1", "Aramco").country("KSA").city("khobar").employees(10).insert();
+
+        mvc.perform(put(offLimitsUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountIds":["a1"]}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.offLimits[0].companyCountry").value("Saudi Arabia"))
+                .andExpect(jsonPath("$.offLimits[0].companyCity").value("Al Khobar"));
+    }
+
+    @Test
     @DisplayName("a stored off-limits entry survives its company leaving the universe")
     void storedOffLimitsSurvivesAVanishedCompany() throws Exception {
         String admin = adminOf("Strategy Vanished Firm");

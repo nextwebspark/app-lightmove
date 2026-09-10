@@ -41,6 +41,6 @@ import java.lang.annotation.Target;
 @ImportTestcontainers(TestcontainersConfig.class)
 @Import({SynchronousAuditWrites.class, StubChatModel.Config.class, StubEmbeddingModel.Config.class,
         RecordingEmailSender.Config.class, RecordingProfileEnricher.Config.class,
-        RecordingCompanyEnricher.Config.class})
+        RecordingCompanyEnricher.Config.class, StubGeocoder.Config.class})
 public @interface IntegrationTest {
 }

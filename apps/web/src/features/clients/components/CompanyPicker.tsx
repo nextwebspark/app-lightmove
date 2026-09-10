@@ -1,10 +1,11 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button, Field, Input, Spinner } from "../../../components/ui";
+import { CountryField } from "../../../components/ui/CountryField";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { COMPANY_SEARCH_KEY, searchCompanies } from "../../strategy/api/companiesApi";
 import type { CompanySuggestion } from "../../strategy/api/types";
-import { useDebouncedValue } from "../../strategy/lib/useComboboxList";
+import { useDebouncedValue } from "../../../lib/useComboboxList";
 import {
   companyLocation,
   pickedCompanyLogo,
@@ -77,9 +78,9 @@ export function CompanyPicker({
     onPick({ source: "universe", company: hit });
   };
 
-  const handleConfirmCustom = (name: string, domain: string) => {
+  const handleConfirmCustom = (name: string, domain: string, hqCountry: string) => {
     setCustomOpen(false);
-    onPick({ source: "custom", name, domain });
+    onPick({ source: "custom", name, domain, hqCountry });
   };
 
   if (pick) {
@@ -227,10 +228,11 @@ function NewCompanyForm({
 }: {
   initialName: string;
   onCancel: () => void;
-  onConfirm: (name: string, domain: string) => void;
+  onConfirm: (name: string, domain: string, hqCountry: string) => void;
 }) {
   const [name, setName] = useState(initialName);
   const [domain, setDomain] = useState("");
+  const [hqCountry, setHqCountry] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const handleConfirm = () => {
@@ -238,7 +240,7 @@ function NewCompanyForm({
       setError("Enter the company name");
       return;
     }
-    onConfirm(name.trim(), domain.trim());
+    onConfirm(name.trim(), domain.trim(), hqCountry.trim());
   };
 
   return (
@@ -264,6 +266,10 @@ function NewCompanyForm({
           onChange={(event) => setDomain(event.target.value)}
           placeholder="e.g. meridian.ae"
         />
+      </Field>
+      {/* A universe pick brings its own country; a typed record has none, and its brief opens at it. */}
+      <Field label="Country · optional">
+        <CountryField listId="new-client-country" value={hqCountry} onChange={setHqCountry} />
       </Field>
       <div className="flex justify-end gap-2">
         <Button variant="secondary" onClick={onCancel}>

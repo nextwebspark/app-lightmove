@@ -29,6 +29,7 @@ public abstract class FlowTestSupport {
     @Autowired protected RecordingEmailSender email;
     @Autowired private RecordingProfileEnricher profileEnricher;
     @Autowired private RecordingCompanyEnricher companyEnricher;
+    @Autowired private StubGeocoder geocoder;
 
     protected String domain;
 
@@ -39,6 +40,7 @@ public abstract class FlowTestSupport {
         // must not be what the next class's capture comes back with.
         profileEnricher.clear();
         companyEnricher.clear();
+        geocoder.clear();
         domain = "firm%d-%s.example".formatted(RUN.incrementAndGet(),
                 getClass().getSimpleName().toLowerCase());
     }

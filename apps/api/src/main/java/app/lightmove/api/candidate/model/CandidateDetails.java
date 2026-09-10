@@ -5,6 +5,7 @@ import static app.lightmove.api.core.text.service.SuppliedText.browsableUrlOrNul
 
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.common.location.service.Countries;
 
 /**
  * Everything a caller supplies about an executive, normalised once on the way in. Only the name is
@@ -30,8 +31,10 @@ public record CandidateDetails(String fullName, String title, Seniority seniorit
         email = blankToNull(email);
         phone = blankToNull(phone);
         linkedinUrl = browsableUrlOrNull(linkedinUrl);
-        locationCountry = blankToNull(locationCountry);
-        locationCity = blankToNull(locationCity);
+        locationCountry = Countries.nameOf(blankToNull(locationCountry));
+        locationCity = Countries.cityOf(blankToNull(locationCity));
+        // Not a country: a nationality is a demonym ("Egyptian"), which the catalog cannot resolve
+        // and the field's own hint insists is a different fact from where somebody lives.
         nationality = blankToNull(nationality);
         summary = blankToNull(summary);
         note = blankToNull(note);

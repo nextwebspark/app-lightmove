@@ -425,7 +425,7 @@ class ColumnMappingProposerTest {
         return new LlmBudgetGuard((key, limit, window) -> true,
                 new LightMoveProperties(null, null, null, null, null,
                         new LlmSettings(new LlmRateLimitSettings(true, 10, 20), 20_000, 1, List.of()),
-                        null, null, null, null));
+                        null, null, null, null, null, null));
     }
 
     /** The shipped schema, not a stand-in: what it does and does not require is the thing under test. */
@@ -435,7 +435,7 @@ class ColumnMappingProposerTest {
 
     private static LightMoveProperties propertiesWith(boolean sendSamples) {
         return new LightMoveProperties(null, null, null, null, null, null, null, null, null,
-                new SpreadsheetImportSettings(10_485_760L, 5000, sendSamples, List.of("text/csv")));
+                new SpreadsheetImportSettings(10_485_760L, 5000, sendSamples, List.of("text/csv")), null, null);
     }
 
     /**

@@ -1,8 +1,15 @@
 import { useState } from "react";
-import { Icon, ICONS } from "../../../components/layout/Icon";
-import { cn } from "../../../lib/cn";
-import type { FacetOption } from "../api/types";
-import { useComboboxList } from "../lib/useComboboxList";
+import { Icon, ICONS } from "../layout/Icon";
+import { cn } from "../../lib/cn";
+import { useComboboxList } from "../../lib/useComboboxList";
+
+/** One offerable value: what a control stores, what it reads as, and the spellings that find it. */
+export interface ComboboxOption {
+  value: string;
+  label: string;
+  /** Extra spellings the search matches — "uae" finding United Arab Emirates. Never displayed. */
+  aliases?: readonly string[];
+}
 
 /**
  * One value out of a facet's vocabulary — the single-value sibling of {@link TagCombobox}, sharing its
@@ -21,6 +28,9 @@ export function FacetCombobox({
   noun,
   value,
   options,
+  allowFreeText,
+  invalid,
+  placeholder,
   onChange,
 }: {
   listId: string;
@@ -29,7 +39,15 @@ export function FacetCombobox({
   /** The chosen wire value, or "" for nothing recorded. */
   value: string;
   /** The counted facets and the fixed country list are both offered here, so counts are not read. */
-  options: readonly FacetOption[];
+  options: readonly ComboboxOption[];
+  /**
+   * Keeps what was typed when nothing matched. For a vocabulary that describes the world rather than
+   * defining it — a researcher records a place no catalog names, and the server stores it as typed.
+   */
+  allowFreeText?: boolean;
+  invalid?: boolean;
+  /** Replaces the generic "Search {noun}…" where a form has a better example to give. */
+  placeholder?: string;
   onChange: (value: string) => void;
 }) {
   // Null is "showing what is chosen"; a string is what the consultant is typing over it. Two states
@@ -40,8 +58,7 @@ export function FacetCombobox({
   const shown = query ?? (chosen?.label ?? value);
 
   const needle = (query ?? "").trim().toLowerCase();
-  const matches =
-    query === null ? options : options.filter((option) => option.label.toLowerCase().includes(needle));
+  const matches = query === null ? options : rankedFor(needle, options);
 
   const list = useComboboxList({
     optionCount: matches.length,
@@ -55,14 +72,14 @@ export function FacetCombobox({
   });
 
   const showList = list.open && matches.length > 0;
-  const showEmpty = list.open && matches.length === 0;
+  const showEmpty = list.open && matches.length === 0 && options.length > 0;
 
   return (
     <div className="relative">
       <div
         className={cn(
           "flex h-[42px] items-center gap-2 rounded-lg border bg-panel2 px-3",
-          list.open ? "border-sky" : "border-line",
+          invalid ? "border-red" : list.open ? "border-sky" : "border-line",
         )}
       >
         <input
@@ -72,13 +89,24 @@ export function FacetCombobox({
           aria-autocomplete="list"
           aria-activedescendant={showList ? `${listId}-${list.active}` : undefined}
           value={shown}
-          placeholder={`Search ${noun}…`}
+          placeholder={placeholder ?? `Search ${noun}…`}
           onChange={(event) => {
             setQuery(event.target.value);
             list.setActive(0);
             list.setOpen(true);
           }}
           {...list.inputHandlers}
+          onKeyDown={(event) => {
+            const typed = query?.trim();
+            if (allowFreeText && event.key === "Enter" && matches.length === 0 && typed) {
+              event.preventDefault();
+              onChange(typed);
+              setQuery(null);
+              list.setOpen(false);
+              return;
+            }
+            list.inputHandlers.onKeyDown(event);
+          }}
           // Selected on focus, so the first keystroke searches instead of appending to the answer
           // already in the box.
           onFocus={(event) => {
@@ -86,9 +114,14 @@ export function FacetCombobox({
             event.target.select();
           }}
           // A half-typed query left behind would read as the chosen value while being nothing of the
-          // kind. Leaving the field restores what is actually stored.
+          // kind. Leaving the field restores what is actually stored — unless the caller takes free
+          // text, where what was typed *is* the answer and discarding it loses the fact.
           onBlur={() => {
             list.inputHandlers.onBlur();
+            const typed = query?.trim();
+            if (allowFreeText && typed !== undefined && typed !== value) {
+              onChange(typed);
+            }
             setQuery(null);
           }}
           className="w-full bg-transparent font-mono text-[13px] text-text outline-none placeholder:text-text3"
@@ -168,4 +201,28 @@ export function FacetCombobox({
       )}
     </div>
   );
+}
+
+/**
+ * What typing finds, best first. An alias is matched whole rather than as a substring, and an exact
+ * hit outranks an incidental one: "ae" is the code for the United Arab Emirates and also three
+ * letters inside "Israel", which sorts first alphabetically and was what Enter committed.
+ */
+function rankedFor(needle: string, options: readonly ComboboxOption[]): ComboboxOption[] {
+  if (!needle) return [...options];
+  const ranked: { option: ComboboxOption; rank: number }[] = [];
+  for (const option of options) {
+    const label = option.label.toLowerCase();
+    const rank = option.aliases?.includes(needle) || label === needle
+      ? 0
+      : label.startsWith(needle)
+        ? 1
+        : option.aliases?.some((alias) => alias.startsWith(needle))
+          ? 2
+          : label.includes(needle)
+            ? 3
+            : -1;
+    if (rank >= 0) ranked.push({ option, rank });
+  }
+  return ranked.sort((left, right) => left.rank - right.rank).map((entry) => entry.option);
 }

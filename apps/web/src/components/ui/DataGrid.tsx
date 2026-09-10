@@ -429,7 +429,16 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                     onPointerCancel={endResize}
                     onDoubleClick={() => clearWidth(column)}
                     onKeyDown={(event) => onHandleKeyDown(event, column)}
-                    className="absolute inset-y-0 -end-2 z-10 w-3 cursor-col-resize touch-none opacity-0 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+                    className={cn(
+                      "absolute inset-y-0 z-10 w-3 cursor-col-resize touch-none opacity-0 transition-opacity",
+                      "hover:opacity-100 focus-visible:opacity-100",
+                      // Every handle but the last straddles the 12px gap to its neighbour, which is
+                      // dead space and the obvious place to grab. The last column has no neighbour,
+                      // so out there it hangs 8px past the grid's right edge — and an absolutely
+                      // positioned descendant still counts towards scrollable overflow, which gave
+                      // every table on every screen a permanent 8px horizontal scrollbar.
+                      index === headerGroup.headers.length - 1 ? "end-0" : "-end-2",
+                    )}
                   >
                     <span className="mx-auto block h-full w-px bg-amber" />
                   </span>

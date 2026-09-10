@@ -64,6 +64,11 @@ lightmove:
       # A bulk-add test seeding more than this gets a 409, which is the point.
       bulk-add-limit: 5
 
+  # A configured account, so the map view is offered and the config endpoint has something to say.
+  # The geocoder itself is StubGeocoder (a @Primary test double); no request reaches Mapbox.
+  mapbox:
+    public-token: pk.test
+
   email:
     provider: log
     validation:

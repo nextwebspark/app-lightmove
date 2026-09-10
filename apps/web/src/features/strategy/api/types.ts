@@ -24,8 +24,9 @@ export interface SectorGroup {
  * Everything the filter sidebar counts, in one read. Counts are over the whole universe rather than
  * the current selection, so this is the same for every mandate and no chip click invalidates it.
  *
- * <p>Location is not here: its vocabulary is the fixed market list in {@link MARKET_COUNTRIES}, so
- * the panel offers them without waiting on this read at all.
+ * <p>Location is not here: its vocabulary is served by `/countries`, which also counts the markets
+ * the universe actually holds — so the chips never offer a market the pipeline has not loaded, and
+ * this read does not grow a GROUP BY over the whole universe to draw them.
  */
 export interface Facets {
   sectorGroups: SectorGroup[];

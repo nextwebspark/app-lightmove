@@ -42,7 +42,8 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
         mvc.perform(get(positionUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.details.roleTitle").value("Chief Financial Officer"))
-                .andExpect(jsonPath("$.details.location").value("UAE"))
+                // The brief opens at the client's HQ country, canonicalised on the client's own write.
+                .andExpect(jsonPath("$.details.location").value("United Arab Emirates"))
                 .andExpect(jsonPath("$.details.seniority").value("C_SUITE"))
                 .andExpect(jsonPath("$.details.employmentType").value("FULL_TIME_PERMANENT"))
                 .andExpect(jsonPath("$.details.responsibilities[0]").value("Group P&L stewardship"))

@@ -134,7 +134,7 @@ class EmailAddressValidatorTest {
                 null,
                 null,
                 null,
-                null));
+                null, null, null));
     }
 
     private static EmailValidationSettings defaults() {

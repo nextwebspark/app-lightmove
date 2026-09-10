@@ -1,5 +1,6 @@
 package app.lightmove.api.strategy.service;
 
+import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CompanyListSettings;
@@ -33,6 +34,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -216,8 +218,17 @@ public class StrategyService {
                 throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown revenue band: " + band);
             }
         }
+        // Countries are canonicalised rather than validated: the filter matches company_country
+        // exactly, so a saved "UAE" would narrow to nothing where "United Arab Emirates" narrows to
+        // a third of the universe.
+        List<String> countries = distinct(dto.countries()).stream()
+                .map(Countries::nameOf)
+                // A blank country canonicalises to null, and StrategyFilter's List.copyOf throws on one.
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
         return new StrategyFilter(distinct(dto.industries()), distinct(dto.keywords()),
-                distinct(dto.marketSegments()), distinct(dto.countries()),
+                distinct(dto.marketSegments()), countries,
                 distinct(dto.employeeBands()), distinct(dto.revenueBands()),
                 toRange(dto.employeeRange()), toRange(dto.revenueRange()));
     }

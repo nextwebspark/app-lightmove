@@ -131,6 +131,11 @@ the document sideways.
 - **A route the nav hides is still reachable by URL.** The sidebar filtered pure clients out of
   `/clients` and `/team` and nothing else did, so typing the path served the firm's internal screens.
   Guard the *route*; the nav is presentation.
+- **`mapbox-gl` is imported by `features/talentmap/components/TalentMapGlobe.tsx` and nowhere
+  else**, and that component is loaded with `React.lazy` so the grid never downloads a map library.
+  It breaks at import under jsdom (worker blobs, no WebGL), so a test never reaches it: page and
+  view tests `vi.mock` the globe component with a stub that draws each pin as a button. Everything
+  the globe draws is computed in pure `lib/` modules with their own tests.
 - **The access token never touches `localStorage`.** It lives in JS memory inside `apiClient`; one
   compromised npm dependency would otherwise walk away with a long-lived credential to a product
   holding executive-candidate PII. `Avatar` falling back to initials on image error is designed

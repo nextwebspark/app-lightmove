@@ -137,6 +137,23 @@ public class CandidateService {
     }
 
     /**
+     * Every executive the mandate has mapped, unpaged — the seam {@code talentmap} reads people
+     * through. Takes a cap the caller states and states it back in {@code totalCount}, so a mandate
+     * past it is told rather than shown a map that looks complete and is not.
+     *
+     * <p>Sorted rather than unsorted, so the cut at the cap is deterministic and a mandate past it
+     * sees the same people on every read.
+     */
+    @Transactional(readOnly = true)
+    public CandidatesResponse listAllOfProject(UUID workspaceId, UUID projectId, int cap) {
+        requireProject(projectId, workspaceId);
+        Page<Candidate> found = candidates.findByProjectId(projectId, PageRequest.of(0, cap, FIRST_MAPPED_FIRST));
+        return new CandidatesResponse(
+                found.getContent().stream().map(CandidateService::toDto).toList(),
+                found.getTotalElements(), 0, cap);
+    }
+
+    /**
      * The person this mandate already has for a spreadsheet row, so a second import updates profiles
      * rather than colliding on every row.
      *
@@ -174,6 +191,7 @@ public class CandidateService {
         CandidateDetails details = detailsOf(projectId, request);
 
         refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), null);
+        refuseHeldProfile(projectId, details.linkedinUrl(), null);
 
         Candidate candidate = candidates.save(Candidate.mapped(projectId, userId,
                 request.triageCompanyId(), source, details));
@@ -207,6 +225,7 @@ public class CandidateService {
 
         CandidateDetails details = detailsOf(projectId, request);
         refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), candidateId);
+        refuseHeldProfile(projectId, details.linkedinUrl(), candidateId);
 
         candidate.remapTo(request.triageCompanyId());
         candidate.describe(details);
@@ -401,6 +420,34 @@ public class CandidateService {
                         projectId, triageCompanyId, fullName);
 
         boolean held = sameName.stream().anyMatch(other -> !other.getId().equals(selfId));
+        if (held) {
+            throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
+        }
+    }
+
+    /**
+     * Refuses a LinkedIn profile the mandate already maps, wherever that row currently sits. The name
+     * rule above cannot answer this one: a second capture arrives with no company, so it is checked
+     * against the unmapped scope only, while the first has since been researched and mapped to its
+     * employer and sits in the company scope. The two look past each other, the row is created, and
+     * {@link #mapToEmployer} then finds the name held at that company and leaves the duplicate
+     * unmapped — a second line reading "Not in universe" that nobody asked for.
+     *
+     * <p>The slug rather than the stored URL, because {@link LinkedInUrls} already rules that
+     * {@code /in/John-Smith} and {@code /in/john-smith} are one profile. The finder only narrows, so
+     * identity is settled here.
+     *
+     * <p>{@code selfId} is the row being edited, excluded so that saving someone without changing
+     * their URL does not collide with themselves.
+     */
+    private void refuseHeldProfile(UUID projectId, String linkedinUrl, UUID selfId) {
+        String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
+        if (slug == null) {
+            return;
+        }
+        boolean held = candidates.findByProjectIdAndProfileSlugLike(projectId, slug).stream()
+                .filter(other -> !other.getId().equals(selfId))
+                .anyMatch(other -> slug.equals(LinkedInUrls.profileSlugOrNull(other.getLinkedinUrl())));
         if (held) {
             throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
         }

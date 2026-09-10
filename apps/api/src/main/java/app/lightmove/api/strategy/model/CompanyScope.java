@@ -27,4 +27,10 @@ public record CompanyScope(List<String> industries, List<String> keywords,
     public CompanyScope {
         nameQuery = nameQuery == null || nameQuery.isBlank() ? null : nameQuery.trim();
     }
+
+    /** The whole universe, narrowed by nothing — what an aggregate over the market as a whole reads. */
+    public static CompanyScope unfiltered() {
+        return new CompanyScope(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                null, null, List.of(), null);
+    }
 }

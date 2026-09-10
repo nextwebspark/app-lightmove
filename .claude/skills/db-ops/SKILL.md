@@ -33,7 +33,7 @@ stays append-only, and the company universe belongs to the pipeline.
 
 ## The company universe is ETL-owned, and the application only reads it
 
-**`app_lm_apollo_companies`** is the universe: 71,822 GCC companies, loaded **out of band by the
+**`app_lm_apollo_companies`** is the universe: 100,631 companies, loaded **out of band by the
 pipeline** — there is no script for it in this repo, and `row_hash` is the loader's change detector.
 The application never writes it (`harden.sql` leaves `lm_app` with `SELECT`), and `grant-db-user.sh
 --write` never covers it.
@@ -46,9 +46,9 @@ decisions, and a row with no snapshot would render blank the day its company sto
 
 What the live data actually looks like, because it shapes what a filter can offer:
 
-| Column | Coverage of 71,822 rows |
+| Column | Coverage of 100,631 rows |
 |---|---|
-| `num_employees`, `company_country` | 100%. Countries are exactly six — UAE, Saudi Arabia, Qatar, Kuwait, Oman, Bahrain, spelled out |
+| `num_employees`, `company_country` | 100%. **Thirteen** spelled-out values, not the six this table claimed until 2026-09-10: UAE 37,012 · Saudi Arabia 20,492 · **Egypt 19,053** · **Türkiye 12,017** · Qatar 4,576 · Kuwait 2,944 · Oman 2,591 · Bahrain 1,928, then a handful of strays (US 6, Brazil 4, Jordan 3, China 1) and 4 blanks. The pipeline has grown past the GCC twice without this row being updated, so **count it before you trust it** — `GET /api/v1/countries` serves the markets counted live for exactly that reason |
 | `industry` | 98.8%, **148 distinct lower-cased labels**, no hierarchy. `sector-taxonomy.json` groups them |
 | `keywords[]` | 93.7%, lower-case throughout, GIN-indexed. Backs the market-segment filter via `keywords && ARRAY[…]::text[]` |
 | `annual_revenue` | **9.9%** — which is why `RevenueBand.R_UNKNOWN` exists |

@@ -129,6 +129,25 @@ public class TriageCompanyService {
     }
 
     /**
+     * The whole of one stage, unpaged — the seam {@code talentmap} reads companies through, because a
+     * globe with a page two is no globe. Takes a cap the caller states and answers the total, so a
+     * mandate past it is told rather than shown a map that looks complete.
+     *
+     * <p>Name order, not newest first: a stable order keeps the cut at the cap deterministic.
+     */
+    @Transactional(readOnly = true)
+    public TriageCompaniesResponse listAllOfStage(UUID workspaceId, UUID projectId,
+                                                  TriageCompanyStatus status, int cap) {
+        requireProject(projectId, workspaceId);
+        PageRequest wholeStage = PageRequest.of(0, cap, Sort.by(Sort.Direction.ASC, "companyName")
+                .and(NEWEST_FIRST));
+        Page<TriageCompany> found = triaged.findByProjectIdAndStatus(projectId, status, wholeStage);
+        return new TriageCompaniesResponse(
+                found.getContent().stream().map(TriageCompanyService::toDto).toList(),
+                found.getTotalElements(), 0, cap, countsFor(projectId));
+    }
+
+    /**
      * One of this mandate's own company rows — the seam {@code candidate} maps an executive through.
      * It adds that the company belongs to <i>that</i> project, so a candidate cannot be filed against
      * another mandate's company by id.

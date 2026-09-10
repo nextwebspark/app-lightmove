@@ -117,6 +117,7 @@ export function AddCandidateForm({
             <IdentityFields
               register={register}
               errors={formState.errors}
+              control={form.control}
               employerLocked={company !== null}
               autoFocus
               statusField={<StatusField register={register} errors={formState.errors} />}
