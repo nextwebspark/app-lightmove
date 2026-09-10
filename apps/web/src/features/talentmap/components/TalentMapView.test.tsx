@@ -160,12 +160,14 @@ describe("TalentMapView", () => {
     await userEvent.click(screen.getByRole("button", { name: "Open ACWA Power" }));
     expect(handlers.onOpenCompany).toHaveBeenCalledWith(expect.objectContaining({ id: "u1" }));
 
-    // Selecting a pin selects the row, opens the branches above it, and offers the same Open.
+    // Selecting a pin selects the row and opens the branches above it. The popup's own way in is the
+    // name it is already showing — there is no second Open button beside it.
     await userEvent.click(screen.getByRole("button", { name: "pin: Yasmin El-Sayed" }));
     expect(screen.getByRole("treeitem", { name: "Yasmin El-Sayed" })).toHaveAttribute("aria-selected", "true");
     const popup = screen.getByTestId("popup");
     expect(within(popup).getByText("Executive")).toBeInTheDocument();
-    await userEvent.click(within(popup).getByRole("button", { name: /^Open/ }));
+    expect(within(popup).queryByRole("button", { name: /^Open$/ })).not.toBeInTheDocument();
+    await userEvent.click(within(popup).getByRole("button", { name: "Yasmin El-Sayed" }));
     expect(handlers.onOpenCandidate).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }));
   });
 

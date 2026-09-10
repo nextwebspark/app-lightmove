@@ -799,6 +799,20 @@ describe("TriageStagePage", () => {
     expect(within(panel).queryByLabelText(/Company name/i)).not.toBeInTheDocument();
   });
 
+  it("maps an executive from the company panel itself, whichever view opened it", async () => {
+    renderStage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Open ACWA Power/i }));
+    const panel = await screen.findByRole("dialog", { name: /ACWA Power/i });
+    await userEvent.click(within(panel).getByRole("button", { name: /Add executive/i }));
+
+    // One panel at a time: the company's gives way to the form, already carrying the employer, so
+    // the mapping cannot disagree with the company the reader came from.
+    const form = await screen.findByRole("dialog", { name: /Add executive/i });
+    expect(within(form).getByLabelText(/^Employer$/i)).toHaveValue("ACWA Power");
+    expect(screen.queryByRole("dialog", { name: /^ACWA Power$/ })).not.toBeInTheDocument();
+  });
+
   it("offers no Edit on a company taken from the market, but still takes a note", async () => {
     vi.mocked(triageApi.updateTriageCompany).mockResolvedValue(acwa);
     renderStage();
@@ -858,6 +872,7 @@ describe("TriageStagePage", () => {
     expect(within(panel).queryByRole("button", { name: /^Edit$/i })).not.toBeInTheDocument();
     expect(within(panel).queryByRole("button", { name: /^Save$/i })).not.toBeInTheDocument();
     expect(within(panel).queryByRole("button", { name: /^Remove$/i })).not.toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: /Add executive/i })).not.toBeInTheDocument();
   });
 
   it("gives a client representative the executive columns and none of the writes", async () => {

@@ -506,6 +506,14 @@ function TriageStage() {
           setOpenCompany(null);
           setPendingRemoval(company);
         }}
+        // One panel at a time: the company's closes as the new executive's opens on it.
+        onAddExecutive={(company) => {
+          setOpenCompany(null);
+          setProfile({
+            candidate: null,
+            company: { triageCompanyId: company.id, companyName: company.companyName },
+          });
+        }}
       />
 
       <CandidateDrawer

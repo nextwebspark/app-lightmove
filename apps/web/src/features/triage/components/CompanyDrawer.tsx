@@ -33,6 +33,10 @@ import { CompanyFactsSections } from "./CompanyFactsSections";
  * <p>The <b>Note</b> is the exception, and stays editable on every company including those. It is the
  * mandate's own remark rather than a fact about the company, which is exactly why the export cannot
  * own it — and it is the reason a consultant opens this panel rather than Strategy's.
+ *
+ * <p><b>Add executive sits in the header</b> rather than only on the grid row, because by the time
+ * this panel is open the company is the thing being read and "map somebody here" is the next move —
+ * and on the map view the row that carried the action is not on screen at all.
  */
 export function CompanyDrawer({
   open,
@@ -45,6 +49,7 @@ export function CompanyDrawer({
   onSaved,
   onMove,
   onDelete,
+  onAddExecutive,
 }: {
   open: boolean;
   projectId: string;
@@ -59,6 +64,8 @@ export function CompanyDrawer({
   onSaved: () => void;
   onMove: (company: TriageCompany, status: TriageCompanyStatus) => void;
   onDelete: (company: TriageCompany) => void;
+  /** Maps somebody at this company, from the panel that is already open on it. */
+  onAddExecutive: (company: TriageCompany) => void;
 }) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
@@ -141,12 +148,25 @@ export function CompanyDrawer({
           </>
         }
         action={
-          canEdit &&
           !editing && (
-            <Button type="button" variant="secondary" onClick={() => setEditing(true)}>
-              <Icon d={ICONS.pencil} size={14} />
-              Edit
-            </Button>
+            <span className="flex flex-none items-center gap-2">
+              {canWrite && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => onAddExecutive(company)}
+                >
+                  <Icon d={ICONS.userPlus} size={14} />
+                  Add executive
+                </Button>
+              )}
+              {canEdit && (
+                <Button type="button" variant="secondary" onClick={() => setEditing(true)}>
+                  <Icon d={ICONS.pencil} size={14} />
+                  Edit
+                </Button>
+              )}
+            </span>
           )
         }
       />

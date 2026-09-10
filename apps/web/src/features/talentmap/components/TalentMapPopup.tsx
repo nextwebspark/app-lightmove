@@ -7,9 +7,11 @@ const POPUP_BUTTON =
   "inline-flex items-center gap-1 rounded-[6px] border px-2.5 py-1.5 font-sans text-[12px] font-medium transition";
 
 /**
- * What a clicked pin says: who this is, where, and the one or two things to do next. Small on
- * purpose — the detail lives in the drawer, and a popup that tried to be one would cover the map it
- * is anchored to.
+ * What a clicked pin says: who this is, where, and the one thing to do next. Small on purpose — the
+ * detail lives in the drawer, and a popup that tried to be one would cover the map it is anchored to.
+ *
+ * <p>The <b>name is the way in</b>: it opens the same panel the grid opens, so the popup carries one
+ * button rather than two and the thing a reader is already looking at is the thing they click.
  */
 export function TalentMapPopup({
   node,
@@ -52,23 +54,21 @@ export function TalentMapPopup({
           <Icon d={ICONS.close} size={13} />
         </button>
       </div>
-      <div className="mt-1.5 text-[13.5px] font-semibold leading-tight text-text">{title}</div>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="mt-1.5 block w-full text-start text-[13.5px] font-semibold leading-tight text-text underline-offset-2 transition hover:text-amber hover:underline"
+      >
+        {title}
+      </button>
       {subtitle && <div className="mt-0.5 text-[12px] text-text3">{subtitle}</div>}
       {isCompany && (
         <div className="mt-1 text-[11.5px] text-text3">
           {countOf(node.executives.length, "executive")} mapped
         </div>
       )}
-      <div className="mt-2.5 flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={onOpen}
-          className={cn(POPUP_BUTTON, "border-amber-btn bg-amber-btn text-on-amber hover:brightness-105")}
-        >
-          Open
-          <Icon d={ICONS.arrowRight} size={12} />
-        </button>
-        {isCompany && canWrite && onAddExecutive && (
+      {isCompany && canWrite && onAddExecutive && (
+        <div className="mt-2.5 flex items-center gap-1.5">
           <button
             type="button"
             onClick={onAddExecutive}
@@ -77,8 +77,8 @@ export function TalentMapPopup({
             <Icon d={ICONS.userPlus} size={12} />
             Add executive
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

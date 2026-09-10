@@ -77,8 +77,27 @@ public class TalentMapService {
                         : status == TriageCompanyStatus.IN_UNIVERSE)
                 .toList();
 
+        // A company is drawn where its people are. The Companies grid's Location column already reads
+        // an executive's own city over their employer's, and the map is that same mapping drawn
+        // differently, so a company with somebody mapped at it follows them — HQ is what a company
+        // nobody has mapped falls back to. First mapped wins where two disagree, which is the order
+        // the people arrive in.
+        Map<UUID, PlaceKey> placeOfCompanyPeople = new HashMap<>();
+        for (CandidateResponse person : people) {
+            if (person.triageCompanyId() == null) {
+                continue;
+            }
+            PlaceKey.of(person.locationCity(), person.locationCountry())
+                    .ifPresent(place -> placeOfCompanyPeople.putIfAbsent(person.triageCompanyId(), place));
+        }
+
         Map<UUID, PlaceKey> placeOfRow = new HashMap<>();
         for (TriageCompanyResponse company : companies.companies()) {
+            PlaceKey mapped = placeOfCompanyPeople.get(company.id());
+            if (mapped != null) {
+                placeOfRow.put(company.id(), mapped);
+                continue;
+            }
             PlaceKey.of(company.companyCity(), company.companyCountry())
                     .ifPresent(place -> placeOfRow.put(company.id(), place));
         }

@@ -77,9 +77,12 @@ class TalentMapIntegrationTest extends FlowTestSupport {
         assertThat(map.get("companies")).hasSize(3);
         assertThat(map.get("candidates")).hasSize(3);
         JsonNode locations = map.get("locations");
-        assertThat(locations.get(acwa).get("latitude").asDouble()).isEqualTo(24.7136);
+        // ACWA's own HQ is Riyadh, but Yasmin is mapped at it from Dubai — and a company is drawn
+        // where its people are, exactly as the grid's Location column reads them.
+        assertThat(locations.get(acwa).get("latitude").asDouble()).isEqualTo(25.2769);
         assertThat(locations.get(acwa).get("precision").asText()).isEqualTo("CITY");
-        assertThat(locations.get(acwa).get("placeLabel").asText()).endsWith(", Saudi Arabia");
+        assertThat(locations.get(acwa).get("placeLabel").asText()).endsWith(", United Arab Emirates");
+        // Almarai's only executive carries no location of his own, so it keeps its own HQ.
         assertThat(locations.get(almarai).get("longitude").asDouble()).isEqualTo(46.6753);
         assertThat(locations.get(yasmin).get("latitude").asDouble()).isEqualTo(25.2769);
         // Muscat could not be placed, so Lina sits on Oman at country precision.
