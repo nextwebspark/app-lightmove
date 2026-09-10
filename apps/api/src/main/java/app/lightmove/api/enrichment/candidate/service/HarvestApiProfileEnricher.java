@@ -3,6 +3,7 @@ package app.lightmove.api.enrichment.candidate.service;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateEducationEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.HarvestApiSettings;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorCall;
@@ -103,9 +104,11 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
                 current == null ? null : current.companyName(),
                 current == null ? null : current.companyLinkedinUrl(),
                 current == null || current.companyLogo() == null ? null : current.companyLogo().url(),
-                location == null ? null : location.city(),
+                location == null ? null : Countries.cityOf(location.city()),
+                // countryFull is a name, country a code; both go through the catalog so they land as
+                // one spelling whichever the vendor sent.
                 location == null ? null
-                        : location.countryFull() != null ? location.countryFull() : location.country(),
+                        : Countries.nameOf(location.countryFull() != null ? location.countryFull() : location.country()),
                 careerOf(profile.experience()),
                 educationOf(profile.education()),
                 profile.skills() == null ? List.of()

@@ -123,7 +123,7 @@ green on the profile CI uses. Those failures are the profile, never the code.
 
 `npm run dev` needs Docker and nothing else — no gcloud, no `application-local.yml`. Its database is
 yours alone, so a migration in your tree applies only to you. The one thing it cannot conjure is the
-Apollo universe: `npm run dev:db:apollo` pulls the 71,822 rows down once (that step needs gcloud), and
+Apollo universe: `npm run dev:db:apollo` pulls the 100,631 rows down once (that step needs gcloud), and
 from there `dev:db:reset` snapshots them out and back in rather than wiping them with everything else.
 
 `npm run dev:cloud` hits the shared dev database and applies your migrations to everyone at boot. It
@@ -165,7 +165,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 Cloud SQL Postgres 16, instance `bright-gcc`, database `lightmove`. All tables prefixed **`app_lm_`**.
 **Hibernate never touches the schema** — `ddl-auto: none`; hand-written Flyway SQL in
 `apps/api/src/main/resources/db/migration/`. **Never edit an applied migration; add a new one.**
-`app_lm_apollo_companies` is the **company universe** — 71,822 GCC companies, ETL-owned and read-only
+`app_lm_apollo_companies` is the **company universe** — 100,631 companies, ETL-owned and read-only
 to the application, keyed on `apollo_account_id`. Anything that stores a company stores that id plus a
 **write-time snapshot**, and never a foreign key: the pipeline reloads the table wholesale. A company
 the market does not carry has no id to store, so `app_lm_project_triage_company.apollo_account_id` is

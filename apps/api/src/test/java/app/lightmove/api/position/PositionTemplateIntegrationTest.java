@@ -89,7 +89,7 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
         // The role title stays the mandate's — a template drafts the brief, it does not rename a search.
         assertThat(brief.get("details").get("roleTitle").asString()).isEqualTo("Chief Financial Officer");
         // As does the client's country, which no template has an opinion about.
-        assertThat(brief.get("details").get("location").asString()).isEqualTo("UAE");
+        assertThat(brief.get("details").get("location").asString()).isEqualTo("United Arab Emirates");
     }
 
     @Test

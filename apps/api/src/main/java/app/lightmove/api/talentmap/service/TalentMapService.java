@@ -3,6 +3,7 @@ package app.lightmove.api.talentmap.service;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.service.CandidateService;
+import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.MapboxSettings;
 import app.lightmove.api.core.config.TalentMapSettings;
@@ -141,21 +142,34 @@ public class TalentMapService {
     private record Locations(Map<UUID, MapLocationDto> locations, int pending) {}
 
     private static MapLocationDto toDto(GeoPoint point, PlaceKey place) {
+        String isoCode = Countries.codeOf(place.country());
+        String country = countryNameOf(place, isoCode);
         return new MapLocationDto(point.latitude(), point.longitude(), point.precision(),
-                labelOf(place));
+                labelOf(place, country), country, isoCode);
     }
 
-    /** "riyadh, saudi arabia" as the key holds it, in title case, since the display spelling is gone. */
-    static String labelOf(PlaceKey place) {
+    /**
+     * One English spelling per country, so "UAE" and "United Arab Emirates" are one group on the
+     * screen rather than two. A name the catalog does not know keeps the asker's own, title-cased.
+     */
+    static String countryNameOf(PlaceKey place, String isoCode) {
+        if (!place.hasCountry()) {
+            return null;
+        }
+        return Countries.nameOfCode(isoCode).orElseGet(() -> titleCase(place.country()));
+    }
+
+    /** "riyadh, saudi arabia" as the key holds it, read back as "Riyadh, Saudi Arabia". */
+    static String labelOf(PlaceKey place, String country) {
         StringBuilder label = new StringBuilder();
         if (place.hasCity()) {
             label.append(titleCase(place.city()));
         }
-        if (place.hasCountry()) {
+        if (country != null) {
             if (!label.isEmpty()) {
                 label.append(", ");
             }
-            label.append(titleCase(place.country()));
+            label.append(country);
         }
         return label.toString();
     }

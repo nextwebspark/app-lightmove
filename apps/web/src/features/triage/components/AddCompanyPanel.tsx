@@ -8,7 +8,7 @@ import { DrawerCloseButton } from "../../../components/ui/Drawer";
 import { messageFor } from "../../../lib/errorCodes";
 import * as companiesApi from "../../strategy/api/companiesApi";
 import type { CompanySuggestion } from "../../strategy/api/types";
-import { useDebouncedValue } from "../../strategy/lib/useComboboxList";
+import { useDebouncedValue } from "../../../lib/useComboboxList";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompanyStatus } from "../api/types";

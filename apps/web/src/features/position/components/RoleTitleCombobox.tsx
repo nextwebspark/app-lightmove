@@ -1,4 +1,4 @@
-import { useComboboxList } from "../../strategy/lib/useComboboxList";
+import { useComboboxList } from "../../../lib/useComboboxList";
 import type { PositionTemplate } from "../api/types";
 import { SENIORITY_LABELS } from "../lib/labels";
 import { CheckedInput } from "./fields";

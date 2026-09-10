@@ -3,7 +3,7 @@ import { useState } from "react";
 import * as companiesApi from "../api/companiesApi";
 import type { CompanySuggestion } from "../api/types";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
-import { useComboboxList, useDebouncedValue } from "../lib/useComboboxList";
+import { useComboboxList, useDebouncedValue } from "../../../lib/useComboboxList";
 
 /**
  * The company picker over the universe — the off-limits list and the client registry both use it.

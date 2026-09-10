@@ -196,6 +196,7 @@ export function CandidateProfile({
                 <IdentityFields
                   register={form.register}
                   errors={form.formState.errors}
+                  control={form.control}
                   employerLocked={candidate.triageCompanyId !== null}
                 />
               )}

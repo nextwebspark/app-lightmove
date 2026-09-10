@@ -35,7 +35,8 @@ class ClientFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name").value("Meridian Energy"))
                 .andExpect(jsonPath("$.sector").value("Energy"))
-                .andExpect(jsonPath("$.hqCountry").value("UAE"))
+                // Sent as "UAE"; stored and read back as the one spelling every screen shows.
+                .andExpect(jsonPath("$.hqCountry").value("United Arab Emirates"))
                 .andExpect(jsonPath("$.activeMandates").value(0))
                 .andExpect(jsonPath("$.deliveredMandates").value(0))
                 .andExpect(jsonPath("$.contacts.length()").value(0));

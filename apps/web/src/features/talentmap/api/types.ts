@@ -8,6 +8,9 @@ export interface MapLocation {
   precision: "CITY" | "COUNTRY";
   /** "Riyadh, Saudi Arabia" — ready to read back, so the popup need not rebuild it. */
   placeLabel: string;
+  /** That place's country in one English spelling, and its ISO code — what the panel groups by. */
+  country: string | null;
+  countryCode: string | null;
 }
 
 /**

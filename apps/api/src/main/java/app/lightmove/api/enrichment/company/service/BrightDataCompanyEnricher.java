@@ -1,5 +1,6 @@
 package app.lightmove.api.enrichment.company.service;
 
+import app.lightmove.api.common.location.model.LocationLine;
 import app.lightmove.api.core.config.BrightDataSettings;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorClientSpec;
@@ -11,7 +12,6 @@ import app.lightmove.api.enrichment.common.service.BrightDataSearch;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import java.time.Duration;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.resilience.annotation.Retryable;
@@ -75,8 +75,8 @@ public class BrightDataCompanyEnricher implements LinkedInCompanyEnricher {
         return Optional.of(new CapturedCompanyDetails(
                 company.name(),
                 company.industries(),
-                countryOf(company.countryCodesArray()),
-                company.headquarters(),
+                countryOf(company.countryCodesArray(), company.headquarters()),
+                LocationLine.of(company.headquarters()).city(),
                 company.employeesInLinkedin(),
                 null,
                 company.website(),
@@ -88,14 +88,13 @@ public class BrightDataCompanyEnricher implements LinkedInCompanyEnricher {
                 null));
     }
 
-    /** The dataset speaks ISO-2 codes; the Country column speaks names, as the Apollo rows do. */
-    private static String countryOf(List<String> countryCodes) {
-        if (countryCodes == null || countryCodes.isEmpty()) {
-            return null;
-        }
-        String code = countryCodes.getFirst();
-        String displayName = Locale.of("", code).getDisplayCountry(Locale.ENGLISH);
-        return displayName.isBlank() ? code : displayName;
+    /**
+     * The dataset speaks ISO-2 codes and the Country column speaks names, as the Apollo rows do. The
+     * headquarters line answers where the codes array is empty — it usually ends in the country.
+     */
+    private static String countryOf(List<String> countryCodes, String headquarters) {
+        String code = countryCodes == null || countryCodes.isEmpty() ? null : countryCodes.getFirst();
+        return LocationLine.of(headquarters).countryOr(code);
     }
 
     record BrightDataCompanyResult(List<BrightDataCompany> hits) {}

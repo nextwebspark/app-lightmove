@@ -3,6 +3,8 @@ package app.lightmove.api.enrichment.candidate.service;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateEducationEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.common.location.model.LocationLine;
+import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.BrightDataSettings;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorClientSpec;
@@ -172,18 +174,17 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
     private static String cityOf(BrightDataPerson person) {
         String city = unmasked(person.location());
         if (city != null) {
-            return city;
+            return Countries.cityOf(city);
         }
-        String fullLine = unmasked(person.city());
-        return fullLine == null ? null : fullLine.split(",")[0].trim();
+        return LocationLine.of(unmasked(person.city())).city();
     }
 
+    /**
+     * The country half of the full line, or the code beside it. That code used to be stored raw, which
+     * is how "AE" and "SA" came to sit beside "United Arab Emirates" in one column.
+     */
     private static String countryOf(BrightDataPerson person) {
-        String fullLine = unmasked(person.city());
-        if (fullLine != null && fullLine.contains(",")) {
-            return fullLine.substring(fullLine.lastIndexOf(',') + 1).trim();
-        }
-        return unmasked(person.countryCode());
+        return LocationLine.of(unmasked(person.city())).countryOr(unmasked(person.countryCode()));
     }
 
     private static List<CandidateCareerEntry> careerOf(List<BrightDataExperience> experience) {

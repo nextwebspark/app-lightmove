@@ -83,17 +83,35 @@ export function buildTree(page: TalentMapPage): MappingTree {
     }
   }
 
+  // Every country the server put a code to, by the name it gave it — so a row that has no resolved
+  // place still joins the group its coded neighbours made rather than opening a second one.
+  const codeByName = new Map<string, string>();
+  for (const location of Object.values(page.locations)) {
+    if (location.country && location.countryCode) {
+      codeByName.set(location.country.toLowerCase(), location.countryCode);
+    }
+  }
+
   const countries = new Map<string, TreeCountry>();
-  const countryOf = (name: string | null, located: boolean): TreeCountry | null => {
-    const trimmed = name?.trim();
-    const display = trimmed || (located ? OTHER_COUNTRY : null);
-    if (!display) return null;
-    const key = display.toLowerCase();
+  /**
+   * The country a row is filed under: where it was actually drawn, not where its snapshot says it
+   * is — a company follows its people, so grouping on the snapshot filed one under a country its own
+   * pin had left. Keyed on the ISO code where there is one, so "UAE" and "United Arab Emirates" are
+   * one group, titled with the catalog's English name.
+   */
+  const countryOf = (location: MapLocation | null, snapshot: string | null): TreeCountry | null => {
+    const display = location?.country ?? snapshot?.trim() ?? null;
+    const name = display || (location ? OTHER_COUNTRY : null);
+    if (!name) return null;
+    const code = location?.countryCode ?? codeByName.get(name.toLowerCase()) ?? null;
+    const key = (code ?? name).toLowerCase();
     let country = countries.get(key);
     if (!country) {
-      country = { key, name: display, companies: [], unmapped: [], companyCount: 0, executiveCount: 0 };
+      country = { key, name, companies: [], unmapped: [], companyCount: 0, executiveCount: 0 };
       countries.set(key, country);
     }
+    // A coded name outranks whichever spelling arrived first.
+    if (location?.country) country.name = location.country;
     return country;
   };
 
@@ -107,7 +125,7 @@ export function buildTree(page: TalentMapPage): MappingTree {
       if (!executive.location && location) executive.seatedAt = company.id;
     }
     const node: TreeCompany = { kind: "company", id: company.id, company, location, executives };
-    const country = countryOf(company.companyCountry, location !== null);
+    const country = countryOf(location, company.companyCountry);
     if (!country) {
       unlocatedCompanies.push(node);
       continue;
@@ -116,7 +134,7 @@ export function buildTree(page: TalentMapPage): MappingTree {
   }
 
   for (const executive of unmapped.sort(bySeniorityThenName)) {
-    const country = countryOf(executive.candidate.locationCountry, executive.location !== null);
+    const country = countryOf(executive.location, executive.candidate.locationCountry);
     if (!country) {
       unlocatedExecutives.push(executive);
       continue;

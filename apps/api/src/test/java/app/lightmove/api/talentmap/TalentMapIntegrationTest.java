@@ -103,6 +103,11 @@ class TalentMapIntegrationTest extends FlowTestSupport {
         assertThat(locations.get(acwa).get("latitude").asDouble()).isEqualTo(25.2769);
         assertThat(locations.get(acwa).get("precision").asText()).isEqualTo("CITY");
         assertThat(locations.get(acwa).get("placeLabel").asText()).endsWith(", United Arab Emirates");
+        // The country the row is drawn in travels beside the label: the panel groups by it, and
+        // grouping by the company's own snapshot would file ACWA under Saudi Arabia.
+        assertThat(locations.get(acwa).get("country").asText()).isEqualTo("United Arab Emirates");
+        assertThat(locations.get(acwa).get("countryCode").asText()).isEqualTo("AE");
+        assertThat(locations.get(almarai).get("countryCode").asText()).isEqualTo("SA");
         // Almarai's only executive carries no location of his own, so it keeps its own HQ.
         assertThat(locations.get(almarai).get("longitude").asDouble()).isEqualTo(46.6753);
         assertThat(locations.get(yasmin).get("latitude").asDouble()).isEqualTo(25.2769);

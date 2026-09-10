@@ -1,5 +1,7 @@
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { cn } from "../../../lib/cn";
+import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
 import { countOf } from "../lib/talentMapFeatures";
 import type { TreeCompany, TreeExecutive } from "../lib/talentMapTree";
 
@@ -15,12 +17,14 @@ const POPUP_BUTTON =
  */
 export function TalentMapPopup({
   node,
+  projectId,
   canWrite,
   onOpen,
   onAddExecutive,
   onClose,
 }: {
   node: TreeCompany | TreeExecutive;
+  projectId: string;
   canWrite: boolean;
   onOpen: () => void;
   onAddExecutive?: () => void;
@@ -54,14 +58,23 @@ export function TalentMapPopup({
           <Icon d={ICONS.close} size={13} />
         </button>
       </div>
-      <button
-        type="button"
-        onClick={onOpen}
-        className="mt-1.5 block w-full cursor-pointer text-start text-[13.5px] font-semibold leading-tight text-text underline-offset-2 transition hover:text-amber hover:underline"
-      >
-        {title}
-      </button>
-      {subtitle && <div className="mt-0.5 text-[12px] text-text3">{subtitle}</div>}
+      <div className="mt-1.5 flex items-start gap-2">
+        {isCompany ? (
+          <CompanyLogo name={node.company.companyName} logo={node.company.logoUrl} size={28} />
+        ) : (
+          <CandidateAvatar projectId={projectId} candidate={node.candidate} size="md" />
+        )}
+        <div className="min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={onOpen}
+            className="block w-full cursor-pointer text-start text-[13.5px] font-semibold leading-tight text-text underline-offset-2 transition hover:text-amber hover:underline"
+          >
+            {title}
+          </button>
+          {subtitle && <div className="mt-0.5 text-[12px] text-text3">{subtitle}</div>}
+        </div>
+      </div>
       {isCompany && (
         <div className="mt-1 text-[11.5px] text-text3">
           {countOf(node.executives.length, "executive")} mapped
