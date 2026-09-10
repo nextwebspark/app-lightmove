@@ -264,15 +264,21 @@ jobs:
           fi
 
           # The Companies screen's map view, same shape again: off unless MAPBOX_ENABLED=true, because
-          # the branch mounts two secrets gcloud refuses to name unless they exist. The public token
-          # reaches the browser (URL-restrict it to the service's URL in the Mapbox account); the
-          # geocoding token stays server-side and must not be URL-restricted. Prerequisites:
+          # the branch mounts a secret gcloud refuses to name unless it exists. Prerequisite:
           #   gcloud secrets create lightmove-mapbox-public-token --data-file=-
+          #
+          # ONE token is enough, and a Mapbox account's own "Default public token" is that token: the
+          # server falls back to it for geocoding when no separate one is set. A second token is worth
+          # having only once the browser's is URL-restricted in the Mapbox account — a URL-restricted
+          # token sends no Referer from a server and is refused there — and it is opt-in for the reason
+          # the Harvest fallback above is: naming a secret nobody created fails the deploy.
           #   gcloud secrets create lightmove-mapbox-geocoding-token --data-file=-
           MAPBOX_SECRETS=""
           if [ "${{ vars.MAPBOX_ENABLED }}" = "true" ]; then
             MAPBOX_SECRETS=",MAPBOX_PUBLIC_TOKEN=lightmove-mapbox-public-token:latest"
-            MAPBOX_SECRETS="${MAPBOX_SECRETS},MAPBOX_GEOCODING_TOKEN=lightmove-mapbox-geocoding-token:latest"
+            if [ "${{ vars.MAPBOX_SEPARATE_GEOCODING_TOKEN }}" = "true" ]; then
+              MAPBOX_SECRETS="${MAPBOX_SECRETS},MAPBOX_GEOCODING_TOKEN=lightmove-mapbox-geocoding-token:latest"
+            fi
           fi
 
           # ^|^ separates on | rather than a comma, because WEB_CORS_ORIGINS and the OAuth scope are both
