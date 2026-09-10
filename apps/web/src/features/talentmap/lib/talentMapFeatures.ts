@@ -40,8 +40,11 @@ export interface PinCollection {
 
 /** Degrees between neighbours on the spiral — about 3 km, which separates pins at city zoom. */
 const SPIRAL_STEP_DEGREES = 0.03;
-/** The ring an executive sits on around their company's pin. */
-const SATELLITE_RING_DEGREES = 0.012;
+/**
+ * The ring an executive sits on around their company's pin — about 2km, which is ~26px at the zoom
+ * selecting a row flies to. Smaller and the ring is inside the company pin it is meant to orbit.
+ */
+const SATELLITE_RING_DEGREES = 0.018;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
 interface Placed {

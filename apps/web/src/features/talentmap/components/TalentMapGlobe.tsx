@@ -11,8 +11,13 @@ const LIGHT_STYLE = "mapbox://styles/mapbox/light-v11";
 const DARK_STYLE = "mapbox://styles/mapbox/dark-v11";
 const GULF: [number, number] = [48, 25];
 const INITIAL_ZOOM = 2.6;
-/** Close enough that a city's spread pins stand apart. */
-const CITY_ZOOM = 9;
+/**
+ * Where selecting a row flies to. Deliberately past the city: a city+country geocode puts every
+ * company in Dubai on one centroid, and the spread that separates them is a couple of kilometres —
+ * at z9 that is four pixels, so the pins, and the executives ringed around their company, read as
+ * one dot. This is the zoom at which they read as what they are.
+ */
+const CITY_ZOOM = 11;
 
 /** Pin colours: the ink of the app's text for a company, sky for a person, amber for the selection. */
 const INK = { light: "#15213a", dark: "#e2e8f0" };

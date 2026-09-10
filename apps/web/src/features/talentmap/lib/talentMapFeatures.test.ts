@@ -37,7 +37,7 @@ describe("spreadPoints", () => {
     for (const id of ["c1", "c2"]) {
       const [longitude, latitude] = placed.get(id)!;
       const distance = Math.hypot((longitude - 46.7) * Math.cos((24.7 * Math.PI) / 180), latitude - 24.7);
-      expect(distance).toBeCloseTo(0.012, 3);
+      expect(distance).toBeCloseTo(0.018, 3);
     }
     expect(placed.get("c1")).not.toEqual(placed.get("c2"));
     // Seated at a company the map does not draw: nowhere to ring, so not drawn.
