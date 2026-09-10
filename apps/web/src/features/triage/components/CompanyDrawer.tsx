@@ -148,7 +148,7 @@ export function CompanyDrawer({
           </>
         }
         action={
-          !editing && (
+          !editing && (canWrite || canEdit) && (
             <span className="flex flex-none items-center gap-2">
               {canWrite && (
                 <Button

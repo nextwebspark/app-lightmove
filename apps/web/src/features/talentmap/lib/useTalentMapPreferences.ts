@@ -19,7 +19,14 @@ const storageKey = (projectId: string) => `lm.companies.map.${projectId}`;
  * older build must not become a broken screen nobody can reset.
  */
 export function useTalentMapPreferences(projectId: string) {
-  const [preferences, setPreferences] = useState<TalentMapPreferences>(() => read(projectId));
+  // The mandate is held beside the preferences rather than read once on mount: a caller that keeps
+  // this hook across a project switch would otherwise write the old mandate's habits under the new
+  // mandate's key, overwriting what that project had saved.
+  const [held, setHeld] = useState(() => ({ projectId, preferences: read(projectId) }));
+  const preferences = held.projectId === projectId ? held.preferences : read(projectId);
+  if (held.projectId !== projectId) {
+    setHeld({ projectId, preferences });
+  }
 
   useEffect(() => {
     try {
@@ -30,7 +37,10 @@ export function useTalentMapPreferences(projectId: string) {
   }, [projectId, preferences]);
 
   const update = useCallback((changes: Partial<TalentMapPreferences>) => {
-    setPreferences((current) => ({ ...current, ...changes }));
+    setHeld((current) => ({
+      projectId: current.projectId,
+      preferences: { ...current.preferences, ...changes },
+    }));
   }, []);
 
   return [preferences, update] as const;

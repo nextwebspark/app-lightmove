@@ -26,6 +26,12 @@ export interface TalentMapPage {
   geocodingPending: number;
 }
 
+/** The points of one stage without the rows they belong to — what the pending-geocode poll reads. */
+export interface TalentMapLocations {
+  locations: Record<string, MapLocation>;
+  geocodingPending: number;
+}
+
 /** Whether this deployment offers the map, and the public token the browser draws tiles with. */
 export interface TalentMapConfig {
   enabled: boolean;

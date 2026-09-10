@@ -47,8 +47,9 @@ mapping panel (country → company → executives) beside a Mapbox globe, with a
 per executive and the same two drawers opened from a pin's popup or a panel row. Nothing carries a
 coordinate, so `geocoding` resolves each distinct city + country once through Mapbox and keeps it in
 `app_lm_geocoded_place`; `talentmap` composes the stage's companies, people and points into one
-unpaged, capped read (`GET /projects/{id}/talent-map`). The standalone Candidates screen, and the
-pipeline and outreach tables, don't exist yet. The **Position**
+unpaged, capped read (`GET /projects/{id}/talent-map`), with `…/talent-map/locations` answering the
+same map as points alone for the poll that waits on places rather than on people. The standalone
+Candidates screen, and the pipeline and outreach tables, don't exist yet. The **Position**
 screen is the mandate's brief, edited as a six-step wizard (details, mandate context, reporting,
 compensation, assessment, review) that autosaves one step at a time. It opens drafted rather than
 blank: a **role-template library** of seventeen briefs (twelve C-suite, four functional heads, one

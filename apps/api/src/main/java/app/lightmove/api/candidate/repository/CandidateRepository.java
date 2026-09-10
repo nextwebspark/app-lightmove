@@ -24,6 +24,9 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
     Page<Candidate> findByProjectIdAndFullNameContainingIgnoreCase(
             UUID projectId, String fullName, Pageable pageable);
 
+    /** The talent map's read: the whole mandate, with no search box above it to narrow. */
+    Page<Candidate> findByProjectId(UUID projectId, Pageable pageable);
+
     /** The Companies grid's read: the people at the companies on the page being rendered. */
     Page<Candidate> findByProjectIdAndTriageCompanyIdInAndFullNameContainingIgnoreCase(
             UUID projectId, Collection<UUID> triageCompanyIds, String fullName, Pageable pageable);

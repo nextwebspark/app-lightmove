@@ -1,7 +1,7 @@
 import mapboxgl, { type GeoJSONSource, type MapMouseEvent } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import "./talentMapGlobe.css";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { boundsOf, type PinCollection } from "../lib/talentMapFeatures";
@@ -74,8 +74,14 @@ export default function TalentMapGlobe({
 
   // The latest of everything the style-load handler needs, because that handler fires again on every
   // theme swap and must redraw from the present rather than from the render that created the map.
+  //
+  // A layout effect rather than a passive one, and never a write during render: a render can be
+  // thrown away or run twice, and this must hold what was committed. Layout effects run before the
+  // passive effect below that calls `setStyle`, so the handler that fires from it reads the present.
   const latest = useRef({ features, selectedId, hoveredId, dark, onSelect, onHover });
-  latest.current = { features, selectedId, hoveredId, dark, onSelect, onHover };
+  useLayoutEffect(() => {
+    latest.current = { features, selectedId, hoveredId, dark, onSelect, onHover };
+  });
 
   useEffect(() => {
     const observer = new MutationObserver(() =>

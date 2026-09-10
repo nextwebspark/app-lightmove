@@ -30,6 +30,11 @@ import org.springframework.stereotype.Service;
  * the next read tries again. One failure stops the loop because the failures that reach here —
  * credentials, quota, an outage — are the same for every place in the loop, and fifty attempts at a
  * vendor that is down is fifty backoffs the request timeout cannot afford.
+ *
+ * <p>A vendor that is merely <b>slow</b> never throws, so the count alone would let fifty read
+ * timeouts run past the gateway's — and a request killed there reports nothing, not even the places
+ * it did resolve. Hence the deadline beside the count: both stop the loop the same way, and both
+ * leave the remainder as {@code pending} for the next read.
  */
 @Service
 @Slf4j
@@ -72,8 +77,9 @@ public class GeocodingService {
         }
 
         int asked = 0;
+        Instant deadline = Instant.now().plus(budget.geocodingDeadline());
         for (PlaceKey place : unresolved) {
-            if (asked >= budget.geocodesPerRead()) {
+            if (asked >= budget.geocodesPerRead() || Instant.now().isAfter(deadline)) {
                 break;
             }
             asked++;

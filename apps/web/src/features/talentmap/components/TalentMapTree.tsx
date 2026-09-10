@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type KeyboardEvent } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { cn } from "../../../lib/cn";
@@ -6,7 +6,7 @@ import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
 import { countOf } from "../lib/talentMapFeatures";
 import {
   UNLOCATED_KEY,
-  type TalentMapTree as Tree,
+  type MappingTree,
   type TreeCompany,
   type TreeCountry,
   type TreeExecutive,
@@ -15,13 +15,32 @@ import {
 /** One line of the panel as the keyboard walks it: a group header or a row it can open. */
 type Line =
   | { kind: "group"; key: string; label: string; count: string; expandable: boolean; muted?: boolean }
-  | { kind: "node"; node: TreeCompany | TreeExecutive; groupKey: string; depth: number };
+  | { kind: "node"; node: TreeCompany | TreeExecutive; depth: number };
+
+/**
+ * What a row calls back into, held stable for the life of the panel so a row can be memoized: the
+ * parent rebuilds its own handlers on every hover, and a changed handler would re-render all of
+ * them. Behind each is the current prop, read at the moment the reader clicks.
+ */
+interface RowHandlers {
+  toggle: (key: string) => void;
+  select: (id: string) => void;
+  hover: (id: string | null) => void;
+  open: (node: TreeCompany | TreeExecutive) => void;
+  keyDown: (event: KeyboardEvent<HTMLDivElement>, index: number) => void;
+  focused: (index: number) => void;
+  register: (index: number, row: HTMLElement | null) => void;
+}
 
 /**
  * The mapping panel's tree: country → company → executives, a `role="tree"` whose rows mirror the
  * globe's pins. Hover and selection are the parent's, so a row and its pin light up together
  * whichever was touched; a row's Open (or Enter, or a double click) is the drawer, and a single click
  * is the pin.
+ *
+ * <p>One tab stop, not one per row: the ARIA tree pattern, and the only workable one at this
+ * screen's caps — 2000 companies would otherwise be 2000 stops between the toolbar and the globe.
+ * Tab enters the tree where the reader left it and the arrows move within it.
  */
 export function TalentMapTree({
   tree,
@@ -34,7 +53,7 @@ export function TalentMapTree({
   onHover,
   onOpen,
 }: {
-  tree: Tree;
+  tree: MappingTree;
   projectId: string;
   /** Group keys (a country's, a company's, the unlocated group's) currently open. */
   expanded: ReadonlySet<string>;
@@ -46,7 +65,16 @@ export function TalentMapTree({
   onOpen: (node: TreeCompany | TreeExecutive) => void;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const rowsRef = useRef(new Map<number, HTMLElement>());
   const lines = useMemo(() => linesOf(tree, expanded), [tree, expanded]);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const active = lines.length ? Math.min(activeIndex, lines.length - 1) : 0;
+
+  // The props as they stand, for the stable handlers below to read at click time.
+  const latest = useRef({ lines, expanded, onToggle, onSelect, onHover, onOpen });
+  useEffect(() => {
+    latest.current = { lines, expanded, onToggle, onSelect, onHover, onOpen };
+  });
 
   // A pin click selects a row the reader may have scrolled past; bring it back into view.
   useEffect(() => {
@@ -56,49 +84,68 @@ export function TalentMapTree({
     row?.scrollIntoView?.({ block: "nearest" });
   }, [selectedId, lines]);
 
-  const focusLine = (index: number) => {
-    const target = rootRef.current?.querySelectorAll<HTMLElement>("[data-line]")[index];
-    target?.focus();
-  };
+  const focusLine = useCallback((index: number) => {
+    setActiveIndex(index);
+    rowsRef.current.get(index)?.focus();
+  }, []);
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>, line: Line, index: number) => {
-    switch (event.key) {
-      case "ArrowDown":
-        event.preventDefault();
-        focusLine(Math.min(index + 1, lines.length - 1));
-        return;
-      case "ArrowUp":
-        event.preventDefault();
-        focusLine(Math.max(index - 1, 0));
-        return;
-      case "ArrowRight":
-        event.preventDefault();
-        if (line.kind === "group" && line.expandable && !expanded.has(line.key)) onToggle(line.key);
-        if (line.kind === "node" && line.node.kind === "company" && line.node.executives.length
-          && !expanded.has(line.node.id)) onToggle(line.node.id);
-        return;
-      case "ArrowLeft":
-        event.preventDefault();
-        if (line.kind === "group" && expanded.has(line.key)) onToggle(line.key);
-        if (line.kind === "node" && line.node.kind === "company" && expanded.has(line.node.id)) {
-          onToggle(line.node.id);
-        }
-        return;
-      case "Enter":
-        event.preventDefault();
-        if (line.kind === "node") onOpen(line.node);
-        else if (line.expandable) onToggle(line.key);
-        return;
-      case " ":
-        event.preventDefault();
-        if (line.kind === "node") onSelect(line.node.id);
-        return;
-      case "Escape":
-        onSelect(null);
-        return;
-      default:
-    }
-  };
+  const handlers = useMemo<RowHandlers>(() => {
+    const keyDown = (event: KeyboardEvent<HTMLDivElement>, index: number) => {
+      const held = latest.current;
+      const line = held.lines[index];
+      if (!line) return;
+      switch (event.key) {
+        case "ArrowDown":
+          event.preventDefault();
+          focusLine(Math.min(index + 1, held.lines.length - 1));
+          return;
+        case "ArrowUp":
+          event.preventDefault();
+          focusLine(Math.max(index - 1, 0));
+          return;
+        case "ArrowRight":
+          event.preventDefault();
+          if (line.kind === "group" && line.expandable && !held.expanded.has(line.key)) {
+            held.onToggle(line.key);
+          }
+          if (line.kind === "node" && line.node.kind === "company" && line.node.executives.length
+            && !held.expanded.has(line.node.id)) held.onToggle(line.node.id);
+          return;
+        case "ArrowLeft":
+          event.preventDefault();
+          if (line.kind === "group" && held.expanded.has(line.key)) held.onToggle(line.key);
+          if (line.kind === "node" && line.node.kind === "company" && held.expanded.has(line.node.id)) {
+            held.onToggle(line.node.id);
+          }
+          return;
+        case "Enter":
+          event.preventDefault();
+          if (line.kind === "node") held.onOpen(line.node);
+          else if (line.expandable) held.onToggle(line.key);
+          return;
+        case " ":
+          event.preventDefault();
+          if (line.kind === "node") held.onSelect(line.node.id);
+          return;
+        case "Escape":
+          held.onSelect(null);
+          return;
+        default:
+      }
+    };
+    return {
+      toggle: (key) => latest.current.onToggle(key),
+      select: (id) => latest.current.onSelect(id),
+      hover: (id) => latest.current.onHover(id),
+      open: (node) => latest.current.onOpen(node),
+      keyDown,
+      focused: setActiveIndex,
+      register: (index, row) => {
+        if (row) rowsRef.current.set(index, row);
+        else rowsRef.current.delete(index);
+      },
+    };
+  }, [focusLine]);
 
   return (
     <div ref={rootRef} role="tree" aria-label="Mapping" className="flex flex-col py-1">
@@ -107,23 +154,22 @@ export function TalentMapTree({
           <GroupRow
             key={line.key}
             line={line}
+            index={index}
             open={expanded.has(line.key)}
-            onToggle={() => onToggle(line.key)}
-            onKeyDown={(event) => handleKeyDown(event, line, index)}
+            tabbable={index === active}
+            handlers={handlers}
           />
         ) : (
           <NodeRow
             key={line.node.id}
             line={line}
+            index={index}
             projectId={projectId}
             open={line.node.kind === "company" && expanded.has(line.node.id)}
             selected={selectedId === line.node.id}
             hovered={hoveredId === line.node.id}
-            onToggle={() => onToggle(line.node.id)}
-            onSelect={() => onSelect(line.node.id)}
-            onHover={onHover}
-            onOpen={() => onOpen(line.node)}
-            onKeyDown={(event) => handleKeyDown(event, line, index)}
+            tabbable={index === active}
+            handlers={handlers}
           />
         ),
       )}
@@ -131,26 +177,29 @@ export function TalentMapTree({
   );
 }
 
-function GroupRow({
+const GroupRow = memo(function GroupRow({
   line,
+  index,
   open,
-  onToggle,
-  onKeyDown,
+  tabbable,
+  handlers,
 }: {
   line: Extract<Line, { kind: "group" }>;
+  index: number;
   open: boolean;
-  onToggle: () => void;
-  onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
+  tabbable: boolean;
+  handlers: RowHandlers;
 }) {
   return (
     <div
+      ref={(row) => handlers.register(index, row)}
       role="treeitem"
       aria-expanded={line.expandable ? open : undefined}
       aria-label={`${line.label}, ${line.count}`}
-      tabIndex={0}
-      data-line=""
-      onClick={line.expandable ? onToggle : undefined}
-      onKeyDown={onKeyDown}
+      tabIndex={tabbable ? 0 : -1}
+      onFocus={() => handlers.focused(index)}
+      onClick={line.expandable ? () => handlers.toggle(line.key) : undefined}
+      onKeyDown={(event) => handlers.keyDown(event, index)}
       className={cn(
         "mt-1 flex cursor-pointer select-none items-center gap-1.5 px-3 py-1.5 outline-none focus-visible:bg-panel2",
         line.muted && "cursor-default",
@@ -171,30 +220,26 @@ function GroupRow({
       <span className="ms-auto flex-none font-mono text-[11px] text-text3">{line.count}</span>
     </div>
   );
-}
+});
 
-function NodeRow({
+const NodeRow = memo(function NodeRow({
   line,
+  index,
   projectId,
   open,
   selected,
   hovered,
-  onToggle,
-  onSelect,
-  onHover,
-  onOpen,
-  onKeyDown,
+  tabbable,
+  handlers,
 }: {
   line: Extract<Line, { kind: "node" }>;
+  index: number;
   projectId: string;
   open: boolean;
   selected: boolean;
   hovered: boolean;
-  onToggle: () => void;
-  onSelect: () => void;
-  onHover: (id: string | null) => void;
-  onOpen: () => void;
-  onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
+  tabbable: boolean;
+  handlers: RowHandlers;
 }) {
   const { node } = line;
   const isCompany = node.kind === "company";
@@ -204,18 +249,19 @@ function NodeRow({
 
   return (
     <div
+      ref={(row) => handlers.register(index, row)}
       role="treeitem"
       aria-selected={selected}
       aria-expanded={expandable ? open : undefined}
       aria-label={name}
-      tabIndex={0}
-      data-line=""
+      tabIndex={tabbable ? 0 : -1}
       data-row-id={node.id}
-      onClick={onSelect}
-      onDoubleClick={onOpen}
-      onMouseEnter={() => onHover(node.id)}
-      onMouseLeave={() => onHover(null)}
-      onKeyDown={onKeyDown}
+      onFocus={() => handlers.focused(index)}
+      onClick={() => handlers.select(node.id)}
+      onDoubleClick={() => handlers.open(node)}
+      onMouseEnter={() => handlers.hover(node.id)}
+      onMouseLeave={() => handlers.hover(null)}
+      onKeyDown={(event) => handlers.keyDown(event, index)}
       style={{ paddingInlineStart: 12 + line.depth * 18 }}
       className={cn(
         "group flex cursor-pointer select-none items-center gap-2 border-s-2 py-1.5 pe-2 outline-none transition-colors",
@@ -229,9 +275,10 @@ function NodeRow({
       {expandable ? (
         <button
           type="button"
+          tabIndex={-1}
           onClick={(event) => {
             event.stopPropagation();
-            onToggle();
+            handlers.toggle(node.id);
           }}
           aria-label={open ? `Collapse ${name}` : `Expand ${name}`}
           className="-ms-1 flex-none cursor-pointer rounded p-0.5 text-text3 hover:text-text"
@@ -273,9 +320,10 @@ function NodeRow({
 
       <button
         type="button"
+        tabIndex={-1}
         onClick={(event) => {
           event.stopPropagation();
-          onOpen();
+          handlers.open(node);
         }}
         aria-label={`Open ${name}`}
         title="Open"
@@ -285,16 +333,16 @@ function NodeRow({
       </button>
     </div>
   );
-}
+});
 
 /** The panel as a flat list of what is visible, in reading order — what the keyboard walks. */
-function linesOf(tree: Tree, expanded: ReadonlySet<string>): Line[] {
+function linesOf(tree: MappingTree, expanded: ReadonlySet<string>): Line[] {
   const lines: Line[] = [];
-  const pushCompany = (company: TreeCompany, groupKey: string) => {
-    lines.push({ kind: "node", node: company, groupKey, depth: 1 });
+  const pushCompany = (company: TreeCompany) => {
+    lines.push({ kind: "node", node: company, depth: 1 });
     if (expanded.has(company.id)) {
       for (const executive of company.executives) {
-        lines.push({ kind: "node", node: executive, groupKey, depth: 2 });
+        lines.push({ kind: "node", node: executive, depth: 2 });
       }
     }
   };
@@ -307,7 +355,7 @@ function linesOf(tree: Tree, expanded: ReadonlySet<string>): Line[] {
       expandable: true,
     });
     if (!expanded.has(country.key)) return;
-    for (const company of country.companies) pushCompany(company, country.key);
+    country.companies.forEach(pushCompany);
     if (country.unmapped.length) {
       lines.push({
         kind: "group",
@@ -318,7 +366,7 @@ function linesOf(tree: Tree, expanded: ReadonlySet<string>): Line[] {
         muted: true,
       });
       for (const executive of country.unmapped) {
-        lines.push({ kind: "node", node: executive, groupKey: country.key, depth: 1 });
+        lines.push({ kind: "node", node: executive, depth: 1 });
       }
     }
   };
@@ -335,9 +383,9 @@ function linesOf(tree: Tree, expanded: ReadonlySet<string>): Line[] {
       muted: true,
     });
     if (expanded.has(UNLOCATED_KEY)) {
-      for (const company of tree.unlocated.companies) pushCompany(company, UNLOCATED_KEY);
+      tree.unlocated.companies.forEach(pushCompany);
       for (const executive of tree.unlocated.executives) {
-        lines.push({ kind: "node", node: executive, groupKey: UNLOCATED_KEY, depth: 1 });
+        lines.push({ kind: "node", node: executive, depth: 1 });
       }
     }
   }

@@ -45,6 +45,27 @@ class TalentMapIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the poll's read is the same map, the same gate, and the points without the rows")
+    void locationsReadIsTheSameMapWithoutTheRows() throws Exception {
+        Fixture f = fixture("Map Poll Firm");
+        String jeddah = "Jeddah " + domain;
+        geocoder.placeCity(jeddah, 21.4858, 39.1925);
+        String acwa = capture(f.admin, f.projectId, "ACWA Power", jeddah, "Saudi Arabia");
+
+        mvc.perform(get(locationsUrl(f.projectId)).header("Authorization", "Bearer " + login(f.saraEmail)))
+                .andExpect(status().isForbidden());
+
+        JsonNode points = body(mvc.perform(get(locationsUrl(f.projectId))
+                        .header("Authorization", "Bearer " + f.admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.geocodingPending").value(0))
+                .andExpect(jsonPath("$.locations." + acwa + ".latitude").value(21.4858))
+                .andReturn());
+        assertThat(points.has("companies")).isFalse();
+        assertThat(points.has("candidates")).isFalse();
+    }
+
+    @Test
     @DisplayName("every row of the stage travels, located where the vendor placed it, and a place is asked once")
     void rowsAreLocatedAndPlacesAreCached() throws Exception {
         Fixture f = fixture("Map Located Firm");
@@ -140,6 +161,10 @@ class TalentMapIntegrationTest extends FlowTestSupport {
 
     private static String mapUrl(String projectId) {
         return "/api/v1/projects/" + projectId + "/talent-map";
+    }
+
+    private static String locationsUrl(String projectId) {
+        return mapUrl(projectId) + "/locations";
     }
 
     private String capture(String token, String projectId, String name, String city, String country)

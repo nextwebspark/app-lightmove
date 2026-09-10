@@ -53,6 +53,7 @@ vi.mock("../../talentmap/api/talentMapApi", async (importOriginal) => ({
   ...(await importOriginal<typeof talentMapApi>()),
   getTalentMapConfig: vi.fn(),
   getTalentMap: vi.fn(),
+  getTalentMapLocations: vi.fn(),
 }));
 // jsdom has no WebGL and mapbox-gl breaks at import; the globe is a stub drawing each pin as a button.
 vi.mock("../../talentmap/components/TalentMapGlobe", () => ({
@@ -1016,6 +1017,26 @@ describe("TriageStagePage", () => {
       renderStage();
       expect(await screen.findByRole("tree", { name: "Mapping" })).toBeInTheDocument();
       expect(screen.getByRole("radio", { name: "Map" })).toHaveAttribute("aria-checked", "true");
+    });
+
+    it("polls the points alone while places are still resolving, and folds them into the map it has", async () => {
+      vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
+      vi.mocked(talentMapApi.getTalentMap).mockResolvedValue({ ...mapPageOf(), locations: {}, geocodingPending: 1 });
+      vi.mocked(talentMapApi.getTalentMapLocations).mockResolvedValue({
+        locations: { u1: { latitude: 24.7, longitude: 46.7, precision: "CITY", placeLabel: "Riyadh, Saudi Arabia" } },
+        geocodingPending: 0,
+      });
+      renderStage();
+
+      await userEvent.click(await screen.findByRole("radio", { name: "Map" }));
+      await screen.findByRole("tree", { name: "Mapping" });
+
+      // The poll's answer lands in the map's own page: the pin appears and the notice goes.
+      await waitFor(() => expect(screen.getByRole("button", { name: "pin: ACWA Power" })).toBeInTheDocument());
+      expect(screen.queryByText(/Locating/)).not.toBeInTheDocument();
+      expect(talentMapApi.getTalentMapLocations).toHaveBeenCalledWith("p1", "inUniverse", expect.anything());
+      // The whole stage was read once; the rest was points.
+      expect(vi.mocked(talentMapApi.getTalentMap)).toHaveBeenCalledTimes(1);
     });
 
     it("opens an executive's profile from a pin", async () => {

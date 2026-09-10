@@ -43,12 +43,16 @@ export interface TreeCounts {
   countries: number;
   companies: number;
   executives: number;
-  /** Rows with a point of their own or their company's. */
-  located: number;
+  /** Rows the globe draws no pin for: no place of their own, and no company's to borrow. */
   unlocated: number;
 }
 
-export interface TalentMapTree {
+/**
+ * Named apart from the component that renders it (`components/TalentMapTree.tsx`): a data shape and
+ * the React component drawing it are two different things, and one name for both made that file
+ * import this one under an alias.
+ */
+export interface MappingTree {
   countries: TreeCountry[];
   /** Companies and executives with nowhere to be drawn — no city, no country, or a place nobody could find. */
   unlocated: { companies: TreeCompany[]; executives: TreeExecutive[] };
@@ -58,7 +62,7 @@ export interface TalentMapTree {
 /** Where a located row without a country is filed — a city the export named with no country beside it. */
 export const OTHER_COUNTRY = "Other";
 
-export function buildTree(page: TalentMapPage): TalentMapTree {
+export function buildTree(page: TalentMapPage): MappingTree {
   const byCompany = new Map<string, TreeExecutive[]>();
   const unmapped: TreeExecutive[] = [];
   for (const candidate of page.candidates) {
@@ -120,41 +124,59 @@ export function buildTree(page: TalentMapPage): TalentMapTree {
     country.unmapped.push(executive);
   }
 
-  // A company's people are drawn where the company is, so an executive counts as located when their
-  // company does — and stays unlocated, though listed under the company, when neither has a place.
-  let located = 0;
-  let unlocated = unlocatedCompanies.length + unlocatedExecutives.length;
   for (const country of countries.values()) {
     country.companyCount = country.companies.length;
     country.executiveCount =
       country.companies.reduce((sum, company) => sum + company.executives.length, 0) +
       country.unmapped.length;
-    for (const company of country.companies) {
-      if (company.location) located++;
-      else unlocated++;
-      for (const executive of company.executives) {
-        if (executive.location || executive.seatedAt) located++;
-        else unlocated++;
-      }
-    }
-    located += country.unmapped.length;
   }
-  for (const company of unlocatedCompanies) unlocated += company.executives.length;
 
   const ordered = [...countries.values()].sort(
     (a, b) => b.companyCount - a.companyCount || a.name.localeCompare(b.name),
   );
 
+  const unlocated = { companies: unlocatedCompanies, executives: unlocatedExecutives };
+  return { countries: ordered, unlocated, counts: countsOf(ordered, unlocated) };
+}
+
+/**
+ * What the panel's header says, counted off the tree rather than off the page — so a filtered tree
+ * counts what it holds rather than what it was narrowed from.
+ *
+ * <p>A row is located when the globe draws a pin for it, which is the one rule
+ * `toFeatureCollection` applies: a point of its own, or — for a person — their company's to sit
+ * beside. Nothing else counts, wherever the tree happens to file the row: a country name with no
+ * point behind it puts an executive under that country and still draws nothing.
+ */
+function countsOf(
+  countries: TreeCountry[],
+  unlocated: { companies: TreeCompany[]; executives: TreeExecutive[] },
+): TreeCounts {
+  let companies = 0;
+  let executives = 0;
+  let unplaced = 0;
+  const countExecutive = (executive: TreeExecutive) => {
+    executives++;
+    if (!executive.location && !executive.seatedAt) unplaced++;
+  };
+  const countCompany = (company: TreeCompany) => {
+    companies++;
+    if (!company.location) unplaced++;
+    company.executives.forEach(countExecutive);
+  };
+
+  for (const country of countries) {
+    country.companies.forEach(countCompany);
+    country.unmapped.forEach(countExecutive);
+  }
+  unlocated.companies.forEach(countCompany);
+  unlocated.executives.forEach(countExecutive);
+
   return {
-    countries: ordered,
-    unlocated: { companies: unlocatedCompanies, executives: unlocatedExecutives },
-    counts: {
-      countries: ordered.filter((country) => country.name !== OTHER_COUNTRY).length,
-      companies: page.companies.length,
-      executives: page.candidates.length,
-      located,
-      unlocated,
-    },
+    countries: countries.filter((country) => country.name !== OTHER_COUNTRY).length,
+    companies,
+    executives,
+    unlocated: unplaced,
   };
 }
 
@@ -163,7 +185,7 @@ export function buildTree(page: TalentMapPage): TalentMapTree {
  * all its people when it matches itself, and with only the matching people when it does not — the
  * reader typed a name and wants to see where that name sits.
  */
-export function filterTree(tree: TalentMapTree, query: string): TalentMapTree {
+export function filterTree(tree: MappingTree, query: string): MappingTree {
   const needle = query.trim().toLowerCase();
   if (!needle) return tree;
 
@@ -199,27 +221,11 @@ export function filterTree(tree: TalentMapTree, query: string): TalentMapTree {
     executives: tree.unlocated.executives.filter(matchesExecutive),
   };
 
-  const companyCount =
-    countries.reduce((sum, country) => sum + country.companyCount, 0) + unlocated.companies.length;
-  const executiveCount =
-    countries.reduce((sum, country) => sum + country.executiveCount, 0) +
-    unlocated.companies.reduce((sum, company) => sum + company.executives.length, 0) +
-    unlocated.executives.length;
-
-  return {
-    countries,
-    unlocated,
-    counts: {
-      ...tree.counts,
-      countries: countries.filter((country) => country.name !== OTHER_COUNTRY).length,
-      companies: companyCount,
-      executives: executiveCount,
-    },
-  };
+  return { countries, unlocated, counts: countsOf(countries, unlocated) };
 }
 
 /** Every company and executive node the tree holds, in panel order. */
-export function nodesOf(tree: TalentMapTree): (TreeCompany | TreeExecutive)[] {
+export function nodesOf(tree: MappingTree): (TreeCompany | TreeExecutive)[] {
   const nodes: (TreeCompany | TreeExecutive)[] = [];
   for (const country of tree.countries) {
     for (const company of country.companies) {
@@ -236,7 +242,7 @@ export function nodesOf(tree: TalentMapTree): (TreeCompany | TreeExecutive)[] {
  * The country and company a row sits under, so selecting a pin can open the branches above its row.
  * Both null for a row that is not in the tree.
  */
-export function pathTo(tree: TalentMapTree, id: string): { country: string | null; company: string | null } {
+export function pathTo(tree: MappingTree, id: string): { country: string | null; company: string | null } {
   for (const country of tree.countries) {
     for (const company of country.companies) {
       if (company.id === id) return { country: country.key, company: null };

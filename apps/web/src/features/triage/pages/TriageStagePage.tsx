@@ -24,6 +24,7 @@ import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import { canExecuteProjectWork } from "../../projects/lib/access";
 import * as talentMapApi from "../../talentmap/api/talentMapApi";
+import type * as talentMapTypes from "../../talentmap/api/types";
 import { TalentMapView } from "../../talentmap/components/TalentMapView";
 import { useTalentMapPreferences } from "../../talentmap/lib/useTalentMapPreferences";
 import * as triageApi from "../api/triageApi";
@@ -269,20 +270,42 @@ function TriageStage() {
     ...(unmappedPeople.data?.candidates ?? []),
   ];
 
-  /**
-   * The whole stage as points, read only while the globe is showing. Polls while the server is still
-   * placing rows it could not place in one read — a big import fills in over a few of them — and
-   * stops by itself once nothing is pending.
-   */
+  /** The whole stage as points, read once when the globe opens and again when the mandate changes. */
   const talentMap = useQuery({
     queryKey: talentMapApi.TALENT_MAP_KEY(project.id, stage.status),
     queryFn: ({ signal }) => talentMapApi.getTalentMap(project.id, stage.status, signal),
     enabled: view === "map",
     placeholderData: keepPreviousData,
-    refetchInterval: (query) =>
-      (query.state.data?.geocodingPending ?? 0) > 0 ? GEOCODING_POLL_MS : false,
     refetchOnWindowFocus: true,
   });
+
+  /**
+   * The points on their own, polled while the server is still placing rows it could not place in one
+   * read — a big import fills in over a few of them — and stopping by itself once nothing is pending.
+   *
+   * <p>A read of its own rather than a poll of the one above: what changes between two polls is a
+   * handful of coordinates, and re-reading the stage for them would put the mandate's every company
+   * and full profile back on the wire every three seconds.
+   */
+  const geocodingPending = talentMap.data?.geocodingPending ?? 0;
+  const talentMapLocations = useQuery({
+    queryKey: talentMapApi.TALENT_MAP_LOCATIONS_KEY(project.id, stage.status),
+    queryFn: ({ signal }) => talentMapApi.getTalentMapLocations(project.id, stage.status, signal),
+    enabled: view === "map" && geocodingPending > 0,
+    refetchInterval: GEOCODING_POLL_MS,
+  });
+
+  // The poll answers the map's own read, so it lands there rather than beside it: one page, however
+  // many reads filled it in.
+  const polledLocations = talentMapLocations.data;
+  useEffect(() => {
+    if (!polledLocations) return;
+    queryClient.setQueryData(
+      talentMapApi.TALENT_MAP_KEY(project.id, stage.status),
+      (held: talentMapTypes.TalentMapPage | undefined) =>
+        held ? { ...held, ...polledLocations } : held,
+    );
+  }, [polledLocations, queryClient, project.id, stage.status]);
 
   const rows = useMemo(
     () =>

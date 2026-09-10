@@ -22,6 +22,14 @@ class CountryCodesTest {
     }
 
     @Test
+    @DisplayName("a name is read as a name before it is read as a code")
+    void aNameBeatsACode() {
+        // "UK" is not an ISO code — GB is — so the alias must survive the bare-code pass beside it.
+        assertThat(CountryCodes.isoCodeOf("UK")).contains("GB");
+        assertThat(CountryCodes.isoCodeOf("no")).contains("NO");
+    }
+
+    @Test
     @DisplayName("an unknown name is an empty answer, not an exception")
     void unknownIsEmpty() {
         assertThat(CountryCodes.isoCodeOf("Atlantis")).isEmpty();

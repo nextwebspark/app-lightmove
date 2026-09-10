@@ -8,10 +8,10 @@ import app.lightmove.api.core.resilience.model.VendorClientSpec;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
-import org.springframework.http.client.support.HttpRequestWrapper;
 import org.springframework.http.HttpRequest;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.http.client.support.HttpRequestWrapper;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -20,8 +20,9 @@ import org.springframework.web.util.UriUtils;
 /**
  * Builds the one kind of HTTP client this application points at a paid API: timeouts on both ends,
  * the key in a header (or, for a vendor that insists, a query parameter), the correlation id carried
- * across, and every non-2xx already classified before the adapter sees it. A client built here cannot ship without a read timeout, and cannot leak a bare
- * {@code HttpClientErrorException} into a service.
+ * across, and every non-2xx already classified before the adapter sees it. A client built here
+ * cannot ship without a read timeout, and cannot leak a bare {@code HttpClientErrorException} into
+ * a service.
  *
  * <p>The status handler is registered across <i>every</i> error status rather than an enumerated few,
  * and the breadth is a privacy control: whatever it misses falls through to Spring's own handler,

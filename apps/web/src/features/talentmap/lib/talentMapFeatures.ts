@@ -1,4 +1,4 @@
-import type { TalentMapTree, TreeCompany, TreeExecutive } from "./talentMapTree";
+import type { MappingTree, TreeCompany, TreeExecutive } from "./talentMapTree";
 
 /**
  * The tree as GeoJSON: what the globe draws.
@@ -117,7 +117,7 @@ function latitudeStretch(latitude: number): number {
   return Math.max(0.2, Math.cos((latitude * Math.PI) / 180));
 }
 
-export function toFeatureCollection(tree: TalentMapTree, showExecutives: boolean): PinCollection {
+export function toFeatureCollection(tree: MappingTree, showExecutives: boolean): PinCollection {
   const companies: TreeCompany[] = [];
   const executives: TreeExecutive[] = [];
   for (const country of tree.countries) {

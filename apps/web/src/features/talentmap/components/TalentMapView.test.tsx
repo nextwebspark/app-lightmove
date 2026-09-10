@@ -188,6 +188,22 @@ describe("TalentMapView", () => {
     expect(screen.getByRole("button", { name: "pin: Emaar" })).toBeInTheDocument();
   });
 
+  it("holds one tab stop for the whole tree and moves it with the arrows", async () => {
+    renderView();
+
+    const tree = screen.getByRole("tree", { name: "Mapping" });
+    const rows = within(tree).getAllByRole("treeitem");
+    expect(rows.length).toBeGreaterThan(2);
+    expect(rows.filter((row) => row.getAttribute("tabindex") === "0")).toHaveLength(1);
+
+    rows[0].focus();
+    await userEvent.keyboard("{ArrowDown}");
+    expect(within(tree).getAllByRole("treeitem")[1]).toHaveFocus();
+    expect(
+      within(tree).getAllByRole("treeitem").filter((row) => row.getAttribute("tabindex") === "0"),
+    ).toHaveLength(1);
+  });
+
   it("says when the server is still placing rows, and when a read was refused", () => {
     renderView({ page: { ...page, geocodingPending: 4 } });
     expect(screen.getByRole("status")).toHaveTextContent("Locating 4 places");

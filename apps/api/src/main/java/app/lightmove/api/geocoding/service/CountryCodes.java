@@ -10,7 +10,8 @@ import java.util.Optional;
  * — to the ISO 3166-1 alpha-2 code a geocoding vendor filters by.
  *
  * <p>The JDK's own catalog answers nearly everything; the aliases cover what a researcher actually
- * types. Unknown is an answer, not an error: the caller then asks the vendor by name alone.
+ * types, and a bare alpha-2 code is accepted too. Unknown is an answer, not an error: the caller
+ * then asks the vendor by name alone.
  */
 public final class CountryCodes {
 
@@ -34,7 +35,12 @@ public final class CountryCodes {
             if (!name.isBlank()) {
                 byName.put(name.toLowerCase(Locale.ROOT), code);
             }
-            byName.put(code.toLowerCase(Locale.ROOT), code);
+        }
+        // Bare codes second and only where nothing claimed the spelling: a dozen of them ("IN", "IT",
+        // "NO", "ME") are ordinary words a spreadsheet's country column carries, and a display name is
+        // always the better reading of one.
+        for (String code : Locale.getISOCountries()) {
+            byName.putIfAbsent(code.toLowerCase(Locale.ROOT), code);
         }
         byName.put("uae", "AE");
         byName.put("u.a.e.", "AE");

@@ -13,6 +13,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.web.client.RestClient;
 
 /**
@@ -37,12 +39,30 @@ public class GeocodingConfig {
     }
 
     @Bean
-    Geocoder geocoder(@Autowired(required = false) @Qualifier("mapboxGeocoder") MapboxGeocoder mapbox) {
+    Geocoder geocoder(@Autowired(required = false) @Qualifier("mapboxGeocoder") MapboxGeocoder mapbox,
+                      LightMoveProperties properties, Environment environment) {
         if (mapbox == null) {
             log.info("Geocoding is off — no Mapbox token configured, so the map view is not offered.");
             return new LogGeocoder();
         }
+        warnIfGeocodingWithTheBrowsersToken(properties.mapbox(), environment);
         log.info("Geocoding resolves places through Mapbox; answers are cached in app_lm_geocoded_place");
         return mapbox;
+    }
+
+    /**
+     * The public token is served to every browser by design; the geocoding one is not, and falling back
+     * to the public token makes the two the same credential. On a laptop that is the point. Deployed it
+     * means any signed-in user can lift the account's geocoding quota out of the network tab — billable
+     * outright once {@code permanent-geocoding} is on — so an operator hears about it from the logs
+     * rather than from the bill.
+     */
+    private void warnIfGeocodingWithTheBrowsersToken(MapboxSettings config, Environment environment) {
+        boolean isDeveloperProfile = environment.acceptsProfiles(Profiles.of("local", "test", "e2e"));
+        if (isDeveloperProfile || (config.geocodingToken() != null && !config.geocodingToken().isBlank())) {
+            return;
+        }
+        log.warn("Mapbox geocoding is using the browser's public token — set lightmove.mapbox.geocoding-token "
+                + "to a server-only token, and URL-restrict the public one.");
     }
 }

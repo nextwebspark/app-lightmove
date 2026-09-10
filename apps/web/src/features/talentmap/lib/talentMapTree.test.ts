@@ -123,7 +123,23 @@ describe("buildTree", () => {
 
   it("counts what it holds, located and not", () => {
     const tree = buildTree(page);
-    expect(tree.counts).toEqual({ countries: 3, companies: 4, executives: 6, located: 7, unlocated: 3 });
+    expect(tree.counts).toEqual({ countries: 3, companies: 4, executives: 6, unlocated: 3 });
+  });
+
+  it("counts an executive filed under a country with no point as unlocated, not as placed", () => {
+    // The country name alone files her under Kuwait; nothing resolved it, so no pin is drawn and the
+    // panel must say so rather than counting her as placed.
+    const tree = buildTree({
+      companies: [],
+      totalCompanies: 0,
+      candidates: [person({ id: "c9", triageCompanyId: null, fullName: "Nadia Karim", locationCountry: "Kuwait" })],
+      totalCandidates: 1,
+      locations: {},
+      geocodingPending: 1,
+    });
+
+    expect(tree.countries[0].unmapped.map((e) => e.candidate.fullName)).toEqual(["Nadia Karim"]);
+    expect(tree.counts).toEqual({ countries: 1, companies: 0, executives: 1, unlocated: 1 });
   });
 });
 

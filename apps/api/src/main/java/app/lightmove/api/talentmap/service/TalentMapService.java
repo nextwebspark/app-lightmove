@@ -14,6 +14,7 @@ import app.lightmove.api.geocoding.model.PlaceKey;
 import app.lightmove.api.geocoding.service.GeocodingService;
 import app.lightmove.api.talentmap.dto.MapLocationDto;
 import app.lightmove.api.talentmap.dto.TalentMapConfigResponse;
+import app.lightmove.api.talentmap.dto.TalentMapLocationsResponse;
 import app.lightmove.api.talentmap.dto.TalentMapResponse;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
@@ -62,6 +63,24 @@ public class TalentMapService {
     }
 
     public TalentMapResponse read(UUID workspaceId, UUID projectId, String statusToken) {
+        Placement placed = place(workspaceId, projectId, statusToken);
+        Locations located = locate(placed);
+        return new TalentMapResponse(placed.companies().companies(), placed.companies().totalCount(),
+                placed.people(), placed.totalCandidates(), located.locations(), located.pending());
+    }
+
+    /**
+     * The same read with the companies and the people left off — what the screen polls while places are
+     * still resolving. It costs the server the same two queries; it costs the wire the points alone,
+     * which is the whole of what changes between one poll and the next.
+     */
+    public TalentMapLocationsResponse readLocations(UUID workspaceId, UUID projectId, String statusToken) {
+        Locations located = locate(place(workspaceId, projectId, statusToken));
+        return new TalentMapLocationsResponse(located.locations(), located.pending());
+    }
+
+    /** The stage's companies, the people to draw with them, and the place each of those rows sits at. */
+    private Placement place(UUID workspaceId, UUID projectId, String statusToken) {
         TriageCompanyStatus status = resolveStatus(statusToken);
         TriageCompaniesResponse companies =
                 triage.listAllOfStage(workspaceId, projectId, status, caps.maxCompanies());
@@ -105,18 +124,24 @@ public class TalentMapService {
             PlaceKey.of(person.locationCity(), person.locationCountry())
                     .ifPresent(place -> placeOfRow.put(person.id(), place));
         }
-
-        GeocodingResult resolved = geocoding.resolve(new HashSet<>(placeOfRow.values()));
-        Map<UUID, MapLocationDto> locations = new HashMap<>();
-        placeOfRow.forEach((rowId, place) -> Optional.ofNullable(resolved.points().get(place))
-                .ifPresent(point -> locations.put(rowId, toDto(point, place))));
-
-        return new TalentMapResponse(companies.companies(), companies.totalCount(), people,
-                everyone.totalCount(), locations, resolved.pending());
+        return new Placement(companies, people, everyone.totalCount(), placeOfRow);
     }
 
+    private Locations locate(Placement placed) {
+        GeocodingResult resolved = geocoding.resolve(new HashSet<>(placed.placeOfRow().values()));
+        Map<UUID, MapLocationDto> locations = new HashMap<>();
+        placed.placeOfRow().forEach((rowId, place) -> Optional.ofNullable(resolved.points().get(place))
+                .ifPresent(point -> locations.put(rowId, toDto(point, place))));
+        return new Locations(locations, resolved.pending());
+    }
+
+    private record Placement(TriageCompaniesResponse companies, List<CandidateResponse> people,
+                             long totalCandidates, Map<UUID, PlaceKey> placeOfRow) {}
+
+    private record Locations(Map<UUID, MapLocationDto> locations, int pending) {}
+
     private static MapLocationDto toDto(GeoPoint point, PlaceKey place) {
-        return new MapLocationDto(point.latitude(), point.longitude(), point.precision().name(),
+        return new MapLocationDto(point.latitude(), point.longitude(), point.precision(),
                 labelOf(place));
     }
 
