@@ -98,3 +98,52 @@ it("backs off on failure and lets go entirely on unmount", async () => {
   await act(() => vi.advanceTimersByTimeAsync(60_000));
   expect(streamEventsMock).toHaveBeenCalledTimes(2);
 });
+
+it("hands the caller the kinds that arrived, merged across the burst", async () => {
+  const onChange = vi.fn();
+  renderHook(() => useProjectStream("p1", onChange));
+
+  act(() => {
+    openStreams[0].emit({ name: "change", data: '{"kind":"candidate-captured"}' });
+    openStreams[0].emit({ name: "change", data: '{"kind":"company-enriched"}' });
+    openStreams[0].emit({ name: "change", data: '{"kind":"candidate-captured"}' });
+  });
+  await act(() => vi.advanceTimersByTimeAsync(500));
+
+  expect(onChange).toHaveBeenCalledTimes(1);
+  expect(onChange).toHaveBeenCalledWith(["candidate-captured", "company-enriched"]);
+});
+
+it("names every kind for a payload it does not recognise", async () => {
+  const onChange = vi.fn();
+  renderHook(() => useProjectStream("p1", onChange));
+
+  // A client that half-understands the stream must refetch too much, never show stale rows.
+  act(() => openStreams[0].emit({ name: "change", data: '{"kind":"outreach-sent"}' }));
+  await act(() => vi.advanceTimersByTimeAsync(500));
+
+  expect(onChange).toHaveBeenCalledWith([
+    "candidate-captured",
+    "candidate-enriched",
+    "company-captured",
+    "company-enriched",
+  ]);
+});
+
+it("reports itself live from the server's greeting until an attempt goes unanswered", async () => {
+  const { result } = renderHook(() => useProjectStream("p1", vi.fn()));
+  expect(result.current).toBe(false);
+
+  act(() => openStreams[0].emit({ name: "connected", data: "{}" }));
+  expect(result.current).toBe(true);
+
+  // The 55s cyclic close is the design working: it reconnects at once and never stops being live,
+  // which is what keeps the caller's fallback poll from firing every minute on a healthy stream.
+  act(() => openStreams[0].end());
+  await act(() => vi.advanceTimersByTimeAsync(0));
+  expect(result.current).toBe(true);
+
+  act(() => openStreams[1].fail(new Error("network down")));
+  await act(() => vi.advanceTimersByTimeAsync(0));
+  expect(result.current).toBe(false);
+});

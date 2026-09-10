@@ -87,10 +87,15 @@ vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
   restoreSession: vi.fn(),
   setAccessToken: vi.fn(),
-  // The page holds a live stream open; here it simply never speaks, so the grid behaves exactly as
-  // it does between events and the fetch-mocked queries stay the only data source.
-  streamEvents: vi.fn(() => new Promise<void>(() => {})),
+  // The page holds a live stream open. It stays silent unless a test speaks for it, so the grid
+  // behaves exactly as it does between events and the fetch-mocked queries stay the only data source.
+  streamEvents: vi.fn((_path: string, onEvent: (event: { name: string; data: string }) => void) => {
+    streamListeners.push(onEvent);
+    return new Promise<void>(() => {});
+  }),
 }));
+
+const streamListeners: ((event: { name: string; data: string }) => void)[] = [];
 
 const { restoreSession } = await import("../../../lib/apiClient");
 
@@ -309,6 +314,7 @@ describe("TriageStagePage", () => {
     vi.mocked(customColumnsApi.getCustomColumns).mockResolvedValue({ columns: [] });
     vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue({ enabled: false, publicToken: null });
     vi.mocked(talentMapApi.getTalentMap).mockResolvedValue(mapPageOf());
+    streamListeners.length = 0;
     localStorage.clear();
   });
 
@@ -1050,6 +1056,38 @@ describe("TriageStagePage", () => {
       await userEvent.click(screen.getByRole("button", { name: "Open Yasmin El-Sayed" }));
       expect(await screen.findByRole("dialog", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
     });
+  });
+  it("polls for landed research only while the stream is down", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const capture: Candidate = {
+        ...yasmin,
+        id: "c7",
+        fullName: "Faisal Khan",
+        source: "extension",
+        addedAt: new Date().toISOString(),
+        enrichedAt: null,
+      };
+      vi.mocked(candidatesApi.getCandidates).mockResolvedValue(peopleOf([capture]));
+      renderStage();
+      await screen.findByText("Faisal Khan");
+
+      // Nothing has greeted the stream, so the fallback poll is the only thing that would ever notice
+      // the research landing on this row.
+      const beforePolling = vi.mocked(triageApi.getTriageCompanies).mock.calls.length;
+      await act(() => vi.advanceTimersByTimeAsync(9_000));
+      const whilePolling = vi.mocked(triageApi.getTriageCompanies).mock.calls.length;
+      expect(whilePolling).toBeGreaterThan(beforePolling);
+
+      // The server greets every stream, and from then on it announces the same research within a
+      // second — so a poll beside it is one whole page read per tick, on every open tab.
+      act(() => streamListeners.forEach((emit) => emit({ name: "connected", data: "{}" })));
+      await act(() => vi.advanceTimersByTimeAsync(9_000));
+
+      expect(vi.mocked(triageApi.getTriageCompanies).mock.calls.length).toBe(whilePolling);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

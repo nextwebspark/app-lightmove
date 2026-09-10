@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { streamEvents } from "../../../lib/apiClient";
 
 /** Failures back off exponentially to this; a healthy stream's cyclic close reconnects at once. */
@@ -13,20 +13,42 @@ const MAX_RETRY_MS = 30_000;
  */
 const COALESCE_MS = 500;
 
+/** What a `change` frame names, so a caller can refetch the half that moved. */
+export type ProjectStreamKind =
+  | "candidate-captured"
+  | "candidate-enriched"
+  | "company-captured"
+  | "company-enriched";
+
+const EVERY_KIND: ProjectStreamKind[] = [
+  "candidate-captured",
+  "candidate-enriched",
+  "company-captured",
+  "company-enriched",
+];
+
 /**
- * Holds the mandate's live stream open while the tab is visible, calling `onChange` whenever the
- * server says something under the project moved. The stream carries no content — the handler
- * refetches through the ordinary guarded reads — so there is nothing here to keep consistent.
+ * Holds the mandate's live stream open while the tab is visible, calling `onChange` with the kinds
+ * that arrived whenever the server says something under the project moved. A frame carries its kind
+ * and no content, so the handler still refetches through the ordinary guarded reads.
  *
  * A hidden tab holds no stream (it would pin a Cloud Run request slot to a screen nobody is
- * watching); coming back fires one catch-up `onChange`, because whatever happened meanwhile was
- * missed by design.
+ * watching); coming back fires one catch-up `onChange` naming every kind, because whatever happened
+ * meanwhile was missed by design.
+ *
+ * <p>Answers whether the stream is currently live, so a caller can poll only while it is not. That
+ * stays true across the server's ordinary 55s close, which reconnects at once — it turns false only
+ * when an attempt ends without the server having been heard from and the retry starts backing off.
  */
-export function useProjectStream(projectId: string, onChange: () => void): void {
+export function useProjectStream(
+  projectId: string,
+  onChange: (kinds: ProjectStreamKind[]) => void,
+): boolean {
   // The latest handler without re-running the effect: the callers pass a fresh closure per render,
   // and tearing the stream down on every render would be a reconnect per keystroke.
   const handleChange = useRef(onChange);
   handleChange.current = onChange;
+  const [isLive, setLive] = useState(false);
 
   useEffect(() => {
     let disposed = false;
@@ -37,11 +59,15 @@ export function useProjectStream(projectId: string, onChange: () => void): void 
 
     // Trailing rather than leading: the refetch that matters is the one after the burst stops, and a
     // leading call would read the grid halfway through an import and then never correct it.
-    const announceChange = () => {
+    let pendingKinds = new Set<ProjectStreamKind>();
+    const announceChange = (kinds: ProjectStreamKind[]) => {
+      kinds.forEach((kind) => pendingKinds.add(kind));
       window.clearTimeout(coalesceTimer);
       coalesceTimer = window.setTimeout(() => {
+        const announced = [...pendingKinds];
+        pendingKinds = new Set();
         if (!disposed) {
-          handleChange.current();
+          handleChange.current(announced);
         }
       }, COALESCE_MS);
     };
@@ -65,8 +91,9 @@ export function useProjectStream(projectId: string, onChange: () => void): void 
         (event) => {
           heardTheServer = true;
           failures = 0;
+          setLive(true);
           if (event.name === "change") {
-            announceChange();
+            announceChange(kindsOf(event.data));
           }
         },
         controller.signal,
@@ -79,6 +106,7 @@ export function useProjectStream(projectId: string, onChange: () => void): void 
             schedule(0);
             return;
           }
+          setLive(false);
           failures += 1;
           schedule(Math.min(MAX_RETRY_MS, 1_000 * 2 ** failures));
         },
@@ -86,6 +114,7 @@ export function useProjectStream(projectId: string, onChange: () => void): void 
           if (disposed || controller?.signal.aborted) {
             return;
           }
+          setLive(false);
           failures += 1;
           schedule(Math.min(MAX_RETRY_MS, 1_000 * 2 ** failures));
         },
@@ -96,9 +125,10 @@ export function useProjectStream(projectId: string, onChange: () => void): void 
       if (document.visibilityState === "hidden") {
         window.clearTimeout(retryTimer);
         controller?.abort();
+        setLive(false);
         return;
       }
-      handleChange.current();
+      handleChange.current(EVERY_KIND);
       connect();
     };
 
@@ -107,10 +137,26 @@ export function useProjectStream(projectId: string, onChange: () => void): void 
 
     return () => {
       disposed = true;
+      setLive(false);
       window.clearTimeout(retryTimer);
       window.clearTimeout(coalesceTimer);
       controller?.abort();
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [projectId]);
+
+  return isLive;
+}
+
+/**
+ * The kinds a frame names. A payload this build does not recognise answers with all of them: a client
+ * that half-understands the stream must fall back to refetching too much, never to showing stale rows.
+ */
+function kindsOf(payload: string): ProjectStreamKind[] {
+  try {
+    const kind = (JSON.parse(payload) as { kind?: string }).kind;
+    return EVERY_KIND.includes(kind as ProjectStreamKind) ? [kind as ProjectStreamKind] : EVERY_KIND;
+  } catch {
+    return EVERY_KIND;
+  }
 }
