@@ -45,7 +45,7 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
                                      ProfilePhotoDownloader photos, RestClient.Builder builder) {
         this.guard = guard;
         this.photos = photos;
-        this.client = clientFactory.create(new VendorClientSpec(VENDOR, config.baseUrl(),
+        this.client = clientFactory.create(VendorClientSpec.header(VENDOR, config.baseUrl(),
                 "X-API-Key", config.apiKey(), READ_TIMEOUT, config.requestsPerSecond()),
                 builder, rateLimiter);
     }

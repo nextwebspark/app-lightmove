@@ -37,6 +37,6 @@ final class TestAuthSettings {
                 Duration.ofMinutes(15), Duration.ofDays(30), Duration.ofHours(24),
                 Duration.ofMinutes(30), Duration.ofDays(7), Duration.ofMinutes(10),
                 true, false, bcryptStrength, null);
-        return new LightMoveProperties(auth, null, null, null, null, null, null, null, null, null);
+        return new LightMoveProperties(auth, null, null, null, null, null, null, null, null, null, null, null);
     }
 }

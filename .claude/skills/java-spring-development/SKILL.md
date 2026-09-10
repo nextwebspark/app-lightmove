@@ -218,6 +218,14 @@ enrichment/                # the one feature split twice: by subject first, then
   company/    service/(LinkedInCompanyEnricher, BrightDataCompanyEnricher, LogCompanyEnricher,
                        CompanyEnrichmentWorker)    config/(CompanyEnrichmentConfig)
   common/     service/(BrightDataSearch)
+
+geocoding/                 # a city+country pair becomes a point, once — global cache, no tenant data
+  constant/(GeoPrecision)  model/(PlaceKey, GeoPoint, GeocodingResult, GeocodedPlace)  repository/
+  service/(Geocoder, MapboxGeocoder, LogGeocoder, CountryCodes, GeocodedPlaceStore, GeocodingService)
+  config/(GeocodingConfig)
+
+talentmap/                 # composes triagecompany + candidate + geocoding into one read; owns nothing
+  dto/(TalentMapResponse, MapLocationDto, TalentMapConfigResponse)  service/(TalentMapService)  controller/
 ```
 
 **`enrichment/` is the one feature with a subject split above the type split.** People and companies
@@ -303,6 +311,12 @@ method plus the records it returns — never another feature's internals:
   sides in the SPA (one read for the page's companies, one for the people at them) rather than
   embedding candidates in the company list — and why the employer is filed by a call rather than by an
   event triagecompany would have to know to listen for.
+- `talentmap` reads through two seams built for it and answering in the owning feature's DTO:
+  `TriageCompanyService.listAllOfStage` (one stage, unpaged, capped) and
+  `CandidateService.listAllOfProject` (every executive, capped). It pairs people with companies
+  itself, so `triagecompany` still never learns that people exist. `GeocodingService.resolve` is
+  the third seam, taking bare city/country pairs — which company or person asked never reaches
+  `geocoding` or the vendor.
 - `position`'s `PositionService` reads `project`'s repositories for the mandate a brief belongs to,
   the same way `CandidateService` does — a brief cannot be scoped, titled or dated without it — and
   `project`'s `ProjectService.create` seeds the new mandate's brief through one call taking primitives
@@ -429,6 +443,11 @@ reintroduce them.
   call dies at runtime with a `ClassCastException` — a 500 on every authorisation request. Assign to
   a `String` first. (A non-generic getter returning `Object`, like `HttpServletRequest.getAttribute`
   or `Map.get`, is safe: that binds `valueOf(Object)`.)
+- **A vendor that authenticates by query parameter must not build the key into its URIs.** Spring's
+  transport failures quote the request URI, so a `ResourceAccessException` would carry the token into
+  `VendorException`'s cause and the catch-all log. `VendorClientSpec.queryToken` leaves the header
+  pair null and `VendorClientFactory` appends the parameter in an interceptor as the request leaves —
+  the adapter's own URIs (Mapbox's) never hold it.
 - **`Set.copyOf(…).contains(null)` throws.** An immutable set answers a null lookup with a
   `NullPointerException` rather than `false`, so a nullable key needs its own guard.
 - **`@ConditionalOnBean` on user configuration silently never matches.** A resolver bean conditioned

@@ -366,6 +366,34 @@ lightmove:
       - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
       - application/octet-stream
 
+  # The Mapbox account behind the Companies screen's map view. Off by default — a fresh clone runs
+  # with no Mapbox account, and without a public token the Table | Map toggle is simply not offered.
+  # ONE token is enough: an account's own "Default public token" both draws the globe and geocodes,
+  # because geocoding-token falls back to public-token when unset. The two exist apart only for the
+  # deployment that URL-restricts the browser's token — a restricted token sends no Referer from a
+  # server and is refused there, so that deployment sets an unrestricted geocoding-token beside it.
+  #
+  # Geocoding turns a company's city + country into a point once and caches it in
+  # app_lm_geocoded_place; Mapbox is called only for a place nobody has resolved yet. Storing a
+  # temporary result indefinitely is against Mapbox's terms, so a cached place is re-asked after
+  # cache-ttl unless the account holds the Permanent Geocoding entitlement — set permanent-geocoding
+  # true only once it does, and the request then says so (permanent=true) and the row never expires.
+  mapbox:
+    public-token: ${MAPBOX_PUBLIC_TOKEN:}
+    geocoding-token: ${MAPBOX_GEOCODING_TOKEN:}
+    permanent-geocoding: ${MAPBOX_PERMANENT_GEOCODING:false}
+    cache-ttl: ${MAPBOX_GEOCODE_CACHE_TTL:30d}
+
+  # One read of a mandate's talent map is unpaged — a globe with a page two is no globe — so these
+  # caps are what a pager would otherwise be, and the response states the totals so a mandate past
+  # them is told "showing 2000 of 2314" rather than shown a map that looks complete and is not.
+  # geocodes-per-read bounds the vendor calls one read spends on unresolved places; the rest is
+  # reported as pending and the screen polls it in.
+  talent-map:
+    max-companies: ${TALENT_MAP_MAX_COMPANIES:2000}
+    max-candidates: ${TALENT_MAP_MAX_CANDIDATES:5000}
+    geocodes-per-read: ${TALENT_MAP_GEOCODES_PER_READ:50}
+
 # What /actuator/info reports. APP_VERSION is baked into the image by the Dockerfile's build arg, so
 # this is the same release the SPA bundle was built with — one input, and nothing at runtime can move
 # one half without the other.

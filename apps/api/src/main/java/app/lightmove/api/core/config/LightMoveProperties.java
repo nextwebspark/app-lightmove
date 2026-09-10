@@ -23,5 +23,7 @@ public record LightMoveProperties(
         EnrichmentSettings enrichment,
         ResilienceSettings resilience,
         CustomColumnSettings customColumn,
-        SpreadsheetImportSettings spreadsheetImport
+        SpreadsheetImportSettings spreadsheetImport,
+        MapboxSettings mapbox,
+        TalentMapSettings talentMap
 ) {}

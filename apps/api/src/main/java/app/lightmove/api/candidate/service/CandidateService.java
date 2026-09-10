@@ -151,6 +151,25 @@ public class CandidateService {
     }
 
     /**
+     * Every executive the mandate has mapped, unpaged, for a reader that has no pager — the talent map
+     * draws them all. The seam {@code talentmap} reads people through; it answers in this package's
+     * DTO and takes a cap the caller states, stated back in {@code totalCount} so a mandate past it is
+     * told rather than shown a map that looks complete and is not.
+     *
+     * <p>Sorted like the grid rather than unsorted, for the reason {@code listAllOfStage} sorts by
+     * name: a stable order keeps the cut at the cap deterministic, so a mandate past it sees the same
+     * people on every read instead of a map that reshuffles under it.
+     */
+    @Transactional(readOnly = true)
+    public CandidatesResponse listAllOfProject(UUID workspaceId, UUID projectId, int cap) {
+        requireProject(projectId, workspaceId);
+        Page<Candidate> found = candidates.findByProjectId(projectId, PageRequest.of(0, cap, FIRST_MAPPED_FIRST));
+        return new CandidatesResponse(
+                found.getContent().stream().map(CandidateService::toDto).toList(),
+                found.getTotalElements(), 0, cap);
+    }
+
+    /**
      * The person this mandate already has for a spreadsheet row, if any — the seam the import resolves
      * a person through, so a second import of the same list updates profiles rather than colliding
      * with {@code CANDIDATE_ALREADY_MAPPED} on every row.

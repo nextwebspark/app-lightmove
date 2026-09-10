@@ -28,7 +28,7 @@ target/
 .mvn/timing.properties
 
 # --- Node ---
-node_modules/
+node_modules
 dist/
 dist-ssr/
 # The packaged extension archive, built on demand by apps/extension's build:release.
@@ -50,4 +50,3 @@ ops/migrations/*
 # The local Apollo universe snapshot, so `npm run dev:db:reset` can carry the 71,822 pipeline-owned
 # rows across a wipe. Data, not source — re-pull it with `npm run dev:db:apollo`.
 ops/dev/.cache/
-node_modules
