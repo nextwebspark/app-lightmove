@@ -101,7 +101,8 @@ class TalentMapIntegrationTest extends FlowTestSupport {
         geocoder.clear();
         mvc.perform(get(mapUrl(f.projectId)).header("Authorization", "Bearer " + f.admin))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.locations." + acwa + ".latitude").value(24.7136));
+                // Dubai again, because ACWA is drawn where Yasmin is — the same rule, off the cache.
+                .andExpect(jsonPath("$.locations." + acwa + ".latitude").value(25.2769));
         assertThat(geocoder.asked()).isEmpty();
     }
 
