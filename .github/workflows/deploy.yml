@@ -273,6 +273,9 @@ jobs:
           # token sends no Referer from a server and is refused there — and it is opt-in for the reason
           # the Harvest fallback above is: naming a secret nobody created fails the deploy.
           #   gcloud secrets create lightmove-mapbox-geocoding-token --data-file=-
+          # Until the second one is set the API logs a WARN at boot saying it is geocoding with the
+          # token the browser holds — so the deploy checklist is: URL-restrict the public token in the
+          # Mapbox account, then mint the geocoding token and set MAPBOX_SEPARATE_GEOCODING_TOKEN.
           MAPBOX_SECRETS=""
           if [ "${{ vars.MAPBOX_ENABLED }}" = "true" ]; then
             MAPBOX_SECRETS=",MAPBOX_PUBLIC_TOKEN=lightmove-mapbox-public-token:latest"
