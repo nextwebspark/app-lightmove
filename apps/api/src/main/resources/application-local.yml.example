@@ -100,15 +100,16 @@ lightmove:
   #   harvestapi:
   #     api-key: CHANGEME
 
-  # The Companies screen's map view. One token is all it takes, and a Mapbox account already has it:
-  # the "Default public token" listed at account.mapbox.com → Tokens draws the globe AND geocodes,
-  # because the server falls back to the public token when no separate one is set. Without any token
-  # the Table | Map toggle is not offered and nothing else changes.
+  # The Companies screen's map view. Paste your account's **Default public token** — the one already
+  # listed at account.mapbox.com → Tokens — and nothing else: it both draws the globe and geocodes,
+  # because the server falls back to this token when no separate geocoding one is set.
   #
-  # geocoding-token is worth setting only once the public one is URL-restricted (worth doing in
-  # production, pointless locally): a restricted token sends no Referer from a server and is refused.
-  # mapbox:
-  #   public-token: pk.CHANGEME
+  # Left empty the map is simply not offered: the Companies screen is the grid it has always been,
+  # so an unfilled copy of this file still runs. Do not restrict this token by URL while testing
+  # locally — a restricted token sends no Referer from a server and its geocoding calls are refused;
+  # that is the one case that wants a second, unrestricted `geocoding-token:` beside it.
+  mapbox:
+    public-token:
 
 logging:
   level:
