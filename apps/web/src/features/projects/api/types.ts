@@ -49,6 +49,7 @@ export interface Project {
   id: string;
   clientId: string;
   clientName: string;
+  clientLogoUrl: string | null;
   positionTitle: string;
   stage: ProjectStage;
   health: ProjectHealth;

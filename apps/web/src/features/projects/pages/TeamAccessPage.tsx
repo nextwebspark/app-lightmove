@@ -4,10 +4,9 @@ import { useNavigate, useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
-import { Avatar, useToast } from "../../../components/ui";
+import { Avatar, CompanyLogo, useToast } from "../../../components/ui";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { messageFor } from "../../../lib/errorCodes";
-import { initials } from "../../../lib/format";
 import { layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
 import { useGridPaging } from "../../../lib/useGridPaging";
 import { useGridSort } from "../../../lib/useGridSort";
@@ -216,9 +215,7 @@ export function TeamAccessPage() {
 
         <div className="overflow-hidden rounded-[11px] border border-line">
           <div className="flex items-center gap-3 border-b border-line bg-panel2 px-4 py-[15px]">
-            <span className="grid size-[38px] flex-none place-items-center rounded-[9px] bg-sky-dim font-mono text-[13px] font-bold text-sky">
-              {initials(project.clientName)}
-            </span>
+            <CompanyLogo name={project.clientName} logo={project.clientLogoUrl} size={38} />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold">{project.clientName}</div>
               <div className="mt-0.5 font-mono text-[11.5px] text-text3">
