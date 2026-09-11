@@ -54,6 +54,7 @@ const user = {
   hasPassword: true,
   timezone: "Asia/Dubai",
   locale: "en",
+  platformActions: [],
   pendingInvitation: null,
   workspace: { ...workspace, roles: ["ADMIN"] as ("ADMIN" | "MEMBER")[] },
 };

@@ -183,9 +183,9 @@ core/
     token/      RefreshToken, RefreshTokenRepository, TokenService, TokenPair,
                 RevokeReason, RefreshCookieFactory, Tokens                (flat concern pkg)
     rbac/       Role, Action, RoleRepository, ActionRepository, RoleScope,
-                WorkspaceRole, ProjectRole, WorkspaceAction, ProjectAction,
-                RbacService, WorkspaceAccess, ProjectAccess,
-                WorkspaceAuthorizer, ProjectAuthorizer                    (flat concern pkg)
+                WorkspaceRole, ProjectRole, PlatformRole, WorkspaceAction, ProjectAction,
+                PlatformAction, RbacService, WorkspaceAccess, ProjectAccess, PlatformAccess,
+                WorkspaceAuthorizer, ProjectAuthorizer, PlatformAuthorizer (flat concern pkg)
   email/       model/(EmailMessage)  service/(EmailSender, EmailAddressValidator, …)  config/
   audit/       constant/(AuditEventType, AuditOutcome)  model/(AuditEvent)  repository/  service/
   error/       constant/(ErrorCode)  model/(ApiException)  service/(Problems)

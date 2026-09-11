@@ -46,6 +46,10 @@ export type ApiErrorCode =
   | "CUSTOM_COLUMN_NAME_TAKEN"
   | "CUSTOM_COLUMN_LIMIT_REACHED"
   | "WORKSPACE_NAME_MISMATCH"
+  | "TEMPLATE_STALE"
+  | "TEMPLATE_FALLBACK_REQUIRED"
+  | "TEMPLATE_FILE_UNREADABLE"
+  | "TEMPLATE_IMPORT_INVALID"
   | "CONFLICT"
   | "RATE_LIMITED"
   | "CSRF_TOKEN_INVALID"
@@ -59,7 +63,12 @@ export type ApiErrorCode =
 // and how many may be added, which no fixed sentence here could. Adding it would lose both numbers.
 // FILE_TOO_LARGE, IMPORT_TOO_MANY_ROWS and CUSTOM_COLUMN_LIMIT_REACHED are absent for the same reason
 // — each names its configured ceiling, and the ceiling is the part the reader needs.
+// TEMPLATE_FILE_UNREADABLE likewise: its detail may name the template limit or the format version.
 const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
+  TEMPLATE_STALE: "Someone saved this template after you opened it. Reload to see their version.",
+  TEMPLATE_FALLBACK_REQUIRED:
+    "The fallback template can't be archived or hidden — a title nothing else matches is drafted from it.",
+  TEMPLATE_IMPORT_INVALID: "Some templates in the file are invalid, so none were imported.",
   LAST_ADMIN: "A workspace must keep at least one admin.",
   MEMBER_LEADS_PROJECTS: "They are the only lead on active projects — hand those over first.",
   CLIENT_ALREADY_EXISTS: "A client with this name already exists.",

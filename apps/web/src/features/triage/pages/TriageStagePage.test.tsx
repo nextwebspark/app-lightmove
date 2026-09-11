@@ -109,6 +109,7 @@ const lead = {
   hasPassword: true,
   timezone: "Asia/Dubai",
   locale: "en",
+  platformActions: [],
   pendingInvitation: null,
   workspace: {
     id: "w1",

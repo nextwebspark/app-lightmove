@@ -77,6 +77,7 @@ describe("AcceptInvitePage", () => {
         hasPassword: true,
         timezone: "Asia/Dubai",
         locale: "en",
+        platformActions: [],
         pendingInvitation: null,
         workspace: {
           id: "w1",
@@ -157,6 +158,7 @@ describe("AcceptInvitePage", () => {
       hasPassword: true,
       timezone: "Asia/Dubai",
       locale: "en",
+      platformActions: [],
       pendingInvitation: null,
       workspace: null,
     });
@@ -199,6 +201,7 @@ describe("AcceptInvitePage", () => {
       hasPassword: true,
       timezone: "Asia/Dubai",
       locale: "en",
+      platformActions: [],
       pendingInvitation: { workspaceName: "NextWebSpark Search", role: "MEMBER" as const },
       workspace: null,
     };

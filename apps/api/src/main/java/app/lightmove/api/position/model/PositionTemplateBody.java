@@ -3,12 +3,14 @@ package app.lightmove.api.position.model;
 import app.lightmove.api.position.constant.BaseSalaryMode;
 import app.lightmove.api.position.constant.BenefitFrequency;
 import app.lightmove.api.position.constant.BonusBasis;
+import app.lightmove.api.position.constant.CriterionMode;
 import app.lightmove.api.position.constant.EmploymentType;
 import app.lightmove.api.position.constant.IncentiveType;
 import app.lightmove.api.position.constant.NoticeUnit;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Everything a role template drafts into a fresh brief — the whole document stored in
@@ -21,7 +23,8 @@ import java.util.List;
  * <p>Null-tolerant on the way in, and {@code @JsonIgnoreProperties} is load-bearing, both for
  * {@code StrategyFilter}'s reasons: a field retired from this record must not make every stored
  * template unreadable. The two defaults are the two columns the brief stores {@code NOT NULL}, so
- * applying a template can never leave the position unwritable.
+ * applying a template can never leave the position unwritable. The import is the one reader that must
+ * not forgive an unknown key, and checks for one itself before binding.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record PositionTemplateBody(
@@ -80,5 +83,43 @@ public record PositionTemplateBody(
 
     private static BenefitFrequency frequencyOf(PositionTemplateBenefit benefit) {
         return benefit.frequency() == null ? BenefitFrequency.MONTHLY : benefit.frequency();
+    }
+
+    /** Trimmed, blank entries dropped, defaults made explicit — so equal content compares equal. */
+    public PositionTemplateBody normalised() {
+        return new PositionTemplateBody(
+                blankToNull(department), employmentType, blankToNull(narrative), trimmed(responsibilities),
+                blankToNull(reportsTo), trimmed(directReports), trimmed(strategicPriorities),
+                noticeValue, noticeUnit, currency.trim().toUpperCase(Locale.ROOT), baseSalaryMode,
+                atBriefScale(bonusValue), bonusBasis, incentiveType, blankToNull(incentiveVesting),
+                benefits.stream()
+                        .map(benefit -> new PositionTemplateBenefit(trim(benefit.name()), frequencyOf(benefit)))
+                        .toList(),
+                criteria.stream()
+                        .map(criterion -> new PositionTemplateCriterion(trim(criterion.text()),
+                                criterion.mode() == null ? CriterionMode.REQUIRED : criterion.mode()))
+                        .toList(),
+                competencies.stream()
+                        .map(competency -> new PositionTemplateCompetency(competency.panel(),
+                                trim(competency.name()), blankToNull(competency.description()),
+                                competency.weight()))
+                        .toList());
+    }
+
+    // A bonus finer than the brief's numeric(6,2) is left for the validator to refuse, never rounded.
+    private static BigDecimal atBriefScale(BigDecimal value) {
+        return value == null || value.stripTrailingZeros().scale() > 2 ? value : value.setScale(2);
+    }
+
+    private static List<String> trimmed(List<String> values) {
+        return values.stream().map(String::trim).filter(value -> !value.isEmpty()).toList();
+    }
+
+    private static String trim(String value) {
+        return value == null ? null : value.trim();
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

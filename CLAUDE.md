@@ -57,8 +57,13 @@ generic fallback) lives in the database, matched against the mandate's role titl
 one's **Role title is a combobox**: free text — a mandate is titled "Group CFO – Energy Division" as
 often as it is titled "Chief Financial Officer" — that type-aheads the seventeen titles, and picking
 one takes that title and redrafts the brief from its template (`GET /position-templates` +
-`POST .../position/template`). A template is managed as a migration for now — the per-workspace
-management screen is a later session, and the rows it will write are already keyed to a workspace. Step three is an editable
+`POST .../position/template`). Templates are edited through the API (V51/V52; the Settings screens
+are the next session): a LightMove **super admin** — a *platform* role granted only by
+`ops/cloudsql/grant-platform-role.sh`, reading no tenant's data — edits the shared library, and a
+workspace admin customises, hides, adds, exports and imports the firm's own. A firm's copy **shadows**
+the library template of the same `code`, so a library edit reaches every firm that never customised
+it; neither ever touches a brief already drafted. The file format is JSON with a published schema, so
+a template can be written outside the app, AI included, and previewed before anything is written. Step three is an editable
 React Flow org chart — add, rename, re-parent and drag any seat; only the role's own seat is fixed.
 Step one attaches the position
 description, which is *stored and never read* — no extraction, no auto-fill. Publishing stamps who
@@ -155,6 +160,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 - **Tenant isolation:** every workspace-scoped query filters by `AuthPrincipal.requireWorkspaceId()`, never a request parameter.
 - **Authorise by action, never by role** (`@PreAuthorize` + `@workspaceAuthorizer`/`@projectAuthorizer`); guard beans re-read the DB every check; the JWT `roles` claim is never trusted for a decision.
 - Client access is **two tiers, two decisions**: registry (`CLIENT_RECORD_MANAGE`, ADMIN+MEMBER) vs mandate (`CLIENT_ACCESS_MANAGE`, LEAD only). Project content is seat-gated `WORK_VIEW`/`WORK_EXECUTE`, not `PROJECT_BROWSE`.
+- **A platform role sits above every tenant and inside none**: `SUPER_ADMIN` gates `/api/v1/platform/**` (`@platformAuthorizer`) and nothing else, is granted by ops script only, and never rides in the JWT.
 - **An identity provider is a yml block** — never branch on a provider name anywhere.
 - **Tokens are never stored raw** (SHA-256); the refresh cookie rotates on every use; the access token lives in JS memory only.
 - **The SPA and API are one origin**; every endpoint lives under `/api/v1`. Don't split hosts.
@@ -202,7 +208,12 @@ indefinitely.
 the drafted brief as one `jsonb` body (V30's idiom, not V39's child tables: a template is a
 heterogeneous document read and written whole), and the match keywords as a child table because they
 are the catalog's lookup key. `workspace_id` is nullable: NULL is the shared library, non-null is one
-firm's own, and every read filters on both.
+firm's own. V52 makes both editable: a firm's row sharing a library row's `code` is its copy and
+shadows the library row in every read (`PositionTemplateRepository.findAllVisibleTo`), `customised_from`
+against the library's `revised_at` says the library moved on since, and `app_lm_position_template_hidden`
+takes a library template out of one firm's picker and title matching.
+V51 adds the `PLATFORM` role scope and `app_lm_user_platform_role` — written by
+`grant-platform-role.sh`, never by the application.
 `app_lm_position_document` holds the attached position description inline (`bytea`) — one small file per
 mandate, read back only by its own download endpoint. Everything else (roles, hardening, grants) →
 `db-ops` skill.

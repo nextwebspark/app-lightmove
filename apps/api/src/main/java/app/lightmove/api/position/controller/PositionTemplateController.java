@@ -20,8 +20,8 @@ import org.springframework.web.bind.annotation.RestController;
  * when somebody browses it says nothing about who may see it. Applying one <i>is</i> project-scoped,
  * and lives on the brief's own controller under the seat gate every other write carries.
  *
- * <p>No write path yet. Managing templates is a migration today (V42), and the screen that will let a
- * firm edit its own is a later session — the rows it will write already exist, keyed to the workspace.
+ * <p>Editing lives elsewhere: the library on {@link PositionTemplateLibraryController}, a firm's own
+ * templates on {@link WorkspacePositionTemplateController}.
  */
 @RestController
 @RequestMapping("/api/v1/position-templates")
