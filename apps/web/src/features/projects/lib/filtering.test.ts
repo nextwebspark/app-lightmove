@@ -8,6 +8,7 @@ const project = (overrides: Partial<Project>): Project => ({
   id: "p1",
   clientId: "c1",
   clientName: "Meridian Energy",
+  clientLogoUrl: null,
   positionTitle: "CFO",
   stage: "MAPPING",
   health: "OK",

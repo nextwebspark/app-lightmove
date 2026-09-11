@@ -269,25 +269,14 @@ public class ApolloCompanyQueryService {
                 .toList();
     }
 
-    /** The scope's most populous industries, largest first — a report aggregate. */
-    public List<ScopeBreakdown> countBySector(CompanyScope scope, int limit) {
-        return breakdown(scope, "industry", "industry IS NOT NULL AND industry <> ''", limit);
-    }
-
-    /** The scope's most populous countries, largest first — a report aggregate. */
+    /** The scope's most populous countries, largest first. */
     public List<ScopeBreakdown> countByCountry(CompanyScope scope, int limit) {
         return breakdown(scope, "company_country",
                 "company_country IS NOT NULL AND company_country <> ''", limit);
     }
 
-    /** The scope's most populous cities, largest first — a report aggregate. */
-    public List<ScopeBreakdown> countByCity(CompanyScope scope, int limit) {
-        return breakdown(scope, "company_city",
-                "company_city IS NOT NULL AND company_city <> ''", limit);
-    }
-
     /**
-     * The shared shape behind every grouped aggregate. {@code presenceCondition} drops rows the
+     * The scope's rows grouped by one column, largest first. {@code presenceCondition} drops rows the
      * grouping column is missing on, since a bar labelled with a blank is noise.
      */
     private List<ScopeBreakdown> breakdown(CompanyScope scope, String column, String presenceCondition,

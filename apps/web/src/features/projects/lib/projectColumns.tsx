@@ -4,7 +4,9 @@ import {
   type ColumnPinningState,
   type ColumnVisibilityState,
 } from "@tanstack/react-table";
-import { Avatar, HealthDot, StagePill } from "../../../components/ui";
+import { Link } from "react-router-dom";
+import { Icon, ICONS } from "../../../components/layout/Icon";
+import { Avatar, CompanyLogo, HealthDot, StagePill } from "../../../components/ui";
 import {
   LOCAL_ROW_MODELS,
   DATA_GRID_FEATURES,
@@ -41,10 +43,13 @@ export const projectColumns = helper.columns([
     meta: { share: 18, min: 160 },
     sortFn: (a, b) => compareText(a.original.clientName, b.original.clientName),
     cell: (info) => (
-      <TruncatedText
-        value={info.getValue()}
-        className="font-mono text-[12.5px] font-medium text-text2"
-      />
+      <span className="flex min-w-0 items-center gap-2">
+        <CompanyLogo name={info.getValue()} logo={info.row.original.clientLogoUrl} size={22} />
+        <TruncatedText
+          value={info.getValue()}
+          className="font-mono text-[12.5px] font-medium text-text2"
+        />
+      </span>
     ),
   }),
 
@@ -118,6 +123,15 @@ export const projectColumns = helper.columns([
       );
     },
   }),
+
+  helper.display({
+    id: "open",
+    header: "",
+    enableSorting: false,
+    enableHiding: false,
+    meta: { share: 0, min: 96 },
+    cell: (info) => <OpenProjectLink project={info.row.original} />,
+  }),
 ]);
 
 export const PROJECT_SORT_FIELDS = ["client", "position", "stage", "target"] as const;
@@ -143,6 +157,20 @@ export function TeamStack({ team }: { team: TeamMember[] }) {
         />
       ))}
     </span>
+  );
+}
+
+export function OpenProjectLink({ project }: { project: Project }) {
+  return (
+    <Link
+      to={`/projects/${project.id}`}
+      aria-label={`Open ${project.positionTitle}`}
+      title={`Open ${project.positionTitle}`}
+      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[7px] border border-line px-[11px] py-[5px] text-xs font-semibold text-text2 transition hover:border-text3 hover:bg-panel hover:text-text"
+    >
+      Open
+      <Icon d={ICONS.arrowRight} size={13} />
+    </Link>
   );
 }
 

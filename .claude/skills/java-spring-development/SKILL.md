@@ -321,16 +321,8 @@ method plus the records it returns — never another feature's internals:
   the same way `CandidateService` does — a brief cannot be scoped, titled or dated without it — and
   `project`'s `ProjectService.create` seeds the new mandate's brief through one call taking primitives
   rather than handing a `Project` across.
-- `project`'s `ReportService` calls `StrategyService.scopeOf` — one method wide, so the report never
-  learns how a mandate's filter is stored, validated or translated — and `ApolloCompanyQueryService`
-  for the universe counts beside it. `project`'s `ClientService` uses the same service to resolve the
-  company a new client record names.
-
-**One edge is not sanctioned and is left standing anyway:** `project`'s `ReportService` reads
-`position`'s repository and entity directly for the mandate's salary band, which makes `project` and
-`position` import each other. It is documented in that class rather than papered over with a seam
-method, because the report composes three features and belongs to none of them — the fix is to lift it
-into its own package, not to make the cycle look intentional. Do not copy it.
+- `project`'s `ClientService` calls `ApolloCompanyQueryService` to resolve the company a new client
+  record names.
 
 A further seam is sanctioned for client representatives: `project`'s `ClientRepresentativeService`
 calls `workspace`'s `InvitationService.onboardClientRepresentative` to grant membership (a representative

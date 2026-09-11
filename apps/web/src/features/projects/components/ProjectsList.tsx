@@ -1,5 +1,5 @@
 import type { ColumnVisibilityState, OnChangeFn, PaginationState } from "@tanstack/react-table";
-import { HealthDot, StagePill } from "../../../components/ui";
+import { CompanyLogo, HealthDot, StagePill } from "../../../components/ui";
 import { DataGrid } from "../../../components/ui/DataGrid";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
 import type { GridLayout } from "../../../lib/useGridLayout";
@@ -8,6 +8,7 @@ import { formatDate } from "../../../lib/format";
 import type { Project } from "../api/types";
 import {
   leadOf,
+  OpenProjectLink,
   PROJECT_COLUMN_PINNING,
   projectColumns,
   projectTableFeatures,
@@ -77,36 +78,44 @@ export function ProjectsList({
 
 function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="flex w-full flex-col gap-2.5 rounded-[10px] border border-line bg-panel p-3.5 text-left transition hover:bg-panel2"
-    >
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-mono text-[11.5px] font-medium text-text3">
-            {project.clientName}
+    <div className="overflow-hidden rounded-[10px] border border-line bg-panel">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex w-full flex-col gap-2.5 p-3.5 text-left transition hover:bg-panel2"
+      >
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <CompanyLogo name={project.clientName} logo={project.clientLogoUrl} size={18} />
+              <span className="truncate font-mono text-[11.5px] font-medium text-text3">
+                {project.clientName}
+              </span>
+            </div>
+            <div className="mt-0.5 text-[13.5px] font-semibold text-text">{project.positionTitle}</div>
           </div>
-          <div className="mt-0.5 text-[13.5px] font-semibold text-text">{project.positionTitle}</div>
+          <HealthDot health={project.health} />
         </div>
-        <HealthDot health={project.health} />
-      </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <StagePill stage={project.stage} />
-        <span className="font-mono text-[11px] text-text3">
-          Lead · {leadOf(project.team)?.fullName ?? "—"}
-        </span>
-      </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <StagePill stage={project.stage} />
+          <span className="font-mono text-[11px] text-text3">
+            Lead · {leadOf(project.team)?.fullName ?? "—"}
+          </span>
+        </div>
 
-      <div className="flex items-center gap-2.5 border-t border-line-soft pt-2.5">
-        <TeamStack team={project.team} />
-        <span className="ml-auto font-mono text-[11px] text-text2">
-          <b className="font-semibold text-text">{project.companies}</b> cos ·{" "}
-          <b className="font-semibold text-text">{project.candidates}</b> cand
-        </span>
-        <span className="font-mono text-[11px] text-text3">{formatDate(project.targetDate)}</span>
+        <div className="flex items-center gap-2.5 border-t border-line-soft pt-2.5">
+          <TeamStack team={project.team} />
+          <span className="ml-auto font-mono text-[11px] text-text2">
+            <b className="font-semibold text-text">{project.companies}</b> cos ·{" "}
+            <b className="font-semibold text-text">{project.candidates}</b> cand
+          </span>
+          <span className="font-mono text-[11px] text-text3">{formatDate(project.targetDate)}</span>
+        </div>
+      </button>
+      <div className="flex justify-end border-t border-line-soft px-3.5 py-2.5">
+        <OpenProjectLink project={project} />
       </div>
-    </button>
+    </div>
   );
 }

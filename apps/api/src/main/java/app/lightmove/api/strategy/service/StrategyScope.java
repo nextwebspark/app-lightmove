@@ -7,10 +7,10 @@ import app.lightmove.api.strategy.model.StrategyFilter;
 /**
  * Translates a mandate's saved {@link Strategy} into the universe scope it defines.
  *
- * <p>Two screens resolve the same criteria — the Strategy results table and the mandate report — and
- * two copies of this translation would let them quietly disagree about what the consultant asked for.
- * Unlike the version this replaces, they now also read the same table, so they agree on the answer
- * and not merely on the question.
+ * <p>Every caller that acts on a mandate's scope resolves it here — the Strategy results table and
+ * the bulk triage writes alike — because two copies of this translation would let them quietly
+ * disagree about what the consultant asked for. They also read the same table, so they agree on the
+ * answer and not merely on the question.
  *
  * <p>The one thing the filter cannot state about itself is the off-limits list: the filter is the
  * sidebar's selection, the strategy holds the barred companies, and only here are both in hand.

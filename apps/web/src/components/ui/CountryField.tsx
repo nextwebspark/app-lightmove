@@ -6,7 +6,7 @@ import { FacetCombobox } from "./FacetCombobox";
  * The country box, wherever one is asked for — a company's, an executive's, a client's.
  *
  * <p>One control over one served vocabulary, because a country typed on one screen is compared with a
- * country typed on another: the Strategy filter matches the stored spelling exactly, the report groups
+ * country typed on another: the Strategy filter matches the stored spelling exactly, the grids group
  * by it and the map's country branch is it. Four screens with four boxes produced "AE" beside "United
  * Arab Emirates" in one column.
  *

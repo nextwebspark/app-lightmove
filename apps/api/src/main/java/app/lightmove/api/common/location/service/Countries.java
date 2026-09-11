@@ -19,8 +19,8 @@ import tools.jackson.databind.ObjectMapper;
  * spreadsheet's — resolved to one code and one English name.
  *
  * <p><b>Called on the way in, not only on the way out.</b> A country is canonicalised where it is
- * written, so the Strategy filter's exact match, the report's grouping and the map's country branch
- * all compare one value. Resolving at render time would leave the database holding six spellings.
+ * written, so the Strategy filter's exact match, a grid's grouping and the map's country branch all
+ * compare one value. Resolving at render time would leave the database holding six spellings.
  *
  * <p>The JDK's own catalog answers nearly everything and its English names match the universe's
  * verbatim, so the classpath file carries only what the JDK does not know. A bare alpha-2 code is
