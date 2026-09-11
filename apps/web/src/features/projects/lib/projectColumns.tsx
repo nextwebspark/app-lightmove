@@ -4,6 +4,8 @@ import {
   type ColumnPinningState,
   type ColumnVisibilityState,
 } from "@tanstack/react-table";
+import { Link } from "react-router-dom";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Avatar, HealthDot, StagePill } from "../../../components/ui";
 import {
   LOCAL_ROW_MODELS,
@@ -118,6 +120,15 @@ export const projectColumns = helper.columns([
       );
     },
   }),
+
+  helper.display({
+    id: "open",
+    header: "",
+    enableSorting: false,
+    enableHiding: false,
+    meta: { share: 0, min: 96 },
+    cell: (info) => <OpenProjectLink project={info.row.original} />,
+  }),
 ]);
 
 export const PROJECT_SORT_FIELDS = ["client", "position", "stage", "target"] as const;
@@ -143,6 +154,20 @@ export function TeamStack({ team }: { team: TeamMember[] }) {
         />
       ))}
     </span>
+  );
+}
+
+export function OpenProjectLink({ project }: { project: Project }) {
+  return (
+    <Link
+      to={`/projects/${project.id}`}
+      aria-label={`Open ${project.positionTitle}`}
+      title={`Open ${project.positionTitle}`}
+      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[7px] border border-line px-[11px] py-[5px] text-xs font-semibold text-text2 transition hover:border-text3 hover:bg-panel hover:text-text"
+    >
+      Open
+      <Icon d={ICONS.arrowRight} size={13} />
+    </Link>
   );
 }
 

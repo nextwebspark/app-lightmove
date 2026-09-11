@@ -112,6 +112,16 @@ describe("ProjectsPage — pure client", () => {
     expect(workspaceApi.members).not.toHaveBeenCalled();
   });
 
+  it("links each row's Open button straight to the project", async () => {
+    vi.mocked(projectsApi.projects).mockResolvedValue([attachedMandate]);
+
+    renderPage();
+
+    const openLinks = await screen.findAllByRole("link", { name: "Open CFO Search" });
+    expect(openLinks).not.toHaveLength(0);
+    for (const link of openLinks) expect(link).toHaveAttribute("href", "/projects/p1");
+  });
+
   it("shows the no-projects-shared state, with nothing to create, when no mandate is attached", async () => {
     vi.mocked(projectsApi.projects).mockResolvedValue([]);
 
