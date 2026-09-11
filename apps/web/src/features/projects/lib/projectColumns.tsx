@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Avatar, HealthDot, StagePill } from "../../../components/ui";
+import { Avatar, CompanyLogo, HealthDot, StagePill } from "../../../components/ui";
 import {
   LOCAL_ROW_MODELS,
   DATA_GRID_FEATURES,
@@ -43,10 +43,13 @@ export const projectColumns = helper.columns([
     meta: { share: 18, min: 160 },
     sortFn: (a, b) => compareText(a.original.clientName, b.original.clientName),
     cell: (info) => (
-      <TruncatedText
-        value={info.getValue()}
-        className="font-mono text-[12.5px] font-medium text-text2"
-      />
+      <span className="flex min-w-0 items-center gap-2">
+        <CompanyLogo name={info.getValue()} logo={info.row.original.clientLogoUrl} size={22} />
+        <TruncatedText
+          value={info.getValue()}
+          className="font-mono text-[12.5px] font-medium text-text2"
+        />
+      </span>
     ),
   }),
 

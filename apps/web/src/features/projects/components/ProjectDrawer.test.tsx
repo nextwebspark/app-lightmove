@@ -18,6 +18,7 @@ const project: Project = {
   id: "p1",
   clientId: "c1",
   clientName: "Beta Client",
+  clientLogoUrl: "https://logo.example/beta-client.png",
   positionTitle: "CFO Search",
   stage: "MAPPING",
   health: "RISK",
@@ -64,6 +65,12 @@ describe("ProjectDrawer", () => {
     expect(screen.queryByText("Casey Contact")).not.toBeInTheDocument();
     expect(screen.getByText("Rita Rep")).toBeInTheDocument();
     expect(screen.getByText("Invite sent")).toBeInTheDocument();
+  });
+
+  it("shows the client's logo", () => {
+    const { container } = renderDrawer();
+
+    expect(container.querySelector('img[src="https://logo.example/beta-client.png"]')).toBeInTheDocument();
   });
 
   it("offers no controls that change the team", () => {

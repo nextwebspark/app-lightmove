@@ -1,8 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Avatar, Button, Drawer, StagePill, stageLabel } from "../../../components/ui";
+import { Avatar, Button, CompanyLogo, Drawer, StagePill, stageLabel } from "../../../components/ui";
 import { DrawerCloseButton } from "../../../components/ui/Drawer";
-import { formatDate, initials } from "../../../lib/format";
+import { formatDate } from "../../../lib/format";
 import {
   STAFF_ROLES,
   type AttachedRepresentative,
@@ -90,9 +90,7 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
         <SectionLabel className="mt-[18px]">Client</SectionLabel>
         <div className="overflow-hidden rounded-[10px] border border-line-soft">
           <div className="flex items-center gap-[11px] px-[13px] py-[11px]">
-            <span className="grid size-[30px] flex-none place-items-center rounded-lg border border-line bg-panel2 font-mono text-[10.5px] font-bold text-text2">
-              {initials(project.clientName)}
-            </span>
+            <CompanyLogo name={project.clientName} logo={project.clientLogoUrl} size={30} />
             <div className="min-w-0 flex-1 truncate text-[13px] font-medium">{project.clientName}</div>
             <Chip style={HIRING_ENTITY_CHIP} />
           </div>

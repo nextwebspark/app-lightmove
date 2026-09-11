@@ -72,6 +72,7 @@ const created = (clientId: string): Project => ({
   id: "p1",
   clientId,
   clientName: "Acme Corp",
+  clientLogoUrl: null,
   positionTitle: "CFO",
   stage: "BRIEF",
   health: "OK",

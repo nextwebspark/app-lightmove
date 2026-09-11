@@ -87,6 +87,7 @@ describe("TeamAccessPage", () => {
     id: "p1",
     clientId: "c1",
     clientName: "Beta Client",
+    clientLogoUrl: null,
     positionTitle: "CFO Search",
     stage: "MAPPING",
     health: "OK",

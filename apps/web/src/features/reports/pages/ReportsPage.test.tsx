@@ -34,6 +34,7 @@ describe("ReportsPage", () => {
     id: "p1",
     clientId: "c1",
     clientName: "Aurora Capital",
+    clientLogoUrl: null,
     positionTitle: "Chief Financial Officer",
     stage: "MAPPING",
     health: "OK",

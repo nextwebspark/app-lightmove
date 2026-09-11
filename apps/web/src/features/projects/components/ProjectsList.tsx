@@ -1,5 +1,5 @@
 import type { ColumnVisibilityState, OnChangeFn, PaginationState } from "@tanstack/react-table";
-import { HealthDot, StagePill } from "../../../components/ui";
+import { CompanyLogo, HealthDot, StagePill } from "../../../components/ui";
 import { DataGrid } from "../../../components/ui/DataGrid";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
 import type { GridLayout } from "../../../lib/useGridLayout";
@@ -86,8 +86,11 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
       >
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <div className="truncate font-mono text-[11.5px] font-medium text-text3">
-              {project.clientName}
+            <div className="flex min-w-0 items-center gap-1.5">
+              <CompanyLogo name={project.clientName} logo={project.clientLogoUrl} size={18} />
+              <span className="truncate font-mono text-[11.5px] font-medium text-text3">
+                {project.clientName}
+              </span>
             </div>
             <div className="mt-0.5 text-[13.5px] font-semibold text-text">{project.positionTitle}</div>
           </div>
