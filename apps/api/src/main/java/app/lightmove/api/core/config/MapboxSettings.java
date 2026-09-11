@@ -6,14 +6,13 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 /**
  * The Mapbox account behind the talent map — {@code lightmove.mapbox.*}.
  *
- * <p>Two tokens, because the two halves of the feature run in two places. The <b>public</b> token is
- * handed to the browser for tiles and styles and should be URL-restricted to the SPA's origin in the
- * Mapbox account; a URL-restricted token fails from a server, which sends no Referer, so the
- * <b>geocoding</b> token is the server's own. Left blank it falls back to the public one, which is
- * right for a laptop and wrong for production.
+ * <p>Two tokens, because the two halves run in two places. The <b>public</b> token goes to the browser
+ * and should be URL-restricted to the SPA's origin; a URL-restricted token fails from a server, which
+ * sends no Referer, so the <b>geocoding</b> token is the server's own. Left blank it falls back to the
+ * public one, which is right for a laptop and wrong for production.
  *
- * <p>Blank public token means the map view is not offered at all: a fresh clone runs with no Mapbox
- * account, exactly as it runs with no enrichment vendor.
+ * <p>A blank public token means the map view is not offered at all, so a fresh clone runs with no
+ * Mapbox account.
  */
 public record MapboxSettings(
         String publicToken,

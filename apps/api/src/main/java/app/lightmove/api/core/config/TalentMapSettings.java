@@ -15,17 +15,15 @@ public record TalentMapSettings(
         @DefaultValue("5000") int maxCandidates,
 
         /**
-         * Vendor calls one read may spend on places nobody has geocoded yet. A big first import wants
-         * hundreds; this bounds the read at a few seconds and reports the rest as pending, so the
-         * screen polls the remainder in rather than waiting on all of it.
+         * Vendor calls one read may spend on places nobody has geocoded yet. The rest is reported as
+         * pending and polled in, rather than the read waiting on all of it.
          */
         @DefaultValue("50") int geocodesPerRead,
 
         /**
          * How long those calls may take in total. The count above bounds a vendor that <i>fails</i>;
          * this bounds one that is merely slow, which never throws and would otherwise run the full
-         * fifty read timeouts past the gateway's own. Whatever is left is reported as pending, exactly
-         * as an exhausted count is.
+         * count of read timeouts past the gateway's own.
          */
         @DefaultValue("20s") Duration geocodingDeadline
 ) {}

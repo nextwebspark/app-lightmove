@@ -22,19 +22,16 @@ import org.springframework.stereotype.Service;
  * Points for a set of places: from the cache where it can, from the vendor where it must, and never
  * more of the latter than one read is allowed to spend.
  *
- * <p>Deliberately not {@code @Transactional}. The read and the write each open their own transaction
- * in {@link GeocodedPlaceStore}; the vendor call sits between them in none.
+ * <p>Deliberately not {@code @Transactional} — the read and write each open their own in
+ * {@link GeocodedPlaceStore}, and the vendor call sits between them in none.
  *
  * <p>A vendor that cannot answer costs the read that place and the ones after it, not the read: the
- * map still renders with what the cache already held, the caller reports the rest as pending, and
- * the next read tries again. One failure stops the loop because the failures that reach here —
- * credentials, quota, an outage — are the same for every place in the loop, and fifty attempts at a
- * vendor that is down is fifty backoffs the request timeout cannot afford.
+ * map renders with what the cache held and the caller reports the rest as pending. One failure stops
+ * the loop because the failures that reach here are the same for every place in it.
  *
  * <p>A vendor that is merely <b>slow</b> never throws, so the count alone would let fifty read
- * timeouts run past the gateway's — and a request killed there reports nothing, not even the places
- * it did resolve. Hence the deadline beside the count: both stop the loop the same way, and both
- * leave the remainder as {@code pending} for the next read.
+ * timeouts run past the gateway's — and a request killed there reports nothing, not even the places it
+ * did resolve. Hence the deadline beside the count.
  */
 @Service
 @Slf4j
@@ -45,8 +42,6 @@ public class GeocodingService {
     private final MapboxSettings mapbox;
     private final TalentMapSettings budget;
 
-    // Hand-written rather than @RequiredArgsConstructor: it derives two settings branches from the
-    // properties root rather than taking them, which is the one case the Lombok rule exempts.
     public GeocodingService(Geocoder geocoder, GeocodedPlaceStore store, LightMoveProperties properties) {
         this.geocoder = geocoder;
         this.store = store;
