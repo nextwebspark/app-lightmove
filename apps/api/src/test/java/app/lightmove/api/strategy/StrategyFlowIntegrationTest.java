@@ -119,7 +119,7 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
 
         // Jackson read NumericRange.isEmpty() as a bean property, wrote "empty" into the document and
         // then refused to read it back, so a mandate that used Custom Range could never be loaded
-        // again — this GET, its results, its report and bulk add all 500ed on the next request.
+        // again — this GET, its results and bulk add all 500ed on the next request.
         mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.filter.employeeRange.min").value(500))

@@ -12,7 +12,6 @@ import { hasRoomForRails } from "../../../lib/viewport";
 import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
 import { useAutosave } from "../../../lib/useAutosave";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
-import * as reportApi from "../../reports/api/reportApi";
 import * as triageApi from "../../triage/api/triageApi";
 import type { TriageCompanyStatus } from "../../triage/api/types";
 import { TRIAGE_STAGES, stageByStatus } from "../../triage/lib/triageStages";
@@ -132,7 +131,6 @@ function StrategyEditor() {
     const scopedKeys = [
       strategyApi.STRATEGY_COMPANIES_KEY_PREFIX(project.id),
       triageApi.TRIAGE_KEY_PREFIX(project.id),
-      reportApi.REPORT_KEY(project.id),
     ];
     await Promise.all(scopedKeys.map((queryKey) => queryClient.cancelQueries({ queryKey })));
     scopedKeys.forEach((queryKey) => void queryClient.invalidateQueries({ queryKey }));
