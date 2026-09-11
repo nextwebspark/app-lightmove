@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -44,10 +46,15 @@ class CanonicalOriginRedirectFilterTest {
         assertThat(chain.getRequest()).isNotNull();
     }
 
-    @Test
-    @DisplayName("never redirects an API call, whatever hostname it arrives on")
-    void leavesTheApiAlone() throws Exception {
-        filter.doFilter(request(OTHER_HOST, "/api/v1/auth/providers"), response, chain);
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "/api/v1/auth/providers",
+            "/actuator/health",
+            "/oauth2/authorization/linkedin",
+            "/login/oauth2/code/linkedin"})
+    @DisplayName("never redirects the API, Actuator or the OAuth endpoints, whatever hostname they arrive on")
+    void leavesNonSpaPathsAlone(String path) throws Exception {
+        filter.doFilter(request(OTHER_HOST, path), response, chain);
 
         assertThat(response.getRedirectedUrl()).isNull();
         assertThat(chain.getRequest()).isNotNull();

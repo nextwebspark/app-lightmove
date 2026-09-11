@@ -34,12 +34,8 @@ public class CanonicalOriginRedirectFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String method = request.getMethod();
-        String path = request.getRequestURI();
         return !(HttpMethod.GET.matches(method) || HttpMethod.HEAD.matches(method))
-                || path.startsWith("/api/")
-                || path.startsWith("/actuator")
-                || path.startsWith("/oauth2/")
-                || path.startsWith("/login/oauth2");
+                || !SpaRequestPaths.isSpaPath(request.getRequestURI());
     }
 
     @Override

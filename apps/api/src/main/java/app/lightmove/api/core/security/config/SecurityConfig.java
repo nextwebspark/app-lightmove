@@ -6,6 +6,7 @@ import app.lightmove.api.core.security.service.ProviderQuirkAwareRequestResolver
 import app.lightmove.api.core.security.service.OAuth2LoginSuccessHandler;
 
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.config.SpaRequestPaths;
 import app.lightmove.api.core.error.handler.ProblemAccessDeniedHandler;
 import org.springframework.boot.actuate.autoconfigure.web.server.ManagementServerProperties;
 import org.springframework.boot.web.server.autoconfigure.ServerProperties;
@@ -218,13 +219,7 @@ public class SecurityConfig {
     @Order(2)
     SecurityFilterChain spaChain(HttpSecurity http) throws Exception {
         return http
-                .securityMatcher(request -> {
-                    String path = request.getRequestURI();
-                    return !path.startsWith("/api/")
-                            && !path.startsWith("/actuator")
-                            && !path.startsWith("/oauth2/")
-                            && !path.startsWith("/login/oauth2");
-                })
+                .securityMatcher(request -> SpaRequestPaths.isSpaPath(request.getRequestURI()))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 // Static files. There is no state to forge a request against.
                 .csrf(csrf -> csrf.disable())
