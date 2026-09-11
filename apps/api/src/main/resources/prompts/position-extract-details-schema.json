@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "roleTitle": { "type": ["string", "null"] },
+    "roleTitleSnippet": { "type": ["string", "null"] },
+    "department": { "type": ["string", "null"] },
+    "departmentSnippet": { "type": ["string", "null"] },
+    "location": { "type": ["string", "null"] },
+    "locationSnippet": { "type": ["string", "null"] },
+    "employmentType": { "type": ["string", "null"] },
+    "employmentTypeSnippet": { "type": ["string", "null"] },
+    "seniority": { "type": ["string", "null"] },
+    "senioritySnippet": { "type": ["string", "null"] },
+    "responsibilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": { "type": "string" },
+          "snippet": { "type": ["string", "null"] }
+        },
+        "required": ["text"]
+      }
+    },
+    "narrative": { "type": ["string", "null"] },
+    "narrativeSnippet": { "type": ["string", "null"] }
+  },
+  "required": ["roleTitle"]
+}

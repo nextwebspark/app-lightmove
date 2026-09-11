@@ -21,6 +21,21 @@ API and the SPA against it. The database is **yours** — nothing you do locally
 The one thing it cannot conjure is the company universe the Strategy screens search over. That is a
 separate one-time step — see **The company universe** below.
 
+### Windows
+
+Every `npm run dev*` script (`dev`, `dev:api`, `dev:api:cloud`, ...) is Bash under the hood —
+`ops/dev/api.sh`, `./mvnw` — because that is what Testcontainers, CI and every other contributor's
+shell already are. npm on Windows defaults to `cmd.exe` for running package.json scripts, which
+cannot execute them and fails immediately with `'.' is not recognized as an internal or external
+command`. Point npm at Git Bash once, in your **personal, global** npm config — never the repo's own
+`.npmrc`, since this is a per-machine fix, not something every contributor needs:
+
+```bash
+npm config set script-shell "C:\Program Files\Git\bin\bash.exe" --location=global
+```
+
+Everything else — Docker, Java, Node, `gcloud` — behaves the same as on macOS/Linux once that's set.
+
 | | |
 |---|---|
 | Web | http://localhost:5173 |

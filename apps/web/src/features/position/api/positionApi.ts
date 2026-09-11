@@ -6,6 +6,7 @@ import type {
   MandateContext,
   Position,
   PositionDetails,
+  PositionExtraction,
   PositionTemplate,
   ReportingStructure,
 } from "./types";
@@ -100,6 +101,15 @@ export function attachDocument(projectId: string, file: File): Promise<Position>
   const form = new FormData();
   form.append("file", file);
   return request<Position>(`${base(projectId)}/document`, { method: "POST", body: form });
+}
+
+/**
+ * Reads the already-attached document into step-one proposals. No file travels with this call — the
+ * document is already server-side — and nothing is written until a proposal is accepted through
+ * {@link putDetails}.
+ */
+export function extractDetails(projectId: string): Promise<PositionExtraction> {
+  return request<PositionExtraction>(`${base(projectId)}/document/extract/details`, { method: "POST" });
 }
 
 /**

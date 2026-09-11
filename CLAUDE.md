@@ -51,7 +51,12 @@ one takes that title and redrafts the brief from its template (`GET /position-te
 management screen is a later session, and the rows it will write are already keyed to a workspace. Step three is an editable
 React Flow org chart — add, rename, re-parent and drag any seat; only the role's own seat is fixed.
 Step one attaches the position
-description, which is *stored and never read* — no extraction, no auto-fill. Publishing stamps who
+description and can read it on request — **Read from document** proposes step-one fields (value,
+confidence, source snippet) reviewed and accepted one at a time through the same autosave the fields
+already have; nothing is written until a row is accepted, and a run with no Vertex credentials still
+proposes from the document's own headings, honestly labelled. `Position.dc.html`'s dropzone promises a
+**silent** auto-fill on drop — review-then-accept is a deliberate, correct deviation from that mockup,
+not a bug to fix later. Publishing stamps who
 called the brief ready and **freezes nothing** (V38 retired the lock deliberately). Don't build ahead of
 the mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
 

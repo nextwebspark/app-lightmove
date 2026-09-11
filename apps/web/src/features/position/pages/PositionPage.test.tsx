@@ -8,7 +8,7 @@ import { AuthProvider } from "../../auth/AuthProvider";
 import * as authApi from "../../auth/api/authApi";
 import type { Project } from "../../projects/api/types";
 import * as positionApi from "../api/positionApi";
-import type { Position, PositionTemplate } from "../api/types";
+import type { Position, PositionExtraction, PositionTemplate } from "../api/types";
 import { PositionPage } from "./PositionPage";
 
 vi.mock("../../auth/api/authApi");
@@ -26,6 +26,7 @@ vi.mock("../api/positionApi", async (importOriginal) => ({
   withdrawPublication: vi.fn(),
   listTemplates: vi.fn(),
   applyTemplate: vi.fn(),
+  extractDetails: vi.fn(),
 }));
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
@@ -520,6 +521,86 @@ describe("PositionPage", () => {
 
     expect(await screen.findByText("CFO Position Description.pdf")).toBeInTheDocument();
     expect(screen.queryByText(/auto-fill/i)).not.toBeInTheDocument();
+  });
+
+  it("reads the document into proposals, labelling a degraded reading honestly", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "documentHeadings",
+      fields: [
+        {
+          fieldKey: "roleTitle",
+          value: "Group Chief Financial Officer",
+          confidence: "medium",
+          snippet: "Job Title: Group Chief Financial Officer",
+        },
+      ],
+    };
+    vi.mocked(positionApi.extractDetails).mockResolvedValue(extracted);
+    vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+
+    expect(await screen.findByText(/could not be reached/)).toBeInTheDocument();
+  });
+
+  it("accepting a proposal issues exactly one PUT with only that field changed", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "documentHeadings",
+      fields: [
+        {
+          fieldKey: "roleTitle",
+          value: "Group Chief Financial Officer",
+          confidence: "medium",
+          snippet: "Job Title: Group Chief Financial Officer",
+        },
+        { fieldKey: "department", value: "Group Finance & Treasury", confidence: "low", snippet: null },
+      ],
+    };
+    vi.mocked(positionApi.extractDetails).mockResolvedValue(extracted);
+    vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    await screen.findByDisplayValue("Group Chief Financial Officer");
+
+    // Accepted immediately, like every other decision-shaped edit — renaming the mandate does not
+    // wait out the ordinary typing debounce.
+    await user.click(screen.getAllByRole("button", { name: /Accept$/ })[0]);
+
+    await waitFor(() =>
+      expect(vi.mocked(positionApi.putDetails).mock.calls.at(-1)?.[1]).toEqual(
+        expect.objectContaining({ roleTitle: "Group Chief Financial Officer" }),
+      ),
+    );
+    const callsAfterAccept = vi.mocked(positionApi.putDetails).mock.calls.length;
+    // The accepted row is gone; only the department proposal remains for review.
+    expect(screen.getAllByRole("button", { name: /Accept$/ })).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByDisplayValue("Group Finance & Treasury")).not.toBeInTheDocument();
+    // Dismissing writes nothing — the call count does not move.
+    expect(vi.mocked(positionApi.putDetails).mock.calls.length).toBe(callsAfterAccept);
   });
 
   it("suggests role templates, and lets a title nothing matches be typed anyway", async () => {

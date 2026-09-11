@@ -13,8 +13,10 @@ import lombok.NoArgsConstructor;
  * The position description attached to a brief — one file per position, stored in the row rather than
  * in object storage, because this is a single small document per mandate and not a library.
  *
- * <p>Nothing reads inside it. The bytes are kept so the file the mandate was briefed from stays with
- * the mandate; extracting fields out of it is a separate feature that does not exist.
+ * <p>This entity is a byte store and nothing more — extraction ({@link
+ * app.lightmove.api.position.service.PositionExtractionService}) reads the bytes through {@link
+ * app.lightmove.api.position.repository.PositionDocumentRepository#findByPositionId}, the same
+ * accessor download already uses, rather than through any method here.
  */
 @Entity
 @Table(name = "app_lm_position_document")
