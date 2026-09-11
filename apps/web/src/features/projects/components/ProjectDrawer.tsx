@@ -3,14 +3,10 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Avatar, Button, CompanyLogo, Drawer, StagePill, stageLabel } from "../../../components/ui";
 import { DrawerCloseButton } from "../../../components/ui/Drawer";
 import { formatDate } from "../../../lib/format";
-import {
-  STAFF_ROLES,
-  type AttachedRepresentative,
-  type Project,
-  type StaffRole,
-  type TeamMember,
-} from "../api/types";
+import type { AttachedRepresentative, Project, StaffRole, TeamMember } from "../api/types";
 import { STAGE_ORDER } from "../lib/filtering";
+import { staffRoleOf } from "../lib/projectTeamColumns";
+import { ROLE_STYLES } from "./ProjectRoleChips";
 
 /** The project list's read-only summary of one mandate; every change is made in the project itself. */
 export function ProjectDrawer({ project, onClose }: { project: Project | null; onClose: () => void }) {
@@ -20,7 +16,7 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
 
   const currentStage = STAGE_ORDER.indexOf(project.stage);
   const gates = STAGE_ORDER.filter((stage) => stage !== "CLOSED");
-  const staff = staffSeatsOf(project.team);
+  const staff = staffLeadsFirst(project.team);
 
   return (
     <Drawer open onClose={onClose} label={`${project.positionTitle} — ${project.clientName}`}>
@@ -74,14 +70,14 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
           {staff.length === 0 ? (
             <EmptyRow>No one staffed yet</EmptyRow>
           ) : (
-            staff.map(({ member, role }) => (
+            staff.map((member) => (
               <div
                 key={member.memberId}
                 className="flex items-center gap-[11px] border-b border-line-soft px-[13px] py-[11px] last:border-b-0"
               >
                 <Avatar id={member.memberId} name={member.fullName} src={member.avatarUrl} size="lg" />
                 <div className="min-w-0 flex-1 truncate text-[13px] font-medium">{member.fullName}</div>
-                <Chip style={ROLE_CHIPS[role]} />
+                <RoleChip role={staffRoleOf(member)} />
               </div>
             ))
           )}
@@ -92,7 +88,7 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
           <div className="flex items-center gap-[11px] px-[13px] py-[11px]">
             <CompanyLogo name={project.clientName} logo={project.clientLogoUrl} size={30} />
             <div className="min-w-0 flex-1 truncate text-[13px] font-medium">{project.clientName}</div>
-            <Chip style={HIRING_ENTITY_CHIP} />
+            <Chip label="Hiring entity" className="border-line bg-panel2 text-text2" />
           </div>
           {project.representatives.length === 0 ? (
             <EmptyRow>No client contacts on this mandate</EmptyRow>
@@ -115,47 +111,29 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
   );
 }
 
-interface StaffSeat {
-  member: TeamMember;
-  role: StaffRole;
+function staffLeadsFirst(team: TeamMember[]): TeamMember[] {
+  const staff = team.filter((member) => member.projectRoles.some((role) => role !== "CLIENT"));
+  return staff.sort((a, b) => Number(staffRoleOf(b) === "LEAD") - Number(staffRoleOf(a) === "LEAD"));
 }
 
-function staffSeatsOf(team: TeamMember[]): StaffSeat[] {
-  const seats = team.flatMap((member): StaffSeat[] => {
-    const role = STAFF_ROLES.find((staffRole) => member.projectRoles.includes(staffRole));
-    return role ? [{ member, role }] : [];
-  });
-  return seats.sort((a, b) => STAFF_ROLES.indexOf(a.role) - STAFF_ROLES.indexOf(b.role));
-}
-
-interface ChipStyle {
-  label: string;
-  className: string;
-}
-
-const ROLE_CHIPS: Record<StaffRole, ChipStyle> = {
-  LEAD: { label: "Lead", className: "border-amber bg-amber-dim text-amber" },
-  RESEARCHER: { label: "Researcher", className: "border-line bg-panel2 text-text2" },
-};
-
-const REPRESENTATIVE_STATUS_CHIPS: Record<AttachedRepresentative["status"], ChipStyle> = {
+const REPRESENTATIVE_STATUS: Record<AttachedRepresentative["status"], { label: string; className: string }> = {
   ACTIVE: { label: "Active", className: "border-transparent bg-green-dim text-green" },
   INVITED: { label: "Invite sent", className: "border-transparent bg-amber-dim text-amber" },
 };
 
-const HIRING_ENTITY_CHIP: ChipStyle = {
-  label: "Hiring entity",
-  className: "border-line bg-panel2 text-text2",
-};
-
-function Chip({ style }: { style: ChipStyle }) {
+function Chip({ label, className }: { label: string; className: string }) {
   return (
     <span
-      className={`flex-none whitespace-nowrap rounded-full border px-2 py-[3px] font-mono text-[9px] font-semibold uppercase tracking-[0.05em] ${style.className}`}
+      className={`flex-none whitespace-nowrap rounded-full border px-2 py-[3px] font-mono text-[9px] font-semibold uppercase tracking-[0.05em] ${className}`}
     >
-      {style.label}
+      {label}
     </span>
   );
+}
+
+function RoleChip({ role }: { role: StaffRole }) {
+  const { label, on } = ROLE_STYLES[role];
+  return <Chip label={label} className={on} />;
 }
 
 function RepresentativeRow({ representative }: { representative: AttachedRepresentative }) {
@@ -168,7 +146,10 @@ function RepresentativeRow({ representative }: { representative: AttachedReprese
           {[representative.position, representative.email].filter(Boolean).join(" · ")}
         </div>
       </div>
-      <Chip style={REPRESENTATIVE_STATUS_CHIPS[representative.status]} />
+      <Chip
+        label={REPRESENTATIVE_STATUS[representative.status].label}
+        className={REPRESENTATIVE_STATUS[representative.status].className}
+      />
     </div>
   );
 }
