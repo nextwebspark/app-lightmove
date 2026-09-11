@@ -326,6 +326,346 @@
           </div>
         </sc-if>
 
+        <!-- ============ TEMPLATES (workspace) · TEMPLATE LIBRARY (platform) — list ============ -->
+        <sc-if value="{{ isTplList }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Settings · Templates" style="animation:fadeUp .4s ease both">
+            <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+              <div style="min-width:0">
+                <div style="font:600 19px/1.2 var(--sans)">{{ tplHeading }}</div>
+                <div style="color:var(--text3);font:400 12px var(--mono);margin-top:4px">{{ tplCountLine }}</div>
+              </div>
+              <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+                <button onClick="{{ openImport }}" style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"></path></svg>
+                  Import
+                </button>
+                <button onClick="{{ toastExport }}" style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
+                  Export
+                </button>
+                <button onClick="{{ newTpl }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
+                  New template
+                </button>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:flex-start;background:var(--sky-dim);border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px;margin-bottom:20px;font:400 12px/1.55 var(--mono);color:var(--text2)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--sky)" stroke-width="2" style="flex:none;margin-top:1px"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 16v-4M12 8h.01"></path></svg>
+              <span>{{ tplNote }}</span>
+            </div>
+            <sc-for list="{{ tplGroups }}" as="g" hint-placeholder-count="3">
+              <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:0 0 8px 2px">{{ g.label }} · {{ g.count }}</div>
+              <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:0 20px;margin-bottom:18px">
+                <sc-for list="{{ g.rows }}" as="t" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:{{ t.border }};opacity:{{ t.opacity }}">
+                    <div style="flex:1;min-width:0">
+                      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                        <span style="font:500 13px var(--sans)">{{ t.title }}</span>
+                        <span style="font:400 11px var(--mono);color:var(--text3)">{{ t.seniority }}</span>
+                        <span style="display:inline-flex;font:600 9.5px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid var(--line-soft);color:{{ t.badgeFg }};background:{{ t.badgeBg }}">{{ t.badge }}</span>
+                        <sc-if value="{{ t.libUpdated }}" hint-placeholder-val="{{ false }}">
+                          <span title="The library version changed after your firm customised this template" style="display:inline-flex;align-items:center;gap:5px;font:600 9.5px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;color:var(--amber);background:var(--amber-dim)">
+                            <span style="width:6px;height:6px;border-radius:50%;background:var(--amber-btn)"></span>Library updated
+                          </span>
+                        </sc-if>
+                      </div>
+                      <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.summary }}</div>
+                    </div>
+                    <sc-if value="{{ t.canToggle }}" hint-placeholder-val="{{ false }}">
+                      <button onClick="{{ toggleTplVisible }}" data-code="{{ t.code }}" style="font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer;padding:5px 8px;border-radius:6px;flex:none" style-hover="color:var(--text);background:var(--panel)">{{ t.toggleLabel }}</button>
+                    </sc-if>
+                    <button onClick="{{ openTpl }}" data-code="{{ t.code }}" style="display:inline-flex;align-items:center;padding:5px 12px;border-radius:7px;font:500 12.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:var(--panel);cursor:pointer;flex:none" style-hover="color:var(--text);border-color:var(--text3)">Open</button>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- ============ TEMPLATE EDITOR (both scopes) ============ -->
+        <sc-if value="{{ isTplEditor }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Settings · Template editor" style="animation:fadeUp .4s ease both">
+            <button onClick="{{ closeTpl }}" style="display:inline-flex;align-items:center;gap:6px;padding:0;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+              {{ tplHeading }}
+            </button>
+            <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin:10px 0 14px">
+              <div style="min-width:0">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <span style="font:600 19px/1.2 var(--sans)">{{ edTitle }}</span>
+                  <span style="display:inline-flex;font:600 9.5px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid var(--line-soft);color:{{ edBadgeFg }};background:{{ edBadgeBg }}">{{ edBadge }}</span>
+                </div>
+                <div style="color:var(--text3);font:400 12px var(--mono);margin-top:4px">{{ edMetaLine }}</div>
+              </div>
+              <div style="margin-left:auto;display:flex;align-items:center;gap:10px;flex:none">
+                <sc-if value="{{ edDirty }}" hint-placeholder-val="{{ false }}">
+                  <span style="font:500 11.5px var(--mono);color:var(--amber)">Unsaved changes</span>
+                </sc-if>
+                <button onClick="{{ saveTpl }}" style="display:inline-flex;align-items:center;padding:8px 15px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer;opacity:{{ edSaveOpacity }}" style-hover="filter:brightness(1.05)">{{ edSaveLabel }}</button>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;background:{{ edBannerBg }};border:1px solid {{ edBannerBorder }};border-radius:10px;padding:12px 14px;margin-bottom:18px;font:400 12px/1.55 var(--mono);color:var(--text2)">
+              <span style="flex:1;min-width:220px">{{ edBanner }}</span>
+              <sc-if value="{{ edShowReset }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ resetTpl }}" style="display:inline-flex;align-items:center;padding:5px 11px;border-radius:7px;font:500 12px var(--sans);border:1px solid var(--line);color:var(--text2);background:var(--panel);cursor:pointer;flex:none" style-hover="color:var(--text);border-color:var(--text3)">Reset to library</button>
+              </sc-if>
+            </div>
+
+            <!-- 1 · identity & matching -->
+            <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:20px;margin-bottom:16px">
+              <div style="font:600 13px var(--sans)">Identity &amp; matching</div>
+              <div style="font:400 11.5px var(--mono);color:var(--text3);margin:3px 0 16px">How the picker lists this template, and which role titles are drafted from it</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px 16px">
+                <div style="grid-column:1 / -1">
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Title</label>
+                  <input value="{{ edTitle }}" onInput="{{ onEd }}" data-field="title" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                </div>
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Discipline</label>
+                  <select value="{{ edDiscipline }}" onChange="{{ onEd }}" data-field="discipline" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <option>Executive</option><option>Finance</option><option>Operations</option><option>Technology</option><option>People</option><option>Commercial</option><option>Governance</option><option>Investment</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Seniority</label>
+                  <select value="{{ edSeniority }}" onChange="{{ onEd }}" data-field="seniority" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <option>Board</option><option>C-Suite</option><option>N-1</option><option>N-2</option><option>N-3</option>
+                  </select>
+                </div>
+                <div style="grid-column:1 / -1">
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Summary — one line under the title in the picker</label>
+                  <input value="{{ edSummary }}" onInput="{{ onEd }}" data-field="summary" maxlength="300" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                </div>
+                <div style="grid-column:1 / -1">
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Match keywords</label>
+                  <div style="background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px">
+                    <div style="display:flex;flex-wrap:wrap;gap:8px">
+                      <sc-for list="{{ edKeywords }}" as="k" hint-placeholder-count="4">
+                        <span style="display:inline-flex;align-items:center;gap:7px;padding:5px 8px 5px 10px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);font:500 12px var(--mono);color:var(--text2)">
+                          {{ k.label }}
+                          <button onClick="{{ rmChip }}" data-list="keywords" data-idx="{{ k.idx }}" title="Remove" style="background:none;border:none;padding:0 2px;color:var(--text3);cursor:pointer;font-size:12px;line-height:1" style-hover="color:var(--red)">✕</button>
+                        </span>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:12px">
+                      <input value="{{ draftKeywords }}" onInput="{{ onChipDraft }}" onKeyDown="{{ chipEnter }}" data-list="keywords" placeholder="Add a keyword, e.g. group cfo" style="flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                      <button onClick="{{ addChip }}" data-list="keywords" style="padding:7px 14px;border-radius:8px;font:600 12px var(--sans);border:1px dashed var(--line);color:var(--sky);background:none;cursor:pointer;flex:none" style-hover="border-color:var(--sky)">+ Add</button>
+                    </div>
+                    <div style="font:400 11px var(--mono);color:var(--text3);margin-top:10px">A new mandate whose role title contains any of these is drafted from this template. Case doesn't matter.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2 · details -->
+            <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:20px;margin-bottom:16px">
+              <div style="font:600 13px var(--sans)">Position details</div>
+              <div style="font:400 11.5px var(--mono);color:var(--text3);margin:3px 0 16px">Step 1 of the brief. Role title and location stay the mandate's own</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px 16px;margin-bottom:16px">
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Department</label>
+                  <input value="{{ edDepartment }}" onInput="{{ onEd }}" data-field="department" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                </div>
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Employment type</label>
+                  <select value="{{ edEmployment }}" onChange="{{ onEd }}" data-field="employment" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <option>Full-time, permanent</option><option>Full-time, fixed-term</option><option>Part-time</option><option>Interim / contract</option><option>Advisory</option>
+                  </select>
+                </div>
+              </div>
+              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Key responsibilities</label>
+              <div style="background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px;margin-bottom:16px">
+                <div style="display:flex;flex-wrap:wrap;gap:8px">
+                  <sc-for list="{{ edResponsibilities }}" as="k" hint-placeholder-count="4">
+                    <span style="display:inline-flex;align-items:center;gap:7px;padding:5px 8px 5px 10px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);font:600 12px var(--sans);color:var(--text2)">
+                      {{ k.label }}
+                      <button onClick="{{ rmChip }}" data-list="responsibilities" data-idx="{{ k.idx }}" title="Remove" style="background:none;border:none;padding:0 2px;color:var(--text3);cursor:pointer;font-size:12px;line-height:1" style-hover="color:var(--red)">✕</button>
+                    </span>
+                  </sc-for>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:12px">
+                  <input value="{{ draftResponsibilities }}" onInput="{{ onChipDraft }}" onKeyDown="{{ chipEnter }}" data-list="responsibilities" placeholder="Add a responsibility…" style="flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <button onClick="{{ addChip }}" data-list="responsibilities" style="padding:7px 14px;border-radius:8px;font:600 12px var(--sans);border:1px dashed var(--line);color:var(--sky);background:none;cursor:pointer;flex:none" style-hover="border-color:var(--sky)">+ Add</button>
+                </div>
+              </div>
+              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Ideal profile</label>
+              <textarea value="{{ edNarrative }}" onInput="{{ onEd }}" data-field="narrative" style="width:100%;min-height:104px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font:400 13px var(--sans);color:var(--text2);line-height:1.6;outline:none;resize:vertical" style-focus="border-color:var(--sky)"></textarea>
+            </div>
+
+            <!-- 3 · mandate context -->
+            <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:20px;margin-bottom:16px">
+              <div style="font:600 13px var(--sans)">Mandate context</div>
+              <div style="font:400 11.5px var(--mono);color:var(--text3);margin:3px 0 16px">The strategic-priority palette step 2 offers. The consultant picks which apply; reason for hire and business driver stay per mandate</div>
+              <div style="background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px">
+                <div style="display:flex;flex-wrap:wrap;gap:8px">
+                  <sc-for list="{{ edPriorities }}" as="k" hint-placeholder-count="5">
+                    <span style="display:inline-flex;align-items:center;gap:7px;padding:6px 9px 6px 12px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);font:600 12.5px var(--sans);color:var(--text2)">
+                      {{ k.label }}
+                      <button onClick="{{ rmChip }}" data-list="priorities" data-idx="{{ k.idx }}" title="Remove" style="background:none;border:none;padding:0 2px;color:var(--text3);cursor:pointer;font-size:12px;line-height:1" style-hover="color:var(--red)">✕</button>
+                    </span>
+                  </sc-for>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:12px">
+                  <input value="{{ draftPriorities }}" onInput="{{ onChipDraft }}" onKeyDown="{{ chipEnter }}" data-list="priorities" placeholder="Add a priority…" style="flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <button onClick="{{ addChip }}" data-list="priorities" style="padding:7px 14px;border-radius:8px;font:600 12px var(--sans);border:1px dashed var(--line);color:var(--sky);background:none;cursor:pointer;flex:none" style-hover="border-color:var(--sky)">+ Add</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4 · reporting -->
+            <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:20px;margin-bottom:16px">
+              <div style="font:600 13px var(--sans)">Reporting structure</div>
+              <div style="font:400 11.5px var(--mono);color:var(--text3);margin:3px 0 16px">Seeds step 3's org chart: the seat above the role, and the seats beneath it</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px 16px;margin-bottom:16px">
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Reports to</label>
+                  <input value="{{ edReportsTo }}" onInput="{{ onEd }}" data-field="reportsTo" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                </div>
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Notice period</label>
+                  <div style="display:flex;gap:8px">
+                    <input type="number" min="0" value="{{ edNoticeValue }}" onInput="{{ onEd }}" data-field="noticeValue" style="width:80px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <select value="{{ edNoticeUnit }}" onChange="{{ onEd }}" data-field="noticeUnit" style="flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                      <option>Months</option><option>Weeks</option><option>Days</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Direct reports</label>
+              <div style="background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px">
+                <div style="display:flex;flex-wrap:wrap;gap:8px">
+                  <sc-for list="{{ edDirectReports }}" as="k" hint-placeholder-count="4">
+                    <span style="display:inline-flex;align-items:center;gap:7px;padding:5px 8px 5px 10px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);font:600 12px var(--sans);color:var(--text2)">
+                      {{ k.label }}
+                      <button onClick="{{ rmChip }}" data-list="directReports" data-idx="{{ k.idx }}" title="Remove" style="background:none;border:none;padding:0 2px;color:var(--text3);cursor:pointer;font-size:12px;line-height:1" style-hover="color:var(--red)">✕</button>
+                    </span>
+                  </sc-for>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:12px">
+                  <input value="{{ draftDirectReports }}" onInput="{{ onChipDraft }}" onKeyDown="{{ chipEnter }}" data-list="directReports" placeholder="Add a seat, e.g. Head of Treasury" style="flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <button onClick="{{ addChip }}" data-list="directReports" style="padding:7px 14px;border-radius:8px;font:600 12px var(--sans);border:1px dashed var(--line);color:var(--sky);background:none;cursor:pointer;flex:none" style-hover="border-color:var(--sky)">+ Add</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 5 · compensation -->
+            <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:20px;margin-bottom:16px">
+              <div style="font:600 13px var(--sans)">Compensation shape</div>
+              <div style="font:400 11.5px var(--mono);color:var(--text3);margin:3px 0 16px">The package's shape, never its figures. The salary band is the client's budget, set on each mandate</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px 16px;margin-bottom:16px">
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Currency</label>
+                  <select value="{{ edCurrency }}" onChange="{{ onEd }}" data-field="currency" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <option>AED</option><option>USD</option><option>SAR</option><option>QAR</option><option>KWD</option><option>GBP</option><option>EUR</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Base salary quoted</label>
+                  <div style="display:flex;gap:4px;padding:3px;border-radius:9px;background:var(--panel);border:1px solid var(--line-soft)">
+                    <sc-for list="{{ edSalaryModes }}" as="m" hint-placeholder-count="2">
+                      <button onClick="{{ setSalaryMode }}" data-val="{{ m.label }}" style="flex:1;padding:6px 10px;border-radius:7px;border:1px solid {{ m.border }};cursor:pointer;font:600 12px var(--sans);color:{{ m.color }};background:{{ m.bg }}">{{ m.label }}</button>
+                    </sc-for>
+                  </div>
+                </div>
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Target bonus</label>
+                  <div style="display:flex;gap:8px">
+                    <input type="number" min="0" value="{{ edBonusValue }}" onInput="{{ onEd }}" data-field="bonusValue" style="width:80px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <select value="{{ edBonusBasis }}" onChange="{{ onEd }}" data-field="bonusBasis" style="flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                      <option>% of base salary</option><option>% of total fixed</option><option>Months of base salary</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Long-term incentive</label>
+                  <select value="{{ edIncentive }}" onChange="{{ onEd }}" data-field="incentive" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <option>None</option><option>LTIP cash</option><option>RSUs</option><option>Options</option><option>Phantom equity</option>
+                  </select>
+                </div>
+                <div style="grid-column:1 / -1">
+                  <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Incentive vesting</label>
+                  <input value="{{ edVesting }}" onInput="{{ onEd }}" data-field="vesting" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                </div>
+              </div>
+              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Benefits &amp; allowances — lines only, the amount is each mandate's</label>
+              <div style="background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;padding:4px 14px 12px">
+                <sc-for list="{{ edBenefits }}" as="b" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-soft)">
+                    <input value="{{ b.name }}" onInput="{{ onBenefit }}" data-idx="{{ b.idx }}" data-field="name" style="flex:1;min-width:0;background:none;border:none;border-bottom:1px solid transparent;padding:4px 0;font:500 13px var(--sans);color:var(--text);outline:none" style-hover="border-bottom-color:var(--line)" style-focus="border-bottom-color:var(--sky)">
+                    <select value="{{ b.freq }}" onChange="{{ onBenefit }}" data-idx="{{ b.idx }}" data-field="freq" style="width:110px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:5px 8px;font:400 12px var(--mono);color:var(--text);outline:none;flex:none">
+                      <option>Monthly</option><option>Yearly</option>
+                    </select>
+                    <button onClick="{{ rmBenefit }}" data-idx="{{ b.idx }}" title="Remove" style="background:none;border:none;color:var(--text3);flex:none;padding:4px;cursor:pointer" style-hover="color:var(--red)">✕</button>
+                  </div>
+                </sc-for>
+                <button onClick="{{ addBenefit }}" style="margin-top:10px;width:100%;padding:8px;border:1px dashed var(--line);border-radius:8px;background:none;font:500 12px var(--mono);color:var(--sky);cursor:pointer" style-hover="border-color:var(--sky);background:var(--sky-dim)">+ Add benefit</button>
+              </div>
+            </div>
+
+            <!-- 6 · assessment -->
+            <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:20px;margin-bottom:16px">
+              <div style="font:600 13px var(--sans)">Assessment</div>
+              <div style="font:400 11.5px var(--mono);color:var(--text3);margin:3px 0 16px">What a candidate is scored against. Each panel must total exactly 100% to save</div>
+              <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:16px">
+                <sc-for list="{{ edCompPanels }}" as="p" hint-placeholder-count="2">
+                  <div style="border-radius:10px;border:1px solid {{ p.borderColor }};background:var(--panel);overflow:hidden">
+                    <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line-soft)">
+                      <span style="width:8px;height:8px;border-radius:50%;background:{{ p.dotColor }};flex:none"></span>
+                      <span style="font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text2)">{{ p.title }}</span>
+                      <span style="margin-left:auto;font:700 12px var(--mono);padding:3px 10px;border-radius:6px;color:{{ p.totalColor }};background:{{ p.totalBg }}">Total {{ p.total }}%</span>
+                    </div>
+                    <div style="overflow-x:auto">
+                      <div style="min-width:480px">
+                        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) 74px 28px;gap:10px;padding:9px 16px;border-bottom:1px solid var(--line-soft);font:600 10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">
+                          <span>Competency</span><span>Description</span><span style="text-align:right">Weight</span><span></span>
+                        </div>
+                        <sc-for list="{{ p.rows }}" as="r" hint-placeholder-count="4">
+                          <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) 74px 28px;gap:10px;align-items:center;padding:9px 16px;border-bottom:1px solid var(--line-soft)">
+                            <input value="{{ r.name }}" onInput="{{ onComp }}" data-panel="{{ p.key }}" data-idx="{{ r.idx }}" data-field="name" style="background:none;border:none;outline:none;font:600 13px var(--sans);color:var(--text);min-width:0">
+                            <input value="{{ r.desc }}" onInput="{{ onComp }}" data-panel="{{ p.key }}" data-idx="{{ r.idx }}" data-field="desc" placeholder="What this measures…" style="background:none;border:none;outline:none;font:400 12.5px var(--sans);color:var(--text3);min-width:0">
+                            <span style="display:flex;align-items:center;gap:4px;justify-content:flex-end">
+                              <input type="number" min="0" max="100" value="{{ r.weight }}" onInput="{{ onComp }}" data-panel="{{ p.key }}" data-idx="{{ r.idx }}" data-field="weight" style="width:48px;text-align:right;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:600 12px var(--mono);color:var(--text);outline:none">
+                              <span style="font:500 11.5px var(--mono);color:var(--text3)">%</span>
+                            </span>
+                            <button onClick="{{ rmComp }}" data-panel="{{ p.key }}" data-idx="{{ r.idx }}" title="Remove" style="background:none;border:none;padding:2px;color:var(--text3);cursor:pointer;font-size:11px;line-height:1" style-hover="color:var(--red)">✕</button>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </div>
+                    <div style="padding:10px 16px">
+                      <button onClick="{{ addComp }}" data-panel="{{ p.key }}" style="width:100%;padding:8px;border:1px dashed var(--line);border-radius:8px;background:none;font:500 12px var(--mono);color:var(--sky);cursor:pointer" style-hover="border-color:var(--sky);background:var(--sky-dim)">+ Add competency</button>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Screening criteria — required narrows the field, preferred breaks ties</label>
+              <div style="background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;padding:6px 14px 12px">
+                <sc-for list="{{ edCriteria }}" as="c" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-soft);flex-wrap:wrap">
+                    <input value="{{ c.text }}" onInput="{{ onCrit }}" data-idx="{{ c.idx }}" style="flex:1;min-width:180px;background:none;border:none;border-bottom:1px solid transparent;padding:4px 0;font:500 13px var(--sans);color:var(--text);outline:none" style-hover="border-bottom-color:var(--line)" style-focus="border-bottom-color:var(--sky)">
+                    <span style="display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;flex:none">
+                      <button onClick="{{ setCritMode }}" data-idx="{{ c.idx }}" data-mode="required" style="padding:5px 11px;font:600 11px var(--mono);border:none;cursor:pointer;color:{{ c.reqColor }};background:{{ c.reqBg }}">Required</button>
+                      <button onClick="{{ setCritMode }}" data-idx="{{ c.idx }}" data-mode="preferred" style="padding:5px 11px;font:600 11px var(--mono);border:none;cursor:pointer;color:{{ c.prefColor }};background:{{ c.prefBg }}">Preferred</button>
+                    </span>
+                    <button onClick="{{ rmCrit }}" data-idx="{{ c.idx }}" title="Remove" style="background:none;border:none;color:var(--text3);flex:none;padding:4px;cursor:pointer" style-hover="color:var(--red)">✕</button>
+                  </div>
+                </sc-for>
+                <div style="display:flex;gap:8px;margin-top:12px">
+                  <input value="{{ critDraft }}" onInput="{{ onCritDraft }}" placeholder="Add a criterion…" style="flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <button onClick="{{ addCrit }}" style="padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer;flex:none" style-hover="color:var(--text);border-color:var(--text3)">Add</button>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:4px">
+              <sc-if value="{{ edHasDanger }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ dangerTpl }}" style="display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid {{ edDangerBorder }};color:{{ edDangerColor }};background:none;cursor:pointer" style-hover="background:var(--red-dim)">{{ edDangerLabel }}</button>
+              </sc-if>
+              <button onClick="{{ saveTpl }}" style="margin-left:auto;display:inline-flex;align-items:center;padding:8px 15px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer;opacity:{{ edSaveOpacity }}" style-hover="filter:brightness(1.05)">{{ edSaveLabel }}</button>
+            </div>
+          </div>
+        </sc-if>
+
         <!-- ============ BILLING ============ -->
         <sc-if value="{{ isBilling }}" hint-placeholder-val="{{ false }}">
           <div data-screen-label="Settings · Billing" style="animation:fadeUp .4s ease both">
@@ -395,6 +735,89 @@
     </main>
     </div>
 
+  <!-- ============ IMPORT TEMPLATES dialog ============ -->
+  <sc-if value="{{ importOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px">
+      <div onClick="{{ closeImport }}" style="position:absolute;inset:0;background:rgba(15,23,42,.45)"></div>
+      <div data-screen-label="Settings · Import templates" style="position:relative;width:100%;max-width:640px;max-height:100%;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);animation:fadeUp .25s ease both">
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:18px 20px 14px;border-bottom:1px solid var(--line-soft)">
+          <div style="min-width:0">
+            <div style="font:600 16px var(--sans)">Import templates</div>
+            <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:3px">{{ importScopeLine }}</div>
+          </div>
+          <button onClick="{{ closeImport }}" title="Close" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;padding:4px 6px;border-radius:6px;flex:none" style-hover="color:var(--text);background:var(--panel2)">✕</button>
+        </div>
+
+        <sc-if value="{{ importChoose }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:20px">
+            <button onClick="{{ pickImportFile }}" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:8px;padding:28px 16px;border:1.5px dashed var(--line);border-radius:12px;background:var(--panel2);cursor:pointer;color:var(--text2)" style-hover="border-color:var(--sky)">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"></path></svg>
+              <span style="font:600 13px var(--sans);color:var(--text)">Drop a .json file here, or choose one</span>
+              <span style="font:400 11px var(--mono);color:var(--text3)">lightmove.position-templates · up to 100 templates · 1 MB</span>
+            </button>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:16px">
+              <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:14px">
+                <div style="font:600 13px var(--sans)">Start from an export</div>
+                <div style="font:400 11.5px/1.5 var(--mono);color:var(--text3);margin:4px 0 10px">Export the current templates, edit the file, import it back. Templates you didn't change are skipped.</div>
+                <button onClick="{{ toastExport }}" style="font:500 12.5px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer;padding:0" style-hover="text-decoration:underline">Export templates</button>
+              </div>
+              <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:14px">
+                <div style="font:600 13px var(--sans)">Write one with AI</div>
+                <div style="font:400 11.5px/1.5 var(--mono);color:var(--text3);margin:4px 0 10px">Give ChatGPT or Claude the schema and the prompt, describe the role, and import what it writes.</div>
+                <div style="display:flex;gap:14px;flex-wrap:wrap">
+                  <button onClick="{{ downloadSchema }}" style="font:500 12.5px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer;padding:0" style-hover="text-decoration:underline">Download schema</button>
+                  <button onClick="{{ copyPrompt }}" style="font:500 12.5px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer;padding:0" style-hover="text-decoration:underline">Copy AI prompt</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ importPreview }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:16px 20px 4px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6"></path></svg>
+              <span style="font:500 13px var(--sans)">{{ importFileName }}</span>
+              <span style="font:400 11.5px var(--mono);color:var(--text3)">{{ importFileCount }}</span>
+              <button onClick="{{ pickImportFile }}" style="margin-left:auto;font:500 12px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer;padding:0" style-hover="text-decoration:underline">Choose a different file</button>
+            </div>
+            <div style="border:1px solid var(--line-soft);border-radius:10px;overflow:hidden">
+              <sc-for list="{{ importRows }}" as="r" hint-placeholder-count="5">
+                <div style="padding:10px 14px;border-top:{{ r.border }};background:{{ r.rowBg }}">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div style="flex:1;min-width:0">
+                      <div style="font:500 13px var(--sans)">{{ r.title }}</div>
+                      <div style="font:400 11px var(--mono);color:var(--text3);margin-top:1px">{{ r.code }}</div>
+                    </div>
+                    <span style="display:inline-flex;font:600 9.5px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:999px;color:{{ r.fg }};background:{{ r.bg }};flex:none">{{ r.label }}</span>
+                  </div>
+                  <sc-if value="{{ r.hasErrors }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">
+                      <sc-for list="{{ r.errors }}" as="x" hint-placeholder-count="2">
+                        <div style="font:400 11.5px var(--mono);color:var(--red)">{{ x.text }}</div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+            <div style="font:500 12px var(--mono);color:var(--text2);margin-top:12px">{{ importSummary }}</div>
+            <sc-if value="{{ importInvalid }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:10px;background:var(--red-dim);border:1px solid var(--red);border-radius:8px;padding:10px 12px;font:400 12px/1.5 var(--mono);color:var(--text2)">Nothing is written until every template in the file passes. Fix the invalid one and choose the file again.</div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px;padding:16px 20px;border-top:1px solid var(--line-soft);margin-top:12px">
+          <button onClick="{{ closeImport }}" style="display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <sc-if value="{{ importPreview }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ commitImport }}" style="display:inline-flex;align-items:center;padding:7px 14px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer;opacity:{{ importButtonOpacity }}" style-hover="filter:brightness(1.05)">{{ importButtonLabel }}</button>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <sc-if value="{{ toastVisible }}" hint-placeholder-val="{{ false }}">
     <div style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);z-index:120;animation:fadeUp .2s ease both">{{ toastMsg }}</div>
   </sc-if>
@@ -403,7 +826,7 @@
 
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><text x="50" y="50" fill="#e2b65c" font-family="Montserrat,sans-serif" font-size="26" font-weight="700" text-anchor="middle" dominant-baseline="central">ST</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;startSection&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;security&quot;,&quot;notifications&quot;,&quot;general&quot;,&quot;members&quot;,&quot;billing&quot;,&quot;integrations&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;startSection&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;security&quot;,&quot;notifications&quot;,&quot;general&quot;,&quot;members&quot;,&quot;templates&quot;,&quot;library&quot;,&quot;billing&quot;,&quot;integrations&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -425,6 +848,64 @@ class Component extends DCLogic {
       integrations: {
         clockwork: true, bullhorn: false, slack: true, gcal: false, smtp: false,
       },
+      // Workspace view: how this firm stands against each library template. Absent = LIBRARY.
+      tplWs: { 'chief-financial-officer': 'CUSTOMISED', 'head-of-internal-audit': 'HIDDEN', 'group-treasury-lead': 'OWN' },
+      tplWsLibUpdated: { 'chief-financial-officer': true },
+      tplArchived: {},
+      tplOpen: null, tplDraft: null, tplDirty: false,
+      chipDraft: { keywords: '', responsibilities: '', priorities: '', directReports: '' },
+      critDraft: '',
+      importOpen: false, importStep: 'choose', importFile: 0,
+    };
+  }
+
+  draftFor(row) {
+    const isCfo = row.code === 'chief-financial-officer';
+    return {
+      title: row.title, summary: row.summary, discipline: row.discipline, seniority: row.seniority,
+      keywords: isCfo ? ['chief financial', 'cfo', 'finance director', 'group finance director'] : [row.title.toLowerCase()],
+      department: 'Finance', employment: 'Full-time, permanent',
+      responsibilities: ['Group P&L stewardship', 'Capital structure & treasury', 'Board & shareholder reporting', 'Finance transformation'],
+      narrative: 'The Chief Financial Officer will sit on the executive committee, reporting to the Group CEO with board-level exposure. This is a hands-on leadership role for someone who has operated at scale within a diversified or multi-business-unit environment, and who can bring rigor to the function while remaining a trusted advisor to the shareholder.',
+      priorities: ['Capital discipline', 'Governance & controls', 'Portfolio growth', 'Operational excellence', 'Talent development'],
+      reportsTo: 'Group CEO',
+      directReports: ['Financial Controller', 'Head of Treasury', 'Head of FP&A', 'Head of Investor Relations'],
+      noticeValue: '3', noticeUnit: 'Months',
+      currency: 'USD', salaryMode: 'Annual', bonusValue: '40', bonusBasis: '% of base salary',
+      incentive: 'LTIP cash', vesting: 'Three-year performance cycle, vesting one third annually',
+      benefits: [
+        { name: 'Housing allowance', freq: 'Monthly' }, { name: 'Transport allowance', freq: 'Monthly' },
+        { name: 'Family medical cover', freq: 'Yearly' }, { name: "Children's education", freq: 'Yearly' },
+        { name: 'Annual home leave flights', freq: 'Yearly' },
+      ],
+      technical: [
+        { name: 'Financial Reporting & Controls', desc: 'IFRS reporting, audit readiness and the control environment', weight: 30 },
+        { name: 'M&A / Restructuring Experience', desc: 'Deal execution, carve-outs and post-merger integration', weight: 30 },
+        { name: 'Treasury & Capital Markets', desc: 'Debt structuring, liquidity and lender relationships', weight: 20 },
+        { name: 'Board & Investor Relations', desc: 'Board reporting and shareholder communication', weight: 20 },
+      ],
+      behavioural: [
+        { name: 'Strategic Leadership', desc: 'Sets direction and carries a transformation at group level', weight: 30 },
+        { name: 'Stakeholder Influence', desc: 'Credible with the shareholder, the board and the executive committee', weight: 25 },
+        { name: 'Change Management', desc: "Builds the function's capability while running the day job", weight: 25 },
+        { name: 'Resilience under Ambiguity', desc: 'Operates through market shifts and incomplete information', weight: 20 },
+      ],
+      criteria: [
+        { text: 'Track record leading finance or ops function through M&A or restructuring', mode: 'required' },
+        { text: 'Experience reporting to a board or sovereign shareholder', mode: 'required' },
+        { text: 'Prior P&L ownership above $500M revenue scope', mode: 'required' },
+        { text: "Sector experience relevant to the client's core business", mode: 'preferred' },
+      ],
+    };
+  }
+
+  blankDraft() {
+    return {
+      title: 'Untitled template', summary: '', discipline: 'Executive', seniority: 'C-Suite', keywords: [],
+      department: '', employment: 'Full-time, permanent', responsibilities: [], narrative: '', priorities: [],
+      reportsTo: '', directReports: [], noticeValue: '3', noticeUnit: 'Months',
+      currency: 'USD', salaryMode: 'Annual', bonusValue: '', bonusBasis: '% of base salary', incentive: 'None', vesting: '',
+      benefits: [], technical: [], behavioural: [], criteria: [],
     };
   }
 
@@ -457,11 +938,16 @@ class Component extends DCLogic {
       { group: 'Workspace', items: [
         navItem('general', 'General', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z'),
         navItem('members', 'Members', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'),
+        navItem('templates', 'Templates', 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h5'),
         navItem('billing', 'Billing', 'M2 6h20v13H2zM2 10h20'),
         navItem('integrations', 'Integrations', 'M13 2 3 14h9l-1 8 10-12h-9l1-8Z'),
       ] },
+      // Shown only to a super admin. The real build hides the group when /me carries no platform action.
+      { group: 'Platform', items: [
+        navItem('library', 'Template library', 'm12 2 10 5-10 5L2 7zM2 17l10 5 10-5M2 12l10 5 10-5'),
+      ] },
     ];
-    const labels = { profile: 'Profile', security: 'Security', notifications: 'Notifications', general: 'General', members: 'Members', billing: 'Billing', integrations: 'Integrations' };
+    const labels = { profile: 'Profile', security: 'Security', notifications: 'Notifications', general: 'General', members: 'Members', templates: 'Templates', library: 'Template library', billing: 'Billing', integrations: 'Integrations' };
 
     const tglVals = (on) => ({
       bg: on ? 'var(--amber-btn)' : 'var(--line)',
@@ -520,7 +1006,289 @@ class Component extends DCLogic {
 
     const tfa = tglVals(st.tfa);
 
+    // ── Templates (workspace) / Template library (platform) ──
+    const TPL_LIBRARY = [
+      ['chief-executive-officer', 'Chief Executive Officer', 'Executive', 'C-Suite', 'Full P&L ownership and the strategic agenda, accountable to the board.'],
+      ['chief-financial-officer', 'Chief Financial Officer', 'Finance', 'C-Suite', 'Group finance, the capital structure and the shareholder relationship.'],
+      ['chief-operating-officer', 'Chief Operating Officer', 'Operations', 'C-Suite', 'Day-to-day operations across the group, translating strategy into delivery.'],
+      ['chief-technology-officer', 'Chief Technology Officer', 'Technology', 'C-Suite', 'The technology strategy, the engineering organisation and the platform it ships.'],
+      ['chief-information-officer', 'Chief Information Officer', 'Technology', 'C-Suite', 'Enterprise IT, the ERP estate and the digital operating model.'],
+      ['chief-human-resources-officer', 'Chief Human Resources Officer', 'People', 'C-Suite', 'Talent, culture and organisation design across the group.'],
+      ['chief-commercial-officer', 'Chief Commercial Officer', 'Commercial', 'C-Suite', 'Revenue across every channel, and the sales organisation that delivers it.'],
+      ['chief-marketing-officer', 'Chief Marketing Officer', 'Commercial', 'C-Suite', 'Brand, demand and customer strategy, tied to a commercial outcome.'],
+      ['chief-compliance-officer', 'Chief Compliance Officer', 'Governance', 'C-Suite', 'The compliance programme, the regulatory relationship and the licence to operate.'],
+      ['general-counsel', 'General Counsel', 'Governance', 'C-Suite', 'Group legal, corporate governance and the contracting the business runs on.'],
+      ['chief-risk-officer', 'Chief Risk Officer', 'Governance', 'C-Suite', "Risk appetite, the enterprise framework and the board's view of exposure."],
+      ['chief-investment-officer', 'Chief Investment Officer', 'Investment', 'C-Suite', "Investment strategy, origination and the portfolio's risk-adjusted return."],
+      ['head-of-finance', 'Head of Finance', 'Finance', 'N-1', 'The close, the plan and the controls, one level below the CFO.'],
+      ['head-of-compliance', 'Head of Compliance', 'Governance', 'N-1', 'Day-to-day compliance, monitoring and the regulatory submissions.'],
+      ['head-of-human-resources', 'Head of Human Resources', 'People', 'N-1', 'Hiring, reward, employee relations and the HR operation behind them.'],
+      ['head-of-internal-audit', 'Head of Internal Audit', 'Governance', 'N-1', 'The risk-based audit plan and the reporting line into the audit committee.'],
+      ['generic-executive', 'Senior Executive (generic)', 'Executive', 'N-1', 'The fallback brief for a title the library does not recognise yet.'],
+    ].map(([code, title, discipline, seniority, summary]) => ({ code, title, discipline, seniority, summary }));
+    const OWN_TPL = { code: 'group-treasury-lead', title: 'Group Treasury Lead', discipline: 'Finance', seniority: 'N-1', summary: "Your firm's own brief for treasury heads — not in the LightMove library." };
+    const DISCIPLINES = ['Executive', 'Finance', 'Operations', 'Technology', 'People', 'Commercial', 'Governance', 'Investment'];
+    const ORIGIN = {
+      LIBRARY: { badge: 'Library', fg: 'var(--text2)', bg: 'var(--panel)' },
+      CUSTOMISED: { badge: 'Customised', fg: 'var(--amber)', bg: 'var(--amber-dim)' },
+      OWN: { badge: 'Your own', fg: 'var(--sky)', bg: 'var(--sky-dim)' },
+      HIDDEN: { badge: 'Hidden', fg: 'var(--text3)', bg: 'var(--panel)' },
+      ACTIVE: { badge: 'Active', fg: 'var(--green)', bg: 'var(--green-dim)' },
+      ARCHIVED: { badge: 'Archived', fg: 'var(--text3)', bg: 'var(--panel)' },
+      FALLBACK: { badge: 'Fallback', fg: 'var(--sky)', bg: 'var(--sky-dim)' },
+      NEW_LIB: { badge: 'New', fg: 'var(--sky)', bg: 'var(--sky-dim)' },
+      NEW_OWN: { badge: 'New', fg: 'var(--sky)', bg: 'var(--sky-dim)' },
+    };
+    const isLib = sec === 'library';
+    const tplOrigin = (code) => {
+      if (code === '__new') return isLib ? 'NEW_LIB' : 'NEW_OWN';
+      if (isLib) return code === 'generic-executive' ? 'FALLBACK' : (st.tplArchived[code] ? 'ARCHIVED' : 'ACTIVE');
+      return st.tplWs[code] || 'LIBRARY';
+    };
+    const allTpls = isLib ? TPL_LIBRARY : [OWN_TPL, ...TPL_LIBRARY];
+    const tplGroups = DISCIPLINES.map(discipline => {
+      const rows = allTpls.filter(t => t.discipline === discipline).map((t, i) => {
+        const origin = tplOrigin(t.code), o = ORIGIN[origin];
+        return {
+          code: t.code, title: t.title, seniority: t.seniority, summary: t.summary,
+          badge: o.badge, badgeFg: o.fg, badgeBg: o.bg,
+          border: i === 0 ? 'none' : '1px solid var(--line-soft)',
+          opacity: origin === 'HIDDEN' || origin === 'ARCHIVED' ? '.55' : '1',
+          libUpdated: origin === 'CUSTOMISED' && !!st.tplWsLibUpdated[t.code],
+          canToggle: t.code !== 'generic-executive' && ['ACTIVE', 'ARCHIVED', 'LIBRARY', 'HIDDEN'].includes(origin),
+          toggleLabel: { ACTIVE: 'Archive', ARCHIVED: 'Restore', LIBRARY: 'Hide', HIDDEN: 'Show' }[origin] || '',
+        };
+      });
+      return { label: discipline, count: rows.length, rows };
+    }).filter(g => g.rows.length);
+    const countOf = (origin) => allTpls.filter(t => tplOrigin(t.code) === origin).length;
+    const tplCountLine = isLib
+      ? `${TPL_LIBRARY.length} templates · ${countOf('ARCHIVED')} archived · the library every workspace starts from`
+      : `${allTpls.length} templates · ${countOf('CUSTOMISED')} customised · ${countOf('OWN')} your own · ${countOf('HIDDEN')} hidden`;
+
+    const d = st.tplDraft;
+    const edOrigin = st.tplOpen ? tplOrigin(st.tplOpen) : null;
+    const edO = ORIGIN[edOrigin] || ORIGIN.LIBRARY;
+    const edLibUpdated = edOrigin === 'CUSTOMISED' && !!st.tplWsLibUpdated[st.tplOpen];
+    const BANNERS = {
+      ACTIVE: ['var(--sky-dim)', 'var(--line-soft)', "LightMove library. Saving updates every workspace that hasn't customised this template — 3 workspaces have their own copy and keep it. Mandates already drafted never change."],
+      ARCHIVED: ['var(--panel2)', 'var(--line)', 'Archived. No workspace sees it in the picker or matches a title against it until it is restored. Workspace copies are unaffected.'],
+      FALLBACK: ['var(--sky-dim)', 'var(--line-soft)', "LightMove library — and the fallback: a role title no keyword matches is drafted from this template, so it can't be archived or hidden."],
+      LIBRARY: ['var(--sky-dim)', 'var(--line-soft)', "You're viewing the LightMove library version. Saving creates your firm's own copy; library updates stop reaching it until you reset."],
+      CUSTOMISED: edLibUpdated
+        ? ['var(--amber-dim)', 'var(--amber-btn)', "Your firm's copy. LightMove updated the library version on 02 Sep 2026, after you customised it. Reset to take the new version, or keep yours."]
+        : ['var(--panel2)', 'var(--line)', "Your firm's copy of a library template. Library updates don't reach it until you reset."],
+      OWN: ['var(--panel2)', 'var(--line)', "Your firm's own template — it isn't in the LightMove library."],
+      HIDDEN: ['var(--panel2)', 'var(--line)', "Hidden from your firm's picker and title matching. Show it again any time."],
+      NEW_LIB: ['var(--sky-dim)', 'var(--line-soft)', 'A new library template. Once saved, every workspace sees it in the picker.'],
+      NEW_OWN: ['var(--panel2)', 'var(--line)', 'A new template for your firm only.'],
+    };
+    const banner = BANNERS[edOrigin] || BANNERS.LIBRARY;
+    const DANGER = { ACTIVE: 'Archive template', ARCHIVED: 'Restore template', LIBRARY: 'Hide from my firm', HIDDEN: 'Show to my firm', CUSTOMISED: 'Reset to library', OWN: 'Delete template' };
+    const softDanger = edOrigin === 'ARCHIVED' || edOrigin === 'HIDDEN';
+    const panelTotal = (rows) => rows.reduce((sum, r) => sum + (+r.weight || 0), 0);
+    const panelOk = (rows) => rows.length === 0 || panelTotal(rows) === 100;
+    const chips = (list) => d ? d[list].map((label, idx) => ({ idx, label })) : [];
+    const segOn = { bg: 'var(--panel2)', color: 'var(--text)', border: 'var(--line)' };
+    const segOff = { bg: 'transparent', color: 'var(--text3)', border: 'transparent' };
+    const edCompPanels = d ? [
+      { key: 'technical', title: 'Technical competencies', rows: d.technical, dotColor: 'var(--sky)' },
+      { key: 'behavioural', title: 'Behavioural competencies', rows: d.behavioural, dotColor: 'var(--amber-btn)' },
+    ].map(p => {
+      const ok = panelOk(p.rows);
+      return {
+        ...p, total: String(panelTotal(p.rows)),
+        totalColor: ok ? 'var(--green)' : 'var(--red)', totalBg: ok ? 'var(--green-dim)' : 'var(--red-dim)',
+        borderColor: ok ? 'var(--line-soft)' : 'var(--red)',
+        rows: p.rows.map((r, idx) => ({ idx, name: r.name, desc: r.desc || '', weight: String(r.weight) })),
+      };
+    }) : [];
+
+    const touch = (mutate) => {
+      const draft = { ...this.state.tplDraft };
+      mutate(draft);
+      this.setState({ tplDraft: draft, tplDirty: true });
+    };
+    const setWs = (code, origin) => this.setState(s => ({ tplWs: { ...s.tplWs, [code]: origin } }));
+    const addChip = (e) => {
+      const list = e.currentTarget.dataset.list, value = (this.state.chipDraft[list] || '').trim();
+      if (!value) return;
+      touch(dr => { dr[list] = [...dr[list], list === 'keywords' ? value.toLowerCase() : value]; });
+      this.setState(s => ({ chipDraft: { ...s.chipDraft, [list]: '' } }));
+    };
+    const resetTpl = () => {
+      const code = this.state.tplOpen;
+      setWs(code, 'LIBRARY');
+      this.setState(s => ({ tplWsLibUpdated: { ...s.tplWsLibUpdated, [code]: false }, tplDraft: this.draftFor(allTpls.find(t => t.code === code)), tplDirty: false }));
+      this.showToast('Reset to the library version — confirm dialog in real build');
+    };
+    const setArchived = (code, archived) => {
+      this.setState(s => ({ tplArchived: { ...s.tplArchived, [code]: archived } }));
+      this.showToast(archived ? 'Archived — no workspace can pick it now' : 'Restored to the library');
+    };
+    const setHidden = (code, hidden) => {
+      setWs(code, hidden ? 'HIDDEN' : 'LIBRARY');
+      this.showToast(hidden ? "Hidden from your firm's picker" : "Back in your firm's picker");
+    };
+    const dangerTpl = () => {
+      const code = this.state.tplOpen;
+      if (edOrigin === 'ACTIVE' || edOrigin === 'ARCHIVED') setArchived(code, edOrigin === 'ACTIVE');
+      else if (edOrigin === 'LIBRARY' || edOrigin === 'HIDDEN') setHidden(code, edOrigin === 'LIBRARY');
+      else if (edOrigin === 'CUSTOMISED') resetTpl();
+      else if (edOrigin === 'OWN') {
+        this.setState({ tplOpen: null, tplDraft: null, tplDirty: false });
+        this.showToast('Template deleted — confirm dialog in real build');
+      }
+    };
+    const saveTpl = () => {
+      const dr = this.state.tplDraft;
+      if (!panelOk(dr.technical) || !panelOk(dr.behavioural)) { this.showToast('Each competency panel must total exactly 100% to save'); return; }
+      if (!dr.title.trim()) { this.showToast('Give the template a title'); return; }
+      if (this.state.tplOpen === '__new') {
+        this.setState({ tplOpen: null, tplDraft: null, tplDirty: false });
+        this.showToast(isLib ? 'Added to the library' : "Added to your firm's templates");
+        return;
+      }
+      if (edOrigin === 'LIBRARY') setWs(this.state.tplOpen, 'CUSTOMISED');
+      this.setState({ tplDirty: false });
+      this.showToast(isLib ? 'Saved — live for every workspace without its own copy' : edOrigin === 'LIBRARY' ? "Saved as your firm's copy" : 'Saved');
+    };
+
+    const IMPORT_FILES = [
+      { name: 'cfo-treasury-templates.json', rows: [
+        ['chief-financial-officer', 'Chief Financial Officer', 'UPDATE', 'UPDATE', []],
+        ['chief-operating-officer', 'Chief Operating Officer', 'CUSTOMISE', 'UPDATE', []],
+        ['group-treasury-lead', 'Group Treasury Lead', 'UNCHANGED', 'CREATE', []],
+        ['head-of-treasury', 'Head of Treasury', 'CREATE', 'CREATE', []],
+        ['head-of-tax', 'Head of Tax', 'INVALID', 'INVALID', ['body.competencies.technical — Technical competency weights must total 100', 'body.bonusBais — Not a template field']],
+      ] },
+      { name: 'cfo-treasury-templates (fixed).json', rows: [
+        ['chief-financial-officer', 'Chief Financial Officer', 'UPDATE', 'UPDATE', []],
+        ['chief-operating-officer', 'Chief Operating Officer', 'CUSTOMISE', 'UPDATE', []],
+        ['group-treasury-lead', 'Group Treasury Lead', 'UNCHANGED', 'CREATE', []],
+        ['head-of-treasury', 'Head of Treasury', 'CREATE', 'CREATE', []],
+        ['head-of-tax', 'Head of Tax', 'CREATE', 'CREATE', []],
+      ] },
+    ];
+    const ACTION = {
+      CREATE: ['Create', 'var(--green)', 'var(--green-dim)'], UPDATE: ['Update', 'var(--sky)', 'var(--sky-dim)'],
+      CUSTOMISE: ['Customise', 'var(--amber)', 'var(--amber-dim)'], UNCHANGED: ['Unchanged', 'var(--text3)', 'var(--panel2)'],
+      INVALID: ['Invalid', 'var(--red)', 'var(--red-dim)'],
+    };
+    const importFile = IMPORT_FILES[st.importFile];
+    const importRows = importFile.rows.map(([code, title, wsAction, libAction, errors], i) => {
+      const action = isLib ? libAction : wsAction, [label, fg, bg] = ACTION[action];
+      return {
+        code, title, action, label, fg, bg,
+        border: i === 0 ? 'none' : '1px solid var(--line-soft)',
+        rowBg: action === 'INVALID' ? 'var(--red-dim)' : 'transparent',
+        hasErrors: errors.length > 0, errors: errors.map((text, j) => ({ j, text })),
+      };
+    });
+    const tally = (action) => importRows.filter(r => r.action === action).length;
+    const importInvalid = tally('INVALID') > 0;
+    const importWrites = importRows.filter(r => r.action !== 'UNCHANGED' && r.action !== 'INVALID').length;
+
     return {
+      isTplList: (sec === 'templates' || sec === 'library') && !st.tplOpen,
+      isTplEditor: (sec === 'templates' || sec === 'library') && !!st.tplOpen && !!d,
+      tplHeading: isLib ? 'Template library' : 'Templates',
+      tplCountLine, tplGroups,
+      tplNote: isLib
+        ? "Changes here reach every workspace that hasn't customised the template. Workspaces with their own copy keep it and are told the library moved on. Mandates already drafted never change."
+        : "Your firm starts from the LightMove library. Edit any template to make it your own — library updates stop reaching your copy until you reset it. Mandates already drafted never change.",
+      openTpl: (e) => {
+        const code = e.currentTarget.dataset.code;
+        this.setState({ tplOpen: code, tplDraft: this.draftFor(allTpls.find(t => t.code === code)), tplDirty: false });
+      },
+      closeTpl: () => this.setState({ tplOpen: null, tplDraft: null, tplDirty: false }),
+      newTpl: () => this.setState({ tplOpen: '__new', tplDraft: this.blankDraft(), tplDirty: true }),
+      toggleTplVisible: (e) => {
+        const code = e.currentTarget.dataset.code, origin = tplOrigin(code);
+        if (origin === 'ACTIVE' || origin === 'ARCHIVED') setArchived(code, origin === 'ACTIVE');
+        else setHidden(code, origin === 'LIBRARY');
+      },
+      toastExport: () => this.showToast('lightmove-position-templates.json downloaded'),
+
+      edTitle: d ? d.title : '', edSummary: d ? d.summary : '', edDiscipline: d ? d.discipline : '', edSeniority: d ? d.seniority : '',
+      edDepartment: d ? d.department : '', edEmployment: d ? d.employment : '', edNarrative: d ? d.narrative : '',
+      edReportsTo: d ? d.reportsTo : '', edNoticeValue: d ? d.noticeValue : '', edNoticeUnit: d ? d.noticeUnit : '',
+      edCurrency: d ? d.currency : '', edBonusValue: d ? d.bonusValue : '', edBonusBasis: d ? d.bonusBasis : '',
+      edIncentive: d ? d.incentive : '', edVesting: d ? d.vesting : '',
+      edKeywords: chips('keywords'), edResponsibilities: chips('responsibilities'), edPriorities: chips('priorities'), edDirectReports: chips('directReports'),
+      draftKeywords: st.chipDraft.keywords, draftResponsibilities: st.chipDraft.responsibilities,
+      draftPriorities: st.chipDraft.priorities, draftDirectReports: st.chipDraft.directReports,
+      edSalaryModes: ['Annual', 'Monthly'].map(label => ({ label, ...(d && d.salaryMode === label ? segOn : segOff) })),
+      edBenefits: d ? d.benefits.map((b, idx) => ({ idx, name: b.name, freq: b.freq })) : [],
+      edCompPanels,
+      edCriteria: d ? d.criteria.map((c, idx) => ({
+        idx, text: c.text,
+        reqColor: c.mode === 'required' ? '#1a1712' : 'var(--text3)', reqBg: c.mode === 'required' ? 'var(--amber-btn)' : 'transparent',
+        prefColor: c.mode === 'preferred' ? 'var(--text)' : 'var(--text3)', prefBg: c.mode === 'preferred' ? 'var(--panel2)' : 'transparent',
+      })) : [],
+      critDraft: st.critDraft,
+      edBadge: edO.badge, edBadgeFg: edO.fg, edBadgeBg: edO.bg,
+      edMetaLine: st.tplOpen === '__new' ? 'Not saved yet'
+        : st.tplOpen + ' · ' + (isLib ? 'last updated by Yara Haddad, 02 Sep 2026'
+          : edOrigin === 'LIBRARY' || edOrigin === 'HIDDEN' ? 'LightMove library · updated 02 Sep 2026' : 'last saved by Yara Haddad, 28 Aug 2026'),
+      edDirty: st.tplDirty,
+      edBanner: banner[2], edBannerBg: banner[0], edBannerBorder: banner[1],
+      edShowReset: edOrigin === 'CUSTOMISED',
+      edSaveLabel: edOrigin === 'LIBRARY' ? "Save as my firm's copy" : 'Save',
+      edSaveOpacity: st.tplDirty ? '1' : '.55',
+      edHasDanger: !!DANGER[edOrigin], edDangerLabel: DANGER[edOrigin] || '',
+      edDangerColor: softDanger ? 'var(--text2)' : 'var(--red)', edDangerBorder: softDanger ? 'var(--line)' : 'var(--red)',
+      onEd: (e) => { const field = e.currentTarget.dataset.field, value = e.target.value; touch(dr => { dr[field] = value; }); },
+      onChipDraft: (e) => { const list = e.currentTarget.dataset.list, value = e.target.value; this.setState(s => ({ chipDraft: { ...s.chipDraft, [list]: value } })); },
+      addChip,
+      chipEnter: (e) => { if (e.key === 'Enter') { e.preventDefault(); addChip(e); } },
+      rmChip: (e) => { const list = e.currentTarget.dataset.list, idx = +e.currentTarget.dataset.idx; touch(dr => { dr[list] = dr[list].filter((_, i) => i !== idx); }); },
+      setSalaryMode: (e) => { const value = e.currentTarget.dataset.val; touch(dr => { dr.salaryMode = value; }); },
+      onBenefit: (e) => {
+        const idx = +e.currentTarget.dataset.idx, field = e.currentTarget.dataset.field, value = e.target.value;
+        touch(dr => { dr.benefits = dr.benefits.map((b, i) => i === idx ? { ...b, [field]: value } : b); });
+      },
+      addBenefit: () => touch(dr => { dr.benefits = [...dr.benefits, { name: 'New allowance', freq: 'Monthly' }]; }),
+      rmBenefit: (e) => { const idx = +e.currentTarget.dataset.idx; touch(dr => { dr.benefits = dr.benefits.filter((_, i) => i !== idx); }); },
+      onComp: (e) => {
+        const panel = e.currentTarget.dataset.panel, idx = +e.currentTarget.dataset.idx, field = e.currentTarget.dataset.field;
+        const value = field === 'weight' ? (+e.target.value || 0) : e.target.value;
+        touch(dr => { dr[panel] = dr[panel].map((r, i) => i === idx ? { ...r, [field]: value } : r); });
+      },
+      addComp: (e) => { const panel = e.currentTarget.dataset.panel; touch(dr => { dr[panel] = [...dr[panel], { name: 'New competency', desc: '', weight: 0 }]; }); },
+      rmComp: (e) => { const panel = e.currentTarget.dataset.panel, idx = +e.currentTarget.dataset.idx; touch(dr => { dr[panel] = dr[panel].filter((_, i) => i !== idx); }); },
+      onCrit: (e) => { const idx = +e.currentTarget.dataset.idx, value = e.target.value; touch(dr => { dr.criteria = dr.criteria.map((c, i) => i === idx ? { ...c, text: value } : c); }); },
+      setCritMode: (e) => { const idx = +e.currentTarget.dataset.idx, mode = e.currentTarget.dataset.mode; touch(dr => { dr.criteria = dr.criteria.map((c, i) => i === idx ? { ...c, mode } : c); }); },
+      rmCrit: (e) => { const idx = +e.currentTarget.dataset.idx; touch(dr => { dr.criteria = dr.criteria.filter((_, i) => i !== idx); }); },
+      onCritDraft: (e) => this.setState({ critDraft: e.target.value }),
+      addCrit: () => {
+        const value = this.state.critDraft.trim();
+        if (!value) return;
+        touch(dr => { dr.criteria = [...dr.criteria, { text: value, mode: 'required' }]; });
+        this.setState({ critDraft: '' });
+      },
+      saveTpl, resetTpl, dangerTpl,
+
+      importOpen: st.importOpen, importChoose: st.importStep === 'choose', importPreview: st.importStep === 'preview',
+      importScopeLine: isLib
+        ? 'Into the LightMove library — every workspace without its own copy sees the result'
+        : "Into your firm's templates — library templates in the file become your own copies",
+      importFileName: importFile.name, importFileCount: importRows.length + ' templates', importRows,
+      importSummary: ['CREATE', 'UPDATE', 'CUSTOMISE', 'UNCHANGED', 'INVALID'].filter(a => tally(a)).map(a => tally(a) + ' ' + ACTION[a][0].toLowerCase()).join(' · '),
+      importInvalid,
+      importButtonLabel: importInvalid ? 'Import' : 'Import ' + importWrites + ' template' + (importWrites === 1 ? '' : 's'),
+      importButtonOpacity: importInvalid ? '.5' : '1',
+      openImport: () => this.setState({ importOpen: true, importStep: 'choose', importFile: 0 }),
+      closeImport: () => this.setState({ importOpen: false }),
+      pickImportFile: () => this.setState(s => ({ importStep: 'preview', importFile: s.importStep === 'preview' ? 1 : 0 })),
+      commitImport: () => {
+        if (importInvalid) return;
+        this.setState({ importOpen: false });
+        this.showToast('Imported ' + importWrites + ' templates');
+      },
+      downloadSchema: () => this.showToast('position-templates.schema.json downloaded'),
+      copyPrompt: () => this.showToast('AI prompt copied — paste it with the schema into ChatGPT or Claude'),
+
       wsMenuOpen: st.wsMenuOpen,
       toggleWsMenu: () => this.setState(s => ({ wsMenuOpen: !s.wsMenuOpen })),
       menuSettingsGeneral: () => this.setState({ wsMenuOpen: false, section: 'general' }),
@@ -552,7 +1320,7 @@ class Component extends DCLogic {
       integrations,
       toastVisible: !!st.toast, toastMsg: st.toast,
 
-      setSection: (e) => this.setState({ section: e.currentTarget.dataset.sec }),
+      setSection: (e) => this.setState({ section: e.currentTarget.dataset.sec, tplOpen: null, tplDraft: null, tplDirty: false }),
       toggleTheme: () => {
         const dark = !this.state.dark;
         document.body.classList.toggle('dark', dark);
