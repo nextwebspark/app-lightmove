@@ -28,18 +28,16 @@ import org.springframework.stereotype.Component;
  *       their link and blames us.
  * </ol>
  *
- * <p>What this deliberately does <b>not</b> do is prove the mailbox exists. That needs a paid API
- * (~$0.004–0.008/address) or an SMTP probe most providers now refuse. It is unnecessary because the
- * verification email <i>is</i> the proof: an address that cannot receive it never becomes a verified
- * account, and an unverified account reaches no workspace data.
+ * <p>It deliberately does <b>not</b> prove the mailbox exists: the verification email is that proof,
+ * and an unverified account reaches no workspace data.
  */
 @Component
 @Slf4j
 public class EmailAddressValidator {
 
     /**
-     * Deliberately permissive. RFC 5322 in full permits addresses no real mailbox uses, and rejecting
-     * a valid-but-unusual address is a worse failure than accepting one that later bounces.
+     * Deliberately permissive: rejecting a valid-but-unusual address is a worse failure than
+     * accepting one that later bounces.
      */
     private static final String SHAPE = "^[^@\\s]+@[^@\\s.]+(\\.[^@\\s.]+)+$";
 
@@ -71,8 +69,8 @@ public class EmailAddressValidator {
 
         String domain = domainOf(email);
 
-        // Checked before deliverability: gmail.com has perfectly good MX records. It is refused for what
-        // it means, not for whether it works.
+        // Before deliverability: gmail.com has perfectly good MX records and is refused for what it
+        // means, not for whether it works.
         if (config.blockPublicDomains() && configuredPublicDomains.contains(domain)) {
             throw new ApiException(ErrorCode.EMAIL_NOT_WORK_ADDRESS, "Consumer email domain: " + domain);
         }
@@ -101,14 +99,12 @@ public class EmailAddressValidator {
     /**
      * True if the domain can receive mail — or if we could not find out.
      *
-     * <p>Failing open is deliberate, but only for the cases where the resolver told us nothing. A
-     * resolver that is slow, rate-limited or briefly unreachable is our problem, not the user's, and
-     * treating our own outage as "your email is fake" would block every legitimate signup for as long
-     * as it lasted.
+     * <p>Failing open is deliberate, but only where the resolver told us nothing: our own outage must
+     * not read as "your email is fake".
      *
      * <p>An answer, though, is not an outage. Catching every {@link NamingException} together meant
-     * NXDOMAIN — the resolver stating that the domain does not exist — was filed as inconclusive and
-     * let through, so the typo'd domain this check exists to catch was exactly the case it passed.
+     * NXDOMAIN was filed as inconclusive and let through, so the typo'd domain this check exists to
+     * catch was exactly the case it passed.
      */
     private boolean hasMailExchanger(String domain) {
         Hashtable<String, String> env = new Hashtable<>();
@@ -135,10 +131,9 @@ public class EmailAddressValidator {
     /**
      * Whether an MX answer names somewhere a message could actually go.
      *
-     * <p>Separated from the lookup so it can be tested without a resolver, and because the answer needs
-     * reading rather than counting: a domain that publishes the single record {@code 0 .} is declaring
-     * "no mail is accepted here" (RFC 7505). {@code example.com} does exactly that, and testing only
-     * for the attribute's presence let it through as deliverable.
+     * <p>The answer needs reading rather than counting: a domain publishing the single record
+     * {@code 0 .} is declaring "no mail is accepted here" (RFC 7505). {@code example.com} does exactly
+     * that, and testing only for the attribute's presence let it through as deliverable.
      */
     static boolean acceptsMail(Attributes attributes) throws NamingException {
         Attribute mailExchangers = attributes.get("MX");

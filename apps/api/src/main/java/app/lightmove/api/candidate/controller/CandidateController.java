@@ -33,14 +33,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * A mandate's mapped executives. Gated per method exactly as the companies are: reading is WORK_VIEW,
- * held by every seated role including CLIENT, while every write is WORK_EXECUTE — a client
- * representative may see who has been mapped at a company without being able to add, edit or remove
- * anyone.
+ * held by every seated role including CLIENT, while every write is WORK_EXECUTE.
  *
- * <p>Editing is a PUT rather than a PATCH because the drawer holds every field and submits every field.
- * A partial merge over twenty fields would have to invent a meaning for an omitted one, which makes
- * "cleared" and "not sent" the same request — and clearing a compensation figure is exactly the edit
- * that must not silently do nothing.
+ * <p>Editing is a PUT rather than a PATCH because the drawer holds and submits every field: a partial
+ * merge would make "cleared" and "not sent" the same request, and clearing a compensation figure is
+ * exactly the edit that must not silently do nothing.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/candidates")
@@ -50,10 +47,9 @@ public class CandidateController {
     private final CandidateService candidates;
 
     /**
-     * {@code triageCompanyId} is repeatable, and is how the Companies grid reads: it renders one page
-     * of companies and asks for the people at exactly those. {@code unmapped} asks for the other side
-     * — the executives whose employer is not in the mandate's universe at all. Neither means the whole
-     * mandate.
+     * {@code triageCompanyId} is repeatable and is how the Companies grid reads: one page of
+     * companies, then the people at exactly those. {@code unmapped} asks for the executives whose
+     * employer is not in the universe at all. Neither means the whole mandate.
      */
     @GetMapping
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")

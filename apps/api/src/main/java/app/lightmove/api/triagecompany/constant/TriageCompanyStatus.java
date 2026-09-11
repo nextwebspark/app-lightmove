@@ -25,12 +25,10 @@ public enum TriageCompanyStatus {
         this.wireToken = wireToken;
     }
 
-    /** The wire value; the frontend's status tabs carry the same tokens. */
     public String value() {
         return wireToken;
     }
 
-    /** Resolve a wire value to its status, or {@code null} if unknown. */
     public static TriageCompanyStatus fromValue(String value) {
         for (TriageCompanyStatus status : values()) {
             if (status.wireToken.equals(value)) {

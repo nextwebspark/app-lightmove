@@ -19,15 +19,11 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
      * The same lookup, holding a row lock until the transaction commits. Used by rotation, and rotation
      * must use nothing else.
      *
-     * <p>Rotation is read-then-write: it checks whether the token is already revoked, and if not, burns
-     * it and mints a successor. Without a lock those two steps interleave. Two concurrent refreshes of
-     * one token both read it un-revoked, both decide it is fresh, and both mint successors in the same
-     * family — so the token was redeemed twice and <b>reuse detection never fires</b>. That is precisely
-     * the case it exists to catch: an attacker racing the victim with a stolen token is not a rare
-     * scenario, it is the expected shape of the attack.
-     *
-     * <p>{@code PESSIMISTIC_WRITE} issues {@code SELECT … FOR UPDATE}: the second transaction blocks on
-     * the row until the first commits, then reads it revoked and correctly treats it as reuse.
+     * <p>Rotation is read-then-write, and without a lock the two steps interleave: two concurrent
+     * refreshes of one token both read it un-revoked and both mint successors, so it is redeemed twice
+     * and <b>reuse detection never fires</b> — which is the expected shape of the attack, not a rare
+     * case. {@code PESSIMISTIC_WRITE} issues {@code SELECT … FOR UPDATE}, so the second transaction
+     * blocks, then reads it revoked and treats it as reuse.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM RefreshToken t WHERE t.tokenHash = :tokenHash")

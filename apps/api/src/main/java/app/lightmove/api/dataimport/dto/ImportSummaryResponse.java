@@ -3,15 +3,12 @@ package app.lightmove.api.dataimport.dto;
 import java.util.List;
 
 /**
- * What the import did. Counts rather than the rows themselves: the grid behind the dialog reloads
- * from its own endpoints, and echoing several thousand imported rows back would be a second copy of
- * the file to no purpose.
+ * What the import did — counts rather than the rows themselves, since the grid behind the dialog
+ * reloads from its own endpoints.
  *
  * <p>{@code companiesSkipped} is its own number rather than folded into the errors, because it counts
- * something that went right — a company taken from the Apollo universe keeps the export's own facts,
- * so an import fills in its custom columns and leaves its snapshot alone. A user seeing "12 updated"
- * for a file where twelve names matched market rows would reasonably expect their headcounts to have
- * changed.
+ * something that went right: a company taken from the Apollo universe keeps the export's own facts,
+ * so an import fills in its custom columns and leaves its snapshot alone.
  */
 public record ImportSummaryResponse(
         int rowsRead,

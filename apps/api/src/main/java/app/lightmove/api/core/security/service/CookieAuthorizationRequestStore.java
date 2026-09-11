@@ -75,13 +75,13 @@ public class CookieAuthorizationRequestStore
             }
             return stored.toAuthorizationRequest();
         } catch (RuntimeException ex) {
-            // These handlers run inside the filter chain, where GlobalExceptionHandler does not exist,
-            // so anything thrown here reaches the user as a raw container error page rather than the
-            // sign-in screen. A cookie we cannot read is a request that is not there, which is what
-            // null already means. The rebuild is inside the try for the same reason: well-formed JSON
-            // of the wrong shape gets past readValue and dies in the builder instead.
+            // These handlers run inside the filter chain, where GlobalExceptionHandler does not
+            // exist, so anything thrown here reaches the user as a raw container error page. A cookie
+            // we cannot read is a request that is not there, which is what null already means. The
+            // rebuild is inside the try because well-formed JSON of the wrong shape gets past
+            // readValue and dies in the builder.
             //
-            // Not the throwable: Jackson quotes the source it failed on, and that source may hold a
+            // Not the throwable: Jackson quotes the source it failed on, which may hold a
             // code_verifier.
             log.debug("Discarding an unreadable OAuth authorisation cookie ({})",
                     ex.getClass().getSimpleName());
@@ -107,9 +107,8 @@ public class CookieAuthorizationRequestStore
         if (WebUtils.getCookie(request, COOKIE_NAME) == null) {
             return null;
         }
-        // Cleared whenever one arrived, whether or not it turns out to be usable: it is single-use, and
-        // one we refused would otherwise sit in the browser failing every retry until its Max-Age ran
-        // out. Spring calls this once, before either handler, so this covers success and failure alike.
+        // Cleared whenever one arrived, usable or not: it is single-use, and one we refused would
+        // otherwise sit in the browser failing every retry until its Max-Age ran out.
         response.addHeader(HttpHeaders.SET_COOKIE, cookie("").maxAge(0).build().toString());
         return loadAuthorizationRequest(request);
     }
@@ -117,10 +116,9 @@ public class CookieAuthorizationRequestStore
     private ResponseCookie.ResponseCookieBuilder cookie(String value) {
         ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(COOKIE_NAME, value)
                 .httpOnly(true)
-                // Both from the refresh cookie's settings, so this codebase answers "is this deployment
-                // on TLS" once — local and e2e run on plain http and turn it off there. The consequence
-                // to know: widening lightmove.auth.cookie.domain also widens a cookie holding a
-                // code_verifier, without touching this class.
+                // Both from the refresh cookie's settings, so "is this deployment on TLS" is answered
+                // once. The consequence to know: widening lightmove.auth.cookie.domain also widens a
+                // cookie holding a code_verifier, without touching this class.
                 .secure(cookieSettings.secure())
                 .sameSite("Lax")
                 .path(COOKIE_PATH);
@@ -136,10 +134,9 @@ public class CookieAuthorizationRequestStore
      * {@link OAuth2AuthorizationRequest} itself, so the format is something this codebase decides
      * rather than something a Spring Security upgrade can change underneath a live browser.
      *
-     * <p>{@code parameters} and {@code attributes} are carried whole rather than as named fields, and
-     * that is what makes {@link ProviderQuirkAwareRequestResolver} free: a registration listed in
-     * {@code pkce-unsupported-registrations} simply has no {@code code_verifier} key, and the absence
-     * round-trips with no list of keys here to keep in step with the list of keys there.
+     * <p>{@code parameters} and {@code attributes} are carried whole rather than as named fields,
+     * which is what makes {@link ProviderQuirkAwareRequestResolver} free: a registration with no
+     * {@code code_verifier} key round-trips without a key list here to keep in step with one there.
      */
     record StoredAuthorizationRequest(
             int version,

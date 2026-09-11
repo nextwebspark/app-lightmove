@@ -5,11 +5,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.util.HtmlUtils;
 
 /**
- * Builds the transactional emails.
- *
- * <p>Hand-built rather than templated through Thymeleaf: there are a handful of them, they are the only
- * ones the product needs, and a template engine would add a rendering step to debug for no gain. When
- * marketing wants control of the copy, that is the moment to introduce templates — not before.
+ * Builds the transactional emails. Hand-built rather than templated: there are a handful of them, and
+ * a template engine would add a rendering step to debug for no gain.
  *
  * <p>Every interpolated value is HTML-escaped. Names and workspace names come from users, and a user
  * called {@code <script>…} must not become script in a colleague's inbox.
@@ -87,9 +84,8 @@ public class EmailTemplates {
      * Tells someone their account is locked, because the login response deliberately will not.
      *
      * <p>Login answers the same {@code INVALID_CREDENTIALS} for a locked account as for an unknown
-     * address, so that five wrong guesses cannot confirm an account exists. That leaves the real owner
-     * with a correct password that keeps failing and no explanation — this is the explanation, sent to a
-     * mailbox only they can read. No link and no token: nothing here needs to be a credential.
+     * address, which leaves the real owner with a correct password that keeps failing and no
+     * explanation. This is the explanation, sent where only they can read it. No link, no token.
      */
     public EmailMessage buildAccountLockedEmail(String recipient, String recipientName, String lockedUntil) {
         String name = HtmlUtils.htmlEscape(firstName(recipientName));
@@ -235,9 +231,8 @@ public class EmailTemplates {
     }
 
     /**
-     * Told to a colleague who is <b>already</b> a member: they've been named a representative for a
-     * client. No link and no action — they already have an account and a session; this is a notice, not
-     * an invitation. (An external contact who has no account gets {@link #buildInvitationEmail} instead.)
+     * Told to a colleague who is <b>already</b> a member. A notice, not an invitation: an external
+     * contact with no account gets {@link #buildInvitationEmail} instead.
      */
     public EmailMessage buildRepresentativeAddedEmail(String recipient, String recipientName,
                                                       String adderName, String workspaceName,
@@ -271,10 +266,9 @@ public class EmailTemplates {
     }
 
     /**
-     * Told to an <b>active</b> representative when a mandate is shared with them. Like
-     * {@link #buildRepresentativeAddedEmail}, a notice with no link and no action — they already sign
-     * in. An INVITED representative gets nothing here: their portal invitation is already in their
-     * inbox, and accepting it seats them on every mandate parked for them.
+     * Told to an <b>active</b> representative when a mandate is shared with them. An INVITED one gets
+     * nothing here: accepting the portal invitation already in their inbox seats them on every mandate
+     * parked for them.
      */
     public EmailMessage buildAttachedToMandateEmail(String recipient, String recipientName,
                                                     String adderName, String clientName,

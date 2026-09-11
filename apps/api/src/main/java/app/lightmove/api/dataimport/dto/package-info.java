@@ -1,10 +1,6 @@
 /**
- * The HTTP contract for importing a spreadsheet into a mandate's Companies grid: previewing the file
- * with a proposed column mapping, and committing the mapping a person confirmed.
- *
- * <p>Two calls carrying the same file, and deliberately no import session between them. The browser
- * already holds the file it just uploaded, so re-posting it with the confirmed mapping costs one
- * parse and saves a staging table, an expiry policy, and a sweeper for the imports nobody came back
- * to finish.
+ * The HTTP contract for importing a spreadsheet: previewing the file with a proposed column mapping,
+ * and committing the mapping a person confirmed. Both calls carry the file, so there is no import
+ * session, staging table or expiry policy between them.
  */
 package app.lightmove.api.dataimport.dto;

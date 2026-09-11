@@ -155,7 +155,7 @@ class InvitedSignupIntegrationTest extends FlowTestSupport {
         assertThat(codeOf(expired)).isEqualTo("INVITATION_EXPIRED");
     }
 
-    // ── helpers ───────────────────────────────────────────────────────────────
+    // helpers
 
     /** No Authorization header — the invitee has no session, which is the whole point of this endpoint. */
     private ResultActions acceptSignup(String token, String fullName, String password) throws Exception {

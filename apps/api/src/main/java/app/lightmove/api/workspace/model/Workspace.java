@@ -37,8 +37,8 @@ public class Workspace extends BaseEntity {
     /**
      * The domain of the address that created this workspace, e.g. {@code nextwebspark.com}.
      *
-     * <p>Not unique: one firm may run several workspaces. This is how colleagues <i>find</i> each other
-     * — at signup we show which workspaces already exist on your domain — not a claim on the domain.
+     * <p>Not unique: one firm may run several workspaces. It is how colleagues <i>find</i> each other
+     * at signup, not a claim on the domain.
      */
     @Column(name = "email_domain", nullable = false, updatable = false)
     private String emailDomain;
@@ -86,8 +86,7 @@ public class Workspace extends BaseEntity {
         workspace.primaryRegion = primaryRegion;
         workspace.teamFocus = teamFocus;
         workspace.logoMark = deriveLogoMark(name);
-        // The region they told us they work in is the only sensible default for the region their
-        // projects will be in.
+        // The region they work in is the sensible default for the region their projects will be in.
         workspace.defaultRegion = primaryRegion != null ? primaryRegion : "GCC";
         return workspace;
     }
@@ -95,10 +94,8 @@ public class Workspace extends BaseEntity {
     /**
      * Corrects the details the organisation was described with.
      *
-     * <p>Notably <b>not</b> the slug, and not the email domain. The slug is in URLs and in anything
-     * anyone has bookmarked, so renaming "Acme Search" to "Acme Executive" must not silently break
-     * every link to it; the domain was never the user's to choose in the first place. A workspace can
-     * be re-described. It cannot be re-identified.
+     * <p>Notably <b>not</b> the slug, which is in URLs and bookmarks, and not the email domain, which
+     * was never the user's to choose. A workspace can be re-described; it cannot be re-identified.
      */
     public void describe(String name, String companySize, String primaryRegion, String teamFocus) {
         this.name = name;

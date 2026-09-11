@@ -22,20 +22,16 @@ import org.hibernate.type.SqlTypes;
  * An executive mapped for a mandate — the other half of a talent map, beside the companies
  * {@code triagecompany} holds.
  *
- * <p><b>The project is the mapping; the company is optional.</b> A candidate belongs to the mandate
- * they were researched for, because the note, the status and the compensation reading are all
- * mandate-specific — researching the same person for two mandates is two rows. Most executives are
- * found at a company already in the mandate's universe and carry {@code triageCompanyId}; a researcher
- * also meets people at companies the universe does not carry, and those rows carry none.
+ * <p><b>The project is the mapping; the company is optional.</b> The note, status and compensation
+ * reading are all mandate-specific, so the same person researched for two mandates is two rows, and a
+ * person met at a company the universe does not carry has no {@code triageCompanyId}.
  *
- * <p>{@code companyName} is a write-time snapshot of the employer, and it outlives the mapping. V36's
- * {@code ON DELETE SET NULL} is the other half of that pair: removing a company from a mandate drops
- * the mandate's decision about the company and must not silently delete the people mapped at it, so
- * they fall back to unmapped rows that still say where the person works.
+ * <p>{@code companyName} is a write-time snapshot that outlives the mapping. V36's
+ * {@code ON DELETE SET NULL} is the other half of that pair: removing a company from a mandate must
+ * not silently delete the people mapped at it.
  *
- * <p>{@code status}, {@code seniorityLevel} and {@code source} are stored as their enum names rather
- * than their wire tokens, matching V36's CHECK constraints — {@code N-1} is not a legal identifier,
- * and the wire token is the client's vocabulary while the stored name is the schema's.
+ * <p>{@code status}, {@code seniorityLevel} and {@code source} are stored as enum names, matching
+ * V36's CHECK constraints — {@code N-1} is not a legal identifier.
  */
 @Entity
 @Table(name = "app_lm_project_candidate")
@@ -118,8 +114,7 @@ public class Candidate extends BaseEntity {
 
     /**
      * Values for this project's CANDIDATE custom columns, keyed by the column's {@code field_key}.
-     * Deliberately beside {@link #profile} rather than inside it: that one is a typed record read by
-     * field, and it would have to preserve keys it knows nothing about.
+     * Beside {@link #profile} rather than inside it: that one is a typed record read by field.
      */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "custom_fields", nullable = false)
@@ -149,10 +144,8 @@ public class Candidate extends BaseEntity {
     }
 
     /**
-     * Replaces every editable field. The drawer that edits a candidate submits all of them every time,
-     * so a full replace is what actually happened — a field-by-field merge would have to invent a
-     * meaning for an omitted field across twenty of them, and "omitted" and "cleared" would become the
-     * same request.
+     * Replaces every editable field. The drawer submits all of them every time, and a field-by-field
+     * merge would collapse "omitted" and "cleared" into one request across twenty fields.
      */
     public void describe(CandidateDetails details) {
         this.fullName = details.fullName();
@@ -183,8 +176,8 @@ public class Candidate extends BaseEntity {
 
     /**
      * Fills in what research found, and only where nobody has filled anything in — vendor data never
-     * outranks a researcher. {@code companyName} is stricter still: on a mapped candidate it is the
-     * triage snapshot, and a vendor must not overwrite the mandate's own record of the employer.
+     * outranks a researcher. On a mapped candidate {@code companyName} is the triage snapshot and is
+     * never overwritten.
      */
     public void enrich(EnrichedProfile enriched) {
         if (title == null) {
@@ -211,15 +204,13 @@ public class Candidate extends BaseEntity {
     }
 
     /**
-     * Replaces the whole custom-column bag. Whole rather than per-key because the caller has already
-     * merged it: {@code CustomColumnService.applyTo} decides which keys are real and what an absent
-     * one means, and an entity that also had an opinion would be a second place to get it wrong.
+     * Replaces the whole bag: {@code CustomColumnService.applyTo} has already merged it, and an
+     * entity with a second opinion about which keys are real would be a second place to get it wrong.
      */
     public void describeCustomFields(CustomFieldValues values) {
         this.customFields = values == null ? CustomFieldValues.empty() : values;
     }
 
-    /** Moves the person along the line, leaving the rest of the profile as it was. */
     public void moveTo(CandidateStatus newStatus) {
         this.status = newStatus;
     }

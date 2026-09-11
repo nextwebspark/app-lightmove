@@ -152,7 +152,7 @@ class PasswordChangeFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isUnauthorized());
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // Helpers
 
     private MvcResult changeRaw(String bearerToken, String currentPassword, String newPassword) throws Exception {
         return mvc.perform(post("/api/v1/auth/password/change")

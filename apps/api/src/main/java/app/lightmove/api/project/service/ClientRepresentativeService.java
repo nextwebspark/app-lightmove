@@ -61,8 +61,8 @@ public class ClientRepresentativeService {
         // Normalise once so the representative row and the invitation store the identical address.
         String email = EmailAddressValidator.normalise(rawEmail);
 
-        // Refuse a duplicate before onboarding runs: its notice email is not transactional, so a throw
-        // after it would still have mailed the person.
+        // Refused before onboarding runs: its notice email is not transactional, so a throw after it
+        // would still have mailed the person.
         Optional<ClientRepresentative> existing = representatives
                 .findByClientIdAndEmailIgnoreCase(clientId, email);
         if (existing.filter(row -> row.getStatus() == ClientRepStatus.ACTIVE).isPresent()) {
@@ -107,14 +107,12 @@ public class ClientRepresentativeService {
 
     /**
      * Invites a representative <i>to a mandate</i>: creates them on the project's client and attaches
-     * them, as one transaction. The Add-client-contact modal's "Invite by email" tab is one decision,
-     * and splitting it across two calls left a representative stranded on the client with no seat
-     * whenever the second call failed.
+     * them, as one transaction. Splitting it across two calls left a representative stranded on the
+     * client with no seat whenever the second failed.
      *
-     * <p>Lives here rather than in {@code ProjectService} because that direction already exists —
-     * {@code ProjectService} must not depend back on this bean. The inner {@code invite} call is a
-     * plain self-call: its {@code @Transactional} is inert through the proxy, which costs nothing
-     * because this method already opened the transaction it would have joined.
+     * <p>Lives here rather than in {@code ProjectService}, which must not depend back on this bean.
+     * The inner {@code invite} is a self-call, so its {@code @Transactional} is inert through the
+     * proxy — harmless, because this method already opened the transaction it would have joined.
      */
     @Transactional
     public ProjectResponse inviteToMandate(UUID actorId, UUID workspaceId, UUID projectId,
@@ -126,9 +124,8 @@ public class ClientRepresentativeService {
         RepresentativeResponse invited = invite(
                 actorId, workspaceId, project.getClientId(), fullName, position, rawEmail, request);
 
-        // announce = false: whichever notice this person was owed — the portal invitation, or the
-        // "added as a representative" mail for an address already in the workspace — has just gone
-        // out. The attach notice would be a second mail for the same click.
+        // announce = false: whichever notice this person was owed has just gone out, and the attach
+        // notice would be a second mail for the same click.
         return projects.attachRepresentative(
                 actorId, workspaceId, projectId, invited.id(), false, request);
     }

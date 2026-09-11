@@ -21,9 +21,8 @@ import lombok.Setter;
  * {@code WorkspaceMember}, never directly. That is what lets one human join a second firm later
  * without us cloning their account.
  *
- * <p>The lockout and verification rules live on this class rather than in a service. They are
- * invariants of what it means to be a user, and keeping them here means no caller can forget to
- * apply them.
+ * <p>The lockout and verification rules live here rather than in a service: they are invariants of
+ * what it means to be a user, so no caller can forget to apply them.
  */
 @Entity
 @Table(name = "app_lm_user")
@@ -91,11 +90,10 @@ public class User extends BaseEntity {
     /**
      * Offers a picture from {@code source}, and takes it only if that source is entitled to.
      *
-     * <p>Whoever supplied the current picture may replace it — the URL is the provider's CDN link
-     * rather than a copy of the image, and LinkedIn's expire within weeks, so refreshing on each
-     * sign-in is what keeps it working. Anyone else may only fill an empty one. Without that rule the
-     * last provider used always won, and signing in with an account that has no photo replaced a real
-     * one with a generated monogram.
+     * <p>Whoever supplied the current picture may replace it — the URL is the provider's CDN link and
+     * LinkedIn's expire within weeks, so re-stamping on each sign-in is what keeps it working. Anyone
+     * else may only fill an empty one. Without that rule the last provider used always won, and
+     * signing in with an account that has no photo replaced a real one with a generated monogram.
      *
      * <p>A null {@code avatarSource} against an existing picture means it predates the column: the
      * next sign-in claims it, once, and it is stable thereafter.

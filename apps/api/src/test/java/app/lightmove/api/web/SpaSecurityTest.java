@@ -35,12 +35,10 @@ class SpaSecurityTest {
 
     /**
      * OAuth sign-in runs the provider's consent screen in a popup, and
-     * {@code Cross-Origin-Opener-Policy: same-origin} severs the {@code window.opener} link that
-     * popup needs to report back through. The failure is silent — no console error, no network
-     * error, just a "Continue with…" button that hangs forever — so nothing else would catch it.
-     *
-     * <p>Unset is fine, and is what ships today. {@code same-origin-allow-popups} is the value to
-     * use if the header is ever wanted. {@code same-origin} is the one that must never appear.
+     * {@code Cross-Origin-Opener-Policy: same-origin} severs the {@code window.opener} link that popup
+     * needs to report back through. The failure is silent — just a "Continue with…" button that hangs
+     * forever — so nothing else would catch it. {@code same-origin-allow-popups} is the value to use if
+     * the header is ever wanted; {@code same-origin} must never appear.
      */
     @Test
     @DisplayName("never sends a Cross-Origin-Opener-Policy that would break sign-in popups")
@@ -54,7 +52,7 @@ class SpaSecurityTest {
         assertThat(policy).isIn(null, "same-origin-allow-popups", "unsafe-none");
     }
 
-    // ── The SPA is served ─────────────────────────────────────────────────────
+    // The SPA is served
 
     /**
      * The root is Boot's own welcome-page mapping, which <i>forwards</i> to index.html rather than
@@ -107,7 +105,7 @@ class SpaSecurityTest {
                 .andExpect(status().isNotFound());
     }
 
-    // ── The API is still shut ─────────────────────────────────────────────────
+    // The API is still shut
 
     /**
      * The line the SPA chain must not cross. If its matcher ever starts claiming {@code /api/}, this is

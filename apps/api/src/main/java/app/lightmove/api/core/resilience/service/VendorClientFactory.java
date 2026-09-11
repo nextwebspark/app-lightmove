@@ -30,8 +30,7 @@ import org.springframework.web.util.UriUtils;
  * the query, so that is a researched person's name in a log.
  *
  * <p>The builder is a parameter rather than a field because {@code RestClient.Builder} mutates in
- * place: a factory holding one would carry the first vendor's base URL and key into the second's
- * client.
+ * place: a factory holding one would carry the first vendor's base URL and key into the second's.
  */
 @Component
 public class VendorClientFactory {

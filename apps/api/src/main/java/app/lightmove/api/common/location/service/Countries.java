@@ -16,25 +16,22 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Every spelling of a country this application has to read — an Apollo export's, a vendor's, a
- * spreadsheet's, a researcher's — resolved to one code and one English name.
+ * spreadsheet's — resolved to one code and one English name.
  *
  * <p><b>Called on the way in, not only on the way out.</b> A country is canonicalised where it is
- * written, so the Strategy filter's exact match, a grid's grouping and the map's country branch
- * are all comparing one value. Resolving at render time instead would leave the database holding six
- * spellings of one country and every new read having to know about all of them.
+ * written, so the Strategy filter's exact match, a grid's grouping and the map's country branch all
+ * compare one value. Resolving at render time would leave the database holding six spellings.
  *
  * <p>The JDK's own catalog answers nearly everything and its English names match the universe's
- * verbatim, {@code Türkiye} included, so the classpath file carries only what the JDK does not know:
- * the abbreviations people type, and the cities the retired ETL crosswalk had already collected. A
- * bare alpha-2 code is accepted too, but only where no display name claimed the spelling — a dozen of
- * them ("IN", "IT", "NO", "ME") are ordinary words a spreadsheet's country column carries.
+ * verbatim, so the classpath file carries only what the JDK does not know. A bare alpha-2 code is
+ * accepted too, but only where no display name claimed the spelling — a dozen of them ("IN", "IT",
+ * "NO", "ME") are ordinary words a spreadsheet's country column carries.
  *
- * <p><b>Static rather than a {@code @Component}</b>, unlike {@code SectorTaxonomy} beside it. The
- * seam has to be reachable from {@code CapturedCompanyDetails} and {@code CandidateDetails}, records
- * whose compact constructors already normalise, and nothing can be injected there.
+ * <p><b>Static rather than a {@code @Component}</b>: the seam has to be reachable from
+ * {@code CapturedCompanyDetails} and {@code CandidateDetails}, whose compact constructors already
+ * normalise and cannot be injected into.
  *
- * <p>Unknown is an answer, not an error: a country nobody can resolve is kept as it was typed. Losing
- * a fact nobody asked us to lose is worse than an odd spelling.
+ * <p>Unknown is an answer, not an error — a country nobody can resolve is kept as it was typed.
  */
 public final class Countries {
 
@@ -54,8 +51,7 @@ public final class Countries {
         // stop resolving.
         Map<String, String> spellings = codesByName(file, names);
         CODE_BY_SPELLING = Map.copyOf(spellings);
-        // One map grown into the other, never built twice: the two differ by the bare-code pass
-        // alone, and building each from scratch left room for them to drift apart.
+        // One map grown into the other: the two differ by the bare-code pass alone.
         names.keySet().forEach(code -> spellings.putIfAbsent(code.toLowerCase(Locale.ROOT), code));
         CODE_BY_NAME = Map.copyOf(spellings);
         CITY_BY_NAME = citiesByName(file);
@@ -87,8 +83,8 @@ public final class Countries {
      * abbreviations — never a bare alpha-2 code.
      *
      * <p>26 US state and Canadian province abbreviations are also ISO country codes, so reading the
-     * tail of "Chicago, IL" or "San Francisco, CA" as a country files those companies under Israel
-     * and Canada. A line of prose is exactly where that misreading happens, so it asks here.
+     * tail of "Chicago, IL" as a country files those companies under Israel. A line of prose is where
+     * that misreading happens, so it asks here.
      */
     public static Optional<Country> resolveSpelling(String spelling) {
         if (spelling == null) {
@@ -112,9 +108,8 @@ public final class Countries {
     }
 
     /**
-     * A city in the casing the catalog holds it in — "khobar" and "Al Khobar" are one place. A city
-     * the catalog does not carry keeps its own spelling: cities are not a closed vocabulary and
-     * pretending otherwise would rename somebody's town.
+     * A city in the catalog's casing — "khobar" and "Al Khobar" are one place. One the catalog does
+     * not carry keeps its own spelling: cities are not a closed vocabulary.
      */
     public static String cityOf(String spelling) {
         String trimmed = trimmed(spelling);
@@ -126,8 +121,8 @@ public final class Countries {
     }
 
     /**
-     * Every country, with the spellings that find it — the picker searches on the same abbreviations
-     * this canonicalises on write, rather than keeping its own list that drifts from them.
+     * Every country with the spellings that find it, so the picker searches on the same abbreviations
+     * this canonicalises on write rather than a list of its own.
      */
     public static List<Country> all() {
         Map<String, List<String>> aliases = new HashMap<>();

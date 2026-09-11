@@ -16,9 +16,8 @@ import java.util.stream.Collectors;
  * What makes a submitted org chart a chart rather than a bag of boxes.
  *
  * <p>These are relationships between elements — one seat is the mandate's, every parent resolves,
- * nothing is its own ancestor — which Bean Validation on a flat list cannot express, so they are
- * checked here before anything is stored. A chart that broke any of them would render as either
- * nothing at all or an infinite loop, so it is refused rather than persisted and drawn.
+ * nothing is its own ancestor — which Bean Validation on a flat list cannot express. A chart breaking
+ * any of them renders as nothing at all or as an infinite loop.
  *
  * <p>Every message is a fixed sentence: nothing here interpolates what the caller sent.
  */
@@ -30,9 +29,8 @@ final class OrgChartRules {
     /**
      * Drops the seats nobody filled in — but only the ones nothing reports to.
      *
-     * <p>Both V39 and this package's docs promise that a seat with neither a title nor a name clears
-     * itself, which is what makes the placeholders V39 creates from the old direct-report count
-     * disappear once somebody actually works on the chart.
+     * <p>A seat with neither a title nor a name clears itself, which is what makes V39's placeholders
+     * disappear once somebody works on the chart.
      *
      * <p><b>Only leaves.</b> Removing an unnamed seat that has children would leave every one of them
      * pointing at a parent that is no longer in the chart — the exact state

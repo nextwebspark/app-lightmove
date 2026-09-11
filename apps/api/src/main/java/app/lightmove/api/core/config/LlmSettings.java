@@ -51,8 +51,8 @@ public record LlmSettings(
         if (injectionPhrases == null) {
             throw new IllegalArgumentException("lightmove.llm.injection-phrases must not be null");
         }
-        // @DefaultValue on a List binds an operator's empty override to [""], not to [] — and a
-        // blocklist holding one blank string matches every prompt, so it is refused loudly here.
+        // @DefaultValue("") on a List binds to [""], not [] — see PublicEmailDomains. A blocklist
+        // holding one blank string would match every prompt.
         if (injectionPhrases.stream().anyMatch(String::isBlank)) {
             throw new IllegalArgumentException(
                     "lightmove.llm.injection-phrases must not contain a blank entry");

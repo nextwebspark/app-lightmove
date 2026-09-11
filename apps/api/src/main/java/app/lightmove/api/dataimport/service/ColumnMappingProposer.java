@@ -43,27 +43,23 @@ import org.springframework.stereotype.Service;
 /**
  * Asks the model which field each column of an uploaded sheet means.
  *
- * <p>Built on the {@link ChatClient} bean the application already has: its advisors are set once in
- * {@code ChatClientConfig} and the model's own defaults in {@code application.yml}, so neither is
- * restated here. All this adds is a system prompt of its own, set per call so that bean stays
- * reusable, a structured answer, and the three options this call wants differently.
+ * <p>Built on the shared {@link ChatClient} bean, whose advisors and model defaults are set in
+ * {@code ChatClientConfig} and {@code application.yml}. This adds a system prompt of its own, set per
+ * call so that bean stays reusable, a structured answer, and three options.
  *
- * <p><b>No cell values are sent.</b> A spreadsheet of executives is client and candidate PII — the
- * same PII that was deliberately kept out of the application log — so the request carries each
- * column's header and a locally computed shape ({@code looks like an email}, {@code looks numeric})
- * and nothing else. That is nearly all the signal a mapping needs, and it means an import of a
- * confidential longlist does not become an upload of one.
- * {@code lightmove.spreadsheet-import.send-sample-values} exists so an operator can make the opposite
- * trade knowingly rather than by editing code.
+ * <p><b>No cell values are sent.</b> A spreadsheet of executives is client and candidate PII, so the
+ * request carries each column's header and a locally computed shape ({@code looks like an email},
+ * {@code looks numeric}) and nothing else — an import of a confidential longlist does not become an
+ * upload of one. {@code lightmove.spreadsheet-import.send-sample-values} exists so an operator can
+ * make the opposite trade knowingly rather than by editing code.
  *
  * <p><b>The answer is checked, never trusted.</b> One that does not fit the schema is put back to the
  * model with the validation error attached and given one more try. Past that, every entry is matched
  * back to a real header by name, unknown tokens are dropped, and a field claimed twice goes to the
- * first column that claimed it — a model that maps two headers onto {@code candidateEmail} would
- * otherwise have the second silently overwrite the first. Anything the model did not answer for
- * falls back to {@link HeuristicColumnMatcher}, as does the whole sheet when the call fails: Vertex
- * needs Application Default Credentials on every path including a plain local run, and an import that
- * was impossible without them would be an import most people never got to use.
+ * first column that claimed it — otherwise a model mapping two headers onto {@code candidateEmail}
+ * has the second silently overwrite the first. Anything unanswered falls back to
+ * {@link HeuristicColumnMatcher}, as does the whole sheet when the call fails: Vertex needs
+ * Application Default Credentials on every path including a plain local run.
  */
 @Service
 @Slf4j
@@ -95,27 +91,26 @@ public class ColumnMappingProposer {
      * Asked for natively, so there is no markdown fence on the answer.
      *
      * <p>Without it Gemini wraps its reply in a {@code ```json} fence, and
-     * {@code StructuredOutputValidationAdvisor} hands the assistant text to Jackson verbatim — no
-     * trim, no strip. Every preview therefore failed validation on the leading backtick and spent its
-     * repair attempt re-asking a question whose answer came back fenced identically, at twice the
-     * Vertex cost. The mapping was right anyway only because {@code BeanOutputConverter} cleans the
-     * text again before binding it, so this cost money and eight seconds rather than correctness.
+     * {@code StructuredOutputValidationAdvisor} hands the assistant text to Jackson verbatim. Every
+     * preview therefore failed validation on the leading backtick and spent its repair attempt
+     * re-asking a question whose answer came back fenced identically, at twice the Vertex cost.
      */
     private static final String ANSWER_MIME_TYPE = "application/json";
 
     /**
-     * No reasoning step: mapping is a lookup from a header and a value shape onto a fixed field list,
-     * not a problem thinking improves. Left at the model's own default it deliberated before every
-     * answer, which is billed output tokens and seconds of a preview a person is waiting on.
+     * No reasoning step: mapping is a lookup onto a fixed field list, not a problem thinking
+     * improves. Left at the model's default it deliberated before every answer — billed output tokens
+     * and seconds of a preview a person is waiting on.
      */
     private static final int MAPPING_THINKING_BUDGET = 0;
 
     /**
      * What the guard answers with when it blocks a call.
      *
-     * <p>It replies in place of the model, and a sentence would not bind to {@link ModelMappingAnswer} —
-     * a block would surface as a parse error indistinguishable from Vertex being unreachable. So it is
-     * shaped as a document that binds, carrying the shared marker as a header no sheet has.
+     * <p>It replies in place of the model, and a sentence would not bind to
+     * {@link ModelMappingAnswer} — a block would surface as a parse error indistinguishable from
+     * Vertex being unreachable. So it is shaped as a document that binds, carrying the shared marker
+     * as a header no sheet has.
      */
     private static final String BLOCKED =
             "{\"columns\":[{\"header\":\"" + BlockedAnswer.MARKER + "\"}]}";
@@ -127,8 +122,7 @@ public class ColumnMappingProposer {
     private final LlmBudgetGuard llmBudget;
     private final SpreadsheetImportSettings settings;
 
-    // Hand-written rather than @RequiredArgsConstructor: Lombok cannot annotate a constructor
-    // parameter with @Value, and this also derives the settings branch from the properties root.
+    // Hand-written: Lombok cannot put @Value on a generated constructor parameter.
     public ColumnMappingProposer(ChatClient chatClient,
                                  HeuristicColumnMatcher heuristics,
                                  @Value("classpath:prompts/import-column-mapping-system.st") Resource systemPrompt,

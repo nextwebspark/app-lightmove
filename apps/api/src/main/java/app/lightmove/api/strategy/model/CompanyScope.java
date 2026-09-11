@@ -3,45 +3,20 @@ package app.lightmove.api.strategy.model;
 import java.util.List;
 
 /**
- * One filtered read's full set of criteria over the Apollo company universe — what the Strategy
- * sidebar's chips add up to, resolved server-side from the mandate's saved filter.
- *
- * <p>Replaces the warehouse-era {@code ScopeFilter}, and the differences are all consequences of the
- * new source and the new screen:
+ * One filtered read's criteria over the Apollo company universe, resolved server-side from the
+ * mandate's saved filter. An empty list means "no constraint on this axis", never "match nothing".
  *
  * <ul>
- *   <li><b>One industry list, not three.</b> The old shape split sectors into direct / adjacent /
- *       inferred so a matched row could report which bucket it came through, feeding a Fit score.
- *       The new filter is flat pass-or-fail — every visible row matches everything selected — so
- *       there is no bucket to report.
- *   <li><b>{@code employeeBands} and {@code revenueBands} are slugs</b> ({@code "1k-5k"},
- *       {@code "unknown"}), resolved through {@link app.lightmove.api.strategy.constant.EmployeeBand}
- *       / {@link app.lightmove.api.strategy.constant.RevenueBand} into numeric bounds. Apollo ships
- *       raw figures, not pre-bucketed range strings.
- *   <li><b>{@code keywords} are the universe's own keywords</b>, picked from its vocabulary rather
- *       than typed, and they OR each other: a company carrying any one of them matches.
- *   <li><b>{@code marketSegments} are segment names</b> ("B2B", "SaaS"), not keywords. The service
- *       resolves each to its keyword aliases through {@code MarketSegments}, because the universe
+ *   <li>{@code employeeBands} / {@code revenueBands} are slugs ({@code "1k-5k"}, {@code "unknown"}),
+ *       resolved into numeric bounds — Apollo ships raw figures, not pre-bucketed strings.
+ *   <li>{@code employeeRange} / {@code revenueRange} take precedence over their axis's band list when
+ *       set. Non-null <i>is</i> the custom-range mode; there is no flag that could disagree with it.
+ *   <li>{@code countries} are Apollo's spelled-out names ("United Arab Emirates"), not ISO codes.
+ *   <li>{@code marketSegments} are segment names resolved to keyword aliases, because the universe
  *       expresses go-to-market through a free-text {@code keywords} array rather than a column.
- *   <li><b>{@code countries} are Apollo's spelled-out names</b> ("United Arab Emirates"), not ISO
- *       codes. The universe holds a handful of values, so the Location chips are literally the
- *       whole vocabulary — and that is why the SPA holds that list itself rather than counting it
- *       back out of the universe on every facets read.
- *   <li><b>{@code employeeRange} / {@code revenueRange} are the custom-range mode</b> and take
- *       precedence over their axis's band list when set. Non-null <i>is</i> the mode; there is no
- *       flag that could disagree with the data.
- *   <li><b>{@code offLimitsAccountIds} is an exclusion list, unconditionally.</b> A barred company
- *       never appears in a filtered read — no toggle, no flagged-but-visible row — because that is
- *       what the Off-limits panel tells the consultant it does.
+ *   <li>{@code offLimitsAccountIds} excludes unconditionally — no toggle, no flagged-but-visible row.
+ *   <li>{@code nameQuery} changes which companies match, so the total count applies it too.
  * </ul>
- *
- * <p>An empty list means "no constraint on this axis", never "match nothing" — the whole universe is
- * a legitimate starting point for a search screen, unlike the old scope, which refused to answer
- * without a sector.
- *
- * <p>{@code nameQuery} narrows to a case-insensitive substring of the company name. It lives here
- * rather than beside the sort because it changes <i>which</i> companies match, so the count has to
- * apply it too — a total taken without it would advertise thousands of matches over a dozen rows.
  */
 public record CompanyScope(List<String> industries, List<String> keywords,
                            List<String> marketSegments, List<String> countries,

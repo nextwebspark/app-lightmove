@@ -766,7 +766,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
     }
 
-    // ── companies the market does not carry ──────────────────────────────────
+    // companies the market does not carry
 
     @Test
     @DisplayName("a hand-typed company is stored with no Apollo id and a MANUAL source")
@@ -913,7 +913,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.sourceUrl").doesNotExist());
     }
 
-    // ── removing a company from the mandate ──────────────────────────────────
+    // removing a company from the mandate
 
     @Test
     @DisplayName("deleting drops the mandate's decision and leaves the company in the universe")
@@ -977,7 +977,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isNotFound());
     }
 
-    // ── the grid's sort and search ───────────────────────────────────────────
+    // the grid's sort and search
 
     @Test
     @DisplayName("the grid can sort by a snapshot column, and refuses a field outside the allowlist")

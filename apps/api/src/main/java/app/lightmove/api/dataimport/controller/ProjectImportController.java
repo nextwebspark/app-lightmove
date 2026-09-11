@@ -31,10 +31,7 @@ import org.springframework.web.multipart.MultipartFile;
  * writes companies and people, so a client representative — who may read the mandate's content — must
  * not be able to start one.
  *
- * <p>Two calls carrying the same file. Preview reads it and proposes a mapping; commit takes it back
- * with the mapping a person confirmed. Nothing is held open server-side between them: the browser
- * still has the file, so re-posting it costs one parse and saves a staging table, an expiry policy and
- * a sweeper for the imports nobody came back to finish.
+ * <p>Two calls carrying the same file, with nothing held open server-side between them.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/import")
@@ -71,8 +68,7 @@ public class ProjectImportController {
      * Reads the file and answers with a mapping to confirm. Writes nothing.
      *
      * <p>The model budget is spent inside the mapping, not here: most previews never reach Vertex,
-     * and refusing one that would not have called it with "the model budget is exhausted" would be a
-     * lie the caller cannot act on.
+     * and refusing one that would not have called it would be a lie the caller cannot act on.
      */
     @PostMapping("/preview")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
@@ -86,10 +82,9 @@ public class ProjectImportController {
     /**
      * Applies the confirmed mapping.
      *
-     * <p>{@code @RequestPart} rather than the {@code @RequestParam} every other upload here uses, and
-     * the only one in the codebase: this request carries a file <i>and</i> a JSON document that has to
-     * be bound and validated as one, which a form field of JSON text could not be. The browser sends
-     * the mapping as a blob typed {@code application/json} beside the file.
+     * <p>{@code @RequestPart} rather than the {@code @RequestParam} every other upload here uses: this
+     * request carries a file <i>and</i> a JSON document that has to be bound and validated as one,
+     * which a form field of JSON text could not be.
      */
     @PostMapping("/commit")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")

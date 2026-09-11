@@ -4,15 +4,13 @@ import app.lightmove.api.common.location.service.Countries;
 import java.util.Arrays;
 
 /**
- * A place written as one line — "Dubai, United Arab Emirates", "Greater Dubai Area, UAE", "Dubai,
- * Dubai, UAE" — read as the city and country it names.
+ * A place written as one line — "Dubai, United Arab Emirates", "Greater Dubai Area, UAE" — read as the
+ * city and country it names. Vendors publish a location this way and the schema stores the halves
+ * apart; three enrichers were each doing their own {@code split(",")} before this existed, and one of
+ * them wrote a bare country code into the country column.
  *
- * <p>Vendors publish a person's or a company's location this way and the schema stores the halves
- * apart, so something has to split it. Three enrichers were each doing their own {@code split(",")}
- * before this existed, and one of them wrote a bare country code into the country column.
- *
- * <p>Only the tail is tested against the country catalog. A line whose last segment names no country
- * is all city — "Greater Dubai Area" is a place, not a country and a mistake.
+ * <p>Only the tail is tested against the country catalog: a line whose last segment names no country
+ * is all city.
  */
 public record LocationLine(String city, String country) {
 
@@ -29,11 +27,9 @@ public record LocationLine(String city, String country) {
         // line ending in one is a city and a state far more often than it is a country.
         String country = parts.length > 1 ? Countries.resolveSpelling(tail).map(Country::name).orElse(null) : null;
         if (country == null) {
-            // No country on the end: the whole line is the city, and a line that is only a country
-            // name ("United Arab Emirates") is that country with no city. Only the first segment,
-            // unlike the resolved-tail branch below: an unresolved tail is a region or a state
-            // ("San Francisco, California"), and the city column is read as one city — geocoding
-            // keys its cache on it and the alias catalog folds it, and neither survives a join.
+            // No country on the end: the whole line is the city. Only the first segment, unlike the
+            // resolved-tail branch below — an unresolved tail is a region or a state, and the city
+            // column is read as one city by the geocoding cache key and the alias catalog.
             return Countries.resolveSpelling(cleaned)
                     .map(only -> new LocationLine(null, only.name()))
                     .orElseGet(() -> new LocationLine(Countries.cityOf(firstOf(parts)), null));

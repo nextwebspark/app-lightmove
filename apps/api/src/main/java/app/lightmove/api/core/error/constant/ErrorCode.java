@@ -13,11 +13,10 @@ public enum ErrorCode {
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "One or more fields are invalid"),
 
     /**
-     * Deliberately the single answer to "wrong password", "no such account", and "that address is a
-     * Google-only account". Distinguishing them hands an attacker a free account-enumeration oracle:
-     * they could harvest which of a leaked email list are real customers without ever guessing a
-     * password. The audit log records precisely which case it was; the client is told only that the
-     * pair did not match.
+     * Deliberately the single answer to "wrong password", "no such account" and "that address is a
+     * Google-only account". Distinguishing them is a free account-enumeration oracle: an attacker
+     * could harvest which of a leaked email list are real customers without guessing a password. The
+     * audit log records which case it was; the client is told only that the pair did not match.
      */
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "Invalid email or password"),
 
@@ -26,11 +25,9 @@ public enum ErrorCode {
     EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN, "Please verify your email address to continue"),
 
     /**
-     * The OAuth exchange itself failed — the provider refused, or its answer did not verify. It never
-     * reaches an API response body: the flow is a browser redirect, so this travels as {@code ?error=}
-     * on the way back to the login screen. The provider's own message (a {@code redirect_uri} that
-     * does not match, an {@code invalid_client}) is logged instead, being configuration detail rather
-     * than anything the person signing in can act on.
+     * The OAuth exchange failed. It never reaches an API response body — the flow is a browser
+     * redirect, so this travels as {@code ?error=} back to the login screen. The provider's own
+     * message is logged instead, being configuration detail nobody signing in can act on.
      */
     OAUTH_FAILED(HttpStatus.UNAUTHORIZED, "Sign-in did not complete. Please try again"),
 

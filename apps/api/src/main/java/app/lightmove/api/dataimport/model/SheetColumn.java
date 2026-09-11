@@ -6,14 +6,11 @@ import java.util.List;
  * One column of an uploaded sheet: the header as written, where it sits, and what its values look
  * like.
  *
- * <p>{@link #valueShape} is computed locally from the column's own cells and is the only thing about
- * a column's <i>contents</i> that ever reaches the model. A header alone is often ambiguous —
- * "Contact" could be an email, a phone number or a person — and the shape settles it without a single
- * candidate's details leaving this process.
- *
- * <p>{@link #sampleValues} do <b>not</b> go to the model. They travel back to the browser that sent
- * them, so the person confirming the mapping can see what is actually in the column they are
- * assigning.
+ * <p>{@link #valueShape} is computed locally and is the only thing about a column's <i>contents</i>
+ * that ever reaches the model — a header alone is often ambiguous ("Contact" could be an email, a
+ * phone or a person) and the shape settles it without a candidate's details leaving this process.
+ * {@link #sampleValues} do <b>not</b> go to the model; they travel back to the browser so the person
+ * confirming the mapping can see what is in the column.
  */
 public record SheetColumn(
         int index,
@@ -27,13 +24,7 @@ public record SheetColumn(
         sampleValues = List.copyOf(sampleValues);
     }
 
-    /**
-     * What a column's values look like, judged from the column itself.
-     *
-     * <p>Deliberately coarse. This exists to disambiguate a header, not to type the data — a finer
-     * reading would be guessing, and the person confirming the mapping is a better judge than any
-     * rule here.
-     */
+    /** What a column's values look like. Deliberately coarse: it disambiguates a header, not the data. */
     public enum ValueShape {
         EMAIL,
         URL,

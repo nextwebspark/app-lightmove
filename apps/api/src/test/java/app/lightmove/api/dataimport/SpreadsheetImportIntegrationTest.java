@@ -396,7 +396,7 @@ class SpreadsheetImportIntegrationTest extends FlowTestSupport {
         assertThat(preview.get("mappingSource").asText()).isEqualTo("headerMatcher");
     }
 
-    // ── helpers ───────────────────────────────────────────────────────────────
+    // helpers
 
     /** Previews, then commits the mapping the preview proposed — what the dialog does when nobody edits it. */
     @Test

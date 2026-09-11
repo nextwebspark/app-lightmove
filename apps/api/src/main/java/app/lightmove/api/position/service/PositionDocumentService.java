@@ -21,14 +21,11 @@ import org.springframework.web.multipart.MultipartFile;
 /**
  * The position description attached to a brief: store it, replace it, take it away, hand it back.
  *
- * <p><b>It is never read.</b> Nothing here opens the file or fills a field in from it — the mandate
- * keeps the document it was briefed from, and every field on the screen is typed by hand. An
- * extraction that pre-fills the brief is a separate feature that does not exist yet, and this service
- * deliberately does not pretend otherwise.
+ * <p><b>It is never read.</b> Nothing here opens the file or fills a field in from it. An extraction
+ * that pre-fills the brief does not exist yet.
  *
- * <p>Its own class rather than more methods on {@link PositionService}: bytes, size ceilings and
- * content-type policy change for different reasons than the brief's fields do, and this is the one
- * class a move to object storage would touch.
+ * <p>Its own class rather than more methods on {@link PositionService}: this is the one class a move
+ * to object storage would touch.
  */
 @Service
 public class PositionDocumentService {
@@ -39,8 +36,6 @@ public class PositionDocumentService {
     private final AuditService audit;
     private final PositionDocumentSettings settings;
 
-    // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
-    // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public PositionDocumentService(PositionBriefLoader briefs,
                                    PositionResponseAssembler assembler,
                                    PositionDocumentRepository documents,

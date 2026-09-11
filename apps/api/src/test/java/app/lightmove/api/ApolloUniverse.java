@@ -8,10 +8,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 /**
  * Seeds {@code app_lm_apollo_companies} for a test.
  *
- * <p>The universe is ETL reference data — the pipeline writes it and the application only reads —
- * so a fresh schema leaves the table empty and every test that reads it has to put its own rows in.
- * A shared helper rather than a copy of the same INSERT in five files: the table has 46 columns and
- * a test that cares about two of them should say so and let the rest default.
+ * <p>The universe is ETL reference data, so a fresh schema leaves the table empty and every test
+ * reading it has to seed its own rows. The table has 46 columns, and a test that cares about two of
+ * them should say so and let the rest default.
  *
  * <p>{@code reset()} first, always. Testcontainers reuses one database across the suite, so a test
  * that skipped it would count another test's companies and pass or fail depending on ordering.

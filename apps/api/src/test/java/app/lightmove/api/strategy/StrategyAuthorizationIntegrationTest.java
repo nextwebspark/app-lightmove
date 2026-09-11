@@ -133,7 +133,7 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
     }
 
-    // ── fixture ──────────────────────────────────────────────────────────────
+    // fixture
 
     private static String strategyUrl(String projectId) {
         return "/api/v1/projects/" + projectId + "/strategy";

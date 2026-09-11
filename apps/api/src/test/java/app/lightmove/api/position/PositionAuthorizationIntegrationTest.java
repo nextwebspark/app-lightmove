@@ -114,7 +114,7 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
         return "/api/v1/projects/" + projectId + "/position";
     }
 
-    // ── fixture ──────────────────────────────────────────────────────────────
+    // fixture
 
     private record Fixture(String admin, String projectId, String saraEmail, String saraId) {}
 

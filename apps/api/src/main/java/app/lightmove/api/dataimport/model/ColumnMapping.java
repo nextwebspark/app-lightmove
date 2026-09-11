@@ -5,8 +5,8 @@ import app.lightmove.api.customcolumn.constant.CustomColumnType;
 import app.lightmove.api.dataimport.constant.ImportTargetField;
 
 /**
- * What one column of the uploaded sheet becomes. Exactly one of the three outcomes applies, and which
- * one is decided by which fields are set:
+ * What one column of the uploaded sheet becomes. Exactly one of the three outcomes applies, decided
+ * by which fields are set:
  *
  * <ul>
  *   <li>{@code field} set — the column maps onto a built-in field of the row.
@@ -15,8 +15,8 @@ import app.lightmove.api.dataimport.constant.ImportTargetField;
  * </ul>
  *
  * <p>{@code customFieldKey} is present when the mapping points at a custom column the project already
- * has, and absent when the import is to define a new one from {@code customLabel}. That is the
- * difference between a second import topping up an existing Ethnicity column and minting a duplicate.
+ * has, and absent when the import is to define a new one — the difference between topping up an
+ * existing Ethnicity column and minting a duplicate.
  */
 public record ColumnMapping(
         int columnIndex,

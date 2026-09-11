@@ -18,24 +18,16 @@ import org.hibernate.type.SqlTypes;
 
 /**
  * A company a mandate has taken a position on — the row "Add to Universe" writes, the Companies
- * screens move between stages, and Delete removes.
+ * screens move between stages, and Delete removes. There is no untriaged state: a company nobody has
+ * acted on has no row here.
  *
- * <p>Strategy searches a universe of 71,822 companies that belongs to no project; this table is the
- * handful a mandate has actually decided something about, and the decision is the row. There is no
- * untriaged state: a company nobody has acted on has no row here at all.
+ * <p>The snapshot columns are the same contract as {@link StrategyCompanyRef}'s, with one addition:
+ * {@code note} is the consultant's remark on this company <i>for this mandate</i>, unlike Apollo's
+ * {@code short_description}. {@code apolloAccountId} is null when there is no universe id to carry,
+ * and V34's CHECK keeps the pair honest — a {@code STRATEGY} row without an id cannot exist.
  *
- * <p>The snapshot columns are the same contract as {@link StrategyCompanyRef}'s — a triage decision
- * that loses its subject when the pipeline next loads is worse than a stale one — with one addition:
- * {@code note} is the consultant's own remark about this company <i>for this mandate</i>, which is a
- * different thing from Apollo's {@code short_description}, the same sentence for every mandate.
- *
- * <p>{@code apolloAccountId} is null for the two sources that have no universe id to carry — a company
- * typed in by hand, or captured off a live page by the plugin. {@code source} says which, and V34's
- * CHECK keeps the pair honest: a {@code STRATEGY} row without an id cannot exist.
- *
- * <p>{@code status} and {@code source} are stored as their enum names rather than their wire tokens,
- * matching the CHECK constraints in V32 and V34. The wire token is the client's vocabulary and is free
- * to change; the stored name is the schema's.
+ * <p>{@code status} and {@code source} are stored as enum names, not wire tokens, matching the CHECK
+ * constraints in V32 and V34: the wire token is the client's vocabulary and is free to change.
  */
 @Entity
 @Table(name = "app_lm_project_triage_company")
@@ -46,11 +38,7 @@ public class TriageCompany extends BaseEntity {
     @Column(name = "project_id", nullable = false, updatable = false)
     private UUID projectId;
 
-    /**
-     * Null when the company has no universe id to carry. A {@code STRATEGY} row always has one; a
-     * capture has one too whenever it resolved against the market, so {@code source} is not a proxy
-     * for this being set.
-     */
+    /** Null with no universe id to carry. A capture may have one, so {@code source} is not a proxy. */
     @Column(name = "apollo_account_id", updatable = false)
     private String apolloAccountId;
 
@@ -103,9 +91,8 @@ public class TriageCompany extends BaseEntity {
     private String logoUrl;
 
     /**
-     * Values for this project's COMPANY custom columns, keyed by the column's {@code field_key}. The
-     * definitions live in {@code customcolumn}; nothing here validates a key, because
-     * {@code CustomColumnService.applyTo} is the only thing that ever writes this field.
+     * Values for this project's COMPANY custom columns, keyed by the column's {@code field_key}.
+     * Nothing here validates a key: {@code CustomColumnService.applyTo} is the only writer.
      */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "custom_fields", nullable = false)
@@ -115,10 +102,9 @@ public class TriageCompany extends BaseEntity {
     private UUID addedBy;
 
     /**
-     * A company the mandate supplied itself, by hand or through the plugin. Not a constructor for
-     * {@link TriageCompanySource#STRATEGY} rows: those are written by {@code TriageCompanyWriter} in
-     * one multi-row statement, so that the bulk add can ignore the companies a mandate already holds
-     * rather than racing a read against them.
+     * A company the mandate supplied itself. Not for {@link TriageCompanySource#STRATEGY} rows —
+     * {@code TriageCompanyWriter} writes those in one multi-row statement so a bulk add can skip what
+     * the mandate already holds rather than racing a read against it.
      */
     public static TriageCompany captured(UUID projectId, UUID addedBy, TriageCompanySource source,
                                          TriageCompanyStatus status, CapturedCompanyDetails details) {
@@ -144,9 +130,8 @@ public class TriageCompany extends BaseEntity {
     }
 
     /**
-     * Fills in what company research found, and only where nobody has filled anything in — the
-     * consultant's own capture never loses a field to a vendor. Name, note, stage and provenance are
-     * not facts about the company and are never touched; mirrors {@code Candidate#enrich}.
+     * Fills in what research found, and only where nobody has filled anything in — a consultant's
+     * capture never loses a field to a vendor. Name, note, stage and provenance are never touched.
      */
     public void enrichFacts(CapturedCompanyDetails details) {
         if (industry == null) {
@@ -182,13 +167,9 @@ public class TriageCompany extends BaseEntity {
     }
 
     /**
-     * Replaces the company's own facts — what the Companies panel's Edit form submits. Only ever
-     * reached for a company the mandate supplied itself; the service refuses a market row before this
-     * is called, and {@code apolloAccountId}, {@code source} and {@code sourceUrl} are
-     * {@code updatable = false} so provenance cannot travel through here even by mistake.
-     *
-     * <p>{@code note} is deliberately not touched. It is the mandate's remark rather than a fact about
-     * the company, it is editable on companies this path refuses, and it has its own write.
+     * Replaces the company's own facts. Only reached for a company the mandate supplied itself, and
+     * {@code apolloAccountId}, {@code source} and {@code sourceUrl} are {@code updatable = false} so
+     * provenance cannot travel through here by mistake. {@code note} has its own write.
      */
     public void describe(CapturedCompanyDetails details) {
         this.companyName = details.companyName();
@@ -204,9 +185,7 @@ public class TriageCompany extends BaseEntity {
     }
 
     /**
-     * True for a company the mandate supplied itself, which is the only kind it may rewrite. The SPA's
-     * Companies panel names this predicate identically and derives its Edit button from it — one
-     * invariant, one name, on both sides of the wire.
+     * True for a company the mandate supplied itself, which is the only kind it may rewrite.
      *
      * <p><b>Keyed on the snapshot, not the door.</b> {@code source != STRATEGY} used to mean the same
      * thing, because only Strategy wrote market rows — until a plugin capture began resolving against
@@ -223,9 +202,8 @@ public class TriageCompany extends BaseEntity {
     }
 
     /**
-     * Replaces the whole custom-column bag. Whole rather than per-key because the caller has already
-     * merged it: {@code CustomColumnService.applyTo} decides which keys are real and what an absent
-     * one means, and an entity that also had an opinion would be a second place to get it wrong.
+     * Replaces the whole bag: {@code CustomColumnService.applyTo} has already merged it, and an
+     * entity with a second opinion about which keys are real would be a second place to get it wrong.
      */
     public void describeCustomFields(CustomFieldValues values) {
         this.customFields = values == null ? CustomFieldValues.empty() : values;

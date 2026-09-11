@@ -23,7 +23,6 @@ public final class StrategyScope {
     private StrategyScope() {
     }
 
-    /** The universe scope this strategy defines. */
     public static CompanyScope of(Strategy strategy) {
         return of(strategy, null);
     }

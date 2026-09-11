@@ -25,20 +25,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * How a user ends up in a workspace.
+ * How a user ends up in a workspace: creating one at signup, where they are its ADMIN, or being
+ * invited, where the admin naming them was the decision.
  *
- * <p>There are exactly two routes in, and they differ only in who decided:
- *
- * <ul>
- *   <li><b>Create one</b> — signup always ends here. You are the workspace's ADMIN.
- *   <li><b>Be invited</b> — an admin named you. You are in immediately; their naming you was the
- *       decision. (See {@code InvitationService}.)
- * </ul>
- *
- * <p>There is deliberately no "ask to join". Membership is invitation-only: finding a workspace on
- * your email domain proves you share an employer's mail system, not that you should see an
- * executive-search pipeline — so signup does not even look. The admin reaches out, or you create your
- * own workspace.
+ * <p>There is deliberately no "ask to join". Finding a workspace on your email domain proves you share
+ * an employer's mail system, not that you should see an executive-search pipeline — so signup does not
+ * look.
  */
 @Service
 @RequiredArgsConstructor
@@ -88,14 +80,12 @@ public class OnboardingService {
     /**
      * Corrects the details of a workspace the caller already runs.
      *
-     * <p>This exists because the organisation step <i>commits</i>. The mockup's wizard keeps its steps
-     * in the browser, so its Back button is free; ours creates a real workspace there, and a Back button
-     * that dropped the user on an empty create form would only ever produce "you already have a
-     * workspace". Going back has to mean editing what is already there — which is what a user pressing
-     * Back actually wants, and is a thing they will want again from Settings.
+     * <p>The organisation step <i>commits</i>, so a Back button that dropped the user on an empty
+     * create form would only ever produce "you already have a workspace". Going back means editing
+     * what is already there.
      *
-     * <p>Admin only, and the role is re-read from the database rather than taken from the caller's JWT:
-     * that claim was minted up to fifteen minutes ago and may since have been revoked.
+     * <p>Admin only, and the role is re-read from the database rather than taken from the caller's
+     * JWT: that claim was minted up to fifteen minutes ago and may since have been revoked.
      */
     @Transactional
     public Workspace updateWorkspace(UUID userId, UUID workspaceId, CreateWorkspaceCommand command,

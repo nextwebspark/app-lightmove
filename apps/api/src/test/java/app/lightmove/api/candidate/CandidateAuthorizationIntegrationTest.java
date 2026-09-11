@@ -97,7 +97,7 @@ class CandidateAuthorizationIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
     }
 
-    // ── fixture ──────────────────────────────────────────────────────────────
+    // fixture
 
     private static String candidatesUrl(String projectId) {
         return "/api/v1/projects/" + projectId + "/candidates";

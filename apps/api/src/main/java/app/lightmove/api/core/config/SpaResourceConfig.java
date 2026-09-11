@@ -18,9 +18,9 @@ import org.springframework.web.servlet.resource.PathResourceResolver;
  * page. The SPA and the API therefore have to be one origin, and this is what makes them one. (It is
  * the same reason the Vite dev server proxies {@code /api} instead of pointing at :8080.)
  *
- * <p>The bundle is copied into {@code classpath:/static/} at image build time. It is <b>absent</b> in
- * local development, where Vite serves the SPA itself — so every method here has to behave sanely with
- * nothing to serve, and does: unresolved paths fall through to a 404, exactly as they did before.
+ * <p>The bundle is copied into {@code classpath:/static/} at image build time and is <b>absent</b> in
+ * local development, where Vite serves the SPA — so every method here has to behave sanely with
+ * nothing to serve.
  */
 @Configuration
 public class SpaResourceConfig implements WebMvcConfigurer {
@@ -36,9 +36,8 @@ public class SpaResourceConfig implements WebMvcConfigurer {
                 .addResourceLocations(STATIC_ROOT + "assets/")
                 .setCacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable());
 
-        // index.html is the one file whose URL is stable while its contents change on every deploy. Let
-        // a browser cache it and the user gets yesterday's shell asking for asset hashes that no longer
-        // exist — a white screen that clears only on a hard refresh.
+        // index.html's URL is stable while its contents change on every deploy. Cached, it leaves the
+        // user with yesterday's shell asking for asset hashes that no longer exist.
         registry.addResourceHandler("/**")
                 .addResourceLocations(STATIC_ROOT)
                 .setCacheControl(CacheControl.noCache())
@@ -62,9 +61,8 @@ public class SpaResourceConfig implements WebMvcConfigurer {
                 return requested;
             }
 
-            // A wrong URL under /api must 404 like the API it is. Handing back the SPA shell would mean
-            // a typo'd endpoint answers 200 with a page of HTML, and every client bug arrives disguised
-            // as a rendering bug.
+            // A wrong URL under /api must 404 like the API it is: handing back the SPA shell would
+            // have a typo'd endpoint answer 200 with a page of HTML.
             if (path.startsWith("api/") || path.startsWith("actuator")) {
                 return null;
             }

@@ -13,16 +13,12 @@ import org.springframework.stereotype.Service;
 
 /**
  * The single answer to "may this user act in this workspace?" — always re-read from the database,
- * never trusted from the JWT's roles claim, which may be up to 15 minutes stale. Membership misses are
- * served as {@link ErrorCode#NOT_A_MEMBER} (404) so probing an id confirms nothing.
+ * never trusted from the JWT's roles claim, which may be up to 15 minutes stale. Membership misses
+ * are served as {@link ErrorCode#NOT_A_MEMBER} (404) so probing an id confirms nothing.
  *
- * <p>Permission questions are asked per <b>action</b>, not per role: a member's effective permissions
- * are the union of their roles' actions, resolved through the seeded {@code app_lm_role_action}
- * mapping. Role names appear only where the role itself is the subject — the last-admin guard, the
- * CLIENT exclusion — never as a proxy for "may they do X".
- *
- * <p>Lives in {@code core/security/rbac} and reads a workspace repository — the same deliberate
- * core→feature seam CLAUDE.md documents for {@code AuthResponseAssembler}.
+ * <p>Permission questions are asked per <b>action</b>, not per role. Role names appear only where the
+ * role itself is the subject — the last-admin guard, the CLIENT exclusion — never as a proxy for
+ * "may they do X".
  */
 @Service
 @RequiredArgsConstructor
@@ -36,9 +32,8 @@ public class WorkspaceAccess {
     }
 
     /**
-     * An active member who is <b>not a pure client</b>. Every staff-facing read gates on this rather than
-     * mere membership, so a client representative can never see the roster, the registry or a mandate they
-     * are not attached to. A CLIENT role held <i>alongside</i> a staff role does not fence anyone: a
+     * An active member who is <b>not a pure client</b>. Every staff-facing read gates on this rather
+     * than mere membership. A CLIENT role held <i>alongside</i> a staff role fences nobody: a
      * colleague who also represents a client is still staff.
      */
     public WorkspaceMember requireStaff(UUID userId, UUID workspaceId) {

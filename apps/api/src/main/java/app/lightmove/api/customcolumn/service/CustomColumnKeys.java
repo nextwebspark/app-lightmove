@@ -27,9 +27,8 @@ public final class CustomColumnKeys {
      * A lower camel-case key for a label — "Ethnicity / Nationality" becomes {@code ethnicityNationality}.
      *
      * <p>Accents are folded rather than stripped so "Región" and "Region" do not become two columns
-     * whose headers look identical. A label that reduces to nothing (all punctuation, or a script this
-     * fold does not cover) falls back to {@code field}, which the collision suffix below then makes
-     * unique — better a mandate with {@code field2} than an import that refuses a file over a header.
+     * whose headers look identical. A label that reduces to nothing falls back to {@code field}, which
+     * the collision suffix below makes unique — better {@code field2} than a refused file.
      */
     public static String slug(String label) {
         if (label == null || label.isBlank()) {
@@ -65,9 +64,8 @@ public final class CustomColumnKeys {
     /**
      * The first of {@code key}, {@code key2}, {@code key3}… that the project does not already use.
      *
-     * <p>Two different labels can slug to the same key ("Notice period" and "Notice Period!"), and the
-     * key is what the values hang off — so a collision has to become a second column rather than
-     * quietly writing into the first one's values.
+     * <p>Two labels can slug to the same key ("Notice period" and "Notice Period!"), and the key is
+     * what the values hang off, so a collision has to become a second column.
      */
     public static String uniqueWithin(String desiredKey, Set<String> takenKeys) {
         if (!takenKeys.contains(desiredKey)) {

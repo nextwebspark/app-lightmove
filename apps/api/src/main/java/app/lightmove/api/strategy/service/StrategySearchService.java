@@ -32,18 +32,11 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p><b>What gets saved is the strategy's stored filter, not a payload from the client.</b> The screen
  * autosaves every chip click, so the stored filter already is what is on screen, and taking the
- * client's word for it a second time would only create a way for the two to disagree — a search saved
- * under a filter the mandate never actually ran. Re-capturing onto an existing search
- * ({@link #updateFilter}) reads the same source for the same reason.
+ * client's word a second time would only create a way for the two to disagree.
  *
- * <p>Loading a search is deliberately not an endpoint. The client applies the returned filter and lets
- * the ordinary autosave persist it, so loading a search and editing chips are one code path with one
- * set of invalidations rather than two that can drift.
- *
- * <p>Two tiers, one gate. {@code PROJECT_EDIT} decides who may leave a search behind at all; within
- * that, a {@code PRIVATE} search answers only to its author. Every refusal on someone else's private
- * search is a 404 rather than a 403 — telling a teammate the row exists is the one thing the tier
- * exists to prevent.
+ * <p>Two tiers, one gate. {@code PROJECT_EDIT} decides who may leave a search behind; within that, a
+ * {@code PRIVATE} search answers only to its author. Every refusal on someone else's private search
+ * is a 404 rather than a 403 — telling a teammate the row exists is what the tier prevents.
  */
 @Service
 @RequiredArgsConstructor
@@ -81,9 +74,9 @@ public class StrategySearchService {
                 .map(Strategy::getFilter)
                 .orElseGet(StrategyFilter::empty);
 
-        // The partial unique indexes are the real guard — two saves racing on the same name both pass
-        // any pre-check and only one can pass the index. GlobalExceptionHandler maps both of them to
-        // STRATEGY_SEARCH_NAME_TAKEN, so a race and the ordinary case answer the same way.
+        // The partial unique indexes are the real guard: two saves racing on the same name both pass
+        // any pre-check. GlobalExceptionHandler maps both to STRATEGY_SEARCH_NAME_TAKEN, so a race
+        // and the ordinary case answer the same way.
         StrategySearch saved = searches.save(
                 StrategySearch.of(projectId, request.name().trim(), filter, visibility, userId));
         durable();
@@ -109,7 +102,7 @@ public class StrategySearchService {
         // as long as nobody moves this out from under the transaction.
         if (movesTier) {
             // A teammate pulling a shared search private would take the mandate's work out of the
-            // mandate's hands, which is not the collaboration the shared tier is for.
+            // mandate's hands.
             if (!search.getCreatedBy().equals(userId)) {
                 throw ApiException.userFacing(ErrorCode.FORBIDDEN,
                         "Only the person who saved a search can change who it is shared with.");
@@ -126,8 +119,7 @@ public class StrategySearchService {
         }
         durable();
 
-        // Two edits, two events. Folding them into one lost whichever half was not chosen, and a
-        // rename that leaves no trace of the name it produced is not a trail.
+        // Two edits, two events: folding them into one lost whichever half was not chosen.
         if (renames) {
             audit.event(ProjectEventType.STRATEGY_SEARCH_RENAMED)
                     .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)

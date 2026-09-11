@@ -47,8 +47,6 @@ public class TalentMapService {
     private final MapboxSettings mapbox;
     private final TalentMapSettings caps;
 
-    // Hand-written rather than @RequiredArgsConstructor: it derives two settings branches from the
-    // properties root rather than taking them, which is the one case the Lombok rule exempts.
     public TalentMapService(TriageCompanyService triage, CandidateService candidates,
                             GeocodingService geocoding, LightMoveProperties properties) {
         this.triage = triage;
@@ -71,9 +69,9 @@ public class TalentMapService {
     }
 
     /**
-     * The same read with the companies and the people left off — what the screen polls while places are
-     * still resolving. It costs the server the same two queries; it costs the wire the points alone,
-     * which is the whole of what changes between one poll and the next.
+     * The same read with the companies and people left off — what the screen polls while places are
+     * still resolving. The same two queries, but only the points on the wire, which is all that
+     * changes between polls.
      */
     public TalentMapLocationsResponse readLocations(UUID workspaceId, UUID projectId, String statusToken) {
         Locations located = locate(place(workspaceId, projectId, statusToken));
@@ -97,11 +95,9 @@ public class TalentMapService {
                         : status == TriageCompanyStatus.IN_UNIVERSE)
                 .toList();
 
-        // A company is drawn where its people are. The Companies grid's Location column already reads
-        // an executive's own city over their employer's, and the map is that same mapping drawn
-        // differently, so a company with somebody mapped at it follows them — HQ is what a company
-        // nobody has mapped falls back to. First mapped wins where two disagree, which is the order
-        // the people arrive in.
+        // A company is drawn where its people are, as the grid's Location column already reads an
+        // executive's own city over their employer's. HQ is the fallback for a company nobody has
+        // mapped, and first mapped wins where two disagree.
         Map<UUID, PlaceKey> placeOfCompanyPeople = new HashMap<>();
         for (CandidateResponse person : people) {
             if (person.triageCompanyId() == null) {
@@ -149,8 +145,8 @@ public class TalentMapService {
     }
 
     /**
-     * One English spelling per country, so "UAE" and "United Arab Emirates" are one group on the
-     * screen rather than two. A name the catalog does not know keeps the asker's own, title-cased.
+     * One English spelling per country, so "UAE" and "United Arab Emirates" are one group. A name the
+     * catalog does not know keeps the asker's own, title-cased.
      */
     static String countryNameOf(PlaceKey place, String isoCode) {
         if (!place.hasCountry()) {

@@ -153,9 +153,8 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
     }
 
     /**
-     * The current employer's logo: the experience entry naming that employer, else the most recent
-     * entry — never "any logo found", which on a name mismatch would brand the row with a past
-     * employer's mark.
+     * The current employer's logo: the entry naming that employer, else the most recent — never "any
+     * logo found", which on a name mismatch would brand the row with a past employer's mark.
      */
     private static String employerLogoUrlOf(BrightDataPerson person) {
         String employer = employerNameOf(person);

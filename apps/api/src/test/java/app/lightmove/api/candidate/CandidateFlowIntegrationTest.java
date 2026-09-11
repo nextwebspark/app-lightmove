@@ -622,7 +622,7 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isBadRequest());
     }
 
-    // ── fixture ──────────────────────────────────────────────────────────────
+    // fixture
 
     private String adminToken;
 

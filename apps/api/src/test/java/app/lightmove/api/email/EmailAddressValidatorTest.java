@@ -121,7 +121,7 @@ class EmailAddressValidatorTest {
         }
     }
 
-    // ── fixtures ──────────────────────────────────────────────────────────────
+    // fixtures
 
     private static EmailAddressValidator validatorWith(EmailValidationSettings validation) {
         return new EmailAddressValidator(new LightMoveProperties(

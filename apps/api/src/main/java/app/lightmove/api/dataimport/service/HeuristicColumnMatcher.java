@@ -25,11 +25,9 @@ import org.springframework.stereotype.Service;
 /**
  * Matches a sheet's headers to fields without asking a model anything.
  *
- * <p>Two jobs, and both matter. It <b>seeds</b> the request the model answers, so the model is
- * correcting a first draft rather than starting from a bare list — and it is the <b>fallback</b> when
- * the model cannot be reached at all. That second job is the load-bearing one: Vertex AI needs
- * Application Default Credentials on every path including a plain local run, and an import that became
- * impossible without them would be an import most people never got to use.
+ * <p>Two jobs. It <b>seeds</b> the request the model answers, and it is the <b>fallback</b> when the
+ * model cannot be reached at all — Vertex needs Application Default Credentials on every path
+ * including a plain local run.
  *
  * <p>Three rules in order — exact normalised match, then a synonym, then token overlap — and a header
  * that matches nothing becomes a custom column rather than being dropped, because a column nobody
@@ -65,8 +63,8 @@ public class HeuristicColumnMatcher {
         for (SheetColumn column : sheet.columns()) {
             Optional<HeaderMatch> matched = match(column.header());
             // A file with "Email" and "Work Email" would otherwise map both onto the same field and
-            // let the second silently overwrite the first. The first wins; the loser becomes a custom
-            // column, which keeps the data and leaves the correction to the person confirming.
+            // let the second silently overwrite the first. The loser becomes a custom column, which
+            // keeps the data and leaves the correction to the person confirming.
             if (matched.isPresent() && claimed.add(matched.get().field())) {
                 mappings.add(ColumnMapping.onto(column.index(), column.header(), matched.get().field()));
                 everyColumnCertain &= matched.get().certain();
@@ -74,8 +72,8 @@ public class HeuristicColumnMatcher {
             }
             ColumnMapping custom = asCustomColumn(column, existingColumns);
             mappings.add(custom);
-            // Filling a column this project already has is as certain as hitting a known field. Minting
-            // a new one is not: an unfamiliar header may be a field held under a name we do not know.
+            // Filling a column this project already has is as certain as hitting a known field;
+            // minting a new one is not.
             everyColumnCertain &= custom.customFieldKey() != null;
         }
         return new HeuristicProposal(mappings, everyColumnCertain);
@@ -117,9 +115,8 @@ public class HeuristicColumnMatcher {
      * Which half of the row an unrecognised column describes.
      *
      * <p><b>The person.</b> A row on this screen is a person at a company, and an unlabelled extra
-     * column on such a list is far more often about the individual — a rating, a nationality, a source
-     * — than about their employer. Guessing wrong is cheap and visible: the mapping step shows the
-     * choice and the user changes it in one click.
+     * column is far more often about the individual than their employer. Guessing wrong is cheap and
+     * visible: the mapping step shows the choice.
      */
     private static CustomColumnTarget guessTarget(SheetColumn column) {
         String normalised = normalise(column.header());
@@ -136,8 +133,8 @@ public class HeuristicColumnMatcher {
             case NUMBER -> CustomColumnType.NUMBER;
             case DATE -> CustomColumnType.DATE;
             case BOOLEAN -> CustomColumnType.BOOLEAN;
-            // An email, a URL and free text are all text. A type that only affected the input's
-            // keyboard is not worth a column type nobody can change their mind about cheaply.
+            // An email, a URL and free text are all text: a type that only changes the input's
+            // keyboard is not worth a column type of its own.
             case EMAIL, URL, SHORT_TEXT, LONG_TEXT, BLANK -> CustomColumnType.TEXT;
         };
     }
@@ -145,9 +142,9 @@ public class HeuristicColumnMatcher {
     /**
      * The field sharing the most tokens with this header, when they share enough to be a match.
      *
-     * <p>Overlap rather than edit distance: headers differ by whole words ("Company" vs "Company
-     * Name", "Email" vs "Work Email Address"), not by characters, and edit distance scores those two
-     * pairs as barely related while scoring "Bonus" against "Bonds" as nearly identical.
+     * <p>Overlap rather than edit distance: headers differ by whole words, and edit distance scores
+     * "Company" against "Company Name" as barely related while scoring "Bonus" against "Bonds" as
+     * nearly identical.
      */
     private static Optional<ImportTargetField> bestByOverlap(String normalisedHeader) {
         Set<String> headerTokens = tokensOf(normalisedHeader);
@@ -187,8 +184,7 @@ public class HeuristicColumnMatcher {
     /**
      * A header reduced to lower-case words separated by single spaces, with accents folded.
      *
-     * <p>"E-Mail", "e_mail" and "E Mail" have to reach the same key as "email", because a file writes
-     * whichever of them its author's tool produced.
+     * <p>"E-Mail", "e_mail" and "E Mail" all have to reach the same key as "email".
      */
     static String normalise(String header) {
         if (header == null) {

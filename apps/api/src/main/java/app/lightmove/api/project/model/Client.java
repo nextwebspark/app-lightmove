@@ -15,18 +15,15 @@ import lombok.Setter;
  * The hiring entity a mandate is run for, and the record the Clients screen edits.
  *
  * <p>Its provenance in the company universe is the {@code (companySource, companySourceId)} pair, or
- * both null when the client was typed in as a custom record. The universe is ETL-owned and unwritable
- * from here, so a "new company" lives on this row; the display columns (name, sector, hqCountry,
- * hqCity, domain, logoUrl) are the write-time snapshot, seeded from the universe on a DB pick and
- * owned by the client thereafter.
+ * both null for a custom record. The universe is ETL-owned and unwritable from here, so the display
+ * columns are a write-time snapshot, seeded from the universe on a DB pick and owned by the client
+ * thereafter.
  *
- * <p>The pair is <b>deliberately still two loose columns</b> rather than a typed key, and it now holds
- * two vintages. Records created from today on carry {@code ('apollo', apollo_account_id)}; ones
- * created before the universe changed carry the brightdata warehouse's {@code (source, source_id)},
- * which nothing can resolve any more. They are kept rather than migrated because this pair is
- * provenance and nothing else — it is never re-resolved for display, so a stale one costs nothing,
- * while a best-effort re-match on company name would silently repoint a client at a different
- * company.
+ * <p>The pair is <b>deliberately two loose columns</b> rather than a typed key, and holds two
+ * vintages: {@code ('apollo', apollo_account_id)} today, and the brightdata warehouse's
+ * {@code (source, source_id)} on older rows, which nothing can resolve any more. They are kept rather
+ * than migrated because the pair is provenance and is never re-resolved for display, while a
+ * best-effort re-match on company name would silently repoint a client at a different company.
  */
 @Entity
 @Table(name = "app_lm_client")
@@ -53,9 +50,8 @@ public class Client extends BaseEntity {
     private String hqCountry;
 
     /**
-     * The city and the company's mark, snapshotted from the universe on a DB pick like the four fields
-     * above and left alone by the drawer's edit — they are how a client row renders, not what it says
-     * about itself. Null for a custom record, where {@code CompanyLogo}'s initial is the fallback.
+     * The city and the company's mark, snapshotted on a DB pick like the four fields above and left
+     * alone by the drawer's edit. Null for a custom record, where the initials tile is the fallback.
      */
     @Column(name = "hq_city")
     private String hqCity;
