@@ -61,6 +61,7 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.stage").value("BRIEF"))
                 .andExpect(jsonPath("$.health").value("OK"))
                 .andExpect(jsonPath("$.clientName").value("Meridian Energy"))
+                .andExpect(jsonPath("$.clientLogoUrl").doesNotExist())
                 .andExpect(jsonPath("$.team.length()").value(1))
                 .andExpect(jsonPath("$.team[0].projectRoles.length()").value(1))
                 .andExpect(jsonPath("$.team[0].projectRoles[0]").value("LEAD"))

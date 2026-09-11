@@ -1,97 +1,34 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../auth/AuthProvider";
-import { Avatar, Button, Drawer, useToast } from "../../../components/ui";
-import { messageFor } from "../../../lib/errorCodes";
-import { formatDate, titleCase } from "../../../lib/format";
-import type { Member } from "../../workspace/api/types";
-import * as projectsApi from "../api/projectsApi";
-import type { Project, ProjectRole, StaffRole } from "../api/types";
+import { Link, useNavigate } from "react-router-dom";
+import { Icon, ICONS } from "../../../components/layout/Icon";
+import { Avatar, Button, CompanyLogo, Drawer, StagePill, stageLabel } from "../../../components/ui";
+import { DrawerCloseButton } from "../../../components/ui/Drawer";
+import { formatDate } from "../../../lib/format";
+import type { AttachedRepresentative, Project, StaffRole, TeamMember } from "../api/types";
 import { STAGE_ORDER } from "../lib/filtering";
-import { stageLabel } from "../../../components/ui";
-import { ProjectRoleChips } from "./ProjectRoleChips";
+import { staffRoleOf } from "../lib/projectTeamColumns";
+import { ROLE_STYLES } from "./ProjectRoleChips";
 
-/**
- * The right slide-over: pipeline stats, display-only stage gates, and a quick team panel — seat a
- * member on a mandate, take them off, or move their one staff role. The mandate's own Team & access
- * screen is the fuller surface; this is the list view's shortcut, sharing its role chips so the two
- * cannot drift. The server owns the invariants: the last lead refuses demotion and removal with a toast.
- */
-export function ProjectDrawer({
-  project,
-  members,
-  onClose,
-}: {
-  project: Project | null;
-  members: Member[];
-  onClose: () => void;
-}) {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const toast = useToast();
+/** The project list's read-only summary of one mandate; every change is made in the project itself. */
+export function ProjectDrawer({ project, onClose }: { project: Project | null; onClose: () => void }) {
   const navigate = useNavigate();
-
-  const settle = {
-    onError: (error: unknown) => toast(messageFor(error)),
-  };
-
-  const toggle = useMutation({
-    mutationFn: ({ memberId, on }: { memberId: string; on: boolean }) =>
-      on
-        ? projectsApi.putProjectMember(project!.id, memberId, "RESEARCHER")
-        : projectsApi.removeProjectMember(project!.id, memberId),
-    onSuccess: (_, { on }) => {
-      void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
-      toast(on ? "Added to project" : "Removed from project");
-    },
-    ...settle,
-  });
-
-  const changeRole = useMutation({
-    mutationFn: ({ memberId, role }: { memberId: string; role: StaffRole }) =>
-      projectsApi.putProjectMember(project!.id, memberId, role),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
-      toast("Role updated");
-    },
-    ...settle,
-  });
 
   if (!project) return null;
 
-  // The server's TEAM_MANAGE gate, mirrored per project: the mandate's lead, or a workspace admin by
-  // bypass. Gating on "not a pure client" instead would offer a researcher controls that only 403.
-  const canManageTeam =
-    (user?.workspace?.roles.includes("ADMIN") ?? false) ||
-    project.team.some((seat) => seat.userId === user?.id && seat.projectRoles.includes("LEAD"));
-
-  // A CLIENT-only seat is a client contact, not a team member: it is granted and dropped from the
-  // project's Team & access screen, and must not read as "on the team" here.
-  const staffRoleOf = (memberId: string): StaffRole | undefined => {
-    const seat = project.team.find((held) => held.memberId === memberId);
-    const staffRoles: ProjectRole[] = seat?.projectRoles.filter((role) => role !== "CLIENT") ?? [];
-    if (staffRoles.length === 0) return undefined;
-    return staffRoles.includes("LEAD") ? "LEAD" : "RESEARCHER";
-  };
   const currentStage = STAGE_ORDER.indexOf(project.stage);
   const gates = STAGE_ORDER.filter((stage) => stage !== "CLOSED");
-  const busy = toggle.isPending || changeRole.isPending;
+  const staff = staffLeadsFirst(project.team);
 
   return (
     <Drawer open onClose={onClose} label={`${project.positionTitle} — ${project.clientName}`}>
       <div className="relative border-b border-line-soft px-5 pb-3.5 pt-[18px]">
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute right-3.5 top-3.5 rounded-md p-1.5 text-text3 hover:bg-panel2 hover:text-text"
-        >
-          ✕
-        </button>
+        <DrawerCloseButton onClose={onClose} />
         <div className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text3">
           {project.clientName}
         </div>
         <div className="mt-1 text-[17px] font-semibold">{project.positionTitle}</div>
+        <div className="mt-2.5">
+          <StagePill stage={project.stage} />
+        </div>
         <Button className="mt-3 w-full" onClick={() => navigate(`/projects/${project.id}`)}>
           Open project →
         </Button>
@@ -128,59 +65,100 @@ export function ProjectDrawer({
           );
         })}
 
-        {canManageTeam && (
-          <>
-            <SectionLabel className="mt-[18px]">Team</SectionLabel>
-            {members.map((member) => {
-              const role = staffRoleOf(member.memberId);
-              const on = Boolean(role);
-              return (
-                <div key={member.memberId} className="rounded-[7px] px-2 py-[7px] hover:bg-panel2">
-                  <div className="flex items-center gap-2.5">
-                    <Avatar id={member.memberId} name={member.fullName} src={member.avatarUrl} />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13px]">{member.fullName}</div>
-                      <div className="font-mono text-[11px] text-text3">
-                        {member.roles.map(titleCase).join(" · ")}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={on}
-                      aria-label={`Toggle ${member.fullName}`}
-                      disabled={busy}
-                      onClick={() => toggle.mutate({ memberId: member.memberId, on: !on })}
-                      className={`relative h-[18px] w-8 flex-none rounded-full transition ${on ? "bg-amber-btn" : "bg-line"}`}
-                    >
-                      <span
-                        className={`absolute left-0.5 top-0.5 size-3.5 rounded-full transition-transform ${
-                          on ? "translate-x-3.5 bg-on-amber" : "bg-text3"
-                        }`}
-                      />
-                    </button>
-                  </div>
+        <SectionLabel className="mt-[18px]">Project team</SectionLabel>
+        <div className="overflow-hidden rounded-[10px] border border-line-soft">
+          {staff.length === 0 ? (
+            <EmptyRow>No one staffed yet</EmptyRow>
+          ) : (
+            staff.map((member) => (
+              <div
+                key={member.memberId}
+                className="flex items-center gap-[11px] border-b border-line-soft px-[13px] py-[11px] last:border-b-0"
+              >
+                <Avatar id={member.memberId} name={member.fullName} src={member.avatarUrl} size="lg" />
+                <div className="min-w-0 flex-1 truncate text-[13px] font-medium">{member.fullName}</div>
+                <RoleChip role={staffRoleOf(member)} />
+              </div>
+            ))
+          )}
+        </div>
 
-                  {role && (
-                    <div className="ml-9 mt-1.5">
-                      <ProjectRoleChips
-                        memberName={member.fullName}
-                        role={role}
-                        canManage={canManageTeam}
-                        pending={busy}
-                        onChange={(next) =>
-                          changeRole.mutate({ memberId: member.memberId, role: next })
-                        }
-                      />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </>
-        )}
+        <SectionLabel className="mt-[18px]">Client</SectionLabel>
+        <div className="overflow-hidden rounded-[10px] border border-line-soft">
+          <div className="flex items-center gap-[11px] px-[13px] py-[11px]">
+            <CompanyLogo name={project.clientName} logo={project.clientLogoUrl} size={30} />
+            <div className="min-w-0 flex-1 truncate text-[13px] font-medium">{project.clientName}</div>
+            <Chip label="Hiring entity" className="border-line bg-panel2 text-text2" />
+          </div>
+          {project.representatives.length === 0 ? (
+            <EmptyRow>No client contacts on this mandate</EmptyRow>
+          ) : (
+            project.representatives.map((representative) => (
+              <RepresentativeRow key={representative.representativeId} representative={representative} />
+            ))
+          )}
+        </div>
+
+        <Link
+          to={`/projects/${project.id}/team`}
+          className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-text2 hover:text-text hover:underline"
+        >
+          <Icon d={ICONS.settings} size={13} />
+          Manage team &amp; client access in project settings
+        </Link>
       </div>
     </Drawer>
+  );
+}
+
+function staffLeadsFirst(team: TeamMember[]): TeamMember[] {
+  const staff = team.filter((member) => member.projectRoles.some((role) => role !== "CLIENT"));
+  return staff.sort((a, b) => Number(staffRoleOf(b) === "LEAD") - Number(staffRoleOf(a) === "LEAD"));
+}
+
+const REPRESENTATIVE_STATUS: Record<AttachedRepresentative["status"], { label: string; className: string }> = {
+  ACTIVE: { label: "Active", className: "border-transparent bg-green-dim text-green" },
+  INVITED: { label: "Invite sent", className: "border-transparent bg-amber-dim text-amber" },
+};
+
+function Chip({ label, className }: { label: string; className: string }) {
+  return (
+    <span
+      className={`flex-none whitespace-nowrap rounded-full border px-2 py-[3px] font-mono text-[9px] font-semibold uppercase tracking-[0.05em] ${className}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function RoleChip({ role }: { role: StaffRole }) {
+  const { label, on } = ROLE_STYLES[role];
+  return <Chip label={label} className={on} />;
+}
+
+function RepresentativeRow({ representative }: { representative: AttachedRepresentative }) {
+  return (
+    <div className="flex items-center gap-[11px] border-t border-line-soft px-[13px] py-[11px]">
+      <Avatar id={representative.representativeId} name={representative.fullName} size="lg" />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13px] font-medium">{representative.fullName}</div>
+        <div className="mt-0.5 truncate font-mono text-[11px] text-text3">
+          {[representative.position, representative.email].filter(Boolean).join(" · ")}
+        </div>
+      </div>
+      <Chip
+        label={REPRESENTATIVE_STATUS[representative.status].label}
+        className={REPRESENTATIVE_STATUS[representative.status].className}
+      />
+    </div>
+  );
+}
+
+function EmptyRow({ children }: { children: string }) {
+  return (
+    <div className="border-t border-line-soft px-[13px] py-[11px] font-mono text-[11px] text-text3 first:border-t-0">
+      {children}
+    </div>
   );
 }
 

@@ -68,6 +68,7 @@ describe("ProjectsPage — pure client", () => {
     id: "p1",
     clientId: "c1",
     clientName: "Beta Client",
+    clientLogoUrl: null,
     positionTitle: "CFO Search",
     stage: "MAPPING",
     health: "OK",
@@ -110,6 +111,16 @@ describe("ProjectsPage — pure client", () => {
     // The registry and roster are staff surfaces — a pure client must never request them.
     expect(clientsApi.clients).not.toHaveBeenCalled();
     expect(workspaceApi.members).not.toHaveBeenCalled();
+  });
+
+  it("links each row's Open button straight to the project", async () => {
+    vi.mocked(projectsApi.projects).mockResolvedValue([attachedMandate]);
+
+    renderPage();
+
+    const openLinks = await screen.findAllByRole("link", { name: "Open CFO Search" });
+    expect(openLinks).not.toHaveLength(0);
+    for (const link of openLinks) expect(link).toHaveAttribute("href", "/projects/p1");
   });
 
   it("shows the no-projects-shared state, with nothing to create, when no mandate is attached", async () => {

@@ -446,8 +446,8 @@ public class ProjectService {
                 .findAllById(memberById.values().stream().map(WorkspaceMember::getUserId).toList())
                 .stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
-        Map<UUID, String> clientNames = clients.findByWorkspaceIdOrderByNameAsc(workspaceId).stream()
-                .collect(Collectors.toMap(Client::getId, Client::getName));
+        Map<UUID, Client> clientById = clients.findByWorkspaceIdOrderByNameAsc(workspaceId).stream()
+                .collect(Collectors.toMap(Client::getId, Function.identity()));
 
         List<UUID> clientIds = forProjects.stream().map(Project::getClientId).distinct().toList();
         Map<UUID, List<ClientRepresentative>> repsByClientId = representatives
@@ -458,7 +458,7 @@ public class ProjectService {
                         Collectors.mapping(PendingRepresentativeAttachment::getRepresentativeId,
                                 Collectors.toSet())));
 
-        return new Assembly(seatsByProject, memberById, userById, clientNames,
+        return new Assembly(seatsByProject, memberById, userById, clientById,
                 repsByClientId, pendingRepIdsByProjectId, LocalDate.now());
     }
 
@@ -512,9 +512,11 @@ public class ProjectService {
                 })
                 .toList();
 
+        Client client = assembly.clientById().get(project.getClientId());
         return new ProjectResponse(
                 project.getId(), project.getClientId(),
-                assembly.clientNames().getOrDefault(project.getClientId(), ""),
+                client == null ? "" : client.getName(),
+                client == null ? null : client.getLogoUrl(),
                 project.getPositionTitle(), project.getStage(),
                 ProjectHealth.derive(project.getStage(), project.getTargetDate(), assembly.today()),
                 project.getTargetDate(), team, attachedRepresentatives, 0, 0, project.getCreatedAt());
@@ -531,7 +533,7 @@ public class ProjectService {
     private record Assembly(Map<UUID, List<ProjectMember>> seatsByProject,
                             Map<UUID, WorkspaceMember> memberById,
                             Map<UUID, User> userById,
-                            Map<UUID, String> clientNames,
+                            Map<UUID, Client> clientById,
                             Map<UUID, List<ClientRepresentative>> repsByClientId,
                             Map<UUID, Set<UUID>> pendingRepIdsByProjectId,
                             LocalDate today) {

@@ -227,11 +227,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
         />
       </div>
 
-      <ProjectDrawer
-        project={openProject}
-        members={members}
-        onClose={() => setOpenProjectId(null)}
-      />
+      <ProjectDrawer project={openProject} onClose={() => setOpenProjectId(null)} />
 
       {modalOpen && (
         <NewProjectModal open onClose={() => setModalOpen(false)} clients={clients} />

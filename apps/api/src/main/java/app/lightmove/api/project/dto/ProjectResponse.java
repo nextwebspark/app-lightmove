@@ -12,6 +12,7 @@ public record ProjectResponse(
         UUID id,
         UUID clientId,
         String clientName,
+        String clientLogoUrl,
         String positionTitle,
         ProjectStage stage,
         ProjectHealth health,
