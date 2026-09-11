@@ -5,12 +5,16 @@ package app.lightmove.api.strategy.constant;
  *
  * <p>These are <b>numeric bounds, not range strings</b>: Apollo ships a raw {@code num_employees}
  * integer and no pre-bucketed column, so every band states the range it means and the query builder
- * turns it into a BETWEEN. The bounds are closed on both ends and abut without overlapping, so a
- * company falls in exactly one band.
+ * turns it into a BETWEEN. The bounds are closed on both ends and abut without overlapping.
  *
  * <p>{@link #value} is a slug, not the label — see {@link app.lightmove.api.strategy.model.StrategyFilter}
- * for why a stored filter never holds a label. Every row in the universe carries a headcount, so
- * unlike {@link RevenueBand} this axis needs no Unknown band.
+ * for why a stored filter never holds a label.
+ *
+ * <p><b>A headcount of 0 falls in no band</b>, because the lowest starts at 1 and there is no Unknown
+ * band as {@link RevenueBand} has. Apollo encodes "we don't know" as a zero on this column —
+ * {@code CompanySortField} wraps it in {@code NULLIF} for exactly that reason — so those companies are
+ * unreachable through the Employees panel even with every band selected.
+ * {@code docs/strategy-company-search-uat.md} measured it.
  */
 public enum EmployeeBand {
 
