@@ -23,6 +23,7 @@
 		<logstash-encoder.version>8.1</logstash-encoder.version>
 		<commons-csv.version>1.14.1</commons-csv.version>
 		<poi.version>5.4.1</poi.version>
+		<pdfbox.version>3.0.3</pdfbox.version>
 		<spring-ai.version>2.0.1</spring-ai.version>
 		<!-- Overrides the 11.0.22 Boot 4.1.0 manages, which carries three critical
 		     authentication advisories (CVE-2026-65905, CVE-2026-65182, CVE-2026-68525).
@@ -148,6 +149,15 @@
 			<groupId>org.apache.poi</groupId>
 			<artifactId>poi-ooxml</artifactId>
 			<version>${poi.version}</version>
+		</dependency>
+
+		<!-- Reading an attached position description. PDFBox 3's API is Loader.loadPDF(byte[]),
+		     not the old static PDDocument.load. .docx needs nothing new — XWPFWordExtractor ships
+		     with poi-ooxml above. -->
+		<dependency>
+			<groupId>org.apache.pdfbox</groupId>
+			<artifactId>pdfbox</artifactId>
+			<version>${pdfbox.version}</version>
 		</dependency>
 
 		<dependency>

@@ -15,7 +15,9 @@ import type {
   MandateContext,
   Position,
   PositionDetails,
+  PositionExtraction,
   PositionTemplate,
+  ProposedField,
   ReportingStructure,
 } from "../api/types";
 import { StepNavigation } from "../components/StepNavigation";
@@ -99,6 +101,9 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   // Locks live here rather than in the panel: step panels unmount when you visit another step, which
   // is exactly when somebody would have left one set.
   const [lockedCompetencies, setLockedCompetencies] = useState<ReadonlySet<string>>(new Set());
+  // "Read from document"'s proposals. Local state, never the query cache: a proposal is a transient
+  // read, not a fact about the mandate, and nothing here is written until a row is accepted.
+  const [extraction, setExtraction] = useState<PositionExtraction | null>(null);
 
   // The picker's options. A failed read leaves the type-ahead with nothing to offer, which is the
   // right degradation: the title is free text and stays typeable.
@@ -310,12 +315,19 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
 
   const attachDocument = useMutation({
     mutationFn: (file: File) => positionApi.attachDocument(projectId, file),
-    onSuccess: (saved) => queryClient.setQueryData(key, saved),
+    // A proposal against a document that has just been replaced is confusing, so it does not survive.
+    onSuccess: (saved) => {
+      queryClient.setQueryData(key, saved);
+      setExtraction(null);
+    },
     onError: (error) => toast(messageFor(error)),
   });
   const removeDocument = useMutation({
     mutationFn: () => positionApi.removeDocument(projectId),
-    onSuccess: (saved) => queryClient.setQueryData(key, saved),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(key, saved);
+      setExtraction(null);
+    },
     onError: (error) => toast(messageFor(error)),
   });
   const downloadDocument = useMutation({
@@ -323,6 +335,69 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       positionApi.saveDocument(projectId, position.document?.fileName ?? "position-description"),
     onError: (error) => toast(messageFor(error)),
   });
+  const extractDetails = useMutation({
+    mutationFn: () => positionApi.extractDetails(projectId),
+    onSuccess: setExtraction,
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  /** Removed by object identity, never by index — a row's identity must not shift under a disclosure
+   * left open while another row is accepted or dismissed beside it. */
+  const removeProposal = (field: ProposedField) =>
+    setExtraction((current) =>
+      current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
+    );
+
+  const patchFor = (field: ProposedField, value: string): Partial<PositionDetails> => {
+    switch (field.fieldKey) {
+      case "roleTitle":
+        return { roleTitle: value };
+      case "department":
+        return { department: value || null };
+      case "location":
+        return { location: value || null };
+      case "employmentType":
+        return { employmentType: value as PositionDetails["employmentType"] };
+      case "seniority":
+        return { seniority: value as PositionDetails["seniority"] };
+      case "narrative":
+        return { narrative: value || null };
+      case "responsibility":
+        return { responsibilities: [...details.responsibilities, value] };
+      default:
+        return {};
+    }
+  };
+
+  const acceptProposal = (field: ProposedField, value: string) => {
+    // Renaming the mandate is a decision, like every other immediate-flagged edit in this file — every
+    // other field stays on the ordinary debounce a typed edit would get.
+    changeDetails(patchFor(field, value), field.fieldKey === "roleTitle");
+    removeProposal(field);
+  };
+
+  const dismissProposal = (field: ProposedField) => removeProposal(field);
+
+  /**
+   * One combined patch rather than one `changeDetails` call per field: `changeDetails` reads `details`
+   * from this closure rather than a functional updater, so several calls fired synchronously in the
+   * same handler would each start from the same stale snapshot and the later ones would silently
+   * discard the earlier ones' edits.
+   */
+  const acceptAllProposals = () => {
+    if (!extraction) return;
+    const responsibilities = extraction.fields
+        .filter((field) => field.fieldKey === "responsibility")
+        .map((field) => field.value);
+    const combined = extraction.fields
+        .filter((field) => field.fieldKey !== "responsibility")
+        .reduce<Partial<PositionDetails>>((patch, field) => ({ ...patch, ...patchFor(field, field.value) }), {});
+    changeDetails(
+      { ...combined, responsibilities: [...details.responsibilities, ...responsibilities] },
+      true,
+    );
+    setExtraction(null);
+  };
 
   const flushEverything = () => Promise.allSettled(channels.map((channel) => channel.flush()));
 
@@ -402,11 +477,17 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               templates={templates}
               applyingTemplate={applyTemplate.isPending}
               uploading={attachDocument.isPending || removeDocument.isPending}
+              extraction={extraction}
+              extracting={extractDetails.isPending}
               onDownload={() => downloadDocument.mutate()}
               onChange={changeDetails}
               onPickTemplate={(template) => applyTemplate.mutate(template)}
               onAttachDocument={(file) => attachDocument.mutate(file)}
               onRemoveDocument={() => removeDocument.mutate()}
+              onExtract={() => extractDetails.mutate()}
+              onAcceptProposal={acceptProposal}
+              onDismissProposal={dismissProposal}
+              onAcceptAllProposals={acceptAllProposals}
             />
           )}
           {currentStep === "context" && (

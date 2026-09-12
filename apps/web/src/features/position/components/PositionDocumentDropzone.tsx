@@ -8,22 +8,26 @@ import type { PositionDocument } from "../api/types";
 /**
  * The position description attached to a brief.
  *
- * The mockup promises this file auto-fills the form. It does not: the document is stored so it stays
- * with the mandate, and every field on this screen is typed in. The copy says so rather than
- * advertising an extraction nobody has built.
+ * The mockup promises this file auto-fills the form silently on drop. The shipped feature instead
+ * reads it only when asked — via **Read from document** — and hands back proposals to review, never
+ * writing anything itself; {@link PositionExtractionPanel} is what a person accepts a field from.
  */
 export function PositionDocumentDropzone({
   document,
   uploading,
+  extracting,
   onAttach,
   onRemove,
   onDownload,
+  onExtract,
 }: {
   document: PositionDocument | null;
   uploading: boolean;
+  extracting: boolean;
   onAttach: (file: File) => void;
   onRemove: () => void;
   onDownload: () => void;
+  onExtract: () => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
 
@@ -69,6 +73,14 @@ export function PositionDocumentDropzone({
           <div className="ms-auto flex flex-none gap-1.5">
             <button
               type="button"
+              onClick={onExtract}
+              disabled={uploading || extracting}
+              className="rounded-[7px] border border-sky/60 px-2.5 py-[5px] text-[11.5px] font-medium text-sky transition hover:border-sky disabled:opacity-50"
+            >
+              Read from document
+            </button>
+            <button
+              type="button"
               onClick={choose}
               disabled={uploading}
               className="rounded-[7px] border border-line px-2.5 py-[5px] text-[11.5px] font-medium text-text2 transition hover:border-text3 hover:text-text disabled:opacity-50"
@@ -90,7 +102,7 @@ export function PositionDocumentDropzone({
           accept=".pdf,.doc,.docx,.txt"
           label="Position description file"
           title="Attach the position description"
-          hint="Kept with the mandate so the brief and the document it came from stay together (PDF, Word or text)"
+          hint="Kept with the mandate so the brief and the document it came from stay together. Use Read from document to propose fields from it."
           disabled={uploading}
           onFile={onAttach}
         />
@@ -100,6 +112,12 @@ export function PositionDocumentDropzone({
         <span className="mt-2.5 flex items-center gap-[7px] font-mono text-[11.5px] text-text3">
           <Spinner />
           Uploading…
+        </span>
+      )}
+      {extracting && (
+        <span className="mt-2.5 flex items-center gap-[7px] font-mono text-[11.5px] text-text3">
+          <Spinner />
+          Parsing document and extracting details…
         </span>
       )}
     </div>

@@ -53,6 +53,19 @@ public class LlmBudgetGuard {
     }
 
     /**
+     * Spends one of this user's position-extraction calls, the model call behind step one's "Read
+     * from document".
+     *
+     * <p>Its own meter, sized off the shortlist's number for the same reason column mapping's is: an
+     * extraction must not eat the shortlist budget a consultant is about to spend, and vice versa.
+     *
+     * @throws ApiException RATE_LIMITED when they have none left
+     */
+    public void requirePositionExtractionBudget(UUID userId) {
+        requireBudget("position-extract", userId, settings.shortlistRequestsPerMinute());
+    }
+
+    /**
      * Spends one call from a per-user, per-minute budget, or refuses the request.
      *
      * @param budgetName the meter this call is counted against, not the endpoint that made it — two

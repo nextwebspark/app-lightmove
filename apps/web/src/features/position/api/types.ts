@@ -177,3 +177,26 @@ export interface Position {
   publication: Publication;
   document: PositionDocument | null;
 }
+
+/** What produced a step-one proposal, and how far it is worth trusting. */
+export type ExtractionSource = "model" | "documentHeadings" | "none";
+
+export type ProposalConfidence = "high" | "medium" | "low";
+
+/**
+ * One proposed field from "Read from document". `fieldKey` is one of `PositionDetails`'s own keys, or
+ * `"responsibility"` — one row per responsibility line rather than a list, so each carries its own
+ * snippet and can be accepted or dismissed on its own.
+ */
+export interface ProposedField {
+  fieldKey: string;
+  value: string;
+  confidence: ProposalConfidence;
+  snippet: string | null;
+}
+
+/** A reading of the attached document's step-one fields. Writes nothing on its own. */
+export interface PositionExtraction {
+  extractionSource: ExtractionSource;
+  fields: ProposedField[];
+}

@@ -199,6 +199,15 @@ public enum ErrorCode {
     CUSTOM_COLUMN_LIMIT_REACHED(HttpStatus.CONFLICT,
             "This mandate has as many custom columns as it can hold"),
 
+    /**
+     * A position description that could not be read as text — encrypted, no text layer, a legacy
+     * {@code .doc}, or a format nobody recognises. Distinct from {@link #IMPORT_FILE_UNREADABLE}:
+     * that is a table that will not parse as rows, this is a document that will not parse as prose,
+     * and the fixes read differently to a person.
+     */
+    POSITION_DOCUMENT_UNREADABLE(HttpStatus.BAD_REQUEST,
+            "That document could not be read. Save it as .docx or PDF, with a text layer, and try again."),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

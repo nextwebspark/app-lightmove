@@ -335,6 +335,21 @@ lightmove:
         - application/msword
         - application/vnd.openxmlformats-officedocument.wordprocessingml.document
         - text/plain
+    extraction:
+      # ON. Reading the attached document into step-one proposals is billed model time behind
+      # PROJECT_EDIT, degrading to a heuristic reading with no Vertex credentials at all — off leaves
+      # the upload/download path untouched and turns "Read from document" off alone.
+      enabled: ${POSITION_EXTRACTION_ENABLED:true}
+      # Bounds the model's per-call cost and a decompression bomb alike. Applied to the extracted
+      # *text*, not the upload's byte size — a small, well-compressed file can still decompress into
+      # far more text than this.
+      max-characters: ${POSITION_EXTRACTION_MAX_CHARACTERS:40000}
+      max-pages: ${POSITION_EXTRACTION_MAX_PAGES:60}
+      # ON. The document's client identity and contact details are not the model's business — see
+      # PositionDocumentRedactor. Turn off only knowingly, the same trade send-sample-values makes for
+      # spreadsheet imports.
+      redact-known-company-names: ${POSITION_EXTRACTION_REDACT_CLIENT_NAME:true}
+      strip-contact-blocks: ${POSITION_EXTRACTION_STRIP_CONTACT_BLOCKS:true}
 
   custom-column:
     # The ceiling on the extra columns one mandate may add to its Companies grid, counted across the
