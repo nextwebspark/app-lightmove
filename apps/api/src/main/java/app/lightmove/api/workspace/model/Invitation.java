@@ -20,14 +20,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * An offer to join a workspace, sent to an email address that may not have an account yet. With the
- * join-request path gone, this is the <b>only</b> way anyone becomes a member of an existing workspace.
- *
- * <p>Addressed to an email rather than a user id precisely because the invitee usually does not
- * exist as a user at the time of sending — that is the whole point of an invitation.
+ * An offer to join a workspace, the <b>only</b> way anyone becomes a member of an existing one.
+ * Addressed to an email rather than a user id, because the invitee usually does not exist as a user
+ * yet.
  *
  * <p>The token is stored as a SHA-256 hash, like every other token here: possession of the emailed
- * link is the credential, and the database holds only proof, not the credential itself.
+ * link is the credential, and the database holds only proof of it.
  */
 @Entity
 @Table(name = "app_lm_invitation")
@@ -79,8 +77,8 @@ public class Invitation extends BaseEntity {
     }
 
     /**
-     * A client-portal invitation: same token machinery as a staff invite, but it names the client its
-     * acceptor represents. The CLIENT role and a non-null client id satisfy the {@code client_id} CHECK.
+     * A client-portal invitation: the same token machinery, naming the client its acceptor
+     * represents. The CLIENT role and a non-null client id satisfy the {@code client_id} CHECK.
      */
     public static Invitation createForClient(UUID workspaceId, UUID clientId, String email, Role role,
                                              String tokenHash, UUID invitedBy, Instant expiresAt) {

@@ -7,10 +7,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 
 /**
@@ -22,7 +20,6 @@ import org.springframework.http.MediaType;
  * though they may browse the projects list.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
 
     private static final String FILTER_BODY = """
@@ -30,51 +27,40 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
                        "employeeBands":[],"revenueBands":[]}}""";
 
     @Test
-    @DisplayName("an unseated member cannot read the strategy")
-    void unseatedMemberCannotRead() throws Exception {
-        Fixture f = fixture("Strategy Unseated Firm");
+    @DisplayName("an unseated member reads neither the strategy nor the filtered list; the admin reads both without a seat")
+    void readGateFollowsTheSeat() throws Exception {
+        Fixture f = fixture("Strategy Read Gate Firm");
         String sara = login(f.saraEmail);
 
         mvc.perform(get(strategyUrl(f.projectId)).header("Authorization", "Bearer " + sara))
                 .andExpect(status().isForbidden());
-    }
-
-    @Test
-    @DisplayName("an unseated member cannot read the filtered company list either")
-    void unseatedMemberCannotReadCompanies() throws Exception {
-        Fixture f = fixture("Strategy Unseated List Firm");
-        String sara = login(f.saraEmail);
-
         // The list reveals the team's chosen scope as directly as the filter does.
         mvc.perform(get(companiesUrl(f.projectId)).header("Authorization", "Bearer " + sara))
                 .andExpect(status().isForbidden());
+
+        mvc.perform(get(strategyUrl(f.projectId)).header("Authorization", "Bearer " + f.admin))
+                .andExpect(status().isOk());
+        mvc.perform(get(companiesUrl(f.projectId)).header("Authorization", "Bearer " + f.admin))
+                .andExpect(status().isOk());
     }
 
     @Test
-    @DisplayName("a seated researcher reads the strategy but cannot write the filter")
-    void researcherReadsButCannotWrite() throws Exception {
-        Fixture f = fixture("Strategy Researcher Firm");
-        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
-        String sara = login(f.saraEmail);
+    @DisplayName("a seated researcher reads the strategy but cannot write the filter; a lead writes it")
+    void filterWriteFollowsTheSeat() throws Exception {
+        Fixture f = fixture("Strategy Filter Gate Firm");
 
-        mvc.perform(get(strategyUrl(f.projectId)).header("Authorization", "Bearer " + sara))
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+        mvc.perform(get(strategyUrl(f.projectId)).header("Authorization", "Bearer " + login(f.saraEmail)))
                 .andExpect(status().isOk());
         mvc.perform(put(filterUrl(f.projectId))
-                        .header("Authorization", "Bearer " + sara)
+                        .header("Authorization", "Bearer " + login(f.saraEmail))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(FILTER_BODY))
                 .andExpect(status().isForbidden());
-    }
 
-    @Test
-    @DisplayName("a seated lead writes the filter")
-    void leadWritesTheFilter() throws Exception {
-        Fixture f = fixture("Strategy Lead Firm");
         seat(f.admin, f.projectId, f.saraId, "LEAD");
-        String sara = login(f.saraEmail);
-
         mvc.perform(put(filterUrl(f.projectId))
-                        .header("Authorization", "Bearer " + sara)
+                        .header("Authorization", "Bearer " + login(f.saraEmail))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(FILTER_BODY))
                 .andExpect(status().isOk());
@@ -147,16 +133,7 @@ class StrategyAuthorizationIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
     }
 
-    @Test
-    @DisplayName("a workspace admin reads a mandate they hold no seat on")
-    void adminBypassesTheSeat() throws Exception {
-        Fixture f = fixture("Strategy Admin Bypass Firm");
-
-        mvc.perform(get(strategyUrl(f.projectId)).header("Authorization", "Bearer " + f.admin))
-                .andExpect(status().isOk());
-    }
-
-    // ── fixture ──────────────────────────────────────────────────────────────
+    // fixture
 
     private static String strategyUrl(String projectId) {
         return "/api/v1/projects/" + projectId + "/strategy";

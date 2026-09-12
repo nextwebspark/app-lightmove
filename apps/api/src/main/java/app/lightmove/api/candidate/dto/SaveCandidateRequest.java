@@ -14,17 +14,14 @@ import tools.jackson.databind.annotation.JsonDeserialize;
 
 /**
  * An executive, as the Add and Edit drawer submits them. One record for both writes: the drawer holds
- * every field and sends every field either way, so a create and a full replace are the same payload
- * and there is no second shape to keep in step.
+ * and sends every field either way, so a create and a full replace are the same payload.
  *
- * <p>Only the name is required. Research arrives in pieces — a name, a company, a rough title from a
- * conference — and refusing the row until the package is established would send that name into a
- * spreadsheet.
+ * <p>Only the name is required — research arrives in pieces, and refusing the row until the package
+ * is established would send that name into a spreadsheet instead.
  *
- * <p>{@code triageCompanyId} is the mandate's own company row, not an Apollo id, and it is optional:
- * an executive whose employer is not in the mandate's universe is still worth mapping. Where it is
- * given, the server snapshots that company's name and ignores {@code employerName} — the two must not
- * be able to disagree.
+ * <p>{@code triageCompanyId} is the mandate's own company row, not an Apollo id, and it is optional.
+ * Where it is given, the server snapshots that company's name and ignores {@code employerName} — the
+ * two must not be able to disagree.
  */
 public record SaveCandidateRequest(
         UUID triageCompanyId,
@@ -96,10 +93,8 @@ public record SaveCandidateRequest(
         String sourceUrl,
 
         /**
-         * Values for this mandate's custom columns, keyed by each column's {@code fieldKey}. Null
-         * leaves every custom column alone — a client that does not render them (an older SPA, the
-         * extension, a script) must be able to save a profile without wiping columns it never showed.
-         * A key the mandate has not defined is dropped, and a blank value clears that one column.
+         * Values for this mandate's custom columns, keyed by each column's {@code fieldKey}.
+         * CustomColumnService.applyTo states what a row may store.
          */
         Map<String, String> customFields
 ) {}

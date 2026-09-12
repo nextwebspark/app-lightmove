@@ -11,18 +11,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import java.time.LocalDate;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
 /** Mandates end to end: inline clients, creation, seating, the last-lead rule, isolation. */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class ProjectFlowIntegrationTest extends FlowTestSupport {
 
     @Test
@@ -64,6 +61,7 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.stage").value("BRIEF"))
                 .andExpect(jsonPath("$.health").value("OK"))
                 .andExpect(jsonPath("$.clientName").value("Meridian Energy"))
+                .andExpect(jsonPath("$.clientLogoUrl").doesNotExist())
                 .andExpect(jsonPath("$.team.length()").value(1))
                 .andExpect(jsonPath("$.team[0].projectRoles.length()").value(1))
                 .andExpect(jsonPath("$.team[0].projectRoles[0]").value("LEAD"))
@@ -236,16 +234,6 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                                 {"clientId":"%s","positionTitle":"CTO"}
                                 """.formatted(clientId)))
                 .andExpect(status().isNotFound());
-    }
-
-    @Test
-    @DisplayName("an unverified user reaches no project data, valid token or not")
-    void unverifiedUserIsBlocked() throws Exception {
-        adminOf("Verified Firm");
-
-        String unverified = signup("Impostor", "impostor@" + domain).get("accessToken").asText();
-        mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + unverified))
-                .andExpect(status().isForbidden());
     }
 
     @Test

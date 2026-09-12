@@ -2,12 +2,15 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useOutletContext, useParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
+import { FullscreenButton } from "../../../components/ui";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { useToast } from "../../../components/ui/Toast";
+import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
-import { PAGE_SIZE } from "../../../lib/paging";
+import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
+import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import { useGridSort, type GridSort } from "../../../lib/useGridSort";
 import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
@@ -20,6 +23,10 @@ import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandida
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import { canExecuteProjectWork } from "../../projects/lib/access";
+import * as talentMapApi from "../../talentmap/api/talentMapApi";
+import type * as talentMapTypes from "../../talentmap/api/types";
+import { TalentMapView } from "../../talentmap/components/TalentMapView";
+import { useTalentMapPreferences } from "../../talentmap/lib/useTalentMapPreferences";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
 import { CompanyDrawer } from "../components/CompanyDrawer";
@@ -35,7 +42,7 @@ import {
 } from "../lib/triageCompanyColumns";
 import { awaitingResearch, toTriageRows } from "../lib/triageRows";
 import { stageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
-import { useProjectStream } from "../lib/useProjectStream";
+import { useProjectStream, type ProjectStreamKind } from "../lib/useProjectStream";
 
 /**
  * The grid's built-in columns for the layout hook. A mandate's own custom columns are deliberately
@@ -50,6 +57,9 @@ const EMPTY_CUSTOM_COLUMNS: CustomColumn[] = [];
 
 /** How hard the In-universe screen looks for research landing on a fresh plugin capture. */
 const RESEARCH_POLL_MS = 4_000;
+
+/** How often the map asks again while the server is still placing rows it could not place yet. */
+const GEOCODING_POLL_MS = 3_000;
 
 /** Newest first, matching the server's default, so the first paint is not a re-sort. */
 const DEFAULT_SORT: GridSort<TriageSortField> = { field: "added", direction: "desc" };
@@ -97,6 +107,7 @@ function TriageStage() {
   const canWrite = canExecuteProjectWork(project, user?.id, user?.workspace?.roles);
 
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -107,6 +118,22 @@ function TriageStage() {
   const [importing, setImporting] = useState(false);
   const [managingColumns, setManagingColumns] = useState(false);
   const [sort, setSort] = useGridSort("companies", project.id, TRIAGE_SORT_FIELDS, DEFAULT_SORT);
+  const [isFullscreen, toggleFullscreen] = useFullscreen();
+  const [mapPreferences, setMapPreferences] = useTalentMapPreferences(project.id);
+
+  /**
+   * Whether this deployment draws a map at all. A refused or failed read means no toggle rather than
+   * a broken globe — the grid is the screen, the map is the second reading of it. Read once and kept:
+   * a token does not change while a tab is open.
+   */
+  const mapConfig = useQuery({
+    queryKey: talentMapApi.TALENT_MAP_CONFIG_KEY,
+    queryFn: ({ signal }) => talentMapApi.getTalentMapConfig(signal),
+    staleTime: Infinity,
+  });
+  const mapOffered =
+    stage.status === "inUniverse" && mapConfig.data?.enabled === true && !!mapConfig.data.publicToken;
+  const view = mapOffered ? mapPreferences.view : "table";
 
   /**
    * The mandate's own extra columns. Read once for the screen and shared by the grid, the toolbar's
@@ -157,11 +184,65 @@ function TriageStage() {
   useEffect(() => setPage(0), [debouncedQuery, sort]);
 
   /**
-   * The screen's ordinary freshness is the project stream (mounted below): the server says when
-   * something under the mandate moved, and the grid refetches. This poll is the degraded mode —
-   * while a visible plugin capture is still being researched, the grid also looks for itself every
-   * few seconds, so a dropped stream costs a capture nothing worse than the old polling did. It
-   * stops once nothing is pending; there is no ambient interval any more.
+   * Every write invalidates the whole prefix rather than this stage's key. A move changes two stages
+   * and all three counts, and a page that refreshed only the list it was looking at would show the
+   * company gone and the sidebar's shortlist badge still one short.
+   */
+  const refreshEveryStage = () =>
+    void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
+
+  const refreshPeople = () =>
+    void queryClient.invalidateQueries({
+      queryKey: candidatesApi.CANDIDATES_KEY_PREFIX(project.id),
+    });
+
+  const refreshMap = () =>
+    void queryClient.invalidateQueries({
+      queryKey: talentMapApi.TALENT_MAP_KEY_PREFIX(project.id),
+    });
+
+  /**
+   * Removing a company unmaps its people rather than deleting them, and adding one changes which
+   * people the grid should be asking about — so the two caches move together on every write. The
+   * columns move with them because an import defines new ones: refreshing the rows without their
+   * headers leaves the imported values in columns the grid does not yet know how to render.
+   */
+  const refreshEverything = () => {
+    refreshEveryStage();
+    refreshPeople();
+    void queryClient.invalidateQueries({
+      queryKey: customColumnsApi.CUSTOM_COLUMNS_KEY(project.id),
+    });
+    refreshMap();
+  };
+
+  /**
+   * A write is one action and refreshes everything; an announcement says what moved, so it refreshes
+   * that. One capture is announced up to three times — the capture itself, the research landing, and
+   * the employer being filed into the universe and researched in turn — and refetching the whole
+   * screen for each of them is where the grid's visible churn came from. The columns stay out of it
+   * entirely: only an import defines one, and the import dialog refreshes them itself.
+   */
+  const refreshWhatMoved = (kinds: ProjectStreamKind[]) => {
+    if (kinds.some((kind) => kind.startsWith("company-"))) {
+      refreshEveryStage();
+    }
+    if (kinds.some((kind) => kind.startsWith("candidate-"))) {
+      refreshPeople();
+    }
+    // Both halves are points on the globe. Free while the grid is the view: the map's reads are
+    // disabled there, and an inactive query is marked stale rather than refetched.
+    refreshMap();
+  };
+
+  const streamIsLive = useProjectStream(project.id, refreshWhatMoved);
+
+  /**
+   * The screen's ordinary freshness is the project stream above: the server says when something
+   * under the mandate moved, and the grid refetches. This poll is the degraded mode, and only that —
+   * while the stream is down *and* a visible plugin capture is still being researched, the grid
+   * looks for itself every few seconds. With the stream up it announces the same research within a
+   * second, so polling beside it was one wasted page read per tick, per open tab.
    *
    * <p>A ref rather than the queries themselves: react-query evaluates this while the first query is
    * still being declared, so reading the people queries here directly is a use-before-init. The ref
@@ -169,27 +250,27 @@ function TriageStage() {
    */
   const visiblePeople = useRef<Candidate[]>([]);
   const researchPoll = () => {
-    if (stage.status !== "inUniverse") return false;
+    if (streamIsLive || stage.status !== "inUniverse") return false;
     return awaitingResearch(visiblePeople.current) ? RESEARCH_POLL_MS : false;
   };
 
   const companies = useQuery({
-    queryKey: triageApi.TRIAGE_KEY(project.id, stage.status, page, PAGE_SIZE, debouncedQuery, sort),
+    queryKey: triageApi.TRIAGE_KEY(project.id, stage.status, page, pageSize, debouncedQuery, sort),
     queryFn: ({ signal }) =>
       triageApi.getTriageCompanies(
         project.id,
         stage.status,
         page,
-        PAGE_SIZE,
+        pageSize,
         debouncedQuery,
         sort,
         signal,
       ),
+    // The grid's reads are the grid's: the map reads the whole stage in one request of its own.
+    enabled: view === "table",
     // Paging without blanking the grid, which would make every page turn look like a reload.
     placeholderData: keepPreviousData,
     refetchInterval: researchPoll,
-    // Against a reconnect race: a tab coming back is fresh even if the stream missed something.
-    refetchOnWindowFocus: true,
   });
 
   const companyIds = useMemo(
@@ -212,14 +293,13 @@ function TriageStage() {
     queryKey: candidatesApi.CANDIDATES_KEY(project.id, { triageCompanyIds: companyIds }),
     queryFn: ({ signal }) =>
       candidatesApi.getCandidates(project.id, { triageCompanyIds: companyIds }, signal),
-    enabled: companyIds.length > 0,
+    enabled: view === "table" && companyIds.length > 0,
     placeholderData: keepPreviousData,
     refetchInterval: researchPoll,
-    refetchOnWindowFocus: true,
   });
 
   const totalCount = companies.data?.totalCount;
-  const lastPage = Math.max(0, Math.ceil((totalCount ?? 0) / PAGE_SIZE) - 1);
+  const lastPage = Math.max(0, Math.ceil((totalCount ?? 0) / pageSize) - 1);
 
   /**
    * Executives whose employer is not in the mandate's universe at all. They belong to the mandate
@@ -231,15 +311,50 @@ function TriageStage() {
     queryKey: candidatesApi.CANDIDATES_KEY(project.id, { unmapped: true }),
     queryFn: ({ signal }) =>
       candidatesApi.getCandidates(project.id, { unmapped: true }, signal),
-    enabled: stage.status === "inUniverse" && !debouncedQuery && page === lastPage,
+    enabled: view === "table" && stage.status === "inUniverse" && !debouncedQuery && page === lastPage,
     refetchInterval: researchPoll,
-    refetchOnWindowFocus: true,
   });
 
   visiblePeople.current = [
     ...(mappedPeople.data?.candidates ?? []),
     ...(unmappedPeople.data?.candidates ?? []),
   ];
+
+  /** The whole stage as points, read once when the globe opens and again when the mandate changes. */
+  const talentMap = useQuery({
+    queryKey: talentMapApi.TALENT_MAP_KEY(project.id, stage.status),
+    queryFn: ({ signal }) => talentMapApi.getTalentMap(project.id, stage.status, signal),
+    enabled: view === "map",
+    placeholderData: keepPreviousData,
+  });
+
+  /**
+   * The points on their own, polled while the server is still placing rows it could not place in one
+   * read — a big import fills in over a few of them — and stopping by itself once nothing is pending.
+   *
+   * <p>A read of its own rather than a poll of the one above: what changes between two polls is a
+   * handful of coordinates, and re-reading the stage for them would put the mandate's every company
+   * and full profile back on the wire every three seconds.
+   */
+  const geocodingPending = talentMap.data?.geocodingPending ?? 0;
+  const talentMapLocations = useQuery({
+    queryKey: talentMapApi.TALENT_MAP_LOCATIONS_KEY(project.id, stage.status),
+    queryFn: ({ signal }) => talentMapApi.getTalentMapLocations(project.id, stage.status, signal),
+    enabled: view === "map" && geocodingPending > 0,
+    refetchInterval: GEOCODING_POLL_MS,
+  });
+
+  // The poll answers the map's own read, so it lands there rather than beside it: one page, however
+  // many reads filled it in.
+  const polledLocations = talentMapLocations.data;
+  useEffect(() => {
+    if (!polledLocations) return;
+    queryClient.setQueryData(
+      talentMapApi.TALENT_MAP_KEY(project.id, stage.status),
+      (held: talentMapTypes.TalentMapPage | undefined) =>
+        held ? { ...held, ...polledLocations } : held,
+    );
+  }, [polledLocations, queryClient, project.id, stage.status]);
 
   const rows = useMemo(
     () =>
@@ -263,33 +378,6 @@ function TriageStage() {
     peopleNotShown(mappedPeople.data, "at these companies"),
     peopleNotShown(unmappedPeople.data, "with no company in this mandate"),
   ].filter((line): line is string => line !== null);
-
-  /**
-   * Every write invalidates the whole prefix rather than this stage's key. A move changes two stages
-   * and all three counts, and a page that refreshed only the list it was looking at would show the
-   * company gone and the sidebar's shortlist badge still one short.
-   */
-  const refreshEveryStage = () =>
-    void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
-
-  /**
-   * Removing a company unmaps its people rather than deleting them, and adding one changes which
-   * people the grid should be asking about — so the two caches move together on every write. The
-   * columns move with them because an import defines new ones: refreshing the rows without their
-   * headers leaves the imported values in columns the grid does not yet know how to render.
-   */
-  const refreshEverything = () => {
-    refreshEveryStage();
-    void queryClient.invalidateQueries({
-      queryKey: candidatesApi.CANDIDATES_KEY_PREFIX(project.id),
-    });
-    void queryClient.invalidateQueries({
-      queryKey: customColumnsApi.CUSTOM_COLUMNS_KEY(project.id),
-    });
-  };
-
-  // The live half: the server announces a capture or landed research, this side just refetches.
-  useProjectStream(project.id, refreshEverything);
 
   const move = useMutation({
     mutationFn: ({ company, status }: { company: TriageCompany; status: TriageCompanyStatus }) =>
@@ -335,7 +423,7 @@ function TriageStage() {
     /* No negative margins and no viewport arithmetic: the shell gives this tab the whole main area
        and a definite height (FULL_BLEED_TABS in ProjectLayout), so the height is inherited rather
        than guessed from a hard-coded amount of chrome that any topbar change would falsify. */
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
       <TriageToolbar
         query={query}
         onQuery={setQuery}
@@ -349,6 +437,8 @@ function TriageStage() {
         onManageColumns={() => setManagingColumns(true)}
         canWrite={canWrite}
         canImport={stage.status === "inUniverse"}
+        view={view}
+        onViewChange={mapOffered ? (next) => setMapPreferences({ view: next }) : undefined}
       />
 
       <ImportSpreadsheetDialog
@@ -366,7 +456,31 @@ function TriageStage() {
         onClose={() => setManagingColumns(false)}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col gap-3 p-3 sm:p-5">
+      {view === "map" ? (
+        <TalentMapView
+          projectId={project.id}
+          page={talentMap.data}
+          query={query}
+          accessToken={mapConfig.data?.publicToken ?? ""}
+          canWrite={canWrite}
+          loading={talentMap.isFetching}
+          error={talentMap.isError}
+          preferences={mapPreferences}
+          onPreferences={setMapPreferences}
+          onOpenCompany={(company) => setOpenCompany({ company })}
+          onOpenCandidate={(candidate) => setProfile({ candidate, company: null })}
+          onAddExecutive={(company) =>
+            setProfile({
+              candidate: null,
+              company: { triageCompanyId: company.id, companyName: company.companyName },
+            })
+          }
+        />
+      ) : (
+      /* `min-h-0`: a `flex-1` child of a flex *column* keeps `min-height: auto` and refuses to
+         shrink, so without it the grid grows to the height of every row it holds and the whole
+         screen scrolls — header and pager included — rather than the rows scrolling under them. */
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-3 sm:p-5">
         <TriageCompanyTable
           rows={rows}
           projectId={project.id}
@@ -393,6 +507,7 @@ function TriageStage() {
             })
           }
           onEditCandidate={(candidate) => setProfile({ candidate, company: null })}
+          onRemoveCandidate={setPendingCandidateRemoval}
           onOpenCompany={(company) => setOpenCompany({ company })}
           busyId={busyId}
           canWrite={canWrite}
@@ -404,8 +519,16 @@ function TriageStage() {
           </p>
         ))}
 
-        <PaginationBar page={page} size={PAGE_SIZE} totalCount={totalCount} onPage={setPage} />
+        <PaginationBar
+          page={page}
+          size={pageSize}
+          totalCount={totalCount}
+          onPage={setPage}
+          onSize={setPageSize}
+          trailing={<FullscreenButton active={isFullscreen} onToggle={toggleFullscreen} />}
+        />
       </div>
+      )}
 
       <CompanyDrawer
         open={openCompany !== null}
@@ -425,6 +548,14 @@ function TriageStage() {
           setOpenCompany(null);
           setPendingRemoval(company);
         }}
+        // One panel at a time: the company's closes as the new executive's opens on it.
+        onAddExecutive={(company) => {
+          setOpenCompany(null);
+          setProfile({
+            candidate: null,
+            company: { triageCompanyId: company.id, companyName: company.companyName },
+          });
+        }}
       />
 
       <CandidateDrawer
@@ -435,7 +566,12 @@ function TriageStage() {
         customColumns={candidateColumns}
         canWrite={canWrite}
         onClose={() => setProfile(null)}
-        onSaved={refreshEverything}
+        // The panel stays open on what the server answered: a corrected figure shows corrected
+        // before the grid has refetched, and an add moves straight on to the profile it made.
+        onSaved={(saved) => {
+          setProfile({ candidate: saved, company: null });
+          refreshEverything();
+        }}
         onDelete={canWrite ? setPendingCandidateRemoval : undefined}
       />
 

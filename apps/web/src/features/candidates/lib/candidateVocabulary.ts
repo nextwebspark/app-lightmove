@@ -1,5 +1,5 @@
 import { SENIORITY_TOKENS } from "../../../lib/seniority";
-import type { CandidateSeniority, CandidateStatus } from "../api/types";
+import type { CandidateSeniority, CandidateSource, CandidateStatus } from "../api/types";
 
 /**
  * How a mandate's research on a person reads on screen, in one place — the grid's Status pill and the
@@ -35,3 +35,10 @@ export function candidateStatusStyle(status: CandidateStatus) {
  * shared with the position brief — see lib/seniority.ts.
  */
 export const CANDIDATE_SENIORITIES: CandidateSeniority[] = SENIORITY_TOKENS;
+
+/** Which door a profile came through, in the colours the Companies grid gives the same three sources. */
+export const CANDIDATE_SOURCE_STYLES: Record<CandidateSource, { label: string; className: string }> = {
+  manual: { label: "Manual", className: "text-amber bg-amber-dim" },
+  csv: { label: "Import", className: "text-text2 bg-line-soft" },
+  extension: { label: "Plugin", className: "text-green bg-green-dim" },
+};

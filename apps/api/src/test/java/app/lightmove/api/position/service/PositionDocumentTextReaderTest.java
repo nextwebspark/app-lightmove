@@ -121,7 +121,7 @@ class PositionDocumentTextReaderTest {
         PositionExtractionSettings settings =
                 new PositionExtractionSettings(true, maxCharacters, maxPages, true, true);
         LightMoveProperties properties = new LightMoveProperties(null, null, null, null,
-                new PositionSettings(null, settings), null, null, null, null, null);
+                new PositionSettings(null, settings), null, null, null, null, null, null, null);
         // The same order Spring's @Order annotations resolve to in production — see each reader's
         // own @Order — with the catch-all last, since it always answers supports() true.
         return new PositionDocumentTextReader(List.of(new PdfFormatReader(),

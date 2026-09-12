@@ -64,6 +64,18 @@ export const ICONS = {
   facebook: "M15 3h-2.5A3.5 3.5 0 0 0 9 6.5V9H6.5v3.5H9V21h3.5v-8.5H15L15.5 9h-3V6.5a1 1 0 0 1 1-1H15Z",
   x: "m4 4 16 16M20 4 4 20",
   chevronDown: "m6 9 6 6 6-6",
+  /** Three rows in a frame — the Companies screen's grid, beside the globe it can also be read as. */
+  table: "M3 5h18v14H3zM3 10h18M3 15h18M9 5v14",
+  /** A drop-shaped pin — a place on the map. */
+  mapPin: "M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0ZM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+  /** A building with windows — a company, where the map counts them. */
+  building: "M6 22V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v18M2 22h20M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2M10 22v-4h4v4",
+  /** An open eye — executives are shown on the map. */
+  eye: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+  /** The same eye struck through — they are hidden. */
+  eyeOff: "M17.9 17.9A10.5 10.5 0 0 1 12 19c-6.5 0-10-7-10-7a17 17 0 0 1 4.1-4.9M9.9 5.2A9.9 9.9 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2 2.9M14.1 14.1a3 3 0 1 1-4.2-4.2M2 2l20 20",
+  /** Four corners drawn inward around a box — fit the map to everything on it. */
+  fit: "M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3M9 9h6v6H9z",
   chevronRight: "m9 18 6-6-6-6",
   check: "m5 13 4 4L19 7",
   /** Three vertical tracks — the Columns menu, where a track is a column of the table. */
@@ -83,6 +95,10 @@ export const ICONS = {
   outreach: "M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z",
   reports: "M9 12h6m-6 4h6M9 8h1M5 21h14a2 2 0 0 0 2-2V7l-5-5H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2Z",
   pencil: "M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z",
+  /** Two arrows to opposite corners — enter full screen. */
+  fullscreen: "M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7",
+  /** The same arrows turned inward — leave it. */
+  fullscreenExit: "M20 10h-6V4M4 14h6v6M14 10l7-7M3 21l7-7",
   /** An arrow into a tray — writing what is on screen onto something already saved. */
   recapture: "M12 3v10m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2",
 } as const;

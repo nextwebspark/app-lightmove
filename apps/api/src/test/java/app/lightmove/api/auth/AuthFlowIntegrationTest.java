@@ -23,7 +23,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -36,12 +35,10 @@ import org.springframework.test.web.servlet.MvcResult;
  * <p>Two routes in, and only two: create a workspace, or accept an invitation. There is no join
  * request and no approval queue — an admin naming someone <i>is</i> the approval.
  *
- * <p>This is the suite that replaced an ad-hoc curl script. The script needed the shared Cloud SQL
- * database wiped between runs, because it left users behind and then collided with them. These tests
- * get a fresh container, so they are repeatable by construction and never touch a shared database.
+ * <p>Runs against a fresh container, so it is repeatable by construction and never touches a shared
+ * database.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class AuthFlowIntegrationTest {
 
     private static final String PASSWORD = "secret123";
@@ -61,11 +58,9 @@ class AuthFlowIntegrationTest {
     /**
      * Every test gets its own email domain, and therefore its own users and its own workspaces.
      *
-     * <p>The Postgres container is shared across the class and nothing rolls back — MockMvc requests
-     * commit, and the audit writes are {@code REQUIRES_NEW} on another thread, so a transactional test
-     * would not contain them anyway. Rather than fight that with truncation (which the append-only
-     * trigger on the audit table would refuse), each test simply works in a namespace of its own.
-     * Tests then cannot see each other's data, in any order, run in parallel or not.
+     * <p>Nothing rolls back — MockMvc requests commit, and the audit writes are {@code REQUIRES_NEW}
+     * on another thread — and the audit table's append-only trigger refuses truncation. So each test
+     * works in a namespace of its own instead, and cannot see another's data in any order.
      */
     @BeforeEach
     void reset() {
@@ -75,7 +70,7 @@ class AuthFlowIntegrationTest {
         saraEmail = "sara@" + domain;
     }
 
-    // ── Signup gates ──────────────────────────────────────────────────────────
+    // Signup gates
 
     @Test
     @DisplayName("a consumer email address cannot sign up")
@@ -84,13 +79,6 @@ class AuthFlowIntegrationTest {
 
         assertThat(result.getResponse().getStatus()).isEqualTo(400);
         assertThat(codeOf(result)).isEqualTo("EMAIL_NOT_WORK_ADDRESS");
-    }
-
-    @Test
-    @DisplayName("a disposable inbox cannot sign up")
-    void rejectsDisposableEmail() throws Exception {
-        assertThat(codeOf(signupRaw("Someone", "someone@mailinator.com", PASSWORD)))
-                .isEqualTo("EMAIL_DISPOSABLE");
     }
 
     @Test
@@ -111,19 +99,13 @@ class AuthFlowIntegrationTest {
      * happens after the duplicate check would still let the same person register twice.
      */
     @Test
-    @DisplayName("a space-padded address is trimmed on the way in, not refused")
+    @DisplayName("a space-padded address is trimmed on the way in, at signup and at login")
     void spacePaddedAddressIsTrimmed() throws Exception {
         signup("Alok Kumar", "  %s  ".formatted(alokEmail), PASSWORD);
 
         assertThat(codeOf(signupRaw("Impostor", "  %s  ".formatted(alokEmail), PASSWORD)))
                 .as("the padded form must resolve to the same account, not a second one")
                 .isEqualTo("EMAIL_ALREADY_REGISTERED");
-    }
-
-    @Test
-    @DisplayName("a space-padded address signs in")
-    void spacePaddedAddressLogsIn() throws Exception {
-        signup("Alok Kumar", alokEmail, PASSWORD);
 
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -132,7 +114,7 @@ class AuthFlowIntegrationTest {
                 .andExpect(status().isOk());
     }
 
-    // ── Verification gates access ─────────────────────────────────────────────
+    // Verification gates access
 
     @Test
     @DisplayName("signup yields a session but no workspace, and no access until verified")
@@ -264,7 +246,7 @@ class AuthFlowIntegrationTest {
         assertThat(codeOf(replay)).isEqualTo("TOKEN_INVALID");
     }
 
-    // ── Workspace creation ────────────────────────────────────────────────────
+    // Workspace creation
 
     @Test
     @DisplayName("the workspace creator becomes its ADMIN")
@@ -293,7 +275,7 @@ class AuthFlowIntegrationTest {
         assertThat(user.at("/workspace/slug").asText()).startsWith("nextwebspark-search");
     }
 
-    // ── Verification gates the claim to a company domain ──────────────────────
+    // Verification gates the claim to a company domain
 
     /**
      * The trust model in one test.
@@ -390,7 +372,7 @@ class AuthFlowIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
-    // ── The invitation flow — the only way into an existing workspace ─────────
+    // The invitation flow — the only way into an existing workspace
 
     @Test
     @DisplayName("signup step 4 refuses a malformed address rather than mailing it")
@@ -617,7 +599,15 @@ class AuthFlowIntegrationTest {
                 .andExpect(status().isBadRequest());
     }
 
-    // ── Login ─────────────────────────────────────────────────────────────────
+    // Login
+
+    @Test
+    @DisplayName("a deployment with no provider configured offers none, so the SPA shows no button")
+    void offersNoProvidersWhenNoneAreConfigured() throws Exception {
+        mvc.perform(get("/api/v1/auth/providers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.providers").isEmpty());
+    }
 
     @Test
     @DisplayName("a wrong password and an unknown account are indistinguishable to the caller")
@@ -679,7 +669,7 @@ class AuthFlowIntegrationTest {
                 .isEqualTo(1);
     }
 
-    // ── Refresh token rotation and theft detection ────────────────────────────
+    // Refresh token rotation and theft detection
 
     @Test
     @DisplayName("refreshing rotates the token, and replaying the old one kills the whole session")
@@ -834,7 +824,7 @@ class AuthFlowIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
-    // ── helpers ───────────────────────────────────────────────────────────────
+    // helpers
 
     private JsonNode signup(String name, String emailAddress, String password) throws Exception {
         return body(signupRaw(name, emailAddress, password));

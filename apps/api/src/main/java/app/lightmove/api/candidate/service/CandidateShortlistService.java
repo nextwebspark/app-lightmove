@@ -29,9 +29,7 @@ public class CandidateShortlistService {
     private final LlmCallPolicy llmCalls;
     private final Consumer<ChatClient.AdvisorSpec> guardedAdvisors;
 
-    // Hand-written rather than @RequiredArgsConstructor: Lombok cannot annotate a constructor
-    // parameter with @Value, and the resource has to be loaded here rather than in ChatClientConfig
-    // so that bean stays generic.
+    // Hand-written: Lombok cannot put @Value on a generated constructor parameter.
     public CandidateShortlistService(ChatClient chatClient,
                                      @Value("classpath:prompts/recruiter-shortlist-system.st") Resource systemPrompt,
                                      LlmCallPolicy llmCalls) {

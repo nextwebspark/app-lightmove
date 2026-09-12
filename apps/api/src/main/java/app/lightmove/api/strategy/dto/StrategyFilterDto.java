@@ -7,17 +7,12 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 /**
- * The Strategy sidebar's whole selection, travelling in both directions: the screen PUTs it as one
- * snapshot and reads it back the same shape.
+ * The Strategy sidebar's whole selection, travelling in both directions.
  *
- * <p>Every list holds wire tokens — Apollo industry values, market-segment names, Apollo country
- * names, and the band slugs from {@code EmployeeBand} / {@code RevenueBand} — never display labels,
- * and never sector group names. A group is expanded to its industries client-side; a market segment
- * is not, because it has no sub-chips to expand into. See {@code StrategyFilter} and
- * {@code MarketSegments}.
- *
- * <p>The size caps are a scope, not an attack: the universe carries 148 industries and six countries,
- * so a request naming hundreds of either is a client bug worth failing loudly rather than a search.
+ * <p>Every list holds wire tokens, never display labels and never sector group names — a group is
+ * expanded to its industries client-side. The size caps are a scope rather than an attack: the
+ * universe carries 148 industries and a handful of countries, so a request naming hundreds is a
+ * client bug worth failing loudly.
  */
 public record StrategyFilterDto(
         @NotNull(message = "industries must be present, even if empty")
@@ -44,11 +39,8 @@ public record StrategyFilterDto(
         @Size(max = 20, message = "Too many revenue bands selected")
         List<@Size(max = 32) String> revenueBands,
 
-        /*
-         * Custom Range mode, one per numeric axis, null when the predefined rows are in force. Both
-         * are @Valid so the range's own bounds check runs — validation on a nested record is opt-in,
-         * and without this annotation a negative or inverted range would reach the query builder.
-         */
+        // Both are @Valid so the nested range's bounds check runs: validation on a nested record is
+        // opt-in, and without it a negative or inverted range would reach the query builder.
         @Valid NumericRangeDto employeeRange,
 
         @Valid NumericRangeDto revenueRange

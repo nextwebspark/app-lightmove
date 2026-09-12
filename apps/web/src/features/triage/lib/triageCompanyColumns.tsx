@@ -17,6 +17,7 @@ import {
   type DataGridColumnLayout,
 } from "../../../components/ui/DataGrid";
 import { TruncatedText } from "../../../components/ui/TruncatedText";
+import { cn } from "../../../lib/cn";
 import { formatInstantDate, formatMoney } from "../../../lib/format";
 import type { Candidate } from "../../candidates/api/types";
 import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
@@ -25,6 +26,22 @@ import type { CustomColumn } from "../../customcolumns/api/types";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
 import { MOVES, SOURCE_STYLES } from "./triageVocabulary";
 import type { TriageCompanyRow } from "./triageRows";
+
+/**
+ * Where a grid line is, for the Country and City columns.
+ *
+ * <p>A line is a person at a company and the person is what it is about, so the executive's own
+ * location wins and the company's HQ is what an empty "Add executive" slot falls back to. Taken as a
+ * unit rather than field by field: a profile that recorded only a city must not borrow its employer's
+ * country and read as somewhere neither of them is.
+ */
+function rowLocation(row: TriageCompanyRow): { country: string | null; city: string | null } {
+  const { candidate, company } = row;
+  if (candidate && (candidate.locationCountry || candidate.locationCity)) {
+    return { country: candidate.locationCountry, city: candidate.locationCity };
+  }
+  return { country: company?.companyCountry ?? null, city: company?.companyCity ?? null };
+}
 
 /**
  * What the Actions and Executive columns need, supplied per render rather than baked into the column
@@ -39,6 +56,8 @@ interface TriageTableMeta {
   onAddExecutive: (company: TriageCompany) => void;
   /** Opens the drawer on an executive already mapped. */
   onEditCandidate: (candidate: Candidate) => void;
+  /** Asks to remove an executive — the one action a row with no company in the universe offers. */
+  onRemoveCandidate: (candidate: Candidate) => void;
   /** Opens the company's own panel — read-only, whatever the reader is allowed to do to it. */
   onOpenCompany: (company: TriageCompany) => void;
   /** The row with a write in flight, so its actions can be disabled without freezing the grid. */
@@ -49,7 +68,7 @@ interface TriageTableMeta {
 
 /**
  * No pagination, filtering or sorted row model registered: all three are the server's, and a client
- * row model would re-sort the 25 rows this page holds as though they were the whole result. The same
+ * row model would re-sort the one page of rows this holds as though they were the whole result. The same
  * three features Strategy registers, because it is the same grid.
  */
 export const triageTableFeatures = tableFeatures({
@@ -91,7 +110,7 @@ const BUILT_IN_COLUMNS = helper.columns([
     // The floor covers a twenty-odd-character name: logo and gutters eat 54px before a letter draws.
     meta: { share: 22, min: 230 },
     cell: (info) => {
-      const { company, position } = info.row.original;
+      const { company } = info.row.original;
       const name = info.getValue();
 
       // An executive whose employer is not in this mandate's universe. The name is what the
@@ -110,28 +129,12 @@ const BUILT_IN_COLUMNS = helper.columns([
         );
       }
 
-      const open = () => info.table.options.meta?.onOpenCompany(company);
-
-      // The second and third executive at one company: the company is repeated because each person
-      // is their own row, but repeating the logo as well reads as three separate companies.
-      if (position > 1) {
-        return (
-          <button
-            type="button"
-            onClick={open}
-            title={`Open ${company.companyName}`}
-            aria-label={`Open ${company.companyName}`}
-            className="flex w-full min-w-0 items-center gap-2.5 ps-[38px] text-start transition hover:text-sky"
-          >
-            <TruncatedText value={name} className="font-sans text-[13px] text-text3" />
-          </button>
-        );
-      }
-
+      // Drawn the same on every line, however many executives sit at the company: each row is a
+      // person, and a dimmed continuation line read as a company that could not be acted on.
       return (
         <button
           type="button"
-          onClick={open}
+          onClick={() => info.table.options.meta?.onOpenCompany(company)}
           title={`Open ${company.companyName}`}
           aria-label={`Open ${company.companyName}`}
           className="flex w-full min-w-0 items-center gap-2.5 text-start"
@@ -153,11 +156,31 @@ const BUILT_IN_COLUMNS = helper.columns([
     enableHiding: false,
     meta: { share: 0, min: 134 },
     cell: (info) => {
-      const { company } = info.row.original;
+      const row = info.row.original;
       const meta = info.table.options.meta;
-      if (!meta?.canWrite || !company) {
+      if (!meta?.canWrite) {
         return <span className="font-sans text-[13px] text-text3">—</span>;
       }
+      // A row's actions are its company's — a mapped executive is removed from their own profile. An
+      // executive whose employer is not in the universe has no company to move, so their one action
+      // is the person's: a row with no action at all reads as a row that is stuck.
+      if (!row.company) {
+        const { candidate } = row;
+        return (
+          <span className="flex justify-start gap-1.5">
+            <button
+              type="button"
+              title={`Remove ${candidate.fullName} from this mandate`}
+              aria-label={`Remove ${candidate.fullName} from this mandate`}
+              onClick={() => meta.onRemoveCandidate(candidate)}
+              className={cn(GRID_ICON_BUTTON, "hover:text-red")}
+            >
+              <Icon d={ICONS.trash} size={14} />
+            </button>
+          </span>
+        );
+      }
+      const { company } = row;
       const busy = meta.busyId === company.id;
       return (
         <span className="flex justify-start gap-1.5">
@@ -185,11 +208,11 @@ const BUILT_IN_COLUMNS = helper.columns([
           ))}
           <button
             type="button"
-            title="Remove from this mandate"
+            title={`Remove ${company.companyName} from this mandate`}
             aria-label={`Remove ${company.companyName} from this mandate`}
             disabled={busy}
             onClick={() => meta.onDelete(company)}
-            className={`${GRID_ICON_BUTTON} hover:text-red disabled:opacity-40`}
+            className={cn(GRID_ICON_BUTTON, "hover:text-red disabled:opacity-40")}
           >
             <Icon d={ICONS.trash} size={14} />
           </button>
@@ -225,9 +248,7 @@ const BUILT_IN_COLUMNS = helper.columns([
     },
   }),
 
-  // The company's HQ when the row knows it; otherwise the person's own location, which is what an
-  // extension-captured executive (and their research-captured employer) actually carries.
-  helper.accessor((row) => row.company?.companyCountry ?? row.candidate?.locationCountry ?? null, {
+  helper.accessor((row) => rowLocation(row).country, {
     id: "country",
     header: "Country",
     meta: { share: 12, min: 82 },
@@ -305,7 +326,7 @@ const BUILT_IN_COLUMNS = helper.columns([
     cell: (info) => <DataGridCell value={info.getValue()} />,
   }),
 
-  helper.accessor((row) => row.company?.companyCity ?? row.candidate?.locationCity ?? null, {
+  helper.accessor((row) => rowLocation(row).city, {
     id: "location",
     header: "City",
     meta: { share: 11, min: 82 },

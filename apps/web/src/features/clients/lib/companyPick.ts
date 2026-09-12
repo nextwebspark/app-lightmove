@@ -6,7 +6,7 @@ import type { CompanySuggestion } from "../../strategy/api/types";
  */
 export type CompanyPick =
   | { source: "universe"; company: CompanySuggestion }
-  | { source: "custom"; name: string; domain: string };
+  | { source: "custom"; name: string; domain: string; hqCountry: string };
 
 /**
  * The name the pick will be filed under — the universe's canonical name for a DB pick, the typed one

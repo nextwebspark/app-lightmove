@@ -7,7 +7,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
@@ -15,7 +14,6 @@ import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
@@ -27,7 +25,6 @@ import tools.jackson.databind.JsonNode;
  * or spent as something it is not.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class PasswordResetFlowIntegrationTest extends FlowTestSupport {
 
     private static final String NEW_PASSWORD = "brandnew42";
@@ -35,7 +32,7 @@ class PasswordResetFlowIntegrationTest extends FlowTestSupport {
     @Autowired JdbcTemplate jdbc;
     @Autowired UserRepository users;
 
-    // ── The happy path ────────────────────────────────────────────────────────
+    // The happy path
 
     @Test
     @DisplayName("reset changes the password and signs the user straight in")
@@ -86,7 +83,7 @@ class PasswordResetFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
     }
 
-    // ── Anti-enumeration ──────────────────────────────────────────────────────
+    // Anti-enumeration
 
     @Test
     @DisplayName("an unknown address gets the same 202 and no email")
@@ -106,7 +103,7 @@ class PasswordResetFlowIntegrationTest extends FlowTestSupport {
         assertThat(email.sent()).hasSize(1);
     }
 
-    // ── Token lifecycle ───────────────────────────────────────────────────────
+    // Token lifecycle
 
     @Test
     @DisplayName("a reset link works exactly once")
@@ -188,7 +185,7 @@ class PasswordResetFlowIntegrationTest extends FlowTestSupport {
         resetOk(token, NEW_PASSWORD);
     }
 
-    // ── What redeeming proves ─────────────────────────────────────────────────
+    // What redeeming proves
 
     @Test
     @DisplayName("an unverified signup who resets is verified by it — the link proved the mailbox")
@@ -258,7 +255,7 @@ class PasswordResetFlowIntegrationTest extends FlowTestSupport {
         assertThat(email.sent()).isEmpty();
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // Helpers
 
     private void forgot(String emailAddress) throws Exception {
         forgotRaw(emailAddress);

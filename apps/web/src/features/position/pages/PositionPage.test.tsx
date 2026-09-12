@@ -63,6 +63,7 @@ const project: Project = {
   id: "p1",
   clientId: "c1",
   clientName: "Meridian Energy Group",
+  clientLogoUrl: null,
   positionTitle: "Chief Financial Officer",
   stage: "BRIEF",
   health: "OK",

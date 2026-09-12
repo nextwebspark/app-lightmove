@@ -87,6 +87,7 @@ describe("TeamAccessPage", () => {
     id: "p1",
     clientId: "c1",
     clientName: "Beta Client",
+    clientLogoUrl: null,
     positionTitle: "CFO Search",
     stage: "MAPPING",
     health: "OK",
@@ -179,17 +180,22 @@ describe("TeamAccessPage", () => {
     mandates: [],
   };
 
+  const teamGrid = () => screen.findByRole("table", { name: "Project team" });
+
   it("lists the staff seats with their one role, and leaves client contacts out of the table", async () => {
     vi.mocked(authApi.me).mockResolvedValue(admin);
     vi.mocked(clientsApi.client).mockResolvedValue(registry);
 
     renderPage();
 
-    expect(await screen.findByText("Alok Kumar")).toBeInTheDocument();
+    // Both the grid and its below-`md` card stack are in the DOM — jsdom applies no CSS — so a seat
+    // matches twice unscoped. The grid is the one the assertions read.
+    const grid = await teamGrid();
+    expect(within(grid).getByText("Alok Kumar")).toBeInTheDocument();
     expect(screen.getByText(/2 members$/)).toBeInTheDocument();
 
     // Sara's seat: Researcher held, Lead offered.
-    const sara = screen.getByRole("radiogroup", { name: "Project role for Sara Al-Mansour" });
+    const sara = within(grid).getByRole("radiogroup", { name: "Project role for Sara Al-Mansour" });
     expect(within(sara).getByRole("radio", { name: "Researcher" })).toBeChecked();
     expect(within(sara).getByRole("radio", { name: "Lead" })).not.toBeChecked();
 
@@ -206,7 +212,9 @@ describe("TeamAccessPage", () => {
 
     renderPage();
 
-    const sara = await screen.findByRole("radiogroup", { name: "Project role for Sara Al-Mansour" });
+    const sara = within(await teamGrid()).getByRole("radiogroup", {
+      name: "Project role for Sara Al-Mansour",
+    });
     await userEvent.click(within(sara).getByRole("radio", { name: "Lead" }));
 
     expect(projectsApi.putProjectMember).toHaveBeenCalledWith("p1", "m2", "LEAD");
@@ -219,17 +227,19 @@ describe("TeamAccessPage", () => {
 
     renderPage();
 
+    const grid = await teamGrid();
+
     // Alok is the only lead: the server would refuse, so the row shows a padlock instead of a trash.
-    expect(await screen.findAllByTitle("A mandate must keep a lead — make someone else lead first"))
+    expect(within(grid).getAllByTitle("A mandate must keep a lead — make someone else lead first"))
       .not.toHaveLength(0);
-    expect(screen.queryByLabelText("Remove Alok Kumar")).not.toBeInTheDocument();
+    expect(within(grid).queryByLabelText("Remove Alok Kumar")).not.toBeInTheDocument();
 
     // The same invariant, said the same way one column left: demoting them would 409, so the chip
     // refuses the click rather than letting it through to a toast.
-    const alok = screen.getByRole("radiogroup", { name: "Project role for Alok Kumar" });
+    const alok = within(grid).getByRole("radiogroup", { name: "Project role for Alok Kumar" });
     expect(within(alok).getByRole("radio", { name: "Researcher" })).toBeDisabled();
 
-    await userEvent.click(screen.getByLabelText("Remove Sara Al-Mansour"));
+    await userEvent.click(within(grid).getByLabelText("Remove Sara Al-Mansour"));
     expect(projectsApi.removeProjectMember).toHaveBeenCalledWith("p1", "m2");
   });
 
@@ -247,7 +257,9 @@ describe("TeamAccessPage", () => {
     expect(screen.queryByText("Add team member")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Remove Sara Al-Mansour")).not.toBeInTheDocument();
 
-    const sara = screen.getByRole("radiogroup", { name: "Project role for Sara Al-Mansour" });
+    const sara = within(await teamGrid()).getByRole("radiogroup", {
+      name: "Project role for Sara Al-Mansour",
+    });
     expect(within(sara).getByRole("radio", { name: "Lead" })).toBeDisabled();
   });
 

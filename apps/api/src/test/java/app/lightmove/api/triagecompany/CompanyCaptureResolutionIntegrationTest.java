@@ -10,13 +10,11 @@ import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingCompanyEnricher;
-import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
@@ -28,7 +26,6 @@ import tools.jackson.databind.JsonNode;
  * typed fields never lose to either.
  */
 @IntegrationTest
-@Import({RecordingEmailSender.Config.class, RecordingCompanyEnricher.Config.class})
 class CompanyCaptureResolutionIntegrationTest extends FlowTestSupport {
 
     @Autowired JdbcTemplate db;

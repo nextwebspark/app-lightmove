@@ -25,6 +25,10 @@
 		<poi.version>5.4.1</poi.version>
 		<pdfbox.version>3.0.3</pdfbox.version>
 		<spring-ai.version>2.0.1</spring-ai.version>
+		<!-- Overrides the 11.0.22 Boot 4.1.0 manages, which carries three critical
+		     authentication advisories (CVE-2026-65905, CVE-2026-65182, CVE-2026-68525).
+		     Remove once the parent manages 11.0.25 or later. -->
+		<tomcat.version>11.0.25</tomcat.version>
 	</properties>
 
 	<dependencyManagement>
@@ -235,6 +239,30 @@
 						<arg>-parameters</arg>
 					</compilerArgs>
 				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+				<version>3.6.3</version>
+				<executions>
+					<execution>
+						<id>enforce-upper-bound-deps</id>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<!-- Maven resolves conflicts nearest-wins, which can pick a version OLDER than another
+								     dependency demands and silently reinstate a patched-away CVE. WARN, not fail: the
+								     Boot parent and the Spring AI BOM pin the same Spring/Micrometer/Jackson artifacts
+								     a patch apart, and the rule reports every one of those. -->
+								<requireUpperBoundDeps>
+									<level>WARN</level>
+								</requireUpperBoundDeps>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>

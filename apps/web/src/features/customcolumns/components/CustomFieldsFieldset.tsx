@@ -19,11 +19,14 @@ export function CustomFieldsFieldset({
   columns,
   values,
   onChange,
+  heading = true,
 }: {
   /** Already narrowed to one target by the caller — a company form shows no personal columns. */
   columns: readonly CustomColumn[];
   values: CustomFieldValues;
   onChange: (values: CustomFieldValues) => void;
+  /** False under a section that already names these columns, where a second title would nag. */
+  heading?: boolean;
 }) {
   const visible = columns.filter((column) => !column.hidden);
   if (visible.length === 0) return null;
@@ -31,10 +34,12 @@ export function CustomFieldsFieldset({
   const set = (fieldKey: string, value: string) => onChange({ ...values, [fieldKey]: value });
 
   return (
-    <div className="mt-1 border-t border-line-soft pt-4">
-      <p className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
-        This mandate's columns
-      </p>
+    <div className={heading ? "mt-1 border-t border-line-soft pt-4" : undefined}>
+      {heading && (
+        <p className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+          This mandate's columns
+        </p>
+      )}
       <div className="grid grid-cols-1 gap-x-3 sm:grid-cols-2">
         {visible.map((column) => (
           <Field key={column.id} label={column.label}>

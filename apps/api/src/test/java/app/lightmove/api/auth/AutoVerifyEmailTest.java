@@ -13,7 +13,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -35,7 +34,6 @@ import tools.jackson.databind.ObjectMapper;
  */
 @IntegrationTest
 @TestPropertySource(properties = "lightmove.auth.auto-verify-email=true")
-@Import(RecordingEmailSender.Config.class)
 class AutoVerifyEmailTest {
 
     private static final String PASSWORD = "secret123";
@@ -111,7 +109,7 @@ class AutoVerifyEmailTest {
                 .andExpect(jsonPath("$.workspace.id").exists());
     }
 
-    // ── helpers ───────────────────────────────────────────────────────────────
+    // helpers
 
     private JsonNode signup(String name, String emailAddress) throws Exception {
         MvcResult result = mvc.perform(post("/api/v1/auth/signup")

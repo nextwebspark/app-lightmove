@@ -10,16 +10,11 @@ import lombok.NoArgsConstructor;
 /**
  * One seat in the org chart around the mandate.
  *
- * <p>Exactly one node per chart carries {@link #mandateSeat} — the role being searched for. Everything
- * the screen used to hold as separate fields reads off that flag: the manager is the mandate seat's
- * parent, the direct reports are its children, and a chart that wants a skip-level or a grandchild
- * adds a node rather than a concept.
- *
- * <p>Either half of a seat may be blank. A mandate knows "Group Treasurer" long before it knows who
- * sits there, and refusing the half it has would leave the chart unusable until the day it is complete.
- *
- * <p>{@code canvasX}/{@code canvasY} are where the box was dragged to, and are absent until it has
- * been — a chart nobody has arranged is laid out from the tree instead.
+ * <p>Exactly one node per chart carries {@link #mandateSeat}, and everything the screen used to hold
+ * as separate fields reads off it: the manager is that seat's parent and the direct reports are its
+ * children. Either half of a seat may be blank — a mandate knows "Group Treasurer" long before it
+ * knows who sits there. {@code canvasX}/{@code canvasY} are absent until the box has been dragged; an
+ * unarranged chart is laid out from the tree.
  */
 @Embeddable
 @Getter

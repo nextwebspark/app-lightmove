@@ -12,14 +12,13 @@ import org.springframework.stereotype.Component;
  * per-IP budget and is written to the audit log, so a caller who can choose it can mint themselves an
  * unlimited number of login attempts and sign someone else's address to their actions.
  *
- * <p>{@code X-Forwarded-For} is a list that each proxy <i>appends</i> to. A client may send any prefix
- * it likes — the header arrives already populated with lies. Only the entries our own infrastructure
- * appended are trustworthy, and they are at the <b>right</b>-hand end. So with {@code n} trusted
- * proxies in front of us, the last {@code n} entries were written by them, and the client's real
- * address is the {@code n}-th from the right.
+ * <p>{@code X-Forwarded-For} is a list each proxy <i>appends</i> to, so a client may send any prefix
+ * it likes. Only the entries our own infrastructure appended are trustworthy, and they are at the
+ * <b>right</b>-hand end: with {@code n} trusted proxies, the client's real address is the {@code n}-th
+ * from the right.
  *
- * <p>Taking the <b>leftmost</b> entry — the obvious reading of "the first hop is the client", and what
- * this codebase did in three separate places — hands the attacker the pen:
+ * <p>Taking the <b>leftmost</b> entry — what this codebase did in three separate places — hands the
+ * attacker the pen:
  *
  * <pre>
  *   X-Forwarded-For: 1.2.3.4                 (forged by the client)

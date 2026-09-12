@@ -34,10 +34,14 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 /**
  * The single place an exception becomes an HTTP response, in RFC 9457 {@code ProblemDetail} form.
  *
- * <p>Two rules run through all of it. Every response carries the correlation id, so a user can quote
- * it and we can find the exact request in the logs. And nothing that was not deliberately chosen for
- * the client gets into the body — an unexpected exception's message is logged in full and replaced
- * with an opaque 500, because stack traces and constraint names describe our schema to whoever asked.
+ * <p>Every response carries the correlation id. Nothing not deliberately chosen for the client gets
+ * into the body: an unexpected exception's message is logged in full and replaced with an opaque 500,
+ * because stack traces and constraint names describe our schema to whoever asked.
+ *
+ * <p><b>Most of the handlers below exist for one reason:</b> without a handler of its own, a
+ * client mistake falls into the catch-all and answers <b>500</b> with an ERROR-level stack trace. That
+ * tells the caller we broke when they did, and makes a malformed request indistinguishable from a
+ * real fault in our own alerting.
  */
 @RestControllerAdvice
 @Slf4j
@@ -51,9 +55,9 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleApiException(ApiException ex, HttpServletRequest request) {
         ErrorCode code = ex.getCode();
 
-        // A 5xx is our failure and gets a stack trace. A 4xx is the API working as designed, but it is
-        // still the thing an operator is staring at when a user says "it just says 400" — so it gets
-        // one line naming the rule that fired. The code and the URI only; the message may quote input.
+        // A 5xx is our failure and gets a stack trace. A 4xx is the API working as designed, but gets
+        // one line naming the rule that fired — the code and the URI only, since the message may
+        // quote input.
         if (code.status().is5xxServerError()) {
             log.error("[{}] {} at {}", code, ex.getMessage(), request.getRequestURI(), ex);
         } else {
@@ -61,10 +65,9 @@ public class GlobalExceptionHandler {
             log.debug("[{}] {}", code, ex.getMessage());
         }
 
-        // The default is the code's own wording — a thrower's message is internal unless it was built
-        // through ApiException.userFacing/withField, which is the deliberate opt-in for text a caller
-        // is meant to read. Without that distinction every rule's message would be reflected, and
-        // several of them quote the request.
+        // The default is the code's own wording: a thrower's message is internal unless it was built
+        // through ApiException.userFacing/withField. Without that distinction every rule's message
+        // would be reflected, and several of them quote the request.
         ProblemDetail problem = problem(code,
                 ex.getClientDetail() == null ? code.defaultMessage() : ex.getClientDetail());
         if (ex.getFieldErrors() != null) {
@@ -92,18 +95,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * The other Bean Validation failure: a constraint on a controller <i>parameter</i> rather than on
-     * a field inside a request body.
-     *
-     * <p>A container-element constraint — {@code List<@Valid InviteRequest>} on an invite endpoint —
-     * routes through method validation and raises this instead of
-     * {@link MethodArgumentNotValidException}. Without a handler of its own it reached the catch-all
-     * below and answered <b>500</b>: the caller was told something went wrong on our end for a request
-     * that was simply wrong, and we logged an ERROR with a stack trace over a malformed email address.
-     *
-     * <p>The same {@code fieldErrors} map, so the SPA renders both the same way. A key names the
-     * parameter, the element's index where the failure is inside a collection, and the field where the
-     * element is an object: {@code requests[0].email}.
+     * A constraint on a controller <i>parameter</i> rather than a field in a request body. A
+     * container-element constraint ({@code List<@Valid InviteRequest>}) raises this instead of
+     * {@link MethodArgumentNotValidException}. Answers in the same {@code fieldErrors} shape, keyed
+     * {@code requests[0].email}.
      */
     @ExceptionHandler(HandlerMethodValidationException.class)
     public ProblemDetail handleParameterValidation(HandlerMethodValidationException ex,
@@ -144,12 +139,8 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * A required query parameter or header is missing, or will not convert to its declared type.
-     *
-     * <p>These are client mistakes and have to answer 400. Without this they land in the catch-all
-     * below and become a <b>500</b> — the caller is told "Something went wrong on our end" for a
-     * request that was simply wrong, and we log our own ERROR with a stack trace for it. A truncated
-     * verification link (`/auth/verify` with no token) does exactly that.
+     * A required query parameter or header is missing, or will not convert. A truncated verification
+     * link ({@code /auth/verify} with no token) is the case that shipped as a 500.
      */
     @ExceptionHandler({ServletRequestBindingException.class, MethodArgumentTypeMismatchException.class})
     public ProblemDetail handleBadRequestBinding(Exception ex, HttpServletRequest request) {
@@ -171,13 +162,9 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * No handler and no file at that path.
-     *
-     * <p>Without this it falls into the catch-all below and becomes a <b>500</b>, logged at ERROR with a
-     * stack trace — for what is simply a wrong URL. That was survivable while every path was an API
-     * route; now that this application also serves the SPA, "no such path" is a normal event. Every bot
-     * probing for {@code /wp-login.php} would otherwise be recorded as an unhandled server bug, and the
-     * one real 500 would be buried among them.
+     * No handler and no file at that path. Now that this application also serves the SPA, "no such
+     * path" is routine: every bot probing for {@code /wp-login.php} would otherwise bury the one
+     * real 500.
      */
     @ExceptionHandler(NoResourceFoundException.class)
     public ProblemDetail handleNoResource(NoResourceFoundException ex, HttpServletRequest request) {
@@ -186,13 +173,8 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * The route exists, but not for that verb — a browser opening {@code /api/v1/auth/signup} in the
-     * address bar, say, which is a GET of a POST-only endpoint.
-     *
-     * <p>Same reasoning as {@link #handleNoResource}: without this it lands in the catch-all and is
-     * reported as a <b>500 INTERNAL_ERROR</b>, complete with an ERROR-level stack trace. That is a lie
-     * twice over — nothing on our side is broken, and the client is told to retry a request that can
-     * never succeed instead of being told to fix its verb.
+     * The route exists but not for that verb — a browser opening {@code /api/v1/auth/signup} in the
+     * address bar. A 500 here would tell the client to retry a request that can never succeed.
      */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ProblemDetail handleMethodNotSupported(HttpRequestMethodNotSupportedException ex,
@@ -203,14 +185,9 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * The body arrived as something we do not parse — {@code text/plain}, a form post, a missing
-     * {@code Content-Type} on a JSON endpoint.
-     *
-     * <p>Third of the same family as {@link #handleNoResource} and {@link #handleMethodNotSupported},
-     * and it affects every endpoint: without it, {@code curl -H 'Content-Type: text/plain'} against any
-     * route answers <b>500</b> and writes an ERROR stack trace. That makes a malformed client request
-     * indistinguishable from a real fault in our own alerting, and hands anyone a one-line recipe for
-     * generating server errors at will.
+     * The body arrived as something we do not parse. It affects every endpoint: without it,
+     * {@code curl -H 'Content-Type: text/plain'} against any route is a one-line recipe for generating
+     * server errors at will.
      */
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public ProblemDetail handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException ex,
@@ -221,10 +198,8 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * An upload past the container's multipart ceiling. Without this the caller gets a <b>500</b> and we
-     * get an ERROR stack trace for what is an ordinary "that file is too big" — the same confusion
-     * between a malformed client request and a real fault that {@link #handleMediaTypeNotSupported}
-     * exists to prevent. Spring throws here before the controller runs, so no endpoint can answer it.
+     * An upload past the container's multipart ceiling. Spring throws before the controller runs, so
+     * no endpoint can answer it.
      */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ProblemDetail handleUploadTooLarge(MaxUploadSizeExceededException ex, HttpServletRequest request) {
@@ -243,9 +218,8 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * A database constraint beat a service-level pre-check — two requests raced. The pre-checks give
-     * the common case a precise error; this maps the constraint that backs them to the same code, so a
-     * race answers 409 instead of leaking a stack trace as a 500 and telling the client we broke.
+     * A database constraint beat a service-level pre-check — two requests raced. Mapped to the same
+     * code the pre-check uses, so a race answers 409 rather than 500.
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
@@ -267,11 +241,9 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Two writes raced the same row's {@code @Version}: the second commit found the row already
-     * advanced and updated zero rows. This is an expected concurrency event — two browser tabs, or two
-     * teammates editing one project (PROJECT_EDIT is not seat-exclusive) — not a bug, so it is logged
-     * at info and answered 409, like a raced unique constraint. The client's autosave serialises its
-     * own writes to avoid it; this is the safety net for the races a single client cannot prevent.
+     * Two writes raced the same row's {@code @Version}. An expected concurrency event — two tabs, or
+     * two teammates on one project, since PROJECT_EDIT is not seat-exclusive — so info and 409 rather
+     * than a bug.
      */
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
     public ProblemDetail handleOptimisticLock(ObjectOptimisticLockingFailureException ex,

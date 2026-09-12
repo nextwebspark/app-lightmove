@@ -5,10 +5,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.ResultActions;
 
@@ -31,7 +29,6 @@ import org.springframework.test.web.servlet.ResultActions;
         "lightmove.auth.rate-limit.extension-pairings-per-hour=2",
         "lightmove.auth.rate-limit.extension-pairings-per-hour-per-ip=50"
 })
-@Import(RecordingEmailSender.Config.class)
 class ExtensionPairingBudgetTest extends FlowTestSupport {
 
     @Test

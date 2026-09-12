@@ -7,12 +7,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
@@ -23,7 +21,6 @@ import tools.jackson.databind.JsonNode;
  * costs every other device when someone is.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class PasswordChangeFlowIntegrationTest extends FlowTestSupport {
 
     private static final String NEW_PASSWORD = "brandnew42";
@@ -155,7 +152,7 @@ class PasswordChangeFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isUnauthorized());
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // Helpers
 
     private MvcResult changeRaw(String bearerToken, String currentPassword, String newPassword) throws Exception {
         return mvc.perform(post("/api/v1/auth/password/change")

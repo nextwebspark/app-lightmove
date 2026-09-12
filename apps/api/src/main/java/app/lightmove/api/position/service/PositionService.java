@@ -36,18 +36,15 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * The position brief behind a mandate: one read, one write per wizard step, and the publication stamp.
  *
- * <p><b>A step is the write unit because a step is the edit unit.</b> The screen has no Save button —
- * it autosaves whatever section is in front of the consultant — so a single whole-document write would
- * resend five untouched steps on every keystroke, and one slip in serialising any of them would blank
- * a section nobody was editing.
+ * <p><b>A step is the write unit because a step is the edit unit.</b> The screen has no Save button,
+ * so a whole-document write would resend five untouched steps on every keystroke and one
+ * serialisation slip would blank a section nobody was editing.
  *
  * <p><b>Writes are deliberately lenient.</b> Autosave must be free to persist a half-typed step, so
  * nothing here refuses a band whose minimum exceeds its maximum or a panel that does not total 100.
- * Those are readings the screen offers, not conditions of storing what somebody wrote down.
  *
- * <p>Two of the fields the screen shows are the mandate's, not the brief's. Step one edits the role
- * title, so that step writes through to the project row it was loaded with. The one target date (V8)
- * is read-only here — every read returns the project's, and no step writes it.
+ * <p>Two fields the screen shows are the mandate's, not the brief's: step one writes the role title
+ * through to the project row, and the one target date (V8) is read-only here.
  */
 @Service
 @RequiredArgsConstructor
@@ -173,10 +170,9 @@ public class PositionService {
     /**
      * Re-drafts the brief from a role template the consultant picked.
      *
-     * <p>A write like any other step, and gated the same way — the picker is part of the wizard, not a
-     * privileged act. What it replaces and what it leaves alone is {@link PositionTemplateApplier}'s
-     * contract; the short version is that the template writes what a template can know, and anything a
-     * person typed for this mandate survives it.
+     * <p>A write like any other step, gated the same way. What it replaces and what it leaves alone
+     * is {@link PositionTemplateApplier}'s contract: anything a person typed for this mandate
+     * survives it.
      */
     @Transactional
     public PositionResponse applyTemplate(UUID userId, UUID workspaceId, UUID projectId,
@@ -193,10 +189,10 @@ public class PositionService {
     }
 
     /**
-     * Drafts the brief for a mandate that has just been created, from the template matched on its role
-     * title. Takes primitives rather than the {@code Project} it belongs to: the mandate is
-     * {@code project}'s to own, and a brief only needs four facts about it — the workspace among them,
-     * because a firm's own templates are part of the catalog its mandates are drafted from.
+     * Drafts the brief for a newly created mandate, from the template matched on its role title.
+     * Takes primitives rather than the {@code Project}: the mandate is {@code project}'s to own, and a
+     * brief needs four facts about it — the workspace among them, because a firm's own templates are
+     * part of its catalog.
      */
     @Transactional
     public Position seedFor(UUID workspaceId, UUID projectId, String positionTitle, String location) {
@@ -223,10 +219,8 @@ public class PositionService {
      * One chip per name, checked here rather than left to the screen.
      *
      * <p>Until V40 the priorities were a set keyed on the value, so the schema made a duplicate
-     * impossible; an ordered list of names cannot say the same thing, and two chips reading alike are
-     * indistinguishable on the screen and meaningless in the brief. Refused rather than quietly
-     * de-duplicated: a caller that sent both meant something by it, and dropping one silently would
-     * answer with a brief it did not ask for.
+     * impossible; an ordered list of names cannot. Refused rather than quietly de-duplicated, so the
+     * caller is not answered with a brief it did not ask for.
      */
     private static List<PositionPriority> prioritiesOf(List<StrategicPriorityDto> sent) {
         List<PositionPriority> priorities = orEmpty(sent).stream()

@@ -7,6 +7,7 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import { ThemeToggle } from "../../theme/ThemeToggle";
 import { useAuth } from "../AuthProvider";
 import { homeFor } from "../homeFor";
+import { messageForOAuthError } from "../oauthErrors";
 import { rememberReturnTo, safeReturnTo } from "../returnTo";
 import { OAuthButtons } from "../components/OAuthButtons";
 import { loginSchema, type LoginValues } from "../schemas";
@@ -16,7 +17,7 @@ export function LoginPage() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Signup hands the typed address over when it turns out to already have an account, so "log in
   // instead" starts with the email filled rather than making the user type it twice.
@@ -42,13 +43,29 @@ export function LoginPage() {
     defaultValues: { email: prefill, password: "" },
   });
 
-  /** An OAuth flow redirects back here with ?error=CODE when it refuses someone. */
+  /**
+   * A full-page OAuth redirect lands back here with ?error=CODE when it refuses someone. The popup
+   * flow reports through `OAuthButtons` instead and never reaches this.
+   *
+   * The parameter is stripped once read. Left in place it survives a reload and resurrects a banner
+   * for an attempt that is long over.
+   */
   useEffect(() => {
     const code = searchParams.get("error");
-    if (code) {
-      setFormError(messageForOAuthError(code));
+    if (!code) {
+      return;
     }
-  }, [searchParams]);
+
+    setFormError(messageForOAuthError(code));
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete("error");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams]);
 
   const onSubmit = async (values: LoginValues) => {
     setFormError(null);
@@ -118,7 +135,7 @@ export function LoginPage() {
           </Button>
         </form>
 
-        <OAuthButtons />
+        <OAuthButtons onError={setFormError} />
       </Card>
 
       <p className="animate-fade-up text-[12.5px] text-text2 [animation-delay:120ms]">
@@ -129,22 +146,4 @@ export function LoginPage() {
       </p>
     </div>
   );
-}
-
-/**
- * An OAuth flow cannot render a form error — it is a redirect — so it hands the code back in the
- * query string and we say it here. The sentences name no provider: which one refused is the
- * server's business, and naming one would be wrong the moment a second is configured.
- */
-function messageForOAuthError(code: string): string {
-  switch (code) {
-    case "EMAIL_NOT_WORK_ADDRESS":
-      return "Please sign in with your work account. LightMove is for search firms.";
-    case "EMAIL_NOT_VERIFIED":
-      return "Your provider reports that address as unverified. Verify it with them, then try again.";
-    case "ACCOUNT_SUSPENDED":
-      return "This account has been suspended.";
-    default:
-      return "Sign-in did not complete. Try again, or use your password.";
-  }
 }

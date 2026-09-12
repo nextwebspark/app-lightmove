@@ -48,11 +48,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The auth endpoints.
- *
- * <p>Thin on purpose: this class translates HTTP to commands and back, and owns exactly one piece of
- * knowledge the services do not have — that the refresh token belongs in an httpOnly cookie and must
- * never appear in a response body.
+ * The auth endpoints. Thin on purpose, and owning one piece of knowledge the services do not: the
+ * refresh token belongs in an httpOnly cookie and must never appear in a response body.
  */
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -72,11 +69,8 @@ public class AuthController {
     private final ObjectProvider<ClientRegistrationRepository> oauthRegistrations;
 
     /**
-     * Signup step 1.
-     *
-     * <p>Returns 201 with a session but <i>no workspace</i> — the user has an account and no
-     * organisation yet. The token carries no tenant claim, so the filter chain admits them only to the
-     * onboarding endpoints, which is precisely where the wizard is taking them next.
+     * Signup step 1. Returns 201 with a session but <i>no workspace</i>: the token carries no tenant
+     * claim, so the filter chain admits them only to the onboarding endpoints.
      */
     @PostMapping("/signup")
     public ResponseEntity<AuthResponse> signup(@Valid @RequestBody SignupRequest request,
@@ -96,11 +90,8 @@ public class AuthController {
     }
 
     /**
-     * Exchanges the refresh cookie for a new session.
-     *
-     * <p>The cookie is the credential — no bearer token required, which is the whole point: this is how
-     * the SPA recovers a session after a page reload, once the in-memory access token is gone. It is
-     * also why this is one of only two CSRF-protected routes (see {@code SecurityConfig}).
+     * Exchanges the refresh cookie for a new session — how the SPA recovers one after a page reload.
+     * The cookie being the credential is why this is one of only two CSRF-protected routes.
      */
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(
@@ -115,9 +106,9 @@ public class AuthController {
         try {
             return respond(HttpStatus.OK, authentication.refresh(refreshToken, httpRequest));
         } catch (ApiException e) {
-            // Expire the cookie on the way out: a rejected token is dead, and leaving it in place makes
-            // the browser re-present it every page load — an endless stream of TOKEN_REUSE_DETECTED. The
-            // header is set before the handler sees the exception, so it survives onto the 401.
+            // Expire the cookie on the way out: leaving a rejected token in place has the browser
+            // re-present it every page load, an endless stream of TOKEN_REUSE_DETECTED. The header is
+            // set before the handler sees the exception, so it survives onto the 401.
             httpResponse.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.expire().toString());
             throw e;
         }
@@ -137,8 +128,8 @@ public class AuthController {
     }
 
     /**
-     * Redeems a verification link and signs the user straight in — the token proved the mailbox, which
-     * is everything a login would have proved. {@code respond} sets the refresh cookie, exactly as login.
+     * Redeems a verification link and signs the user straight in: the token proved the mailbox, which
+     * is everything a login would have proved.
      */
     @PostMapping("/verify")
     public ResponseEntity<AuthResponse> verify(@Valid @RequestBody VerifyEmailRequest request,
@@ -161,10 +152,7 @@ public class AuthController {
     }
 
     /**
-     * Emails a password-reset link.
-     *
-     * <p>Always 202, even for an address we have never seen — same reasoning as {@code /verify/resend}:
-     * confirming which addresses exist is a free account-enumeration oracle.
+     * Emails a password-reset link. Always 202, for {@code /verify/resend}'s reason.
      */
     @PostMapping("/password/forgot")
     public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request,
@@ -175,8 +163,7 @@ public class AuthController {
     }
 
     /**
-     * Redeems the emailed link and signs the user straight in — the token proved the mailbox, which is
-     * everything a login would have proved. {@code respond} sets the refresh cookie, exactly as login.
+     * Redeems the emailed link and signs the user straight in, as {@code /verify} does.
      */
     @PostMapping("/password/reset")
     public ResponseEntity<AuthResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request,
@@ -185,11 +172,8 @@ public class AuthController {
     }
 
     /**
-     * Settings → Security: change a password you already know.
-     *
-     * <p>Answers a full session, exactly as {@code /password/reset} does, because the change revokes
-     * every session including the caller's — {@code respond} sets the replacement cookie, so the tab
-     * that made the change stays signed in and the others do not.
+     * Settings → Security: change a password you already know. Answers a full session because the
+     * change revokes every session including the caller's, so the tab that made it stays signed in.
      */
     @PostMapping("/password/change")
     public ResponseEntity<AuthResponse> changePassword(@AuthenticationPrincipal AuthPrincipal principal,
@@ -211,16 +195,11 @@ public class AuthController {
     }
 
     /**
-     * Settings → Profile.
+     * Settings → Profile. Which user is edited comes from the principal and never from the request,
+     * so there is nothing to authorise.
      *
-     * <p>Same URL as the {@code GET}, because it is the same resource: the caller themselves. Which
-     * user is edited comes from the principal and never from the request, so there is nothing here to
-     * authorise — and no {@code @PreAuthorize}, exactly as on {@code GET /me}.
-     *
-     * <p>Two consequences of living on the auth chain, both intended. It is <b>CSRF-protected</b> like
-     * every other state change under {@code /auth} — the SPA sends the double-submit header. And it is
-     * authenticated but <b>not verified-email gated</b>: this row is the caller's own account, not
-     * tenant data, and someone still waiting on their inbox may already type their name into signup.
+     * <p>CSRF-protected like every state change under {@code /auth}, and authenticated but <b>not</b>
+     * verified-email gated: this row is the caller's own account, not tenant data.
      */
     @PatchMapping("/me")
     public ResponseEntity<UserResponse> updateProfile(@AuthenticationPrincipal AuthPrincipal principal,
@@ -250,13 +229,9 @@ public class AuthController {
     }
 
     /**
-     * Which sign-in methods this deployment actually offers, as the OAuth registration ids.
-     *
-     * <p>The frontend asks rather than assumes — a "Continue with LinkedIn" button that leads to a 404
-     * is worse than no button. It returns <i>ids</i> and not a fixed set of flags so that wiring up
-     * another provider stays a yml block: the id is the button and the authorisation path
-     * ({@code /oauth2/authorization/{id}}), and the SPA falls back to a generic label for one it has
-     * no icon for.
+     * Which sign-in methods this deployment offers, as OAuth registration ids rather than a fixed set
+     * of flags — so wiring up another provider stays a yml block. The id is both the button and the
+     * authorisation path, and the SPA falls back to a generic label for one it has no icon for.
      */
     @GetMapping("/providers")
     public ResponseEntity<AuthProviders> providers() {

@@ -41,17 +41,13 @@ public class TriageCompanyWriter {
     /**
      * Snapshots these companies into the mandate's universe and answers how many were new to it.
      *
-     * <p>One multi-row statement rather than a JDBC batch, because the answer has to be exact: a
-     * batch reports per-statement counts the driver is free to return as {@code SUCCESS_NO_INFO},
-     * and "added" is a number the toast states to the user. Every value is bound — the row template
-     * generates placeholder names, it never interpolates a value.
+     * <p>One multi-row statement rather than a JDBC batch, because the answer has to be exact: a batch
+     * reports per-statement counts the driver may return as {@code SUCCESS_NO_INFO}, and "added" is a
+     * number the toast states to the user. Every value is bound — the row template generates
+     * placeholder names, never a value.
      *
-     * <p>{@code status}, {@code note} and {@code sourceUrl} are the caller's, not the row's: they say
-     * where this act of adding lands, what the consultant remarked while doing it, and which page it
-     * was made from, so they are the same for every company in one statement. A bulk add carries none
-     * of them beyond the default stage. {@code source} is the door: STRATEGY from the market screens,
-     * EXTENSION when a plugin capture resolved against the universe — either way the row carries the
-     * full market snapshot and its apollo id.
+     * <p>{@code status}, {@code note} and {@code sourceUrl} are the caller's rather than the row's, so
+     * they are the same for every company in one statement.
      */
     public int insertIgnoringHeld(UUID projectId, UUID addedBy, List<CompanyRow> rows,
                                   TriageCompanySource source, TriageCompanyStatus status, String note,

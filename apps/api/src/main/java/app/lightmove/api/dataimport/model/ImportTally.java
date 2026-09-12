@@ -8,15 +8,11 @@ import java.util.Set;
 
 /**
  * What one commit has done so far — counters and the rows that failed, accumulated as the import
- * walks the sheet.
- *
- * <p>Mutable and deliberately not a record: it is a running total held by one method on one thread
- * for the length of one transaction, and threading eight numbers through the row loop as a new
- * immutable value each time would obscure the loop it exists to describe.
+ * walks the sheet. Mutable and deliberately not a record: it is a running total held by one method on
+ * one thread for one transaction.
  *
  * <p>Errors cap at {@link #MAX_REPORTED_ERRORS}. A file whose mapping is wrong fails on every row, and
- * a response carrying five thousand copies of one message helps nobody and is a large payload to
- * render; the count keeps telling the truth after the list stops growing.
+ * the count keeps telling the truth after the list stops growing.
  */
 public final class ImportTally {
 

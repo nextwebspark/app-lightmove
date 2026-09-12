@@ -1,23 +1,14 @@
 package app.lightmove.api.strategy.constant;
 
 /**
- * The revenue bands the Strategy filter selects from — the wireframe's ten rows, plus one it could
- * not know it needed.
+ * The revenue bands the Strategy filter selects from — numeric USD bounds rather than range strings,
+ * for {@link EmployeeBand}'s reason, closed on both ends and non-overlapping.
  *
- * <p>Like {@link EmployeeBand} these are numeric USD bounds rather than range strings, because Apollo
- * ships a raw {@code annual_revenue} figure and no pre-bucketed column. The bounds are closed on both
- * ends and abut without overlapping, so a company falls in exactly one band.
- *
- * <p><b>{@code R_UNKNOWN} is the one addition, and the live data is why.</b> Apollo carries a revenue
- * figure on 7,132 of 71,822 rows — 9.9%. Ship the wireframe's ten bands alone and selecting any one
- * of them silently drops nine companies in ten: the screen would look like the market is tiny rather
- * than like the data is thin, and nothing on the panel would say which. {@code R_UNKNOWN} makes those
- * 64,690 rows selectable and countable, so the gap is something a consultant can see and decide
- * about rather than something that quietly eats their search.
- *
- * <p>It carries no bounds at all — {@link #lowerBound()} and {@link #upperBound()} are both null —
- * and the query builder renders it as {@code annual_revenue IS NULL}. Any caller reading bounds must
- * check {@link #isUnknown()} first.
+ * <p><b>{@code R_UNKNOWN} is an addition to the wireframe's ten, and the live data is why.</b> Apollo
+ * carries a revenue figure on 7,132 of 71,822 rows. Ship the ten bands alone and selecting any one of
+ * them silently drops nine companies in ten, with nothing on the panel saying so. It carries no
+ * bounds — the query builder renders it as {@code annual_revenue IS NULL} — so any caller reading
+ * bounds must check {@link #isUnknown()} first.
  */
 public enum RevenueBand {
 

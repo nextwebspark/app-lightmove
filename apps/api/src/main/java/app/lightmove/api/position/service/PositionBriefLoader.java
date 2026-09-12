@@ -43,11 +43,9 @@ class PositionBriefLoader {
      * The seeded brief a new mandate starts from: the template its role title matches in the
      * workspace's catalog, with the client's home country pre-filled as the location.
      *
-     * <p>The location is written after the template rather than through it — a template describes a
-     * kind of role and has never met this client, so where the seat sits is not its to say.
-     *
-     * <p>A catalog with nothing in it drafts a blank brief rather than failing: the library is
-     * reference content, and a mandate must still be creatable against a database that has none.
+     * <p>The location is written after the template rather than through it: a template has never met
+     * this client. A catalog with nothing in it drafts a blank brief rather than failing project
+     * creation.
      */
     Position draft(UUID workspaceId, UUID projectId, String positionTitle, String location) {
         Position position = Position.forProject(projectId, location);

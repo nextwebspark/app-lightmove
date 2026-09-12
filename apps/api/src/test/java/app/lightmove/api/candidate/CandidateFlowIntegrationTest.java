@@ -11,10 +11,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
@@ -29,7 +27,6 @@ import tools.jackson.databind.JsonNode;
  * being removed from the mandate — follows from that.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class CandidateFlowIntegrationTest extends FlowTestSupport {
 
     @Test
@@ -198,6 +195,58 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
                                 """.formatted(companyId)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("CANDIDATE_ALREADY_MAPPED"));
+    }
+
+    @Test
+    @DisplayName("a profile the mandate already maps is refused however the second capture arrives")
+    void theSameProfileTwiceIsRefused() throws Exception {
+        String projectId = mandate("Duplicate Profile Firm");
+        String companyId = captureCompany(projectId, "Almarai");
+
+        // The state the plugin's second capture actually meets: the first is mapped to its researched
+        // employer, so the name rule's unmapped scope cannot see it and the row would be created.
+        mapProfile(projectId, companyId, "Omar Haddad", "https://www.linkedin.com/in/omar-haddad");
+
+        mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Omar A. Haddad","source":"extension",
+                                 "linkedinUrl":"https://linkedin.com/in/Omar-Haddad/"}"""))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CANDIDATE_ALREADY_MAPPED"));
+    }
+
+    @Test
+    @DisplayName("a slug that merely starts with another's is a different person")
+    void aLongerSlugIsNotADuplicate() throws Exception {
+        String projectId = mandate("Slug Prefix Firm");
+        String companyId = captureCompany(projectId, "Almarai");
+
+        mapProfile(projectId, companyId, "John Reed", "https://www.linkedin.com/in/john");
+        mapProfile(projectId, companyId, "Johnny Reed", "https://www.linkedin.com/in/johnny");
+
+        mvc.perform(get(candidatesUrl(projectId)).header("Authorization", "Bearer " + admin()))
+                .andExpect(jsonPath("$.totalCount").value(2));
+    }
+
+    @Test
+    @DisplayName("re-saving a profile does not collide with the row that holds it")
+    void anEditKeepsItsOwnProfile() throws Exception {
+        String projectId = mandate("Own Profile Firm");
+        String companyId = captureCompany(projectId, "Almarai");
+        String candidateId =
+                mapProfile(projectId, companyId, "Omar Haddad", "https://www.linkedin.com/in/omar-haddad");
+
+        mvc.perform(put(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"triageCompanyId":"%s","fullName":"Omar Haddad","title":"CFO",
+                                 "linkedinUrl":"https://www.linkedin.com/in/omar-haddad"}
+                                """.formatted(companyId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("CFO"));
     }
 
     @Test
@@ -573,7 +622,7 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isBadRequest());
     }
 
-    // ── fixture ──────────────────────────────────────────────────────────────
+    // fixture
 
     private String adminToken;
 
@@ -622,6 +671,19 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"companyName":"%s"}""".formatted(companyName)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
+    /** Someone mapped at a company with a LinkedIn profile against them, and their id. */
+    private String mapProfile(String projectId, String triageCompanyId, String fullName,
+                              String linkedinUrl) throws Exception {
+        return body(mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"triageCompanyId":"%s","fullName":"%s","linkedinUrl":"%s"}
+                                """.formatted(triageCompanyId, fullName, linkedinUrl)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
     }

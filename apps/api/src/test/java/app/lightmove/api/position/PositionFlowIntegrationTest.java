@@ -11,7 +11,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.position.repository.PositionRepository;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -20,7 +19,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import tools.jackson.databind.JsonNode;
@@ -30,7 +28,6 @@ import tools.jackson.databind.JsonNode;
  * publication stamp, the attached document, and the lazy seed for pre-V7 mandates.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class PositionFlowIntegrationTest extends FlowTestSupport {
 
     @Autowired PositionRepository positionRows;
@@ -45,7 +42,8 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
         mvc.perform(get(positionUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.details.roleTitle").value("Chief Financial Officer"))
-                .andExpect(jsonPath("$.details.location").value("UAE"))
+                // The brief opens at the client's HQ country, canonicalised on the client's own write.
+                .andExpect(jsonPath("$.details.location").value("United Arab Emirates"))
                 .andExpect(jsonPath("$.details.seniority").value("C_SUITE"))
                 .andExpect(jsonPath("$.details.employmentType").value("FULL_TIME_PERMANENT"))
                 .andExpect(jsonPath("$.details.responsibilities[0]").value("Group P&L stewardship"))
@@ -451,7 +449,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.reporting.orgChart[1].title").value("Board of Directors"));
     }
 
-    // ── helpers ──────────────────────────────────────────────────────────────
+    // helpers
 
     private static String positionUrl(String projectId) {
         return "/api/v1/projects/" + projectId + "/position";

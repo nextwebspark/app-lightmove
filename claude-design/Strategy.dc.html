@@ -83,6 +83,7 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ collapseIcon }}"></path></svg>
           <span style="display:{{ labelDisp }};white-space:nowrap">Collapse</span>
         </button>
+        <div style="padding:8px 10px 0"><span style="display:{{ labelDisp }};font:400 11px var(--mono);color:var(--text3)">v1.4.0</span></div>
       </div>
     </nav>
 
@@ -140,7 +141,7 @@
 
       <div style="flex:1;display:flex;min-height:0">
         <sc-if value="{{ showFilters }}" hint-placeholder-val="{{ true }}">
-          <div style="width:340px;flex:none;border-right:1px solid var(--line-soft);overflow-y:auto">
+          <div style="width:300px;flex:none;border-right:1px solid var(--line-soft);overflow-y:auto">
 
             <!-- Location -->
             <div onClick="{{ toggleOpen }}" data-key="loc" role="button" style="display:flex;align-items:center;gap:8px;min-height:52px;padding:12px 16px;border-bottom:1px solid var(--line-soft);cursor:pointer" style-hover="background:var(--panel2)">
@@ -162,11 +163,11 @@
             </div>
             <sc-if value="{{ locOpen }}" hint-placeholder-val="{{ true }}">
               <div style="padding:16px;border-bottom:1px solid var(--line-soft)">
-                <div style="display:flex;flex-wrap:wrap;gap:8px">
-                  <sc-for list="{{ locChips }}" as="c" hint-placeholder-count="6">
-                    <button onClick="{{ toggleVal }}" data-key="loc" data-val="{{ c.name }}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;border:none;box-shadow:inset 0 0 0 1px {{ c.ring }};background:{{ c.bg }};cursor:pointer" style-hover="box-shadow:inset 0 0 0 1px var(--amber)">
-                      <span style="font:600 13px var(--sans);color:{{ c.color }}">{{ c.name }}</span>
-                      <span style="font:600 13px var(--sans);color:{{ c.countColor }}">{{ c.count }}</span>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <sc-for list="{{ locChips }}" as="c" hint-placeholder-count="8">
+                    <button onClick="{{ toggleVal }}" data-key="loc" data-val="{{ c.name }}" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:none;box-shadow:inset 0 0 0 1px {{ c.ring }};background:{{ c.bg }};cursor:pointer" style-hover="box-shadow:inset 0 0 0 1px var(--amber)">
+                      <span style="font:500 12px var(--sans);color:{{ c.color }}">{{ c.name }}</span>
+                      <span style="font:500 12px var(--sans);color:{{ c.countColor }}">{{ c.count }}</span>
                     </button>
                   </sc-for>
                 </div>

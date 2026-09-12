@@ -35,24 +35,21 @@ export function FilterCheckRow({
       role="checkbox"
       aria-checked={checked}
       onClick={onToggle}
-      className={cn(
-        "flex w-full items-center justify-between rounded-[5px] text-left transition hover:bg-panel2",
-        size === "md" ? "px-1 py-2" : "px-1 py-[5px]",
-      )}
+      className="flex w-full items-center justify-between rounded-[5px] px-1 py-[5px] text-left transition hover:bg-panel2"
     >
-      <span className={cn("flex items-center", size === "md" ? "gap-3" : "gap-2")}>
+      <span className={cn("flex items-center", size === "md" ? "gap-2.5" : "gap-2")}>
         <CheckBox checked={checked} size={size} />
         <span
           className={cn(
             "font-sans text-text",
-            size === "md" ? "text-[14px] font-medium" : "text-[12px] font-medium",
+            size === "md" ? "text-[13px] font-medium" : "text-[12px] font-medium",
           )}
         >
           {label}
         </span>
       </span>
       {count !== undefined && (
-        <span className="font-sans text-[13px] font-medium text-text3">
+        <span className="font-sans text-[12px] font-medium text-text3">
           {count.toLocaleString()}
         </span>
       )}
@@ -63,16 +60,20 @@ export function FilterCheckRow({
 /**
  * The wireframe's square: an inset ring rather than a border, so ticking a row cannot shift the text
  * beside it by the half-pixel a border-width change would cost.
+ *
+ * <p>Purely visual — no role and no handler of its own. The thing that is actually checkable is the
+ * control around it, which is a filter row here and a grid checkbox on the selectable tables.
  */
 export function CheckBox({
   checked,
   size = "md",
 }: {
-  checked: boolean;
+  /** `"mixed"` is a select-all box over a partial selection — a dash, not a tick. */
+  checked: boolean | "mixed";
   size?: "sm" | "md";
 }) {
-  const box = size === "md" ? "h-[18px] w-[18px]" : "h-[15px] w-[15px]";
-  const glyph = size === "md" ? 10 : 9;
+  const box = size === "md" ? "h-[16px] w-[16px]" : "h-[15px] w-[15px]";
+  const glyph = 9;
 
   return (
     <span
@@ -91,7 +92,7 @@ export function CheckBox({
         strokeWidth={3.2}
         className={cn("text-amber", checked ? "opacity-100" : "opacity-0")}
       >
-        <path d="M20 6 9 17l-5-5" />
+        <path d={checked === "mixed" ? "M5 12h14" : "M20 6 9 17l-5-5"} />
       </svg>
     </span>
   );

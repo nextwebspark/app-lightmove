@@ -3,6 +3,7 @@ import {
   columnPinningFeature,
   columnVisibilityFeature,
   createColumnHelper,
+  rowSelectionFeature,
   rowSortingFeature,
   tableFeatures,
   type ColumnPinningState,
@@ -19,17 +20,22 @@ import type { CompanyResult, CompanySortField } from "../api/types";
 /** What the Actions column needs, supplied per render rather than baked into the column defs. */
 interface CompanyTableMeta {
   onAddToUniverse: (company: CompanyResult) => void;
-  addingId: string | null;
+  addingIds: ReadonlySet<string>;
 }
 
 /**
  * No pagination, filtering or sorted row model registered: all three are the server's, and a client
- * row model would re-sort the 25 rows this page holds as though they were the whole result.
+ * row model would re-sort the one page of rows this holds as though they were the whole result.
+ *
+ * <p>Row selection <i>is</i> registered, because it is the one piece of this that genuinely belongs to
+ * the table: it keys selection by row id rather than by index, so a tick survives the page turn that
+ * replaces every row object, and it owns the shift-click anchor.
  */
 export const companyTableFeatures = tableFeatures({
   columnOrderingFeature,
   columnPinningFeature,
   columnVisibilityFeature,
+  rowSelectionFeature,
   rowSortingFeature,
   columnMeta: {} as DataGridColumnLayout,
   tableMeta: {} as CompanyTableMeta,
@@ -48,8 +54,9 @@ export const companyColumns = helper.columns([
     id: "name",
     header: "Company",
     enableHiding: false,
-    // The floor covers a twenty-odd-character name: logo and gutters eat 54px before a letter draws.
-    meta: { share: 22, min: 230 },
+    // The floor covers a twenty-odd-character name: the tick box, logo and gutters eat 80px before a
+    // letter draws.
+    meta: { share: 22, min: 256 },
     cell: (info) => (
       <span className="flex min-w-0 items-center gap-2.5">
         <CompanyLogo name={info.getValue()} logo={info.row.original.logoUrl} size={28} />
@@ -77,7 +84,7 @@ export const companyColumns = helper.columns([
             title="Add to universe"
             aria-label={`Add ${company.companyName} to universe`}
             onClick={() => meta?.onAddToUniverse(company)}
-            disabled={meta?.addingId === company.apolloAccountId}
+            disabled={meta?.addingIds.has(company.apolloAccountId)}
             className={`${GRID_ICON_BUTTON} disabled:opacity-40`}
           >
             <Icon d={ICONS.plus} size={14} />

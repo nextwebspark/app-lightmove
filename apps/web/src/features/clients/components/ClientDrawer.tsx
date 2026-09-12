@@ -12,6 +12,7 @@ import {
   useToast,
 } from "../../../components/ui";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
+import { CountryField } from "../../../components/ui/CountryField";
 import { isValidEmail } from "../../../lib/email";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatDate } from "../../../lib/format";
@@ -175,7 +176,12 @@ function ClientView({
           </div>
           <div className="flex-1">
             <DrawerField label="HQ">
-              <Input value={hqCountry} onChange={(event) => setHqCountry(event.target.value)} placeholder="e.g. UAE" />
+              <CountryField
+                listId="client-hq-country"
+                value={hqCountry}
+                placeholder="United Arab Emirates"
+                onChange={setHqCountry}
+              />
             </DrawerField>
           </div>
         </div>

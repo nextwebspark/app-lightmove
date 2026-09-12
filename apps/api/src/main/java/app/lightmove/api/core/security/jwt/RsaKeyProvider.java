@@ -25,16 +25,14 @@ import org.springframework.core.io.ResourceLoader;
 /**
  * Supplies the RSA keypair that signs and verifies access tokens.
  *
- * <p>RS256 rather than HS256, because the two have different trust models. An HMAC secret both signs
- * and verifies, so anything that can check a token can also forge one. With RSA only the private key
- * signs; the public key can be handed to any future service — or published at a JWKS endpoint — and
- * it can verify our tokens without being able to mint them.
+ * <p>RS256 rather than HS256: an HMAC secret both signs and verifies, so anything that can check a
+ * token can forge one. With RSA the public key can be handed to any future service, or published at a
+ * JWKS endpoint, without being able to mint anything.
  *
- * <p>In development, a keypair is generated on first run and written to {@code .keys/} (gitignored).
- * That is a convenience, not a design: it means a fresh clone starts with no setup. Production must
- * supply real keys via {@code JWT_PRIVATE_KEY_LOCATION} — pointed at a Secret Manager mount — because
- * a generated key would be different on every instance and every restart, silently invalidating every
- * token in flight the moment the service scaled or redeployed.
+ * <p>In development a keypair is generated on first run and written to {@code .keys/}, so a fresh
+ * clone needs no setup. Production must supply real keys via {@code JWT_PRIVATE_KEY_LOCATION}: a
+ * generated key would differ on every instance and every restart, silently invalidating every token
+ * in flight the moment the service scaled or redeployed.
  */
 @Slf4j
 public class RsaKeyProvider {
@@ -71,13 +69,9 @@ public class RsaKeyProvider {
     /**
      * Refuses to boot on a generated key outside development.
      *
-     * <p>Silently generating one is the worst possible failure here, because nothing looks wrong. The
-     * service starts, signs tokens, and works — until it restarts or a second instance comes up with a
-     * different key, at which point every token in flight is rejected and every user is signed out, for
-     * reasons that point nowhere near a missing file. A misconfigured secret mount is an operational
-     * mistake; making it a silent one turns it into an outage nobody can read.
-     *
-     * <p>So: in prod, a missing key is a startup failure. Loud, immediate, and pointing at the cause.
+     * <p>Silently generating one is the worst failure here, because nothing looks wrong: the service
+     * starts and works until it restarts or scales, at which point every user is signed out for
+     * reasons pointing nowhere near a missing file. In prod a missing key is a startup failure.
      */
     private static void requireKeysOrGenerate(JwtSettings config, boolean mayGenerate) {
         if (!mayGenerate) {

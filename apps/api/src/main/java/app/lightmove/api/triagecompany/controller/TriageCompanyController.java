@@ -1,6 +1,7 @@
 package app.lightmove.api.triagecompany.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.triagecompany.dto.AddSelectedTriageCompaniesRequest;
 import app.lightmove.api.triagecompany.dto.AddTriageCompanyRequest;
 import app.lightmove.api.triagecompany.dto.CaptureCompanyRequest;
 import app.lightmove.api.triagecompany.dto.EditCustomFieldsRequest;
@@ -33,13 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * A mandate's triaged companies. Gated per method rather than per class: reading is WORK_VIEW, held
  * by every seated role including CLIENT, while every write is WORK_EXECUTE — a client representative
- * may see that a company was shortlisted without being able to shortlist one, capture one, or remove
- * one from the mandate.
- *
- * <p>The three Companies screens are three reads of {@code GET} at different statuses, and every move
- * between them is the one {@code PATCH}. Neither needed an endpoint of its own: a stage is a value,
- * not a resource, and giving each its own route would have made "shortlist this" and "decline this"
- * two implementations of one write.
+ * may see that a company was shortlisted without being able to shortlist one.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/triage")
@@ -75,9 +70,8 @@ public class TriageCompanyController {
     }
 
     /**
-     * A company the market does not carry — typed in on the Companies screen, or captured off a live
-     * page by the browser plugin. Separate from {@code POST /} because the trust model is the
-     * opposite: there the client names an id and the server resolves every field, here the client
+     * A company the market does not carry. Separate from {@code POST /} because the trust model is
+     * the opposite: there the client names an id and the server resolves every field, here the client
      * carries the fields and the row records that it did.
      */
     @PostMapping("/capture")
@@ -101,6 +95,20 @@ public class TriageCompanyController {
                 principal.requireWorkspaceId(), projectId, httpRequest));
     }
 
+    /**
+     * The companies ticked on Strategy, taken in at one stage. Every id is still resolved and
+     * off-limits-checked server-side.
+     */
+    @PostMapping("/bulk")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
+    public ResponseEntity<TriageBulkAddResponse> addSelected(@AuthenticationPrincipal AuthPrincipal principal,
+                                                             @PathVariable UUID projectId,
+                                                             @Valid @RequestBody AddSelectedTriageCompaniesRequest request,
+                                                             HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(triage.addSelected(principal.userId(),
+                principal.requireWorkspaceId(), projectId, request, httpRequest));
+    }
+
     @PatchMapping("/{triageCompanyId}")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
     public ResponseEntity<TriageCompanyResponse> update(
@@ -114,12 +122,9 @@ public class TriageCompanyController {
     }
 
     /**
-     * Replaces a company's own facts — the Companies panel's Edit form.
-     *
-     * <p>A PUT beside the PATCH above rather than more fields on it, because the two mean different
-     * things: the PATCH is a triage change where a null leaves the other half alone, and this is a
-     * whole form where an omitted field is a cleared one. Refused outright for a company taken from
-     * the market, whose fields belong to the export rather than to the mandate.
+     * Replaces a company's own facts — the Companies panel's Edit form. A PUT beside the PATCH above
+     * because the two mean different things: there a null leaves the other half alone, here an
+     * omitted field is a cleared one. Refused outright for a company taken from the market.
      */
     @PutMapping("/{triageCompanyId}")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
@@ -134,16 +139,13 @@ public class TriageCompanyController {
     }
 
     /**
-     * Removes this mandate's decision about a company. The company itself is untouched — the Apollo
-     * universe is read-only to this application — so it stays on Strategy and stays available to every
-     * other mandate.
+     * Removes this mandate's decision about a company. The company itself is untouched: the Apollo
+     * universe is read-only to this application.
      */
     /**
-     * The mandate's own columns for one company — the only edit a market-sourced company accepts.
-     *
-     * <p>Its own route rather than fields on the PUT above, because that one is refused outright for a
-     * company taken from the market and this one must not be: the export's facts are not the mandate's
-     * to rewrite, and the columns the mandate added to its own grid are nobody else's.
+     * The mandate's own columns for one company — the only edit a market-sourced company accepts. Its
+     * own route because the PUT above is refused for such a company and this must not be: the export's
+     * facts are not the mandate's to rewrite, but the columns it added to its own grid are its own.
      */
     @PatchMapping("/{triageCompanyId}/custom-fields")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")

@@ -39,8 +39,6 @@ public class CompanySearchController {
     private final IndustryAdjacency adjacency;
     private final CompanySearchSettings searchConfig;
 
-    // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
-    // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public CompanySearchController(ApolloCompanyQueryService companies, IndustryAdjacency adjacency,
                                    LightMoveProperties properties) {
         this.companies = companies;
@@ -62,8 +60,7 @@ public class CompanySearchController {
 
     /**
      * Name search for the company pickers. A blank query returns nothing rather than the head of the
-     * universe: a picker that offers six arbitrary companies before a key is pressed suggests they
-     * were chosen for a reason.
+     * universe, which would suggest the six rows were chosen for a reason.
      */
     @GetMapping("/search")
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
@@ -96,15 +93,9 @@ public class CompanySearchController {
     }
 
     /**
-     * One company of the universe, by the id every stored reference keys on — the record behind a
-     * picked suggestion, so a consultant sees what they are about to take before they take it.
-     *
-     * <p>Separate from the typeahead rather than fattening it: that endpoint answers six rows a
-     * keystroke and a whole record each is a payload nobody reads. This is the one that was chosen.
-     *
-     * <p>Read-only, like everything else here. A company is <b>taken</b> into a mandate through
-     * {@code POST /projects/{projectId}/triage}, which resolves this same row server-side rather than
-     * trusting whatever the client saw.
+     * One company of the universe — the record behind a picked suggestion. Read-only, like everything
+     * here: a company is <b>taken</b> into a mandate through {@code POST /projects/{projectId}/triage},
+     * which resolves this same row server-side rather than trusting what the client saw.
      *
      * <p>The literal routes above still win over this path variable — Spring matches an exact segment
      * before a template — so {@code /companies/facets} is the facets read, not a company called
@@ -130,7 +121,7 @@ public class CompanySearchController {
 
     /**
      * Refused rather than clamped, matching every other list read: a silently narrowed limit is a
-     * wrong answer to a stated request, and the caller cannot tell it got one.
+     * wrong answer the caller cannot tell it got.
      */
     private int resolvedLimit(Integer limit, int fallback) {
         if (limit == null) {

@@ -18,10 +18,8 @@ import org.springframework.util.StringUtils;
  * offers. {@link HttpOptions#timeout} is that provider's own option; nothing here wraps or races the
  * call.
  *
- * <p>It reproduces only the <b>Vertex</b> path, which is the one this application runs
- * ({@code application.yml} sets project-id and location and deliberately sets no api-key). An api-key
- * means the Gemini Developer API, which this does not build — so it is refused loudly rather than
- * quietly served a Vertex client.
+ * <p>It reproduces only the <b>Vertex</b> path. An api-key means the Gemini Developer API, which
+ * this does not build, so one is refused loudly rather than quietly served a Vertex client.
  */
 @Configuration
 // The test profile sets spring.ai.model.chat=none precisely so no test needs GCP credentials. Without
@@ -67,8 +65,7 @@ public class GoogleGenAiClientConfig {
      * Refuses a property this bean does not read.
      *
      * <p>Every one of these changes how the replaced bean would have authenticated or connected, so
-     * ignoring it silently is the failure worth refusing: the operator gets the behaviour they
-     * configured against, with nothing saying otherwise.
+     * ignoring one silently would leave the operator configured against behaviour they do not get.
      */
     private static void refuseUnhonoured(String property, String value) {
         if (StringUtils.hasText(value)) {

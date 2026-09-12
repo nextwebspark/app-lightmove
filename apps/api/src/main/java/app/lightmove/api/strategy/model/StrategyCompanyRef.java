@@ -1,5 +1,6 @@
 package app.lightmove.api.strategy.model;
 
+import app.lightmove.api.common.location.service.Countries;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import lombok.AccessLevel;
@@ -10,14 +11,10 @@ import lombok.NoArgsConstructor;
  * One company on a mandate's off-limits list: its identity in the universe, plus a snapshot of how it
  * looked when it was put there.
  *
- * <p>{@code apolloAccountId} is {@code app_lm_apollo_companies}'s primary key, which the pipeline
- * holds stable across exports. It is deliberately <b>not</b> a foreign key: that table is ETL-owned
- * and reloaded wholesale, and a mandate's exclusion list must not be something a reload can cascade
- * away.
- *
- * <p>The snapshot fields exist for the other half of that same fact. A company can leave the universe
- * between the day it was barred and the day someone opens the panel; a barred company that renders as
- * a blank row is worse than a stale one, because the list is read to check what is excluded.
+ * <p>{@code apolloAccountId} is deliberately <b>not</b> a foreign key: {@code app_lm_apollo_companies}
+ * is ETL-owned and reloaded wholesale, and an exclusion list must not be something a reload can
+ * cascade away. The snapshot is the other half of that — a barred company that renders as a blank row
+ * is worse than a stale one, because the list is read to check what is excluded.
  */
 @Embeddable
 @Getter
@@ -47,8 +44,8 @@ public class StrategyCompanyRef {
         ref.apolloAccountId = row.apolloAccountId();
         ref.companyName = row.companyName();
         ref.industry = row.industry();
-        ref.companyCity = row.companyCity();
-        ref.companyCountry = row.companyCountry();
+        ref.companyCity = Countries.cityOf(row.companyCity());
+        ref.companyCountry = Countries.nameOf(row.companyCountry());
         ref.logoUrl = row.logoUrl();
         return ref;
     }

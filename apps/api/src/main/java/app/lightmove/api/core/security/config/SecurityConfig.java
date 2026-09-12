@@ -1,10 +1,12 @@
 package app.lightmove.api.core.security.config;
 import app.lightmove.api.core.security.jwt.JwtPrincipalConverter;
+import app.lightmove.api.core.security.service.CookieAuthorizationRequestStore;
 import app.lightmove.api.core.security.service.OAuth2LoginFailureHandler;
 import app.lightmove.api.core.security.service.ProviderQuirkAwareRequestResolver;
 import app.lightmove.api.core.security.service.OAuth2LoginSuccessHandler;
 
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.config.SpaRequestPaths;
 import app.lightmove.api.core.error.handler.ProblemAccessDeniedHandler;
 import org.springframework.boot.actuate.autoconfigure.web.server.ManagementServerProperties;
 import org.springframework.boot.web.server.autoconfigure.ServerProperties;
@@ -48,13 +50,12 @@ import java.util.List;
  *       protection on.
  * </ul>
  *
- * <p>The other two carry no credential at all: Actuator, fenced off onto its own socket, and the SPA,
- * which is static files.
+ * <p>The other two carry no credential at all: Actuator, fenced onto its own socket, and the SPA.
  *
  * <p>Spring Security 7 enables CSRF for API endpoints by default — a change from Spring Security 6,
- * and the single most common reason a Boot 3 auth tutorial fails on Boot 4. The lazy fix is
- * {@code csrf(AbstractHttpConfigurer::disable)} across the board. That would also switch it off for
- * the two routes that genuinely need it, which is exactly backwards.
+ * and the single most common reason a Boot 3 auth tutorial fails on Boot 4. The lazy fix,
+ * {@code csrf(AbstractHttpConfigurer::disable)} across the board, would also switch it off for the
+ * two routes that genuinely need it.
  */
 @Configuration
 @EnableMethodSecurity
@@ -65,15 +66,12 @@ public class SecurityConfig {
     /**
      * Chain 0: Actuator, and <b>only</b> on the management port.
      *
-     * <p>Actuator listens on its own loopback-bound socket (see {@code management.server.port}). Nothing
-     * outside the host can reach it, so a scrape from Prometheus needs no credential — but the app port
-     * must not be opened by the same rule, and matching on path alone would do exactly that:
-     * {@code /actuator/prometheus} is the same path on both sockets. So the matcher checks the port the
-     * request actually arrived on. Metrics are readable on 9090 and refused on 8080.
+     * <p>Actuator listens on its own loopback-bound socket, so a scrape needs no credential — but
+     * matching on path alone would open the app port too, {@code /actuator/prometheus} being the same
+     * path on both. The matcher therefore checks the port the request arrived on.
      *
-     * <p>The alternative — the tenant's own {@code ROLE_ADMIN}, which is what this used to be — meant
-     * every customer who created a workspace could read our metrics. A workspace role is not a system
-     * role, and no amount of matcher cleverness fixes that; only a different socket does.
+     * <p>This used to be the tenant's own {@code ROLE_ADMIN}, which every workspace creator is
+     * granted: any customer could scrape our metrics. A workspace role is not a system role.
      *
      * <p><b>Cloud Run routes exactly one port into a container</b>, so there the two ports are set equal
      * (`MANAGEMENT_PORT=8080`) and this chain deliberately matches nothing. That is not a loophole: with
@@ -195,25 +193,26 @@ public class SecurityConfig {
      * back to the host that served the page. One origin is what makes the auth model work at all — it
      * is the same reason the Vite dev server proxies {@code /api} rather than pointing at :8080.
      *
-     * <p>Matched by <i>exclusion</i> — everything that is not the API, Actuator, or the OAuth2 redirect
-     * endpoints. The alternative, listing the SPA's routes, rots: the router grows a route, nobody
-     * updates this list, and the new screen answers 401 to a user who is perfectly well logged in.
+     * <p>Matched by <i>exclusion</i> — everything that is not the API, Actuator, or the OAuth2
+     * redirect endpoints. Listing the SPA's routes instead rots: the router grows a route, nobody
+     * updates the list, and the new screen answers 401 to a user who is logged in.
      *
-     * <p>The consequence is worth stating plainly, because it is the cost of matching this way: any
-     * future endpoint <b>outside</b> {@code /api/v1} is public. Every endpoint in this codebase lives
-     * under {@code /api/v1}. Keep it that way — {@code SpaSecurityTest} holds that line.
+     * <p>The cost of matching this way: any future endpoint <b>outside</b> {@code /api/v1} is public.
+     * Every endpoint in this codebase lives under {@code /api/v1}. Keep it that way —
+     * {@code SpaSecurityTest} holds that line.
+     *
+     * <p><b>Do not give this chain {@code Cross-Origin-Opener-Policy: same-origin}.</b> OAuth sign-in
+     * runs the provider's consent screen in a popup, and that value severs {@code window.opener}, so
+     * the popup returns unable to reach the tab that opened it — silently, with no console or network
+     * error, just a button hanging on "Connecting…". {@code same-origin-allow-popups} is the
+     * popup-compatible value if the header is ever wanted. {@code SpaSecurityTest} pins that it is
+     * never {@code same-origin}.
      */
     @Bean
     @Order(2)
     SecurityFilterChain spaChain(HttpSecurity http) throws Exception {
         return http
-                .securityMatcher(request -> {
-                    String path = request.getRequestURI();
-                    return !path.startsWith("/api/")
-                            && !path.startsWith("/actuator")
-                            && !path.startsWith("/oauth2/")
-                            && !path.startsWith("/login/oauth2");
-                })
+                .securityMatcher(request -> SpaRequestPaths.isSpaPath(request.getRequestURI()))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 // Static files. There is no state to forge a request against.
                 .csrf(csrf -> csrf.disable())
@@ -233,6 +232,7 @@ public class SecurityConfig {
                                  JwtPrincipalConverter principalConverter,
                                  OAuth2LoginSuccessHandler oauthSuccessHandler,
                                  OAuth2LoginFailureHandler oauthFailureHandler,
+                                 CookieAuthorizationRequestStore authorizationRequestStore,
                                  ObjectProvider<ClientRegistrationRepository> clientRegistrations,
                                  ProblemAccessDeniedHandler accessDenied,
                                  LightMoveProperties properties) throws Exception {
@@ -270,13 +270,12 @@ public class SecurityConfig {
                         // preview names.
                         .requestMatchers(HttpMethod.GET, API + "/onboarding/invitations/preview").permitAll()
 
-                        // Accepting by creating the invited account. Public — the invitee has no session
-                        // yet, and the 256-bit invitation token in the body is the credential. Unlike the
-                        // two verified-only accept routes below, this needs no verified session: the token
-                        // was mailed only to the invited address, so holding it is the mailbox proof
-                        // verification would otherwise supply, and the account is bound to that exact
-                        // address (never a client-supplied one). POST-only, so it is not reachable as a
-                        // navigation.
+                        // Accepting by creating the invited account. Public: the invitee has no
+                        // session yet and the 256-bit token in the body is the credential. It needs no
+                        // verified session because the token was mailed only to the invited address,
+                        // so holding it is the mailbox proof verification would supply, and the
+                        // account is bound to that exact address, never a client-supplied one.
+                        // POST-only, so it is not reachable as a navigation.
                         .requestMatchers(HttpMethod.POST, API + "/onboarding/accept-invitation-signup").permitAll()
 
                         // Redeeming an invitation stays verified-only, and is the one onboarding write
@@ -290,11 +289,10 @@ public class SecurityConfig {
                         .requestMatchers(API + "/onboarding/invitations/accept").access(verified)
                         .requestMatchers(API + "/onboarding/accept-invitation").access(verified)
 
-                        // The rest of onboarding — naming the organisation, inviting colleagues — is
-                        // verified-only: nothing may exist on a firm's domain on the strength of an
-                        // address nobody has opened. Refusing here is safe only because the wizard asks
-                        // for the emailed link at step 2, before any of this is reachable; when
-                        // verification came last, a 403 here was a dead end mid-wizard.
+                        // The rest of onboarding is verified-only: nothing may exist on a firm's
+                        // domain on the strength of an address nobody has opened. Safe only because
+                        // the wizard asks for the emailed link at step 2 — when verification came
+                        // last, a 403 here was a dead end mid-wizard.
                         .requestMatchers(API + "/onboarding/**").access(verified)
 
                         // Everything that touches tenant data. Still verified-only, and this is the line
@@ -307,11 +305,8 @@ public class SecurityConfig {
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(principalConverter)));
 
-        // The OAuth redirect flow — wired only when at least one provider is actually configured.
-        // Spring needs a ClientRegistrationRepository to build this, and there is none until someone
-        // has created an OAuth client at a provider. Enabling it unconditionally would mean a fresh
-        // clone cannot start; this way password sign-in works out of the box and no provider button is
-        // offered. The frontend asks GET /api/v1/auth/providers which ones are live.
+        // Wired only when a provider is configured: Spring needs a ClientRegistrationRepository to
+        // build this, and enabling it unconditionally would mean a fresh clone cannot start.
         //
         // On success the handler mints *our* tokens: the provider proves who you are, it does not get
         // to be our session. The failure handler is not optional either — Spring's default redirects
@@ -327,8 +322,9 @@ public class SecurityConfig {
                     properties.auth().oauth().nonceUnsupportedRegistrations());
 
             http.oauth2Login(login -> login
-                    .authorizationEndpoint(endpoint ->
-                            endpoint.authorizationRequestResolver(authorizationRequests))
+                    .authorizationEndpoint(endpoint -> endpoint
+                            .authorizationRequestResolver(authorizationRequests)
+                            .authorizationRequestRepository(authorizationRequestStore))
                     .successHandler(oauthSuccessHandler)
                     .failureHandler(oauthFailureHandler));
         }

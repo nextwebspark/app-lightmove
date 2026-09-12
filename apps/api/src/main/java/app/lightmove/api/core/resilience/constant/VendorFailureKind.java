@@ -12,10 +12,9 @@ import org.springframework.web.client.UnknownContentTypeException;
 /**
  * Why a call to a paid third-party API did not produce an answer.
  *
- * <p>This is {@code ErrorCode} pointed outward. Inbound, one enum decides the status and the sentence
- * a client reads; outbound, one enum decides the only question that matters about a failure — should
- * we pay to try again. {@code if (status == 429)} repeated across every adapter is one chance per
- * adapter to get it wrong, and getting it wrong here spends money.
+ * <p>{@code ErrorCode} pointed outward: one enum deciding the only question that matters about a
+ * failure — whether to pay to try again. {@code if (status == 429)} repeated across every adapter is
+ * one chance per adapter to get that wrong, and getting it wrong spends money.
  */
 public enum VendorFailureKind {
 

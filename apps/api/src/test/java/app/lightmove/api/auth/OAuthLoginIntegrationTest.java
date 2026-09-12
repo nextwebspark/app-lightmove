@@ -1,14 +1,11 @@
 package app.lightmove.api.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.model.UserIdentity;
 import app.lightmove.api.core.security.repository.UserIdentityRepository;
@@ -27,7 +24,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -37,7 +33,6 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
-import org.springframework.test.context.TestPropertySource;
 
 /**
  * Signing in with an identity provider, when the provider is only known from configuration.
@@ -50,8 +45,7 @@ import org.springframework.test.context.TestPropertySource;
  * as {@link AuthFlowIntegrationTest}.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
-@TestPropertySource(properties = "lightmove.auth.oauth.email-verified-optional-registrations=linkedin")
+@ConfiguredOAuthProviders
 class OAuthLoginIntegrationTest extends FlowTestSupport {
 
     private static final AtomicInteger RUN = new AtomicInteger();
@@ -110,7 +104,7 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
         MockHttpServletResponse other = signIn("someotheridp",
                 new HashMap<>(Map.of("sub", "other-subject-4", "email", refused)));
 
-        assertThat(other.getRedirectedUrl()).endsWith("/login?error=EMAIL_NOT_VERIFIED");
+        assertThat(other.getRedirectedUrl()).endsWith("/auth/callback?error=EMAIL_NOT_VERIFIED");
         assertThat(users.findByEmail(refused)).isEmpty();
     }
 
@@ -126,7 +120,7 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
         MockHttpServletResponse response = signIn("google", "google-subject-hostile", email,
                 Map.of("email_verified", false));
 
-        assertThat(response.getRedirectedUrl()).endsWith("/login?error=EMAIL_NOT_VERIFIED");
+        assertThat(response.getRedirectedUrl()).endsWith("/auth/callback?error=EMAIL_NOT_VERIFIED");
         assertThat(identities.findByProviderAndProviderUserId("GOOGLE", "google-subject-hostile")).isEmpty();
         assertThat(users.findById(existing.getId())).isPresent();
     }
@@ -212,7 +206,7 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
         MockHttpServletResponse response = signIn("linkedin", "linkedin-subject-5", email,
                 Map.of("email_verified", false));
 
-        assertThat(response.getRedirectedUrl()).endsWith("/login?error=EMAIL_NOT_VERIFIED");
+        assertThat(response.getRedirectedUrl()).endsWith("/auth/callback?error=EMAIL_NOT_VERIFIED");
         assertThat(users.findByEmail(email)).isEmpty();
     }
 
@@ -255,7 +249,7 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a refused sign-in goes back to the SPA, not to this host's /login")
+    @DisplayName("a refused sign-in goes back to the SPA's callback route, not to this host's /login")
     void sendsAFailureBackToTheSpa() throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -263,9 +257,11 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
                 new OAuth2AuthenticationException(new OAuth2Error("invalid_client", "wrong secret", null)));
 
         // Spring's default would redirect to /login on the API's own host — which in development is
-        // not the SPA at all, and answers the API's 404 JSON.
+        // not the SPA at all, and answers the API's 404 JSON. It lands on the callback route rather
+        // than the login screen because that route is what runs inside the sign-in popup, and a login
+        // screen rendered in a 500x640 window is not an error message anyone can act on.
         assertThat(response.getRedirectedUrl())
-                .isEqualTo(properties.web().baseUrl() + "/login?error=OAUTH_FAILED");
+                .isEqualTo(properties.web().baseUrl() + "/auth/callback?error=OAUTH_FAILED");
     }
 
     @Test
@@ -282,16 +278,8 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
                 Map.of("name", "x".repeat(200)));
 
         assertThat(response.getRedirectedUrl())
-                .isEqualTo(properties.web().baseUrl() + "/login?error=OAUTH_FAILED");
+                .isEqualTo(properties.web().baseUrl() + "/auth/callback?error=OAUTH_FAILED");
         assertThat(users.findByEmail(email)).isEmpty();
-    }
-
-    @Test
-    @DisplayName("a deployment with no provider configured offers none, so the SPA shows no button")
-    void offersNoProvidersWhenNoneAreConfigured() throws Exception {
-        mvc.perform(get("/api/v1/auth/providers"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.providers").isEmpty());
     }
 
     @Test
@@ -305,6 +293,43 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
         assertThat(users.findByEmail(email)).isPresent();
         assertThat(identities.findByProviderAndProviderUserId("LINKEDIN", "linkedin-subject-6")).isPresent();
         assertThat(identities.findByProviderAndProviderUserId("GOOGLE", "google-subject-6")).isPresent();
+    }
+
+    @Test
+    @DisplayName("backing out at the provider is reported as a cancellation, not as a failure")
+    void reportsAProviderCancellationAsACancellation() throws Exception {
+        // What Google and every spec-following provider sends when the user presses Cancel. It used to
+        // arrive here indistinguishable from a bad client secret, and was reported as one: "sign-in
+        // did not complete, try again" for someone who had simply changed their mind.
+        assertThat(redirectAfterFailure("access_denied"))
+                .isEqualTo(properties.web().baseUrl() + "/auth/callback?error=OAUTH_CANCELLED");
+    }
+
+    @Test
+    @DisplayName("a provider's own spelling of a cancellation is read the same way")
+    void reportsAProviderSpecificCancellationAsACancellation() throws Exception {
+        // LinkedIn's spellings. Matched as error codes, never by asking which provider this was —
+        // that would be the one branch the provider-is-a-yml-block rule exists to prevent.
+        assertThat(redirectAfterFailure("user_cancelled_login"))
+                .isEqualTo(properties.web().baseUrl() + "/auth/callback?error=OAUTH_CANCELLED");
+        assertThat(redirectAfterFailure("user_cancelled_authorize"))
+                .isEqualTo(properties.web().baseUrl() + "/auth/callback?error=OAUTH_CANCELLED");
+    }
+
+    @Test
+    @DisplayName("a genuine refusal is still a failure, not a cancellation")
+    void keepsARealRefusalAFailure() throws Exception {
+        assertThat(redirectAfterFailure("server_error"))
+                .isEqualTo(properties.web().baseUrl() + "/auth/callback?error=OAUTH_FAILED");
+    }
+
+    private String redirectAfterFailure(String oauthErrorCode) throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        failures.onAuthenticationFailure(new MockHttpServletRequest(), response,
+                new OAuth2AuthenticationException(new OAuth2Error(oauthErrorCode, null, null)));
+
+        return response.getRedirectedUrl();
     }
 
     private String emailForThisTest() {

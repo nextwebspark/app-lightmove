@@ -9,13 +9,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
@@ -31,7 +29,6 @@ import tools.jackson.databind.JsonNode;
  * proving works against a real database.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class SpreadsheetImportIntegrationTest extends FlowTestSupport {
 
     @Autowired JdbcTemplate db;
@@ -399,7 +396,7 @@ class SpreadsheetImportIntegrationTest extends FlowTestSupport {
         assertThat(preview.get("mappingSource").asText()).isEqualTo("headerMatcher");
     }
 
-    // ── helpers ───────────────────────────────────────────────────────────────
+    // helpers
 
     /** Previews, then commits the mapping the preview proposed — what the dialog does when nobody edits it. */
     @Test

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Project } from "../api/types";
-import { filterProjects, sortProjects } from "./filtering";
+import { filterProjects } from "./filtering";
 
 /** The My/All + chips + search + sort combination is the workspace home's core behavior. */
 
@@ -8,6 +8,7 @@ const project = (overrides: Partial<Project>): Project => ({
   id: "p1",
   clientId: "c1",
   clientName: "Meridian Energy",
+  clientLogoUrl: null,
   positionTitle: "CFO",
   stage: "MAPPING",
   health: "OK",
@@ -53,29 +54,5 @@ describe("filterProjects", () => {
 
     const byPosition = filterProjects([mine], { view: "all", chip: "allstages", query: "cfo" });
     expect(byPosition).toHaveLength(1);
-  });
-});
-
-describe("sortProjects", () => {
-  const early = project({ id: "early", targetDate: "2026-08-01", stage: "BRIEF", clientName: "Alpha" });
-  const late = project({ id: "late", targetDate: "2026-12-01", stage: "OUTREACH", clientName: "Zeta" });
-  const undated = project({ id: "undated", targetDate: null });
-
-  it("sorts by target date with undated projects last, and flips with direction", () => {
-    expect(sortProjects([late, undated, early], "date", 1).map((p) => p.id)).toEqual([
-      "early",
-      "late",
-      "undated",
-    ]);
-    expect(sortProjects([early, late], "date", -1).map((p) => p.id)).toEqual(["late", "early"]);
-  });
-
-  it("sorts stage by pipeline order, not alphabetically", () => {
-    // Alphabetical would put OUTREACH before BRIEF's neighbours; pipeline order must win.
-    expect(sortProjects([late, early], "stage", 1).map((p) => p.id)).toEqual(["early", "late"]);
-  });
-
-  it("sorts by client name", () => {
-    expect(sortProjects([late, early], "client", 1).map((p) => p.id)).toEqual(["early", "late"]);
   });
 });

@@ -22,19 +22,13 @@ import org.hibernate.type.SqlTypes;
  * The search behind a project, 1:1 with it. Seeded empty on first read and edited by the Strategy
  * screen's autosave.
  *
- * <p>Two pieces, saved by two different PUTs, because they change for different reasons. The
- * {@link StrategyFilter} is the sidebar — industries, countries, size bands, the off-limits toggle —
- * and it moves constantly while a consultant is exploring. The off-limits list is a standing decision
- * about particular companies, edited rarely and from a different panel. One shared write would make
- * every chip click rewrite the exclusion list.
+ * <p>Two pieces, saved by two different PUTs. The {@link StrategyFilter} moves constantly while a
+ * consultant explores; the off-limits list is a standing decision edited rarely from another panel,
+ * and one shared write would make every chip click rewrite the exclusion list.
  *
- * <p>The filter is a jsonb document rather than four child tables. It is read whole, written whole,
- * and never queried by axis — see V30's header for the full argument.
- *
- * <p>The off-limits list stays an owned ordered collection (replace-list writes) rather than a
- * document, because it is the one part of the strategy that holds <i>references</i>: each entry
- * carries an {@code apollo_account_id} plus a write-time snapshot, and a query that asks "which
- * mandates bar this company" is one worth being able to write.
+ * <p>The filter is a jsonb document rather than four child tables — read whole, written whole, never
+ * queried by axis (V30). The off-limits list stays an owned collection because it holds
+ * <i>references</i>: "which mandates bar this company" is a query worth being able to write.
  */
 @Entity
 @Table(name = "app_lm_strategy")

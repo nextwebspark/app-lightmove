@@ -192,7 +192,8 @@ try {
     const page = await context.newPage();
     await page.goto(`${WEB}/`, { waitUntil: "networkidle" });
     await page.waitForTimeout(350);
-    await page.locator("table tbody tr").first().click();
+    // The first row of the grid is its header; the mandate list starts on the second.
+    await page.locator('[role="table"] [role="row"]').nth(1).click();
     await page.waitForTimeout(400);
 
     const dimmed = await page.evaluate(() => {

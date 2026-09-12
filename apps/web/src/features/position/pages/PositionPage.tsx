@@ -7,7 +7,6 @@ import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAutosave } from "../../../lib/useAutosave";
 import * as projectsApi from "../../projects/api/projectsApi";
-import * as reportApi from "../../reports/api/reportApi";
 import * as positionApi from "../api/positionApi";
 import type {
   Compensation,
@@ -140,10 +139,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     persist((next: ReportingStructure) => positionApi.putReporting(projectId, next)),
   );
   const compensationSave = useAutosave(
-    // The report restates this band as the mandate's, so it goes stale with every package edit.
-    persist((next: Compensation) => positionApi.putCompensation(projectId, next), () => {
-      void queryClient.invalidateQueries({ queryKey: reportApi.REPORT_KEY(projectId) });
-    }),
+    persist((next: Compensation) => positionApi.putCompensation(projectId, next)),
   );
   const criteriaSave = useAutosave(
     persist((next: Criterion[]) => positionApi.putCriteria(projectId, next)),

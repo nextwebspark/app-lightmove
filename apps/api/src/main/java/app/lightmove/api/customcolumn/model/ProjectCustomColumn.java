@@ -14,18 +14,16 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * One extra column a mandate has added to its Companies grid — what it is called, what it holds, and
- * where it sits.
+ * One extra column a mandate has added to its Companies grid.
  *
  * <p>This is a <b>definition, not a schema change</b>. The values live in a {@code custom_fields}
  * jsonb bag on the triage-company and candidate rows (V46), keyed by {@link #fieldKey}. A column per
- * tenant in real DDL would be unmigratable, unindexable, and would need the runtime role to hold the
+ * tenant in real DDL would be unmigratable and would need the runtime role to hold the
  * {@code CREATE} privilege {@code harden.sql} exists to take away.
  *
  * <p>{@link #fieldKey} and {@link #label} are two fields on purpose and only one of them moves. The
- * key is slugged once from the label the column was created with and is never rewritten, because every
- * value already stored points at it; renaming is a change to the header a user reads and to nothing
- * else. A key that could be renamed would orphan a mandate's data the first time somebody fixed a typo.
+ * key is slugged once and never rewritten, because every value already stored points at it; a key
+ * that could be renamed would orphan a mandate's data the first time somebody fixed a typo.
  */
 @Entity
 @Table(name = "app_lm_project_custom_column")
@@ -79,10 +77,8 @@ public class ProjectCustomColumn extends BaseEntity {
     }
 
     /**
-     * Changing the type is allowed and does not touch a single stored value. Values are kept as the
-     * strings they were entered as, so a column corrected from TEXT to NUMBER simply starts refusing
-     * new non-numeric entries — the alternative, discarding what no longer parses, would lose data to
-     * fix a label.
+     * Changing the type touches no stored value: they are kept as the strings they were entered as,
+     * so a column corrected from TEXT to NUMBER simply starts refusing new non-numeric entries.
      */
     public void retype(CustomColumnType newType) {
         this.dataType = newType;

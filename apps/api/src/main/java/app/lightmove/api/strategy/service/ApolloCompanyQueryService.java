@@ -29,31 +29,20 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
 /**
- * Every read of the company universe. The universe is {@code app_lm_apollo_companies} — 71,822 GCC
- * companies loaded by the pipeline, read-only to this application — and it is the only one; the
- * brightdata warehouse copy this service used to sit beside is gone.
+ * Every read of the company universe — {@code app_lm_apollo_companies}, 71,822 GCC companies loaded
+ * by the pipeline and read-only to this application.
  *
- * <p>{@code JdbcClient} rather than JPA, for the reason the deleted sibling gave and this one
- * inherits: every useful read here is an aggregate or a filtered projection over ETL-owned reference
- * data, and an entity would buy identity, dirty checking and a lifecycle for rows the application
- * must never write.
+ * <p>{@code JdbcClient} rather than JPA: every read here is an aggregate or a filtered projection
+ * over ETL-owned reference data, and an entity would buy a lifecycle for rows nothing may write.
  *
- * <p>Two things about Apollo shape everything below:
+ * <p>Two facts about Apollo shape everything below. <b>Size arrives raw</b> — {@code num_employees}
+ * and {@code annual_revenue} are figures, not pre-bucketed strings, so a band selection becomes an OR
+ * of numeric ranges built from {@link EmployeeBand} / {@link RevenueBand}. And <b>revenue is
+ * sparse</b>: 7,132 rows in 71,822 carry a figure, which is why {@link RevenueBand#R_UNKNOWN} is a
+ * selectable band rendering as {@code annual_revenue IS NULL}.
  *
- * <ul>
- *   <li><b>Size arrives raw.</b> {@code num_employees} and {@code annual_revenue} are figures, not
- *       pre-bucketed range strings, so a band selection becomes an OR of numeric ranges built from
- *       {@link EmployeeBand} / {@link RevenueBand}. Those enums own the bounds; this service owns
- *       only the SQL they turn into.
- *   <li><b>Revenue is sparse.</b> 7,132 rows in 71,822 carry a figure. {@link RevenueBand#R_UNKNOWN}
- *       is therefore a selectable band rendering as {@code annual_revenue IS NULL}, so the missing
- *       nine-tenths are something a consultant can count and choose, rather than a silent exclusion.
- * </ul>
- *
- * <p><b>Facet counts are taken over the whole universe, not over the current selection.</b> That
- * matches the mockup, and it is the more useful reading: a chip that answered "how many are left"
- * would keep changing under the hand that is trying to decide how big a slice of the market it
- * represents. It also means the five accordions are one cacheable read that no filter invalidates.
+ * <p>Facet counts are taken over the whole universe, not the current selection, so the five
+ * accordions are one cacheable read that no filter invalidates.
  */
 @Service
 @RequiredArgsConstructor
@@ -61,9 +50,7 @@ public class ApolloCompanyQueryService {
 
     /**
      * Every column the list and the write-path snapshots need, in one place so they cannot drift.
-     *
-     * <p>What the universe's other columns hold is not a fact about the company — Apollo's own CRM
-     * state, its AI-workflow scratch, the loader's bookkeeping and the ids of other systems.
+     * The universe's other columns hold Apollo's own CRM state and the loader's bookkeeping.
      */
     private static final String ROW_COLUMNS = """
             apollo_account_id, company_name, industry, company_country, company_city,
@@ -86,9 +73,8 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * One page of the scope, sorted by a column from {@link CompanySortField}'s allowlist. The caller
-     * supplies the page, the size and the sort; the scope itself is resolved server-side from the
-     * mandate's saved filter and never from a request parameter.
+     * One page of the scope, sorted by a column from {@link CompanySortField}'s allowlist. The scope
+     * is resolved server-side from the saved filter, never from a request parameter.
      */
     public List<CompanyRow> search(CompanyScope scope, CompanySortField sort, SortDirection direction,
                                    int page, int size) {
@@ -107,9 +93,8 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * The named companies, whatever the scope. This is the write path's seam: the off-limits list, the
-     * project universe and the client registry all store a snapshot of a company at the moment it was
-     * picked, and they resolve it here so only a company the universe actually holds can be stored.
+     * The named companies, whatever the scope — the write path's seam. Every caller that snapshots a
+     * company resolves it here, so only a company the universe holds can be stored.
      */
     public List<CompanyRow> byAccountIds(List<String> apolloAccountIds) {
         if (apolloAccountIds.isEmpty()) {
@@ -126,9 +111,8 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * Name-prefix search for the company pickers — the off-limits list and the client registry. Ranked
-     * so a prefix match beats a match buried mid-name, then by size, because the company a consultant
-     * means when they type three letters is almost always the biggest one that starts with them.
+     * Name-prefix search for the company pickers. Ranked so a prefix match beats one buried mid-name,
+     * then by size: the company meant by three letters is almost always the biggest starting with them.
      */
     public List<CompanyRow> typeahead(String query, int limit) {
         String pattern = escapeLikePattern(query);
@@ -149,11 +133,9 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * The one company a research answer names, or nothing — the seam behind resolving a captured
-     * executive's employer (and a plugin-captured company) against the universe. The LinkedIn slug
-     * is the strong key: the universe stores each company's LinkedIn URL and two firms cannot share
-     * a slug. An exact name is trusted only when it is unique — silently mapping the wrong "Alpha"
-     * is worse than mapping none — and nothing here is ever fuzzy.
+     * The one company a research answer names, or nothing. The LinkedIn slug is the strong key; an
+     * exact name is trusted only when unique, because mapping the wrong "Alpha" is worse than mapping
+     * none. Nothing here is ever fuzzy.
      */
     public Optional<CompanyRow> matchEmployer(String linkedInSlug, String companyName) {
         if (linkedInSlug != null && !linkedInSlug.isBlank()) {
@@ -189,14 +171,9 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * The Industry accordion: the universe's industries with their counts, arranged into the
-     * taxonomy's groups. Groups keep the taxonomy's file order rather than sorting by size — the
-     * sidebar's order should not rearrange itself when the pipeline reloads — while the industries
-     * inside a group are ranked most populous first, which is what makes a long group scannable.
-     *
-     * <p>An industry the taxonomy does not cover is dropped here, which would hide it from the
-     * sidebar entirely. {@code SectorTaxonomyCoverageIntegrationTest} asserts that set is empty
-     * against the real table, so this is a guarded impossibility rather than a silent loss.
+     * The Industry accordion, in the taxonomy's groups — file order, so the sidebar does not
+     * rearrange when the pipeline reloads. An industry the taxonomy does not cover is dropped and
+     * would vanish; {@code SectorTaxonomyCoverageIntegrationTest} asserts that set is empty.
      */
     public List<SectorGroup> sectorGroups() {
         Map<String, Long> countByIndustry = new LinkedHashMap<>();
@@ -224,16 +201,9 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * The Market Segments accordion: how many companies each segment's keywords reach.
-     *
-     * <p>One query per segment rather than one GROUP BY, because segments <b>overlap</b> — a company
-     * can be B2B and SaaS and Fintech at once, and a single grouped count would have to pick one and
-     * silently under-report the rest. Eleven cheap index probes buy a set of counts that add up to
-     * more than the universe, which is the honest answer for an axis where a company can hold several
-     * positions.
-     *
-     * <p>Segments keep the file's order, not size order: this is a short fixed list the eye learns,
-     * and re-ranking it on every pipeline load would move the chip out from under the hand.
+     * The Market Segments accordion. One query per segment rather than a GROUP BY, because segments
+     * <b>overlap</b> — a company can be B2B and SaaS at once — so the counts add up to more than the
+     * universe.
      */
     public List<FacetCount> marketSegmentFacets() {
         List<FacetCount> facets = new ArrayList<>();
@@ -251,15 +221,9 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * The Company Keywords box. Ranked like {@link #typeahead}: a prefix match beats one buried
-     * mid-word, then the biggest slice of the market first.
-     *
-     * <p>Reads {@code app_lm_apollo_keywords}, which V33 materialises because the same question asked
-     * of the universe directly cannot be made cheap by any parameter the caller sends. It follows the
-     * universe only when the pipeline refreshes it.
-     *
-     * <p>{@code LIKE} rather than {@code ILIKE} for the reason {@code arrayLiteral} gives: every
-     * keyword in the table is already lower-case.
+     * The Company Keywords box, ranked like {@link #typeahead}. Reads V33's materialised
+     * {@code app_lm_apollo_keywords}, which follows the universe only when the pipeline refreshes it.
+     * {@code LIKE} rather than {@code ILIKE} because every keyword in that table is lower-case.
      */
     public List<FacetCount> keywordSuggestions(String query, int limit, int minCompanies) {
         String pattern = escapeLikePattern(query.toLowerCase(Locale.ROOT));
@@ -283,12 +247,8 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * The two size accordions. One GROUP BY over a CASE built from the enum's own bounds, so the
-     * chip counts and the filter that runs when the chip is clicked can never disagree — a band
-     * counted by one set of numbers and filtered by another is the bug this shape prevents.
-     *
-     * <p>Bands are returned in enum order, including any that count zero: a band silently missing
-     * from the sidebar reads as "no such size", where a zero reads as "none in this market".
+     * The two size accordions. One GROUP BY over a CASE built from the enum's own bounds, so the chip
+     * counts and the filter behind it cannot disagree. Bands come back in enum order, zeroes included.
      */
     public List<FacetCount> employeeBandFacets() {
         Map<String, Object> params = new LinkedHashMap<>();
@@ -309,27 +269,15 @@ public class ApolloCompanyQueryService {
                 .toList();
     }
 
-    /** The scope's most populous industries, largest first — a report aggregate. */
-    public List<ScopeBreakdown> countBySector(CompanyScope scope, int limit) {
-        return breakdown(scope, "industry", "industry IS NOT NULL AND industry <> ''", limit);
-    }
-
-    /** The scope's most populous countries, largest first — a report aggregate. */
+    /** The scope's most populous countries, largest first. */
     public List<ScopeBreakdown> countByCountry(CompanyScope scope, int limit) {
         return breakdown(scope, "company_country",
                 "company_country IS NOT NULL AND company_country <> ''", limit);
     }
 
-    /** The scope's most populous cities, largest first — a report aggregate. */
-    public List<ScopeBreakdown> countByCity(CompanyScope scope, int limit) {
-        return breakdown(scope, "company_city",
-                "company_city IS NOT NULL AND company_city <> ''", limit);
-    }
-
     /**
-     * The shared shape behind every grouped aggregate: the scope's WHERE clause, grouped by one
-     * column. {@code presenceCondition} drops rows the grouping column is missing on, since a bar
-     * labelled with a blank is noise rather than a finding.
+     * The scope's rows grouped by one column, largest first. {@code presenceCondition} drops rows the
+     * grouping column is missing on, since a bar labelled with a blank is noise.
      */
     private List<ScopeBreakdown> breakdown(CompanyScope scope, String column, String presenceCondition,
                                            int limit) {
@@ -348,18 +296,16 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * Every criterion the sidebar can set, ANDed. Each is omitted entirely when it selects nothing,
-     * so an untouched filter renders as {@code TRUE} and returns the whole universe — the right
-     * opening state for a search screen, and the opposite of the criteria model this replaced, which
-     * refused to answer until a sector was chosen.
+     * Every criterion the sidebar can set, ANDed. Each is omitted when it selects nothing, so an
+     * untouched filter renders as {@code TRUE} and returns the whole universe.
      */
     private WhereClause buildWhere(CompanyScope scope) {
         Map<String, Object> params = new LinkedHashMap<>();
         List<String> clauses = new ArrayList<>();
 
         if (!scope.industries().isEmpty()) {
-            // Lower-cased on both sides. Apollo's vocabulary is already lower-case throughout, but a
-            // filter saved from a facet response should not depend on that staying true.
+            // Lower-cased on both sides: a saved filter should not depend on Apollo's vocabulary
+            // staying lower-case.
             clauses.add("lower(industry) IN (:industries)");
             params.put("industries", lowered(scope.industries()));
         }
@@ -374,8 +320,8 @@ public class ApolloCompanyQueryService {
             clauses.add("company_country IN (:countries)");
             params.put("countries", scope.countries());
         }
-        // A custom range and the predefined rows are the panel's two modes, so the range wins outright
-        // rather than intersecting: a consultant who typed 250-400 means that, not "and also 201-500".
+        // The range wins outright rather than intersecting: a consultant who typed 250-400 means
+        // that, not "and also 201-500".
         String employeeClause = scope.employeeRange() != null
                 ? rangeClause("num_employees", scope.employeeRange(), "empRange", params)
                 : employeeBandClause(scope.employeeBands(), params);
@@ -400,9 +346,8 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * A typed custom range over one column. Either end may be absent — "at least 500" and "up to 500"
-     * are both things a half-filled pair of inputs legitimately means — and a range with neither end
-     * never reaches here, because {@code StrategyFilter} normalises it away.
+     * A typed custom range over one column. Either end may be absent; a range with neither never
+     * reaches here, because {@code StrategyFilter} normalises it away.
      */
     private static String rangeClause(String column, NumericRange range, String prefix,
                                       Map<String, Object> params) {
@@ -435,8 +380,7 @@ public class ApolloCompanyQueryService {
 
     /**
      * Selected revenue bands as an OR of numeric ranges, with Unknown joining as a null test. A row
-     * with no figure is excluded from every *numeric* band — it cannot be shown to fall in one — so
-     * Unknown is how those 64,690 companies are reached at all.
+     * with no figure falls in no numeric band, so Unknown is how those 64,690 companies are reached.
      */
     private static String revenueBandClause(List<String> bandValues, Map<String, Object> params) {
         List<String> ranges = new ArrayList<>();
@@ -571,20 +515,17 @@ public class ApolloCompanyQueryService {
     /**
      * A Postgres array built from one bound parameter per element — {@code ARRAY[:p0, :p1]}.
      *
-     * <p>Not a single {@code String[]} parameter, which is the obvious way and is wrong here: Spring's
-     * named-parameter expansion turns any array or collection into a comma-separated list of
-     * placeholders, which is what makes {@code IN (:values)} work and what would render this as
-     * {@code keywords && ?, ?, ?}. Building the literal keeps every value bound while still producing
-     * an array the {@code &&} operator can use against {@code idx_lm_apollo_kw}.
+     * <p>Not a single {@code String[]} parameter, which is the obvious way and is wrong here:
+     * Spring's named-parameter expansion turns an array into a comma-separated list of placeholders,
+     * rendering this as {@code keywords && ?, ?, ?}. Building the literal keeps every value bound
+     * while still producing an array {@code &&} can use against {@code idx_lm_apollo_kw}.
      *
-     * <p>The {@code ::text[]} cast is not decoration. The driver binds a String parameter as
-     * {@code varchar}, so the literal comes out as {@code character varying[]} and Postgres refuses
-     * {@code text[] && character varying[]} — "operator does not exist", a 500 rather than a wrong
-     * answer. Casting the whole array once also keeps the operand a plain {@code text[]}, which is
-     * what {@code idx_lm_apollo_kw} is built on.
+     * <p>The {@code ::text[]} cast is not decoration. The driver binds a String as {@code varchar}, so
+     * the literal comes out as {@code character varying[]} and Postgres refuses
+     * {@code text[] && character varying[]} — "operator does not exist", a 500.
      *
-     * <p>Array overlap rather than an unnest-and-lower comparison: every keyword in the table is
-     * already lower-case, so this form can use the GIN index where the safer-looking one cannot.
+     * <p>Array overlap rather than unnest-and-lower: every keyword in the table is already lower-case,
+     * so this form can use the GIN index where the safer-looking one cannot.
      */
     private static String arrayLiteral(List<String> values, String prefix, Map<String, Object> params) {
         List<String> placeholders = new ArrayList<>(values.size());

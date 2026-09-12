@@ -13,16 +13,13 @@ public interface PositionTemplateRepository extends JpaRepository<PositionTempla
     /**
      * Every template one workspace can see: the shared library plus its own, its own first.
      *
-     * <p>The ordering is the tenant rule made visible — where a firm has written its own version of a
-     * role, that is the one its picker leads with and the one a new mandate's title matches against
-     * before the library's.
+     * <p>The ordering is the tenant rule made visible: a firm's own version of a role is the one its
+     * picker leads with and the one a title matches against first.
      *
-     * <p>The keywords are fetched with the templates rather than left lazy. Matching a title walks
-     * the catalog until something hits, touching each candidate's keywords in turn — so a lazy
-     * collection makes creating a mandate cost one extra round trip per template it had to rule out,
-     * on the path every new project takes, worst on the titles that match nothing. Hibernate 6
-     * de-duplicates the fetched parents itself, and the collection's index column survives the join,
-     * so no {@code distinct} is needed and the ordering above still holds.
+     * <p>The keywords are fetched with the templates rather than left lazy — matching a title touches
+     * each candidate's keywords in turn, so a lazy collection costs one round trip per template ruled
+     * out, on the path every new project takes. Hibernate 6 de-duplicates the fetched parents itself
+     * and the index column survives the join, so no {@code distinct} is needed.
      */
     @Query("""
             select template from PositionTemplate template

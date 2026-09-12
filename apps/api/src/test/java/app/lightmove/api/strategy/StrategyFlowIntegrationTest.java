@@ -12,12 +12,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
@@ -32,7 +30,6 @@ import org.springframework.test.web.servlet.MvcResult;
  * empty market rather than as an untouched filter.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class StrategyFlowIntegrationTest extends FlowTestSupport {
 
     @Autowired JdbcTemplate db;
@@ -122,7 +119,7 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
 
         // Jackson read NumericRange.isEmpty() as a bean property, wrote "empty" into the document and
         // then refused to read it back, so a mandate that used Custom Range could never be loaded
-        // again — this GET, its results, its report and bulk add all 500ed on the next request.
+        // again — this GET, its results and bulk add all 500ed on the next request.
         mvc.perform(get(strategyUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.filter.employeeRange.min").value(500))
@@ -349,6 +346,25 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.offLimits[0].industry").value("oil & energy"))
                 .andExpect(jsonPath("$.offLimits[0].companyCity").value("Riyadh"))
                 .andExpect(jsonPath("$.offLimits[0].logoUrl").value("https://cdn.example/acwa.png"));
+    }
+
+    @Test
+    @DisplayName("an off-limits snapshot spells its country and city the way every other row does")
+    void offLimitsSnapshotIsCanonicalised() throws Exception {
+        // The snapshot is copied from a universe row that may carry an older vintage's spelling, and
+        // the same company triaged and barred has to read as one place on both lists.
+        String admin = adminOf("Strategy Spelling Firm");
+        String projectId = project(admin);
+        universe.company("a1", "Aramco").country("KSA").city("khobar").employees(10).insert();
+
+        mvc.perform(put(offLimitsUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountIds":["a1"]}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.offLimits[0].companyCountry").value("Saudi Arabia"))
+                .andExpect(jsonPath("$.offLimits[0].companyCity").value("Al Khobar"));
     }
 
     @Test

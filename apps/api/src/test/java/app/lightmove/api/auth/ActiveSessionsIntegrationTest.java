@@ -9,13 +9,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import jakarta.servlet.http.Cookie;
 import java.util.List;
 import java.util.stream.StreamSupport;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
@@ -28,7 +26,6 @@ import tools.jackson.databind.JsonNode;
  * is exactly what the browser sends.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class ActiveSessionsIntegrationTest extends FlowTestSupport {
 
     private static final String MAC_SAFARI = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -170,7 +167,7 @@ class ActiveSessionsIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isUnauthorized());
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // Helpers
 
     /** What a browser holds after signing in: a bearer token in memory and a refresh cookie. */
     private record SignedInDevice(String bearerToken, Cookie refreshCookie) {}

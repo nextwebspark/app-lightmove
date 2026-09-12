@@ -41,8 +41,8 @@ import org.springframework.web.multipart.MultipartFile;
  * delimited text. The allowlist in {@link SpreadsheetImportSettings} only keeps obviously wrong
  * uploads out before any of this runs.
  *
- * <p>Only the first sheet is read. A workbook with several is a workbook whose author knows which one
- * they mean, and importing all of them would silently merge tables that do not share a header row.
+ * <p>Only the first sheet is read: importing all of them would silently merge tables that do not
+ * share a header row.
  */
 @Service
 public class SpreadsheetReader {
@@ -62,8 +62,6 @@ public class SpreadsheetReader {
 
     private final SpreadsheetImportSettings settings;
 
-    // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
-    // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public SpreadsheetReader(LightMoveProperties properties) {
         this.settings = properties.spreadsheetImport();
     }
@@ -79,8 +77,7 @@ public class SpreadsheetReader {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "Choose a file to import");
         }
         if (file.getSize() > settings.maxFileSizeBytes()) {
-            // The ceiling is a configured value, not request input, so it may be told to the caller —
-            // and without it "too large" leaves them guessing how much to cut.
+            // The ceiling is configuration, not request input, so it is safe to name in the message.
             throw ApiException.userFacing(ErrorCode.FILE_TOO_LARGE,
                     "That file is larger than the " + megabytes(settings.maxFileSizeBytes())
                             + " MB an import can take.");
@@ -151,8 +148,7 @@ public class SpreadsheetReader {
      * untrusted caller uploaded, and the value a consultant saw when they saved is the value they
      * meant to send.
      *
-     * <p>A whole number comes back without the {@code .0} Excel's double-typed cells would otherwise
-     * add, because "500" and "500.0" are the same headcount and only one of them looks like data.
+     * <p>A whole number comes back without the {@code .0} Excel's double-typed cells would add.
      */
     private static String stringValueOf(Cell cell) {
         if (cell == null) {
@@ -212,10 +208,9 @@ public class SpreadsheetReader {
     /**
      * Which character separates the columns, judged from the header line.
      *
-     * <p>Necessary rather than fussy: Excel's "Save as CSV" writes semicolons in every locale that
-     * uses a decimal comma, which is most of Europe and much of the Gulf, and a file read with the
-     * wrong delimiter parses as one very wide column and imports nothing. Whichever candidate appears
-     * most often in the header wins; a tie falls to the comma.
+     * <p>Excel's "Save as CSV" writes semicolons in every locale with a decimal comma — most of
+     * Europe and much of the Gulf — and a file read with the wrong delimiter parses as one very wide
+     * column and imports nothing. Whichever candidate appears most often wins; a tie falls to the comma.
      */
     private static char sniffDelimiter(String text) {
         int lineEnd = text.indexOf('\n');
@@ -285,9 +280,8 @@ public class SpreadsheetReader {
      * Gives every column a usable, distinct header.
      *
      * <p>A blank header becomes {@code Column 4} rather than being dropped: the cells under it are
-     * still data, and dropping the column would shift every column after it. A repeated header gets a
-     * numeric suffix, because two columns the mapping step cannot tell apart is two columns a person
-     * cannot map — and exports do repeat them ("Email", "Email").
+     * still data, and dropping the column would shift every column after it. A repeated header — and
+     * exports do repeat them — gets a numeric suffix, so the mapping step can tell the two apart.
      */
     private static List<String> namedHeaders(List<String> rawHeaders) {
         List<String> headers = new ArrayList<>(rawHeaders.size());

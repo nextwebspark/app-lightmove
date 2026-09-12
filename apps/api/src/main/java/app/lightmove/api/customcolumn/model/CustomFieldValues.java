@@ -11,21 +11,11 @@ import java.util.Optional;
  * both {@code app_lm_project_triage_company} and {@code app_lm_project_candidate}.
  *
  * <p>Keyed by {@link ProjectCustomColumn#getFieldKey()}, and every value is the <b>string it was
- * entered as</b>. The column's declared type decides what is accepted on the way in, never how it is
- * kept: a mandate that imports a file, then corrects a column from TEXT to NUMBER, must not lose the
- * rows it already filled in. Nothing sorts or filters on these server-side, so storing "2019" as text
- * costs nothing.
- *
- * <p>An open map rather than a record of named fields, because the field names belong to the project
- * and are not knowable at compile time. That is also why it cannot share the candidate's existing
- * {@code profile} column: {@link app.lightmove.api.candidate.model.CandidateProfile} is a typed record
- * read by field, and it would have to preserve keys it knows nothing about.
+ * entered as</b>. The declared type decides what is accepted on the way in, never how it is kept: a
+ * mandate that corrects a column from TEXT to NUMBER must not lose the rows it already filled in.
  *
  * <p>{@link JsonValue} and {@link JsonCreator} are what keep the stored document flat —
- * {@code {"ethnicity":"Emirati"}} rather than a map nested under a wrapper key — so the column reads
- * the way a person querying the database would expect. Unknown keys need no special tolerance here:
- * a bag whose keys are the project's own reads back whatever was written, and a value left behind by a
- * retired column is simply never rendered.
+ * {@code {"ethnicity":"Emirati"}} rather than a map nested under a wrapper key.
  */
 public final class CustomFieldValues {
 
@@ -38,9 +28,8 @@ public final class CustomFieldValues {
     }
 
     /**
-     * The one way in, and the one place a document is normalised. A blank key or a null value is
-     * dropped rather than kept: an entry nothing can be looked up by is not data, and a null would
-     * have every reader guarding for it.
+     * The one place a document is normalised. A blank key or a null value is dropped: an entry
+     * nothing can be looked up by is not data, and a null would have every reader guarding for it.
      */
     @JsonCreator
     public static CustomFieldValues of(Map<String, String> values) {

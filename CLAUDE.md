@@ -12,14 +12,17 @@ workspace `CLIENT` role grants nothing; access is the project `CLIENT` seat, whi
 (read a mandate's content, never edit).
 
 **Built so far: auth, workspace management, projects, the RBAC layer, and the search layer.** Signup
-(3 steps), login, OAuth sign-in (Google and LinkedIn), invitations, the roster, the projects/clients
+(3 steps), login, OAuth sign-in (Google and LinkedIn, run in a popup), invitations, the roster, the projects/clients
 screens, a project's Team & access tab, the client registry with representative invites and their
 scoped read-only project access, and **Strategy → Companies**: a filter over the company universe, the
 searches saved against it, and the three Companies pages (In universe / Shortlisted / Declined) where a
 mandate triages what it took from it. A company reaches those pages four ways — out of the market
 (Strategy's per-row add, or the Companies screen's own picker over the same universe, both `POST
 /triage` with an id the server resolves), typed in by hand, captured by the browser plugin
-(`POST /triage/capture`), or **imported from a spreadsheet**.
+(`POST /triage/capture`), or **imported from a spreadsheet**. Strategy's rows also carry a tick box:
+a selection raises a floating bar over the grid whose three buttons file every ticked company at one
+stage in one request (`POST /triage/bulk`), so a mandate can decline forty companies without first
+taking them into the universe.
 Deleting one drops the project↔company row only: the Apollo universe is read-only to the app. On top of
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
@@ -38,8 +41,15 @@ nothing itself — it builds the same requests the Companies drawer posts and ha
 `triagecompany` and `candidate`, so every scope check, duplicate rule and audit event stays where it
 already lives. **An imported row is never resolved against the market and never researched** — a file
 states its own figures and arrives a thousand rows at once, so the two things a one-at-a-time capture
-affords are exactly the two it cannot. The standalone Candidates screen, and the pipeline and outreach
-tables, don't exist yet. The **Position**
+affords are exactly the two it cannot. The In-universe page also reads as a **map**: a Table | Map
+toggle on its toolbar (offered only where a Mapbox public token is configured) swaps the grid for a
+mapping panel (country → company → executives) beside a Mapbox globe, with a pin per company and
+per executive and the same two drawers opened from a pin's popup or a panel row. Nothing carries a
+coordinate, so `geocoding` resolves each distinct city + country once through Mapbox and keeps it in
+`app_lm_geocoded_place`; `talentmap` composes the stage's companies, people and points into one
+unpaged, capped read (`GET /projects/{id}/talent-map`), with `…/talent-map/locations` answering the
+same map as points alone for the poll that waits on places rather than on people. The standalone
+Candidates screen, and the pipeline and outreach tables, don't exist yet. The **Position**
 screen is the mandate's brief, edited as a six-step wizard (details, mandate context, reporting,
 compensation, assessment, review) that autosaves one step at a time. It opens drafted rather than
 blank: a **role-template library** of seventeen briefs (twelve C-suite, four functional heads, one
@@ -64,7 +74,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport`, `geocoding`, `talentmap` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -73,9 +83,9 @@ the mockups: if a screen isn't being built this session, its tables and entities
 `position` is the mandate's **brief** — what the role is, why it exists, what it pays and what a
 candidate is scored against. It owns `app_lm_position` and its owned lists, and it depends on `project`
 because the mandate keeps two of the fields the screen shows: the role title, which step one edits, and
-the one target date (V8), which the screen only displays — it is set on the project and nowhere else. Nothing else depends on it, except `project`'s `ReportService`, which still reads the position
-repository directly for the report's salary band — a known reverse edge left standing rather than
-disguised as a seam, and the reason to lift the report into its own package.
+the one target date (V8), which the screen only displays — it is set on the project and nowhere else.
+Nothing else depends on it: the one reverse edge that existed — `project`'s `ReportService` reading the
+position repository for the report's salary band — went with the report.
 
 `strategy` and `triagecompany` split one story in two, in the order a consultant works: **`strategy`
 is the market side** — the saved filter, the saved searches, the reads over the Apollo universe, and
@@ -118,7 +128,7 @@ green on the profile CI uses. Those failures are the profile, never the code.
 
 `npm run dev` needs Docker and nothing else — no gcloud, no `application-local.yml`. Its database is
 yours alone, so a migration in your tree applies only to you. The one thing it cannot conjure is the
-Apollo universe: `npm run dev:db:apollo` pulls the 71,822 rows down once (that step needs gcloud), and
+Apollo universe: `npm run dev:db:apollo` pulls the 100,631 rows down once (that step needs gcloud), and
 from there `dev:db:reset` snapshots them out and back in rather than wiping them with everything else.
 
 `npm run dev:cloud` hits the shared dev database and applies your migrations to everyone at boot. It
@@ -160,7 +170,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 Cloud SQL Postgres 16, instance `bright-gcc`, database `lightmove`. All tables prefixed **`app_lm_`**.
 **Hibernate never touches the schema** — `ddl-auto: none`; hand-written Flyway SQL in
 `apps/api/src/main/resources/db/migration/`. **Never edit an applied migration; add a new one.**
-`app_lm_apollo_companies` is the **company universe** — 71,822 GCC companies, ETL-owned and read-only
+`app_lm_apollo_companies` is the **company universe** — 100,631 companies, ETL-owned and read-only
 to the application, keyed on `apollo_account_id`. Anything that stores a company stores that id plus a
 **write-time snapshot**, and never a foreign key: the pipeline reloads the table wholesale. A company
 the market does not carry has no id to store, so `app_lm_project_triage_company.apollo_account_id` is
@@ -186,6 +196,13 @@ candidate side.
 V48 gives `app_lm_client` the two snapshot columns V15 left out — `hq_city` and `logo_url` — and
 backfills them for existing Apollo-backed rows by their stored provenance id, so a client renders with
 its own mark rather than an initials tile.
+`app_lm_geocoded_place` (V49) is the geocoding cache: one row per distinct normalised city + country
+pair ever asked for, with the point Mapbox gave it or null for a stored miss. **Deliberately not
+tenant-scoped** — a centroid is not client data and carries no PII — and never written by Hibernate:
+`GeocodedPlaceStore` upserts on `place_key` so two reads racing on one city land on one row. A row is
+re-asked after `lightmove.mapbox.cache-ttl` unless the account holds Mapbox's permanent-geocoding
+entitlement (`permanent-geocoding: true`), because their terms forbid storing a temporary result
+indefinitely.
 `app_lm_position_template` (V42) is the role-template library — the identity a picker lists as columns,
 the drafted brief as one `jsonb` body (V30's idiom, not V39's child tables: a template is a
 heterogeneous document read and written whole), and the match keywords as a child table because they

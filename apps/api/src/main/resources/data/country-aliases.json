@@ -1,0 +1,128 @@
+{
+  "AE": {
+    "aliases": [
+      "uae",
+      "u.a.e.",
+      "u.a.e",
+      "emirates"
+    ],
+    "cities": {
+      "abu dhabi": "Abu Dhabi",
+      "ajman": "Ajman",
+      "al ain": "Al Ain",
+      "dubai": "Dubai",
+      "fujairah": "Fujairah",
+      "ras al khaimah": "Ras Al Khaimah",
+      "sharjah": "Sharjah",
+      "umm al quwain": "Umm Al Quwain"
+    }
+  },
+  "BH": {
+    "aliases": [
+      "bahrein",
+      "kingdom of bahrain"
+    ],
+    "cities": {
+      "ar rifa": "Riffa",
+      "budaiya": "Budaiya",
+      "isa town": "Isa Town",
+      "manama": "Manama",
+      "muharraq": "Muharraq",
+      "riffa": "Riffa",
+      "sanabis": "Sanabis",
+      "seef": "Seef",
+      "sitra": "Sitra"
+    }
+  },
+  "GB": {
+    "aliases": [
+      "uk",
+      "great britain",
+      "britain"
+    ]
+  },
+  "KW": {
+    "aliases": [
+      "state of kuwait"
+    ],
+    "cities": {
+      "ahmadi": "Ahmadi",
+      "al kuwayt": "Kuwait City",
+      "farwaniya": "Farwaniya",
+      "hawally": "Hawally",
+      "jahra": "Jahra",
+      "kuwait city": "Kuwait City",
+      "safat": "Safat",
+      "salmiya": "Salmiya",
+      "sharq": "Sharq"
+    }
+  },
+  "OM": {
+    "aliases": [
+      "sultanate of oman"
+    ],
+    "cities": {
+      "al seeb": "Al Seeb",
+      "barka": "Barka",
+      "muscat": "Muscat",
+      "nizwa": "Nizwa",
+      "ruwi": "Ruwi",
+      "salalah": "Salalah",
+      "seeb": "Al Seeb",
+      "sohar": "Sohar"
+    }
+  },
+  "QA": {
+    "aliases": [
+      "state of qatar"
+    ],
+    "cities": {
+      "al khor": "Al Khor",
+      "al rayyan": "Al Rayyan",
+      "al wakrah": "Al Wakrah",
+      "ar rayyan": "Al Rayyan",
+      "doha": "Doha",
+      "lusail": "Lusail",
+      "umm salal": "Umm Salal"
+    }
+  },
+  "SA": {
+    "aliases": [
+      "ksa",
+      "k.s.a.",
+      "k.s.a",
+      "saudi",
+      "kingdom of saudi arabia"
+    ],
+    "cities": {
+      "abha": "Abha",
+      "al khobar": "Al Khobar",
+      "buraidah": "Buraidah",
+      "dammam": "Dammam",
+      "dhahran": "Dhahran",
+      "jeddah": "Jeddah",
+      "jubail": "Jubail",
+      "khobar": "Al Khobar",
+      "madinah": "Madinah",
+      "makkah": "Makkah",
+      "mecca": "Makkah",
+      "medina": "Madinah",
+      "riyadh": "Riyadh",
+      "tabuk": "Tabuk",
+      "yanbu": "Yanbu"
+    }
+  },
+  "TR": {
+    "aliases": [
+      "turkey",
+      "turkiye"
+    ]
+  },
+  "US": {
+    "aliases": [
+      "usa",
+      "u.s.a.",
+      "united states of america"
+    ]
+  }
+}

@@ -216,7 +216,7 @@ class PositionDetailsProposerTest extends FlowTestSupport {
         return new LlmBudgetGuard((key, limit, window) -> true,
                 new LightMoveProperties(null, null, null, null, null,
                         new LlmSettings(new LlmRateLimitSettings(true, 10, 20), 20_000, 1, List.of()),
-                        null, null, null, null));
+                        null, null, null, null, null, null));
     }
 
     private static Optional<ExtractedField> fieldNamed(ProposedPositionDetails proposed, String key) {

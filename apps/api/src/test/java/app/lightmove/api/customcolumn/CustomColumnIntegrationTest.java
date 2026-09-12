@@ -12,11 +12,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.Import;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -31,7 +29,6 @@ import tools.jackson.databind.JsonNode;
  * definition and <b>not the data</b>, so one misclick is recoverable.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class CustomColumnIntegrationTest extends FlowTestSupport {
 
     @Autowired private JdbcTemplate db;
@@ -337,7 +334,7 @@ class CustomColumnIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isNotFound());
     }
 
-    // ── helpers ───────────────────────────────────────────────────────────────
+    // helpers
 
     private static String columnsUrl(String projectId) {
         return "/api/v1/projects/" + projectId + "/custom-columns";

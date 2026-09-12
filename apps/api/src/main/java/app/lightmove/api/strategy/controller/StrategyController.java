@@ -34,13 +34,11 @@ import org.springframework.web.bind.annotation.RestController;
  * searches saved against them.
  *
  * <p>Reading needs a seat on the project (WORK_VIEW, which every seated role holds including CLIENT),
- * with the workspace-admin bypass so an admin sees every project. A mandate's scope is team content,
- * not browsable to the whole workspace — which is the line between this controller and
- * {@code CompanySearchController}, where the market's own shape is a workspace-level read. Writing
- * is PROJECT_EDIT on the seat, saved searches included — a CLIENT seat may read one but not leave one
- * behind. Whether a <em>private</em> saved search is the caller's to touch is a second question, and
- * the service answers it with a 404, so that a refusal never reports that someone else's search
- * exists. The workspace comes from the principal, never the path.
+ * with the workspace-admin bypass. A mandate's scope is team content, not browsable to the whole
+ * workspace — which is the line between this controller and {@code CompanySearchController}, where
+ * the market's own shape is a workspace-level read. Writing is PROJECT_EDIT on the seat, saved
+ * searches included. Whether a <em>private</em> saved search is the caller's to touch is the
+ * service's question, answered with a 404 so a refusal never reports that it exists.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/strategy")
@@ -96,9 +94,7 @@ public class StrategyController {
                 sort, direction, page, size));
     }
 
-    /**
-     * Save the mandate's current filter under a name.
-     */
+    /** Save the mandate's current filter under a name. */
     @PostMapping("/searches")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
     public ResponseEntity<SavedSearchResponse> saveSearch(@AuthenticationPrincipal AuthPrincipal principal,

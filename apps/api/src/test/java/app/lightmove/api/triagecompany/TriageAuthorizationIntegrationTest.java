@@ -7,10 +7,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 
 /**
@@ -23,47 +21,24 @@ import org.springframework.http.MediaType;
  * own firm dislikes to Declined.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class TriageAuthorizationIntegrationTest extends FlowTestSupport {
 
     @Test
-    @DisplayName("an unseated member cannot read a mandate's triaged companies")
-    void unseatedMemberCannotRead() throws Exception {
-        Fixture f = fixture("Triage Unseated Firm");
-        String sara = login(f.saraEmail);
-
-        mvc.perform(get(triageUrl(f.projectId)).header("Authorization", "Bearer " + sara))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    @DisplayName("a seated researcher can read a mandate's triaged companies")
-    void seatedResearcherCanRead() throws Exception {
-        Fixture f = fixture("Triage Researcher Firm");
-        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
-        String sara = login(f.saraEmail);
-
-        mvc.perform(get(triageUrl(f.projectId)).header("Authorization", "Bearer " + sara))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @DisplayName("a seated lead can read a mandate's triaged companies")
-    void seatedLeadCanRead() throws Exception {
-        Fixture f = fixture("Triage Lead Firm");
-        seat(f.admin, f.projectId, f.saraId, "LEAD");
-        String sara = login(f.saraEmail);
-
-        mvc.perform(get(triageUrl(f.projectId)).header("Authorization", "Bearer " + sara))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @DisplayName("the workspace admin reads every project's triaged companies without a seat")
-    void workspaceAdminBypasses() throws Exception {
-        Fixture f = fixture("Triage Workspace Admin Firm");
+    @DisplayName("reading follows the seat: none is refused, either role reads, the workspace admin needs none")
+    void readGateFollowsTheSeat() throws Exception {
+        Fixture f = fixture("Triage Read Gate Firm");
 
         mvc.perform(get(triageUrl(f.projectId)).header("Authorization", "Bearer " + f.admin))
+                .andExpect(status().isOk());
+        mvc.perform(get(triageUrl(f.projectId)).header("Authorization", "Bearer " + login(f.saraEmail)))
+                .andExpect(status().isForbidden());
+
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+        mvc.perform(get(triageUrl(f.projectId)).header("Authorization", "Bearer " + login(f.saraEmail)))
+                .andExpect(status().isOk());
+
+        seat(f.admin, f.projectId, f.saraId, "LEAD");
+        mvc.perform(get(triageUrl(f.projectId)).header("Authorization", "Bearer " + login(f.saraEmail)))
                 .andExpect(status().isOk());
     }
 
@@ -84,20 +59,7 @@ class TriageAuthorizationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("an unseated member cannot edit a company's facts")
-    void unseatedMemberCannotEdit() throws Exception {
-        Fixture f = fixture("Universe Unseated Edit Firm");
-
-        mvc.perform(put(triageUrl(f.projectId) + "/" + java.util.UUID.randomUUID())
-                        .header("Authorization", "Bearer " + login(f.saraEmail))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"companyName":"Gulf Industrial"}"""))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    @DisplayName("an unseated member cannot add to the universe or bulk-add")
+    @DisplayName("an unseated member can neither add, bulk-add nor edit a company's facts")
     void unseatedMemberCannotWrite() throws Exception {
         Fixture f = fixture("Universe Unseated Write Firm");
         String sara = login(f.saraEmail);
@@ -111,9 +73,21 @@ class TriageAuthorizationIntegrationTest extends FlowTestSupport {
         mvc.perform(post(triageUrl(f.projectId) + "/from-filter")
                         .header("Authorization", "Bearer " + sara))
                 .andExpect(status().isForbidden());
+        mvc.perform(post(triageUrl(f.projectId) + "/bulk")
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountIds":["a1"]}"""))
+                .andExpect(status().isForbidden());
+        mvc.perform(put(triageUrl(f.projectId) + "/" + java.util.UUID.randomUUID())
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Gulf Industrial"}"""))
+                .andExpect(status().isForbidden());
     }
 
-    // ── fixture ──────────────────────────────────────────────────────────────
+    // fixture
 
     private static String triageUrl(String projectId) {
         return "/api/v1/projects/" + projectId + "/triage";

@@ -76,7 +76,7 @@ export function IndustryFilter({
   }, [selected, adjacency, leafOf]);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2.5">
       <TagCombobox
         listId={LIST_ID}
         noun="industries"
@@ -95,7 +95,7 @@ export function IndustryFilter({
           <div className="flex items-center justify-between gap-2">
             <span className="flex items-center gap-1.5">
               <Icon d={SPARKLE} size={13} className="flex-none text-amber" />
-              <span className="font-sans text-[13px] font-semibold text-text">
+              <span className="font-sans text-[12px] font-semibold text-text">
                 Adjacent Industries
               </span>
             </span>
@@ -108,7 +108,7 @@ export function IndustryFilter({
                 key={industry.value}
                 type="button"
                 onClick={() => addIndustry(industry.value)}
-                className="inline-flex items-center gap-1 rounded-full border border-line px-[9px] py-[5px] font-sans text-[12px] font-medium text-text2 transition hover:border-amber hover:text-amber"
+                className="inline-flex items-center gap-1 rounded-full border border-line px-2 py-[3px] font-sans text-[11px] font-medium text-text2 transition hover:border-amber hover:text-amber"
               >
                 <Icon d={ICONS.plus} size={10} className="flex-none" />
                 {industry.label}

@@ -52,12 +52,22 @@ lightmove:
     rate-limit:
       enabled: false
 
+    # Strength 4, not the shipped 12: a hash costs ~1ms instead of ~250ms, and nearly every test signs
+    # up and logs in. Nothing asserts on the cost — PasswordPolicy derives its decoy hash from the
+    # setting, so the timing equalisation holds at whatever strength runs.
+    bcrypt-strength: 4
+
   company:
     list:
       # Small so the refusal path is reachable. At the production 200 a test would have to seed 201
       # companies to trip it, and the behaviour under test is the limit rather than the number.
       # A bulk-add test seeding more than this gets a 409, which is the point.
       bulk-add-limit: 5
+
+  # A configured account, so the map view is offered and the config endpoint has something to say.
+  # The geocoder itself is StubGeocoder (a @Primary test double); no request reaches Mapbox.
+  mapbox:
+    public-token: pk.test
 
   email:
     provider: log

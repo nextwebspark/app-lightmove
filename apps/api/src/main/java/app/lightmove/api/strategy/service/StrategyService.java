@@ -1,5 +1,6 @@
 package app.lightmove.api.strategy.service;
 
+import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CompanyListSettings;
@@ -33,6 +34,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -42,24 +44,14 @@ import org.springframework.transaction.annotation.Transactional;
  * The search behind a project: its saved filter, its off-limits list, and the filtered page of the
  * universe both add up to.
  *
- * <p>Every load is scoped through the project's {@code (id, workspaceId)} lookup — the workspace id
- * comes from the principal, so a foreign project 404s before any strategy row is touched. The
- * strategy is seeded empty on first read: there is no template, and an empty filter is the honest
- * start, matching the whole universe rather than nothing.
+ * <p>Every load is scoped through the project's {@code (id, workspaceId)} lookup, so a foreign
+ * project 404s before any strategy row is touched. The strategy is seeded empty on first read.
  *
  * <p>The company list is resolved <b>entirely server-side from the stored filter</b>, never from
- * client-supplied industry or band lists. A mandate's chosen scope is team-only content, which is why
- * this sits behind the project-level gates while the universe's own facet counts — the same for every
- * mandate — are a workspace-level read. The name filter, page and sort are the one thing the caller
- * does supply, and none of them widens what they can see: the filter only narrows the scope already
- * fixed, and the sort resolves through {@link CompanySortField} so a caller names a column from a
- * closed catalog rather than handing us SQL.
- *
- * <p>The filter and the universe read it drives are both strategy's own, which is why they sit in one
- * feature: a band or a sector group is a way of asking the market a question, not a property of the
- * mandate asking it. What this service does <b>not</b> own is the answer a mandate then records about
- * a company — that is a project-to-company row with a triage status, and it lives in
- * {@code triagecompany}, which depends on {@link #scopeOf} rather than the other way round.
+ * client-supplied industry or band lists: a mandate's chosen scope is team-only content, which is why
+ * this sits behind the project gates while the universe's own facet counts are workspace-level. The
+ * name filter, page and sort are the caller's, and none of them widens what they can see — the sort
+ * resolves through {@link CompanySortField} rather than being handed to SQL.
  */
 @Service
 public class StrategyService {
@@ -76,8 +68,6 @@ public class StrategyService {
     private final CompanyListSettings listConfig;
     private final CompanySearchSettings searchConfig;
 
-    // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
-    // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public StrategyService(StrategyRepository strategies, ProjectRepository projects,
                            StrategySearchService searches, AuditService audit,
                            ApolloCompanyQueryService companies, LightMoveProperties properties) {
@@ -91,9 +81,8 @@ public class StrategyService {
     }
 
     /**
-     * The screen's first read. It does not seed: the endpoint is WORK_VIEW, so a client representative
-     * opening the tab would otherwise perform an INSERT to answer their own page load. An unsaved
-     * mandate answers from a transient row and only the write paths persist one.
+     * The screen's first read. It does not seed: the endpoint is WORK_VIEW, so a client
+     * representative opening the tab would otherwise perform an INSERT to answer their own page load.
      */
     @Transactional(readOnly = true)
     public StrategyResponse get(UUID userId, UUID workspaceId, UUID projectId) {
@@ -169,9 +158,8 @@ public class StrategyService {
 
     /**
      * Turn the requested ids into the refs to store. An id already on the list keeps its stored
-     * snapshot untouched — re-resolving it would make removing one company fail the whole save the day
-     * another vanishes upstream. Only new ids are resolved against the universe, and an unknown one is
-     * rejected: the client may only bar companies that exist.
+     * snapshot: re-resolving would make removing one company fail the whole save the day another
+     * vanishes upstream. Only new ids are resolved, and an unknown one is rejected.
      */
     private List<StrategyCompanyRef> resolveOffLimits(List<String> requested,
                                                       List<StrategyCompanyRef> stored) {
@@ -214,11 +202,10 @@ public class StrategyService {
     }
 
     /**
-     * Validate the submitted filter against the catalogs the universe actually offers. Industries,
-     * market segments and countries are free strings — they come from the facets response verbatim,
-     * and a value the universe has stopped carrying should narrow to nothing rather than 400 a save
-     * the user cannot fix. Band slugs are different: they name a closed catalog this codebase owns, so
-     * an unknown one is a client bug and says so.
+     * Validate the submitted filter against the catalogs the universe offers. Industries, segments
+     * and countries are free strings, so a value the universe has stopped carrying narrows to nothing
+     * rather than 400ing a save the user cannot fix. Band slugs name a closed catalog this codebase
+     * owns, so an unknown one is a client bug and says so.
      */
     private static StrategyFilter toFilter(StrategyFilterDto dto) {
         for (String band : dto.employeeBands()) {
@@ -231,16 +218,24 @@ public class StrategyService {
                 throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown revenue band: " + band);
             }
         }
+        // Countries are canonicalised rather than validated: the filter matches company_country
+        // exactly, so a saved "UAE" would narrow to nothing where "United Arab Emirates" narrows to
+        // a third of the universe.
+        List<String> countries = distinct(dto.countries()).stream()
+                .map(Countries::nameOf)
+                // A blank country canonicalises to null, and StrategyFilter's List.copyOf throws on one.
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
         return new StrategyFilter(distinct(dto.industries()), distinct(dto.keywords()),
-                distinct(dto.marketSegments()), distinct(dto.countries()),
+                distinct(dto.marketSegments()), countries,
                 distinct(dto.employeeBands()), distinct(dto.revenueBands()),
                 toRange(dto.employeeRange()), toRange(dto.revenueRange()));
     }
 
     /**
-     * Selections are sets the client renders as chips; a repeat is a client bug that would only widen
-     * the stored document without changing the query. De-duplicated in request order rather than
-     * rejected — unlike a duplicate on the off-limits list, this one has an obvious right answer.
+     * Selections are sets the client renders as chips, so a repeat only widens the stored document.
+     * De-duplicated in request order rather than rejected: this one has an obvious right answer.
      */
     private static List<String> distinct(List<String> values) {
         return List.copyOf(new LinkedHashSet<>(values));

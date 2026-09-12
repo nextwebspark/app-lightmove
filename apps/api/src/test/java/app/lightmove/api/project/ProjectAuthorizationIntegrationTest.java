@@ -9,10 +9,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -26,7 +24,6 @@ import org.springframework.test.web.servlet.MvcResult;
  * for non-members intact), not be swallowed into a generic 403.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
 
     @Test
@@ -207,7 +204,7 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
         assertThat(codeOf(masked)).isEqualTo("NOT_A_MEMBER");
     }
 
-    // ── fixture ──────────────────────────────────────────────────────────────
+    // fixture
 
     private record Fixture(String admin, String clientId, String projectId, String saraEmail,
                            String saraId, String omarId) {}

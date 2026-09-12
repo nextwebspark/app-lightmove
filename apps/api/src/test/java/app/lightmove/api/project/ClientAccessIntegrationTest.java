@@ -11,7 +11,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.repository.ClientRepresentativeRepository;
@@ -25,7 +24,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
@@ -37,7 +35,6 @@ import tools.jackson.databind.JsonNode;
  * staff surface — while a member who <i>also</i> represents a client stays fully staff.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class ClientAccessIntegrationTest extends FlowTestSupport {
 
     @Autowired InvitationRepository invitations;

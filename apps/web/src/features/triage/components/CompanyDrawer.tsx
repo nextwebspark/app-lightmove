@@ -2,10 +2,9 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, TextArea, useToast } from "../../../components/ui";
-import { CompanyLinks } from "../../../components/ui/CompanyLink";
-import { CompanyLogo } from "../../../components/ui/CompanyLogo";
+import { CompanyDrawerHeader } from "../../../components/ui/CompanyDrawerHeader";
 import { DetailGrid, DetailPill, DetailTile, DrawerSection } from "../../../components/ui/DetailList";
-import { Drawer, DrawerCloseButton } from "../../../components/ui/Drawer";
+import { Drawer } from "../../../components/ui/Drawer";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate } from "../../../lib/format";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
@@ -34,6 +33,10 @@ import { CompanyFactsSections } from "./CompanyFactsSections";
  * <p>The <b>Note</b> is the exception, and stays editable on every company including those. It is the
  * mandate's own remark rather than a fact about the company, which is exactly why the export cannot
  * own it — and it is the reason a consultant opens this panel rather than Strategy's.
+ *
+ * <p><b>Add executive sits in the header</b> rather than only on the grid row, because by the time
+ * this panel is open the company is the thing being read and "map somebody here" is the next move —
+ * and on the map view the row that carried the action is not on screen at all.
  */
 export function CompanyDrawer({
   open,
@@ -46,6 +49,7 @@ export function CompanyDrawer({
   onSaved,
   onMove,
   onDelete,
+  onAddExecutive,
 }: {
   open: boolean;
   projectId: string;
@@ -60,6 +64,8 @@ export function CompanyDrawer({
   onSaved: () => void;
   onMove: (company: TriageCompany, status: TriageCompanyStatus) => void;
   onDelete: (company: TriageCompany) => void;
+  /** Maps somebody at this company, from the panel that is already open on it. */
+  onAddExecutive: (company: TriageCompany) => void;
 }) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
@@ -125,43 +131,45 @@ export function CompanyDrawer({
 
   return (
     <Drawer open={open} onClose={onClose} wide label={company.companyName}>
-      <div className="relative flex-none border-b border-line-soft px-5 py-4">
-        <DrawerCloseButton onClose={onClose} />
-
-        <div className="flex items-start gap-3 pe-8">
-          <CompanyLogo name={company.companyName} logo={company.logoUrl} size={44} />
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Name and links are one wrapping item: a long name pushed them onto the pill row,
-                  where a bare globe reads as another badge rather than as this company's site. */}
-              <span className="flex items-center gap-1.5">
-                <h2 className="font-sans text-base font-semibold">{company.companyName}</h2>
-                <CompanyLinks
-                  companyName={company.companyName}
-                  website={company.website}
-                  linkedinUrl={company.companyLinkedinUrl}
-                />
-              </span>
-              <DetailPill
-                label={SOURCE_STYLES[company.source].label}
-                className={SOURCE_STYLES[company.source].className}
-              />
-              <DetailPill label={stageByStatus(company.status).label} />
-            </div>
-            <p className="mt-1 font-mono text-[11.5px] text-text3">
-              {[company.industry, company.companyCity, company.companyCountry]
-                .filter(Boolean)
-                .join(" · ") || "Nothing recorded about where it sits"}
-            </p>
-          </div>
-          {canEdit && !editing && (
-            <Button type="button" variant="secondary" onClick={() => setEditing(true)}>
-              <Icon d={ICONS.pencil} size={14} />
-              Edit
-            </Button>
-          )}
-        </div>
-      </div>
+      <CompanyDrawerHeader
+        companyName={company.companyName}
+        logoUrl={company.logoUrl}
+        website={company.website}
+        linkedinUrl={company.companyLinkedinUrl}
+        context={[company.industry, company.companyCity, company.companyCountry]}
+        onClose={onClose}
+        badges={
+          <>
+            <DetailPill
+              label={SOURCE_STYLES[company.source].label}
+              className={SOURCE_STYLES[company.source].className}
+            />
+            <DetailPill label={stageByStatus(company.status).label} />
+          </>
+        }
+        action={
+          !editing && (canWrite || canEdit) && (
+            <span className="flex flex-none items-center gap-2">
+              {canWrite && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => onAddExecutive(company)}
+                >
+                  <Icon d={ICONS.userPlus} size={14} />
+                  Add executive
+                </Button>
+              )}
+              {canEdit && (
+                <Button type="button" variant="secondary" onClick={() => setEditing(true)}>
+                  <Icon d={ICONS.pencil} size={14} />
+                  Edit
+                </Button>
+              )}
+            </span>
+          )
+        }
+      />
 
       {editing ? (
         <CompanyFactsForm

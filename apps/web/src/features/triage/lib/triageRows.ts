@@ -10,18 +10,13 @@ import type { TriageCompany } from "../api/types";
  * "Add executive" slot, because a company nobody has looked at yet is the most important thing the
  * screen has to show.
  *
- * <p>Both sides are nullable and exactly one of them may be. `candidate: null` is that empty slot;
+ * <p>Exactly one side may be null, and the type says so: `candidate: null` is that empty slot;
  * `company: null` is an executive whose employer is not in the mandate's universe at all, which the
  * In-universe stage shows after the companies rather than hiding.
  */
-export interface TriageCompanyRow {
-  company: TriageCompany | null;
-  candidate: Candidate | null;
-  /** 1-based within this company, so a repeated company can read as a continuation. */
-  position: number;
-  /** How many lines this company occupies in total. */
-  siblings: number;
-}
+export type TriageCompanyRow =
+  | { company: TriageCompany; candidate: Candidate | null }
+  | { company: null; candidate: Candidate };
 
 /** Stable and collision-free across both nullable sides — the empty slot needs an id of its own. */
 export function triageRowId(row: TriageCompanyRow): string {
@@ -53,22 +48,13 @@ export function toTriageRows(
   for (const company of companies) {
     const mapped = byCompany.get(company.id) ?? [];
     if (mapped.length === 0) {
-      rows.push({ company, candidate: null, position: 1, siblings: 1 });
+      rows.push({ company, candidate: null });
       continue;
     }
-    mapped.forEach((candidate, index) =>
-      rows.push({ company, candidate, position: index + 1, siblings: mapped.length }),
-    );
+    for (const candidate of mapped) rows.push({ company, candidate });
   }
 
-  unmappedCandidates.forEach((candidate, index) =>
-    rows.push({
-      company: null,
-      candidate,
-      position: index + 1,
-      siblings: unmappedCandidates.length,
-    }),
-  );
+  for (const candidate of unmappedCandidates) rows.push({ company: null, candidate });
 
   return rows;
 }

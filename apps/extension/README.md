@@ -108,16 +108,19 @@ fails quietly.
 
 **The published extension has a different id from the one you develop with.** The pinned key in
 `manifest.config.ts` fixes the id for unpacked loading; the Web Store assigns its own when the item is
-first created, and you cannot choose it. So the id is configuration in two places, and both are wrong
-until you have published once:
+first created, and you cannot choose it. So the id is configuration, and it is wrong until you have
+published once.
 
-| Where | How to set it | What breaks if it is wrong |
+**One variable, `EXTENSION_ID`** — the `EXTENSION_ID` repository variable for the deploy workflow, or
+an env var for `ops/gcp/deploy.sh`. It reaches two places from there, and the deploy passes it to both:
+
+| Where | How it arrives | What breaks if it is wrong |
 |---|---|---|
-| API CORS allow-list | `EXTENSION_ID` — a repository variable for the deploy workflow, or an env var for `ops/gcp/deploy.sh` | Every request from the extension is refused, with nothing in the response saying why |
-| The pairing page | `VITE_EXTENSION_ID` at `apps/web` build time | Pairing reports "extension not detected" forever |
+| API CORS allow-list | `WEB_CORS_ORIGINS` on the Cloud Run service | Every request from the extension is refused, with nothing in the response saying why |
+| The pairing page | `--build-arg EXTENSION_ID`, frozen into the bundle by `apps/web/vite.config.ts` | Pairing reports "extension not detected" forever |
 
-So the order is: publish once → note the assigned id → set both → redeploy. Until then, both default to
-the development id, which is right for a locally-loaded extension and right for nothing else.
+So the order is: publish once → note the assigned id → set it → redeploy. Until then it defaults to the
+development id, which is right for a locally-loaded extension and right for nothing else.
 
 ### The listing
 

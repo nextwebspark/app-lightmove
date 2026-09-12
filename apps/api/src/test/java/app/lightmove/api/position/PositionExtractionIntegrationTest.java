@@ -72,13 +72,13 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
             }
         });
 
-        // AC2: nothing persists until a row is accepted. The brief's location is already "UAE" —
-        // seeded from the client's own HQ at project creation — and stays exactly that, not the
+        // AC2: nothing persists until a row is accepted. The brief's location is already the
+        // client's own HQ country, seeded at project creation, and stays exactly that — not the
         // fixture's "Dubai, UAE" the extraction proposed.
         assertThat(updatedAtOf(projectId)).isEqualTo(beforeUpdatedAt);
         JsonNode brief = readBrief(admin, projectId);
         assertThat(brief.get("details").get("roleTitle").asText()).isEqualTo("CFO");
-        assertThat(brief.get("details").get("location").asText()).isEqualTo("UAE");
+        assertThat(brief.get("details").get("location").asText()).isEqualTo("United Arab Emirates");
     }
 
     @Test

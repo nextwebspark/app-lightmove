@@ -34,10 +34,9 @@ import org.springframework.transaction.annotation.Transactional;
  * Self-service password recovery.
  *
  * <p>The emailed token <i>is</i> the credential: whoever holds it controls the mailbox, and the
- * mailbox is what the account is anchored to. That single fact drives every decision here — the
- * request side answers identically for known and unknown addresses (anything else is an
- * account-enumeration oracle), and the redeem side treats the token as proof strong enough to set a
- * password, clear a lockout, verify the address, and sign the user straight in.
+ * mailbox is what the account is anchored to. So the request side answers identically for known and
+ * unknown addresses, and the redeem side treats the token as proof enough to set a password, clear a
+ * lockout, verify the address and sign the user in.
  */
 @Service
 @RequiredArgsConstructor
@@ -58,14 +57,9 @@ public class PasswordResetService {
     /**
      * Issues a reset link and emails it.
      *
-     * <p>Succeeds silently for an unknown address and for a suspended or deleted account — reporting
-     * either would tell anyone with a list of addresses which ones are LightMove customers. Rate
-     * limiting is applied by the caller, mirroring {@code /verify/resend}.
-     *
-     * <p>A Google-only account gets the email too: redeeming will <i>attach</i> a local password, which
-     * is exactly the escape hatch {@link User#attachLocalPassword} exists for. And there is no
-     * verified-email filter — an unverified creator may reset, because redeeming the link proves the
-     * mailbox better than the verification email would have.
+     * <p>Succeeds silently for an unknown, suspended or deleted account: reporting either is an
+     * enumeration oracle. A Google-only account gets the email too — redeeming <i>attaches</i> a local
+     * password — and there is no verified-email filter, because redeeming proves the mailbox anyway.
      */
     @Transactional
     public void requestReset(String email, HttpServletRequest request) {
@@ -82,14 +76,11 @@ public class PasswordResetService {
     /**
      * Redeems a reset link: sets the new password and signs the user in.
      *
-     * <p>Signing in here is not a convenience bolted on — it is the same judgement the invitation-accept
-     * flow already made: a token mailed only to this address, presented back to us, proves the mailbox,
-     * and a proven mailbox is exactly what a login proves. Making the user re-type the password they
-     * chose two seconds ago adds a step and no security.
+     * <p>Signing in here is the same judgement invitation-accept made: a token mailed only to this
+     * address proves the mailbox, which is what a login proves.
      *
      * <p>Every failure is thrown <i>before</i> the token is consumed or any credential changes, so a
-     * rejected attempt (weak password, suspended account) leaves the link redeemable and the account
-     * untouched — no {@code noRollbackFor} needed, unlike {@code login()}.
+     * rejected attempt leaves the link redeemable — no {@code noRollbackFor} needed, unlike login.
      */
     @Transactional
     public AuthenticatedSession reset(String plaintextToken, String newPassword, HttpServletRequest request) {

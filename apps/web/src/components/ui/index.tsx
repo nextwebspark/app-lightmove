@@ -13,6 +13,7 @@ export { HealthDot, StagePill, stageLabel } from "./Badge";
 export { DateInput } from "./DateInput";
 export { Drawer } from "./Drawer";
 export { EmptyState } from "./EmptyState";
+export { FullscreenButton } from "./FullscreenButton";
 export { Modal } from "./Modal";
 export { Skeleton, TableSkeleton } from "./Skeleton";
 export { ToastProvider, useToast } from "./Toast";
@@ -290,3 +291,6 @@ export function Toggle({
     </button>
   );
 }
+
+export { SegmentedControl } from "./SegmentedControl";
+export type { SegmentedOption } from "./SegmentedControl";

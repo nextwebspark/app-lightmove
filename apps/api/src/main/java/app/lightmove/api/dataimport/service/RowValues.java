@@ -12,10 +12,9 @@ import java.util.Map;
  * the column was numeric. Refusing those would refuse most real files, so they are read rather than
  * rejected — but only where the reading is unambiguous.
  *
- * <p>An unreadable value answers {@code null} rather than throwing. A single unparseable headcount in
- * a thousand-row file is a cell to leave empty, not a reason to fail the row and hide the ninety-nine
- * other fields on it. The fields that genuinely cannot be guessed — a company with no name, a person
- * with no name — are checked by the caller, where failing the row is the right answer.
+ * <p>An unreadable value answers {@code null} rather than throwing: one unparseable headcount is a
+ * cell to leave empty, not a reason to fail the row. The fields that cannot be guessed at all — a
+ * company or a person with no name — are checked by the caller.
  */
 final class RowValues {
 
@@ -77,9 +76,8 @@ final class RowValues {
     /**
      * A seniority as the candidate API spells it, from however the file spelled it.
      *
-     * <p>Matched against both the wire token ("N-1") and the enum name ("N_MINUS_1"), plus the
-     * spellings files actually carry, because "N minus 1", "n-1" and "CSuite" are all the same rung
-     * and none of them is either canonical form.
+     * <p>Matched against the wire token ("N-1"), the enum name ("N_MINUS_1") and the spellings files
+     * carry: "N minus 1", "n-1" and "CSuite" are all the same rung and none is a canonical form.
      */
     static String seniority(String value) {
         String trimmed = text(value);

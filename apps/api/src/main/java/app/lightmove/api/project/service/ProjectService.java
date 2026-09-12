@@ -121,8 +121,8 @@ public class ProjectService {
                 workspaceId, request.clientId(), request.positionTitle(), request.targetDate(), userId));
         seats.save(ProjectMember.of(project.getId(), creator.getId(),
                 rbac.projectRoles(EnumSet.of(ProjectRole.LEAD)), userId));
-        // The brief arrives drafted, not blank — seeded from the role-template library. Handed the
-        // facts it needs rather than the mandate itself: the project row is this package's.
+        // Seeded from the role-template library, and handed the facts it needs rather than the
+        // mandate itself: the project row is this package's.
         positionService.seedFor(workspaceId, project.getId(), project.getPositionTitle(),
                 client.getHqCountry());
 
@@ -175,15 +175,13 @@ public class ProjectService {
             return toResponse(project, assemblyFor(workspaceId, List.of(project)));
         }
 
-        // The staff role is replaced; a CLIENT role the seat already carries survives. A representative
-        // of the client who also staffs the mandate holds both, and staffing them must not silently
-        // revoke the read access their client contact was granted separately.
+        // The staff role is replaced; a CLIENT role the seat already carries survives, so staffing a
+        // client's representative does not revoke the read access they were granted separately.
         Set<Role> granted = new HashSet<>();
         granted.add(rbac.role(role));
         seat.getRoles().stream().filter(existing -> existing.is(ProjectRole.CLIENT)).forEach(granted::add);
 
-        // A PUT of the current role set changes nothing — skip the guard, the write and the audit
-        // event, so the "idempotent" claim holds in side effects too, not just in the response.
+        // A PUT of the current role set changes nothing, in side effects as well as in the response.
         if (!granted.equals(seat.getRoles())) {
             if (holdsLead(seat) && role != ProjectRole.LEAD) {
                 requireAnotherProjectLead(projectId);
@@ -212,12 +210,10 @@ public class ProjectService {
     }
 
     /**
-     * Attaches a client representative to a mandate. An ACTIVE representative is seated at once: their
-     * workspace membership gains the read-only CLIENT project role, so they may view this project and no
-     * other. An INVITED one has no membership to seat yet, so the intent is parked as a pending
-     * attachment and converted into a seat when they accept ({@link #seatAcceptedRepresentative}).
-     * Idempotent on both paths — re-attaching adds nothing. Gated PROJECT_EDIT at the controller — a
-     * lead decides who on the client side sees a mandate.
+     * Attaches a client representative to a mandate. An ACTIVE one is seated at once — their
+     * membership gains the read-only CLIENT project role, so they may view this project and no other.
+     * An INVITED one has no membership to seat yet, so the intent is parked and converted when they
+     * accept ({@link #seatAcceptedRepresentative}). Idempotent on both paths.
      */
     @Transactional
     public ProjectResponse attachRepresentative(UUID actorId, UUID workspaceId, UUID projectId,
@@ -228,10 +224,8 @@ public class ProjectService {
     /**
      * The attach above, with the courtesy notice made optional.
      *
-     * @param announce false when the caller has already mailed this person about the very same
-     *                 decision — the invite-and-attach flow, where {@code onboardClientRepresentative}
-     *                 sends the "added as a representative" notice moments earlier. Two mails for one
-     *                 click reads as a bug to the recipient.
+     * @param announce false when the caller has already mailed this person about the same decision —
+     *                 the invite-and-attach flow. Two mails for one click reads as a bug.
      */
     @Transactional
     public ProjectResponse attachRepresentative(UUID actorId, UUID workspaceId, UUID projectId,
@@ -244,9 +238,8 @@ public class ProjectService {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                     "That representative's access was revoked — re-invite them first");
         }
-        // ACTIVE without an account is an invariant break, not a state a caller can act on: the row
-        // claims an accepted invitation with nobody behind it. Masked as NOT_FOUND rather than
-        // explained — there is no request that would make it true.
+        // ACTIVE without an account is an invariant break, not a state a caller can act on. Masked as
+        // NOT_FOUND: there is no request that would make it true.
         if (representative.getStatus() == ClientRepStatus.ACTIVE && representative.getUserId() == null) {
             log.error("Representative {} is ACTIVE with no bound account", representativeId);
             throw ApiException.of(ErrorCode.NOT_FOUND);
@@ -263,8 +256,7 @@ public class ProjectService {
                 }
             }
         } else if (representative.getStatus() == ClientRepStatus.INVITED) {
-            // Named, not left as the fall-through: a status added later must fail loudly here rather
-            // than be parked as though someone had been invited.
+            // Named rather than left to the fall-through, so a status added later fails loudly here.
             if (!pendingAttachments.existsByProjectIdAndRepresentativeId(projectId, representativeId)) {
                 pendingAttachments.save(
                         PendingRepresentativeAttachment.of(projectId, representativeId, actorId));
@@ -317,10 +309,9 @@ public class ProjectService {
     }
 
     /**
-     * Turns every parked attach intent for a just-activated representative into a real CLIENT seat, then
-     * clears them. MANDATORY: it must join the activating transaction — both INVITED→ACTIVE paths
-     * (invitation accept, and a re-invite that finds the address already a member) — so the seats and
-     * the activation land or roll back as one. No request in scope here, so the audit events carry none.
+     * Turns every parked attach intent for a just-activated representative into a real CLIENT seat.
+     * MANDATORY: it must join the activating transaction, on both INVITED-to-ACTIVE paths, so the
+     * seats and the activation land or roll back as one.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void seatAcceptedRepresentative(ClientRepresentative representative) {
@@ -446,8 +437,8 @@ public class ProjectService {
                 .findAllById(memberById.values().stream().map(WorkspaceMember::getUserId).toList())
                 .stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
-        Map<UUID, String> clientNames = clients.findByWorkspaceIdOrderByNameAsc(workspaceId).stream()
-                .collect(Collectors.toMap(Client::getId, Client::getName));
+        Map<UUID, Client> clientById = clients.findByWorkspaceIdOrderByNameAsc(workspaceId).stream()
+                .collect(Collectors.toMap(Client::getId, Function.identity()));
 
         List<UUID> clientIds = forProjects.stream().map(Project::getClientId).distinct().toList();
         Map<UUID, List<ClientRepresentative>> repsByClientId = representatives
@@ -458,7 +449,7 @@ public class ProjectService {
                         Collectors.mapping(PendingRepresentativeAttachment::getRepresentativeId,
                                 Collectors.toSet())));
 
-        return new Assembly(seatsByProject, memberById, userById, clientNames,
+        return new Assembly(seatsByProject, memberById, userById, clientById,
                 repsByClientId, pendingRepIdsByProjectId, LocalDate.now());
     }
 
@@ -512,9 +503,11 @@ public class ProjectService {
                 })
                 .toList();
 
+        Client client = assembly.clientById().get(project.getClientId());
         return new ProjectResponse(
                 project.getId(), project.getClientId(),
-                assembly.clientNames().getOrDefault(project.getClientId(), ""),
+                client == null ? "" : client.getName(),
+                client == null ? null : client.getLogoUrl(),
                 project.getPositionTitle(), project.getStage(),
                 ProjectHealth.derive(project.getStage(), project.getTargetDate(), assembly.today()),
                 project.getTargetDate(), team, attachedRepresentatives, 0, 0, project.getCreatedAt());
@@ -531,7 +524,7 @@ public class ProjectService {
     private record Assembly(Map<UUID, List<ProjectMember>> seatsByProject,
                             Map<UUID, WorkspaceMember> memberById,
                             Map<UUID, User> userById,
-                            Map<UUID, String> clientNames,
+                            Map<UUID, Client> clientById,
                             Map<UUID, List<ClientRepresentative>> repsByClientId,
                             Map<UUID, Set<UUID>> pendingRepIdsByProjectId,
                             LocalDate today) {

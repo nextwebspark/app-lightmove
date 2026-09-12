@@ -2,6 +2,9 @@ import {
   columnOrderingFeature,
   columnPinningFeature,
   columnVisibilityFeature,
+  createPaginatedRowModel,
+  createSortedRowModel,
+  rowPaginationFeature,
   rowSortingFeature,
   type Column,
   type ReactTable,
@@ -9,6 +12,7 @@ import {
   type TableFeatures,
 } from "@tanstack/react-table";
 import {
+  Fragment,
   useRef,
   useState,
   type CSSProperties,
@@ -31,11 +35,37 @@ export interface DataGridColumnLayout {
   min: number;
 }
 
+/**
+ * The four features every grid on this component registers. Spread into each grid's own
+ * `tableFeatures({...})` alongside its `columnMeta` and `tableMeta`, which are the only parts that
+ * differ — the call has to stay a literal, because v9 derives the whole table API from its keys.
+ */
+export const DATA_GRID_FEATURES = {
+  columnOrderingFeature,
+  columnPinningFeature,
+  columnVisibilityFeature,
+  rowSortingFeature,
+};
+
+/**
+ * What a grid adds when the rows it was handed are the whole result rather than one page of it: it
+ * sorts and pages them itself. A server-paged grid must not register these — a client row model would
+ * re-sort one page of tens of thousands as though it were everything there is.
+ */
+export const LOCAL_ROW_MODELS = {
+  rowPaginationFeature,
+  sortedRowModel: createSortedRowModel(),
+  paginatedRowModel: createPaginatedRowModel(),
+};
+
 /** `gap-3` in numbers, so the row's minimum width can be added up rather than guessed. */
 const ROW_GAP = 12;
 
 /** Below this a pointer is still a click, so a header drag cannot steal the sort. */
 const DRAG_THRESHOLD = 4;
+
+/** What a click inside a row belongs to instead of the row: a cell's own button, link or field. */
+const NESTED_CONTROL = "button, a, input, select, textarea, [role='button']";
 
 const KEYBOARD_RESIZE_STEP = 16;
 const KEYBOARD_RESIZE_LEAP = 64;
@@ -62,12 +92,12 @@ const PINNED_FILL = "flex items-center self-stretch bg-panel transition group-ho
  * rows scrolled sideways.
  *
  * <p>Sorting and paging belong to the caller and, in both current callers, to the server: a page
- * holds 25 rows out of tens of thousands, so a header click changes the query rather than the array.
+ * holds one page out of tens of thousands, so a header click changes the query rather than the array.
  *
  * <p>Columns move and resize by drag. Neither gesture re-renders while it is in flight: the grid
  * template lives in a CSS variable the handlers write straight to the DOM, and React only sees the
- * result on pointerup. Dragging 24 columns across 25 rows through state would repaint 600 cells a
- * frame.
+ * result on pointerup. Dragging 24 columns across a page of rows through state would repaint
+ * hundreds of cells a frame.
  */
 /**
  * The features every grid using this component registers, and the column meta they all declare.
@@ -97,6 +127,11 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   emptyMessage,
   layout,
   onLayoutChange,
+  headerLead,
+  rowLead,
+  fit = "fill",
+  renderCard,
+  onRowClick,
 }: {
   table: ReactTable<TFeatures, TData>;
   /** Names the grid for screen readers — "Companies", "Shortlisted companies". */
@@ -108,11 +143,40 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   /** Where the user has dragged the columns. Order is the table's; only the widths are read here. */
   layout: GridLayout;
   onLayoutChange: (layout: GridLayout) => void;
+  /**
+   * A control drawn at the very start of the first column, before its header text and before each
+   * row's first cell — the select-all box and the per-row box of a multi-select grid.
+   *
+   * <p>A slot rather than a checkbox column of its own, and rather than something the caller renders
+   * inside its own first cell. A leading column would be a second pinned region and `sticky start-0`
+   * only holds one, so the two would stack on top of each other the moment the grid scrolled
+   * sideways. And a box rendered inside the first *header* cell would land inside the sort button,
+   * which is both invalid markup and a select-all that re-sorts the table.
+   */
+  headerLead?: ReactNode;
+  rowLead?: (row: TData) => ReactNode;
+  /**
+   * `fill` takes the height its flex parent has left and scrolls the rows inside it, which is what a
+   * screen showing one page of a large market wants. `content` is as tall as its rows and leaves the
+   * vertical scrolling to the page, for a list that sits under a heading in ordinary document flow.
+   */
+  fit?: "fill" | "content";
+  /**
+   * The same row as a card, for below `md`. Scanning a seven-column grid sideways on a phone is not
+   * scanning, so the lists people read rather than compare render as a stack there — supplying this
+   * is what turns the grid into the wide half of that pair.
+   */
+  renderCard?: (row: TData) => ReactNode;
+  /**
+   * Makes the whole row activate — click, Enter or Space. Rows without one stay inert. A control
+   * inside a cell keeps its own click: a button or link in a row is never also the row.
+   */
+  onRowClick?: (row: TData) => void;
 }) {
   /*
-   * The one cast, and the reason GridFeatures exists. Every caller registers exactly those four
-   * features and differs only in its `tableMeta` — which this component never reads, and which is
-   * what stops two concrete table types being assignable to one another directly.
+   * The one cast, and the reason GridFeatures exists. Every caller registers at least those four
+   * features and this file reads nothing beyond them; what a caller adds — a pagination feature, its
+   * own `tableMeta` — is what stops two concrete table types being assignable to one another directly.
    */
   const grid = table as unknown as ReactTable<GridFeatures, TData>;
   const visibleColumns = grid.getVisibleLeafColumns();
@@ -257,8 +321,16 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
 
   const track = { gridTemplateColumns: "var(--dg-cols)", minWidth: "var(--dg-min)" };
 
-  return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[8px] border border-line bg-panel">
+  const panel = (
+    <div
+      className={cn(
+        "min-h-0 flex-col overflow-hidden rounded-[8px] border border-line bg-panel",
+        fit === "fill" && "flex-1",
+        // Not `flex hidden md:flex`: twMerge resolves the two unprefixed display classes and the
+        // grid would be the one that lost.
+        renderCard ? "hidden md:flex" : "flex",
+      )}
+    >
       <span aria-live="polite" className="sr-only">
         {announcement}
       </span>
@@ -286,7 +358,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
             style={track}
             className="sticky top-0 z-20 grid flex-none items-center gap-3 border-b border-line bg-panel2 py-2.5"
           >
-            {headerGroup.headers.map((header) => {
+            {headerGroup.headers.map((header, index) => {
               const column = header.column;
               const sortable = column.getCanSort();
               const sorted = column.getIsSorted();
@@ -323,24 +395,28 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                     !pinned && "first:ps-4 last:pe-4",
                   )}
                 >
-                  {sortable ? (
-                    <button
-                      type="button"
-                      // A drag that crossed the threshold is a move, and must not also sort.
-                      onClick={(event) => {
-                        if (draggedRef.current) {
-                          draggedRef.current = false;
-                          return;
-                        }
-                        column.getToggleSortingHandler()?.(event);
-                      }}
-                      className="block w-full text-left transition hover:opacity-80"
-                    >
-                      {label}
-                    </button>
-                  ) : (
-                    label
-                  )}
+                  {/* The slot rides the first column, which in every caller is the pinned one, so
+                      the boxes stay on screen when the row scrolls away from its own name. */}
+                  <LeadingSlot lead={index === 0 && headerLead}>
+                    {sortable ? (
+                      <button
+                        type="button"
+                        // A drag that crossed the threshold is a move, and must not also sort.
+                        onClick={(event) => {
+                          if (draggedRef.current) {
+                            draggedRef.current = false;
+                            return;
+                          }
+                          column.getToggleSortingHandler()?.(event);
+                        }}
+                        className="block w-full text-left transition hover:opacity-80"
+                      >
+                        {label}
+                      </button>
+                    ) : (
+                      label
+                    )}
+                  </LeadingSlot>
 
                   <span
                     role="separator"
@@ -353,7 +429,16 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                     onPointerCancel={endResize}
                     onDoubleClick={() => clearWidth(column)}
                     onKeyDown={(event) => onHandleKeyDown(event, column)}
-                    className="absolute inset-y-0 -end-2 z-10 w-3 cursor-col-resize touch-none opacity-0 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+                    className={cn(
+                      "absolute inset-y-0 z-10 w-3 cursor-col-resize touch-none opacity-0 transition-opacity",
+                      "hover:opacity-100 focus-visible:opacity-100",
+                      // Every handle but the last straddles the 12px gap to its neighbour, which is
+                      // dead space and the obvious place to grab. The last column has no neighbour,
+                      // so out there it hangs 8px past the grid's right edge — and an absolutely
+                      // positioned descendant still counts towards scrollable overflow, which gave
+                      // every table on every screen a permanent 8px horizontal scrollbar.
+                      index === headerGroup.headers.length - 1 ? "end-0" : "-end-2",
+                    )}
                   >
                     <span className="mx-auto block h-full w-px bg-amber" />
                   </span>
@@ -383,9 +468,34 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                 key={row.id}
                 role="row"
                 style={track}
-                className="group grid h-[52px] items-center gap-3 border-b border-line-soft transition hover:bg-panel2"
+                tabIndex={onRowClick ? 0 : undefined}
+                onClick={
+                  onRowClick
+                    ? (event) => {
+                        if (event.target instanceof Element && event.target.closest(NESTED_CONTROL)) return;
+                        onRowClick(row.original);
+                      }
+                    : undefined
+                }
+                // A row is not a button, so the keys one answers to have to be spelled out — and only
+                // when the row itself holds focus, or Space on a cell's own button would fire twice.
+                onKeyDown={
+                  onRowClick
+                    ? (event) => {
+                        if (event.target !== event.currentTarget) return;
+                        if (event.key !== "Enter" && event.key !== " ") return;
+                        event.preventDefault();
+                        onRowClick(row.original);
+                      }
+                    : undefined
+                }
+                className={cn(
+                  "group grid h-[52px] items-center gap-3 border-b border-line-soft transition hover:bg-panel2",
+                  onRowClick &&
+                    "cursor-pointer focus-visible:outline focus-visible:-outline-offset-2 focus-visible:outline-sky",
+                )}
               >
-                {row.getVisibleCells().map((cell) => {
+                {row.getVisibleCells().map((cell, index) => {
                   const pinned = cell.column.getIsPinned();
                   return (
                     <div
@@ -398,7 +508,9 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                         !pinned && "first:ps-4 last:pe-4",
                       )}
                     >
-                      <grid.FlexRender cell={cell} />
+                      <LeadingSlot lead={index === 0 && rowLead?.(row.original)}>
+                        <grid.FlexRender cell={cell} />
+                      </LeadingSlot>
                     </div>
                   );
                 })}
@@ -408,6 +520,27 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
         </div>
       </div>
     </div>
+  );
+
+  if (!renderCard) return panel;
+
+  return (
+    <>
+      <div className="flex flex-col gap-2.5 md:hidden">
+        {/* Same order as the grid's body, and for the same reason: a refused read is not an empty
+            result, so the error is answered before the count. */}
+        {error ? (
+          <CardMessage>{errorMessage}</CardMessage>
+        ) : loading && rows.length === 0 ? (
+          <CardSkeleton />
+        ) : rows.length === 0 ? (
+          <CardMessage>{emptyMessage}</CardMessage>
+        ) : (
+          rows.map((row) => <Fragment key={row.id}>{renderCard(row.original)}</Fragment>)
+        )}
+      </div>
+      {panel}
+    </>
   );
 }
 
@@ -564,12 +697,44 @@ export function DataGridCell({ value, muted }: { value: string | null; muted?: b
 export const GRID_ICON_BUTTON =
   "grid size-9 place-items-center rounded-[5px] text-text3 transition hover:bg-panel2 hover:text-text lg:size-6";
 
+/**
+ * The first column's content, with `lead` in front of it when there is one. Renders the child alone
+ * otherwise, so a grid with no selection keeps exactly the markup it had.
+ */
+function LeadingSlot({ lead, children }: { lead: ReactNode; children: ReactNode }) {
+  if (!lead) return children;
+  return (
+    <span className="flex min-w-0 items-center gap-2.5">
+      {lead}
+      <span className="min-w-0 flex-1">{children}</span>
+    </span>
+  );
+}
+
 function GridMessage({ children }: { children: ReactNode }) {
   return (
     <div className="px-4 py-10 text-center font-mono text-[13px] text-text3">
       <Icon d={ICONS.search} size={18} className="mx-auto mb-2 text-text3" />
       {children}
     </div>
+  );
+}
+
+function CardMessage({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-[10px] border border-line bg-panel px-4 py-8 text-center font-mono text-[13px] text-text3">
+      {children}
+    </div>
+  );
+}
+
+function CardSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 4 }, (_, index) => (
+        <div key={index} className="h-[84px] animate-pulse rounded-[10px] border border-line bg-panel" />
+      ))}
+    </>
   );
 }
 

@@ -32,6 +32,9 @@ public record CandidateResponse(
         CandidateCompensationDto compensation,
         List<CandidateCareerEntryDto> career,
         List<String> languages,
+        /** Filled by enrichment only; empty until research has run, and never edited by a screen. */
+        List<CandidateEducationEntryDto> education,
+        List<String> skills,
         String source,
         String sourceUrl,
         Map<String, String> customFields,

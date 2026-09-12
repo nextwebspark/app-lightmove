@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
 import { ApiRequestError } from "../../../lib/apiClient";
 import type { Project } from "../../projects/api/types";
@@ -10,7 +10,10 @@ import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
 import type { CompanyPage, Facets, SavedSearch, Strategy, StrategyFilter } from "../api/types";
 import * as triageApi from "../../triage/api/triageApi";
+import { stubFullscreenApi } from "../../../test/fullscreen";
 import { StrategyPage } from "./StrategyPage";
+
+vi.mock("../../../lib/countries", () => import("../../../test/countries"));
 
 vi.mock("../api/strategyApi", async (importOriginal) => ({
   ...(await importOriginal<typeof strategyApi>()),
@@ -32,6 +35,7 @@ vi.mock("../../triage/api/triageApi", async (importOriginal) => ({
   ...(await importOriginal<typeof triageApi>()),
   addMarketCompany: vi.fn(),
   addAllInScope: vi.fn(),
+  addSelectedCompanies: vi.fn(),
 }));
 vi.mock("../api/companiesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof companiesApi>()),
@@ -139,6 +143,38 @@ const pageOf = (overrides: Partial<CompanyPage> = {}): CompanyPage => ({
   ...overrides,
 });
 
+/** A second row of the same shape, for the tests that select more than one. */
+const secondCompany = () => ({
+  ...pageOf().companies[0],
+  apolloAccountId: "a2",
+  companyName: "Masdar",
+});
+
+const thirdCompany = () => ({
+  ...pageOf().companies[0],
+  apolloAccountId: "a3",
+  companyName: "Yellow Door",
+});
+
+const twoCompanies = () =>
+  pageOf({ companies: [pageOf().companies[0], secondCompany()], totalCount: 2 });
+
+const threeCompanies = () =>
+  pageOf({ companies: [pageOf().companies[0], secondCompany(), thirdCompany()], totalCount: 3 });
+
+/** What POST /triage answers with — the stage it reports is the one the toast must believe. */
+const triagedAs = (status: string) =>
+  ({
+    id: "t1",
+    apolloAccountId: "a1",
+    companyName: "ACWA Power",
+    status,
+    source: "strategy",
+    note: null,
+    customFields: {},
+    addedAt: "2026-09-08T00:00:00Z",
+  }) as never;
+
 const renderPage = (client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) =>
   render(
     <MemoryRouter>
@@ -199,13 +235,23 @@ describe("StrategyPage — the filter sidebar and its results", () => {
   });
 
   it("offers Location without the facets read, so a refused count cannot take the axis with it", async () => {
-    // The vocabulary is the six GCC markets and the chips carry no count, so nothing about this
+    // The vocabulary is a fixed market list and the chips carry no count, so nothing about this
     // panel waits on /companies/facets — which is also why it survives that read being refused.
     vi.mocked(companiesApi.getFacets).mockRejectedValue(new Error("Forbidden"));
     renderPage();
 
     const filters = await screen.findByRole("region", { name: "Filters" });
-    for (const country of ["United Arab Emirates", "Saudi Arabia", "Qatar", "Kuwait", "Oman", "Bahrain"]) {
+    const countries = [
+      "United Arab Emirates",
+      "Saudi Arabia",
+      "Qatar",
+      "Kuwait",
+      "Oman",
+      "Bahrain",
+      "Türkiye",
+      "Egypt",
+    ];
+    for (const country of countries) {
       expect(within(filters).getByRole("button", { name: country })).toBeInTheDocument();
     }
   });
@@ -481,8 +527,8 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     renderPage();
     const filters = await screen.findByRole("region", { name: "Filters" });
 
-    // Location is six countries and reads as pills, named and nothing else — an axis that shallow
-    // has nothing a count would decide.
+    // Location is a short country list and reads as pills, named and nothing else — an axis that
+    // shallow has nothing a count would decide.
     expect(within(filters).getByRole("button", { name: "Qatar" })).toBeInTheDocument();
     expect(within(filters).queryByRole("checkbox", { name: /Qatar/ })).not.toBeInTheDocument();
 
@@ -922,6 +968,25 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     // non-empty result.
     await waitFor(() => expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![1]).toBe(0));
   });
+
+  it("asks the server for the chosen page size, keeping the row at the top of the page", async () => {
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf({ totalCount: 4000 }));
+    renderPage();
+
+    await waitFor(() => expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![2]).toBe(50));
+
+    await userEvent.click(await screen.findByRole("button", { name: "Next page" }));
+    await waitFor(() => expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![1]).toBe(1));
+
+    await userEvent.selectOptions(screen.getByLabelText("Rows per page"), "25");
+
+    // Row 50 was at the top of page 2 of 50, and stays at the top of page 3 of 25. Resetting to page
+    // 1 instead would throw away the reader's place for changing how much of it they can see.
+    await waitFor(() => {
+      const [, page, size] = vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)!;
+      expect({ page, size }).toEqual({ page: 2, size: 25 });
+    });
+  });
   it("sorts on the server rather than reordering the page it happens to hold", async () => {
     vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf({ totalCount: 4000 }));
     renderPage();
@@ -931,7 +996,7 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     const table = await screen.findByRole("table", { name: "Companies" });
     await userEvent.click(within(table).getByRole("button", { name: /Revenue/ }));
 
-    // The table holds 25 of tens of thousands. Sorting those 25 client-side would reorder the page
+    // The table holds one page of tens of thousands. Sorting that page client-side would reorder it
     // while claiming to have ordered the result, so a header click has to become a new query.
     await waitFor(() =>
       expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![4]).toEqual({
@@ -1007,5 +1072,413 @@ describe("StrategyPage — the filter sidebar and its results", () => {
 
     expect(within(screen.getByRole("table", { name: "Companies" })).getByText("Riyadh"))
       .toBeInTheDocument();
+  });
+});
+
+describe("StrategyPage — picking companies out of the market in bulk", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(strategyOf());
+    vi.mocked(companiesApi.getFacets).mockResolvedValue(FACETS);
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(twoCompanies());
+    vi.mocked(triageApi.addSelectedCompanies).mockResolvedValue({ added: 2, skipped: 0 });
+  });
+
+  it("raises the action bar only once something is ticked", async () => {
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    // No selection, no bar: it costs no chrome on the screen a consultant spends the day filtering on.
+    expect(screen.queryByRole("region", { name: /selected/ })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select ACWA Power" }));
+
+    expect(await screen.findByRole("region", { name: "1 company selected" })).toBeInTheDocument();
+  });
+
+  it("moves every ticked company to the stage the bar's button names, in one request", async () => {
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select all companies on this page" }));
+    expect(await screen.findByRole("region", { name: "2 companies selected" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Shortlisted" }));
+
+    await waitFor(() =>
+      expect(triageApi.addSelectedCompanies).toHaveBeenCalledWith("p1", ["a1", "a2"], "shortlisted"),
+    );
+    // The action consumed the selection, so the bar goes with it rather than inviting a second press.
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: /selected/ })).not.toBeInTheDocument(),
+    );
+    expect(await screen.findByText("2 companies moved to Shortlisted")).toBeInTheDocument();
+  });
+
+  it("declines a selection without first taking it into the universe", async () => {
+    // The whole point of the bar: ruling forty companies out is one gesture, not forty adds and
+    // forty moves.
+    vi.mocked(triageApi.addSelectedCompanies).mockResolvedValue({ added: 1, skipped: 1 });
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select Masdar" }));
+    await userEvent.click(screen.getByRole("button", { name: "Declined" }));
+
+    await waitFor(() =>
+      expect(triageApi.addSelectedCompanies).toHaveBeenCalledWith("p1", ["a2"], "declined"),
+    );
+    // A company the mandate already holds keeps its stage, and saying so is the difference between
+    // "nothing happened" and "it was already there".
+    expect(await screen.findByText("1 company moved to Declined, 1 already in this mandate"))
+      .toBeInTheDocument();
+  });
+
+  it("drops the selection on Escape", async () => {
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select ACWA Power" }));
+    await screen.findByRole("region", { name: "1 company selected" });
+
+    await userEvent.keyboard("{Escape}");
+
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: /selected/ })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("drops the selection when the filter moves under it", async () => {
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select ACWA Power" }));
+    await screen.findByRole("region", { name: "1 company selected" });
+
+    // A tick left over from a scope the user has abandoned would act on a company they can no longer
+    // see — and the bar would still offer to decline it.
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: /^Industry/ }));
+    await userEvent.click(within(filters).getByLabelText("Search industries"));
+    await userEvent.click(within(filters).getByRole("option", { name: /oil & energy/ }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: /selected/ })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("fills in the range on a shift-click, from the last box touched", async () => {
+    // The gesture every data grid has taught. It is the table's rowSelectionFeature that owns the
+    // anchor and the interval, but only because this screen tells it that shift is what asks for one
+    // — without `isRowRangeSelectionEvent` a shift-click is an ordinary click and this reads 2.
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(threeCompanies());
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    // One session for the whole gesture: a bare `userEvent.click` sets up its own, which drops the
+    // held Shift and makes this an ordinary click that selects 2 rather than filling in 3.
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox", { name: "Select ACWA Power" }));
+    await user.keyboard("{Shift>}");
+    await user.click(screen.getByRole("checkbox", { name: "Select Yellow Door" }));
+    await user.keyboard("{/Shift}");
+
+    expect(await screen.findByRole("region", { name: "3 companies selected" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Select Masdar" })).toBeChecked();
+  });
+
+  it("keeps ticks made on the page before — the case the bar exists for", async () => {
+    // A total past one page of DEFAULT_PAGE_SIZE, or Next is disabled and there is no page turn to
+    // survive.
+    vi.mocked(strategyApi.getCompanies).mockImplementation(async (_id, page) =>
+      page === 0
+        ? pageOf({ companies: [pageOf().companies[0], secondCompany()], totalCount: 120 })
+        : { ...pageOf({ companies: [thirdCompany()], totalCount: 120 }), page: 1 },
+    );
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select ACWA Power" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next page" }));
+    await screen.findByText("Yellow Door");
+
+    // The selection is keyed by company id, not by row index, so the page turn that replaced every
+    // row object leaves it alone.
+    expect(screen.getByRole("region", { name: "1 company selected" })).toBeInTheDocument();
+    // And nothing on this page is ticked, so the select-all reads unchecked rather than mixed.
+    expect(screen.getByRole("checkbox", { name: "Select all companies on this page" })).not.toBeChecked();
+  });
+
+  it("select-all over a part-ticked page fills it in rather than emptying it", async () => {
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select Masdar" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select all companies on this page" }));
+
+    expect(await screen.findByRole("region", { name: "2 companies selected" })).toBeInTheDocument();
+  });
+
+  it("leaves the per-row Add button alone", async () => {
+    // One company is still one click. The bar is for the case the row action is bad at.
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    expect(screen.getByRole("button", { name: "Add ACWA Power to universe" })).toBeInTheDocument();
+  });
+});
+
+describe("StrategyPage — the market company panel", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(strategyOf());
+    vi.mocked(companiesApi.getFacets).mockResolvedValue(FACETS);
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf());
+    vi.mocked(triageApi.addMarketCompany).mockResolvedValue(triagedAs("shortlisted"));
+    vi.mocked(strategyApi.putOffLimits).mockResolvedValue(strategyOf());
+  });
+
+  const openPanel = async () => {
+    const row = await screen.findByText("ACWA Power");
+    await userEvent.click(row);
+    return screen.findByRole("dialog", { name: "ACWA Power" });
+  };
+
+  it("opens on the row, showing the market's own figures", async () => {
+    renderPage();
+    const panel = await openPanel();
+
+    expect(within(panel).getByText("IPP leader")).toBeInTheDocument();
+    expect(within(panel).getByText("$6B")).toBeInTheDocument();
+    expect(within(panel).getByText("3,000")).toBeInTheDocument();
+  });
+
+  it("leaves the row's own controls to themselves", async () => {
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add ACWA Power to universe" }));
+
+    // The button is inside the row, and a click that added a company must not also open a panel
+    // asking whether to add it.
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("files the company at the stage the button names", async () => {
+    renderPage();
+    const panel = await openPanel();
+
+    await userEvent.click(within(panel).getByRole("button", { name: "Shortlisted" }));
+
+    expect(triageApi.addMarketCompany).toHaveBeenCalledWith("p1", "a1", { status: "shortlisted" });
+    // Reading is done once a decision is made; leaving it open invites a second one on the same row.
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(await screen.findByText(/added to Shortlisted/i)).toBeInTheDocument();
+  });
+
+  it("says a company was left where it is rather than claiming the move", async () => {
+    // The market list carries companies the mandate already holds, and POST /triage returns such a
+    // row untouched. Reporting the stage that was asked for would have a mandate believing in a
+    // shortlist entry that does not exist.
+    vi.mocked(triageApi.addMarketCompany).mockResolvedValue(triagedAs("declined"));
+    renderPage();
+    const panel = await openPanel();
+
+    await userEvent.click(within(panel).getByRole("button", { name: "Shortlisted" }));
+
+    expect(await screen.findByText(/already in this mandate, at Declined/i)).toBeInTheDocument();
+    expect(screen.queryByText(/added to Shortlisted/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps one company's add from re-enabling another's button", async () => {
+    // The "+" and the panel both fire the same mutation. A single pending id could only remember the
+    // latest, so a second add re-enabled the first row's button while its POST was still out and let
+    // the user file the same company twice.
+    const release: ((row: unknown) => void)[] = [];
+    vi.mocked(triageApi.addMarketCompany).mockImplementation(
+      () => new Promise((resolve) => release.push(resolve)) as never,
+    );
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(twoCompanies());
+    renderPage();
+
+    const addAcwa = await screen.findByRole("button", { name: "Add ACWA Power to universe" });
+    await userEvent.click(addAcwa);
+    await waitFor(() => expect(addAcwa).toBeDisabled());
+
+    await userEvent.click(screen.getByRole("button", { name: "Add Masdar to universe" }));
+    await waitFor(() => expect(release).toHaveLength(2));
+
+    // Both POSTs are still out, so neither button may come back.
+    expect(addAcwa).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add Masdar to universe" })).toBeDisabled();
+
+    release.forEach((resolve) => resolve(triagedAs("inUniverse")));
+    await waitFor(() => expect(addAcwa).toBeEnabled());
+  });
+
+  it("shows each tag once, however the market spells it into both lists", async () => {
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(
+      pageOf({
+        companies: [
+          { ...pageOf().companies[0], keywords: ["solar", "saas"], technologies: ["saas", "wordpress"] },
+        ],
+      }),
+    );
+    renderPage();
+    const panel = await openPanel();
+
+    // "saas" is a keyword AND a technology on most Apollo rows; two pills would be a duplicate key.
+    expect(within(panel).getAllByText("saas")).toHaveLength(1);
+    expect(within(panel).getByText("solar")).toBeInTheDocument();
+    expect(within(panel).getByText("wordpress")).toBeInTheDocument();
+  });
+
+  it("bars a company by adding it to the list already stored, not by replacing it", async () => {
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue({
+      ...strategyOf(),
+      offLimits: [
+        {
+          apolloAccountId: "a9",
+          companyName: "Barred Co",
+          industry: null,
+          companyCity: null,
+          companyCountry: null,
+          logoUrl: null,
+        },
+      ],
+    });
+    renderPage();
+    const panel = await openPanel();
+
+    await userEvent.click(within(panel).getByRole("button", { name: "Off limits" }));
+
+    // The endpoint takes the whole list, so sending only the new id would unbar everything else.
+    await waitFor(() => expect(strategyApi.putOffLimits).toHaveBeenCalledWith("p1", ["a9", "a1"]));
+    expect(await screen.findByText(/Barred Co|off-limits for this mandate/i)).toBeInTheDocument();
+  });
+});
+
+describe("StrategyPage — full screen", () => {
+  let fullscreenApi: ReturnType<typeof stubFullscreenApi>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    fullscreenApi = stubFullscreenApi();
+    vi.mocked(strategyApi.getStrategy).mockResolvedValue(strategyOf());
+    vi.mocked(companiesApi.getFacets).mockResolvedValue(FACETS);
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf());
+  });
+
+  afterEach(() => fullscreenApi.restore());
+
+  const enterFullscreen = async () => {
+    const button = await screen.findByRole("button", { name: "Full screen" });
+    await userEvent.click(button);
+    return button;
+  };
+
+  it("is a switch, not a disclosure", async () => {
+    renderPage();
+
+    // Nothing is revealed beside it — the same screen is redrawn at a different size.
+    expect(await screen.findByRole("button", { name: "Full screen", pressed: false }))
+      .toBeInTheDocument();
+  });
+
+  it("keeps the toolbar, the filter rail and the pager — the screen expands, not the grid", async () => {
+    renderPage();
+    await enterFullscreen();
+
+    for (const control of ["Save Search", "Hide Filters", "AI Research", "Columns", "Add all to Universe →"]) {
+      expect(screen.getByRole("button", { name: new RegExp(control) })).toBeInTheDocument();
+    }
+    expect(screen.getByRole("textbox", { name: "Search companies" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Filters" })).toBeInTheDocument();
+    expect(within(screen.getByRole("table", { name: "Companies" })).getByText("ACWA Power"))
+      .toBeInTheDocument();
+    expect(screen.getByText("1 - 1 of 1")).toBeInTheDocument();
+  });
+
+  it("asks the browser for the whole document, so the toast and the cell tooltips stay inside it", async () => {
+    renderPage();
+    await enterFullscreen();
+
+    // Both portal to document.body. A request scoped to the results column would black them out.
+    expect(document.fullscreenElement).toBe(document.documentElement);
+  });
+
+  it("collapses when the browser leaves full screen on its own", async () => {
+    renderPage();
+    const button = await enterFullscreen();
+    expect(button).toHaveAttribute("aria-pressed", "true");
+
+    act(() => fullscreenApi.setElement(null));
+
+    // Escape, F11 and the browser's own control announce themselves only through fullscreenchange.
+    expect(button).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("still expands when the browser refuses the request", async () => {
+    fullscreenApi.requestFullscreen.mockRejectedValue(new Error("denied"));
+    renderPage();
+
+    const button = await enterFullscreen();
+
+    // iOS Safari has no element fullscreen at all. The overlay is the half that always works.
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    expect(within(screen.getByRole("table", { name: "Companies" })).getByText("ACWA Power"))
+      .toBeInTheDocument();
+  });
+
+  it("leaves through the same button it entered by", async () => {
+    renderPage();
+    const button = await enterFullscreen();
+
+    await userEvent.click(button);
+
+    // Our own exit fires fullscreenchange too; the listener must not re-enter on it.
+    expect(fullscreenApi.requestFullscreen).toHaveBeenCalledTimes(1);
+    expect(fullscreenApi.exitFullscreen).toHaveBeenCalledTimes(1);
+    expect(button).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("hands the window back even when the mandate closes before the request settles", async () => {
+    // The flag saying we asked used to be set in the request's `then`, so a mandate switched in the
+    // moment before it resolved skipped the exit and stranded the browser in fullscreen.
+    fullscreenApi.requestFullscreen.mockImplementation(function (this: Element) {
+      fullscreenApi.setElement(this);
+      return new Promise<void>(() => {});
+    });
+    const { unmount } = renderPage();
+    await enterFullscreen();
+
+    unmount();
+
+    expect(fullscreenApi.exitFullscreen).toHaveBeenCalled();
+  });
+
+  it("leaves a full screen it did not ask for alone", async () => {
+    // F11 is the user talking to the browser, not to this screen. Exiting on unmount because the
+    // document happens to be full would take away something this button never granted.
+    const { unmount } = renderPage();
+    await screen.findByRole("button", { name: "Full screen" });
+    act(() => fullscreenApi.setElement(document.documentElement));
+
+    unmount();
+
+    expect(fullscreenApi.exitFullscreen).not.toHaveBeenCalled();
+  });
+
+  it("hands the window back when the mandate is closed", async () => {
+    const { unmount } = renderPage();
+    await enterFullscreen();
+
+    unmount();
+
+    // StrategyEditor is keyed on the project, so switching mandates is an unmount — and would
+    // otherwise strand the browser in fullscreen with no way back but Escape.
+    expect(fullscreenApi.exitFullscreen).toHaveBeenCalled();
   });
 });

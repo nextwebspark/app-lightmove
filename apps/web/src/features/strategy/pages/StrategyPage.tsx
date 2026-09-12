@@ -1,20 +1,31 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import type { RowSelectionState } from "@tanstack/react-table";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
-import { Spinner } from "../../../components/ui";
+import { FullscreenButton, Spinner } from "../../../components/ui";
 import { useToast } from "../../../components/ui/Toast";
 import { useAuth } from "../../auth/AuthProvider";
+import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { hasRoomForRails } from "../../../lib/viewport";
-import { PAGE_SIZE } from "../../../lib/paging";
+import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
 import { useAutosave } from "../../../lib/useAutosave";
-import * as reportApi from "../../reports/api/reportApi";
+import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import * as triageApi from "../../triage/api/triageApi";
+import type { TriageCompanyStatus } from "../../triage/api/types";
+import { TRIAGE_STAGES, stageByStatus } from "../../triage/lib/triageStages";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
-import type { CompanyResult, CompanySort, SearchVisibility, StrategyFilter } from "../api/types";
+import type {
+  CompanyResult,
+  CompanySort,
+  SearchVisibility,
+  Strategy,
+  StrategyFilter,
+} from "../api/types";
 import { CompanyResultsTable } from "../components/CompanyResultsTable";
+import { MarketCompanyDrawer } from "../components/MarketCompanyDrawer";
 import { DEFAULT_COLUMN_VISIBILITY, companyColumns } from "../lib/companyColumns";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
@@ -22,11 +33,18 @@ import { useGridSort } from "../../../lib/useGridSort";
 import { COMPANY_SORT_FIELDS } from "../lib/companyColumns";
 import { FilterSidebar } from "../components/FilterSidebar";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
+import { SelectionAction, SelectionActionBar } from "../../../components/ui/SelectionActionBar";
 import { StrategyToolbar } from "../components/StrategyToolbar";
 
 const COMPANY_LAYOUT_COLUMNS = layoutColumnsOf(companyColumns);
 
 const DEFAULT_SORT: CompanySort = { field: "employees", direction: "desc" };
+
+/** A stable empty selection, so "nothing ticked" is one identity rather than a new object per render. */
+const NOTHING_SELECTED: RowSelectionState = {};
+
+/** The same, for "no add in flight". */
+const NOTHING_ADDING: ReadonlySet<string> = new Set();
 
 export function StrategyPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
@@ -87,14 +105,17 @@ function StrategyEditor() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [sort, setSort] = useGridSort("strategy", project.id, COMPANY_SORT_FIELDS, DEFAULT_SORT);
-  const [addingId, setAddingId] = useState<string | null>(null);
+  const [addingIds, setAddingIds] = useState<ReadonlySet<string>>(NOTHING_ADDING);
+  const [openCompany, setOpenCompany] = useState<CompanyResult | null>(null);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility(
     "strategy",
     project.id,
     DEFAULT_COLUMN_VISIBILITY,
   );
   const [layout, setLayout] = useGridLayout("strategy", COMPANY_LAYOUT_COLUMNS);
+  const [isFullscreen, toggleFullscreen] = useFullscreen();
 
   // A keystroke should narrow the list, not fire a request per character.
   useEffect(() => {
@@ -110,7 +131,6 @@ function StrategyEditor() {
     const scopedKeys = [
       strategyApi.STRATEGY_COMPANIES_KEY_PREFIX(project.id),
       triageApi.TRIAGE_KEY_PREFIX(project.id),
-      reportApi.REPORT_KEY(project.id),
     ];
     await Promise.all(scopedKeys.map((queryKey) => queryClient.cancelQueries({ queryKey })));
     scopedKeys.forEach((queryKey) => void queryClient.invalidateQueries({ queryKey }));
@@ -137,12 +157,27 @@ function StrategyEditor() {
   };
 
   const companies = useQuery({
-    queryKey: strategyApi.STRATEGY_COMPANIES_KEY(project.id, page, PAGE_SIZE, debouncedQuery, sort),
+    queryKey: strategyApi.STRATEGY_COMPANIES_KEY(project.id, page, pageSize, debouncedQuery, sort),
     queryFn: ({ signal }) =>
-      strategyApi.getCompanies(project.id, page, PAGE_SIZE, debouncedQuery, sort, signal),
+      strategyApi.getCompanies(project.id, page, pageSize, debouncedQuery, sort, signal),
     // Paging without blanking the table, which would make every page turn look like a reload.
     placeholderData: keepPreviousData,
   });
+
+  /*
+   * The grid's own `rowSelectionFeature` state, held here rather than inside the table because the
+   * bulk bar acts on it and outlives any one page of results. Keyed by `apolloAccountId` — the
+   * table's `getRowId` — and the feature deletes a key rather than storing `false`, so the keys are
+   * exactly what is ticked.
+   */
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>(NOTHING_SELECTED);
+  const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection]);
+  const clearSelection = useCallback(() => setRowSelection(NOTHING_SELECTED), []);
+
+  // A tick survives a page turn — picking twelve companies across three pages is the case the bulk
+  // bar exists for — but not a change to what is being asked. A selection made under the last filter
+  // would act on companies this scope no longer contains and the user can no longer see.
+  useEffect(() => clearSelection(), [filter, debouncedQuery, sort, clearSelection]);
 
   const saveSearch = useMutation({
     // Flush first, for the same reason "Add all" does: the request carries only a name and the server
@@ -197,34 +232,81 @@ function StrategyEditor() {
   });
 
   /**
-   * Off-limits is a separate endpoint and writes immediately rather than through the autosave timer:
-   * barring a company is a decision, not a draft, and the list is short enough that every change is
-   * deliberate. It invalidates the same scoped reads, since an exclusion changes what the table
-   * matches.
+   * The one way the off-limits list is written, whoever asked. It takes what the list should become
+   * from what it currently *is* — read from the cache here rather than trusted from a caller's render
+   * — because the endpoint replaces the list wholesale, so an edit built on a stale copy silently
+   * unbars everything that arrived after it.
+   *
+   * <p>It writes immediately rather than through the autosave timer: barring a company is a decision,
+   * not a draft. The flush is still needed because the response is the whole Strategy and goes
+   * straight into the cache, so a filter edit still sitting in the timer would be overwritten by the
+   * copy the server had before it.
    */
+  const writeOffLimits = async (next: (barred: string[]) => string[]) => {
+    await autosave.flush();
+    const stored = queryClient.getQueryData<Strategy>(strategyApi.STRATEGY_KEY(project.id));
+    const barred = (stored?.offLimits ?? []).map((entry) => entry.apolloAccountId);
+    const wanted = next(barred);
+    if (wanted.length === barred.length && wanted.every((id) => barred.includes(id))) return;
+    queryClient.setQueryData(
+      strategyApi.STRATEGY_KEY(project.id),
+      await strategyApi.putOffLimits(project.id, wanted),
+    );
+    await refreshScopedReads();
+  };
+
+  /*
+   * Both writers share one `scope`, so the rail and the panel queue behind each other instead of
+   * racing to replace the same list.
+   */
+  const OFF_LIMITS_SCOPE = { id: `off-limits-${project.id}` };
+
+  /** The rail, which renders the whole list and hands back the whole list it wants. */
   const offLimitsWrite = useMutation({
-    mutationFn: async (apolloAccountIds: string[]) => {
-      // The response is the whole Strategy and it goes straight into the cache, so a filter edit still
-      // sitting in the timer would be overwritten by the copy the server had before it.
-      await autosave.flush();
-      queryClient.setQueryData(
-        strategyApi.STRATEGY_KEY(project.id),
-        await strategyApi.putOffLimits(project.id, apolloAccountIds),
+    scope: OFF_LIMITS_SCOPE,
+    mutationFn: (apolloAccountIds: string[]) => writeOffLimits(() => apolloAccountIds),
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  /** The panel, which knows only the one company it is barring. */
+  const barCompany = useMutation({
+    scope: OFF_LIMITS_SCOPE,
+    mutationFn: async (company: CompanyResult) => {
+      await writeOffLimits((barred) =>
+        barred.includes(company.apolloAccountId) ? barred : [...barred, company.apolloAccountId],
       );
-      await refreshScopedReads();
+      return company;
     },
+    onSuccess: (company) => toast(`${company.companyName} is off-limits for this mandate`),
     onError: (error) => toast(messageFor(error)),
   });
 
   const addOne = useMutation({
-    mutationFn: (company: CompanyResult) =>
-      triageApi.addMarketCompany(project.id, company.apolloAccountId),
-    onSuccess: (_result, company) => {
+    mutationFn: ({ company, status }: { company: CompanyResult; status: TriageCompanyStatus }) =>
+      triageApi.addMarketCompany(project.id, company.apolloAccountId, { status }),
+    onSuccess: (added, { company, status }) => {
       void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
-      toast(`${company.companyName} added to universe`);
+      // The stage that comes back, never the one asked for: a company the mandate already holds is
+      // returned untouched, so "Shortlisted" on a declined row files nothing. Saying it did would
+      // leave a mandate believing in a shortlist entry that is not there.
+      toast(
+        added.status === status
+          ? `${company.companyName} added to ${stageByStatus(status).label}`
+          : `${company.companyName} is already in this mandate, at ${stageByStatus(added.status).label}`,
+      );
     },
     onError: (error) => toast(messageFor(error)),
-    onSettled: () => setAddingId(null),
+    // Tracked per company rather than as one id: the row's "+" and the panel both fire this, so a
+    // second add starting would otherwise re-enable the first row's button while its POST was still
+    // out, and whichever settled first would clear the other's spinner too.
+    onMutate: ({ company }) =>
+      setAddingIds((busy) => new Set(busy).add(company.apolloAccountId)),
+    onSettled: (_added, _error, { company }) =>
+      setAddingIds((busy) => {
+        const next = new Set(busy);
+        next.delete(company.apolloAccountId);
+        return next;
+      }),
   });
 
   const addAll = useMutation({
@@ -243,13 +325,36 @@ function StrategyEditor() {
     onError: (error) => toast(messageFor(error)),
   });
 
+  /**
+   * The selection bar's three buttons. One request rather than a POST per company: the toast states a
+   * number, and a loop would leave it guessing after the fourth of forty failed.
+   *
+   * <p>No autosave flush, unlike "Add all": this carries the ids it is adding, so a filter edit still
+   * sitting in the timer cannot change what it means.
+   */
+  const addSelected = useMutation({
+    mutationFn: (status: TriageCompanyStatus) =>
+      triageApi.addSelectedCompanies(project.id, selectedIds, status),
+    onSuccess: (result, status) => {
+      void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
+      clearSelection();
+      // Every one skipped is a company the mandate already holds, and it keeps the stage it is at —
+      // so saying so is the difference between "nothing happened" and "they were already there".
+      toast(
+        `${result.added} ${result.added === 1 ? "company" : "companies"} moved to ${stageByStatus(status).label}` +
+          (result.skipped > 0 ? `, ${result.skipped} already in this mandate` : ""),
+      );
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
   const data = strategy.data;
 
   return (
     /* No negative margins and no viewport arithmetic: the shell gives this tab the whole main area
        and a definite height (FULL_BLEED_TABS in ProjectLayout), so the height is inherited rather
        than guessed from a hard-coded 98px of chrome that any topbar change would falsify. */
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
       <StrategyToolbar
         filter={filter}
         searches={data?.searches ?? []}
@@ -292,31 +397,71 @@ function StrategyEditor() {
           </>
         )}
 
-        <div className="flex min-w-0 flex-1 flex-col gap-3 p-3 sm:p-5">
-          <CompanyResultsTable
-            companies={companies.data?.companies ?? []}
-            sort={sort}
-            onSortChange={setSort}
-            columnVisibility={columnVisibility}
-            onColumnVisibilityChange={setColumnVisibility}
-            layout={layout}
-            onLayoutChange={setLayout}
-            loading={companies.isFetching}
-            error={companies.isError}
-            onAddToUniverse={(company) => {
-              setAddingId(company.apolloAccountId);
-              addOne.mutate(company);
-            }}
-            addingId={addingId}
-          />
+        <div className="flex min-w-0 flex-1 flex-col gap-3 p-2">
+          {/* The bar floats over the grid rather than over the viewport, so it centres on the table
+              instead of drifting by half the width of the nav rail, and it never covers the paging
+              row underneath. */}
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            <CompanyResultsTable
+              companies={companies.data?.companies ?? []}
+              sort={sort}
+              onSortChange={setSort}
+              columnVisibility={columnVisibility}
+              onColumnVisibilityChange={setColumnVisibility}
+              layout={layout}
+              onLayoutChange={setLayout}
+              loading={companies.isFetching}
+              error={companies.isError}
+              onAddToUniverse={(company) => addOne.mutate({ company, status: "inUniverse" })}
+              addingIds={addingIds}
+              rowSelection={rowSelection}
+              onRowSelectionChange={setRowSelection}
+              onOpenCompany={setOpenCompany}
+            />
+            {selectedIds.length > 0 && (
+              <SelectionActionBar
+                count={selectedIds.length}
+                noun="company"
+                plural="companies"
+                onClear={clearSelection}
+              >
+                {TRIAGE_STAGES.map((stage) => (
+                  <SelectionAction
+                    key={stage.status}
+                    icon={stage.icon}
+                    label={stage.label}
+                    tone={stage.status === "declined" ? "danger" : "neutral"}
+                    disabled={addSelected.isPending}
+                    onClick={() => addSelected.mutate(stage.status)}
+                  />
+                ))}
+              </SelectionActionBar>
+            )}
+          </div>
           <PaginationBar
             page={page}
-            size={PAGE_SIZE}
+            size={pageSize}
             totalCount={companies.data?.totalCount}
             onPage={setPage}
+            onSize={setPageSize}
+            trailing={<FullscreenButton active={isFullscreen} onToggle={toggleFullscreen} />}
           />
         </div>
       </div>
+
+      <MarketCompanyDrawer
+        company={openCompany}
+        onClose={() => setOpenCompany(null)}
+        onTriage={(company, status) => {
+          setOpenCompany(null);
+          addOne.mutate({ company, status });
+        }}
+        onOffLimits={(company) => {
+          setOpenCompany(null);
+          barCompany.mutate(company);
+        }}
+        barring={barCompany.isPending}
+      />
     </div>
   );
 }

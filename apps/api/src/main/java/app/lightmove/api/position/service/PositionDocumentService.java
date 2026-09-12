@@ -25,9 +25,8 @@ import org.springframework.web.multipart.MultipartFile;
  * bytes is all it does. {@link PositionExtractionService} is what reads one, on its own explicit
  * call — attaching, replacing or downloading a document does not trigger it, and never should.
  *
- * <p>Its own class rather than more methods on {@link PositionService}: bytes, size ceilings and
- * content-type policy change for different reasons than the brief's fields do, and this is the one
- * class a move to object storage would touch.
+ * <p>Its own class rather than more methods on {@link PositionService}: this is the one class a move
+ * to object storage would touch.
  */
 @Service
 public class PositionDocumentService {
@@ -38,8 +37,6 @@ public class PositionDocumentService {
     private final AuditService audit;
     private final PositionDocumentSettings settings;
 
-    // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
-    // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public PositionDocumentService(PositionBriefLoader briefs,
                                    PositionResponseAssembler assembler,
                                    PositionDocumentRepository documents,

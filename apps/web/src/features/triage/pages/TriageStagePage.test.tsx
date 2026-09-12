@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
 import { AuthProvider } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
@@ -11,10 +11,15 @@ import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import type { Project } from "../../projects/api/types";
 import * as companiesApi from "../../strategy/api/companiesApi";
+import * as talentMapApi from "../../talentmap/api/talentMapApi";
+import type { TalentMapPage } from "../../talentmap/api/types";
 import type { CompanyResult, Facets } from "../../strategy/api/types";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompaniesPage, TriageCompany } from "../api/types";
+import { stubFullscreenApi } from "../../../test/fullscreen";
 import { TriageStagePage } from "./TriageStagePage";
+
+vi.mock("../../../lib/countries", () => import("../../../test/countries"));
 
 vi.mock("../../auth/api/authApi");
 vi.mock("../../candidates/api/candidatesApi", async (importOriginal) => ({
@@ -45,6 +50,31 @@ vi.mock("../api/triageApi", async (importOriginal) => ({
   addMarketCompany: vi.fn(),
   editTriageCompany: vi.fn(),
 }));
+vi.mock("../../talentmap/api/talentMapApi", async (importOriginal) => ({
+  // Keys are real; only the calls are mocked.
+  ...(await importOriginal<typeof talentMapApi>()),
+  getTalentMapConfig: vi.fn(),
+  getTalentMap: vi.fn(),
+  getTalentMapLocations: vi.fn(),
+}));
+// jsdom has no WebGL and mapbox-gl breaks at import; the globe is a stub drawing each pin as a button.
+vi.mock("../../talentmap/components/TalentMapGlobe", () => ({
+  default: ({
+    features,
+    onSelect,
+  }: {
+    features: { features: { id: string; properties: { label: string } }[] };
+    onSelect: (id: string | null) => void;
+  }) => (
+    <div data-testid="globe-stub">
+      {features.features.map((feature) => (
+        <button key={feature.id} type="button" onClick={() => onSelect(feature.id)}>
+          pin: {feature.properties.label}
+        </button>
+      ))}
+    </div>
+  ),
+}));
 vi.mock("../../strategy/api/companiesApi", async (importOriginal) => ({
   // The Add form reads the market: its picker searches the universe and its Sector and Country
   // fields offer the same vocabulary the Strategy filter is expressed in.
@@ -57,10 +87,15 @@ vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
   restoreSession: vi.fn(),
   setAccessToken: vi.fn(),
-  // The page holds a live stream open; here it simply never speaks, so the grid behaves exactly as
-  // it does between events and the fetch-mocked queries stay the only data source.
-  streamEvents: vi.fn(() => new Promise<void>(() => {})),
+  // The page holds a live stream open. It stays silent unless a test speaks for it, so the grid
+  // behaves exactly as it does between events and the fetch-mocked queries stay the only data source.
+  streamEvents: vi.fn((_path: string, onEvent: (event: { name: string; data: string }) => void) => {
+    streamListeners.push(onEvent);
+    return new Promise<void>(() => {});
+  }),
 }));
+
+const streamListeners: ((event: { name: string; data: string }) => void)[] = [];
 
 const { restoreSession } = await import("../../../lib/apiClient");
 
@@ -149,12 +184,23 @@ const yasmin: Candidate = {
     longTermIncentive: null, noticePeriod: null,
   },
   career: [],
+  education: [],
+  skills: [],
   languages: [],
   source: "manual",
   sourceUrl: null,
   customFields: {},
   addedAt: "2026-08-02T09:00:00Z",
   enrichedAt: null,
+};
+
+/** An executive whose employer is not in the mandate's universe. */
+const unlistedExec: Candidate = {
+  ...yasmin,
+  id: "c9",
+  triageCompanyId: null,
+  companyName: "An Unlisted Holding",
+  fullName: "Wei Ling Tan",
 };
 
 /** Two of each, so a filtered list can be shown to have left something out. */
@@ -222,6 +268,15 @@ const pageOf = (overrides: Partial<TriageCompaniesPage> = {}): TriageCompaniesPa
   ...overrides,
 });
 
+const mapPageOf = (): TalentMapPage => ({
+  companies: [acwa],
+  totalCompanies: 1,
+  candidates: [yasmin],
+  totalCandidates: 1,
+  locations: { u1: { latitude: 24.7, longitude: 46.7, precision: "CITY", placeLabel: "Riyadh, Saudi Arabia", country: "Saudi Arabia", countryCode: "SA" } },
+  geocodingPending: 0,
+});
+
 /** The page reads the project from ProjectLayout's outlet — a bare shell stands in for the layout. */
 const renderStage = (slug = "universe") =>
   render(
@@ -257,6 +312,10 @@ describe("TriageStagePage", () => {
     vi.mocked(companiesApi.searchCompanies).mockResolvedValue({ companies: [] });
     vi.mocked(companiesApi.getCompany).mockResolvedValue(marketAcwa);
     vi.mocked(customColumnsApi.getCustomColumns).mockResolvedValue({ columns: [] });
+    vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue({ enabled: false, publicToken: null });
+    vi.mocked(talentMapApi.getTalentMap).mockResolvedValue(mapPageOf());
+    streamListeners.length = 0;
+    localStorage.clear();
   });
 
   it("reads the stage from the URL and asks the API for that status", async () => {
@@ -538,6 +597,79 @@ describe("TriageStagePage", () => {
     expect(screen.queryByRole("button", { name: /\+ Add executive/i })).not.toBeInTheDocument();
   });
 
+  it("locates a line by its executive, not by their employer's head office", async () => {
+    // A line is a person at a company: a Dubai-based executive of a Riyadh company is in Dubai, and
+    // the plugin captures exactly that pairing.
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(
+        scope.unmapped
+          ? []
+          : [{ ...yasmin, locationCountry: "United Arab Emirates", locationCity: "Dubai" }],
+      ),
+    );
+    renderStage();
+
+    // The people are a second read: wait for the executive on the line before reading its location,
+    // or the assertion lands on the company-only render that precedes it.
+    await screen.findByText("Yasmin El-Sayed");
+    const grid = screen.getByRole("table", { name: /In universe companies/i });
+    expect(within(grid).getByText("United Arab Emirates")).toBeInTheDocument();
+    expect(within(grid).getByText("Dubai")).toBeInTheDocument();
+    expect(within(grid).queryByText("Saudi Arabia")).not.toBeInTheDocument();
+    expect(within(grid).queryByText("Riyadh")).not.toBeInTheDocument();
+  });
+
+  it("takes the executive's location as a unit rather than field by field", async () => {
+    // Half of one location and half of the other would read as a place neither of them is.
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [{ ...yasmin, locationCity: "Dubai" }]),
+    );
+    renderStage();
+
+    await screen.findByText("Yasmin El-Sayed");
+    const grid = screen.getByRole("table", { name: /In universe companies/i });
+    expect(within(grid).getByText("Dubai")).toBeInTheDocument();
+    expect(within(grid).queryByText("Saudi Arabia")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the company's head office where no executive says otherwise", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin]),
+    );
+    renderStage();
+
+    await screen.findByText("Yasmin El-Sayed");
+    const grid = screen.getByRole("table", { name: /In universe companies/i });
+    expect(within(grid).getByText("Saudi Arabia")).toBeInTheDocument();
+    expect(within(grid).getByText("Riyadh")).toBeInTheDocument();
+  });
+
+  it("draws a repeated company the same on every line — logo, name and actions alike", async () => {
+    vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
+      pageOf({ companies: [{ ...acwa, logoUrl: "https://logo.example/acwa.png" }] }),
+    );
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(
+        scope.unmapped ? [] : [yasmin, { ...yasmin, id: "c2", fullName: "Omar Haddad", title: "CFO" }],
+      ),
+    );
+    renderStage();
+
+    await screen.findByText("Omar Haddad");
+    // The second line used to be an indented grey caption without the logo, which read as a company
+    // that could not be opened or acted on. Each line is a person; the company is whole on all of them.
+    const opens = screen.getAllByRole("button", { name: /Open ACWA Power/i });
+    expect(opens).toHaveLength(2);
+    for (const open of opens) {
+      expect(within(open).getByRole("presentation", { hidden: true })).toHaveAttribute(
+        "src",
+        "https://logo.example/acwa.png",
+      );
+    }
+    expect(screen.getAllByRole("button", { name: /Shortlist: ACWA Power/i })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /Remove ACWA Power from this mandate/i })).toHaveLength(2);
+  });
+
   it("asks only for the people at the companies on this page", async () => {
     renderStage();
 
@@ -585,18 +717,14 @@ describe("TriageStagePage", () => {
     expect(within(drawer).getByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
     expect(within(drawer).queryByLabelText(/Full name/i)).not.toBeInTheDocument();
 
-    await userEvent.click(within(drawer).getByRole("button", { name: /^Edit$/i }));
+    await userEvent.click(within(drawer).getByRole("button", { name: /Edit details/i }));
     expect(within(drawer).getByLabelText(/Full name/i)).toHaveValue("Yasmin El-Sayed");
     expect(within(drawer).getByLabelText(/^Title$/i)).toHaveValue("VP Finance");
   });
 
   it("shows executives whose employer is not in the universe after the companies", async () => {
-    const unmapped = {
-      ...yasmin, id: "c9", triageCompanyId: null, companyName: "An Unlisted Holding",
-      fullName: "Wei Ling Tan",
-    };
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
-      peopleOf(scope.unmapped ? [unmapped] : []),
+      peopleOf(scope.unmapped ? [unlistedExec] : []),
     );
     renderStage();
 
@@ -604,6 +732,28 @@ describe("TriageStagePage", () => {
     // The row says where they work and that it is not a company this screen can act on.
     expect(screen.getByText("An Unlisted Holding")).toBeInTheDocument();
     expect(screen.getByText(/Not in universe/i)).toBeInTheDocument();
+  });
+
+  it("lets an executive with no company in the universe be removed from the row", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [unlistedExec] : []),
+    );
+    vi.mocked(candidatesApi.deleteCandidate).mockResolvedValue(undefined);
+    renderStage();
+
+    await screen.findByText("Wei Ling Tan");
+    // No company to shortlist or decline, so the only move on the page is ACWA Power's own — but a
+    // row with nothing at all in Actions read as a row that was stuck. Removing the person is the
+    // mandate's to do.
+    expect(screen.getAllByRole("button", { name: /^Shortlist: /i })).toHaveLength(1);
+    await userEvent.click(
+      screen.getByRole("button", { name: /Remove Wei Ling Tan from this mandate/i }),
+    );
+
+    const dialog = await screen.findByRole("dialog", { name: /Remove Wei Ling Tan/i });
+    expect(candidatesApi.deleteCandidate).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: /Remove from mandate/i }));
+    await waitFor(() => expect(candidatesApi.deleteCandidate).toHaveBeenCalledWith("p1", "c9"));
   });
 
   it("says so when the server could not fit every executive on the page", async () => {
@@ -656,6 +806,20 @@ describe("TriageStagePage", () => {
     // The header's meta line: sector, city and country, as the mockup's panel carries them.
     expect(within(panel).getByText(/oil & energy · Riyadh · Saudi Arabia/)).toBeInTheDocument();
     expect(within(panel).queryByLabelText(/Company name/i)).not.toBeInTheDocument();
+  });
+
+  it("maps an executive from the company panel itself, whichever view opened it", async () => {
+    renderStage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Open ACWA Power/i }));
+    const panel = await screen.findByRole("dialog", { name: /ACWA Power/i });
+    await userEvent.click(within(panel).getByRole("button", { name: /Add executive/i }));
+
+    // One panel at a time: the company's gives way to the form, already carrying the employer, so
+    // the mapping cannot disagree with the company the reader came from.
+    const form = await screen.findByRole("dialog", { name: /Add executive/i });
+    expect(within(form).getByLabelText(/^Employer$/i)).toHaveValue("ACWA Power");
+    expect(screen.queryByRole("dialog", { name: /^ACWA Power$/ })).not.toBeInTheDocument();
   });
 
   it("offers no Edit on a company taken from the market, but still takes a note", async () => {
@@ -717,6 +881,7 @@ describe("TriageStagePage", () => {
     expect(within(panel).queryByRole("button", { name: /^Edit$/i })).not.toBeInTheDocument();
     expect(within(panel).queryByRole("button", { name: /^Save$/i })).not.toBeInTheDocument();
     expect(within(panel).queryByRole("button", { name: /^Remove$/i })).not.toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: /Add executive/i })).not.toBeInTheDocument();
   });
 
   it("gives a client representative the executive columns and none of the writes", async () => {
@@ -791,9 +956,9 @@ describe("TriageStagePage", () => {
     expect(screen.queryByRole("button", { name: /^Columns$/i })).not.toBeInTheDocument();
   });
 
-  it("edits a mandate's own column in the same save as the built-in fields", async () => {
-    // One request, not two: the custom values ride on the request the drawer already posts, so a
-    // save cannot half-succeed and there is one audit event rather than a pair.
+  it("edits a mandate's own column as a section of its own, over the stored profile", async () => {
+    // The custom values ride on the same replace every section posts, so the row is never
+    // half-saved and the built-in fields around them are said again unchanged.
     vi.mocked(customColumnsApi.getCustomColumns).mockResolvedValue({ columns: [ethnicity] });
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
       peopleOf(scope.unmapped ? [] : [yasmin]),
@@ -803,10 +968,10 @@ describe("TriageStagePage", () => {
 
     await userEvent.click(await screen.findByText("Yasmin El-Sayed"));
     const drawer = await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i });
-    await userEvent.click(within(drawer).getByRole("button", { name: /^Edit$/i }));
+    await userEvent.click(within(drawer).getByRole("button", { name: /Edit your columns/i }));
 
     await userEvent.type(await within(drawer).findByLabelText("Ethnicity"), "Lebanese");
-    await userEvent.click(within(drawer).getByRole("button", { name: /Save changes/i }));
+    await userEvent.click(within(drawer).getByRole("button", { name: /^Save$/i }));
 
     await waitFor(() =>
       expect(candidatesApi.updateCandidate).toHaveBeenCalledWith(
@@ -818,5 +983,155 @@ describe("TriageStagePage", () => {
         }),
       ),
     );
+  });
+
+  describe("map view", () => {
+    const mapEnabled = { enabled: true, publicToken: "pk.test" };
+
+    it("offers Table | Map on the universe only, and only when a Mapbox account is configured", async () => {
+      vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
+      const { unmount } = renderStage();
+      expect(await screen.findByRole("radiogroup", { name: "View" })).toBeInTheDocument();
+      unmount();
+
+      renderStage("shortlisted");
+      await screen.findByText("ACWA Power");
+      expect(screen.queryByRole("radiogroup", { name: "View" })).not.toBeInTheDocument();
+    });
+
+    it("keeps the grid when the deployment has no map", async () => {
+      renderStage();
+      await screen.findByText("ACWA Power");
+      expect(screen.queryByRole("radiogroup", { name: "View" })).not.toBeInTheDocument();
+      expect(talentMapApi.getTalentMap).not.toHaveBeenCalled();
+    });
+
+    it("reads the whole stage as points, opens the same company panel from the panel, and remembers the choice", async () => {
+      vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
+      const { unmount } = renderStage();
+
+      await userEvent.click(await screen.findByRole("radio", { name: "Map" }));
+      await waitFor(() => expect(talentMapApi.getTalentMap).toHaveBeenCalledWith("p1", "inUniverse", expect.anything()));
+      const tree = await screen.findByRole("tree", { name: "Mapping" });
+      expect(within(tree).getByRole("treeitem", { name: /Saudi Arabia/ })).toBeInTheDocument();
+      // The grid's own reads stop while the globe is showing — the map reads the stage itself.
+      expect(screen.queryByRole("table", { name: /In universe companies/i })).not.toBeInTheDocument();
+
+      await userEvent.click(within(tree).getByRole("button", { name: "Open ACWA Power" }));
+      expect(await screen.findByRole("dialog", { name: "ACWA Power" })).toBeInTheDocument();
+      unmount();
+
+      // Remembered per mandate: the next visit opens on the globe.
+      renderStage();
+      expect(await screen.findByRole("tree", { name: "Mapping" })).toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: "Map" })).toHaveAttribute("aria-checked", "true");
+    });
+
+    it("polls the points alone while places are still resolving, and folds them into the map it has", async () => {
+      vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
+      vi.mocked(talentMapApi.getTalentMap).mockResolvedValue({ ...mapPageOf(), locations: {}, geocodingPending: 1 });
+      vi.mocked(talentMapApi.getTalentMapLocations).mockResolvedValue({
+        locations: { u1: { latitude: 24.7, longitude: 46.7, precision: "CITY", placeLabel: "Riyadh, Saudi Arabia", country: "Saudi Arabia", countryCode: "SA" } },
+        geocodingPending: 0,
+      });
+      renderStage();
+
+      await userEvent.click(await screen.findByRole("radio", { name: "Map" }));
+      await screen.findByRole("tree", { name: "Mapping" });
+
+      // The poll's answer lands in the map's own page: the pin appears and the notice goes.
+      await waitFor(() => expect(screen.getByRole("button", { name: "pin: ACWA Power" })).toBeInTheDocument());
+      expect(screen.queryByText(/Locating/)).not.toBeInTheDocument();
+      expect(talentMapApi.getTalentMapLocations).toHaveBeenCalledWith("p1", "inUniverse", expect.anything());
+      // The whole stage was read once; the rest was points.
+      expect(vi.mocked(talentMapApi.getTalentMap)).toHaveBeenCalledTimes(1);
+    });
+
+    it("opens an executive's profile from a pin", async () => {
+      vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
+      renderStage();
+      await userEvent.click(await screen.findByRole("radio", { name: "Map" }));
+
+      await userEvent.click(await screen.findByRole("button", { name: "pin: Yasmin El-Sayed" }));
+      await userEvent.click(screen.getByRole("button", { name: "Open Yasmin El-Sayed" }));
+      expect(await screen.findByRole("dialog", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
+    });
+  });
+  it("polls for landed research only while the stream is down", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const capture: Candidate = {
+        ...yasmin,
+        id: "c7",
+        fullName: "Faisal Khan",
+        source: "extension",
+        addedAt: new Date().toISOString(),
+        enrichedAt: null,
+      };
+      vi.mocked(candidatesApi.getCandidates).mockResolvedValue(peopleOf([capture]));
+      renderStage();
+      await screen.findByText("Faisal Khan");
+
+      // Nothing has greeted the stream, so the fallback poll is the only thing that would ever notice
+      // the research landing on this row.
+      const beforePolling = vi.mocked(triageApi.getTriageCompanies).mock.calls.length;
+      await act(() => vi.advanceTimersByTimeAsync(9_000));
+      const whilePolling = vi.mocked(triageApi.getTriageCompanies).mock.calls.length;
+      expect(whilePolling).toBeGreaterThan(beforePolling);
+
+      // The server greets every stream, and from then on it announces the same research within a
+      // second — so a poll beside it is one whole page read per tick, on every open tab.
+      act(() => streamListeners.forEach((emit) => emit({ name: "connected", data: "{}" })));
+      await act(() => vi.advanceTimersByTimeAsync(9_000));
+
+      expect(vi.mocked(triageApi.getTriageCompanies).mock.calls.length).toBe(whilePolling);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("TriageStagePage — full screen", () => {
+  let fullscreenApi: ReturnType<typeof stubFullscreenApi>;
+
+  beforeEach(async () => {
+    vi.resetAllMocks();
+    fullscreenApi = stubFullscreenApi();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    const authApi = await import("../../auth/api/authApi");
+    vi.mocked(authApi.me).mockResolvedValue(lead);
+    vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(pageOf());
+    vi.mocked(candidatesApi.getCandidates).mockResolvedValue(peopleOf([]));
+    vi.mocked(customColumnsApi.getCustomColumns).mockResolvedValue({ columns: [] });
+  });
+
+  afterEach(() => fullscreenApi.restore());
+
+  it.each(["universe", "shortlisted", "declined"])("is offered on %s", async (slug) => {
+    renderStage(slug);
+
+    expect(await screen.findByRole("button", { name: "Full screen", pressed: false }))
+      .toBeInTheDocument();
+  });
+
+  it("redraws the same screen — the toolbar, grid and pager all survive the switch", async () => {
+    renderStage();
+    await userEvent.click(await screen.findByRole("button", { name: "Full screen" }));
+
+    expect(screen.getByRole("textbox", { name: /Search companies/i })).toBeInTheDocument();
+    expect(within(await screen.findByRole("table", { name: /In universe companies/i }))
+      .getByText("ACWA Power")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Full screen" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("collapses when the browser leaves full screen on its own", async () => {
+    renderStage();
+    const button = await screen.findByRole("button", { name: "Full screen" });
+    await userEvent.click(button);
+
+    await act(async () => fullscreenApi.setElement(null));
+
+    // Escape, F11 and the browser's own control announce themselves only through fullscreenchange.
+    expect(button).toHaveAttribute("aria-pressed", "false");
   });
 });

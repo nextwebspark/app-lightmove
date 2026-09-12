@@ -7,13 +7,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.Import;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
 
 /**
@@ -22,8 +24,34 @@ import org.springframework.test.web.servlet.MvcResult;
  * and representative invites in {@link ClientAccessIntegrationTest} — this file does not repeat either.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class ClientFlowIntegrationTest extends FlowTestSupport {
+
+    @Autowired JdbcTemplate db;
+
+    private ApolloUniverse universe;
+
+    @BeforeEach
+    void freshUniverse() {
+        universe = new ApolloUniverse(db);
+        universe.reset();
+    }
+
+    @Test
+    @DisplayName("a universe-backed client stores the catalog's spelling of its city, not the export's")
+    void universeClientCityIsCanonicalised() throws Exception {
+        // The drawer's edit never touches hqCity, so a city written off-canon here is never corrected.
+        String admin = adminOf("Client Universe City Firm");
+        universe.company("a1", "Aramco").country("KSA").city("khobar").employees(10).insert();
+
+        mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"company":{"apolloAccountId":"a1"}}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.hqCity").value("Al Khobar"))
+                .andExpect(jsonPath("$.hqCountry").value("Saudi Arabia"));
+    }
 
     @Test
     @DisplayName("a custom client is created with an empty mandate count and no contacts")
@@ -38,7 +66,8 @@ class ClientFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name").value("Meridian Energy"))
                 .andExpect(jsonPath("$.sector").value("Energy"))
-                .andExpect(jsonPath("$.hqCountry").value("UAE"))
+                // Sent as "UAE"; stored and read back as the one spelling every screen shows.
+                .andExpect(jsonPath("$.hqCountry").value("United Arab Emirates"))
                 .andExpect(jsonPath("$.activeMandates").value(0))
                 .andExpect(jsonPath("$.deliveredMandates").value(0))
                 .andExpect(jsonPath("$.contacts.length()").value(0));

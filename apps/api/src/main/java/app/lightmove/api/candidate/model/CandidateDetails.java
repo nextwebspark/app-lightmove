@@ -5,23 +5,17 @@ import static app.lightmove.api.core.text.service.SuppliedText.browsableUrlOrNul
 
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.common.location.service.Countries;
 
 /**
- * Everything a caller supplies about an executive, normalised once on the way in.
+ * Everything a caller supplies about an executive, normalised once on the way in. Only the name is
+ * required: research arrives in pieces, and refusing the row until the compensation is established
+ * would send that name into a spreadsheet instead.
  *
- * <p>Only the name is required, for the same reason a captured company needs only its name: research
- * arrives in pieces. A researcher who has met someone at a conference has a name, a company and a
- * rough title, and refusing the row until the compensation is established would send that name into a
- * spreadsheet — which is the behaviour these screens exist to replace.
- *
- * <p>{@code employerName} is the company as the row will remember it. Where the candidate is mapped to
- * one of the mandate's triaged companies the service overwrites it with that company's name, so the
- * two cannot drift; where they are not, it is whatever the researcher typed.
- *
- * <p>{@code linkedinUrl} goes through the same gate as a captured company's addresses — see
- * {@link app.lightmove.api.core.text.service.SuppliedText}. It matters more here than there: a profile
- * URL is the field most likely to be pasted from somewhere else, and the plugin will eventually post
- * one it read off a page.
+ * <p>{@code employerName} is the company as the row will remember it — overwritten with the triaged
+ * company's name where the candidate is mapped to one, so the two cannot drift.
+ * {@code linkedinUrl} goes through {@link app.lightmove.api.core.text.service.SuppliedText}, being
+ * the field most likely to be pasted from somewhere else.
  */
 public record CandidateDetails(String fullName, String title, Seniority seniority,
                                CandidateStatus status, String employerName, String email, String phone,
@@ -37,8 +31,10 @@ public record CandidateDetails(String fullName, String title, Seniority seniorit
         email = blankToNull(email);
         phone = blankToNull(phone);
         linkedinUrl = browsableUrlOrNull(linkedinUrl);
-        locationCountry = blankToNull(locationCountry);
-        locationCity = blankToNull(locationCity);
+        locationCountry = Countries.nameOf(blankToNull(locationCountry));
+        locationCity = Countries.cityOf(blankToNull(locationCity));
+        // Not a country: a nationality is a demonym ("Egyptian"), which the catalog cannot resolve
+        // and the field's own hint insists is a different fact from where somebody lives.
         nationality = blankToNull(nationality);
         summary = blankToNull(summary);
         note = blankToNull(note);
