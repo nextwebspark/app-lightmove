@@ -27,6 +27,8 @@ vi.mock("../api/positionApi", async (importOriginal) => ({
   listTemplates: vi.fn(),
   applyTemplate: vi.fn(),
   extractDetails: vi.fn(),
+  extractContext: vi.fn(),
+  extractCompensation: vi.fn(),
 }));
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
@@ -666,5 +668,107 @@ describe("PositionPage", () => {
 
     expect(title).toHaveValue("Group CFO – Energy Division");
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  it("reads the document into mandate-context proposals, and merges a case-insensitive duplicate priority", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "model",
+      fields: [
+        {
+          fieldKey: "mandateReason",
+          value: "GROWTH_EXPANSION",
+          confidence: "medium",
+          snippet: "the business is expanding into new markets",
+        },
+        // A case-variant of a priority already on the brief — must merge, not duplicate.
+        { fieldKey: "strategicPriority", value: "capital discipline", confidence: "medium", snippet: null },
+      ],
+    };
+    vi.mocked(positionApi.extractContext).mockResolvedValue(extracted);
+    vi.mocked(positionApi.putContext).mockResolvedValue(seeded);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Mandate context/ }));
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+
+    await user.click(screen.getAllByRole("button", { name: /Accept$/ })[0]);
+    await waitFor(() =>
+      expect(vi.mocked(positionApi.putContext).mock.calls.at(-1)?.[1]).toEqual(
+        expect.objectContaining({ mandateReason: "GROWTH_EXPANSION" }),
+      ),
+    );
+
+    await user.click(screen.getByRole("button", { name: /Accept$/ }));
+    await waitFor(() => {
+      const priorities = vi.mocked(positionApi.putContext).mock.calls.at(-1)?.[1].strategicPriorities ?? [];
+      expect(priorities.filter((p) => p.name.toLowerCase() === "capital discipline")).toHaveLength(1);
+    });
+  });
+
+  it("reads the document into compensation proposals, saying honestly when no package is stated", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    vi.mocked(positionApi.extractCompensation).mockResolvedValue({ extractionSource: "none", fields: [] });
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Compensation/ }));
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+
+    expect(await screen.findByText(/nothing was found to propose/)).toBeInTheDocument();
+  });
+
+  it("accepting a proposed benefit sets its name and frequency, and leaves the amount for a person to fill in", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "model",
+      fields: [
+        { fieldKey: "benefit", value: "Housing allowance — monthly", confidence: "medium", snippet: null },
+      ],
+    };
+    vi.mocked(positionApi.extractCompensation).mockResolvedValue(extracted);
+    vi.mocked(positionApi.putCompensation).mockResolvedValue(seeded);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Compensation/ }));
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    await user.click(await screen.findByRole("button", { name: /Accept$/ }));
+
+    await waitFor(() =>
+      expect(vi.mocked(positionApi.putCompensation).mock.calls.at(-1)?.[1]).toEqual(
+        expect.objectContaining({
+          benefits: [{ name: "Housing allowance", amount: null, frequency: "MONTHLY" }],
+        }),
+      ),
+    );
   });
 });

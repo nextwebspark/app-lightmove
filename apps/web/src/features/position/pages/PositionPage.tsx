@@ -9,6 +9,8 @@ import { useAutosave } from "../../../lib/useAutosave";
 import * as projectsApi from "../../projects/api/projectsApi";
 import * as positionApi from "../api/positionApi";
 import type {
+  Benefit,
+  BenefitFrequency,
   Compensation,
   Competency,
   Criterion,
@@ -19,6 +21,7 @@ import type {
   PositionTemplate,
   ProposedField,
   ReportingStructure,
+  StrategicPriority,
 } from "../api/types";
 import { StepNavigation } from "../components/StepNavigation";
 import type { CompetencyPanelKey } from "../components/steps/AssessmentStep";
@@ -103,7 +106,11 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const [lockedCompetencies, setLockedCompetencies] = useState<ReadonlySet<string>>(new Set());
   // "Read from document"'s proposals. Local state, never the query cache: a proposal is a transient
   // read, not a fact about the mandate, and nothing here is written until a row is accepted.
+  // One slot per step, not one shared slot: a reading on step two must survive visiting step four
+  // and back, the same reason contextSave/compensationSave are already separate autosave channels.
   const [extraction, setExtraction] = useState<PositionExtraction | null>(null);
+  const [contextExtraction, setContextExtraction] = useState<PositionExtraction | null>(null);
+  const [compensationExtraction, setCompensationExtraction] = useState<PositionExtraction | null>(null);
 
   // The picker's options. A failed read leaves the type-ahead with nothing to offer, which is the
   // right degradation: the title is free text and stays typeable.
@@ -315,10 +322,13 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
 
   const attachDocument = useMutation({
     mutationFn: (file: File) => positionApi.attachDocument(projectId, file),
-    // A proposal against a document that has just been replaced is confusing, so it does not survive.
+    // A proposal against a document that has just been replaced is confusing, so it does not survive
+    // on any step.
     onSuccess: (saved) => {
       queryClient.setQueryData(key, saved);
       setExtraction(null);
+      setContextExtraction(null);
+      setCompensationExtraction(null);
     },
     onError: (error) => toast(messageFor(error)),
   });
@@ -327,6 +337,8 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     onSuccess: (saved) => {
       queryClient.setQueryData(key, saved);
       setExtraction(null);
+      setContextExtraction(null);
+      setCompensationExtraction(null);
     },
     onError: (error) => toast(messageFor(error)),
   });
@@ -338,6 +350,16 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const extractDetails = useMutation({
     mutationFn: () => positionApi.extractDetails(projectId),
     onSuccess: setExtraction,
+    onError: (error) => toast(messageFor(error)),
+  });
+  const extractContext = useMutation({
+    mutationFn: () => positionApi.extractContext(projectId),
+    onSuccess: setContextExtraction,
+    onError: (error) => toast(messageFor(error)),
+  });
+  const extractCompensation = useMutation({
+    mutationFn: () => positionApi.extractCompensation(projectId),
+    onSuccess: setCompensationExtraction,
     onError: (error) => toast(messageFor(error)),
   });
 
@@ -397,6 +419,134 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       true,
     );
     setExtraction(null);
+  };
+
+  const removeContextProposal = (field: ProposedField) =>
+    setContextExtraction((current) =>
+      current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
+    );
+
+  /** A name that case-insensitively matches one already on the brief is merged in place, never appended. */
+  const mergePriorities = (existing: StrategicPriority[], names: string[]): StrategicPriority[] => {
+    const merged = [...existing];
+    for (const name of names) {
+      const alreadyPresent = merged.some(
+        (priority) => priority.name.toLowerCase() === name.toLowerCase(),
+      );
+      if (!alreadyPresent) merged.push({ name, selected: true });
+    }
+    return merged;
+  };
+
+  const patchForContext = (field: ProposedField, value: string): Partial<MandateContext> => {
+    switch (field.fieldKey) {
+      case "mandateReason":
+        return { mandateReason: value as MandateContext["mandateReason"] };
+      case "businessDriver":
+        return { businessDriver: value || null };
+      case "strategicPriority":
+        return { strategicPriorities: mergePriorities(context.strategicPriorities, [value]) };
+      default:
+        return {};
+    }
+  };
+
+  const acceptContextProposal = (field: ProposedField, value: string) => {
+    changeContext(patchForContext(field, value));
+    removeContextProposal(field);
+  };
+
+  const dismissContextProposal = (field: ProposedField) => removeContextProposal(field);
+
+  const acceptAllContextProposals = () => {
+    if (!contextExtraction) return;
+    const priorityNames = contextExtraction.fields
+        .filter((field) => field.fieldKey === "strategicPriority")
+        .map((field) => field.value);
+    const combined = contextExtraction.fields
+        .filter((field) => field.fieldKey !== "strategicPriority")
+        .reduce<Partial<MandateContext>>(
+          (patch, field) => ({ ...patch, ...patchForContext(field, field.value) }),
+          {},
+        );
+    changeContext(
+      { ...combined, strategicPriorities: mergePriorities(context.strategicPriorities, priorityNames) },
+      true,
+    );
+    setContextExtraction(null);
+  };
+
+  const removeCompensationProposal = (field: ProposedField) =>
+    setCompensationExtraction((current) =>
+      current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
+    );
+
+  /**
+   * A proposed benefit's `value` is `"<name>"`, or `"<name> — <frequency>"` when the document's own
+   * wording gave the proposer a frequency it could resolve — see `PositionCompensationProposer`. The
+   * amount is never proposed, so it always lands `null`, exactly like a manually added benefit row.
+   */
+  const benefitFrom = (value: string): Benefit => {
+    const separatorIndex = value.lastIndexOf(" — ");
+    if (separatorIndex === -1) {
+      return { name: value, amount: null, frequency: "MONTHLY" };
+    }
+    const name = value.slice(0, separatorIndex);
+    const frequencyWord = value.slice(separatorIndex + 3).trim().toUpperCase();
+    const frequency: BenefitFrequency = frequencyWord === "YEARLY" ? "YEARLY" : "MONTHLY";
+    return { name, amount: null, frequency };
+  };
+
+  const patchForCompensation = (field: ProposedField, value: string): Partial<Compensation> => {
+    switch (field.fieldKey) {
+      case "currency":
+        return { currency: value };
+      case "salaryMin":
+        return { salaryMin: Number(value) };
+      case "salaryMax":
+        return { salaryMax: Number(value) };
+      case "baseSalaryMode":
+        return { baseSalaryMode: value as Compensation["baseSalaryMode"] };
+      case "bonusValue":
+        return { bonusValue: Number(value) };
+      case "bonusBasis":
+        return { bonusBasis: value as Compensation["bonusBasis"] };
+      case "incentiveType":
+        return { incentiveType: value as Compensation["incentiveType"] };
+      case "incentiveAmount":
+        return { incentiveAmount: Number(value) };
+      case "incentiveVesting":
+        return { incentiveVesting: value || null };
+      case "benefit":
+        return { benefits: [...compensation.benefits, benefitFrom(value)] };
+      default:
+        return {};
+    }
+  };
+
+  const acceptCompensationProposal = (field: ProposedField, value: string) => {
+    changeCompensation(patchForCompensation(field, value));
+    removeCompensationProposal(field);
+  };
+
+  const dismissCompensationProposal = (field: ProposedField) => removeCompensationProposal(field);
+
+  const acceptAllCompensationProposals = () => {
+    if (!compensationExtraction) return;
+    const benefits = compensationExtraction.fields
+        .filter((field) => field.fieldKey === "benefit")
+        .map((field) => benefitFrom(field.value));
+    const combined = compensationExtraction.fields
+        .filter((field) => field.fieldKey !== "benefit")
+        .reduce<Partial<Compensation>>(
+          (patch, field) => ({ ...patch, ...patchForCompensation(field, field.value) }),
+          {},
+        );
+    changeCompensation(
+      { ...combined, benefits: [...compensation.benefits, ...benefits] },
+      true,
+    );
+    setCompensationExtraction(null);
   };
 
   const flushEverything = () => Promise.allSettled(channels.map((channel) => channel.flush()));
@@ -491,7 +641,17 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
             />
           )}
           {currentStep === "context" && (
-            <MandateContextStep context={context} onChange={changeContext} />
+            <MandateContextStep
+              context={context}
+              document={drafted.document}
+              extraction={contextExtraction}
+              extracting={extractContext.isPending}
+              onChange={changeContext}
+              onExtract={() => extractContext.mutate()}
+              onAcceptProposal={acceptContextProposal}
+              onDismissProposal={dismissContextProposal}
+              onAcceptAllProposals={acceptAllContextProposals}
+            />
           )}
           {currentStep === "reporting" && (
             <ReportingStructureStep
@@ -502,7 +662,17 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
             />
           )}
           {currentStep === "compensation" && (
-            <CompensationStep compensation={compensation} onChange={changeCompensation} />
+            <CompensationStep
+              compensation={compensation}
+              document={drafted.document}
+              extraction={compensationExtraction}
+              extracting={extractCompensation.isPending}
+              onChange={changeCompensation}
+              onExtract={() => extractCompensation.mutate()}
+              onAcceptProposal={acceptCompensationProposal}
+              onDismissProposal={dismissCompensationProposal}
+              onAcceptAllProposals={acceptAllCompensationProposals}
+            />
           )}
           {currentStep === "assessment" && (
             <AssessmentStep

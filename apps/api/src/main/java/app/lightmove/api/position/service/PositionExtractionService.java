@@ -10,9 +10,12 @@ import app.lightmove.api.position.dto.PositionExtractionResponse;
 import app.lightmove.api.position.dto.ProposedFieldDto;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.PositionDocument;
+import app.lightmove.api.position.model.ProposedCompensation;
+import app.lightmove.api.position.model.ProposedMandateContext;
 import app.lightmove.api.position.model.ProposedPositionDetails;
 import app.lightmove.api.position.repository.PositionDocumentRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,19 +37,25 @@ public class PositionExtractionService {
     private final PositionBriefLoader briefs;
     private final PositionDocumentRepository documents;
     private final PositionDocumentTextReader textReader;
-    private final PositionDetailsProposer proposer;
+    private final PositionDetailsProposer detailsProposer;
+    private final PositionContextProposer contextProposer;
+    private final PositionCompensationProposer compensationProposer;
     private final AuditService audit;
     private final PositionExtractionSettings settings;
 
     // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
     // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public PositionExtractionService(PositionBriefLoader briefs, PositionDocumentRepository documents,
-                                     PositionDocumentTextReader textReader, PositionDetailsProposer proposer,
+                                     PositionDocumentTextReader textReader, PositionDetailsProposer detailsProposer,
+                                     PositionContextProposer contextProposer,
+                                     PositionCompensationProposer compensationProposer,
                                      AuditService audit, LightMoveProperties properties) {
         this.briefs = briefs;
         this.documents = documents;
         this.textReader = textReader;
-        this.proposer = proposer;
+        this.detailsProposer = detailsProposer;
+        this.contextProposer = contextProposer;
+        this.compensationProposer = compensationProposer;
         this.audit = audit;
         this.settings = properties.position().extraction();
     }
@@ -54,6 +63,36 @@ public class PositionExtractionService {
     @Transactional(readOnly = true)
     public PositionExtractionResponse extractDetails(UUID userId, UUID workspaceId, UUID projectId,
                                                       HttpServletRequest httpRequest) {
+        Read read = load(workspaceId, projectId);
+        ProposedPositionDetails proposed = detailsProposer.propose(
+                userId, read.text(), read.brief().project().getClientId(), workspaceId);
+        recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
+        return assemble(proposed.source().value(), proposed.fields());
+    }
+
+    @Transactional(readOnly = true)
+    public PositionExtractionResponse extractContext(UUID userId, UUID workspaceId, UUID projectId,
+                                                      HttpServletRequest httpRequest) {
+        Read read = load(workspaceId, projectId);
+        ProposedMandateContext proposed = contextProposer.propose(
+                userId, read.text(), read.brief().project().getClientId(), workspaceId);
+        recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
+        return assemble(proposed.source().value(), proposed.fields());
+    }
+
+    @Transactional(readOnly = true)
+    public PositionExtractionResponse extractCompensation(UUID userId, UUID workspaceId, UUID projectId,
+                                                           HttpServletRequest httpRequest) {
+        Read read = load(workspaceId, projectId);
+        ProposedCompensation proposed = compensationProposer.propose(
+                userId, read.text(), read.brief().project().getClientId(), workspaceId);
+        recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
+        return assemble(proposed.source().value(), proposed.fields());
+    }
+
+    private record Read(PositionBrief brief, String text) {}
+
+    private Read load(UUID workspaceId, UUID projectId) {
         if (!settings.enabled()) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                     "Reading a position description is turned off for this deployment");
@@ -62,22 +101,20 @@ public class PositionExtractionService {
         PositionDocument document = documents.findByPositionId(brief.position().getId())
                 .orElseThrow(() -> ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                         "Attach a position description before reading it"));
-
-        String text = textReader.read(document.getContent());
-        ProposedPositionDetails proposed = proposer.propose(
-                userId, text, brief.project().getClientId(), workspaceId);
-
-        audit.event(ProjectEventType.POSITION_DOCUMENT_EXTRACTED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
-                .detail("extractionSource", proposed.source().value())
-                .record();
-
-        return assemble(proposed);
+        return new Read(brief, textReader.read(document.getContent()));
     }
 
-    private static PositionExtractionResponse assemble(ProposedPositionDetails proposed) {
-        return new PositionExtractionResponse(proposed.source().value(),
-                proposed.fields().stream().map(PositionExtractionService::toDto).toList());
+    private void recordAudit(UUID userId, UUID workspaceId, UUID projectId, HttpServletRequest httpRequest,
+                             String extractionSource) {
+        audit.event(ProjectEventType.POSITION_DOCUMENT_EXTRACTED)
+                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                .detail("extractionSource", extractionSource)
+                .record();
+    }
+
+    private static PositionExtractionResponse assemble(String extractionSource, List<ExtractedField> fields) {
+        return new PositionExtractionResponse(extractionSource,
+                fields.stream().map(PositionExtractionService::toDto).toList());
     }
 
     private static ProposedFieldDto toDto(ExtractedField field) {
