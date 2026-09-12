@@ -41,4 +41,8 @@ export const EXTRACTION_FIELD_LABELS: Record<string, string> = {
   incentiveAmount: "Incentive amount",
   incentiveVesting: "Vesting schedule",
   benefit: "Benefit",
+  requiredCriterion: "Required criterion",
+  preferredCriterion: "Preferred criterion",
+  technicalCompetency: "Technical competency",
+  behaviouralCompetency: "Behavioural competency",
 };

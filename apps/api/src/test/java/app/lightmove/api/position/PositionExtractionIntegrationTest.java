@@ -172,7 +172,8 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("step two and step four extract routes exist, are gated the same way, and write nothing")
+    @DisplayName("step two, step four and step five extract routes exist, are gated the same way, "
+            + "and write nothing")
     void extractsContextAndCompensationWithoutWriting() throws Exception {
         String admin = adminOf("Context Compensation Extraction Firm");
         String clientId = createClient(admin, "Meridian Holdings", "UAE");
@@ -190,12 +191,17 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
                         .jsonPath("$.extractionSource").exists());
+        mvc.perform(post(positionUrl(projectId) + "/document/extract/assessment")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.extractionSource").exists());
 
         assertThat(updatedAtOf(projectId)).isEqualTo(beforeUpdatedAt);
     }
 
     @Test
-    @DisplayName("nothing to read on step two or step four without a document")
+    @DisplayName("nothing to read on step two, step four or step five without a document")
     void refusesContextAndCompensationWithoutADocument() throws Exception {
         String admin = adminOf("No Document Context Compensation Firm");
         String projectId = createProject(admin, createClient(admin, "Aldar", "UAE"), "CFO");
@@ -206,10 +212,13 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
         mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isBadRequest());
+        mvc.perform(post(positionUrl(projectId) + "/document/extract/assessment")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    @DisplayName("PROJECT_EDIT is required for step two and step four too")
+    @DisplayName("PROJECT_EDIT is required for step two, step four and step five too")
     void researcherCannotExtractContextOrCompensation() throws Exception {
         String admin = adminOf("Researcher Context Compensation Firm");
         String sara = "sara@" + domain;
@@ -229,10 +238,13 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
         mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
                         .header("Authorization", "Bearer " + login(sara)))
                 .andExpect(status().isForbidden());
+        mvc.perform(post(positionUrl(projectId) + "/document/extract/assessment")
+                        .header("Authorization", "Bearer " + login(sara)))
+                .andExpect(status().isForbidden());
     }
 
     @Test
-    @DisplayName("another workspace's project is not found for step two or step four either")
+    @DisplayName("another workspace's project is not found for step two, step four or step five either")
     void refusesContextAndCompensationOutsideTheCallersWorkspace() throws Exception {
         String owner = adminOf("Extraction Tenant Context Compensation Firm");
         String projectId = createProject(owner, createClient(owner, "Aldar", "UAE"), "CFO");
@@ -246,7 +258,16 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
         mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
                         .header("Authorization", "Bearer " + outsider))
                 .andExpect(status().isNotFound());
+        mvc.perform(post(positionUrl(projectId) + "/document/extract/assessment")
+                        .header("Authorization", "Bearer " + outsider))
+                .andExpect(status().isNotFound());
     }
+
+    // AC4 ("an accepted criterion survives a later template re-apply") is proved generically by
+    // PositionTemplateIntegrationTest#applyingATemplateKeepsWhatSomebodyTyped: it PUTs a fromBrief:false
+    // criterion — the exact shape an accepted assessment proposal is written as — then applies a
+    // different template, and asserts that criterion survives while the template-drafted one does not.
+    // Not duplicated here since the mechanism is the write path, not the extraction call.
 
     // ── helpers ──────────────────────────────────────────────────────────────
 

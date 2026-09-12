@@ -14,6 +14,7 @@ import type {
   Compensation,
   Competency,
   Criterion,
+  CriterionMode,
   MandateContext,
   Position,
   PositionDetails,
@@ -26,6 +27,7 @@ import type {
 import { StepNavigation } from "../components/StepNavigation";
 import type { CompetencyPanelKey } from "../components/steps/AssessmentStep";
 import {
+  competencyFrom,
   forWire,
   identify,
   moveRow,
@@ -111,6 +113,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const [extraction, setExtraction] = useState<PositionExtraction | null>(null);
   const [contextExtraction, setContextExtraction] = useState<PositionExtraction | null>(null);
   const [compensationExtraction, setCompensationExtraction] = useState<PositionExtraction | null>(null);
+  const [assessmentExtraction, setAssessmentExtraction] = useState<PositionExtraction | null>(null);
 
   // The picker's options. A failed read leaves the type-ahead with nothing to offer, which is the
   // right degradation: the title is free text and stays typeable.
@@ -329,6 +332,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       setExtraction(null);
       setContextExtraction(null);
       setCompensationExtraction(null);
+      setAssessmentExtraction(null);
     },
     onError: (error) => toast(messageFor(error)),
   });
@@ -339,6 +343,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       setExtraction(null);
       setContextExtraction(null);
       setCompensationExtraction(null);
+      setAssessmentExtraction(null);
     },
     onError: (error) => toast(messageFor(error)),
   });
@@ -360,6 +365,11 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const extractCompensation = useMutation({
     mutationFn: () => positionApi.extractCompensation(projectId),
     onSuccess: setCompensationExtraction,
+    onError: (error) => toast(messageFor(error)),
+  });
+  const extractAssessment = useMutation({
+    mutationFn: () => positionApi.extractAssessment(projectId),
+    onSuccess: setAssessmentExtraction,
     onError: (error) => toast(messageFor(error)),
   });
 
@@ -549,6 +559,85 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     setCompensationExtraction(null);
   };
 
+  const removeAssessmentProposal = (field: ProposedField) =>
+    setAssessmentExtraction((current) =>
+      current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
+    );
+
+  /**
+   * Unlike every other step's proposals, an assessment field targets one of three separate state
+   * slots (criteria, technical, behavioural) rather than one — this returns whichever key applies,
+   * for the caller to route to the right `change*` function.
+   *
+   * A criterion built from an accepted proposal is written `fromBrief: false`, exactly like one typed
+   * by hand into `CriteriaCard` — never `true`. `fromBrief` marks a row a template redraft is free to
+   * delete and replace (`PositionTemplateApplier.draftedCriteria`); a criterion a person read out of
+   * the client's own document and accepted is not the template's to discard on the next re-apply.
+   */
+  const patchForAssessment = (
+    field: ProposedField,
+    value: string,
+  ): {
+    criteria?: Criterion[];
+    technical?: IdentifiedCompetency[];
+    behavioural?: IdentifiedCompetency[];
+  } => {
+    switch (field.fieldKey) {
+      case "requiredCriterion":
+        return { criteria: [...criteria, { text: value, mode: "REQUIRED", fromBrief: false }] };
+      case "preferredCriterion":
+        return { criteria: [...criteria, { text: value, mode: "PREFERRED", fromBrief: false }] };
+      case "technicalCompetency":
+        return {
+          technical: [...technical, { ...competencyFrom(value), id: crypto.randomUUID() }],
+        };
+      case "behaviouralCompetency":
+        return {
+          behavioural: [...behavioural, { ...competencyFrom(value), id: crypto.randomUUID() }],
+        };
+      default:
+        return {};
+    }
+  };
+
+  const acceptAssessmentProposal = (field: ProposedField, value: string) => {
+    const patch = patchForAssessment(field, value);
+    if (patch.criteria) changeCriteria(patch.criteria);
+    if (patch.technical) changePanel("technical", true)(patch.technical);
+    if (patch.behavioural) changePanel("behavioural", true)(patch.behavioural);
+    removeAssessmentProposal(field);
+  };
+
+  const dismissAssessmentProposal = (field: ProposedField) => removeAssessmentProposal(field);
+
+  /**
+   * One combined write per channel rather than one `change*` call per field, for the same reason
+   * `acceptAllCompensationProposals` is: `changeCriteria`/`changePanel` read their current arrays
+   * from this closure rather than a functional updater, so several synchronous calls in this handler
+   * would each start from the same stale snapshot.
+   */
+  const acceptAllAssessmentProposals = () => {
+    if (!assessmentExtraction) return;
+    const newCriteria: Criterion[] = assessmentExtraction.fields
+        .filter((field) => field.fieldKey === "requiredCriterion" || field.fieldKey === "preferredCriterion")
+        .map((field) => ({
+          text: field.value,
+          mode: (field.fieldKey === "requiredCriterion" ? "REQUIRED" : "PREFERRED") as CriterionMode,
+          fromBrief: false,
+        }));
+    const newTechnical = assessmentExtraction.fields
+        .filter((field) => field.fieldKey === "technicalCompetency")
+        .map((field) => ({ ...competencyFrom(field.value), id: crypto.randomUUID() }));
+    const newBehavioural = assessmentExtraction.fields
+        .filter((field) => field.fieldKey === "behaviouralCompetency")
+        .map((field) => ({ ...competencyFrom(field.value), id: crypto.randomUUID() }));
+
+    if (newCriteria.length > 0) changeCriteria([...criteria, ...newCriteria]);
+    if (newTechnical.length > 0) changePanel("technical", true)([...technical, ...newTechnical]);
+    if (newBehavioural.length > 0) changePanel("behavioural", true)([...behavioural, ...newBehavioural]);
+    setAssessmentExtraction(null);
+  };
+
   const flushEverything = () => Promise.allSettled(channels.map((channel) => channel.flush()));
 
   const saveDraft = async () => {
@@ -680,10 +769,17 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               technical={technical}
               behavioural={behavioural}
               locked={lockedCompetencies}
+              document={drafted.document}
+              extraction={assessmentExtraction}
+              extracting={extractAssessment.isPending}
               onCriteria={changeCriteria}
               onPanel={changePanel}
               onToggleLock={(id) => setLockedCompetencies((current) => toggle(current, id))}
               onReorder={reorderPanel}
+              onExtract={() => extractAssessment.mutate()}
+              onAcceptProposal={acceptAssessmentProposal}
+              onDismissProposal={dismissAssessmentProposal}
+              onAcceptAllProposals={acceptAllAssessmentProposals}
             />
           )}
           {currentStep === "review" && (
