@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.repository;
 
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.CandidateCount;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +38,15 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
             UUID projectId, String fullName, Pageable pageable);
 
     Optional<Candidate> findByIdAndProjectId(UUID id, UUID projectId);
+
+    /**
+     * The projects list's "Candidates" number, for every mandate on the page at once so the list stays
+     * one query rather than one per row. Grouped, so a mandate with nobody mapped is missing from the
+     * result rather than zero.
+     */
+    @Query("select new app.lightmove.api.candidate.model.CandidateCount(c.projectId, count(c)) "
+            + "from Candidate c where c.projectId in :projectIds group by c.projectId")
+    List<CandidateCount> countByProjectIdIn(Collection<UUID> projectIds);
 
     boolean existsByIdAndProjectId(UUID id, UUID projectId);
 

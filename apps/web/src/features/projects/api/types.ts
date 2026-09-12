@@ -56,8 +56,9 @@ export interface Project {
   targetDate: string | null;
   team: TeamMember[];
   representatives: AttachedRepresentative[];
-  /** 0 until pipeline tables exist. */
+  /** The mandate's live universe: every company it has triaged and not declined. */
   companies: number;
+  /** Every executive the mandate has mapped. */
   candidates: number;
   createdAt: string;
 }

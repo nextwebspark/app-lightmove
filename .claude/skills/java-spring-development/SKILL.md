@@ -323,6 +323,12 @@ method plus the records it returns — never another feature's internals:
   rather than handing a `Project` across.
 - `project`'s `ClientService` calls `ApolloCompanyQueryService` to resolve the company a new client
   record names.
+- The projects list's two pipeline numbers are the one seam that runs *into* a feature rather than out
+  of it: `project` declares `ProjectCompanyCounter` and `ProjectCandidateCounter` in its own
+  `service/`, and `triagecompany` and `candidate` implement them. Declared this way round because both
+  of those features already read `ProjectRepository` — a call out of `project` would close the loop —
+  and it keeps the project package from learning that either table exists. Each is one grouped count
+  over the ids being assembled, so the list stays one query rather than one per row.
 
 A further seam is sanctioned for client representatives: `project`'s `ClientRepresentativeService`
 calls `workspace`'s `InvitationService.onboardClientRepresentative` to grant membership (a representative
