@@ -86,6 +86,16 @@ public class LlmBudgetGuard {
     }
 
     /**
+     * Spends one of this user's assessment-extraction calls — its own meter, for the same reason
+     * {@link #requireCompensationExtractionBudget} is.
+     *
+     * @throws ApiException RATE_LIMITED when they have none left
+     */
+    public void requireAssessmentExtractionBudget(UUID userId) {
+        requireBudget("assessment-extract", userId, settings.shortlistRequestsPerMinute());
+    }
+
+    /**
      * Spends one call from a per-user, per-minute budget, or refuses the request.
      *
      * @param budgetName the meter this call is counted against, not the endpoint that made it — two
