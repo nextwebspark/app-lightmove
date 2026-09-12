@@ -27,18 +27,42 @@ Three decisions were made before any code, and they shaped everything below:
 
 ## What was built
 
-### Reading the bytes
+### Reading the bytes: one reader per format, none of them known to the orchestrator
 
-`PositionDocumentTextReader` decides the format from the **signature**, never the declared content
-type — the same rule `dataimport`'s `SpreadsheetReader` already established. `%PDF` goes through
-PDFBox's `PDFTextStripper` with `setSortByPosition(true)`, which is what turns a multi-column table
-into something read in roughly the right order instead of column-interleaved. A ZIP signature is
-tried as `.docx` via POI's `XWPFWordExtractor`; the OLE2 signature legacy `.doc` shares with `.xls` is
-**always refused**, naming the fix, because reading it needs `poi-scratchpad`, which is not on the
-classpath. Encrypted PDFs and PDFs with no text layer are refused loudly rather than returned as an
-empty answer. Every cap here — pages, characters — exists because parsing an untrusted document
-in-process is a new attack surface: a decompression bomb, a deeply nested object graph, an encrypted
-file whose password prompt would otherwise hang.
+Only PDF and `.docx` are implemented today, but the position description will not stay that way —
+`.xlsx` and `.pptx` briefs are named as coming. `PositionDocumentTextReader` is therefore an
+**orchestrator, not a format reader**: it holds no format-specific code at all, only the two things
+every format shares regardless of which one answered — the empty-text-layer refusal and the character
+cap. Each format is a small, independent `PositionDocumentFormatReader`:
+
+```java
+interface PositionDocumentFormatReader {
+    boolean supports(byte[] content);
+    String extractText(byte[] content, PositionExtractionSettings settings);
+}
+```
+
+Spring collects every bean of that type into a `List<PositionDocumentFormatReader>`, constructor-
+injected into the orchestrator and tried in `@Order`. The first whose `supports` answers `true` wins:
+
+| Reader | `@Order` | Signature | Notes |
+|---|---|---|---|
+| `PdfFormatReader` | 100 | `%PDF` | `PDFTextStripper` with `setSortByPosition(true)` — what turns a multi-column table into something read in roughly the right order. Refuses an encrypted file or one over the page cap rather than reading it in part. |
+| `LegacyOfficeFormatReader` | 200 | OLE2 compound file | Shared by legacy `.doc`, `.xls` and `.ppt`; always refused, naming the fix, because telling them apart needs parsing the file's own storage directory and reading any of them needs `poi-scratchpad`, which is not on the classpath. |
+| `DocxFormatReader` | 300 | ZIP **and** a `word/document.xml` entry | The ZIP signature alone is not enough — `.xlsx` and `.pptx` are ZIPs too — so this reader also checks for the one entry name that is specifically Word's, via a streaming `ZipInputStream` scan rather than fully opening the archive. |
+| `PlainTextFormatReader` | `LOWEST_PRECEDENCE` | none — always `true` | The catch-all, ordered last on purpose: every other reader answers a real signature check, and a format reader added later only ever needs to sit ahead of this one. |
+
+**Adding `.xlsx` or `.pptx` is writing one new class, not touching this list or the orchestrator.**
+An `XlsxFormatReader` checks the ZIP signature plus a `xl/workbook.xml` entry (mirroring
+`DocxFormatReader`'s own disambiguation exactly), extracts text however that format calls for — a
+sheet-row cap can go straight into the same `settings` parameter every reader already receives, with
+no interface change — and is `@Component`-annotated with an `@Order` somewhere ahead of 
+`PlainTextFormatReader`. Nothing else in the codebase needs to know it exists.
+
+Encrypted PDFs and PDFs with no text layer are refused loudly rather than returned as an empty answer.
+Every cap here — pages, characters — exists because parsing an untrusted document in-process is a new
+attack surface: a decompression bomb, a deeply nested object graph, an encrypted file whose password
+prompt would otherwise hang.
 
 ### Redaction: a generic engine plus a feature vocabulary
 
@@ -167,11 +191,27 @@ earlier ones.
   the heuristic needs the real title for the cross-check, and never reaches the prompt itself.
 - **Parsing untrusted documents happens outside every transaction.** `PositionExtractionService` is
   read-only and separate from `PositionDocumentService#attach`'s write.
+- **A new `PositionDocumentFormatReader` must be ordered ahead of `PlainTextFormatReader`.** That
+  catch-all answers `supports()` `true` unconditionally, so a new reader added at a lower priority (a
+  higher `@Order` number) than `LOWEST_PRECEDENCE` never gets a turn — its bytes are silently read as
+  UTF-8 text instead. There is no compiler or test that catches this by construction; a new reader's
+  own test should assert it wins against the plain-text fallback on a real sample of its format, the
+  way `aNonWordZipIsNotTreatedAsDocx` pins `DocxFormatReader`'s own disambiguation.
+- **A shared byte signature is not a shared format.** Every OOXML file (`.docx`, `.xlsx`, `.pptx`) is a
+  ZIP, so `supports()` for any of them must check for the format's own entry name
+  (`word/document.xml`, `xl/workbook.xml`, `ppt/presentation.xml`) and not stop at the ZIP signature —
+  see `DocxFormatReader`. The same is true of the legacy binary family: `.doc`, `.xls` and `.ppt` all
+  share the OLE2 compound-file signature `LegacyOfficeFormatReader` refuses on sight, and telling them
+  apart (to give each its own message, say) needs reading the file's own storage directory, which
+  nothing here does yet.
 
 ## Out of scope (this slice)
 
 - Mandate context, compensation, assessment criteria and reporting — the epic's remaining stories
   (#280–#284).
+- `.xlsx` and `.pptx` themselves. `PositionDocumentTextReader`'s reader-per-format design (see above)
+  is what makes adding them later a new class rather than a rewrite, but no `XlsxFormatReader` or
+  `PptxFormatReader` exists yet, and legacy `.doc`/`.xls`/`.ppt` stay refused rather than parsed.
 - A dedicated position-extraction rate-limit field — `LlmBudgetGuard.requirePositionExtractionBudget`
   is sized off `shortlistRequestsPerMinute()`, exactly as the import's column-mapping budget is.
 - Detecting an unnamed third party's name in prose. Stated as a trade above, not attempted.
@@ -184,7 +224,9 @@ cd apps/web && npm run build && npx vitest
 ```
 
 - `PositionDocumentTextReaderTest` — all four real fixtures, an encrypted PDF, a PDF with no text
-  layer, a legacy `.doc` by its OLE2 signature, the page and character caps.
+  layer, a legacy `.doc` by its OLE2 signature, the page and character caps, and that a bare ZIP
+  carrying an `xl/workbook.xml` entry (i.e., something that is not a Word document) is not claimed by
+  `DocxFormatReader` on the ZIP signature alone.
 - `TextPseudonymiserTest` — the escape-before-mint ordering, one placeholder per distinct value, a
   regex match redacted the same way, whole-word matching.
 - `HeuristicBriefReaderTest` — a colon-separated header, a wide-gap table row, the column-gap cutoff,

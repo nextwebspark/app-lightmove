@@ -10,6 +10,9 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
@@ -102,13 +105,42 @@ class PositionDocumentTextReaderTest {
                 });
     }
 
+    @Test
+    @DisplayName("a zip that is not a Word document is not mistaken for one by the raw zip signature")
+    void aNonWordZipIsNotTreatedAsDocx() {
+        // Every OOXML format shares the ZIP signature .docx is detected by — an .xlsx or .pptx reader
+        // added later must not have its files claimed by DocxFormatReader on that signature alone.
+        DocxFormatReader docx = new DocxFormatReader();
+        assertThat(docx.supports(zipOf("xl/workbook.xml", "<workbook/>"))).isFalse();
+        assertThat(docx.supports(zipOf("word/document.xml", "<document/>"))).isTrue();
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private static PositionDocumentTextReader readerWith(int maxCharacters, int maxPages) {
-        return new PositionDocumentTextReader(new LightMoveProperties(null, null, null, null,
-                new PositionSettings(null,
-                        new PositionExtractionSettings(true, maxCharacters, maxPages, true, true)),
-                null, null, null, null, null));
+        PositionExtractionSettings settings =
+                new PositionExtractionSettings(true, maxCharacters, maxPages, true, true);
+        LightMoveProperties properties = new LightMoveProperties(null, null, null, null,
+                new PositionSettings(null, settings), null, null, null, null, null);
+        // The same order Spring's @Order annotations resolve to in production — see each reader's
+        // own @Order — with the catch-all last, since it always answers supports() true.
+        return new PositionDocumentTextReader(List.of(new PdfFormatReader(),
+                new LegacyOfficeFormatReader(), new DocxFormatReader(), new PlainTextFormatReader()),
+                properties);
+    }
+
+    private static byte[] zipOf(String entryName, String content) {
+        try {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            try (ZipOutputStream zip = new ZipOutputStream(out)) {
+                zip.putNextEntry(new ZipEntry(entryName));
+                zip.write(content.getBytes(StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+            return out.toByteArray();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static byte[] fixture(String name) throws Exception {
