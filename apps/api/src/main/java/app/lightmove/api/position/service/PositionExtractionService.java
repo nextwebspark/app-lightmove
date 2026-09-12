@@ -10,6 +10,7 @@ import app.lightmove.api.position.dto.PositionExtractionResponse;
 import app.lightmove.api.position.dto.ProposedFieldDto;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.PositionDocument;
+import app.lightmove.api.position.model.ProposedAssessment;
 import app.lightmove.api.position.model.ProposedCompensation;
 import app.lightmove.api.position.model.ProposedMandateContext;
 import app.lightmove.api.position.model.ProposedPositionDetails;
@@ -40,6 +41,7 @@ public class PositionExtractionService {
     private final PositionDetailsProposer detailsProposer;
     private final PositionContextProposer contextProposer;
     private final PositionCompensationProposer compensationProposer;
+    private final PositionAssessmentProposer assessmentProposer;
     private final AuditService audit;
     private final PositionExtractionSettings settings;
 
@@ -49,6 +51,7 @@ public class PositionExtractionService {
                                      PositionDocumentTextReader textReader, PositionDetailsProposer detailsProposer,
                                      PositionContextProposer contextProposer,
                                      PositionCompensationProposer compensationProposer,
+                                     PositionAssessmentProposer assessmentProposer,
                                      AuditService audit, LightMoveProperties properties) {
         this.briefs = briefs;
         this.documents = documents;
@@ -56,6 +59,7 @@ public class PositionExtractionService {
         this.detailsProposer = detailsProposer;
         this.contextProposer = contextProposer;
         this.compensationProposer = compensationProposer;
+        this.assessmentProposer = assessmentProposer;
         this.audit = audit;
         this.settings = properties.position().extraction();
     }
@@ -86,6 +90,16 @@ public class PositionExtractionService {
         Read read = load(workspaceId, projectId);
         ProposedCompensation proposed = compensationProposer.propose(
                 userId, read.text(), read.brief().project().getClientId(), workspaceId);
+        recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
+        return assemble(proposed.source().value(), proposed.fields());
+    }
+
+    @Transactional(readOnly = true)
+    public PositionExtractionResponse extractAssessment(UUID userId, UUID workspaceId, UUID projectId,
+                                                         HttpServletRequest httpRequest) {
+        Read read = load(workspaceId, projectId);
+        ProposedAssessment proposed = assessmentProposer.propose(userId, read.text(),
+                read.brief().project().getClientId(), workspaceId, read.brief().project().getPositionTitle());
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
         return assemble(proposed.source().value(), proposed.fields());
     }

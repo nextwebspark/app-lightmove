@@ -122,6 +122,11 @@ export function extractCompensation(projectId: string): Promise<PositionExtracti
   return request<PositionExtraction>(`${base(projectId)}/document/extract/compensation`, { method: "POST" });
 }
 
+/** Reads the already-attached document into step-five proposals. See {@link extractDetails}. */
+export function extractAssessment(projectId: string): Promise<PositionExtraction> {
+  return request<PositionExtraction>(`${base(projectId)}/document/extract/assessment`, { method: "POST" });
+}
+
 /**
  * Fetches the stored position description and hands it to the browser to save.
  *
