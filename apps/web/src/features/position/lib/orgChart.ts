@@ -15,6 +15,9 @@ export const NODE_HEIGHT = 62;
 const COLUMN_GAP = 26;
 const ROW_GAP = 74;
 
+/** `PutReportingStructureRequest.orgChart`'s own ceiling — a merge must never grow the chart past it. */
+export const MAX_ORG_CHART_SEATS = 60;
+
 export function mandateSeatOf(chart: OrgNode[]): OrgNode | null {
   return chart.find((node) => node.mandateSeat) ?? null;
 }
@@ -79,6 +82,52 @@ export function branchHoldsMandateSeat(chart: OrgNode[], nodeId: string): boolea
   const seat = mandateSeatOf(chart);
   if (!seat) return false;
   return !removeBranch(chart, nodeId).some((node) => node.nodeId === seat.nodeId);
+}
+
+/**
+ * Folds a proposed "reports to" title into the chart, in place of ever replacing it: renaming the
+ * mandate seat's existing parent, or minting one and re-parenting the mandate seat under it. Reads a
+ * "reports to" title exactly the way {@link managerOf} does — the mandate seat's parent — so accepting
+ * a proposal edits the same relationship the summary rail already renders.
+ *
+ * A no-op, returning `chart` unchanged, when minting a new manager would push the chart past
+ * {@link MAX_ORG_CHART_SEATS} — the caller is expected to tell the two cases apart by reference equality.
+ */
+export function applyReportsToTitle(chart: OrgNode[], title: string): OrgNode[] {
+  const manager = managerOf(chart);
+  if (manager) {
+    return chart.map((node) => (node.nodeId === manager.nodeId ? { ...node, title } : node));
+  }
+  const seat = mandateSeatOf(chart);
+  if (!seat || chart.length >= MAX_ORG_CHART_SEATS) return chart;
+  const nodeId = crypto.randomUUID();
+  return [
+    ...chart.map((node) => (node.nodeId === seat.nodeId ? { ...node, parentNodeId: nodeId } : node)),
+    { nodeId, parentNodeId: null, title, name: null, mandateSeat: false, canvasX: null, canvasY: null },
+  ];
+}
+
+/**
+ * Folds a proposed direct-report title into the chart by appending it as a new child of the mandate
+ * seat — never a replacement of the chart's existing reports.
+ *
+ * A no-op, returning `chart` unchanged, once the chart already holds {@link MAX_ORG_CHART_SEATS} seats.
+ */
+export function appendDirectReport(chart: OrgNode[], title: string): OrgNode[] {
+  const seat = mandateSeatOf(chart);
+  if (!seat || chart.length >= MAX_ORG_CHART_SEATS) return chart;
+  return [
+    ...chart,
+    {
+      nodeId: crypto.randomUUID(),
+      parentNodeId: seat.nodeId,
+      title,
+      name: null,
+      mandateSeat: false,
+      canvasX: null,
+      canvasY: null,
+    },
+  ];
 }
 
 /**

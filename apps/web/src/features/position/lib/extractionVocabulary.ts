@@ -45,4 +45,9 @@ export const EXTRACTION_FIELD_LABELS: Record<string, string> = {
   preferredCriterion: "Preferred criterion",
   technicalCompetency: "Technical competency",
   behaviouralCompetency: "Behavioural competency",
+  reportsToTitle: "Reports to",
+  directReportTitle: "Direct report",
+  teamSize: "Total team size",
+  noticeValue: "Notice period",
+  noticeUnit: "Notice period unit",
 };

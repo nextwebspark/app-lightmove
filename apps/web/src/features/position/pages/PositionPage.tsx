@@ -34,6 +34,7 @@ import {
   toggle,
   type IdentifiedCompetency,
 } from "../lib/competencyRows";
+import { appendDirectReport, applyReportsToTitle } from "../lib/orgChart";
 import { StepRail } from "../components/StepRail";
 import { AssessmentStep } from "../components/steps/AssessmentStep";
 import { CompensationStep } from "../components/steps/CompensationStep";
@@ -112,6 +113,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   // and back, the same reason contextSave/compensationSave are already separate autosave channels.
   const [extraction, setExtraction] = useState<PositionExtraction | null>(null);
   const [contextExtraction, setContextExtraction] = useState<PositionExtraction | null>(null);
+  const [reportingExtraction, setReportingExtraction] = useState<PositionExtraction | null>(null);
   const [compensationExtraction, setCompensationExtraction] = useState<PositionExtraction | null>(null);
   const [assessmentExtraction, setAssessmentExtraction] = useState<PositionExtraction | null>(null);
 
@@ -331,6 +333,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       queryClient.setQueryData(key, saved);
       setExtraction(null);
       setContextExtraction(null);
+      setReportingExtraction(null);
       setCompensationExtraction(null);
       setAssessmentExtraction(null);
     },
@@ -342,6 +345,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       queryClient.setQueryData(key, saved);
       setExtraction(null);
       setContextExtraction(null);
+      setReportingExtraction(null);
       setCompensationExtraction(null);
       setAssessmentExtraction(null);
     },
@@ -360,6 +364,11 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const extractContext = useMutation({
     mutationFn: () => positionApi.extractContext(projectId),
     onSuccess: setContextExtraction,
+    onError: (error) => toast(messageFor(error)),
+  });
+  const extractReporting = useMutation({
+    mutationFn: () => positionApi.extractReporting(projectId),
+    onSuccess: setReportingExtraction,
     onError: (error) => toast(messageFor(error)),
   });
   const extractCompensation = useMutation({
@@ -484,6 +493,91 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       true,
     );
     setContextExtraction(null);
+  };
+
+  const removeReportingProposal = (field: ProposedField) =>
+    setReportingExtraction((current) =>
+      current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
+    );
+
+  /**
+   * Unlike every other step's proposals, a "reportsToTitle" or "directReportTitle" proposal does not
+   * become a flat field — it is folded into the existing org chart (renaming or minting the manager,
+   * appending a direct report), never a chart of its own. See `orgChart.ts`'s
+   * `applyReportsToTitle`/`appendDirectReport` and the class doc on `PositionReportingProposer` for why.
+   */
+  const patchForReporting = (field: ProposedField, value: string): Partial<ReportingStructure> => {
+    switch (field.fieldKey) {
+      case "reportsToTitle":
+        return { orgChart: applyReportsToTitle(reporting.orgChart, value) };
+      case "directReportTitle":
+        return { orgChart: appendDirectReport(reporting.orgChart, value) };
+      case "teamSize":
+        return { teamSize: value };
+      case "noticeValue":
+        return { noticeValue: Number(value) };
+      case "noticeUnit":
+        return { noticeUnit: value as ReportingStructure["noticeUnit"] };
+      default:
+        return {};
+    }
+  };
+
+  /** Neither merge helper can grow the chart past 60 seats — a no-op is the same array back, by reference. */
+  const isOrgChartAtCapacity = (patch: Partial<ReportingStructure>) =>
+    patch.orgChart !== undefined && patch.orgChart === reporting.orgChart;
+
+  const acceptReportingProposal = (field: ProposedField, value: string) => {
+    const patch = patchForReporting(field, value);
+    if (isOrgChartAtCapacity(patch)) {
+      toast("That chart is already at the 60-seat limit.");
+      return;
+    }
+    changeReporting(patch, true);
+    removeReportingProposal(field);
+  };
+
+  const dismissReportingProposal = (field: ProposedField) => removeReportingProposal(field);
+
+  /**
+   * Threads one evolving chart through every accepted proposal in turn — reports-to first, then each
+   * direct report in order — rather than starting each from the same `reporting.orgChart` snapshot the
+   * way `acceptAllCompensationProposals` folds its flat fields: two direct-report accepts applied
+   * independently would each append onto the chart this render started with and the second would
+   * silently discard the first.
+   */
+  const acceptAllReportingProposals = () => {
+    if (!reportingExtraction) return;
+    let orgChart = reporting.orgChart;
+    let cappedOut = false;
+
+    // applyReportsToTitle only ever returns the same reference back when it declined to mint a new
+    // manager because the chart is already full — renaming an existing one always maps to a new array.
+    const reportsTo = reportingExtraction.fields.find((field) => field.fieldKey === "reportsToTitle");
+    if (reportsTo) {
+      const next = applyReportsToTitle(orgChart, reportsTo.value);
+      if (next === orgChart) cappedOut = true;
+      orgChart = next;
+    }
+    for (const field of reportingExtraction.fields) {
+      if (field.fieldKey !== "directReportTitle") continue;
+      const next = appendDirectReport(orgChart, field.value);
+      if (next === orgChart) {
+        cappedOut = true;
+        break;
+      }
+      orgChart = next;
+    }
+
+    const patch: Partial<ReportingStructure> = { orgChart };
+    for (const field of reportingExtraction.fields) {
+      if (field.fieldKey === "teamSize") patch.teamSize = field.value;
+      if (field.fieldKey === "noticeValue") patch.noticeValue = Number(field.value);
+      if (field.fieldKey === "noticeUnit") patch.noticeUnit = field.value as ReportingStructure["noticeUnit"];
+    }
+    changeReporting(patch, true);
+    setReportingExtraction(null);
+    if (cappedOut) toast("The chart reached its 60-seat limit before every proposal could be applied.");
   };
 
   const removeCompensationProposal = (field: ProposedField) =>
@@ -747,7 +841,14 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               roleTitle={details.roleTitle}
               seniority={details.seniority}
               reporting={reporting}
+              document={drafted.document}
+              extraction={reportingExtraction}
+              extracting={extractReporting.isPending}
               onChange={changeReporting}
+              onExtract={() => extractReporting.mutate()}
+              onAcceptProposal={acceptReportingProposal}
+              onDismissProposal={dismissReportingProposal}
+              onAcceptAllProposals={acceptAllReportingProposals}
             />
           )}
           {currentStep === "compensation" && (

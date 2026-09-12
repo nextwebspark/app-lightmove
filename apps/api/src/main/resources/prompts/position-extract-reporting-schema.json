@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "reportsToTitle": { "type": ["string", "null"] },
+    "reportsToTitleSnippet": { "type": ["string", "null"] },
+    "directReports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "snippet": { "type": ["string", "null"] }
+        },
+        "required": ["title"]
+      }
+    },
+    "teamSize": { "type": ["string", "null"] },
+    "teamSizeSnippet": { "type": ["string", "null"] },
+    "noticeValue": { "type": ["string", "null"] },
+    "noticeValueSnippet": { "type": ["string", "null"] },
+    "noticeUnit": { "type": ["string", "null"] },
+    "noticeUnitSnippet": { "type": ["string", "null"] }
+  },
+  "required": ["reportsToTitle"]
+}
