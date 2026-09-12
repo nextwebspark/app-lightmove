@@ -1,7 +1,13 @@
 import { useState } from "react";
-import { Input, Select } from "../../../../components/ui";
+import { Input, Select, Spinner } from "../../../../components/ui";
 import { formatNumber } from "../../../../lib/format";
-import type { Benefit, Compensation } from "../../api/types";
+import type {
+  Benefit,
+  Compensation,
+  PositionDocument,
+  PositionExtraction,
+  ProposedField,
+} from "../../api/types";
 import { bandReadings, packageMix, packageTotal } from "../../lib/compensation";
 import { BENEFIT_PRESETS } from "../../lib/benefits";
 import {
@@ -11,6 +17,7 @@ import {
   CURRENCIES,
   INCENTIVE_TYPE_LABELS,
 } from "../../lib/labels";
+import { PositionExtractionPanel } from "../PositionExtractionPanel";
 import {
   AddRowButton,
   ColumnLabel,
@@ -25,10 +32,24 @@ import {
 /** Step four: what the seat pays, and what that adds up to over a year. */
 export function CompensationStep({
   compensation,
+  document,
+  extraction,
+  extracting,
   onChange,
+  onExtract,
+  onAcceptProposal,
+  onDismissProposal,
+  onAcceptAllProposals,
 }: {
   compensation: Compensation;
+  document: PositionDocument | null;
+  extraction: PositionExtraction | null;
+  extracting: boolean;
   onChange: (patch: Partial<Compensation>, immediate?: boolean) => void;
+  onExtract: () => void;
+  onAcceptProposal: (field: ProposedField, value: string) => void;
+  onDismissProposal: (field: ProposedField) => void;
+  onAcceptAllProposals: () => void;
 }) {
   const [draft, setDraft] = useState<Benefit>({ name: "", amount: null, frequency: "MONTHLY" });
   const total = packageTotal(compensation);
@@ -51,6 +72,39 @@ export function CompensationStep({
 
   return (
     <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-2.5">
+        {document ? (
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onExtract}
+              disabled={extracting}
+              className="rounded-[7px] border border-sky/60 px-2.5 py-[5px] text-[11.5px] font-medium text-sky transition hover:border-sky disabled:opacity-50"
+            >
+              Read from document
+            </button>
+            {extracting && (
+              <span className="flex items-center gap-[7px] font-mono text-[11.5px] text-text3">
+                <Spinner />
+                Reading document…
+              </span>
+            )}
+          </div>
+        ) : (
+          <span className="font-mono text-[11.5px] text-text3">
+            Attach a position description on the Details step to read this step from it.
+          </span>
+        )}
+        {extraction && (
+          <PositionExtractionPanel
+            extraction={extraction}
+            onAccept={onAcceptProposal}
+            onDismiss={onDismissProposal}
+            onAcceptAll={onAcceptAllProposals}
+          />
+        )}
+      </div>
+
       <div>
         <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.02em] text-text2">
           Base salary

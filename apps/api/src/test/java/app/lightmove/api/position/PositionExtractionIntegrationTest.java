@@ -171,6 +171,83 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    @DisplayName("step two and step four extract routes exist, are gated the same way, and write nothing")
+    void extractsContextAndCompensationWithoutWriting() throws Exception {
+        String admin = adminOf("Context Compensation Extraction Firm");
+        String clientId = createClient(admin, "Meridian Holdings", "UAE");
+        String projectId = createProject(admin, clientId, "CFO");
+        attach(admin, projectId, gmItFixture()).andExpect(status().isOk());
+        String beforeUpdatedAt = updatedAtOf(projectId);
+
+        mvc.perform(post(positionUrl(projectId) + "/document/extract/context")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.extractionSource").exists());
+        mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.extractionSource").exists());
+
+        assertThat(updatedAtOf(projectId)).isEqualTo(beforeUpdatedAt);
+    }
+
+    @Test
+    @DisplayName("nothing to read on step two or step four without a document")
+    void refusesContextAndCompensationWithoutADocument() throws Exception {
+        String admin = adminOf("No Document Context Compensation Firm");
+        String projectId = createProject(admin, createClient(admin, "Aldar", "UAE"), "CFO");
+
+        mvc.perform(post(positionUrl(projectId) + "/document/extract/context")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("PROJECT_EDIT is required for step two and step four too")
+    void researcherCannotExtractContextOrCompensation() throws Exception {
+        String admin = adminOf("Researcher Context Compensation Firm");
+        String sara = "sara@" + domain;
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+        String projectId = createProject(admin, createClient(admin, "Aldar", "UAE"), "CFO");
+        attach(admin, projectId, gmItFixture()).andExpect(status().isOk());
+        mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberIdOf(admin, sara))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"RESEARCHER"}"""))
+                .andExpect(status().isOk());
+
+        mvc.perform(post(positionUrl(projectId) + "/document/extract/context")
+                        .header("Authorization", "Bearer " + login(sara)))
+                .andExpect(status().isForbidden());
+        mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
+                        .header("Authorization", "Bearer " + login(sara)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("another workspace's project is not found for step two or step four either")
+    void refusesContextAndCompensationOutsideTheCallersWorkspace() throws Exception {
+        String owner = adminOf("Extraction Tenant Context Compensation Firm");
+        String projectId = createProject(owner, createClient(owner, "Aldar", "UAE"), "CFO");
+
+        createWorkspace(verifiedUser("Nadia Rahman", "nadia@other-" + domain), "Other Firm");
+        String outsider = login("nadia@other-" + domain);
+
+        mvc.perform(post(positionUrl(projectId) + "/document/extract/context")
+                        .header("Authorization", "Bearer " + outsider))
+                .andExpect(status().isNotFound());
+        mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
+                        .header("Authorization", "Bearer " + outsider))
+                .andExpect(status().isNotFound());
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private static String positionUrl(String projectId) {

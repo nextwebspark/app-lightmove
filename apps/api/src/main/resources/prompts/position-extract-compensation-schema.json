@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "currency": { "type": ["string", "null"] },
+    "currencySnippet": { "type": ["string", "null"] },
+    "salaryMin": { "type": ["string", "null"] },
+    "salaryMinSnippet": { "type": ["string", "null"] },
+    "salaryMax": { "type": ["string", "null"] },
+    "salaryMaxSnippet": { "type": ["string", "null"] },
+    "baseSalaryMode": { "type": ["string", "null"] },
+    "baseSalaryModeSnippet": { "type": ["string", "null"] },
+    "bonusValue": { "type": ["string", "null"] },
+    "bonusValueSnippet": { "type": ["string", "null"] },
+    "bonusBasis": { "type": ["string", "null"] },
+    "bonusBasisSnippet": { "type": ["string", "null"] },
+    "incentiveType": { "type": ["string", "null"] },
+    "incentiveTypeSnippet": { "type": ["string", "null"] },
+    "incentiveAmount": { "type": ["string", "null"] },
+    "incentiveAmountSnippet": { "type": ["string", "null"] },
+    "incentiveVesting": { "type": ["string", "null"] },
+    "incentiveVestingSnippet": { "type": ["string", "null"] },
+    "benefits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "frequency": { "type": ["string", "null"] },
+          "snippet": { "type": ["string", "null"] }
+        },
+        "required": ["name"]
+      }
+    }
+  },
+  "required": ["currency"]
+}
