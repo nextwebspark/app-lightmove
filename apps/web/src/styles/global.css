@@ -67,6 +67,24 @@ body * {
   animation: fade-up 0.5s ease both;
 }
 
+/* The report's "you are here" marker: a ring that swells out of the current point and fades. */
+@keyframes pulse-ring {
+  from {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  to {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+
+.animate-pulse-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pulse-ring 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 /* Respect the user's wishes. An animation is decoration; motion sickness is not. */
 @media (prefers-reduced-motion: reduce) {
   body,
