@@ -283,7 +283,7 @@ describe("routes — the platform gate", () => {
 
     renderAt("/settings/template-library");
 
-    expect(await screen.findByText(/the library every workspace starts from/)).toBeInTheDocument();
+    expect(await screen.findByRole("table", { name: "Templates" })).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Template library" }).length).toBeGreaterThan(0);
   });
 });

@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -53,11 +54,14 @@ public class WorkspacePositionTemplateService {
     @Transactional(readOnly = true)
     public List<PositionTemplateOverview> list(UUID workspaceId) {
         WorkspaceCatalog catalog = catalogOf(workspaceId);
+        Map<UUID, String> reviserNames = users.findAllById(catalog.own().values().stream()
+                        .map(PositionTemplate::getRevisedBy).filter(Objects::nonNull).distinct().toList())
+                .stream().collect(Collectors.toMap(User::getId, User::getFullName));
         List<PositionTemplateOverview> rows = new ArrayList<>();
-        catalog.own().values().forEach(template -> rows.add(overviewOf(template, catalog)));
+        catalog.own().values().forEach(template -> rows.add(overviewOf(template, catalog, reviserNames)));
         catalog.library().values().stream()
                 .filter(template -> template.isActive() && !catalog.own().containsKey(template.getCode()))
-                .forEach(template -> rows.add(overviewOf(template, catalog)));
+                .forEach(template -> rows.add(overviewOf(template, catalog, reviserNames)));
         return rows;
     }
 
@@ -223,10 +227,14 @@ public class WorkspacePositionTemplateService {
                         .collect(Collectors.toSet()));
     }
 
-    private PositionTemplateOverview overviewOf(PositionTemplate template, WorkspaceCatalog catalog) {
+    private PositionTemplateOverview overviewOf(PositionTemplate template, WorkspaceCatalog catalog,
+                                                Map<UUID, String> reviserNames) {
+        // Keyed by the firm's own revisers only, but a library row's reviser may be one of them too.
+        String revisedBy = template.isSharedLibrary() ? null : reviserNames.get(template.getRevisedBy());
         return new PositionTemplateOverview(template.getCode(), template.getTitle(), template.getDiscipline(),
-                template.getSeniority(), template.getSummary(), catalog.originOf(template), template.isActive(),
-                isFallback(template), catalog.isBehind(template));
+                template.getSeniority(), template.getSummary(), List.copyOf(template.getKeywords()),
+                catalog.originOf(template), template.isActive(), isFallback(template), catalog.isBehind(template),
+                null, template.getRevisedAt(), revisedBy);
     }
 
     private PositionTemplateDetail detailOf(PositionTemplate template, WorkspaceCatalog catalog) {

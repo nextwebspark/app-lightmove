@@ -30,6 +30,12 @@ class WorkspacePositionTemplateIntegrationTest extends PositionTemplateFlowSuppo
         JsonNode copy = expect(200, putJson(firm.token(), CFO, edited(library, "Group Finance & Treasury", true)));
         assertThat(copy.get("origin").asText()).isEqualTo("CUSTOMISED");
 
+        JsonNode firmList = getJson(firm.token(), FIRM_TEMPLATES);
+        JsonNode listedCopy = find(firmList, "chief-financial-officer");
+        assertThat(listedCopy.get("revisedByName").isNull()).isFalse();
+        assertThat(listedCopy.get("customisedByWorkspaces").isNull()).isTrue();
+        assertThat(find(firmList, "chief-risk-officer").get("revisedByName").isNull()).isTrue();
+
         JsonNode picker = getJson(firm.token(), PICKER);
         assertThat(codesIn(picker)).containsOnlyOnce("chief-financial-officer");
         assertThat(find(picker, "chief-financial-officer").get("shared").asBoolean()).isFalse();

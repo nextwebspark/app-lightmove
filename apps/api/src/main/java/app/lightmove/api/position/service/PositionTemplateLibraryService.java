@@ -15,10 +15,12 @@ import app.lightmove.api.position.model.ImportedTemplate;
 import app.lightmove.api.position.model.PlannedTemplateImport;
 import app.lightmove.api.position.model.PositionTemplate;
 import app.lightmove.api.position.model.PositionTemplateDraft;
+import app.lightmove.api.position.model.TemplateCodeCount;
 import app.lightmove.api.position.repository.PositionTemplateRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -47,10 +49,18 @@ public class PositionTemplateLibraryService {
 
     @Transactional(readOnly = true)
     public List<PositionTemplateOverview> list() {
-        return templates.findLibrary().stream()
+        List<PositionTemplate> library = templates.findLibrary();
+        Map<String, Long> copies = templates.countWorkspaceTemplatesByCode().stream()
+                .collect(Collectors.toMap(TemplateCodeCount::code, TemplateCodeCount::count));
+        Map<UUID, String> reviserNames = users.findAllById(library.stream()
+                        .map(PositionTemplate::getRevisedBy).filter(Objects::nonNull).distinct().toList())
+                .stream().collect(Collectors.toMap(User::getId, User::getFullName));
+        return library.stream()
                 .map(template -> new PositionTemplateOverview(template.getCode(), template.getTitle(),
-                        template.getDiscipline(), template.getSeniority(), template.getSummary(), null,
-                        template.isActive(), isFallback(template), false))
+                        template.getDiscipline(), template.getSeniority(), template.getSummary(),
+                        List.copyOf(template.getKeywords()), null, template.isActive(), isFallback(template), false,
+                        copies.getOrDefault(template.getCode(), 0L), template.getRevisedAt(),
+                        reviserNames.get(template.getRevisedBy())))
                 .toList();
     }
 

@@ -51,6 +51,11 @@ class PositionTemplateLibraryIntegrationTest extends PositionTemplateFlowSupport
         assertThat(draftedBrief(firm.token(), "Head of " + keyword).at("/details/department").asText())
                 .isEqualTo("Our Quills");
         assertThat(getJson(admin, LIBRARY + "/" + code).get("customisedByWorkspaces").asLong()).isEqualTo(1);
+
+        JsonNode listed = find(getJson(admin, LIBRARY), code);
+        assertThat(listed.get("customisedByWorkspaces").asLong()).isEqualTo(1);
+        assertThat(listed.get("revisedByName").isNull()).isFalse();
+        assertThat(listed.get("keywords").toString()).contains(keyword);
     }
 
     @Test

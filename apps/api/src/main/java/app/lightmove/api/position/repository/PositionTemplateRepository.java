@@ -1,6 +1,7 @@
 package app.lightmove.api.position.repository;
 
 import app.lightmove.api.position.model.PositionTemplate;
+import app.lightmove.api.position.model.TemplateCodeCount;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -95,6 +96,14 @@ public interface PositionTemplateRepository extends JpaRepository<PositionTempla
             where template.workspaceId is not null and template.code = :code
             """)
     long countWorkspaceTemplatesCoded(@Param("code") String code);
+
+    @Query("""
+            select new app.lightmove.api.position.model.TemplateCodeCount(template.code, count(template))
+            from PositionTemplate template
+            where template.workspaceId is not null
+            group by template.code
+            """)
+    List<TemplateCodeCount> countWorkspaceTemplatesByCode();
 
     @Query("select coalesce(max(template.sortOrder), 0) from PositionTemplate template where template.workspaceId is null")
     int findLastLibrarySortOrder();

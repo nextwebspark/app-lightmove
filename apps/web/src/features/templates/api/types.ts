@@ -71,18 +71,18 @@ export interface TemplateOverview {
   /** The template an unrecognised role title is drafted from — never archived or hidden. */
   fallback: boolean;
   libraryChangedSinceCustomised: boolean;
-}
-
-export interface TemplateDetail extends TemplateOverview {
   keywords: string[];
-  body: TemplateBody;
   /** Library scope only: how many workspaces keep their own copy, and so will not see an edit. */
   customisedByWorkspaces: number | null;
-  /** Sent back on save. For a library template opened from a workspace, the library row's. */
-  version: number;
   revisedAt: string;
   /** Null for a library template seen from a workspace. */
   revisedByName: string | null;
+}
+
+export interface TemplateDetail extends TemplateOverview {
+  body: TemplateBody;
+  /** Sent back on save. For a library template opened from a workspace, the library row's. */
+  version: number;
 }
 
 export interface TemplateWriteRequest {

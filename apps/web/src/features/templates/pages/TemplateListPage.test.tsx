@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -27,6 +27,10 @@ const row = (overrides: Partial<TemplateOverview>): TemplateOverview => ({
   active: true,
   fallback: false,
   libraryChangedSinceCustomised: false,
+  keywords: ["ceo"],
+  customisedByWorkspaces: null,
+  revisedAt: "2026-09-02T10:00:00Z",
+  revisedByName: null,
   ...overrides,
 });
 
@@ -44,14 +48,18 @@ const renderPage = (scope: TemplateScope) =>
     </MemoryRouter>,
   );
 
+// jsdom applies no CSS, so the phone cards and the grid are both in the document.
+const grid = () => screen.getByRole("table", { name: "Templates" });
+
 describe("TemplateListPage — a firm's templates", () => {
   beforeEach(() => {
+    localStorage.clear();
     vi.resetAllMocks();
   });
 
   it("says where each template came from, and which copies the library has moved past", async () => {
     vi.mocked(templateApi.listTemplates).mockResolvedValue([
-      row({ code: "group-treasury-lead", title: "Group Treasury Lead", discipline: "FINANCE", origin: "OWN" }),
+      row({ code: "group-treasury-lead", title: "Group Treasury Lead", discipline: "FINANCE", origin: "OWN", revisedByName: "Alok Kumar" }),
       row({
         code: "chief-financial-officer",
         title: "Chief Financial Officer",
@@ -65,12 +73,33 @@ describe("TemplateListPage — a firm's templates", () => {
 
     renderPage("workspace");
 
-    expect(await screen.findByText("Finance · 2")).toBeInTheDocument();
-    expect(screen.getByText("Your own")).toBeInTheDocument();
-    expect(screen.getByText("Customised")).toBeInTheDocument();
-    expect(screen.getByText("Library updated")).toBeInTheDocument();
-    expect(screen.getByText("Hidden")).toBeInTheDocument();
-    expect(screen.getByText("4 templates · 1 customised · 1 your own · 1 hidden")).toBeInTheDocument();
+    const table = grid();
+    expect(await within(table).findByText("Your own")).toBeInTheDocument();
+    expect(within(table).getByText("Customised")).toBeInTheDocument();
+    expect(within(table).getByText("Library updated")).toBeInTheDocument();
+    expect(within(table).getByText("Hidden")).toBeInTheDocument();
+    expect(within(table).getByText("Alok Kumar")).toBeInTheDocument();
+    expect(within(table).queryByText("Firm copies")).not.toBeInTheDocument();
+  });
+
+  it("narrows the grid by search, matching keywords as well as titles", async () => {
+    vi.mocked(templateApi.listTemplates).mockResolvedValue([
+      row({ code: "group-treasury-lead", title: "Group Treasury Lead", discipline: "FINANCE", origin: "OWN", keywords: ["treasury"] }),
+      row({ code: "chief-risk-officer", title: "Chief Risk Officer", discipline: "GOVERNANCE", origin: "HIDDEN", keywords: ["cro"] }),
+      row({}),
+    ]);
+
+    renderPage("workspace");
+    await within(grid()).findByText("Group Treasury Lead");
+
+    await userEvent.type(screen.getByRole("textbox", { name: /Search/ }), "treasury");
+    expect(within(grid()).getByText("Group Treasury Lead")).toBeInTheDocument();
+    expect(within(grid()).queryByText("Chief Executive Officer")).not.toBeInTheDocument();
+
+    await userEvent.clear(screen.getByRole("textbox", { name: /Search/ }));
+    await userEvent.type(screen.getByRole("textbox", { name: /Search/ }), "ceo");
+    expect(within(grid()).getByText("Chief Executive Officer")).toBeInTheDocument();
+    expect(within(grid()).queryByText("Chief Risk Officer")).not.toBeInTheDocument();
   });
 
   it("hides a library template from the firm, and never offers to hide the fallback", async () => {
@@ -78,7 +107,8 @@ describe("TemplateListPage — a firm's templates", () => {
     vi.mocked(templateApi.setTemplateHidden).mockResolvedValue({} as TemplateDetail);
 
     renderPage("workspace");
-    await userEvent.click(await screen.findByRole("button", { name: "Hide Chief Executive Officer" }));
+    await within(grid()).findByText("Chief Executive Officer");
+    await userEvent.click(within(grid()).getByRole("button", { name: "Hide Chief Executive Officer" }));
 
     expect(templateApi.setTemplateHidden).toHaveBeenCalledWith("chief-executive-officer", true);
     expect(screen.queryByRole("button", { name: "Hide Senior Executive (generic)" })).not.toBeInTheDocument();
@@ -91,25 +121,33 @@ describe("TemplateListPage — a firm's templates", () => {
 
     renderPage("workspace");
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("could not be loaded");
-    expect(screen.queryByText(/0 templates/)).not.toBeInTheDocument();
+    expect((await screen.findAllByText(/could not be loaded/)).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/No templates match/)).not.toBeInTheDocument();
   });
 });
 
 describe("TemplateListPage — the library", () => {
   beforeEach(() => {
+    localStorage.clear();
     vi.resetAllMocks();
   });
 
-  it("archives rather than hides, and never offers to archive the fallback", async () => {
-    vi.mocked(templateApi.listTemplates).mockResolvedValue([row({ origin: null }), generic({ origin: null })]);
+  it("archives rather than hides, counts firm copies, and never offers to archive the fallback", async () => {
+    vi.mocked(templateApi.listTemplates).mockResolvedValue([
+      row({ origin: null, customisedByWorkspaces: 3 }),
+      generic({ origin: null, customisedByWorkspaces: 0 }),
+    ]);
     vi.mocked(templateApi.setTemplateActive).mockResolvedValue({} as TemplateDetail);
 
     renderPage("library");
-    await userEvent.click(await screen.findByRole("button", { name: "Archive Chief Executive Officer" }));
+    const table = grid();
+    await within(table).findByText("Chief Executive Officer");
+    await userEvent.click(within(table).getByRole("button", { name: "Archive Chief Executive Officer" }));
 
     expect(templateApi.setTemplateActive).toHaveBeenCalledWith("chief-executive-officer", false);
-    expect(screen.getByText("Fallback")).toBeInTheDocument();
+    expect(within(table).getByText("Firm copies")).toBeInTheDocument();
+    expect(within(table).getByText("3")).toBeInTheDocument();
+    expect(within(table).getByText("Fallback")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Archive Senior Executive (generic)" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Hide/ })).not.toBeInTheDocument();
   });

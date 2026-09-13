@@ -25,6 +25,13 @@ const SETTINGS_SECTIONS = [
 type SettingsGroupLabel = (typeof SETTINGS_SECTIONS)[number]["group"];
 
 /**
+ * The settings pages that are a grid rather than a form. They take the whole main area with a definite
+ * height, as Strategy and the Companies stages do in ProjectLayout, so the rows scroll under a fixed
+ * toolbar and pager instead of the page scrolling past them.
+ */
+const GRID_PAGES = new Set(["/settings/templates", "/settings/template-library"]);
+
+/**
  * The settings shell: breadcrumb topbar, the section rail, and a narrower content column than the
  * workspace screens.
  *
@@ -58,7 +65,11 @@ export function SettingsLayout() {
       breadcrumb={<SettingsBreadcrumb section={section?.label ?? "Settings"} />}
       navGroups={groups}
       navBackLink={{ to: "/", label: "Back to workspace", icon: ICONS.back }}
-      contentClassName="mx-auto max-w-[760px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7"
+      contentClassName={
+        GRID_PAGES.has(pathname)
+          ? "flex h-full w-full flex-col"
+          : "mx-auto max-w-[760px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7"
+      }
     >
       <Outlet />
     </AppShell>
