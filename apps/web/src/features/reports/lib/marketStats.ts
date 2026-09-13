@@ -52,13 +52,8 @@ export function marketStats(market: ReportMarket): MarketStats {
       topHubs.reduce((sum, hub) => sum + hub.count, 0),
       located,
     ),
-    topHubs: topHubs.map(hubLabel),
+    topHubs: topHubs.map((hub) => hub.city),
   };
-}
-
-/** "Riyadh" where a city is known, else the country, else "Unknown place" — a hub always has a name. */
-export function hubLabel(hub: { city: string | null; country: string | null }): string {
-  return hub.city ?? hub.country ?? "Unknown place";
 }
 
 export interface SliceInterest {

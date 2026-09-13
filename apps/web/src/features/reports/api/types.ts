@@ -62,7 +62,7 @@ export interface LevelCount {
 }
 
 export interface TalentHub {
-  city: string | null;
+  city: string;
   country: string | null;
   count: number;
   depth: LevelCount[];

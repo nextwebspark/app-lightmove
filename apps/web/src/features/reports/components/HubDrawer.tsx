@@ -1,7 +1,6 @@
 import { DetailTile, DrawerSection } from "../../../components/ui/DetailList";
 import type { TalentHub } from "../api/types";
 import { percent } from "../lib/figures";
-import { hubLabel } from "../lib/marketStats";
 import { DrawerBulletRow, DrawerLink, ReportDrawer } from "./ReportDrawer";
 import { StackedBar } from "./StackedBar";
 
@@ -26,7 +25,7 @@ export function HubDrawer({
       open={hub !== null}
       onClose={onClose}
       eyebrow="Hub"
-      title={hub ? (hub.city && hub.country ? `${hub.city} · ${hub.country}` : hubLabel(hub)) : ""}
+      title={hub ? (hub.country ? `${hub.city} · ${hub.country}` : hub.city) : ""}
       subtitle={hub ? `${hub.count} executives · ${share}% of located talent` : ""}
     >
       {hub && (
@@ -52,7 +51,7 @@ export function HubDrawer({
             </DrawerSection>
           )}
           <DrawerSection title="Open">
-            <DrawerLink to={`/projects/${projectId}/companies/universe`}>Open {hubLabel(hub)} on the map</DrawerLink>
+            <DrawerLink to={`/projects/${projectId}/companies/universe`}>Open {hub.city} on the map</DrawerLink>
           </DrawerSection>
         </>
       )}

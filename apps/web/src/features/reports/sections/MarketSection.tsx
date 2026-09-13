@@ -9,7 +9,7 @@ import { MarketSliceDrawer, type SliceSelection } from "../components/MarketSlic
 import { ReportCard } from "../components/ReportCard";
 import { Figure, ReportSection } from "../components/ReportSection";
 import { SectorSeniorityHeatmap } from "../components/SectorSeniorityHeatmap";
-import { hubLabel, marketStats, TOP_HUBS } from "../lib/marketStats";
+import { marketStats, TOP_HUBS } from "../lib/marketStats";
 
 /** 02 — where does the universe actually sit? Sector by seniority, then by hub. */
 export function MarketSection({
@@ -79,7 +79,7 @@ export function MarketSection({
 
       <ReportCard
         title="Where talent sits"
-        caption={`executives by hub · ${stats.located} located${market.unlocated > 0 ? ` · ${market.unlocated} with no place on file` : ""} · click a hub for detail`}
+        caption={`executives by hub · ${stats.located} located${market.unlocated > 0 ? ` · ${market.unlocated} with no city on file` : ""} · click a hub for detail`}
         action={
           <Link to={`/projects/${projectId}/companies/universe`} className="inline-flex items-center gap-1.5 text-xs font-medium text-sky hover:underline">
             Open on the map
@@ -95,20 +95,20 @@ export function MarketSection({
               {market.elsewhere > 0 ? ` ${market.elsewhere} more sit in places past this list.` : ""}
             </>
           ) : (
-            "Nobody has a city or country on file yet."
+            "Nobody has a city on file yet."
           )
         }
       >
         <div className="mt-2.5">
           <BarList
             rows={market.hubs.map((h, i) => ({
-              key: hubLabel(h),
-              label: hubLabel(h),
+              key: hubKey(h),
+              label: h.city,
               count: h.count,
               fillClass: i < TOP_HUBS ? "bg-sky" : "bg-text3",
-              title: `${h.count} executives in ${hubLabel(h)} · click for detail`,
+              title: `${h.count} executives in ${h.city} · click for detail`,
             }))}
-            onSelect={(row) => setHub(market.hubs.find((h) => hubLabel(h) === row.key) ?? null)}
+            onSelect={(row) => setHub(market.hubs.find((h) => hubKey(h) === row.key) ?? null)}
           />
         </div>
       </ReportCard>
@@ -131,3 +131,5 @@ export function MarketSection({
     </ReportSection>
   );
 }
+
+const hubKey = (hub: TalentHub) => `${hub.city}|${hub.country ?? ""}`;

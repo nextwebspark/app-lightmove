@@ -11,7 +11,7 @@ import java.util.List;
  * with no seniority in {@code withoutSeniority}. Neither sits in a cell.
  *
  * <p>{@code hubs} is the leading places by headcount, {@code elsewhere} everyone at a place past
- * that cut, and {@code unlocated} everyone with no city and no country.
+ * that cut, and {@code unlocated} everyone with no city on file.
  */
 public record MarketShapeDto(
         List<String> sectors,

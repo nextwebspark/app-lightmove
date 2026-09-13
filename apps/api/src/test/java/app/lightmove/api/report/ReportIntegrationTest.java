@@ -79,7 +79,8 @@ class ReportIntegrationTest extends FlowTestSupport {
                  "compensation":{"currency":"AED","baseSalary":400000}}"""
                 .formatted(almarai));
         candidate(f.admin, f.projectId, """
-                {"fullName":"Lina Said","employerName":"Somewhere Untriaged","nationality":"Emirati"}""");
+                {"fullName":"Lina Said","employerName":"Somewhere Untriaged","nationality":"Emirati",
+                 "locationCountry":"Oman"}""");
         putCompensation(f.admin, f.projectId, """
                 {"currency":"USD","salaryMin":20000,"salaryMax":25000,"baseSalaryMode":"MONTHLY",
                  "bonusValue":20,"bonusBasis":"PERCENT_OF_BASE","incentiveType":"LTIP_CASH",
@@ -103,7 +104,8 @@ class ReportIntegrationTest extends FlowTestSupport {
         assertThat(progress.get("daily")).hasSize(1);
         assertThat(progress.get("daysSinceLastCompany").asInt()).isZero();
 
-        // Market: sector comes from the company, so Lina has none; the matrix carries every level.
+        // Market: sector comes from the company, so Lina has none; a hub is a city, so her country
+        // alone leaves her unlocated.
         JsonNode market = report.get("market");
         assertThat(market.get("sectors")).hasSize(1);
         assertThat(market.at("/sectors/0").asText()).isEqualTo("food & beverages");
@@ -115,6 +117,7 @@ class ReportIntegrationTest extends FlowTestSupport {
         assertThat(market.at("/slices/0/companies/0").asText()).isEqualTo("Almarai");
         assertThat(market.at("/slices/0/executives/0/fullName").asText()).isEqualTo("Yasmin El-Sayed");
         assertThat(market.get("hubs")).hasSize(2);
+        assertThat(market.at("/hubs/0/city").asText()).isEqualTo("Riyadh");
         assertThat(market.at("/hubs/0/country").asText()).isEqualTo("Saudi Arabia");
         assertThat(market.at("/hubs/0/interested").asInt()).isEqualTo(1);
         assertThat(market.get("unlocated").asInt()).isEqualTo(1);

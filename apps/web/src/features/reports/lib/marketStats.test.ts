@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SAMPLE_REPORT } from "../mock/sampleReport";
-import { hubLabel, marketStats, sliceInterest } from "./marketStats";
+import { marketStats, sliceInterest } from "./marketStats";
 
 /** The matrix's headline figures and the hub concentration, all read off the cells and hubs. */
 describe("marketStats", () => {
@@ -32,14 +32,6 @@ describe("marketStats", () => {
     expect(empty.deepest).toBeNull();
     expect(empty.totalCells).toBe(0);
     expect(empty.topHubsPct).toBe(0);
-  });
-});
-
-describe("hubLabel", () => {
-  it("prefers the city, then the country, then says the place is unknown", () => {
-    expect(hubLabel({ city: "Riyadh", country: "Saudi Arabia" })).toBe("Riyadh");
-    expect(hubLabel({ city: null, country: "Oman" })).toBe("Oman");
-    expect(hubLabel({ city: null, country: null })).toBe("Unknown place");
   });
 });
 

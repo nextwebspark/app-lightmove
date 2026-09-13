@@ -27,8 +27,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * Chapter two. Sector comes from the universe company an executive is mapped at, seniority from the
- * executive; the matrix crosses the two. Hubs group executives by their own city and country, the
- * same reading the map and the grid's Location column give.
+ * executive; the matrix crosses the two. A hub is a city: executives group by their own city, the
+ * same reading the map and the grid's Location column give, and one with no city on file is
+ * unlocated whatever country it names.
  */
 @Component
 class MarketShapeReporter {
@@ -159,16 +160,19 @@ class MarketShapeReporter {
 
     private record Hubs(List<TalentHubDto> leading, int elsewhere, int unlocated) {}
 
-    /** A place as the report groups by it: the catalog's spelling of the city and of the country. */
+    /**
+     * A city as the report groups by it, in the catalog's spelling, with its country so that two
+     * cities of one name stay two hubs.
+     */
     private record HubKey(String city, String country) {
 
         static Optional<HubKey> of(ExecutiveRow row) {
             String city = Countries.cityOf(row.executive().locationCity());
-            String country = Countries.nameOf(row.executive().locationCountry());
-            if (isBlank(city) && isBlank(country)) {
+            if (isBlank(city)) {
                 return Optional.empty();
             }
-            return Optional.of(new HubKey(isBlank(city) ? null : city, isBlank(country) ? null : country));
+            String country = Countries.nameOf(row.executive().locationCountry());
+            return Optional.of(new HubKey(city, isBlank(country) ? null : country));
         }
 
         private static boolean isBlank(String value) {
