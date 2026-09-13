@@ -12,9 +12,12 @@ import app.lightmove.api.position.constant.BonusBasis;
 import app.lightmove.api.position.constant.ExtractionSource;
 import app.lightmove.api.position.constant.IncentiveType;
 import app.lightmove.api.position.constant.ProposalConfidence;
+import app.lightmove.api.position.constant.ProposalOrigin;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ModelCompensationAnswer;
 import app.lightmove.api.position.model.ModelCompensationAnswer.ModelBenefit;
+import app.lightmove.api.position.model.PositionTemplate;
+import app.lightmove.api.position.model.PositionTemplateBenefit;
 import app.lightmove.api.position.model.ProposedCompensation;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -23,9 +26,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
@@ -39,9 +45,15 @@ import org.springframework.stereotype.Service;
  * heuristic reader backs this one up, because no sample document carries a package and a heuristic
  * built to guess one would be the exact invention this feature exists to refuse.
  *
- * <p><b>The headline guarantee of this proposer is that it comes back empty far more often than it
- * comes back with anything</b> — every numeric field is dropped rather than guessed at when the
- * document does not clearly state it, and nothing here ever estimates a market rate.
+ * <p>The headline guarantee: this proposer comes back empty far more often than it comes back with
+ * anything — every numeric field is dropped rather than guessed at when the document does not clearly
+ * state it, and nothing here ever estimates a market rate.
+ *
+ * <p>A field neither the document nor the model found is, last, offered from the mandate's matched
+ * brief template — see {@link #backfillFromTemplate}. Never {@code salaryMin}/{@code salaryMax}/
+ * {@code incentiveAmount}: {@code PositionTemplateBody} deliberately carries no money figures, only
+ * package shape, so those three stay document-only, exactly like step one's {@code roleTitle}/
+ * {@code location}.
  */
 @Service
 @Slf4j
@@ -62,26 +74,38 @@ public class PositionCompensationProposer {
     private static final int BENEFIT_NAME_MAX_LENGTH = 120;
     private static final int BENEFIT_MAX_COUNT = 20;
 
+    /**
+     * Matches a {@code "<name> — <frequency>"} value back apart at accept time. Anchored to the end of
+     * the string and to the two literal tokens {@link #benefitFieldFrom} ever appends, so a benefit
+     * name that happens to contain " — " in the middle is never mistaken for the appended suffix.
+     */
+    private static final Pattern BENEFIT_FREQUENCY_SUFFIX =
+            Pattern.compile("^(.*) — (monthly|yearly)$", Pattern.CASE_INSENSITIVE);
+
     private final ChatClient chatClient;
     private final PositionDocumentRedactor redactor;
+    private final PositionTemplateService templates;
     private final Resource systemPrompt;
     private final Consumer<ChatClient.AdvisorSpec> guarded;
     private final LlmBudgetGuard llmBudget;
 
     public PositionCompensationProposer(ChatClient chatClient,
                                         PositionDocumentRedactor redactor,
+                                        PositionTemplateService templates,
                                         @Value("classpath:prompts/position-extract-compensation-system.st") Resource systemPrompt,
                                         @Value("classpath:prompts/position-extract-compensation-schema.json") Resource answerSchema,
                                         LlmCallPolicy llmCalls,
                                         LlmBudgetGuard llmBudget) {
         this.chatClient = chatClient;
         this.redactor = redactor;
+        this.templates = templates;
         this.systemPrompt = systemPrompt;
         this.guarded = llmCalls.forPrompt(PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
         this.llmBudget = llmBudget;
     }
 
-    public ProposedCompensation propose(UUID userId, String documentText, UUID clientId, UUID workspaceId) {
+    public ProposedCompensation propose(UUID userId, String documentText, UUID clientId, UUID workspaceId,
+                                        String roleTitle) {
         llmBudget.requireCompensationExtractionBudget(userId);
 
         try {
@@ -92,12 +116,12 @@ public class PositionCompensationProposer {
                     log.warn("Compensation extraction blocked before reaching the model: the document "
                             + "matched the injection word list.");
                 }
-                return empty();
+                return finish(empty(), workspaceId, roleTitle);
             }
-            return finish(reconcile(answered, redaction.pseudonyms(), documentText));
+            return finish(reconcile(answered, redaction.pseudonyms(), documentText), workspaceId, roleTitle);
         } catch (RuntimeException e) {
-            log.warn("Compensation extraction found nothing to propose: {}", e.toString());
-            return empty();
+            log.warn("Compensation extraction found nothing to propose", e);
+            return finish(empty(), workspaceId, roleTitle);
         }
     }
 
@@ -161,18 +185,17 @@ public class PositionCompensationProposer {
         return new ProposedCompensation(ExtractionSource.MODEL, fields);
     }
 
-    /** Validated against {@code [A-Z]{3}} before the field is ever built — never after. */
     private Optional<ExtractedField> currencyFieldFrom(String rawValue, String rawSnippet,
                                                         Pseudonyms pseudonyms, String originalText) {
         return fieldFrom("currency", rawValue, rawSnippet, pseudonyms, originalText).flatMap(field -> {
             String candidate = field.value().trim().toUpperCase(Locale.ROOT);
             return CURRENCY_SHAPE.matcher(candidate).matches()
-                    ? Optional.of(new ExtractedField("currency", candidate, field.confidence(), field.snippet()))
+                    ? Optional.of(new ExtractedField("currency", candidate, field.confidence(), field.snippet(),
+                            field.origin()))
                     : Optional.empty();
         });
     }
 
-    /** Parsed as a non-negative whole number; unparsable or negative is dropped, never truncated. */
     private Optional<ExtractedField> longFieldFrom(String fieldKey, String rawValue, String rawSnippet,
                                                    Pseudonyms pseudonyms, String originalText) {
         return fieldFrom(fieldKey, rawValue, rawSnippet, pseudonyms, originalText).flatMap(field -> {
@@ -181,7 +204,7 @@ public class PositionCompensationProposer {
                 return value < 0
                         ? Optional.empty()
                         : Optional.of(new ExtractedField(fieldKey, Long.toString(value), field.confidence(),
-                                field.snippet()));
+                                field.snippet(), field.origin()));
             } catch (NumberFormatException e) {
                 return Optional.empty();
             }
@@ -204,20 +227,23 @@ public class PositionCompensationProposer {
             if (value.signum() < 0 || !fitsDigits(value)) {
                 return Optional.empty();
             }
+            // UNNECESSARY rather than HALF_UP: fitsDigits above already guarantees scale <= 2, so this
+            // can never actually round anything — UNNECESSARY enforces that invariant instead of
+            // silently rounding if it's ever violated.
             return Optional.of(new ExtractedField("bonusValue",
-                    value.setScale(BONUS_VALUE_MAX_FRACTION_DIGITS, RoundingMode.HALF_UP).toPlainString(),
-                    field.confidence(), field.snippet()));
+                    value.setScale(BONUS_VALUE_MAX_FRACTION_DIGITS, RoundingMode.UNNECESSARY).toPlainString(),
+                    field.confidence(), field.snippet(), field.origin()));
         });
     }
 
     private static boolean fitsDigits(BigDecimal value) {
+        // stripTrailingZeros can leave a negative scale for a whole number (120000 -> unscaled 12,
+        // scale -4) — subtracting that negative scale is what correctly adds those trailing zeros
+        // back into the integer digit count, so it is deliberately not clamped to zero here.
         BigDecimal normalised = value.stripTrailingZeros();
-        int fractionDigits = Math.max(0, normalised.scale());
-        int integerDigits = normalised.precision() - normalised.scale();
-        if (integerDigits < 0) {
-            integerDigits = 1;
-        }
-        return fractionDigits <= BONUS_VALUE_MAX_FRACTION_DIGITS && integerDigits <= BONUS_VALUE_MAX_INTEGER_DIGITS;
+        return normalised.scale() <= BONUS_VALUE_MAX_FRACTION_DIGITS
+                && normalised.unscaledValue().abs().toString().length() - normalised.scale()
+                        <= BONUS_VALUE_MAX_INTEGER_DIGITS;
     }
 
     /**
@@ -234,7 +260,7 @@ public class PositionCompensationProposer {
             String value = frequency == null
                     ? field.value()
                     : field.value() + " — " + frequency.name().toLowerCase(Locale.ROOT);
-            return new ExtractedField("benefit", value, field.confidence(), field.snippet());
+            return new ExtractedField("benefit", value, field.confidence(), field.snippet(), field.origin());
         });
     }
 
@@ -255,7 +281,7 @@ public class PositionCompensationProposer {
             snippet = null;
             confidence = ProposalConfidence.LOW;
         }
-        return Optional.of(new ExtractedField(fieldKey, value.trim(), confidence, snippet));
+        return Optional.of(new ExtractedField(fieldKey, value.trim(), confidence, snippet, ProposalOrigin.DOCUMENT));
     }
 
     private <T extends Enum<T>> Optional<ExtractedField> enumFieldFrom(String fieldKey, Class<T> type,
@@ -265,7 +291,8 @@ public class PositionCompensationProposer {
             T resolved = enumFromName(type, field.value());
             return resolved == null
                     ? Optional.empty()
-                    : Optional.of(new ExtractedField(fieldKey, resolved.name(), field.confidence(), field.snippet()));
+                    : Optional.of(new ExtractedField(fieldKey, resolved.name(), field.confidence(), field.snippet(),
+                            field.origin()));
         });
     }
 
@@ -289,15 +316,70 @@ public class PositionCompensationProposer {
         return text.replaceAll("\\s+", " ").trim();
     }
 
-    private static ProposedCompensation finish(ProposedCompensation proposed) {
-        return new ProposedCompensation(proposed.source(), truncateToCeilings(proposed.fields()));
+    private ProposedCompensation finish(ProposedCompensation proposed, UUID workspaceId, String roleTitle) {
+        List<ExtractedField> withTemplateBackfill = backfillFromTemplate(proposed.fields(), workspaceId, roleTitle);
+        return new ProposedCompensation(proposed.source(), truncateToCeilings(withTemplateBackfill));
+    }
+
+    /**
+     * Proposes the matched template's own package shape for a field neither the document nor the model
+     * said anything about. Never {@code salaryMin}/{@code salaryMax}/{@code incentiveAmount}: the
+     * template carries no money figures by design, only shape. Needs the mandate's own persisted role
+     * title — unlike step one, this proposer never reads one out of the document itself.
+     */
+    private List<ExtractedField> backfillFromTemplate(List<ExtractedField> fields, UUID workspaceId,
+                                                       String roleTitle) {
+        if (roleTitle == null || roleTitle.isBlank()) {
+            return fields;
+        }
+        Optional<PositionTemplate> matched = templates.matching(workspaceId, roleTitle);
+        if (matched.isEmpty()) {
+            return fields;
+        }
+        var body = matched.get().getBody();
+        Set<String> present = fields.stream().map(ExtractedField::fieldKey).collect(Collectors.toSet());
+
+        List<ExtractedField> backfilled = new ArrayList<>(fields);
+        addIfMissing(backfilled, present, "currency", body.currency());
+        addIfMissing(backfilled, present, "baseSalaryMode",
+                body.baseSalaryMode() == null ? null : body.baseSalaryMode().name());
+        addIfMissing(backfilled, present, "bonusValue",
+                body.bonusValue() == null ? null : body.bonusValue().toPlainString());
+        addIfMissing(backfilled, present, "bonusBasis",
+                body.bonusBasis() == null ? null : body.bonusBasis().name());
+        addIfMissing(backfilled, present, "incentiveType",
+                body.incentiveType() == null ? null : body.incentiveType().name());
+        addIfMissing(backfilled, present, "incentiveVesting", body.incentiveVesting());
+        if (!present.contains("benefit")) {
+            for (PositionTemplateBenefit benefit : body.benefits()) {
+                if (benefit == null || benefit.name() == null || benefit.name().isBlank()) {
+                    continue;
+                }
+                String value = benefit.frequency() == null
+                        ? benefit.name()
+                        : benefit.name() + " — " + benefit.frequency().name().toLowerCase(Locale.ROOT);
+                backfilled.add(new ExtractedField("benefit", value, ProposalConfidence.LOW, null,
+                        ProposalOrigin.TEMPLATE));
+            }
+        }
+        return backfilled;
+    }
+
+    private static void addIfMissing(List<ExtractedField> fields, Set<String> present, String fieldKey,
+                                     String value) {
+        if (present.contains(fieldKey) || value == null || value.isBlank()) {
+            return;
+        }
+        fields.add(new ExtractedField(fieldKey, value, ProposalConfidence.LOW, null, ProposalOrigin.TEMPLATE));
     }
 
     /**
      * Pre-truncates every value to {@code PutCompensationRequest}'s own ceilings, so accepting a
-     * proposal can never 400 the autosave it is handed to. The numeric fields never reach here
-     * needing truncation — they are dropped upstream instead — this only bounds the two free-text
-     * fields and the benefit list.
+     * proposal can never 400 the autosave it is handed to. The numeric fields never reach here needing
+     * truncation — they are dropped upstream instead — this only bounds the two free-text fields and
+     * the benefit list. A benefit's name is capped before its frequency suffix is reattached, never
+     * after: capping the combined string could slice a resolved "yearly" down to something that no
+     * longer matches on accept, silently turning a yearly benefit into a monthly one.
      */
     private static List<ExtractedField> truncateToCeilings(List<ExtractedField> fields) {
         List<ExtractedField> truncated = new ArrayList<>();
@@ -307,7 +389,7 @@ public class PositionCompensationProposer {
                 case "incentiveVesting" -> truncated.add(capped(field, INCENTIVE_VESTING_MAX_LENGTH));
                 case "benefit" -> {
                     if (benefitCount < BENEFIT_MAX_COUNT) {
-                        truncated.add(capped(field, BENEFIT_NAME_MAX_LENGTH));
+                        truncated.add(cappedBenefit(field));
                         benefitCount++;
                     }
                 }
@@ -317,11 +399,24 @@ public class PositionCompensationProposer {
         return truncated;
     }
 
+    private static ExtractedField cappedBenefit(ExtractedField field) {
+        Matcher suffix = BENEFIT_FREQUENCY_SUFFIX.matcher(field.value());
+        if (!suffix.matches()) {
+            return capped(field, BENEFIT_NAME_MAX_LENGTH);
+        }
+        String name = suffix.group(1);
+        if (name.length() <= BENEFIT_NAME_MAX_LENGTH) {
+            return field;
+        }
+        String value = name.substring(0, BENEFIT_NAME_MAX_LENGTH) + " — " + suffix.group(2);
+        return new ExtractedField(field.fieldKey(), value, field.confidence(), field.snippet(), field.origin());
+    }
+
     private static ExtractedField capped(ExtractedField field, int maxLength) {
         if (field.value().length() <= maxLength) {
             return field;
         }
         return new ExtractedField(field.fieldKey(), field.value().substring(0, maxLength),
-                field.confidence(), field.snippet());
+                field.confidence(), field.snippet(), field.origin());
     }
 }

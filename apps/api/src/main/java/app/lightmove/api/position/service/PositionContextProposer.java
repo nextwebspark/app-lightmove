@@ -9,9 +9,11 @@ import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.position.constant.ExtractionSource;
 import app.lightmove.api.position.constant.MandateReason;
 import app.lightmove.api.position.constant.ProposalConfidence;
+import app.lightmove.api.position.constant.ProposalOrigin;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ModelContextAnswer;
 import app.lightmove.api.position.model.ModelContextAnswer.ModelStrategicPriority;
+import app.lightmove.api.position.model.PositionTemplate;
 import app.lightmove.api.position.model.ProposedMandateContext;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -22,6 +24,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
@@ -41,6 +44,10 @@ import org.springframework.stereotype.Service;
  *
  * <p>The document is redacted before it is sent and re-hydrated after, exactly as
  * {@link PositionDetailsProposer} does — see {@link PositionDocumentRedactor}.
+ *
+ * <p>A field neither the document nor the model found is, last, offered from the mandate's matched
+ * brief template, exactly as {@link PositionDetailsProposer#finish} does for step one — see
+ * {@link #backfillFromTemplate}.
  */
 @Service
 @Slf4j
@@ -60,6 +67,7 @@ public class PositionContextProposer {
 
     private final ChatClient chatClient;
     private final PositionDocumentRedactor redactor;
+    private final PositionTemplateService templates;
     private final Resource systemPrompt;
     private final Consumer<ChatClient.AdvisorSpec> guarded;
     private final LlmBudgetGuard llmBudget;
@@ -68,18 +76,21 @@ public class PositionContextProposer {
     // parameter with @Value, matching PositionDetailsProposer's own exemption.
     public PositionContextProposer(ChatClient chatClient,
                                    PositionDocumentRedactor redactor,
+                                   PositionTemplateService templates,
                                    @Value("classpath:prompts/position-extract-context-system.st") Resource systemPrompt,
                                    @Value("classpath:prompts/position-extract-context-schema.json") Resource answerSchema,
                                    LlmCallPolicy llmCalls,
                                    LlmBudgetGuard llmBudget) {
         this.chatClient = chatClient;
         this.redactor = redactor;
+        this.templates = templates;
         this.systemPrompt = systemPrompt;
         this.guarded = llmCalls.forPrompt(PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
         this.llmBudget = llmBudget;
     }
 
-    public ProposedMandateContext propose(UUID userId, String documentText, UUID clientId, UUID workspaceId) {
+    public ProposedMandateContext propose(UUID userId, String documentText, UUID clientId, UUID workspaceId,
+                                          String roleTitle) {
         llmBudget.requireContextExtractionBudget(userId);
 
         try {
@@ -90,14 +101,14 @@ public class PositionContextProposer {
                     log.warn("Mandate context extraction blocked before reaching the model: the "
                             + "document matched the injection word list.");
                 }
-                return empty();
+                return finish(empty(), workspaceId, roleTitle);
             }
-            return finish(reconcile(answered, redaction.pseudonyms(), documentText));
+            return finish(reconcile(answered, redaction.pseudonyms(), documentText), workspaceId, roleTitle);
         } catch (RuntimeException e) {
             // Deliberately broad and deliberately quiet, exactly as PositionDetailsProposer's catch
             // is: every way this call can fail has the same right answer, an honest empty reading.
-            log.warn("Mandate context extraction found nothing to propose: {}", e.toString());
-            return empty();
+            log.warn("Mandate context extraction found nothing to propose", e);
+            return finish(empty(), workspaceId, roleTitle);
         }
     }
 
@@ -145,7 +156,7 @@ public class PositionContextProposer {
                         .ifPresent(field -> {
                             // Never let the proposal itself carry a case-insensitive duplicate: a
                             // single "Accept all" must not be able to trip PositionService's own
-                            // duplicate-name refusal on its own.
+                            // duplicate-name refusal.
                             if (seenCaseInsensitive.add(field.value().toLowerCase(Locale.ROOT))) {
                                 fields.add(field);
                             }
@@ -167,12 +178,12 @@ public class PositionContextProposer {
                     fieldKey);
             return Optional.empty();
         }
-        ProposalConfidence confidence = ProposalConfidence.MEDIUM;
+        ExtractedField field = new ExtractedField(fieldKey, value.trim(), ProposalConfidence.MEDIUM, snippet,
+                ProposalOrigin.DOCUMENT);
         if (snippet != null && !occursIn(snippet, originalText)) {
-            snippet = null;
-            confidence = ProposalConfidence.LOW;
+            field = field.withoutSnippet(ProposalConfidence.LOW);
         }
-        return Optional.of(new ExtractedField(fieldKey, value.trim(), confidence, snippet));
+        return Optional.of(field);
     }
 
     private <T extends Enum<T>> Optional<ExtractedField> enumFieldFrom(String fieldKey, Class<T> type,
@@ -184,7 +195,8 @@ public class PositionContextProposer {
             T resolved = enumFromName(type, field.value());
             return resolved == null
                     ? Optional.empty()
-                    : Optional.of(new ExtractedField(fieldKey, resolved.name(), field.confidence(), field.snippet()));
+                    : Optional.of(new ExtractedField(fieldKey, resolved.name(), field.confidence(),
+                            field.snippet(), field.origin()));
         });
     }
 
@@ -208,8 +220,44 @@ public class PositionContextProposer {
         return text.replaceAll("\\s+", " ").trim();
     }
 
-    private static ProposedMandateContext finish(ProposedMandateContext proposed) {
-        return new ProposedMandateContext(proposed.source(), truncateToCeilings(proposed.fields()));
+    private ProposedMandateContext finish(ProposedMandateContext proposed, UUID workspaceId, String roleTitle) {
+        List<ExtractedField> withTemplateBackfill = backfillFromTemplate(proposed.fields(), workspaceId, roleTitle);
+        return new ProposedMandateContext(proposed.source(), truncateToCeilings(withTemplateBackfill));
+    }
+
+    /**
+     * Proposes the matched template's own strategic priorities when the document named none at all —
+     * the only field {@link app.lightmove.api.position.model.PositionTemplateBody} carries for this
+     * step. {@code mandateReason} and {@code businessDriver} have no template equivalent: they are
+     * specific to why this client is running this search, not generic to a role shape, so a template
+     * never backfills them. Never tops up a partial list — only fires when no priority was found at
+     * all — and needs the mandate's own persisted role title, since unlike step one this proposer
+     * never reads one out of the document itself.
+     */
+    private List<ExtractedField> backfillFromTemplate(List<ExtractedField> fields, UUID workspaceId,
+                                                       String roleTitle) {
+        if (roleTitle == null || roleTitle.isBlank()) {
+            return fields;
+        }
+        Set<String> present = fields.stream().map(ExtractedField::fieldKey).collect(Collectors.toSet());
+        if (present.contains("strategicPriority")) {
+            return fields;
+        }
+        Optional<PositionTemplate> matched = templates.matching(workspaceId, roleTitle);
+        if (matched.isEmpty()) {
+            return fields;
+        }
+        List<ExtractedField> backfilled = new ArrayList<>(fields);
+        Set<String> seenCaseInsensitive = new LinkedHashSet<>();
+        matched.get().getBody().strategicPriorities().stream()
+                .filter(text -> text != null && !text.isBlank())
+                .forEach(text -> {
+                    if (seenCaseInsensitive.add(text.trim().toLowerCase(Locale.ROOT))) {
+                        backfilled.add(new ExtractedField("strategicPriority", text, ProposalConfidence.LOW,
+                                null, ProposalOrigin.TEMPLATE));
+                    }
+                });
+        return backfilled;
     }
 
     /**
@@ -239,6 +287,6 @@ public class PositionContextProposer {
             return field;
         }
         return new ExtractedField(field.fieldKey(), field.value().substring(0, maxLength),
-                field.confidence(), field.snippet());
+                field.confidence(), field.snippet(), field.origin());
     }
 }

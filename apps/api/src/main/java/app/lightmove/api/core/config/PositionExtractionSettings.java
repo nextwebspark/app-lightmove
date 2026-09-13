@@ -6,9 +6,11 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * Reading an attached position description into step-one proposals — {@code
  * lightmove.position.extraction.*}.
  *
- * <p>Caps here bound both a decompression bomb and the model's own per-call cost: {@code maxPages} is
- * checked against the PDF itself, {@code maxCharacters} against the text every format produces —
- * the 10 MB upload ceiling does not bound how much text a well-compressed file decompresses into.
+ * <p>Caps here bound both a decompression bomb and the model's own per-call cost — {@code maxPages}
+ * against the PDF itself, {@code maxCharacters} against the text every format produces, since the
+ * 10 MB upload ceiling does not bound how much text a well-compressed file decompresses into. Both
+ * are refused whole rather than read in part: a truncated read is a silent guess at which half of
+ * the document mattered.
  */
 public record PositionExtractionSettings(
         /** Off leaves the upload/download path untouched and turns "Read from document" off alone. */
@@ -17,7 +19,7 @@ public record PositionExtractionSettings(
         /** A position description is a handful of pages; this is generous for one and stingy for a library. */
         @DefaultValue("40000") int maxCharacters,
 
-        /** Refused whole rather than read in part — a truncated read is a silent guess at which half mattered. */
+        /** Generous for a mandate-length brief, stingy for a library someone attached by mistake. */
         @DefaultValue("60") int maxPages,
 
         /**
@@ -28,10 +30,12 @@ public record PositionExtractionSettings(
         @DefaultValue("true") boolean redactKnownCompanyNames,
 
         /**
-         * Whether a contact-details block (an email or phone number, plus the lines around it) is
-         * stripped before the text reaches the model. See {@code PositionDocumentRedactor}.
+         * Whether a document's contact details are kept from the model: both the block sweep (an
+         * email or phone number, plus the lines around it) and the email/URL/phone pseudonymisation
+         * applied to whatever text survives that sweep. One flag for both — see {@code
+         * PositionDocumentRedactor}.
          */
-        @DefaultValue("true") boolean stripContactBlocks
+        @DefaultValue("true") boolean redactContactDetails
 ) {
 
     public PositionExtractionSettings {

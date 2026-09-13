@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Input, Select, Spinner, TextArea } from "../../../../components/ui";
+import { Button, Input, Select, Spinner, TextArea } from "../../../../components/ui";
 import { cn } from "../../../../lib/cn";
 import type {
   MandateContext,
@@ -56,14 +56,15 @@ export function MandateContextStep({
       <div className="flex flex-col gap-2.5">
         {document ? (
           <div className="flex items-center gap-3">
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={onExtract}
               disabled={extracting}
-              className="rounded-[7px] border border-sky/60 px-2.5 py-[5px] text-[11.5px] font-medium text-sky transition hover:border-sky disabled:opacity-50"
+              className="border-sky/60 px-2.5 py-[5px] text-[11.5px] text-sky hover:border-sky"
             >
               Read from document
-            </button>
+            </Button>
             {extracting && (
               <span className="flex items-center gap-[7px] font-mono text-[11.5px] text-text3">
                 <Spinner />

@@ -55,8 +55,13 @@ public class PositionDocumentTextReader {
                     "This looks like a scanned image with no text layer. "
                             + "Save it as .docx or PDF, with a text layer, and try again.");
         }
-        return trimmed.length() > settings.maxCharacters()
-                ? trimmed.substring(0, settings.maxCharacters())
-                : trimmed;
+        if (trimmed.length() > settings.maxCharacters()) {
+            // Refused whole rather than read in part, matching PdfFormatReader's page cap: taking the
+            // first N characters would silently decide which half of the document mattered.
+            throw ApiException.userFacing(ErrorCode.POSITION_DOCUMENT_UNREADABLE,
+                    "That document has more than " + settings.maxCharacters() + " characters. "
+                            + "Extraction only works on a mandate-length brief.");
+        }
+        return trimmed;
     }
 }

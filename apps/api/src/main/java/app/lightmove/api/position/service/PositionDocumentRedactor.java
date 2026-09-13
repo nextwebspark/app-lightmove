@@ -7,13 +7,12 @@ import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
 import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.repository.ClientRepository;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 
@@ -48,18 +47,20 @@ public class PositionDocumentRedactor {
     private static final Pattern URL_PATTERN = Pattern.compile("(?i)\\b(?:https?://|www\\.)\\S+");
 
     /**
-     * A run of digits with the separators a phone number is written with — at least eight digits in
-     * total, so an ordinary short number in prose ("3 direct reports") is never a candidate.
+     * A run of digits with the separators a genuine phone number is written with — dashes, spaces or
+     * parentheses, never a dot (too easily a decimal figure or a version string) — at least eight
+     * digits in total, so an ordinary short number in prose ("3 direct reports") is never a candidate,
+     * and not immediately preceded by a currency code or symbol.
+     *
+     * <p>The currency exclusion is load-bearing and baked directly into the pattern rather than
+     * checked afterwards: without it, "AED 1,200,000" becomes a phone placeholder and step four loses
+     * the only figure it wanted — none of the four sample documents states compensation any other way.
+     * One pattern used both to decide whether a line is contact-bearing ({@link #isContactLine}) and,
+     * directly, to redact the match — so the two can never drift apart the way the currency guard once
+     * did, when it was checked in one place and not the other.
      */
-    private static final Pattern PHONE_CANDIDATE = Pattern.compile("\\+?\\d[\\d\\-\\s().]{6,}\\d");
-
-    /**
-     * A currency code or symbol immediately before a phone-shaped run. Load-bearing: without this,
-     * "AED 1,200,000" becomes a phone placeholder and step four loses the only figure it wanted — none
-     * of the four sample documents states compensation any other way.
-     */
-    private static final Pattern CURRENCY_PREFIX =
-            Pattern.compile("(?i)(AED|USD|SAR|QAR|KWD|GBP|EUR|[$€£])\\s*$");
+    private static final Pattern PHONE_CANDIDATE = Pattern.compile(
+            "(?<!(?i:AED|USD|SAR|QAR|KWD|GBP|EUR)\\s{0,4})(?<![$€£]\\s{0,4})\\+?\\d[\\d\\-\\s()]{6,}\\d");
 
     /** Lines swept on either side of the contact-bearing block itself. */
     private static final int CONTACT_MARGIN_LINES = 2;
@@ -84,16 +85,23 @@ public class PositionDocumentRedactor {
     }
 
     public Redaction redact(String documentText, UUID clientId, UUID workspaceId) {
-        String stripped = settings.stripContactBlocks()
+        String stripped = settings.redactContactDetails()
                 ? stripContactBlocks(documentText)
                 : documentText;
 
-        Map<String, List<String>> terms = settings.redactKnownCompanyNames()
-                ? Map.of(COMPANY_LABEL, companyTermsOf(clientId, workspaceId))
-                : Map.of();
-        Map<String, Pattern> patterns = settings.stripContactBlocks()
-                ? Map.of(EMAIL_LABEL, EMAIL_PATTERN, URL_LABEL, URL_PATTERN, PHONE_LABEL, PHONE_CANDIDATE)
-                : Map.of();
+        LinkedHashMap<String, List<String>> terms = new LinkedHashMap<>();
+        if (settings.redactKnownCompanyNames()) {
+            terms.put(COMPANY_LABEL, companyTermsOf(clientId, workspaceId));
+        }
+
+        // Explicit, deterministic order — URL before PHONE matters: PHONE must not consume digits out
+        // of a URL that has not been redacted yet.
+        LinkedHashMap<String, Pattern> patterns = new LinkedHashMap<>();
+        if (settings.redactContactDetails()) {
+            patterns.put(EMAIL_LABEL, EMAIL_PATTERN);
+            patterns.put(URL_LABEL, URL_PATTERN);
+            patterns.put(PHONE_LABEL, PHONE_CANDIDATE);
+        }
 
         return pseudonymiser.redact(stripped, terms, patterns);
     }
@@ -192,21 +200,6 @@ public class PositionDocumentRedactor {
     }
 
     private static boolean isContactLine(String line) {
-        return EMAIL_PATTERN.matcher(line).find() || hasGenuinePhoneNumber(line);
-    }
-
-    private static boolean hasGenuinePhoneNumber(String line) {
-        Matcher matcher = PHONE_CANDIDATE.matcher(line);
-        while (matcher.find()) {
-            String matched = matcher.group();
-            if (matched.contains(".")) {
-                continue;
-            }
-            String before = line.substring(0, matcher.start());
-            if (!CURRENCY_PREFIX.matcher(before).find()) {
-                return true;
-            }
-        }
-        return false;
+        return EMAIL_PATTERN.matcher(line).find() || PHONE_CANDIDATE.matcher(line).find();
     }
 }

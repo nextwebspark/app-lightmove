@@ -49,10 +49,9 @@ class PdfFormatReader implements PositionDocumentFormatReader {
         } catch (InvalidPasswordException e) {
             throw ApiException.userFacing(ErrorCode.POSITION_DOCUMENT_UNREADABLE,
                     "That PDF is password-protected. Remove the password and try again.");
+        } catch (ApiException e) {
+            throw e;
         } catch (IOException | RuntimeException e) {
-            if (e instanceof ApiException apiException) {
-                throw apiException;
-            }
             throw new ApiException(ErrorCode.POSITION_DOCUMENT_UNREADABLE,
                     "PDF could not be opened: " + e.getMessage());
         }
