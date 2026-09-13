@@ -32,38 +32,17 @@ public class LlmBudgetGuard {
         this.settings = properties.llm().rateLimit();
     }
 
-    /** @throws ApiException RATE_LIMITED when this user has no shortlist calls left this minute */
-    public void requireShortlistBudget(UUID userId) {
-        requireBudget("shortlist", userId, settings.shortlistRequestsPerMinute());
-    }
-
-    /** @throws ApiException RATE_LIMITED when this user has no embedding calls left this minute */
-    public void requireEmbeddingBudget(UUID userId) {
-        requireBudget("embed", userId, settings.embedRequestsPerMinute());
-    }
-
     /**
-     * Spends one of this user's column-mapping calls — its own meter, so a large import cannot eat
-     * the shortlist a consultant is about to run. Keyed as the prompt id the call is logged under.
+     * Spends one of this user's calls against {@code budget}'s meter, or refuses the request.
      *
      * @throws ApiException RATE_LIMITED when they have none left
      */
-    public void requireColumnMappingBudget(UUID userId) {
-        requireBudget("import-column-mapping", userId, settings.shortlistRequestsPerMinute());
-    }
-
-    /**
-     * Spends one call from a per-user, per-minute budget, or refuses the request.
-     *
-     * @param budgetName the meter this call is counted against, not the endpoint that made it — two
-     *                   endpoints sharing a name deliberately share a budget
-     */
-    private void requireBudget(String budgetName, UUID userId, int callsPerMinute) {
+    public void require(LlmBudget budget, UUID userId) {
         if (!settings.enabled()) {
             return;
         }
-        boolean isWithinBudget = limiter.tryAcquire(
-                "llm-%s:user:%s".formatted(budgetName, userId), callsPerMinute, Duration.ofMinutes(1));
+        boolean isWithinBudget = limiter.tryAcquire("llm-%s:user:%s".formatted(budget.meter(), userId),
+                budget.callsPerMinute(settings), Duration.ofMinutes(1));
         if (!isWithinBudget) {
             throw ApiException.of(ErrorCode.RATE_LIMITED);
         }

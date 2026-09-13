@@ -19,8 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
  * principal and the repository answers with the shared library plus that workspace's own, so a
  * template id arriving in a request body can only resolve to something the caller may see.
  *
- * <p>Only {@link #list} is public; resolving an entity is for this package's own seeding and apply
- * paths.
+ * <p>{@link #list} and {@link #suggestFor} are the two public reads; resolving an entity is for this
+ * package's own seeding and apply paths.
  */
 @Service
 @RequiredArgsConstructor
@@ -43,6 +43,17 @@ public class PositionTemplateService {
                 .toList();
     }
 
+    /**
+     * The workspace's matching brief template for a role title, offered as a whole-brief opt-in
+     * rather than applied. No generic fallback, unlike {@link #matching}: an unrecognised title
+     * suggests nothing rather than silently suggesting generic-executive as though it were a real
+     * match.
+     */
+    @Transactional(readOnly = true)
+    public Optional<PositionTemplateSummary> suggestFor(UUID workspaceId, String roleTitle) {
+        return matchingByTitle(workspaceId, roleTitle).map(PositionTemplateSummary::of);
+    }
+
     PositionTemplate require(UUID workspaceId, UUID templateId) {
         return templates.findVisibleTo(templateId, workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
@@ -57,11 +68,22 @@ public class PositionTemplateService {
      */
     Optional<PositionTemplate> matching(UUID workspaceId, String roleTitle) {
         List<PositionTemplate> visible = templates.findAllVisibleTo(workspaceId);
-        return visible.stream()
-                .filter(template -> template.matchesTitle(roleTitle))
-                .findFirst()
+        return matchingByTitle(visible, roleTitle)
                 .or(() -> visible.stream()
                         .filter(template -> FALLBACK_CODE.equals(template.getCode()))
                         .findFirst());
+    }
+
+    /**
+     * The template a role title actually names, with no generic fallback — for a caller that would
+     * rather have nothing than a wrong answer, unlike {@link #matching}, whose fallback exists for
+     * drafting a whole brief.
+     */
+    Optional<PositionTemplate> matchingByTitle(UUID workspaceId, String roleTitle) {
+        return matchingByTitle(templates.findAllVisibleTo(workspaceId), roleTitle);
+    }
+
+    private static Optional<PositionTemplate> matchingByTitle(List<PositionTemplate> visible, String roleTitle) {
+        return visible.stream().filter(template -> template.matchesTitle(roleTitle)).findFirst();
     }
 }

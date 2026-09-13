@@ -1,8 +1,15 @@
 import { useState } from "react";
 import { Input, Select, TextArea } from "../../../../components/ui";
-import type { PositionDetails, PositionDocument, PositionTemplate } from "../../api/types";
+import type {
+  PositionDetails,
+  PositionDocument,
+  PositionExtraction,
+  PositionTemplate,
+  ProposedField,
+} from "../../api/types";
 import { EMPLOYMENT_TYPE_LABELS, SENIORITY_LABELS } from "../../lib/labels";
 import { PositionDocumentDropzone } from "../PositionDocumentDropzone";
+import { PositionExtractionPanel } from "../PositionExtractionPanel";
 import { RoleTitleCombobox } from "../RoleTitleCombobox";
 import { AddRowButton, CheckedInput, RemoveRowButton, StepField, SubCard } from "../fields";
 
@@ -13,22 +20,40 @@ export function PositionDetailsStep({
   templates,
   applyingTemplate,
   uploading,
+  extraction,
+  extracting,
   onDownload,
   onChange,
   onPickTemplate,
   onAttachDocument,
   onRemoveDocument,
+  onExtract,
+  onAcceptProposal,
+  onDismissProposal,
+  onAcceptAllProposals,
+  onApplySuggestedTemplate,
+  applyingSuggestedTemplate,
+  extractionError,
 }: {
   details: PositionDetails;
   document: PositionDocument | null;
   templates: PositionTemplate[];
   applyingTemplate: boolean;
   uploading: boolean;
+  extraction: PositionExtraction | null;
+  extracting: boolean;
   onDownload: () => void;
   onChange: (patch: Partial<PositionDetails>) => void;
   onPickTemplate: (template: PositionTemplate) => void;
   onAttachDocument: (file: File) => void;
   onRemoveDocument: () => void;
+  onExtract: () => void;
+  onAcceptProposal: (field: ProposedField, value: string) => void;
+  onDismissProposal: (field: ProposedField) => void;
+  onAcceptAllProposals: (edits: Record<number, string>) => void;
+  onApplySuggestedTemplate: (template: PositionTemplate) => void;
+  applyingSuggestedTemplate: boolean;
+  extractionError?: unknown;
 }) {
   const [draft, setDraft] = useState("");
 
@@ -44,10 +69,24 @@ export function PositionDetailsStep({
       <PositionDocumentDropzone
         document={document}
         uploading={uploading}
+        extracting={extracting}
         onDownload={onDownload}
         onAttach={onAttachDocument}
         onRemove={onRemoveDocument}
+        onExtract={onExtract}
+        extractionError={extractionError}
       />
+
+      {extraction && (
+        <PositionExtractionPanel
+          extraction={extraction}
+          onAccept={onAcceptProposal}
+          onDismiss={onDismissProposal}
+          onAcceptAll={onAcceptAllProposals}
+          onApplySuggestedTemplate={onApplySuggestedTemplate}
+          applyingSuggestedTemplate={applyingSuggestedTemplate}
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-x-[18px]">
         <StepField label="Role title">
