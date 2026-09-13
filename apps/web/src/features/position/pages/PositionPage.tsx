@@ -14,7 +14,6 @@ import type {
   Compensation,
   Competency,
   Criterion,
-  CriterionMode,
   MandateContext,
   Position,
   PositionDetails,
@@ -31,6 +30,7 @@ import {
   forWire,
   identify,
   moveRow,
+  PACK_SEPARATOR,
   toggle,
   type IdentifiedCompetency,
 } from "../lib/competencyRows";
@@ -46,6 +46,16 @@ import { POSITION_STEPS, stepIndexOf, type StepKey } from "../lib/steps";
 import { SENIORITY_TIERS } from "../../../lib/seniority";
 
 const EMPLOYMENT_TYPES: readonly string[] = Object.keys(EMPLOYMENT_TYPE_LABELS);
+
+/** Mirrors `PutCriteriaRequest`'s and `PutCompetenciesRequest`'s own per-brief ceilings. */
+const CRITERIA_MAX_COUNT = 30;
+const COMPETENCY_MAX_COUNT_PER_PANEL = 10;
+
+interface AssessmentAccumulator {
+  criteria: Criterion[];
+  technical: IdentifiedCompetency[];
+  behavioural: IdentifiedCompetency[];
+}
 
 function isEmploymentType(value: string): value is NonNullable<PositionDetails["employmentType"]> {
   return EMPLOYMENT_TYPES.includes(value);
@@ -261,21 +271,32 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     setCriteria(next);
     criteriaSave.schedule(next);
   };
+  /**
+   * The one place both competency panels are ever written, so two panels can be updated in the same
+   * handler without either write reading the other's stale, pre-update value from this closure — the
+   * hazard a `setTechnical` and a `setBehavioural` fired from two separate calls run straight into.
+   */
+  const changeCompetencyPanels = (
+    nextTechnical: IdentifiedCompetency[],
+    nextBehavioural: IdentifiedCompetency[],
+    immediate = false,
+  ) => {
+    setTechnical(nextTechnical);
+    setBehavioural(nextBehavioural);
+    competenciesSave.schedule({
+      technical: forWire(nextTechnical),
+      behavioural: forWire(nextBehavioural),
+    });
+    if (immediate) void competenciesSave.flush();
+  };
   const changePanel =
     (panel: CompetencyPanelKey, immediate = false) =>
-    (rows: IdentifiedCompetency[]) => {
-      const next = {
-        technical: panel === "technical" ? rows : technical,
-        behavioural: panel === "behavioural" ? rows : behavioural,
-      };
-      setTechnical(next.technical);
-      setBehavioural(next.behavioural);
-      competenciesSave.schedule({
-        technical: forWire(next.technical),
-        behavioural: forWire(next.behavioural),
-      });
-      if (immediate) void competenciesSave.flush();
-    };
+    (rows: IdentifiedCompetency[]) =>
+      changeCompetencyPanels(
+        panel === "technical" ? rows : technical,
+        panel === "behavioural" ? rows : behavioural,
+        immediate,
+      );
 
   /** Where a published brief leads: the mandate's own market, which is the next thing to be done. */
   const goToStrategy = () => navigate(`/projects/${projectId}/strategy`);
@@ -519,7 +540,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
    * only an exact, backend-appended trailing " — monthly"/" — yearly" is split off.
    */
   const benefitFrom = (value: string): Benefit => {
-    const suffix = value.match(/^(.*) — (monthly|yearly)$/i);
+    const suffix = value.match(new RegExp(`^(.*)${PACK_SEPARATOR}(monthly|yearly)$`, "i"));
     if (!suffix) {
       return { name: value, amount: null, frequency: "MONTHLY" };
     }
@@ -583,9 +604,12 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     );
 
   /**
-   * Unlike every other step's proposals, an assessment field targets one of three separate state
-   * slots (criteria, technical, behavioural) rather than one — this returns whichever key applies,
-   * for the caller to route to the right `change*` function.
+   * Folds one proposed field into an assessment accumulator — the one place the fieldKey → state-slot
+   * mapping lives, so `acceptAssessmentProposal` and `acceptAllAssessmentProposals` read it the same
+   * way instead of each keeping their own copy. Returns `acc` unchanged, rather than over-filling it,
+   * once a group is already at `PutCriteriaRequest`'s/`PutCompetenciesRequest`'s own per-brief ceiling
+   * — those ceilings are per brief, not per proposal, so a brief already near one can still not take
+   * everything an "Accept all" offers.
    *
    * A criterion built from an accepted proposal is written `fromBrief: false`, exactly like one typed
    * by hand into `CriteriaCard` — never `true`. `fromBrief` marks a row a template redraft is free to
@@ -595,64 +619,72 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const patchForAssessment = (
     field: ProposedField,
     value: string,
-  ): {
-    criteria?: Criterion[];
-    technical?: IdentifiedCompetency[];
-    behavioural?: IdentifiedCompetency[];
-  } => {
+    acc: AssessmentAccumulator,
+  ): AssessmentAccumulator => {
     switch (field.fieldKey) {
       case "requiredCriterion":
-        return { criteria: [...criteria, { text: value, mode: "REQUIRED", fromBrief: false }] };
+        return acc.criteria.length >= CRITERIA_MAX_COUNT
+          ? acc
+          : { ...acc, criteria: [...acc.criteria, { text: value, mode: "REQUIRED", fromBrief: false }] };
       case "preferredCriterion":
-        return { criteria: [...criteria, { text: value, mode: "PREFERRED", fromBrief: false }] };
+        return acc.criteria.length >= CRITERIA_MAX_COUNT
+          ? acc
+          : { ...acc, criteria: [...acc.criteria, { text: value, mode: "PREFERRED", fromBrief: false }] };
       case "technicalCompetency":
-        return {
-          technical: [...technical, { ...competencyFrom(value), id: crypto.randomUUID() }],
-        };
+        return acc.technical.length >= COMPETENCY_MAX_COUNT_PER_PANEL
+          ? acc
+          : { ...acc, technical: [...acc.technical, { ...competencyFrom(value), id: crypto.randomUUID() }] };
       case "behaviouralCompetency":
-        return {
-          behavioural: [...behavioural, { ...competencyFrom(value), id: crypto.randomUUID() }],
-        };
+        return acc.behavioural.length >= COMPETENCY_MAX_COUNT_PER_PANEL
+          ? acc
+          : { ...acc, behavioural: [...acc.behavioural, { ...competencyFrom(value), id: crypto.randomUUID() }] };
       default:
-        return {};
+        return acc;
+    }
+  };
+
+  /** Writes whichever of `after`'s three slots actually changed from `before`, in one combined write
+   *  per channel — `changeCriteria`/`changeCompetencyPanels` read their current arrays from this
+   *  closure rather than a functional updater, so this must be the only call each makes. */
+  const writeAssessmentAccumulator = (before: AssessmentAccumulator, after: AssessmentAccumulator) => {
+    if (after.criteria !== before.criteria) changeCriteria(after.criteria);
+    if (after.technical !== before.technical || after.behavioural !== before.behavioural) {
+      changeCompetencyPanels(after.technical, after.behavioural, true);
     }
   };
 
   const acceptAssessmentProposal = (field: ProposedField, value: string) => {
-    const patch = patchForAssessment(field, value);
-    if (patch.criteria) changeCriteria(patch.criteria);
-    if (patch.technical) changePanel("technical", true)(patch.technical);
-    if (patch.behavioural) changePanel("behavioural", true)(patch.behavioural);
+    const before: AssessmentAccumulator = { criteria, technical, behavioural };
+    const after = patchForAssessment(field, value, before);
+    if (after === before) {
+      toast("This brief is already at its limit for that — remove something first.");
+      return;
+    }
+    writeAssessmentAccumulator(before, after);
     removeAssessmentProposal(field);
   };
 
   const dismissAssessmentProposal = (field: ProposedField) => removeAssessmentProposal(field);
 
-  /**
-   * One combined write per channel rather than one `change*` call per field, for the same reason
-   * `acceptAllCompensationProposals` is: `changeCriteria`/`changePanel` read their current arrays
-   * from this closure rather than a functional updater, so several synchronous calls in this handler
-   * would each start from the same stale snapshot.
-   */
-  const acceptAllAssessmentProposals = () => {
+  const acceptAllAssessmentProposals = (edits: Record<number, string>) => {
     if (!assessmentExtraction) return;
-    const newCriteria: Criterion[] = assessmentExtraction.fields
-        .filter((field) => field.fieldKey === "requiredCriterion" || field.fieldKey === "preferredCriterion")
-        .map((field) => ({
-          text: field.value,
-          mode: (field.fieldKey === "requiredCriterion" ? "REQUIRED" : "PREFERRED") as CriterionMode,
-          fromBrief: false,
-        }));
-    const newTechnical = assessmentExtraction.fields
-        .filter((field) => field.fieldKey === "technicalCompetency")
-        .map((field) => ({ ...competencyFrom(field.value), id: crypto.randomUUID() }));
-    const newBehavioural = assessmentExtraction.fields
-        .filter((field) => field.fieldKey === "behaviouralCompetency")
-        .map((field) => ({ ...competencyFrom(field.value), id: crypto.randomUUID() }));
-
-    if (newCriteria.length > 0) changeCriteria([...criteria, ...newCriteria]);
-    if (newTechnical.length > 0) changePanel("technical", true)([...technical, ...newTechnical]);
-    if (newBehavioural.length > 0) changePanel("behavioural", true)([...behavioural, ...newBehavioural]);
+    const valueOf = (field: ProposedField) => edits[field.id] ?? field.value;
+    const before: AssessmentAccumulator = { criteria, technical, behavioural };
+    const after = assessmentExtraction.fields.reduce(
+      (acc, field) => patchForAssessment(field, valueOf(field), acc),
+      before,
+    );
+    writeAssessmentAccumulator(before, after);
+    const added =
+      (after.criteria.length - before.criteria.length) +
+      (after.technical.length - before.technical.length) +
+      (after.behavioural.length - before.behavioural.length);
+    if (added < assessmentExtraction.fields.length) {
+      toast(
+        `${assessmentExtraction.fields.length - added} of ${assessmentExtraction.fields.length} ` +
+          "proposals could not be added — the brief is already at its limit.",
+      );
+    }
     setAssessmentExtraction(null);
   };
 

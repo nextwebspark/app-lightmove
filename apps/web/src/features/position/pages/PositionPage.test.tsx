@@ -29,6 +29,7 @@ vi.mock("../api/positionApi", async (importOriginal) => ({
   extractDetails: vi.fn(),
   extractContext: vi.fn(),
   extractCompensation: vi.fn(),
+  extractAssessment: vi.fn(),
 }));
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
@@ -894,5 +895,80 @@ describe("PositionPage", () => {
         }),
       ),
     );
+  });
+
+  it("accept all keeps proposals in both competency panels, not just the last one written", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "model",
+      fields: [
+        { id: 0, fieldKey: "technicalCompetency", value: "M&A Experience — 20", confidence: "medium", snippet: null, origin: "document" },
+        { id: 1, fieldKey: "behaviouralCompetency", value: "Resilience — 15", confidence: "medium", snippet: null, origin: "document" },
+      ],
+    };
+    vi.mocked(positionApi.extractAssessment).mockResolvedValue(extracted);
+    vi.mocked(positionApi.putCompetencies).mockResolvedValue(seeded);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Assessment criteria/ }));
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    await user.click(await screen.findByRole("button", { name: "Accept all" }));
+
+    // Before the fix, the second of two synchronous setState calls read the first panel's stale,
+    // pre-update value from its closure and reverted it — this is the case that would have caught it.
+    await waitFor(() => {
+      const [, technicalSent, behaviouralSent] =
+        vi.mocked(positionApi.putCompetencies).mock.calls.at(-1)!;
+      expect(technicalSent.map((c) => c.name)).toEqual(["Treasury", "Controls", "M&A Experience"]);
+      expect(behaviouralSent.map((c) => c.name)).toEqual(["Strategic Leadership", "Resilience"]);
+    });
+  });
+
+  it("accept all caps each competency panel at its per-brief ceiling rather than 400ing the autosave", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    // seeded already carries 2 technical rows, so only 8 of these 10 proposals have headroom.
+    const extracted: PositionExtraction = {
+      extractionSource: "model",
+      fields: Array.from({ length: 10 }, (_, i) => ({
+        id: i,
+        fieldKey: "technicalCompetency" as const,
+        value: `Proposed ${i} — 5`,
+        confidence: "medium" as const,
+        snippet: null,
+        origin: "document" as const,
+      })),
+    };
+    vi.mocked(positionApi.extractAssessment).mockResolvedValue(extracted);
+    vi.mocked(positionApi.putCompetencies).mockResolvedValue(seeded);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Assessment criteria/ }));
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    await user.click(await screen.findByRole("button", { name: "Accept all" }));
+
+    await waitFor(() => {
+      const [, technicalSent] = vi.mocked(positionApi.putCompetencies).mock.calls.at(-1)!;
+      expect(technicalSent).toHaveLength(10);
+    });
   });
 });
