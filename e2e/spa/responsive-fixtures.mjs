@@ -181,26 +181,82 @@ const STRATEGY = {
   ],
 };
 
+const REPORT_LEVELS = ["Board", "C-Suite", "N-1", "N-2", "N-3"];
+const levelCounts = (board, cSuite, n1, n2) =>
+  REPORT_LEVELS.map((level, i) => ({ level, count: [board, cSuite, n1, n2, 0][i] }));
+
 const REPORT = {
-  universeCount: 128,
-  offLimitsCompanies: 4,
-  sectorsInScope: 6,
-  marketsInScope: 3,
-  sectors: [
-    { label: "Industrial Manufacturing & Engineering Services", count: 48 },
-    { label: "Oil & Energy", count: 31 },
-    { label: "Logistics & Supply Chain", count: 22 },
-  ],
-  countries: [
-    { label: "United Arab Emirates", count: 61 },
-    { label: "Saudi Arabia", count: 44 },
-  ],
-  cities: [
-    { label: "Abu Dhabi", count: 33 },
-    { label: "Dubai", count: 28 },
-  ],
-  mandateBand: { min: 1200000, max: 1800000, currency: "AED" },
-  caveats: { revenueBandExcludesUnknown: true },
+  head: { universeCount: 128, executivesMapped: 41, truncated: false, generatedAt: "2026-09-08T07:40:00Z" },
+  progress: {
+    kickoff: "2026-07-21",
+    targetDate: "2026-09-30",
+    asOf: "2026-09-08",
+    targetCompanies: 128,
+    companiesCumulative: [0, 4, 9, 15, 19, 24, 26, 27],
+    weekly: ["2026-07-27", "2026-08-03", "2026-08-10", "2026-08-17", "2026-08-24", "2026-08-31", "2026-09-07", "2026-09-14"].map(
+      (weekEnding, i) => ({ weekEnding, identified: [3, 7, 8, 6, 7, 5, 3, 2][i] }),
+    ),
+    daily: Array.from({ length: 50 }, (_, i) => (i % 7 < 5 ? 1 : 0)),
+    daysSinceLastCompany: 4,
+  },
+  market: {
+    sectors: ["Oil & Energy", "Industrial Manufacturing", "Logistics"],
+    levels: REPORT_LEVELS,
+    cells: ["Oil & Energy", "Industrial Manufacturing", "Logistics"].flatMap((sector, s) =>
+      REPORT_LEVELS.map((level, l) => ({ sector, level, count: [[1, 8, 6, 3, 0], [0, 6, 5, 2, 0], [0, 4, 3, 1, 0]][s][l] })),
+    ),
+    withoutSector: 2,
+    withoutSeniority: 0,
+    slices: [
+      {
+        sector: "Oil & Energy",
+        level: "C-Suite",
+        companies: ["ADNOC Distribution", "Masdar"],
+        executives: [
+          { id: "e1", fullName: "Yasmin El-Sayed", company: "ADNOC Distribution", status: "interested" },
+          { id: "e2", fullName: "Omar Haddad", company: "Masdar", status: "engaged" },
+        ],
+      },
+    ],
+    hubs: [
+      { city: "Abu Dhabi", country: "United Arab Emirates", count: 18, depth: levelCounts(1, 8, 6, 3), employers: ["ADNOC Distribution", "Masdar"], interested: 6 },
+      { city: "Dubai", country: "United Arab Emirates", count: 14, depth: levelCounts(0, 6, 5, 3), employers: ["DP World"], interested: 4 },
+      { city: "Riyadh", country: "Saudi Arabia", count: 7, depth: levelCounts(0, 4, 3, 0), employers: ["ACWA Power"], interested: 2 },
+    ],
+    elsewhere: 2,
+    unlocated: 0,
+    companiesBySector: [
+      { label: "Industrial Manufacturing & Engineering Services", count: 48 },
+      { label: "Oil & Energy", count: 31 },
+      { label: "Logistics & Supply Chain", count: 22 },
+      { label: "Other", count: 27 },
+    ],
+  },
+  remuneration: {
+    currency: "AED",
+    fixedBand: { low: 1200000, high: 1800000 },
+    packageBand: { low: 1500000, high: 2300000 },
+    disclosures: [
+      { id: "e1", fullName: "Yasmin El-Sayed", company: "ADNOC Distribution", title: "CFO", country: "United Arab Emirates", nationality: "Egyptian", status: "interested", fixed: 1650000, totalPackage: 2100000, note: null },
+      { id: "e2", fullName: "Omar Haddad", company: "Masdar", title: "VP Finance", country: "United Arab Emirates", nationality: "Lebanese", status: "engaged", fixed: 1400000, totalPackage: 1900000, note: "Within band." },
+      { id: "e3", fullName: "Lina Said", company: "DP World", title: "Group CFO", country: "United Arab Emirates", nationality: "Emirati", status: "notInterested", fixed: 2200000, totalPackage: 3100000, note: "Above band." },
+      { id: "e4", fullName: "Faisal Al-Amri", company: "ACWA Power", title: "CFO", country: "Saudi Arabia", nationality: "Saudi", status: "identified", fixed: 1500000, totalPackage: 2000000, note: null },
+      { id: "e5", fullName: "Nour Khalil", company: "Masdar", title: "Finance Director", country: "United Arab Emirates", nationality: "Jordanian", status: "contacted", fixed: 1100000, totalPackage: 1400000, note: null },
+    ],
+    otherCurrency: 1,
+  },
+  diversity: {
+    levels: REPORT_LEVELS,
+    nationalities: [
+      { nationality: "Emirati", gcc: true, byLevel: levelCounts(1, 5, 4, 2), unclassified: 0, total: 12 },
+      { nationality: "Egyptian", gcc: false, byLevel: levelCounts(0, 4, 4, 2), unclassified: 0, total: 10 },
+      { nationality: "Saudi", gcc: true, byLevel: levelCounts(0, 4, 2, 1), unclassified: 0, total: 7 },
+      { nationality: "Lebanese", gcc: false, byLevel: levelCounts(0, 3, 2, 1), unclassified: 0, total: 6 },
+      { nationality: "Other", gcc: false, byLevel: levelCounts(0, 2, 2, 0), unclassified: 0, total: 4 },
+    ],
+    unknownNationality: 2,
+    gccNationals: 19,
+  },
 };
 
 const TRIAGE_COUNTS = { inUniverse: 128, shortlisted: 24, declined: 61 };

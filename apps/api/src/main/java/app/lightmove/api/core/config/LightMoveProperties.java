@@ -25,5 +25,6 @@ public record LightMoveProperties(
         CustomColumnSettings customColumn,
         SpreadsheetImportSettings spreadsheetImport,
         MapboxSettings mapbox,
-        TalentMapSettings talentMap
+        TalentMapSettings talentMap,
+        ReportSettings report
 ) {}

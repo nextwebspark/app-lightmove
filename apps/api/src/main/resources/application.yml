@@ -394,6 +394,17 @@ lightmove:
     max-candidates: ${TALENT_MAP_MAX_CANDIDATES:5000}
     geocodes-per-read: ${TALENT_MAP_GEOCODES_PER_READ:50}
 
+  # The talent mapping report reads every company and executive of a mandate in one pass, so the two
+  # row caps play the pager's part and the response says when it hit one. The category caps bound how
+  # many sectors, hubs and nationalities a chapter names before the tail folds into "Other".
+  report:
+    max-companies: ${REPORT_MAX_COMPANIES:2000}
+    max-candidates: ${REPORT_MAX_CANDIDATES:5000}
+    max-sectors: ${REPORT_MAX_SECTORS:6}
+    max-hubs: ${REPORT_MAX_HUBS:8}
+    max-nationalities: ${REPORT_MAX_NATIONALITIES:8}
+    max-executives-per-slice: ${REPORT_MAX_EXECUTIVES_PER_SLICE:12}
+
 # What /actuator/info reports. APP_VERSION is baked into the image by the Dockerfile's build arg, so
 # this is the same release the SPA bundle was built with — one input, and nothing at runtime can move
 # one half without the other.
