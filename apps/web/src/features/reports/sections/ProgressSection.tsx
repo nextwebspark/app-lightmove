@@ -7,7 +7,7 @@ import { DailyMomentumChart, WeeklyMomentumChart } from "../components/MomentumC
 import { ChartLegend, ReportCard } from "../components/ReportCard";
 import { Figure, ReportSection } from "../components/ReportSection";
 import { formatShortDate, percent } from "../lib/figures";
-import { type ProjectionBasis, projectCoverage, weeklyPace } from "../lib/projection";
+import { type Projection, type ProjectionBasis, projectCoverage, weeklyPace } from "../lib/projection";
 
 type MomentumView = "weeks" | "days";
 
@@ -27,59 +27,51 @@ export function ProgressSection({ progress }: { progress: ReportProgress }) {
   const projection = projectCoverage(progress, basis);
   const pace = weeklyPace(progress);
   const covered = progress.companiesCumulative[projection.lastWeek];
-  const target = formatShortDate(progress.targetDate);
-  const isLate = projection.daysLate > 0;
+  const target = progress.targetDate ? formatShortDate(progress.targetDate) : null;
+  const isBehind = projection.targetPace !== null && projection.pace < projection.targetPace;
 
   return (
     <ReportSection
       id="progress"
       ordinal="01"
       eyebrow="Mapping progress"
-      heading={
-        isLate ? (
-          <>
-            At the current pace the remaining <Figure>{projection.remaining} companies</Figure> clear on{" "}
-            <Figure>{formatShortDate(projection.projectedDate)}</Figure> — <Figure>{projection.daysLate} days</Figure> behind
-            the {target} target.
-          </>
-        ) : (
-          <>
-            At the current pace the remaining <Figure>{projection.remaining} companies</Figure> clear on{" "}
-            <Figure>{formatShortDate(projection.projectedDate)}</Figure>, inside the {target} target.
-          </>
-        )
-      }
+      heading={<ProgressFinding projection={projection} target={target} />}
       lede={
         <>
-          New executives per week have fallen from ~{Math.round(pace.firstMonth)} in the first month to ~
-          {Math.round(pace.recent)} recently. Company coverage is moving at {projection.pace.toFixed(1)} a week against
-          the {projection.targetPace.toFixed(1)} a week the plan needed. A cumulative view alone would still look
-          healthy — this is why the slowdown was caught.
+          New executives per week have gone from ~{Math.round(pace.firstMonth)} in the first month to ~
+          {Math.round(pace.recent)} recently. Company coverage is moving at {projection.pace.toFixed(1)} a week
+          {projection.targetPace !== null ? ` against the ${projection.targetPace.toFixed(1)} a week the plan needed` : ""}. A
+          cumulative view alone would still look healthy — this is why a slowdown gets caught here.
         </>
       }
     >
       <KpiTileRow>
-        <KpiTile label="Companies mapped" value={covered} unit={`/ ${progress.targetCompanies}`} sub={`${percent(covered, progress.targetCompanies)}% of the scoped universe`} />
+        <KpiTile
+          label="Companies mapped"
+          value={covered}
+          unit={`/ ${progress.targetCompanies}`}
+          sub={`${percent(covered, progress.targetCompanies)}% of the scoped universe`}
+        />
         <KpiTile label="Executives identified" value={pace.total} sub={`across ${progress.weekly.length} weeks`} />
         <KpiTile
           label="Recent pace"
           value={projection.pace.toFixed(1)}
           unit="/ wk"
-          valueClass={projection.pace < projection.targetPace ? "text-red" : "text-green"}
-          sub={`vs ${projection.targetPace.toFixed(1)} / wk needed`}
+          valueClass={isBehind ? "text-red" : undefined}
+          sub={projection.targetPace !== null ? `vs ${projection.targetPace.toFixed(1)} / wk needed` : "no target date set"}
         />
         <KpiTile
           label="Since last new company"
-          value={progress.daysSinceLastCompany}
-          unit="days"
-          valueClass={progress.daysSinceLastCompany >= 5 ? "text-red" : undefined}
-          sub="longest gap this mandate"
+          value={progress.daysSinceLastCompany ?? "—"}
+          unit={progress.daysSinceLastCompany === null ? undefined : "days"}
+          valueClass={(progress.daysSinceLastCompany ?? 0) >= 5 ? "text-red" : undefined}
+          sub={progress.daysSinceLastCompany === null ? "no company mapped yet" : "gap since the last first executive"}
         />
       </KpiTileRow>
 
       <ReportCard
         title="Coverage vs. target"
-        caption={`cumulative companies mapped · ${formatShortDate(progress.kickoff)} – projected ${formatShortDate(projection.projectedDate)}`}
+        caption={`cumulative companies mapped · ${formatShortDate(progress.kickoff)}${projection.projectedDate ? ` – projected ${formatShortDate(projection.projectedDate)}` : ""}`}
         action={<SegmentedControl label="Projection basis" options={BASIS_OPTIONS} value={basis} onChange={setBasis} />}
         note={
           basis === "recent" ? (
@@ -91,8 +83,8 @@ export function ProgressSection({ progress }: { progress: ReportProgress }) {
           ) : (
             <>
               Projected from the <b>full-mandate average</b> ({projection.pace.toFixed(1)} / wk). This blends in the
-              faster early weeks and understates how much the last 3 weeks have slowed. “Last 3 weeks” is the more
-              honest basis for a live decision.
+              early weeks and understates any recent slowdown. “Last 3 weeks” is the more honest basis for a live
+              decision.
             </>
           )
         }
@@ -114,14 +106,13 @@ export function ProgressSection({ progress }: { progress: ReportProgress }) {
         note={
           momentum === "weeks" ? (
             <>
-              A cumulative chart would still be climbing and look healthy right now. This view is why the slowdown was
-              caught <b>before</b> it cost a missed company milestone.
+              A cumulative chart would still be climbing and look healthy through a slowdown. This view is what catches
+              one <b>before</b> it costs a missed company milestone.
             </>
           ) : (
             <>
               Daily counts are noisy on their own — the GCC weekend (Fri–Sat) shows near-zero every week by design, not
-              as a signal. The <b>7-day rolling average</b> is what shows the trend, and it is still visibly falling
-              through late August.
+              as a signal. The <b>7-day rolling average</b> is what shows the trend.
             </>
           )
         }
@@ -149,5 +140,42 @@ export function ProgressSection({ progress }: { progress: ReportProgress }) {
         )}
       </ReportCard>
     </ReportSection>
+  );
+}
+
+function ProgressFinding({ projection, target }: { projection: Projection; target: string | null }) {
+  if (projection.remaining === 0) {
+    return <>Every company of the universe has at least one executive mapped — coverage is complete.</>;
+  }
+  if (projection.projectedDate === null) {
+    return (
+      <>
+        <Figure>{projection.remaining} companies</Figure> still have no executive, and no company gained a first one in the
+        last three weeks — there is no pace to project from.
+      </>
+    );
+  }
+  if (target === null || projection.daysLate === null) {
+    return (
+      <>
+        At the current pace the remaining <Figure>{projection.remaining} companies</Figure> clear on{" "}
+        <Figure>{formatShortDate(projection.projectedDate)}</Figure>. No target date is set on the mandate.
+      </>
+    );
+  }
+  if (projection.daysLate > 0) {
+    return (
+      <>
+        At the current pace the remaining <Figure>{projection.remaining} companies</Figure> clear on{" "}
+        <Figure>{formatShortDate(projection.projectedDate)}</Figure> — <Figure>{projection.daysLate} days</Figure> behind the{" "}
+        {target} target.
+      </>
+    );
+  }
+  return (
+    <>
+      At the current pace the remaining <Figure>{projection.remaining} companies</Figure> clear on{" "}
+      <Figure>{formatShortDate(projection.projectedDate)}</Figure>, inside the {target} target.
+    </>
   );
 }

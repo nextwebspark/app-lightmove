@@ -1,12 +1,13 @@
 import { DetailGrid, DetailTile, DrawerSection } from "../../../components/ui/DetailList";
+import { candidateStatusStyle } from "../../candidates/lib/candidateVocabulary";
 import type { CompensationBand, Disclosure, ReportRemuneration } from "../api/types";
-import { formatMoneyK } from "../lib/figures";
-import { OUTCOME_LABEL } from "./CompensationStrip";
+import { formatCompactMoney } from "../lib/figures";
 import { DrawerNote, ReportDrawer } from "./ReportDrawer";
 
-function againstBand(value: number, band: CompensationBand): string {
-  if (value < band.lowK) return `${formatMoneyK(band.lowK - value)} below floor`;
-  if (value > band.highK) return `${formatMoneyK(value - band.highK)} above ceiling`;
+function againstBand(currency: string, value: number, band: CompensationBand | null): string {
+  if (band === null) return "no band in the brief";
+  if (value < band.low) return `${formatCompactMoney(currency, band.low - value)} below floor`;
+  if (value > band.high) return `${formatCompactMoney(currency, value - band.high)} above ceiling`;
   return "within band";
 }
 
@@ -21,31 +22,32 @@ export function DisclosureDrawer({
   onClose: () => void;
 }) {
   const d = disclosure;
+  const currency = remuneration.currency;
   const rows = d
     ? [
-        ["Company", d.company],
-        ["Title", d.title],
-        ["Country", d.country],
-        ["Nationality", d.nationality],
-        ["Vs. our package band", againstBand(d.packageK, remuneration.packageBand)],
-        ["Vs. our fixed band", againstBand(d.fixedK, remuneration.fixedBand)],
+        ["Company", d.company ?? "—"],
+        ["Title", d.title ?? "—"],
+        ["Country", d.country ?? "—"],
+        ["Nationality", d.nationality ?? "—"],
+        ["Vs. our package band", againstBand(currency, d.totalPackage, remuneration.packageBand)],
+        ["Vs. our fixed band", againstBand(currency, d.fixed, remuneration.fixedBand)],
       ]
     : [];
   return (
     <ReportDrawer
       open={d !== null}
       onClose={onClose}
-      eyebrow="Verified disclosure"
-      title={d?.name ?? ""}
-      subtitle={d ? `${d.title} · ${d.company}` : ""}
+      eyebrow="Disclosed compensation"
+      title={d?.fullName ?? ""}
+      subtitle={d ? [d.title, d.company].filter(Boolean).join(" · ") : ""}
     >
       {d && (
         <>
           <DrawerSection title="Disclosed">
             <DetailGrid>
-              <DetailTile label="Total package" value={formatMoneyK(d.packageK)} />
-              <DetailTile label="Total fixed" value={formatMoneyK(d.fixedK)} />
-              <DetailTile label="Status" value={OUTCOME_LABEL[d.outcome]} full />
+              <DetailTile label="Total package" value={formatCompactMoney(currency, d.totalPackage)} />
+              <DetailTile label="Fixed" value={formatCompactMoney(currency, d.fixed)} />
+              <DetailTile label="Status" value={candidateStatusStyle(d.status).label} full />
             </DetailGrid>
           </DrawerSection>
           <DrawerSection title="Current placement">
@@ -56,9 +58,11 @@ export function DisclosureDrawer({
               </div>
             ))}
           </DrawerSection>
-          <DrawerSection title="Note">
-            <DrawerNote label="From the conversation">{d.note}</DrawerNote>
-          </DrawerSection>
+          {d.note && (
+            <DrawerSection title="Note">
+              <DrawerNote label="From the research">{d.note}</DrawerNote>
+            </DrawerSection>
+          )}
         </>
       )}
     </ReportDrawer>

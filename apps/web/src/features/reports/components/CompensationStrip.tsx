@@ -1,20 +1,22 @@
 import { cn } from "../../../lib/cn";
-import type { Disclosure, DisclosureOutcome } from "../api/types";
+import type { CandidateStatus } from "../../candidates/api/types";
+import { candidateStatusStyle } from "../../candidates/lib/candidateVocabulary";
+import type { Disclosure } from "../api/types";
 import { type CompensationStats, measureValue } from "../lib/compensationStats";
-import { formatMoneyK } from "../lib/figures";
+import { formatCompactMoney } from "../lib/figures";
 
-export const OUTCOME_LABEL: Record<DisclosureOutcome, string> = {
-  accepted: "Accepted",
-  process: "In process",
-  declined: "Declined",
-  withdrawn: "Withdrawn",
-};
-
-export const OUTCOME_FILL: Record<DisclosureOutcome, string> = {
-  accepted: "bg-green",
-  process: "bg-sky",
-  declined: "bg-red",
-  withdrawn: "bg-text3",
+/**
+ * The dot a status paints. Green is a yes, sky a conversation under way, grey a name and nothing
+ * more, red a closed door — the same reading the grid's Status pill gives, on a mark rather than text.
+ */
+export const STATUS_FILL: Record<CandidateStatus, string> = {
+  identified: "bg-text3",
+  contacted: "bg-sky",
+  engaged: "bg-sky",
+  interested: "bg-green",
+  notInterested: "bg-line",
+  offLimits: "bg-red",
+  outOfScope: "bg-amber",
 };
 
 /**
@@ -22,32 +24,45 @@ export const OUTCOME_FILL: Record<DisclosureOutcome, string> = {
  * than a histogram because sixteen named points are worth more to a consultant than four buckets —
  * each dot opens the person who said the number.
  */
-export function CompensationStrip({ stats, onSelect }: { stats: CompensationStats; onSelect: (d: Disclosure) => void }) {
-  const span = stats.axisHighK - stats.axisLowK;
-  const at = (k: number) => `${(((k - stats.axisLowK) / span) * 100).toFixed(2)}%`;
-  const bandLeft = at(stats.band.lowK);
-  const bandWidth = `${(((stats.band.highK - stats.band.lowK) / span) * 100).toFixed(2)}%`;
-  const unit = stats.measure === "package" ? "total comp / yr" : "base salary / yr";
+export function CompensationStrip({
+  stats,
+  currency,
+  onSelect,
+}: {
+  stats: CompensationStats;
+  currency: string;
+  onSelect: (d: Disclosure) => void;
+}) {
+  const span = stats.axisHigh - stats.axisLow;
+  const at = (amount: number) => `${(((amount - stats.axisLow) / span) * 100).toFixed(2)}%`;
+  const band = stats.band;
+  const bandWidth = band ? `${(((band.high - band.low) / span) * 100).toFixed(2)}%` : "0%";
+  const unit = stats.measure === "package" ? "total package / yr" : "fixed pay / yr";
 
   return (
-    <div className="relative mx-2.5 mt-4 h-[150px]" role="group" aria-label="Verified compensation disclosures">
-      <div className="absolute bottom-11 top-[26px] rounded-md bg-sky opacity-[0.08]" style={{ left: bandLeft, width: bandWidth }} />
-      <div className="absolute bottom-11 top-[26px] rounded-md border border-dashed border-sky opacity-50" style={{ left: bandLeft, width: bandWidth }} />
-      <div
-        className="absolute top-1.5 text-center font-mono text-[9.5px] font-semibold tracking-[0.08em] text-sky"
-        style={{ left: bandLeft, width: bandWidth }}
-      >
-        OUR OFFERED BAND
-      </div>
+    <div className="relative mx-2.5 mt-4 h-[150px]" role="group" aria-label="Disclosed compensation">
+      {band && (
+        <>
+          <div className="absolute bottom-11 top-[26px] rounded-md bg-sky opacity-[0.08]" style={{ left: at(band.low), width: bandWidth }} />
+          <div className="absolute bottom-11 top-[26px] rounded-md border border-dashed border-sky opacity-50" style={{ left: at(band.low), width: bandWidth }} />
+          <div
+            className="absolute top-1.5 text-center font-mono text-[9.5px] font-semibold tracking-[0.08em] text-sky"
+            style={{ left: at(band.low), width: bandWidth }}
+          >
+            OUR OFFERED BAND
+          </div>
+          {[band.low, band.high].map((edge) => (
+            <div key={edge} className="absolute bottom-[26px] -translate-x-1/2 text-center" style={{ left: at(edge) }}>
+              <div className="mx-auto h-1.5 w-px bg-sky opacity-60" />
+              <div className="mt-0.5 whitespace-nowrap font-mono text-[10px] font-semibold text-sky">
+                {formatCompactMoney(currency, edge)}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
       <div className="absolute right-0 top-1.5 font-mono text-[9.5px] text-text3">{unit}</div>
       <div className="absolute inset-x-0 top-1/2 h-px bg-line" />
-
-      {[stats.band.lowK, stats.band.highK].map((edge) => (
-        <div key={edge} className="absolute bottom-[26px] -translate-x-1/2 text-center" style={{ left: at(edge) }}>
-          <div className="mx-auto h-1.5 w-px bg-sky opacity-60" />
-          <div className="mt-0.5 font-mono text-[10px] font-semibold text-sky">{formatMoneyK(edge)}</div>
-        </div>
-      ))}
 
       {stats.disclosures.length > 0 && (
         <>
@@ -57,24 +72,25 @@ export function CompensationStrip({ stats, onSelect }: { stats: CompensationStat
             className="absolute bottom-0 -translate-x-1/2 whitespace-nowrap font-mono text-[9.5px] font-semibold tracking-[0.03em] text-amber"
             style={{ left: at(stats.median) }}
           >
-            MEDIAN {formatMoneyK(stats.median)}
+            MEDIAN {formatCompactMoney(currency, stats.median)}
           </div>
         </>
       )}
 
       {stats.disclosures.map((d) => {
         const value = measureValue(d, stats.measure);
+        const label = candidateStatusStyle(d.status).label;
         return (
           <button
             key={d.id}
             type="button"
             onClick={() => onSelect(d)}
-            aria-label={`${d.name}, ${formatMoneyK(value)}, ${OUTCOME_LABEL[d.outcome]}`}
-            title={`${d.name} · ${formatMoneyK(value)} · ${OUTCOME_LABEL[d.outcome]}`}
+            aria-label={`${d.fullName}, ${formatCompactMoney(currency, value)}, ${label}`}
+            title={`${d.fullName} · ${formatCompactMoney(currency, value)} · ${label}`}
             className="group absolute top-1/2 -ml-[13px] -mt-[13px] grid size-[26px] place-items-center rounded-full"
             style={{ left: at(value) }}
           >
-            <i className={cn("block size-3 rounded-full border-2 border-panel2 transition group-hover:scale-[1.35]", OUTCOME_FILL[d.outcome])} />
+            <i className={cn("block size-3 rounded-full border-2 border-panel2 transition group-hover:scale-[1.35]", STATUS_FILL[d.status])} />
           </button>
         );
       })}

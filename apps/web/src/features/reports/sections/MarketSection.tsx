@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import type { Hub, ReportMarket, SeniorityLevel } from "../api/types";
+import type { ReportMarket, SeniorityLevel, TalentHub } from "../api/types";
 import { BarList } from "../components/BarList";
 import { HubDrawer } from "../components/HubDrawer";
 import { KpiTile, KpiTileRow } from "../components/KpiTiles";
@@ -9,15 +9,7 @@ import { MarketSliceDrawer, type SliceSelection } from "../components/MarketSlic
 import { ReportCard } from "../components/ReportCard";
 import { Figure, ReportSection } from "../components/ReportSection";
 import { SectorSeniorityHeatmap } from "../components/SectorSeniorityHeatmap";
-import { StackedBar } from "../components/StackedBar";
-import { percent } from "../lib/figures";
-import { marketStats, TOP_HUBS } from "../lib/marketStats";
-
-const RELEVANCE_FILL: Record<string, string> = {
-  Direct: "bg-sky",
-  Adjacent: "bg-amber",
-  "AI inferred": "bg-text3",
-};
+import { hubLabel, marketStats, TOP_HUBS } from "../lib/marketStats";
 
 /** 02 — where does the universe actually sit? Sector by seniority, then by hub. */
 export function MarketSection({
@@ -31,8 +23,8 @@ export function MarketSection({
 }) {
   const stats = marketStats(market);
   const [slice, setSlice] = useState<SliceSelection | null>(null);
-  const [hub, setHub] = useState<Hub | null>(null);
-  const direct = market.relevance.find((r) => r.label === "Direct")?.count ?? 0;
+  const [hub, setHub] = useState<TalentHub | null>(null);
+  const unplaced = market.withoutSector + market.withoutSeniority;
 
   const handleCell = (sector: string, level: SeniorityLevel) =>
     setSlice({
@@ -48,32 +40,46 @@ export function MarketSection({
       ordinal="02"
       eyebrow="Shape of the market"
       heading={
-        <>
-          <Figure>{stats.deepest.sector} dominates</Figure> the universe and seniority is healthy at C-Suite and N-1 — but{" "}
-          <Figure>Board is thin</Figure>, with {stats.boardTotal} executives across all {market.sectors.length} sectors.
-        </>
+        stats.deepest ? (
+          <>
+            <Figure>{stats.deepest.sector} leads</Figure> the universe, deepest at {stats.deepest.level}; Board-level
+            coverage is <Figure>{stats.boardTotal} executives</Figure> across {market.sectors.length} sectors, with{" "}
+            {stats.emptyCells} of {stats.totalCells} sector × seniority pockets still empty.
+          </>
+        ) : (
+          <>No executive has both a sector and a seniority on file yet, so the matrix has nothing to place.</>
+        )
       }
       lede={
         <>
-          {stats.executivesMapped} executives mapped against {universeCount} companies. The matrix shows where they sit
-          and where the gaps are — hatched cells have no executive yet. Select any cell to open the slice.
+          {stats.placed} executives placed against {universeCount} companies
+          {unplaced > 0 ? ` — ${unplaced} more sit outside the matrix, with no universe company or no seniority on file` : ""}
+          . Hatched cells have no executive yet. Select any cell to open the slice.
         </>
       }
     >
       <KpiTileRow>
-        <KpiTile label="Deepest pocket" value={stats.deepest.count} sub={`${stats.deepest.sector} · ${stats.deepest.level}`} />
-        <KpiTile label="Empty cells" value={stats.emptyCells} unit={`/ ${stats.totalCells}`} sub="sector × seniority pairs" />
-        <KpiTile label="Board-level total" value={stats.boardTotal} valueClass="text-red" sub={`across all ${market.sectors.length} sectors`} />
-        <KpiTile label="Direct relevance" value={direct} unit={`/ ${universeCount}`} sub={`${percent(direct, universeCount)}% of the universe`} />
+        <KpiTile
+          label="Deepest pocket"
+          value={stats.deepest?.count ?? "—"}
+          sub={stats.deepest ? `${stats.deepest.sector} · ${stats.deepest.level}` : "nothing placed yet"}
+        />
+        <KpiTile label="Empty pockets" value={stats.emptyCells} unit={`/ ${stats.totalCells}`} sub="sector × seniority pairs" />
+        <KpiTile label="Board-level total" value={stats.boardTotal} valueClass={stats.boardTotal === 0 ? "text-red" : undefined} sub={`across all ${market.sectors.length} sectors`} />
+        <KpiTile label="Outside the matrix" value={unplaced} sub={`${market.withoutSector} without a sector · ${market.withoutSeniority} without a level`} />
       </KpiTileRow>
 
       <ReportCard title="Sector × seniority" caption="executives mapped · darker = more · hatched = none yet · click a cell for detail">
-        <SectorSeniorityHeatmap sectors={market.sectors} rows={stats.rows} onSelect={handleCell} />
+        {market.sectors.length > 0 ? (
+          <SectorSeniorityHeatmap sectors={market.sectors} rows={stats.rows} onSelect={handleCell} />
+        ) : (
+          <div className="py-[30px] text-center text-[12.5px] text-text3">No executive is mapped at a universe company yet.</div>
+        )}
       </ReportCard>
 
       <ReportCard
         title="Where talent sits"
-        caption={`executives by hub · ${stats.hubTotal} across ${market.hubs.length} hubs · click a hub for detail`}
+        caption={`executives by hub · ${stats.located} located${market.unlocated > 0 ? ` · ${market.unlocated} with no place on file` : ""} · click a hub for detail`}
         action={
           <Link to={`/projects/${projectId}/companies/universe`} className="inline-flex items-center gap-1.5 text-xs font-medium text-sky hover:underline">
             Open on the map
@@ -81,53 +87,47 @@ export function MarketSection({
           </Link>
         }
         note={
-          <>
-            <b>{stats.topHubsPct}%</b> of mapped talent sits in just {TOP_HUBS} hubs — {stats.topHubs.join(", ")}. Efficient
-            to work, but thin coverage outside the core hubs is a blind spot worth closing.
-          </>
+          market.hubs.length > 0 ? (
+            <>
+              <b>{stats.topHubsPct}%</b> of located talent sits in {Math.min(TOP_HUBS, market.hubs.length)} hubs —{" "}
+              {stats.topHubs.join(", ")}. Efficient to work, but thin coverage outside the core hubs is a blind spot worth
+              closing.
+              {market.elsewhere > 0 ? ` ${market.elsewhere} more sit in places past this list.` : ""}
+            </>
+          ) : (
+            "Nobody has a city or country on file yet."
+          )
         }
       >
         <div className="mt-2.5">
           <BarList
             rows={market.hubs.map((h, i) => ({
-              key: h.city,
-              label: h.city,
+              key: hubLabel(h),
+              label: hubLabel(h),
               count: h.count,
               fillClass: i < TOP_HUBS ? "bg-sky" : "bg-text3",
-              title: `${h.count} executives in ${h.city} · click for detail`,
+              title: `${h.count} executives in ${hubLabel(h)} · click for detail`,
             }))}
-            onSelect={(row) => setHub(market.hubs.find((h) => h.city === row.key) ?? null)}
+            onSelect={(row) => setHub(market.hubs.find((h) => hubLabel(h) === row.key) ?? null)}
           />
         </div>
       </ReportCard>
 
-      <div className="grid gap-3.5 md:grid-cols-2">
-        <ReportCard title="Companies by sector" caption={`target universe · n = ${universeCount}`}>
-          <div className="mt-2.5">
-            <BarList
-              rows={market.companiesBySector.map((b, i) => ({
-                key: b.label,
-                label: b.label,
-                count: b.count,
-                fillClass: i === 0 ? "bg-sky" : "bg-text3",
-              }))}
-            />
-          </div>
-        </ReportCard>
-        <ReportCard
-          title="Relevance mix"
-          caption="how directly each mapped company competes for this mandate"
-          note="AI-inferred adjacencies carry the lowest confidence of the three tiers — lift it before they feed a shortlist."
-        >
-          <StackedBar
-            className="mt-4"
-            segments={market.relevance.map((r) => ({ label: r.label, count: r.count, fillClass: RELEVANCE_FILL[r.label] ?? "bg-line" }))}
+      <ReportCard title="Companies by sector" caption={`the universe · n = ${universeCount}`}>
+        <div className="mt-2.5">
+          <BarList
+            rows={market.companiesBySector.map((b, i) => ({
+              key: b.label,
+              label: b.label,
+              count: b.count,
+              fillClass: i === 0 ? "bg-sky" : "bg-text3",
+            }))}
           />
-        </ReportCard>
-      </div>
+        </div>
+      </ReportCard>
 
       <MarketSliceDrawer selection={slice} projectId={projectId} onClose={() => setSlice(null)} />
-      <HubDrawer hub={hub} hubTotal={stats.hubTotal} projectId={projectId} onClose={() => setHub(null)} />
+      <HubDrawer hub={hub} located={stats.located} projectId={projectId} onClose={() => setHub(null)} />
     </ReportSection>
   );
 }

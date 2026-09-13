@@ -1,4 +1,4 @@
-import { SENIORITY_LEVELS, type MarketCell, type ReportMarket, type SeniorityLevel } from "../api/types";
+import type { MarketCell, ReportMarket, SeniorityLevel, SliceExecutive } from "../api/types";
 import { percent } from "./figures";
 
 export interface HeatRow {
@@ -12,9 +12,12 @@ export interface MarketStats {
   emptyCells: number;
   totalCells: number;
   boardTotal: number;
-  deepest: MarketCell;
-  executivesMapped: number;
-  hubTotal: number;
+  /** Null while no executive sits in any cell. */
+  deepest: MarketCell | null;
+  /** Executives with both a sector and a seniority — the ones the matrix can place. */
+  placed: number;
+  /** Executives with a place on file, hubs and elsewhere together. */
+  located: number;
   topHubsPct: number;
   topHubs: string[];
 }
@@ -25,16 +28,16 @@ export function marketStats(market: ReportMarket): MarketStats {
   const countOf = (sector: string, level: SeniorityLevel) =>
     market.cells.find((c) => c.sector === sector && c.level === level)?.count ?? 0;
   const maxCell = Math.max(...market.cells.map((c) => c.count), 1);
-  const rows: HeatRow[] = SENIORITY_LEVELS.map((level) => ({
+  const rows: HeatRow[] = market.levels.map((level) => ({
     level,
     cells: market.sectors.map((sector) => {
       const count = countOf(sector, level);
       return { sector, level, count, intensity: count / maxCell };
     }),
   }));
-  const totalCells = market.sectors.length * SENIORITY_LEVELS.length;
-  const deepest = market.cells.reduce((a, b) => (b.count > a.count ? b : a));
-  const hubTotal = market.hubs.reduce((sum, hub) => sum + hub.count, 0);
+  const totalCells = market.sectors.length * market.levels.length;
+  const deepest = market.cells.reduce<MarketCell | null>((best, cell) => (cell.count > (best?.count ?? 0) ? cell : best), null);
+  const located = market.hubs.reduce((sum, hub) => sum + hub.count, 0) + market.elsewhere;
   const topHubs = [...market.hubs].sort((a, b) => b.count - a.count).slice(0, TOP_HUBS);
   return {
     rows,
@@ -43,30 +46,32 @@ export function marketStats(market: ReportMarket): MarketStats {
     totalCells,
     boardTotal: market.cells.filter((c) => c.level === "Board").reduce((sum, c) => sum + c.count, 0),
     deepest,
-    executivesMapped: market.cells.reduce((sum, c) => sum + c.count, 0),
-    hubTotal,
+    placed: market.cells.reduce((sum, c) => sum + c.count, 0),
+    located,
     topHubsPct: percent(
       topHubs.reduce((sum, hub) => sum + hub.count, 0),
-      hubTotal,
+      located,
     ),
-    topHubs: topHubs.map((hub) => hub.city),
+    topHubs: topHubs.map(hubLabel),
   };
+}
+
+/** "Riyadh" where a city is known, else the country, else "Unknown place" — a hub always has a name. */
+export function hubLabel(hub: { city: string | null; country: string | null }): string {
+  return hub.city ?? hub.country ?? "Unknown place";
 }
 
 export interface SliceInterest {
   interested: number;
   passive: number;
-  offLimits: number;
+  closed: number;
 }
 
-/**
- * The pocket's own breakdown from its listed executives. Where a slice carries no list yet, the
- * report has no interest figure for it and says so with zeros rather than inventing a split.
- */
-export function sliceInterest(executives: { status: string }[]): SliceInterest {
+/** A pocket's listed executives by where the mandate has got to with them: yes, not yet, and a closed door. */
+export function sliceInterest(executives: Pick<SliceExecutive, "status">[]): SliceInterest {
   return {
     interested: executives.filter((e) => e.status === "interested").length,
-    passive: executives.filter((e) => e.status === "passive" || e.status === "verified").length,
-    offLimits: executives.filter((e) => e.status === "offlimits").length,
+    closed: executives.filter((e) => e.status === "notInterested" || e.status === "offLimits" || e.status === "outOfScope").length,
+    passive: executives.filter((e) => e.status === "identified" || e.status === "contacted" || e.status === "engaged").length,
   };
 }

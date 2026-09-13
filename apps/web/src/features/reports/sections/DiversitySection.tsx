@@ -2,10 +2,9 @@ import { useState } from "react";
 import { Select } from "../../../components/ui";
 import type { ReportDiversity } from "../api/types";
 import { BarList } from "../components/BarList";
-import { GenderPyramid } from "../components/GenderPyramid";
 import { KpiTile, KpiTileRow } from "../components/KpiTiles";
 import { NationalityDots } from "../components/NationalityDots";
-import { ChartLegend, ReportCard } from "../components/ReportCard";
+import { ReportCard } from "../components/ReportCard";
 import { Figure, ReportSection } from "../components/ReportSection";
 import { StackedBar } from "../components/StackedBar";
 import {
@@ -22,7 +21,7 @@ import { useCountUp } from "../lib/useCountUp";
 
 const SELECT_CLASS = "w-auto bg-panel py-[7px] text-[12.5px] font-medium";
 
-/** 04 — what does the mapped pool look like? Gender in aggregate only; nationality in full. */
+/** 04 — who is in the mapped pool, by nationality. Gender is not recorded, so nothing here claims it. */
 export function DiversitySection({ diversity }: { diversity: ReportDiversity }) {
   const [nationality, setNationality] = useState(ALL_NATIONALITIES_FILTER);
   const [level, setLevel] = useState(ALL_LEVELS_FILTER);
@@ -30,8 +29,6 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
   const fit = feasibility(diversity, stats, { nationality, level });
   const qualifying = useCountUp(fit.qualifying);
   const share = useCountUp(percent(fit.qualifying, fit.scope));
-  const femalePct = percent(stats.femaleTotal, stats.total);
-  const gccPct = percent(stats.gccTotal, stats.total);
   const requirement =
     nationality === GCC_NATIONALS_FILTER
       ? "a GCC national"
@@ -44,24 +41,37 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
     <ReportSection
       id="dei"
       ordinal="04"
-      eyebrow="Diversity & DEI"
+      eyebrow="Nationality & localisation"
       heading={
-        <>
-          Female representation thins from <Figure>{stats.femalePctByLevel["N-2"]}% at N-2</Figure> to{" "}
-          <Figure>
-            {stats.thinnestPct}% at {stats.thinnestLevel}
-          </Figure>
-          . <Figure>{stats.nationalityCount} nationalities</Figure> are represented and none holds a majority —{" "}
-          {stats.largestNationality} is the largest at {stats.largestPct}%.
-        </>
+        stats.largest ? (
+          <>
+            <Figure>{stats.nationalityCount} nationalities</Figure> are represented and{" "}
+            {stats.largestPct > 50 ? (
+              <>
+                <Figure>{stats.largest.nationality}</Figure> holds a majority at {stats.largestPct}%
+              </>
+            ) : (
+              <>
+                none holds a majority — {stats.largest.nationality} is the largest at {stats.largestPct}%
+              </>
+            )}
+            . GCC nationals are <Figure>{stats.gccPct}%</Figure> of the pool.
+          </>
+        ) : (
+          <>Nobody has a nationality on file yet, so there is no mix to report.</>
+        )
       }
-      lede="Gender is shown aggregate-only — no individual is identifiable. Nationality is shown in full because it is public, objective data with real regulatory weight in the GCC (Nitaqat, Emiratisation), not because any one nationality is the target."
+      lede="Nationality is shown in full because it is public, objective data with real regulatory weight in the GCC (Nitaqat, Emiratisation). Gender is not recorded on a candidate and is not inferred here — a guess stated as a finding would be worse than none."
     >
       <KpiTileRow>
-        <KpiTile label="Female · overall" value={femalePct} unit="%" sub={`${stats.femaleTotal} of ${stats.total} executives`} />
-        <KpiTile label={`Female · ${stats.thinnestLevel}`} value={stats.thinnestPct} unit="%" valueClass="text-red" sub="the thinnest level" />
-        <KpiTile label="Nationalities" value={stats.nationalityCount} sub={`largest: ${stats.largestNationality} (${stats.largestPct}%)`} />
-        <KpiTile label="GCC nationals" value={gccPct} unit="%" sub={`${stats.gccTotal} of ${stats.total} executives`} />
+        <KpiTile label="Nationalities" value={stats.nationalityCount} sub={stats.largest ? `largest: ${stats.largest.nationality} (${stats.largestPct}%)` : "none on file"} />
+        <KpiTile label="GCC nationals" value={stats.gccPct} unit="%" sub={`${diversity.gccNationals} of ${stats.total} with a nationality on file`} />
+        <KpiTile
+          label="Nationality unknown"
+          value={diversity.unknownNationality}
+          valueClass={diversity.unknownNationality > 0 ? "text-amber" : undefined}
+          sub="executives with none on file"
+        />
       </KpiTileRow>
 
       <ReportCard
@@ -77,7 +87,7 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
               ))}
             </Select>
             <Select aria-label="Seniority level" value={level} onChange={(e) => setLevel(e.target.value)} className={SELECT_CLASS}>
-              {levelFilterOptions().map((l) => (
+              {levelFilterOptions(diversity).map((l) => (
                 <option key={l} value={l}>
                   {l}
                 </option>
@@ -106,7 +116,7 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
             label="Share of this scope"
             value={Math.round(share)}
             unit="%"
-            sub={`of ${level === ALL_LEVELS_FILTER ? "the full universe" : `${level} executives`}`}
+            sub={`of ${level === ALL_LEVELS_FILTER ? "everyone with a level on file" : `${level} executives`}`}
           />
         </KpiTileRow>
         <div className="mb-2.5 mt-[18px] font-mono text-[11px] text-text3">
@@ -117,52 +127,31 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
 
       <ReportCard
         title="Nationality mix"
-        caption={`full breakdown · n = ${stats.total} · GCC nationals in amber`}
+        caption={`n = ${stats.total} with a nationality on file · GCC nationals in amber`}
         note={
           <>
-            {stats.nationalityCount} nationalities represented, no single group a majority. GCC nationals (
-            {diversity.gccNationalities.join(" and ")}) are {stats.gccTotal} of {stats.total} ({gccPct}%) — a fact worth
-            knowing, not the lens this view leads with.
+            GCC nationals are {diversity.gccNationals} of {stats.total} ({stats.gccPct}%) — the figure a localisation
+            quota is measured against, not the lens this view leads with.
           </>
         }
       >
         <StackedBar
           className="mt-4"
           segments={[
-            { label: "GCC nationals", count: stats.gccTotal, fillClass: "bg-amber" },
-            { label: "Expatriate", count: stats.total - stats.gccTotal, fillClass: "bg-line" },
+            { label: "GCC nationals", count: diversity.gccNationals, fillClass: "bg-amber" },
+            { label: "Expatriate", count: stats.total - diversity.gccNationals, fillClass: "bg-line" },
           ]}
         />
         <div className="mt-4">
           <BarList
-            rows={stats.nationalityTotals.map((n) => ({
-              key: n.nationality,
-              label: n.nationality,
-              count: n.count,
-              fillClass: n.isGcc ? "bg-amber" : "bg-text3",
+            rows={diversity.nationalities.map((row) => ({
+              key: row.nationality,
+              label: row.nationality,
+              count: row.total,
+              fillClass: row.gcc ? "bg-amber" : "bg-text3",
             }))}
           />
         </div>
-      </ReportCard>
-
-      <ReportCard
-        title="Gender through the seniority pipeline"
-        caption={`${femalePct}% female overall · aggregate only, no individual identifiable`}
-        note={
-          <>
-            Bar <b>length</b> is scaled to headcount, not just share, so a small level is not drawn the same size as a
-            big one — Board's {stats.femalePctByLevel.Board}% female is {diversity.femaleByLevel.Board} person; N-2's{" "}
-            {stats.femalePctByLevel["N-2"]}% is {diversity.femaleByLevel["N-2"]}.
-          </>
-        }
-      >
-        <ChartLegend
-          items={[
-            { label: "Female", swatchClass: "bg-sky" },
-            { label: "Male", swatchClass: "bg-line" },
-          ]}
-        />
-        <GenderPyramid diversity={diversity} stats={stats} />
       </ReportCard>
     </ReportSection>
   );

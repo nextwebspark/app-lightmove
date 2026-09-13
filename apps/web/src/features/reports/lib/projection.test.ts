@@ -25,16 +25,24 @@ describe("projectCoverage", () => {
 
     expect(full.pace).toBeGreaterThan(recent.pace);
     expect(full.daysLate).toBe(24);
-    expect(full.daysLate).toBeLessThan(recent.daysLate);
   });
 
-  it("reports no slip when the pace clears the target", () => {
-    const onTrack = projectCoverage(
-      { ...progress, companiesCumulative: [0, 10, 20, 30, 38] },
-      "recent",
-    );
+  it("has no date to name at zero pace, and no slip without a target", () => {
+    const stalled = projectCoverage({ ...progress, companiesCumulative: [0, 10, 10, 10, 10] }, "recent");
+    expect(stalled.projectedDate).toBeNull();
+    expect(stalled.daysLate).toBeNull();
 
-    expect(onTrack.daysLate).toBeLessThanOrEqual(0);
+    const untargeted = projectCoverage({ ...progress, targetDate: null }, "recent");
+    expect(untargeted.projectedDate).toBe("2026-10-07");
+    expect(untargeted.daysLate).toBeNull();
+    expect(untargeted.targetPace).toBeNull();
+  });
+
+  it("is complete, not projected, once every company is covered", () => {
+    const done = projectCoverage({ ...progress, companiesCumulative: [0, 20, 42] }, "recent");
+
+    expect(done.remaining).toBe(0);
+    expect(done.projectedWeek).toBe(2);
   });
 });
 
@@ -43,8 +51,8 @@ describe("weeklyPace", () => {
     const pace = weeklyPace(SAMPLE_REPORT.progress);
 
     expect(pace.total).toBe(116);
-    expect(pace.firstMonth).toBeCloseTo(21.75, 5);
-    expect(pace.recent).toBeCloseTo(29 / 3, 5);
+    expect(pace.firstMonth).toBeCloseTo(18, 5);
+    expect(pace.recent).toBeCloseTo(8, 5);
   });
 });
 

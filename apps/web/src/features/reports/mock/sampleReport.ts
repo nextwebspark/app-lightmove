@@ -1,17 +1,60 @@
-import type { Report } from "../api/types";
+import type { CandidateStatus } from "../../candidates/api/types";
+import type { Disclosure, LevelCount, Report, SeniorityLevel } from "../api/types";
 
 /**
- * The mandate the report is drafted against until the backend exists: a GCC food & beverage CFO
- * search, 42 companies, 116 executives. The chapters agree with each other — the heat matrix, the hubs
- * and the nationality rows all sum to the same 116 — so a reader can cross-check any two figures.
+ * A report as the server would answer it for a GCC food & beverage CFO search: 42 companies, 116
+ * executives, in the shape `GET /projects/{id}/report` returns. The test fixture — the chapters agree
+ * with each other, so a test can cross-check any two figures.
  */
+
+const LEVELS: SeniorityLevel[] = ["Board", "C-Suite", "N-1", "N-2", "N-3"];
+
+const WEEKLY = [8, 19, 24, 21, 20, 12, 8, 4];
+
+/** Each week spread over its five working days, the Friday–Saturday weekend left empty; the last week is one day. */
+function dailyFrom(weekly: number[], dayCount: number): number[] {
+  const days: number[] = [];
+  weekly.forEach((identified, week) => {
+    const perDay = Math.floor(identified / 5);
+    const remainder = identified - perDay * 5;
+    for (let day = 0; day < 7 && days.length < dayCount; day += 1) {
+      if (days.length === dayCount - 1 && week === weekly.length - 1) {
+        days.push(identified);
+      } else {
+        days.push(day < 5 ? perDay + (day < remainder ? 1 : 0) : 0);
+      }
+    }
+  });
+  return days;
+}
+
+function levels(board: number, cSuite: number, n1: number, n2: number): LevelCount[] {
+  return [
+    { level: "Board", count: board },
+    { level: "C-Suite", count: cSuite },
+    { level: "N-1", count: n1 },
+    { level: "N-2", count: n2 },
+    { level: "N-3", count: 0 },
+  ];
+}
+
+function disclosure(
+  id: string,
+  fullName: string,
+  company: string,
+  title: string,
+  country: string,
+  nationality: string,
+  status: CandidateStatus,
+  totalPackage: number,
+  fixed: number,
+  note: string,
+): Disclosure {
+  return { id, fullName, company, title, country, nationality, status, fixed, totalPackage, note };
+}
+
 export const SAMPLE_REPORT: Report = {
-  head: {
-    region: "GCC",
-    universeCount: 42,
-    executivesMapped: 116,
-    syncedAt: "2026-09-08T07:40:00Z",
-  },
+  head: { universeCount: 42, executivesMapped: 116, truncated: false, generatedAt: "2026-09-08T07:40:00Z" },
 
   progress: {
     kickoff: "2026-07-21",
@@ -19,251 +62,107 @@ export const SAMPLE_REPORT: Report = {
     asOf: "2026-09-08",
     targetCompanies: 42,
     companiesCumulative: [0, 5, 11, 17, 23, 27, 29, 31],
-    weekly: [
-      { weekEnding: "2026-07-28", identified: 19 },
-      { weekEnding: "2026-08-04", identified: 24 },
-      { weekEnding: "2026-08-11", identified: 21 },
-      { weekEnding: "2026-08-18", identified: 23 },
-      { weekEnding: "2026-08-25", identified: 14 },
-      { weekEnding: "2026-09-01", identified: 9 },
-      { weekEnding: "2026-09-08", identified: 6 },
-    ],
-    // Each week's seven days sum to that week's total; the Friday–Saturday weekend is near-zero.
-    dailyIdentified: [
-      3, 4, 4, 3, 4, 0, 1, 4, 5, 5, 4, 5, 0, 1, 4, 4, 4, 4, 4, 0, 1, 4, 5, 4, 5, 4, 0, 1, 3, 3, 2, 3, 2, 0,
-      1, 2, 2, 1, 2, 1, 0, 1, 2, 1, 1, 1, 1, 0, 0,
-    ],
+    weekly: ["2026-07-27", "2026-08-03", "2026-08-10", "2026-08-17", "2026-08-24", "2026-08-31", "2026-09-07", "2026-09-14"].map(
+      (weekEnding, week) => ({ weekEnding, identified: WEEKLY[week] }),
+    ),
+    daily: dailyFrom(WEEKLY, 50),
     daysSinceLastCompany: 6,
   },
 
   market: {
     sectors: ["FMCG", "F&B", "Retail", "Agri", "Food Svc", "Other"],
+    levels: LEVELS,
     cells: [
-      { sector: "FMCG", level: "Board", count: 3 },
-      { sector: "Agri", level: "Board", count: 2 },
-      { sector: "FMCG", level: "C-Suite", count: 16 },
-      { sector: "F&B", level: "C-Suite", count: 12 },
-      { sector: "Retail", level: "C-Suite", count: 8 },
-      { sector: "Agri", level: "C-Suite", count: 7 },
-      { sector: "Food Svc", level: "C-Suite", count: 5 },
-      { sector: "Other", level: "C-Suite", count: 3 },
-      { sector: "FMCG", level: "N-1", count: 13 },
-      { sector: "F&B", level: "N-1", count: 8 },
-      { sector: "Retail", level: "N-1", count: 6 },
-      { sector: "Agri", level: "N-1", count: 5 },
-      { sector: "Food Svc", level: "N-1", count: 4 },
-      { sector: "Other", level: "N-1", count: 2 },
-      { sector: "FMCG", level: "N-2", count: 11 },
-      { sector: "F&B", level: "N-2", count: 6 },
-      { sector: "Retail", level: "N-2", count: 5 },
-    ],
+      ["FMCG", [3, 16, 13, 11]],
+      ["F&B", [0, 12, 8, 6]],
+      ["Retail", [0, 8, 6, 5]],
+      ["Agri", [2, 7, 5, 0]],
+      ["Food Svc", [0, 5, 4, 0]],
+      ["Other", [0, 3, 2, 0]],
+    ].flatMap(([sector, counts]) =>
+      LEVELS.map((level, index) => ({
+        sector: sector as string,
+        level,
+        count: (counts as number[])[index] ?? 0,
+      })),
+    ),
+    withoutSector: 0,
+    withoutSeniority: 0,
     slices: [
       {
         sector: "FMCG",
         level: "C-Suite",
         companies: ["Almarai", "Agthia Group", "IFFCO", "Pinehill Arabia"],
         executives: [
-          { name: "Rami Khoury", company: "Almarai", status: "passive" },
-          { name: "Sara Fadel", company: "Agthia Group", status: "verified" },
-          { name: "Hassan Noor", company: "IFFCO", status: "passive" },
-          { name: "Tariq Bahar", company: "Agthia Group", status: "interested" },
-          { name: "Khalid Mansour", company: "Almarai", status: "offlimits" },
-          { name: "Yara Kassem", company: "Pinehill Arabia", status: "interested" },
+          { id: "e1", fullName: "Rami Khoury", company: "Almarai", status: "identified" },
+          { id: "e2", fullName: "Sara Fadel", company: "Agthia Group", status: "engaged" },
+          { id: "e3", fullName: "Hassan Noor", company: "IFFCO", status: "contacted" },
+          { id: "e4", fullName: "Tariq Bahar", company: "Agthia Group", status: "interested" },
+          { id: "e5", fullName: "Khalid Mansour", company: "Almarai", status: "offLimits" },
+          { id: "e6", fullName: "Yara Kassem", company: "Pinehill Arabia", status: "interested" },
         ],
-        insight: { estimatedMarket: 23, compFitPct: 64, femalePct: 41, gccNationalsPct: 39 },
       },
-      { sector: "FMCG", level: "N-1", companies: ["Almarai", "Agthia Group", "IFFCO"], executives: [], insight: { estimatedMarket: 19, compFitPct: 71, femalePct: 38, gccNationalsPct: 34 } },
-      { sector: "FMCG", level: "N-2", companies: ["Almarai", "Pinehill Arabia"], executives: [], insight: { estimatedMarket: 16, compFitPct: 78, femalePct: 44, gccNationalsPct: 31 } },
-      { sector: "F&B", level: "C-Suite", companies: ["Savola Group", "Halwani Bros"], executives: [], insight: { estimatedMarket: 18, compFitPct: 58, femalePct: 27, gccNationalsPct: 42 } },
-      { sector: "Retail", level: "C-Suite", companies: ["Panda Retail", "LuLu Group"], executives: [], insight: { estimatedMarket: 12, compFitPct: 52, femalePct: 24, gccNationalsPct: 36 } },
+      { sector: "FMCG", level: "N-1", companies: ["Almarai", "Agthia Group", "IFFCO"], executives: [] },
+      { sector: "F&B", level: "C-Suite", companies: ["Savola Group", "Halwani Bros"], executives: [] },
     ],
     hubs: [
-      {
-        city: "Dubai",
-        country: "UAE",
-        count: 38,
-        femalePct: 27,
-        openToMovePct: 36,
-        compensationLabel: "High",
-        compensationPct: 88,
-        nationalsPct: 9,
-        depth: [
-          { level: "C-Suite", count: 17 },
-          { level: "N-1", count: 13 },
-          { level: "N-2", count: 8 },
-        ],
-        employers: ["Unilever Gulf", "PepsiCo AMEA"],
-        note: "Deep, largely expatriate leadership pool; Emiratisation targets apply to UAE-national hiring for board and select roles.",
-      },
-      {
-        city: "Riyadh",
-        country: "KSA",
-        count: 32,
-        femalePct: 30,
-        openToMovePct: 41,
-        compensationLabel: "High",
-        compensationPct: 82,
-        nationalsPct: 44,
-        depth: [
-          { level: "C-Suite", count: 15 },
-          { level: "N-1", count: 11 },
-          { level: "N-2", count: 6 },
-        ],
-        employers: ["Almarai", "NADEC"],
-        note: "Saudization (Nitaqat) tightens the supply of senior local-national leaders — expect a premium for Saudi nationals.",
-      },
-      {
-        city: "Jeddah",
-        country: "KSA",
-        count: 14,
-        femalePct: 29,
-        openToMovePct: 38,
-        compensationLabel: "Above average",
-        compensationPct: 68,
-        nationalsPct: 40,
-        depth: [
-          { level: "C-Suite", count: 6 },
-          { level: "N-1", count: 5 },
-          { level: "N-2", count: 3 },
-        ],
-        employers: ["Savola Foods", "Halwani Bros"],
-        note: "Second-largest Saudi hub — the same Nitaqat exposure as Riyadh, a slightly thinner bench.",
-      },
-      {
-        city: "Abu Dhabi",
-        country: "UAE",
-        count: 10,
-        femalePct: 26,
-        openToMovePct: 34,
-        compensationLabel: "High",
-        compensationPct: 84,
-        nationalsPct: 11,
-        depth: [
-          { level: "C-Suite", count: 5 },
-          { level: "N-1", count: 3 },
-          { level: "N-2", count: 2 },
-        ],
-        employers: ["Agthia Group", "IFFCO"],
-        note: "Government-adjacent employers here often carry stricter Emiratisation quotas than the Dubai private sector.",
-      },
-      {
-        city: "Kuwait City",
-        country: "Kuwait",
-        count: 8,
-        femalePct: 24,
-        openToMovePct: 33,
-        compensationLabel: "Above average",
-        compensationPct: 64,
-        nationalsPct: 22,
-        depth: [
-          { level: "C-Suite", count: 4 },
-          { level: "N-1", count: 3 },
-          { level: "N-2", count: 1 },
-        ],
-        employers: ["Americana"],
-        note: "Kuwaitisation quotas are rising for senior roles — local-national hires carry a growing premium.",
-      },
-      {
-        city: "Sharjah",
-        country: "UAE",
-        count: 6,
-        femalePct: 25,
-        openToMovePct: 31,
-        compensationLabel: "Above average",
-        compensationPct: 70,
-        nationalsPct: 10,
-        depth: [
-          { level: "C-Suite", count: 3 },
-          { level: "N-1", count: 2 },
-          { level: "N-2", count: 1 },
-        ],
-        employers: ["Pinehill Arabia"],
-        note: "Lower cost base than Dubai; increasingly used for regional back-office and manufacturing leadership.",
-      },
-      {
-        city: "Cairo",
-        country: "Egypt",
-        count: 5,
-        femalePct: 33,
-        openToMovePct: 46,
-        compensationLabel: "Below average",
-        compensationPct: 38,
-        nationalsPct: 71,
-        depth: [
-          { level: "C-Suite", count: 2 },
-          { level: "N-1", count: 2 },
-          { level: "N-2", count: 1 },
-        ],
-        employers: [],
-        note: "No nationalisation quota and lower comp benchmarks — often a feeder market rather than a destination market.",
-      },
-      {
-        city: "Other",
-        country: "GCC",
-        count: 3,
-        femalePct: 30,
-        openToMovePct: 40,
-        compensationLabel: "Varies",
-        compensationPct: 55,
-        nationalsPct: 30,
-        depth: [
-          { level: "C-Suite", count: 1 },
-          { level: "N-1", count: 1 },
-          { level: "N-2", count: 1 },
-        ],
-        employers: [],
-        note: "Single executives in Muscat, Manama and Doha — too few to read as a market on their own.",
-      },
+      { city: "Dubai", country: "United Arab Emirates", count: 38, depth: levels(1, 17, 13, 7), employers: ["Unilever Gulf", "PepsiCo AMEA"], interested: 14 },
+      { city: "Riyadh", country: "Saudi Arabia", count: 32, depth: levels(2, 15, 11, 4), employers: ["Almarai", "NADEC"], interested: 13 },
+      { city: "Jeddah", country: "Saudi Arabia", count: 14, depth: levels(0, 6, 5, 3), employers: ["Savola Foods", "Halwani Bros"], interested: 5 },
+      { city: "Abu Dhabi", country: "United Arab Emirates", count: 10, depth: levels(1, 5, 3, 1), employers: ["Agthia Group", "IFFCO"], interested: 3 },
+      { city: "Kuwait City", country: "Kuwait", count: 8, depth: levels(1, 4, 2, 1), employers: ["Americana"], interested: 3 },
+      { city: "Sharjah", country: "United Arab Emirates", count: 6, depth: levels(0, 3, 2, 1), employers: ["Pinehill Arabia"], interested: 2 },
+      { city: "Cairo", country: "Egypt", count: 5, depth: levels(0, 1, 2, 2), employers: ["Juhayna"], interested: 2 },
     ],
+    elsewhere: 3,
+    unlocated: 0,
     companiesBySector: [
-      { label: "FMCG conglomerates", count: 14 },
-      { label: "F&B manufacturing", count: 9 },
-      { label: "Retail & distribution", count: 7 },
-      { label: "Agribusiness", count: 6 },
-      { label: "Food service", count: 4 },
+      { label: "FMCG", count: 14 },
+      { label: "F&B", count: 9 },
+      { label: "Retail", count: 7 },
+      { label: "Agri", count: 6 },
+      { label: "Food Svc", count: 4 },
       { label: "Other", count: 2 },
-    ],
-    relevance: [
-      { label: "Direct", count: 18 },
-      { label: "Adjacent", count: 16 },
-      { label: "AI inferred", count: 8 },
     ],
   },
 
   remuneration: {
-    packageBand: { lowK: 780, highK: 1100 },
-    fixedBand: { lowK: 560, highK: 720 },
+    currency: "USD",
+    fixedBand: { low: 560_000, high: 720_000 },
+    packageBand: { low: 780_000, high: 1_100_000 },
     disclosures: [
-      { id: "d1", name: "H. Al-Zahrani", company: "Al Ain Farms", title: "VP Finance", country: "UAE", nationality: "Saudi", packageK: 620, fixedK: 450, outcome: "accepted", note: "Accepted — smaller-company budget, comp was not a constraint." },
-      { id: "d2", name: "R. Al-Otaibi", company: "NADEC", title: "Finance Director", country: "Saudi Arabia", nationality: "Saudi", packageK: 700, fixedK: 500, outcome: "accepted", note: "Accepted within band." },
-      { id: "d3", name: "M. Al-Dossari", company: "Savola Foods", title: "CFO", country: "Saudi Arabia", nationality: "Saudi", packageK: 780, fixedK: 550, outcome: "accepted", note: "Accepted at our floor." },
-      { id: "d4", name: "A. Al-Harbi", company: "Agthia Group", title: "CFO", country: "UAE", nationality: "Saudi", packageK: 850, fixedK: 580, outcome: "process", note: "In process — within band, reference checks underway." },
-      { id: "d5", name: "F. Al-Shammari", company: "IFFCO", title: "CFO", country: "UAE", nationality: "Kuwaiti", packageK: 920, fixedK: 625, outcome: "process", note: "In process — within band." },
-      { id: "d6", name: "N. Al-Ghamdi", company: "Almarai", title: "Regional CFO", country: "Saudi Arabia", nationality: "Saudi", packageK: 980, fixedK: 685, outcome: "process", note: "In process — within band, second interview scheduled." },
-      { id: "d7", name: "Y. Al-Subaie", company: "Americana", title: "CFO", country: "Kuwait", nationality: "Saudi", packageK: 1100, fixedK: 715, outcome: "process", note: "In process — right at our package ceiling." },
-      { id: "d8", name: "L. Al-Amri", company: "Panda Retail", title: "CFO", country: "Saudi Arabia", nationality: "Emirati", packageK: 1130, fixedK: 770, outcome: "declined", note: "Declined — cited compensation as the primary reason." },
-      { id: "d9", name: "T. Al-Rashidi", company: "Nestlé Middle East", title: "CFO", country: "UAE", nationality: "Kuwaiti", packageK: 1160, fixedK: 675, outcome: "declined", note: "Declined — priced above our package band, despite a fixed ask close to ours." },
-      { id: "d10", name: "D. Al-Anzi", company: "PepsiCo AMEA", title: "Regional CFO", country: "UAE", nationality: "Kuwaiti", packageK: 1190, fixedK: 665, outcome: "process", note: "Still in process despite the package gap — fixed expectations are within reach." },
-      { id: "d11", name: "K. Al-Muhanna", company: "Unilever Gulf", title: "CFO", country: "UAE", nationality: "Kuwaiti", packageK: 1220, fixedK: 670, outcome: "declined", note: "Declined — the gap is almost entirely in bonus and LTI, not base." },
-      { id: "d12", name: "W. Al-Balawi", company: "Mondelez MENA", title: "CFO", country: "UAE", nationality: "Saudi", packageK: 1250, fixedK: 700, outcome: "declined", note: "Declined on total package." },
-      { id: "d13", name: "B. Al-Otaibi", company: "Coca-Cola MENA", title: "Regional CFO", country: "Qatar", nationality: "Saudi", packageK: 1300, fixedK: 780, outcome: "withdrawn", note: "Withdrew — accepted a competing offer." },
-      { id: "d14", name: "Z. Al-Harthi", company: "LuLu Group", title: "Group CFO", country: "UAE", nationality: "Omani", packageK: 1340, fixedK: 938, outcome: "declined", note: "Declined — significantly over budget on both measures." },
-      { id: "d15", name: "E. Al-Ghamdi", company: "Bel Group MENA", title: "Group CFO", country: "Saudi Arabia", nationality: "Saudi", packageK: 1380, fixedK: 800, outcome: "declined", note: "Declined — outside a realistic range for this band." },
-      { id: "d16", name: "P. Al-Rasheed", company: "Kraft Heinz MENA", title: "Group CFO", country: "UAE", nationality: "Emirati", packageK: 1450, fixedK: 798, outcome: "withdrawn", note: "Withdrew before interview — comp expectations disclosed upfront." },
+      disclosure("d1", "H. Al-Zahrani", "Al Ain Farms", "VP Finance", "United Arab Emirates", "Saudi", "interested", 620_000, 450_000, "Smaller-company budget, comp was not a constraint."),
+      disclosure("d2", "R. Al-Otaibi", "NADEC", "Finance Director", "Saudi Arabia", "Saudi", "interested", 700_000, 500_000, "Within band."),
+      disclosure("d3", "M. Al-Dossari", "Savola Foods", "CFO", "Saudi Arabia", "Saudi", "interested", 780_000, 550_000, "At our floor."),
+      disclosure("d4", "A. Al-Harbi", "Agthia Group", "CFO", "United Arab Emirates", "Saudi", "engaged", 850_000, 580_000, "Within band, reference checks underway."),
+      disclosure("d5", "F. Al-Shammari", "IFFCO", "CFO", "United Arab Emirates", "Kuwaiti", "engaged", 920_000, 625_000, "Within band."),
+      disclosure("d6", "N. Al-Ghamdi", "Almarai", "Regional CFO", "Saudi Arabia", "Saudi", "engaged", 980_000, 685_000, "Within band, second interview scheduled."),
+      disclosure("d7", "Y. Al-Subaie", "Americana", "CFO", "Kuwait", "Saudi", "engaged", 1_100_000, 715_000, "Right at our package ceiling."),
+      disclosure("d8", "L. Al-Amri", "Panda Retail", "CFO", "Saudi Arabia", "Emirati", "notInterested", 1_130_000, 770_000, "Cited compensation as the primary reason."),
+      disclosure("d9", "T. Al-Rashidi", "Nestlé Middle East", "CFO", "United Arab Emirates", "Kuwaiti", "notInterested", 1_160_000, 675_000, "Priced above our package band, despite a fixed ask close to ours."),
+      disclosure("d10", "D. Al-Anzi", "PepsiCo AMEA", "Regional CFO", "United Arab Emirates", "Kuwaiti", "engaged", 1_190_000, 665_000, "Still engaged despite the package gap — fixed expectations are within reach."),
+      disclosure("d11", "K. Al-Muhanna", "Unilever Gulf", "CFO", "United Arab Emirates", "Kuwaiti", "notInterested", 1_220_000, 670_000, "The gap is almost entirely in bonus and LTI, not base."),
+      disclosure("d12", "W. Al-Balawi", "Mondelez MENA", "CFO", "United Arab Emirates", "Saudi", "notInterested", 1_250_000, 700_000, "Declined on total package."),
+      disclosure("d13", "B. Al-Otaibi", "Coca-Cola MENA", "Regional CFO", "Qatar", "Saudi", "outOfScope", 1_300_000, 780_000, "Accepted a competing offer."),
+      disclosure("d14", "Z. Al-Harthi", "LuLu Group", "Group CFO", "United Arab Emirates", "Omani", "notInterested", 1_340_000, 938_000, "Significantly over budget on both measures."),
+      disclosure("d15", "E. Al-Ghamdi", "Bel Group MENA", "Group CFO", "Saudi Arabia", "Saudi", "notInterested", 1_380_000, 800_000, "Outside a realistic range for this band."),
+      disclosure("d16", "P. Al-Rasheed", "Kraft Heinz MENA", "Group CFO", "United Arab Emirates", "Emirati", "outOfScope", 1_450_000, 798_000, "Comp expectations disclosed upfront."),
     ],
+    otherCurrency: 2,
   },
 
   diversity: {
-    femaleByLevel: { Board: 1, "C-Suite": 14, "N-1": 13, "N-2": 9 },
+    levels: LEVELS,
     nationalities: [
-      { nationality: "Saudi", counts: { Board: 2, "C-Suite": 14, "N-1": 9, "N-2": 5 } },
-      { nationality: "Emirati", counts: { Board: 1, "C-Suite": 9, "N-1": 6, "N-2": 3 } },
-      { nationality: "Egyptian", counts: { Board: 1, "C-Suite": 8, "N-1": 6, "N-2": 4 } },
-      { nationality: "Lebanese", counts: { Board: 1, "C-Suite": 7, "N-1": 5, "N-2": 3 } },
-      { nationality: "Indian", counts: { Board: 0, "C-Suite": 6, "N-1": 5, "N-2": 3 } },
-      { nationality: "British", counts: { Board: 0, "C-Suite": 4, "N-1": 3, "N-2": 2 } },
-      { nationality: "Other", counts: { Board: 0, "C-Suite": 3, "N-1": 4, "N-2": 2 } },
+      { nationality: "Saudi", gcc: true, byLevel: levels(2, 14, 9, 5), unclassified: 0, total: 30 },
+      { nationality: "Emirati", gcc: true, byLevel: levels(1, 9, 6, 3), unclassified: 0, total: 19 },
+      { nationality: "Egyptian", gcc: false, byLevel: levels(1, 8, 6, 4), unclassified: 0, total: 19 },
+      { nationality: "Lebanese", gcc: false, byLevel: levels(1, 7, 5, 3), unclassified: 0, total: 16 },
+      { nationality: "Indian", gcc: false, byLevel: levels(0, 6, 5, 3), unclassified: 0, total: 14 },
+      { nationality: "British", gcc: false, byLevel: levels(0, 4, 3, 2), unclassified: 0, total: 9 },
+      { nationality: "Other", gcc: false, byLevel: levels(0, 3, 4, 2), unclassified: 0, total: 9 },
     ],
-    gccNationalities: ["Saudi", "Emirati"],
+    unknownNationality: 0,
+    gccNationals: 49,
   },
 };

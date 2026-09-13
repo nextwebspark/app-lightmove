@@ -6,26 +6,35 @@ import {
   diversityStats,
   feasibility,
   GCC_NATIONALS_FILTER,
+  nationalityFilterOptions,
 } from "./diversityStats";
 
-/** The pool's shape, and how many of it a client's nationality requirement can actually draw from. */
+/** The pool's shape by nationality, and how many of it a client's requirement can actually draw from. */
 describe("diversityStats", () => {
   const stats = diversityStats(SAMPLE_REPORT.diversity);
 
-  it("totals the pool by level and by nationality", () => {
+  it("totals the pool by level and names the largest group", () => {
     expect(stats.total).toBe(116);
-    expect(stats.levelTotals).toEqual({ Board: 5, "C-Suite": 51, "N-1": 38, "N-2": 22 });
-    expect(stats.nationalityCount).toBe(7);
-    expect(stats.largestNationality).toBe("Saudi");
+    expect(stats.levelTotals).toEqual({ Board: 5, "C-Suite": 51, "N-1": 38, "N-2": 22, "N-3": 0 });
+    expect(stats.nationalityCount).toBe(6);
+    expect(stats.largest?.nationality).toBe("Saudi");
     expect(stats.largestPct).toBe(26);
-    expect(stats.gccTotal).toBe(49);
+    expect(stats.gccPct).toBe(42);
   });
 
-  it("finds the level where women are scarcest", () => {
-    expect(stats.femaleTotal).toBe(37);
-    expect(stats.femalePctByLevel["N-2"]).toBe(41);
-    expect(stats.thinnestLevel).toBe("Board");
-    expect(stats.thinnestPct).toBe(20);
+  it("offers every named group as a requirement, never the Other bucket", () => {
+    const options = nationalityFilterOptions(SAMPLE_REPORT.diversity);
+
+    expect(options.slice(0, 2)).toEqual([ALL_NATIONALITIES_FILTER, GCC_NATIONALS_FILTER]);
+    expect(options).toContain("Saudi");
+    expect(options).not.toContain("Other");
+  });
+
+  it("has no largest group when nobody has a nationality on file", () => {
+    const empty = diversityStats({ ...SAMPLE_REPORT.diversity, nationalities: [], gccNationals: 0 });
+
+    expect(empty.largest).toBeNull();
+    expect(empty.total).toBe(0);
   });
 });
 

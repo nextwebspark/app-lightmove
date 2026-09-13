@@ -1,46 +1,41 @@
 import { DetailTile, DrawerSection } from "../../../components/ui/DetailList";
-import type { Hub } from "../api/types";
+import type { TalentHub } from "../api/types";
 import { percent } from "../lib/figures";
-import { DrawerBulletRow, DrawerLink, DrawerMeter, DrawerNote, ReportDrawer } from "./ReportDrawer";
+import { hubLabel } from "../lib/marketStats";
+import { DrawerBulletRow, DrawerLink, ReportDrawer } from "./ReportDrawer";
 import { StackedBar } from "./StackedBar";
 
-const DEPTH_FILL = ["bg-sky", "bg-amber", "bg-text3"];
+const DEPTH_FILL = ["bg-sky", "bg-amber", "bg-text3", "bg-line", "bg-line-soft"];
 
-/** One hub opened: how much of the map sits there, how it pays, and what its labour rules mean. */
+/** One hub opened: how much of the map sits there, how senior it is, and who employs it. */
 export function HubDrawer({
   hub,
-  hubTotal,
+  located,
   projectId,
   onClose,
 }: {
-  hub: Hub | null;
-  hubTotal: number;
+  hub: TalentHub | null;
+  /** Everyone with a place on file, the share's denominator. */
+  located: number;
   projectId: string;
   onClose: () => void;
 }) {
-  const share = hub ? percent(hub.count, hubTotal) : 0;
+  const share = hub ? percent(hub.count, located) : 0;
   return (
     <ReportDrawer
       open={hub !== null}
       onClose={onClose}
-      eyebrow="Market"
-      title={hub ? `${hub.city} · ${hub.country}` : ""}
-      subtitle={hub ? `${hub.count} executives · ${share}% of mapped talent` : ""}
+      eyebrow="Hub"
+      title={hub ? (hub.city && hub.country ? `${hub.city} · ${hub.country}` : hubLabel(hub)) : ""}
+      subtitle={hub ? `${hub.count} executives · ${share}% of located talent` : ""}
     >
       {hub && (
         <>
           <DrawerSection title="At a glance">
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <DetailTile label="Execs" value={String(hub.count)} />
               <DetailTile label="Share" value={`${share}%`} />
-              <DetailTile label="Female" value={`${hub.femalePct}%`} />
-              <DetailTile label="Open to move" value={`${hub.openToMovePct}%`} />
-            </div>
-          </DrawerSection>
-          <DrawerSection title="Market position">
-            <div className="flex flex-col gap-[9px]">
-              <DrawerMeter label="Compensation" pct={hub.compensationPct} valueLabel={hub.compensationLabel} fillClass="bg-sky" />
-              <DrawerMeter label="Local nationals" pct={hub.nationalsPct} valueLabel={`${hub.nationalsPct}%`} fillClass="bg-amber" />
+              <DetailTile label="Interested" value={String(hub.interested)} />
             </div>
           </DrawerSection>
           <DrawerSection title="Talent depth by level">
@@ -56,9 +51,8 @@ export function HubDrawer({
               ))}
             </DrawerSection>
           )}
-          <DrawerSection title="Market note">
-            <DrawerNote label="Local rules">{hub.note}</DrawerNote>
-            <DrawerLink to={`/projects/${projectId}/companies/universe`}>Open {hub.city} on the map</DrawerLink>
+          <DrawerSection title="Open">
+            <DrawerLink to={`/projects/${projectId}/companies/universe`}>Open {hubLabel(hub)} on the map</DrawerLink>
           </DrawerSection>
         </>
       )}

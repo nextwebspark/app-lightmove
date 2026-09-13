@@ -1,26 +1,23 @@
+import type { SeniorityToken } from "../../../lib/seniority";
+import type { CandidateStatus } from "../../candidates/api/types";
+
 /**
- * The talent mapping report, as the screen reads it. One document per mandate: a head, then the four
- * chapters. Every figure the page shows is either carried here or derived from it in `lib/` — the
- * page never invents a number.
+ * The talent mapping report as `GET /projects/{id}/report` answers it: a head and four chapters,
+ * every figure aggregated live from the mandate's own rows. The screen derives its findings from
+ * this in `lib/` and never invents a number the server did not state.
  */
 
-export type SeniorityLevel = "Board" | "C-Suite" | "N-1" | "N-2";
-
-export const SENIORITY_LEVELS: readonly SeniorityLevel[] = ["Board", "C-Suite", "N-1", "N-2"];
-
-export interface Breakdown {
-  label: string;
-  count: number;
-}
+export type SeniorityLevel = SeniorityToken;
 
 export interface ReportHead {
-  region: string;
   universeCount: number;
   executivesMapped: number;
-  syncedAt: string;
+  /** A row cap was hit: the chapters describe a sample, the totals above the whole. */
+  truncated: boolean;
+  generatedAt: string;
 }
 
-export interface WeekPoint {
+export interface WeeklyCount {
   /** ISO date the week ended on. */
   weekEnding: string;
   identified: number;
@@ -28,15 +25,15 @@ export interface WeekPoint {
 
 export interface ReportProgress {
   kickoff: string;
-  targetDate: string;
+  targetDate: string | null;
   asOf: string;
   targetCompanies: number;
-  /** Companies with at least one executive, cumulative, one entry per week from kickoff (index 0). */
+  /** Companies with at least one executive, cumulative, one entry per week from the kickoff week (index 0). */
   companiesCumulative: number[];
-  weekly: WeekPoint[];
-  /** Executives identified per day from the day after kickoff; seven entries per week. */
-  dailyIdentified: number[];
-  daysSinceLastCompany: number;
+  weekly: WeeklyCount[];
+  /** Executives identified per day from the kickoff day (index 0) to `asOf`. */
+  daily: number[];
+  daysSinceLastCompany: number | null;
 }
 
 export interface MarketCell {
@@ -45,20 +42,11 @@ export interface MarketCell {
   count: number;
 }
 
-export type SliceExecutiveStatus = "interested" | "passive" | "verified" | "offlimits";
-
 export interface SliceExecutive {
-  name: string;
-  company: string;
-  status: SliceExecutiveStatus;
-}
-
-export interface SliceInsight {
-  /** How many executives the pocket is thought to hold in total, mapped or not. */
-  estimatedMarket: number;
-  compFitPct: number;
-  femalePct: number;
-  gccNationalsPct: number;
+  id: string;
+  fullName: string;
+  company: string | null;
+  status: CandidateStatus;
 }
 
 export interface MarketSlice {
@@ -66,70 +54,82 @@ export interface MarketSlice {
   level: SeniorityLevel;
   companies: string[];
   executives: SliceExecutive[];
-  /** Absent until research has sized the pocket; the drawer then shows the count alone. */
-  insight?: SliceInsight;
 }
 
-export interface Hub {
-  city: string;
-  country: string;
+export interface LevelCount {
+  level: SeniorityLevel;
   count: number;
-  femalePct: number;
-  openToMovePct: number;
-  compensationLabel: string;
-  compensationPct: number;
-  nationalsPct: number;
-  depth: { level: SeniorityLevel; count: number }[];
+}
+
+export interface TalentHub {
+  city: string | null;
+  country: string | null;
+  count: number;
+  depth: LevelCount[];
   employers: string[];
-  note: string;
+  interested: number;
+}
+
+export interface Breakdown {
+  label: string;
+  count: number;
 }
 
 export interface ReportMarket {
   sectors: string[];
+  levels: SeniorityLevel[];
   cells: MarketCell[];
+  withoutSector: number;
+  withoutSeniority: number;
   slices: MarketSlice[];
-  hubs: Hub[];
+  hubs: TalentHub[];
+  elsewhere: number;
+  unlocated: number;
   companiesBySector: Breakdown[];
-  relevance: Breakdown[];
-}
-
-export type DisclosureOutcome = "accepted" | "process" | "declined" | "withdrawn";
-
-export interface Disclosure {
-  id: string;
-  name: string;
-  company: string;
-  title: string;
-  country: string;
-  nationality: string;
-  /** USD thousands per year. */
-  packageK: number;
-  fixedK: number;
-  outcome: DisclosureOutcome;
-  note: string;
 }
 
 export interface CompensationBand {
-  lowK: number;
-  highK: number;
+  low: number;
+  high: number;
+}
+
+export interface Disclosure {
+  id: string;
+  fullName: string;
+  company: string | null;
+  title: string | null;
+  country: string | null;
+  nationality: string | null;
+  status: CandidateStatus;
+  /** Annual, whole units of the report's currency: base plus allowances. */
+  fixed: number;
+  /** Fixed plus bonus and long-term incentive. */
+  totalPackage: number;
+  note: string | null;
 }
 
 export interface ReportRemuneration {
-  packageBand: CompensationBand;
-  fixedBand: CompensationBand;
+  currency: string;
+  fixedBand: CompensationBand | null;
+  packageBand: CompensationBand | null;
   disclosures: Disclosure[];
+  /** Packages on file in another currency — counted, never converted. */
+  otherCurrency: number;
 }
 
 export interface NationalityRow {
   nationality: string;
-  counts: Record<SeniorityLevel, number>;
+  gcc: boolean;
+  byLevel: LevelCount[];
+  unclassified: number;
+  total: number;
 }
 
 export interface ReportDiversity {
-  /** Female headcount per level — aggregate only, never a person. */
-  femaleByLevel: Record<SeniorityLevel, number>;
+  levels: SeniorityLevel[];
   nationalities: NationalityRow[];
-  gccNationalities: string[];
+  unknownNationality: number;
+  gccNationals: number;
 }
 
 export interface Report {

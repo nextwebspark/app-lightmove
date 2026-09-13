@@ -43,7 +43,7 @@ const H = 150;
  * the weekend hole repeats every week by design — so the mean is the series that carries the trend.
  */
 export function DailyMomentumChart({ progress }: { progress: ReportProgress }) {
-  const series = progress.dailyIdentified;
+  const series = progress.daily;
   const rolling = rollingAverage(series, ROLLING_WINDOW);
   const yMax = Math.max(...series, 1) + 1;
   const linePoints = rolling

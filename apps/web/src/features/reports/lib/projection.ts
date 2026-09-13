@@ -3,20 +3,20 @@ import { addDays, daysBetween } from "./figures";
 
 export type ProjectionBasis = "recent" | "full";
 
-export const PROJECTION_BASES: readonly ProjectionBasis[] = ["recent", "full"];
-
 export interface Projection {
   basis: ProjectionBasis;
   /** Companies newly covered per week on the chosen basis. */
   pace: number;
-  /** The pace the plan needed from day one to land on the target date. */
-  targetPace: number;
+  /** The pace the plan needed from kickoff to land on the target date; null without a target. */
+  targetPace: number | null;
   remaining: number;
-  /** Week index (kickoff = 0) at which full coverage is projected; fractional. */
+  /** Week index (kickoff week = 0) at which full coverage is projected; Infinity at zero pace. */
   projectedWeek: number;
-  targetWeek: number;
-  projectedDate: string;
-  daysLate: number;
+  targetWeek: number | null;
+  /** Null when the pace is zero — there is no date to name. */
+  projectedDate: string | null;
+  /** Positive is late. Null without a target or a projection. */
+  daysLate: number | null;
   /** Week index of the latest data point. */
   lastWeek: number;
 }
@@ -30,23 +30,20 @@ export interface Projection {
 export function projectCoverage(progress: ReportProgress, basis: ProjectionBasis): Projection {
   const cum = progress.companiesCumulative;
   const lastWeek = cum.length - 1;
-  const pace =
-    basis === "recent"
-      ? recentPace(cum)
-      : cum[lastWeek] / lastWeek;
-  const targetWeek = daysBetween(progress.kickoff, progress.targetDate) / 7;
-  const remaining = progress.targetCompanies - cum[lastWeek];
-  const projectedWeek = pace > 0 ? lastWeek + remaining / pace : Number.POSITIVE_INFINITY;
-  const daysToProjected = Math.round(projectedWeek * 7);
+  const pace = basis === "recent" ? recentPace(cum) : lastWeek === 0 ? 0 : cum[lastWeek] / lastWeek;
+  const targetWeek = progress.targetDate === null ? null : daysBetween(progress.kickoff, progress.targetDate) / 7;
+  const remaining = Math.max(progress.targetCompanies - cum[lastWeek], 0);
+  const projectedWeek = remaining === 0 ? lastWeek : pace > 0 ? lastWeek + remaining / pace : Number.POSITIVE_INFINITY;
+  const hasProjection = Number.isFinite(projectedWeek);
   return {
     basis,
     pace,
-    targetPace: progress.targetCompanies / targetWeek,
+    targetPace: targetWeek === null || targetWeek === 0 ? null : progress.targetCompanies / targetWeek,
     remaining,
     projectedWeek,
     targetWeek,
-    projectedDate: Number.isFinite(projectedWeek) ? addDays(progress.kickoff, daysToProjected) : progress.targetDate,
-    daysLate: Number.isFinite(projectedWeek) ? Math.round((projectedWeek - targetWeek) * 7) : 0,
+    projectedDate: hasProjection ? addDays(progress.kickoff, Math.round(projectedWeek * 7)) : null,
+    daysLate: hasProjection && targetWeek !== null ? Math.round((projectedWeek - targetWeek) * 7) : null,
     lastWeek,
   };
 }
@@ -54,6 +51,7 @@ export function projectCoverage(progress: ReportProgress, basis: ProjectionBasis
 function recentPace(cum: number[]): number {
   const last = cum.length - 1;
   const window = Math.min(3, last);
+  if (window === 0) return 0;
   let total = 0;
   for (let i = last - window + 1; i <= last; i += 1) total += cum[i] - cum[i - 1];
   return total / window;

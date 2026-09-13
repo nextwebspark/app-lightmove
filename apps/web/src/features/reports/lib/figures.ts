@@ -1,8 +1,14 @@
 /** The report's small formatting vocabulary — shared so every chapter states a figure the same way. */
 
-/** 1100 → "$1,100K". Compensation is carried in USD thousands, the unit a comp conversation uses. */
-export function formatMoneyK(thousands: number): string {
-  return `$${Math.round(thousands).toLocaleString("en-US")}K`;
+/** 1,100,000 in USD → "USD 1.1M"; 320,000 → "USD 320K". Whole units in; the compact figure a finding reads. */
+export function formatCompactMoney(currency: string, amount: number): string {
+  if (amount >= 1_000_000) return `${currency} ${trim(amount / 1_000_000)}M`;
+  if (amount >= 1_000) return `${currency} ${Math.round(amount / 1_000)}K`;
+  return `${currency} ${amount.toLocaleString("en-US")}`;
+}
+
+function trim(value: number): string {
+  return value.toFixed(value >= 10 ? 0 : 1).replace(/\.0$/, "");
 }
 
 /** "2026-07-21" → "21 Jul". Chart labels and findings, where the year is the mandate's own. */

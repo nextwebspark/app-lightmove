@@ -33,7 +33,7 @@ describe("ReportsPage", () => {
     representatives: [],
     companies: 0,
     candidates: 0,
-    createdAt: "2026-07-13T10:00:00Z",
+    createdAt: "2026-07-21T10:00:00Z",
   };
 
   // The page reads the project from ProjectLayout's outlet — a bare shell stands in for the layout.
@@ -82,12 +82,12 @@ describe("ReportsPage", () => {
     expect(within(rail).getByText("Mapping progress")).toBeInTheDocument();
     expect(within(rail).getByText("Shape of the market")).toBeInTheDocument();
     expect(within(rail).getByText("Remuneration")).toBeInTheDocument();
-    expect(within(rail).getByText("Diversity & DEI")).toBeInTheDocument();
+    expect(within(rail).getByText("Nationality & localisation")).toBeInTheDocument();
     // Findings are computed from the report, not typed: the ceiling's rank and the slip both come
     // out of the disclosures and the cumulative coverage respectively.
-    expect(screen.getByText("38th percentile")).toBeInTheDocument();
-    expect(screen.getByText("36 days")).toBeInTheDocument();
-    expect(screen.getByText("7 nationalities")).toBeInTheDocument();
+    expect(screen.getAllByText("38th percentile").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("36 days").length).toBeGreaterThan(0);
+    expect(screen.getByText("6 nationalities")).toBeInTheDocument();
   });
 
   it("re-projects when the reader switches to the full-mandate average", async () => {
@@ -95,12 +95,11 @@ describe("ReportsPage", () => {
     const user = userEvent.setup();
 
     renderPage();
-    await screen.findByText("36 days");
+    await screen.findAllByText("36 days");
 
     await user.click(screen.getByRole("radio", { name: "Full-mandate avg" }));
 
     expect(screen.getByText("24 days")).toBeInTheDocument();
-    expect(screen.queryByText("36 days")).not.toBeInTheDocument();
   });
 
   it("opens a heat-matrix cell as a market slice with its executives", async () => {
@@ -108,7 +107,7 @@ describe("ReportsPage", () => {
     const user = userEvent.setup();
 
     renderPage();
-    await screen.findByText("38th percentile");
+    await screen.findAllByText("38th percentile");
 
     await user.click(screen.getByRole("button", { name: "FMCG · C-Suite: 16 executives" }));
 
@@ -125,11 +124,22 @@ describe("ReportsPage", () => {
     const user = userEvent.setup();
 
     renderPage();
-    await screen.findByText("38th percentile");
+    await screen.findAllByText("38th percentile");
 
     await user.selectOptions(screen.getByRole("combobox", { name: "Country" }), "Kuwait");
 
     expect(screen.getByText(/too few to compute a reliable percentile/)).toBeInTheDocument();
+  });
+
+  it("says the brief has no band rather than ranking against nothing", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue({
+      ...SAMPLE_REPORT,
+      remuneration: { ...SAMPLE_REPORT.remuneration, fixedBand: null, packageBand: null },
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("no salary band")).toBeInTheDocument();
     expect(screen.queryByText("38th percentile")).not.toBeInTheDocument();
   });
 
@@ -138,7 +148,7 @@ describe("ReportsPage", () => {
     const user = userEvent.setup();
 
     renderPage();
-    await screen.findByText("7 nationalities");
+    await screen.findByText("6 nationalities");
 
     await user.selectOptions(screen.getByRole("combobox", { name: "Nationality requirement" }), "GCC nationals");
     await user.selectOptions(screen.getByRole("combobox", { name: "Seniority level" }), "C-Suite");

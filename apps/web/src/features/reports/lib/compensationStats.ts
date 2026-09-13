@@ -15,31 +15,34 @@ export interface CompensationFilter {
 }
 
 export interface CompensationStats {
-  band: CompensationBand;
+  /** Null while the brief states no band: the points still show, nothing is ranked against them. */
+  band: CompensationBand | null;
   measure: CompensationMeasure;
   disclosures: Disclosure[];
   values: number[];
   isReliable: boolean;
-  /** Percentile rank of the band ceiling among the disclosures; null below the reliability floor. */
+  /** Percentile rank of the band ceiling among the disclosures; null without a band or below the floor. */
   ceilingPercentile: number | null;
   aboveBand: number;
-  declined: number;
-  declinedAboveBand: number;
+  /** Executives who said no — the nearest thing to a declined offer the pipeline records today. */
+  notInterested: number;
+  notInterestedAboveBand: number;
   median: number;
-  /** Axis bounds rounded out to the nearest 50 so the band and every point sit inside with room. */
-  axisLowK: number;
-  axisHighK: number;
+  /** Axis bounds with room either side of both the band and every point. */
+  axisLow: number;
+  axisHigh: number;
 }
 
 export function measureValue(disclosure: Disclosure, measure: CompensationMeasure): number {
-  return measure === "package" ? disclosure.packageK : disclosure.fixedK;
+  return measure === "package" ? disclosure.totalPackage : disclosure.fixed;
 }
 
-export function compensationStats(
-  remuneration: ReportRemuneration,
-  filter: CompensationFilter,
-): CompensationStats {
-  const band = filter.measure === "package" ? remuneration.packageBand : remuneration.fixedBand;
+export function bandFor(remuneration: ReportRemuneration, measure: CompensationMeasure): CompensationBand | null {
+  return measure === "package" ? remuneration.packageBand : remuneration.fixedBand;
+}
+
+export function compensationStats(remuneration: ReportRemuneration, filter: CompensationFilter): CompensationStats {
+  const band = bandFor(remuneration, filter.measure);
   const disclosures = remuneration.disclosures.filter(
     (d) =>
       (filter.country === ALL_COUNTRIES || d.country === filter.country) &&
@@ -47,23 +50,25 @@ export function compensationStats(
   );
   const values = disclosures.map((d) => measureValue(d, filter.measure));
   const isReliable = disclosures.length >= MIN_DISCLOSURES_FOR_PERCENTILE;
-  const declined = disclosures.filter((d) => d.outcome === "declined");
-  const above = (d: Disclosure) => measureValue(d, filter.measure) > band.highK;
-  const dataLow = values.length ? Math.min(...values) : band.lowK;
-  const dataHigh = values.length ? Math.max(...values) : band.highK;
+  const notInterested = disclosures.filter((d) => d.status === "notInterested");
+  const isAbove = (d: Disclosure) => band !== null && measureValue(d, filter.measure) > band.high;
+  const low = Math.min(...values, band?.low ?? Number.POSITIVE_INFINITY);
+  const high = Math.max(...values, band?.high ?? Number.NEGATIVE_INFINITY);
+  const hasAxis = Number.isFinite(low) && Number.isFinite(high);
+  const padding = hasAxis ? Math.max((high - low) * 0.08, 1) : 0;
   return {
     band,
     measure: filter.measure,
     disclosures,
     values,
     isReliable,
-    ceilingPercentile: isReliable ? percentileOf(values, band.highK) : null,
-    aboveBand: disclosures.filter(above).length,
-    declined: declined.length,
-    declinedAboveBand: declined.filter(above).length,
+    ceilingPercentile: band !== null && isReliable ? percentileOf(values, band.high) : null,
+    aboveBand: disclosures.filter(isAbove).length,
+    notInterested: notInterested.length,
+    notInterestedAboveBand: notInterested.filter(isAbove).length,
     median: values.length ? median(values) : 0,
-    axisLowK: Math.floor((Math.min(dataLow, band.lowK) - 60) / 50) * 50,
-    axisHighK: Math.ceil((Math.max(dataHigh, band.highK) + 60) / 50) * 50,
+    axisLow: hasAxis ? low - padding : 0,
+    axisHigh: hasAxis ? high + padding : 1,
   };
 }
 
@@ -86,7 +91,6 @@ export interface NationalityGap {
   largestMedian: number;
   restMedian: number;
   isReliable: boolean;
-  /** Which side commands the premium. */
   higherSide: "largest" | "rest";
   gapPct: number;
 }
@@ -95,14 +99,17 @@ export interface NationalityGap {
  * The largest nationality group against everyone else, on total package and independent of the
  * chapter's filters. Two buckets only: most single groups in a sixteen-disclosure set are one or two
  * people, and largest-vs-rest is the one split where both sides can clear the reliability floor.
+ * Null when nobody disclosed with a nationality on file.
  */
-export function nationalityGap(remuneration: ReportRemuneration): NationalityGap {
+export function nationalityGap(remuneration: ReportRemuneration): NationalityGap | null {
+  const known = remuneration.disclosures.filter((d): d is Disclosure & { nationality: string } => d.nationality !== null);
+  if (known.length === 0) return null;
   const counts = new Map<string, number>();
-  remuneration.disclosures.forEach((d) => counts.set(d.nationality, (counts.get(d.nationality) ?? 0) + 1));
+  known.forEach((d) => counts.set(d.nationality, (counts.get(d.nationality) ?? 0) + 1));
   const largestNationality = [...counts.entries()].reduce((a, b) => (b[1] > a[1] ? b : a))[0];
-  const largest = remuneration.disclosures.filter((d) => d.nationality === largestNationality).map((d) => d.packageK);
-  const rest = remuneration.disclosures.filter((d) => d.nationality !== largestNationality).map((d) => d.packageK);
-  const largestMedian = largest.length ? median(largest) : 0;
+  const largest = known.filter((d) => d.nationality === largestNationality).map((d) => d.totalPackage);
+  const rest = known.filter((d) => d.nationality !== largestNationality).map((d) => d.totalPackage);
+  const largestMedian = median(largest);
   const restMedian = rest.length ? median(rest) : 0;
   const lower = Math.min(largestMedian, restMedian);
   return {
@@ -118,9 +125,9 @@ export function nationalityGap(remuneration: ReportRemuneration): NationalityGap
 }
 
 export function countriesOf(remuneration: ReportRemuneration): string[] {
-  return [ALL_COUNTRIES, ...new Set(remuneration.disclosures.map((d) => d.country))];
+  return [ALL_COUNTRIES, ...new Set(remuneration.disclosures.flatMap((d) => (d.country ? [d.country] : [])))];
 }
 
 export function nationalitiesOf(remuneration: ReportRemuneration): string[] {
-  return [ALL_NATIONALITIES, ...new Set(remuneration.disclosures.map((d) => d.nationality))];
+  return [ALL_NATIONALITIES, ...new Set(remuneration.disclosures.flatMap((d) => (d.nationality ? [d.nationality] : [])))];
 }
