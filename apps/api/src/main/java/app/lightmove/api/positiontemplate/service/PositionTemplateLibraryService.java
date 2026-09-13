@@ -83,6 +83,7 @@ public class PositionTemplateLibraryService {
         return detailOf(template);
     }
 
+    /** Flushed before answering, so the version handed back is the one the next save must quote. */
     @Transactional
     public PositionTemplateDetail update(UUID userId, String code, PositionTemplateWriteRequest request,
                                          HttpServletRequest httpRequest) {
@@ -90,7 +91,6 @@ public class PositionTemplateLibraryService {
         PositionTemplate template = require(code);
         PositionTemplateValidator.requireVersion(template, request.version());
         template.revise(draft, userId);
-        // Flushed so the version handed back is the one the next save must quote.
         templates.flush();
         record(PlatformEventType.POSITION_TEMPLATE_LIBRARY_UPDATED, userId, code, httpRequest);
         return detailOf(template);

@@ -15,8 +15,10 @@ final class PositionTemplateCodes {
     private static final int MAX_LENGTH = 64;
     private static final int MAX_SLUG_LENGTH = 56;
 
-    // A code is a path segment beside literal routes — the API's, and the SPA's /settings/templates/new —
-    // so it may not spell one of them.
+    /**
+     * A code is a path segment beside literal routes — the API's, and the SPA's /settings/templates/new —
+     * so it may not spell one of them.
+     */
     private static final Set<String> RESERVED = Set.of("export", "import", "schema", "new");
 
     private PositionTemplateCodes() {

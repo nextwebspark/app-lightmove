@@ -58,7 +58,6 @@ class PlatformAuthorizationIntegrationTest extends PositionTemplateFlowSupport {
             assertThat(actions.size()).isEqualTo(1);
             assertThat(actions.get(0).asText()).isEqualTo("TEMPLATE_LIBRARY_MANAGE");
         } finally {
-            // The catalog is shared by every suite and RbacCatalogTest holds it to the enums.
             db.update("delete from app_lm_role_action where action_id in "
                     + "(select id from app_lm_action where name = 'FROM_A_NEWER_BUILD')");
             db.update("delete from app_lm_action where name = 'FROM_A_NEWER_BUILD'");

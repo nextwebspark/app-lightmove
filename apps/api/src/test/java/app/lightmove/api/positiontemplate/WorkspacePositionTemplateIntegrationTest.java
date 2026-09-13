@@ -93,7 +93,6 @@ class WorkspacePositionTemplateIntegrationTest extends PositionTemplateFlowSuppo
         assertThat(codesIn(getJson(firm.token(), PICKER))).doesNotContain("chief-risk-officer");
         assertThat(find(getJson(firm.token(), FIRM_TEMPLATES), "chief-risk-officer").get("origin").asText())
                 .isEqualTo("HIDDEN");
-        // The title falls through to the generic brief, which is N-1 where the risk template is C-suite.
         assertThat(draftedBrief(firm.token(), "Chief Risk Officer").at("/details/seniority").asText())
                 .isEqualTo("N_MINUS_1");
 

@@ -73,12 +73,15 @@ public class WorkspacePositionTemplateService {
         return detailOf(catalog.resolve(code), catalog);
     }
 
+    /**
+     * A template the firm writes itself. Its code avoids the library's too: sharing one would make it a
+     * copy of that template, which Save is for.
+     */
     @Transactional
     public PositionTemplateDetail create(UUID userId, UUID workspaceId, PositionTemplateWriteRequest request,
                                          HttpServletRequest httpRequest) {
         PositionTemplateDraft draft = validator.requireValid(request.draft());
         WorkspaceCatalog catalog = catalogOf(workspaceId);
-        // A code the library already uses would make this a copy of that template, which Save is for.
         Set<String> taken = new HashSet<>(catalog.own().keySet());
         taken.addAll(catalog.library().keySet());
         PositionTemplate template = templates.saveAndFlush(PositionTemplate.ownedBy(workspaceId,
@@ -211,7 +214,11 @@ public class WorkspacePositionTemplateService {
         return TemplateImportResponse.of(true, plan);
     }
 
-    /** A template identical to what the firm already uses is left alone — re-importing an export forks nothing. */
+    /**
+     * A template identical to what the firm already uses is left alone — re-importing an export forks
+     * nothing. A library code is customised even when that template is archived: a CREATE under it would
+     * shadow the template untracked the day it is restored, with nothing to say the library moved on.
+     */
     private static List<PlannedTemplateImport> plan(WorkspaceCatalog catalog, List<ImportedTemplate> imported) {
         return imported.stream().map(template -> {
             if (!template.isValid()) {
@@ -223,8 +230,6 @@ public class WorkspacePositionTemplateService {
                         ? TemplateImportAction.UNCHANGED : TemplateImportAction.UPDATE, own);
             }
             PositionTemplate library = catalog.library().get(template.code());
-            // Archived too: a CREATE under an archived library code would shadow the template untracked
-            // the day it is restored, with nothing to say the library moved on.
             if (library != null) {
                 return new PlannedTemplateImport(template, library.toDraft().equals(template.draft())
                         ? TemplateImportAction.UNCHANGED : TemplateImportAction.CUSTOMISE, library);
@@ -246,7 +251,6 @@ public class WorkspacePositionTemplateService {
 
     private PositionTemplateOverview overviewOf(PositionTemplate template, WorkspaceCatalog catalog,
                                                 Map<UUID, String> reviserNames) {
-        // Keyed by the firm's own revisers only, but a library row's reviser may be one of them too.
         String revisedBy = template.isSharedLibrary() ? null : reviserNames.get(template.getRevisedBy());
         return new PositionTemplateOverview(template.getCode(), template.getTitle(), template.getDiscipline(),
                 template.getSeniority(), template.getSummary(), List.copyOf(template.getKeywords()),

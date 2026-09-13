@@ -174,7 +174,7 @@ public class PositionTemplate extends BaseEntity {
                 .anyMatch(title::contains);
     }
 
-    // Postgres keeps microseconds. An in-memory nanosecond instant would compare after its own stored copy.
+    /** Postgres keeps microseconds. An in-memory nanosecond instant would compare after its own stored copy. */
     private static Instant now() {
         return Instant.now().truncatedTo(ChronoUnit.MICROS);
     }

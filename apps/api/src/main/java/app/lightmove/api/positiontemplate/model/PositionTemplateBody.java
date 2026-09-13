@@ -99,7 +99,7 @@ public record PositionTemplateBody(
                         .toList());
     }
 
-    // A bonus finer than the brief's numeric(6,2) is left for the validator to refuse, never rounded.
+    /** A bonus finer than the brief's numeric(6,2) is left for the validator to refuse, never rounded. */
     private static BigDecimal atBriefScale(BigDecimal value) {
         return value == null || value.stripTrailingZeros().scale() > 2 ? value : value.setScale(2);
     }

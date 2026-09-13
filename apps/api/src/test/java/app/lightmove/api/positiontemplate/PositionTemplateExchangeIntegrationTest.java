@@ -90,7 +90,6 @@ class PositionTemplateExchangeIntegrationTest extends PositionTemplateFlowSuppor
     void importCustomisesAndCreates() throws Exception {
         Firm firm = firm("Importing Firm", "alok");
         String keyword = uniqueKeyword();
-        // No code on the CFO entry: its title's slug is the library's code, so this edits that template.
         byte[] file = fileOf(
                 edited(getJson(firm.token(), FIRM_TEMPLATES + "/chief-financial-officer"), "Finance & Strategy", false),
                 templateEntry(titleOf(keyword), keyword, "Quills")).getBytes(StandardCharsets.UTF_8);

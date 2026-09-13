@@ -161,6 +161,10 @@ class PositionTemplateExchange {
         return null;
     }
 
+    /**
+     * Types and field names, before anything is bound. A competency's weight is required here because a
+     * missing one would bind to 0 rather than fail, and quietly unbalance the panel.
+     */
     private static void checkStructure(Map<?, ?> fields, List<TemplateProblem> problems) {
         unknownFields("", fields, TEMPLATE_FIELDS, problems);
         text("title", fields.get("title"), problems);
@@ -204,7 +208,6 @@ class PositionTemplateExchange {
             enumName(path + ".panel", item.get("panel"), CompetencyPanel.class, problems);
             text(path + ".name", item.get("name"), problems);
             text(path + ".description", item.get("description"), problems);
-            // A missing weight would bind to 0 rather than fail, and quietly unbalance the panel.
             if (item.get("weight") == null) {
                 problems.add(new TemplateProblem(path + ".weight", "Give every competency a weight"));
             } else {
