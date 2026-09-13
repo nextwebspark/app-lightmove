@@ -48,7 +48,12 @@ per executive and the same two drawers opened from a pin's popup or a panel row.
 coordinate, so `geocoding` resolves each distinct city + country once through Mapbox and keeps it in
 `app_lm_geocoded_place`; `talentmap` composes the stage's companies, people and points into one
 unpaged, capped read (`GET /projects/{id}/talent-map`), with `…/talent-map/locations` answering the
-same map as points alone for the poll that waits on places rather than on people. The standalone
+same map as points alone for the poll that waits on places rather than on people. The **Reports**
+tab is the mandate's talent mapping report (`GET /projects/{id}/report`): four chapters — mapping
+progress, shape of the market, remuneration, diversity — aggregated live by `report` from the same
+rows, so nothing is stored and nothing goes stale. It states only what the rows carry: nationality
+but never gender, a candidate's status but no pipeline outcome, and a package in another currency is
+counted rather than converted. The standalone
 Candidates screen, and the pipeline and outreach tables, don't exist yet. The **Position**
 screen is the mandate's brief, edited as a six-step wizard (details, mandate context, reporting,
 compensation, assessment, review) that autosaves one step at a time. It opens drafted rather than
@@ -69,7 +74,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport`, `geocoding`, `talentmap` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport`, `geocoding`, `talentmap`, `report` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |

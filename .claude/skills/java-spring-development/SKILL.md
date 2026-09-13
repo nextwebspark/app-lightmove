@@ -226,6 +226,12 @@ geocoding/                 # a city+country pair becomes a point, once — globa
 
 talentmap/                 # composes triagecompany + candidate + geocoding into one read; owns nothing
   dto/(TalentMapResponse, MapLocationDto, TalentMapConfigResponse)  service/(TalentMapService)  controller/
+
+report/                    # the mandate's talent mapping report — four chapters over one read; owns nothing
+  model/(ReportSources, ExecutiveRow, ReportCalendar)
+  dto/(ReportResponse + one record per chapter and per row of it)
+  service/(ReportService, ReportSourceLoader, MappingProgressReporter, MarketShapeReporter,
+           RemunerationReporter, DiversityReporter, NationalityCatalog, Tally)  controller/
 ```
 
 **`enrichment/` is the one feature with a subject split above the type split.** People and companies
@@ -317,6 +323,11 @@ method plus the records it returns — never another feature's internals:
   itself, so `triagecompany` still never learns that people exist. `GeocodingService.resolve` is
   the third seam, taking bare city/country pairs — which company or person asked never reaches
   `geocoding` or the vendor.
+- `report` reads through the same two seams as `talentmap` (`listAllOfStage` for the universe and
+  the shortlist, `listAllOfProject` for every executive), `PositionService.get` for the brief's band,
+  and `project`'s repository for the mandate's dates. Every figure is aggregated at read time; there
+  is no report table. It states what the rows carry and nothing more — no gender, no pipeline
+  outcome, no currency conversion — so a chapter never reports a guess as a finding.
 - `position`'s `PositionService` reads `project`'s repositories for the mandate a brief belongs to,
   the same way `CandidateService` does — a brief cannot be scoped, titled or dated without it — and
   `project`'s `ProjectService.create` seeds the new mandate's brief through one call taking primitives
