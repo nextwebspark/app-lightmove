@@ -89,7 +89,7 @@ BEGIN
             IF pg_has_role(current_user, current_owner, 'USAGE') THEN
                 EXECUTE 'ALTER TABLE app_lm_user_platform_role OWNER TO postgres';
             ELSE
-                RAISE NOTICE 'app_lm_user_platform_role is owned by % and this role cannot reassign it. The app can still grant platform roles: re-run this file as postgres.', current_owner;
+                RAISE NOTICE 'app_lm_user_platform_role is owned by % and this role cannot reassign it, so read-only is not yet enforced: until this file is re-run as postgres, lm_app as owner could still write the table.', current_owner;
             END IF;
         END IF;
 

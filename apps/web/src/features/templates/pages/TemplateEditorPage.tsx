@@ -594,19 +594,20 @@ function lifecycleOf(scope: TemplateScope, detail: TemplateDetail): Lifecycle | 
   }
 }
 
+/** A firm looking at LightMove's own version of a template, which its first save turns into a copy. */
+function isLibraryVersion(scope: TemplateScope, detail: TemplateDetail): boolean {
+  return scope === "workspace" && (detail.origin === "LIBRARY" || detail.origin === "HIDDEN");
+}
+
 function saveLabelOf(scope: TemplateScope, detail: TemplateDetail | null): string {
   if (!detail) return "Create template";
-  if (scope === "workspace" && (detail.origin === "LIBRARY" || detail.origin === "HIDDEN")) {
-    return "Save as my firm's copy";
-  }
-  return "Save";
+  return isLibraryVersion(scope, detail) ? "Save as my firm's copy" : "Save";
 }
 
 function savedMessage(scope: TemplateScope, detail: TemplateDetail | null): string {
   if (!detail) return "Template created";
   if (scope === "library") return "Saved — live for every workspace without its own copy";
-  if (detail.origin === "LIBRARY" || detail.origin === "HIDDEN") return "Saved as your firm's copy";
-  return "Saved";
+  return isLibraryVersion(scope, detail) ? "Saved as your firm's copy" : "Saved";
 }
 
 function lifecycleMessage(action: Lifecycle): string {
@@ -629,7 +630,7 @@ function lifecycleMessage(action: Lifecycle): string {
 function metaLineOf(scope: TemplateScope, detail: TemplateDetail | null): string {
   if (!detail) return "Not saved yet";
   const date = formatInstantDate(detail.revisedAt) ?? "—";
-  if (scope === "workspace" && (detail.origin === "LIBRARY" || detail.origin === "HIDDEN")) {
+  if (isLibraryVersion(scope, detail)) {
     return `${detail.code} · LightMove library · updated ${date}`;
   }
   return `${detail.code} · last saved${detail.revisedByName ? ` by ${detail.revisedByName}` : ""}, ${date}`;

@@ -223,7 +223,9 @@ public class WorkspacePositionTemplateService {
                         ? TemplateImportAction.UNCHANGED : TemplateImportAction.UPDATE, own);
             }
             PositionTemplate library = catalog.library().get(template.code());
-            if (library != null && library.isActive()) {
+            // Archived too: a CREATE under an archived library code would shadow the template untracked
+            // the day it is restored, with nothing to say the library moved on.
+            if (library != null) {
                 return new PlannedTemplateImport(template, library.toDraft().equals(template.draft())
                         ? TemplateImportAction.UNCHANGED : TemplateImportAction.CUSTOMISE, library);
             }
@@ -232,7 +234,7 @@ public class WorkspacePositionTemplateService {
     }
 
     private void showAgain(UUID workspaceId, String code) {
-        hiddenTemplates.findByWorkspaceIdAndCode(workspaceId, code).ifPresent(hiddenTemplates::delete);
+        hiddenTemplates.deleteByWorkspaceIdAndCode(workspaceId, code);
     }
 
     private WorkspaceCatalog catalogOf(UUID workspaceId) {

@@ -108,6 +108,26 @@ class PositionTemplateExchangeIntegrationTest extends PositionTemplateFlowSuppor
     }
 
     @Test
+    @DisplayName("an import under an archived library code takes a tracked copy, so a restore cannot be shadowed silently")
+    void importUnderAnArchivedLibraryCodeCustomises() throws Exception {
+        String admin = superAdmin();
+        String keyword = uniqueKeyword();
+        JsonNode library = expect(201, postJson(admin, LIBRARY,
+                templateRequest(titleOf(keyword), keyword, "Quills", null)));
+        String code = library.get("code").asText();
+        expect(200, patchJson(admin, LIBRARY + "/" + code + "/active", "{\"active\":false}"));
+
+        Firm firm = firm("Archive Import Firm", "alok");
+        JsonNode committed = upload(firm.token(), FIRM_TEMPLATES + "/import/commit",
+                fileOf(templateEntry(titleOf(keyword), keyword, "Our Quills")).getBytes(StandardCharsets.UTF_8));
+
+        assertThat(committed.get("rows").get(0).get("code").asText()).isEqualTo(code);
+        assertThat(actionsOf(committed)).containsExactly("CUSTOMISE");
+        expect(200, patchJson(admin, LIBRARY + "/" + code + "/active", "{\"active\":true}"));
+        assertThat(find(getJson(firm.token(), FIRM_TEMPLATES), code).get("origin").asText()).isEqualTo("CUSTOMISED");
+    }
+
+    @Test
     @DisplayName("a file that is not a template file is refused before any template is read from it")
     void notATemplateFile() throws Exception {
         Firm firm = firm("Wrong File Firm", "alok");

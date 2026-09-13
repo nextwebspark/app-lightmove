@@ -122,7 +122,7 @@ describe("TemplateEditorPage — a firm editing a template", () => {
     saveButtons("Save as my firm's copy").forEach((button) => expect(button).toBeDisabled());
   });
 
-  it("does not overwrite a save somebody else made first — it offers to reload", async () => {
+  it("does not overwrite a save somebody else made first — Reload replaces the draft with theirs", async () => {
     vi.mocked(templateApi.getTemplate).mockResolvedValue(cfo());
     vi.mocked(templateApi.saveTemplate).mockRejectedValue(
       new ApiRequestError({ code: "TEMPLATE_STALE", detail: "", status: 409, correlationId: "c" }),
@@ -131,9 +131,15 @@ describe("TemplateEditorPage — a firm editing a template", () => {
     renderEditor();
     await userEvent.type(await screen.findByLabelText("Department"), " & Treasury");
     await userEvent.click(saveButtons("Save as my firm's copy")[0]);
-
     expect(await screen.findByText(/Someone saved this template after you opened it/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
+
+    vi.mocked(templateApi.getTemplate).mockResolvedValue(
+      cfo({ origin: "CUSTOMISED", version: 8, body: { ...cfo().body, department: "Their Finance" } }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Reload" }));
+
+    expect(await screen.findByDisplayValue("Their Finance")).toBeInTheDocument();
+    expect(screen.queryByText(/Someone saved this template after you opened it/)).not.toBeInTheDocument();
   });
 
   it("tells a firm the library has moved past its copy, and offers the reset", async () => {
