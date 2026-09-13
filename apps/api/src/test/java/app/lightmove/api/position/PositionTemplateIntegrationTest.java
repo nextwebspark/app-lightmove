@@ -8,8 +8,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.position.dto.PositionTemplateSummary;
+import app.lightmove.api.position.service.PositionTemplateService;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,6 +38,7 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
             """;
 
     @Autowired JdbcTemplate db;
+    @Autowired PositionTemplateService templateService;
 
     @Test
     @DisplayName("the picker lists the seeded library, and every template in it is readable")
@@ -213,6 +217,30 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"templateId\":\"%s\"}".formatted(ours)))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("suggesting a template matches on keyword, is workspace-scoped, and never falls back to generic-executive")
+    void suggestingATemplateNeverFallsBackSilently() throws Exception {
+        Firm firm = firmOf("Suggestion Firm", "priya");
+        String ours = insertWorkspaceTemplate(firm.workspaceId(), "group-treasury-lead",
+                "Group Treasury Lead", "Treasury Lead");
+        UUID workspaceId = UUID.fromString(firm.workspaceId());
+
+        // A keyword match answers with that template.
+        Optional<PositionTemplateSummary> matched = templateService.suggestFor(workspaceId, "Treasury Lead");
+        assertThat(matched).isPresent();
+        assertThat(matched.get().code()).isEqualTo("group-treasury-lead");
+        assertThat(matched.get().id().toString()).isEqualTo(ours);
+
+        // Workspace-scoped: a neighbour firm's own workspace never sees it, even for the same title.
+        Firm neighbour = firmOf("Suggestion Neighbour Firm", "omar");
+        assertThat(templateService.suggestFor(UUID.fromString(neighbour.workspaceId()), "Treasury Lead"))
+                .isEmpty();
+
+        // A title matching no keyword suggests nothing — never the generic-executive fallback
+        // standing in as though it were a real match.
+        assertThat(templateService.suggestFor(workspaceId, "Warehouse Shift Supervisor")).isEmpty();
     }
 
     private JsonNode templates(String token) throws Exception {

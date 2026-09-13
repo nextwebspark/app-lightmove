@@ -35,6 +35,7 @@ export function CompensationStep({
   document,
   extraction,
   extracting,
+  extractionError,
   onChange,
   onExtract,
   onAcceptProposal,
@@ -45,6 +46,7 @@ export function CompensationStep({
   document: PositionDocument | null;
   extraction: PositionExtraction | null;
   extracting: boolean;
+  extractionError?: unknown;
   onChange: (patch: Partial<Compensation>, immediate?: boolean) => void;
   onExtract: () => void;
   onAcceptProposal: (field: ProposedField, value: string) => void;
@@ -76,6 +78,7 @@ export function CompensationStep({
         positionDocument={document}
         extraction={extraction}
         extracting={extracting}
+        error={extractionError}
         onExtract={onExtract}
         onAcceptProposal={onAcceptProposal}
         onDismissProposal={onDismissProposal}

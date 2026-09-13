@@ -31,6 +31,9 @@ export function PositionDetailsStep({
   onAcceptProposal,
   onDismissProposal,
   onAcceptAllProposals,
+  onApplySuggestedTemplate,
+  applyingSuggestedTemplate,
+  extractionError,
 }: {
   details: PositionDetails;
   document: PositionDocument | null;
@@ -48,6 +51,9 @@ export function PositionDetailsStep({
   onAcceptProposal: (field: ProposedField, value: string) => void;
   onDismissProposal: (field: ProposedField) => void;
   onAcceptAllProposals: (edits: Record<number, string>) => void;
+  onApplySuggestedTemplate: (template: PositionTemplate) => void;
+  applyingSuggestedTemplate: boolean;
+  extractionError?: unknown;
 }) {
   const [draft, setDraft] = useState("");
 
@@ -68,6 +74,7 @@ export function PositionDetailsStep({
         onAttach={onAttachDocument}
         onRemove={onRemoveDocument}
         onExtract={onExtract}
+        extractionError={extractionError}
       />
 
       {extraction && (
@@ -76,6 +83,8 @@ export function PositionDetailsStep({
           onAccept={onAcceptProposal}
           onDismiss={onDismissProposal}
           onAcceptAll={onAcceptAllProposals}
+          onApplySuggestedTemplate={onApplySuggestedTemplate}
+          applyingSuggestedTemplate={applyingSuggestedTemplate}
         />
       )}
 

@@ -7,6 +7,7 @@ import app.lightmove.api.core.config.PositionExtractionSettings;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.position.dto.PositionExtractionResponse;
+import app.lightmove.api.position.dto.PositionTemplateSummary;
 import app.lightmove.api.position.dto.ProposedFieldDto;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ProposedAssessment;
@@ -44,6 +45,7 @@ public class PositionExtractionService {
     private final PositionCompensationProposer compensationProposer;
     private final PositionAssessmentProposer assessmentProposer;
     private final PositionReportingProposer reportingProposer;
+    private final PositionTemplateService templates;
     private final AuditService audit;
     private final PositionExtractionSettings settings;
 
@@ -56,6 +58,7 @@ public class PositionExtractionService {
                                      PositionCompensationProposer compensationProposer,
                                      PositionAssessmentProposer assessmentProposer,
                                      PositionReportingProposer reportingProposer,
+                                     PositionTemplateService templates,
                                      AuditService audit, LightMoveProperties properties) {
         this.documentLoader = documentLoader;
         this.textReader = textReader;
@@ -64,6 +67,7 @@ public class PositionExtractionService {
         this.compensationProposer = compensationProposer;
         this.assessmentProposer = assessmentProposer;
         this.reportingProposer = reportingProposer;
+        this.templates = templates;
         this.audit = audit;
         this.settings = properties.position().extraction();
     }
@@ -75,7 +79,8 @@ public class PositionExtractionService {
         ProposedPositionDetails proposed = detailsProposer.propose(
                 userId, text, document.clientId(), workspaceId);
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
-        return assemble(proposed.source().value(), proposed.fields());
+        PositionTemplateSummary suggestedTemplate = suggestedTemplateFor(proposed.fields(), workspaceId);
+        return assemble(proposed.source().value(), proposed.fields(), suggestedTemplate);
     }
 
     public PositionExtractionResponse extractContext(UUID userId, UUID workspaceId, UUID projectId,
@@ -85,7 +90,7 @@ public class PositionExtractionService {
         ProposedMandateContext proposed = contextProposer.propose(
                 userId, text, document.clientId(), workspaceId, document.roleTitle());
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
-        return assemble(proposed.source().value(), proposed.fields());
+        return assemble(proposed.source().value(), proposed.fields(), null);
     }
 
     public PositionExtractionResponse extractCompensation(UUID userId, UUID workspaceId, UUID projectId,
@@ -95,7 +100,7 @@ public class PositionExtractionService {
         ProposedCompensation proposed = compensationProposer.propose(
                 userId, text, document.clientId(), workspaceId, document.roleTitle());
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
-        return assemble(proposed.source().value(), proposed.fields());
+        return assemble(proposed.source().value(), proposed.fields(), null);
     }
 
     public PositionExtractionResponse extractAssessment(UUID userId, UUID workspaceId, UUID projectId,
@@ -105,7 +110,7 @@ public class PositionExtractionService {
         ProposedAssessment proposed = assessmentProposer.propose(
                 userId, text, document.clientId(), workspaceId, document.roleTitle());
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
-        return assemble(proposed.source().value(), proposed.fields());
+        return assemble(proposed.source().value(), proposed.fields(), null);
     }
 
     public PositionExtractionResponse extractReporting(UUID userId, UUID workspaceId, UUID projectId,
@@ -115,7 +120,23 @@ public class PositionExtractionService {
         ProposedReportingStructure proposed = reportingProposer.propose(
                 userId, text, document.clientId(), workspaceId, document.roleTitle());
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
-        return assemble(proposed.source().value(), proposed.fields());
+        return assemble(proposed.source().value(), proposed.fields(), null);
+    }
+
+    /**
+     * The brief template the extracted role title matches, offered as a separate whole-brief opt-in
+     * — never {@code roleTitle}'s own template-backfill match in {@link PositionDetailsProposer},
+     * which falls back to generic-executive for a field it must fill in either way. This suggestion
+     * has no such obligation, so it stays silent rather than offering a fallback as though it were
+     * a real match.
+     */
+    private PositionTemplateSummary suggestedTemplateFor(List<ExtractedField> fields, UUID workspaceId) {
+        return fields.stream()
+                .filter(field -> field.fieldKey().equals("roleTitle"))
+                .map(ExtractedField::value)
+                .findFirst()
+                .flatMap(roleTitle -> templates.suggestFor(workspaceId, roleTitle))
+                .orElse(null);
     }
 
     private LoadedDocument load(UUID workspaceId, UUID projectId) {
@@ -134,12 +155,13 @@ public class PositionExtractionService {
                 .record();
     }
 
-    private static PositionExtractionResponse assemble(String extractionSource, List<ExtractedField> fields) {
+    private static PositionExtractionResponse assemble(String extractionSource, List<ExtractedField> fields,
+                                                        PositionTemplateSummary suggestedTemplate) {
         List<ProposedFieldDto> dtos = new ArrayList<>(fields.size());
         for (int i = 0; i < fields.size(); i++) {
             dtos.add(toDto(i, fields.get(i)));
         }
-        return new PositionExtractionResponse(extractionSource, dtos);
+        return new PositionExtractionResponse(extractionSource, dtos, suggestedTemplate);
     }
 
     private static ProposedFieldDto toDto(int id, ExtractedField field) {

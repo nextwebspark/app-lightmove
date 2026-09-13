@@ -3,7 +3,7 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Input } from "../../../components/ui";
 import { DetailPill } from "../../../components/ui/DetailList";
 import { cn } from "../../../lib/cn";
-import type { PositionExtraction, ProposedField } from "../api/types";
+import type { PositionExtraction, PositionTemplate, ProposedField } from "../api/types";
 import {
   CONFIDENCE_STYLES,
   EXTRACTION_FIELD_LABELS,
@@ -24,23 +24,39 @@ export function PositionExtractionPanel({
   onAccept,
   onDismiss,
   onAcceptAll,
+  onApplySuggestedTemplate,
+  applyingSuggestedTemplate,
 }: {
   extraction: PositionExtraction;
   onAccept: (field: ProposedField, value: string) => void;
   onDismiss: (field: ProposedField) => void;
   onAcceptAll: (edits: Record<number, string>) => void;
+  /** Present only on step one's response — every other section's `suggestedTemplate` is always null. */
+  onApplySuggestedTemplate?: (template: PositionTemplate) => void;
+  applyingSuggestedTemplate?: boolean;
 }) {
   // Every row's edited value, lifted here rather than left in each row's own state: "Accept all"
   // reads this map, so it writes what the user typed rather than the original proposed value.
   const [edits, setEdits] = useState<Record<number, string>>({});
   const valueOf = (field: ProposedField) => edits[field.id] ?? field.value;
 
+  const suggestion = extraction.suggestedTemplate && onApplySuggestedTemplate && (
+    <SuggestedTemplateOffer
+      template={extraction.suggestedTemplate}
+      applying={Boolean(applyingSuggestedTemplate)}
+      onApply={onApplySuggestedTemplate}
+    />
+  );
+
   if (extraction.fields.length === 0) {
     return (
-      <div className="rounded-[10px] border border-line-soft bg-panel2 px-[15px] py-[13px] font-mono text-[12px] text-text3">
-        {extraction.extractionSource === "documentHeadings"
-          ? "The assistant could not be reached, and nothing in the document's own headings could be proposed."
-          : "Nothing was found to propose."}
+      <div className="flex flex-col gap-2.5">
+        {suggestion}
+        <div className="rounded-[10px] border border-line-soft bg-panel2 px-[15px] py-[13px] font-mono text-[12px] text-text3">
+          {extraction.extractionSource === "documentHeadings"
+            ? "The assistant could not be reached, and nothing in the document's own headings could be proposed."
+            : "Nothing was found to propose."}
+        </div>
       </div>
     );
   }
@@ -48,40 +64,73 @@ export function PositionExtractionPanel({
   const degraded = extraction.extractionSource === "documentHeadings";
 
   return (
-    <div className="flex flex-col gap-3 rounded-[10px] border border-line-soft bg-panel2 p-[15px]">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div
-          className={cn(
-            "flex items-center gap-1.5 font-mono text-[11.5px]",
-            degraded ? "text-amber" : "text-text3",
-          )}
-        >
-          {degraded && <Icon d={ICONS.warning} size={13} className="shrink-0" />}
-          {EXTRACTION_SOURCE_LABELS[extraction.extractionSource]}
+    <div className="flex flex-col gap-2.5">
+      {suggestion}
+      <div className="flex flex-col gap-3 rounded-[10px] border border-line-soft bg-panel2 p-[15px]">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div
+            className={cn(
+              "flex items-center gap-1.5 font-mono text-[11.5px]",
+              degraded ? "text-amber" : "text-text3",
+            )}
+          >
+            {degraded && <Icon d={ICONS.warning} size={13} className="shrink-0" />}
+            {EXTRACTION_SOURCE_LABELS[extraction.extractionSource]}
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => onAcceptAll(edits)}
+            className="px-2.5 py-1.5 text-[11.5px]"
+          >
+            Accept all
+          </Button>
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => onAcceptAll(edits)}
-          className="px-2.5 py-1.5 text-[11.5px]"
-        >
-          Accept all
-        </Button>
-      </div>
 
-      <div className="flex flex-col gap-2">
-        {extraction.fields.map((field) => (
-          <ProposalRow
-            key={field.id}
-            field={field}
-            value={valueOf(field)}
-            onValueChange={(value) => setEdits((current) => ({ ...current, [field.id]: value }))}
-            onAccept={(value) => onAccept(field, value)}
-            onDismiss={() => onDismiss(field)}
-          />
-        ))}
+        <div className="flex flex-col gap-2">
+          {extraction.fields.map((field) => (
+            <ProposalRow
+              key={field.id}
+              field={field}
+              value={valueOf(field)}
+              onValueChange={(value) => setEdits((current) => ({ ...current, [field.id]: value }))}
+              onAccept={(value) => onAccept(field, value)}
+              onDismiss={() => onDismiss(field)}
+            />
+          ))}
+        </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * "Draft the brief from that template too?" — unchecked by default, and checked only while the
+ * apply is in flight, so a failure reverts it rather than leaving it stuck in a checked-but-not-
+ * applied state. A success clears the whole extraction (this offer included), so there is no
+ * "applied" state to render here at all.
+ */
+function SuggestedTemplateOffer({
+  template,
+  applying,
+  onApply,
+}: {
+  template: PositionTemplate;
+  applying: boolean;
+  onApply: (template: PositionTemplate) => void;
+}) {
+  return (
+    <label className="flex items-center gap-2.5 rounded-lg border border-line bg-panel px-3 py-2.5 text-[12.5px] text-text2">
+      <input
+        type="checkbox"
+        checked={applying}
+        disabled={applying}
+        onChange={() => onApply(template)}
+        className="size-4 flex-none accent-sky"
+      />
+      This reads like a <span className="font-semibold text-text">{template.title}</span> mandate —
+      draft the brief from that template too?
+    </label>
   );
 }
 

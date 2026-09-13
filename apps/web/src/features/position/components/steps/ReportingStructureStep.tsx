@@ -29,6 +29,7 @@ export function ReportingStructureStep({
   document,
   extraction,
   extracting,
+  extractionError,
   onChange,
   onExtract,
   onAcceptProposal,
@@ -41,6 +42,7 @@ export function ReportingStructureStep({
   document: PositionDocument | null;
   extraction: PositionExtraction | null;
   extracting: boolean;
+  extractionError?: unknown;
   onChange: (patch: Partial<ReportingStructure>, immediate?: boolean) => void;
   onExtract: () => void;
   onAcceptProposal: (field: ProposedField, value: string) => void;
@@ -56,6 +58,7 @@ export function ReportingStructureStep({
         positionDocument={document}
         extraction={extraction}
         extracting={extracting}
+        error={extractionError}
         onExtract={onExtract}
         onAcceptProposal={onAcceptProposal}
         onDismissProposal={onDismissProposal}

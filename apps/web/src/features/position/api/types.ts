@@ -211,4 +211,8 @@ export interface ProposedField {
 export interface PositionExtraction {
   extractionSource: ExtractionSource;
   fields: ProposedField[];
+  /** The brief template the extracted role title matches — null on every response but step one's,
+   * and null there too when nothing but the generic fallback would match. Offered as a separate,
+   * explicit opt-in; never applied automatically. */
+  suggestedTemplate: PositionTemplate | null;
 }

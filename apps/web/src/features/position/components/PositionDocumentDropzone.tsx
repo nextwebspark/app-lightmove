@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Spinner } from "../../../components/ui";
 import { FileDropzone } from "../../../components/ui/FileDropzone";
+import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate } from "../../../lib/format";
 import type { PositionDocument } from "../api/types";
 
@@ -20,6 +21,7 @@ export function PositionDocumentDropzone({
   onRemove,
   onDownload,
   onExtract,
+  extractionError,
 }: {
   document: PositionDocument | null;
   uploading: boolean;
@@ -28,6 +30,9 @@ export function PositionDocumentDropzone({
   onRemove: () => void;
   onDownload: () => void;
   onExtract: () => void;
+  /** Set only when the last "read the whole document" fan-out left step one's own section
+   * unread — the button above stays the retry, this is just what to tell the user about it. */
+  extractionError?: unknown;
 }) {
   const input = useRef<HTMLInputElement>(null);
 
@@ -117,8 +122,11 @@ export function PositionDocumentDropzone({
       {extracting && (
         <span className="mt-2.5 flex items-center gap-[7px] font-mono text-[11.5px] text-text3">
           <Spinner />
-          Parsing document and extracting details…
+          Parsing document and reading every step…
         </span>
+      )}
+      {!extracting && extractionError !== undefined && (
+        <span className="mt-2.5 block font-mono text-[11.5px] text-red">{messageFor(extractionError)}</span>
       )}
     </div>
   );

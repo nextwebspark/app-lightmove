@@ -230,6 +230,12 @@ lightmove:
       # Every meter but shortlist and embed (the import's column mapping, each extraction step) shares
       # default-requests-per-minute: one deliberate click either way, but each still its own budget so
       # none of them can eat another's calls.
+      #
+      # "Read the whole document" fans out all five extraction meters at once, so one click spends a
+      # fifth of this budget per section and the shared 10/min is two full one-click reads per user
+      # per minute. Deliberate, not an oversight: no evidence 10/min is wrong, and a dedicated
+      # position-extract setting can be split out later if it ever needs to move independently of the
+      # other meters riding on this default.
       enabled: ${LLM_RATE_LIMIT_ENABLED:true}
       shortlist-requests-per-minute: ${LLM_SHORTLIST_REQUESTS_PER_MINUTE:10}
       embed-requests-per-minute: ${LLM_EMBED_REQUESTS_PER_MINUTE:20}

@@ -8,6 +8,7 @@ import { messageFor } from "../../../lib/errorCodes";
 import { useAutosave } from "../../../lib/useAutosave";
 import * as projectsApi from "../../projects/api/projectsApi";
 import * as positionApi from "../api/positionApi";
+import type { ExtractionSectionKey } from "../api/positionApi";
 import type {
   Benefit,
   BenefitFrequency,
@@ -138,6 +139,11 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const [reportingExtraction, setReportingExtraction] = useState<PositionExtraction | null>(null);
   const [compensationExtraction, setCompensationExtraction] = useState<PositionExtraction | null>(null);
   const [assessmentExtraction, setAssessmentExtraction] = useState<PositionExtraction | null>(null);
+  // Which section's own slot in the last "read the whole document" fan-out failed, and why —
+  // extractAll bypasses the five mutations below (it calls positionApi.extractX directly), so their
+  // own isError/error never reflect a fan-out failure; only a section's own retry click does.
+  const [extractionFailures, setExtractionFailures] =
+    useState<Partial<Record<ExtractionSectionKey, unknown>>>({});
 
   // The picker's options. A failed read leaves the type-ahead with nothing to offer, which is the
   // right degradation: the title is free text and stays typeable.
@@ -264,6 +270,16 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       detailsSave.schedule(titled);
       void detailsSave.flush();
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
+      // A template redraft touches fields across every step, so a proposal still open anywhere
+      // could now point at a value the redraft already replaced. Cleared rather than reconciled —
+      // and re-read, since the brief just changed under whatever was already proposed.
+      setDetailsExtraction(null);
+      setContextExtraction(null);
+      setReportingExtraction(null);
+      setCompensationExtraction(null);
+      setAssessmentExtraction(null);
+      setExtractionFailures({});
+      if (brief.document) extractAll.mutate();
       toast(`Brief drafted from the ${template.title} template.`);
     },
     onError: (error) => toast(messageFor(error)),
@@ -369,6 +385,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       setReportingExtraction(null);
       setCompensationExtraction(null);
       setAssessmentExtraction(null);
+      setExtractionFailures({});
     },
     onError: (error) => toast(messageFor(error)),
   });
@@ -381,6 +398,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       setReportingExtraction(null);
       setCompensationExtraction(null);
       setAssessmentExtraction(null);
+      setExtractionFailures({});
     },
     onError: (error) => toast(messageFor(error)),
   });
@@ -389,29 +407,89 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       positionApi.saveDocument(projectId, position.document?.fileName ?? "position-description"),
     onError: (error) => toast(messageFor(error)),
   });
-  const extractDetails = useMutation({
-    mutationFn: () => positionApi.extractDetails(projectId),
-    onSuccess: setDetailsExtraction,
-    onError: (error) => toast(messageFor(error)),
-  });
+  /** Clears a section's own recorded fan-out failure once its own retry succeeds. */
+  const clearedFailure = (section: ExtractionSectionKey) =>
+    setExtractionFailures((current) => {
+      if (!(section in current)) return current;
+      const { [section]: _removed, ...rest } = current;
+      return rest;
+    });
+
   const extractContext = useMutation({
     mutationFn: () => positionApi.extractContext(projectId),
-    onSuccess: setContextExtraction,
+    onSuccess: (data) => {
+      setContextExtraction(data);
+      clearedFailure("context");
+    },
     onError: (error) => toast(messageFor(error)),
   });
   const extractReporting = useMutation({
     mutationFn: () => positionApi.extractReporting(projectId),
-    onSuccess: setReportingExtraction,
+    onSuccess: (data) => {
+      setReportingExtraction(data);
+      clearedFailure("reporting");
+    },
     onError: (error) => toast(messageFor(error)),
   });
   const extractCompensation = useMutation({
     mutationFn: () => positionApi.extractCompensation(projectId),
-    onSuccess: setCompensationExtraction,
+    onSuccess: (data) => {
+      setCompensationExtraction(data);
+      clearedFailure("compensation");
+    },
     onError: (error) => toast(messageFor(error)),
   });
   const extractAssessment = useMutation({
     mutationFn: () => positionApi.extractAssessment(projectId),
-    onSuccess: setAssessmentExtraction,
+    onSuccess: (data) => {
+      setAssessmentExtraction(data);
+      clearedFailure("assessment");
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  const extractionSetters: Record<ExtractionSectionKey, (data: PositionExtraction) => void> = {
+    details: setDetailsExtraction,
+    context: setContextExtraction,
+    reporting: setReportingExtraction,
+    compensation: setCompensationExtraction,
+    assessment: setAssessmentExtraction,
+  };
+
+  // The five endpoints, called directly through the namespaced `positionApi` import so each one
+  // stays independently mockable in tests — the same seam every other mutation below already goes
+  // through, rather than a positionApi-level helper that would close over the real implementations
+  // regardless of what a test replaces the named exports with.
+  const extractionSections: { key: ExtractionSectionKey; run: () => Promise<PositionExtraction> }[] = [
+    { key: "details", run: () => positionApi.extractDetails(projectId) },
+    { key: "context", run: () => positionApi.extractContext(projectId) },
+    { key: "reporting", run: () => positionApi.extractReporting(projectId) },
+    { key: "compensation", run: () => positionApi.extractCompensation(projectId) },
+    { key: "assessment", run: () => positionApi.extractAssessment(projectId) },
+  ];
+
+  /**
+   * "Read the whole document": fans out all five section reads and settles them independently
+   * (`Promise.allSettled`, not `Promise.all`) so one section's own failure never clears — or blocks
+   * rendering — the other four. A fresh run replaces every section's proposals and failures rather
+   * than merging with whatever a previous run left.
+   */
+  const extractAll = useMutation({
+    mutationFn: async () => {
+      const settled = await Promise.allSettled(extractionSections.map((section) => section.run()));
+      return settled.map((result, index) => ({ section: extractionSections[index].key, result }));
+    },
+    onSuccess: (results) => {
+      const failures: Partial<Record<ExtractionSectionKey, unknown>> = {};
+      for (const { section, result } of results) {
+        if (result.status === "fulfilled") {
+          extractionSetters[section](result.value);
+        } else {
+          failures[section] = result.reason;
+        }
+      }
+      setExtractionFailures(failures);
+    },
     onError: (error) => toast(messageFor(error)),
   });
 
@@ -835,6 +913,16 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   };
   const step = POSITION_STEPS[stepIndexOf(currentStep)];
 
+  // Badge counts for the rail: each slot already drops a row the moment it is accepted or
+  // dismissed, so its length is already "how many are still unaccepted" with no extra bookkeeping.
+  const proposalCounts: Partial<Record<StepKey, number>> = {
+    details: detailsExtraction?.fields.length,
+    context: contextExtraction?.fields.length,
+    reporting: reportingExtraction?.fields.length,
+    compensation: compensationExtraction?.fields.length,
+    assessment: assessmentExtraction?.fields.length,
+  };
+
   return (
     <div className="animate-fade-up">
       <div className="mb-[18px] flex items-center justify-end gap-2">
@@ -891,16 +979,19 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               applyingTemplate={applyTemplate.isPending}
               uploading={attachDocument.isPending || removeDocument.isPending}
               extraction={detailsExtraction}
-              extracting={extractDetails.isPending}
+              extracting={extractAll.isPending}
+              extractionError={extractionFailures.details}
               onDownload={() => downloadDocument.mutate()}
               onChange={changeDetails}
               onPickTemplate={(template) => applyTemplate.mutate(template)}
               onAttachDocument={(file) => attachDocument.mutate(file)}
               onRemoveDocument={() => removeDocument.mutate()}
-              onExtract={() => extractDetails.mutate()}
+              onExtract={() => extractAll.mutate()}
               onAcceptProposal={acceptDetailsProposal}
               onDismissProposal={removeDetailsProposal}
               onAcceptAllProposals={acceptAllDetailsProposals}
+              onApplySuggestedTemplate={(template) => applyTemplate.mutate(template)}
+              applyingSuggestedTemplate={applyTemplate.isPending}
             />
           )}
           {currentStep === "context" && (
@@ -909,6 +1000,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               document={drafted.document}
               extraction={contextExtraction}
               extracting={extractContext.isPending}
+              extractionError={extractionFailures.context}
               onChange={changeContext}
               onExtract={() => extractContext.mutate()}
               onAcceptProposal={acceptContextProposal}
@@ -924,6 +1016,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               document={drafted.document}
               extraction={reportingExtraction}
               extracting={extractReporting.isPending}
+              extractionError={extractionFailures.reporting}
               onChange={changeReporting}
               onExtract={() => extractReporting.mutate()}
               onAcceptProposal={acceptReportingProposal}
@@ -937,6 +1030,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               document={drafted.document}
               extraction={compensationExtraction}
               extracting={extractCompensation.isPending}
+              extractionError={extractionFailures.compensation}
               onChange={changeCompensation}
               onExtract={() => extractCompensation.mutate()}
               onAcceptProposal={acceptCompensationProposal}
@@ -953,6 +1047,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               document={drafted.document}
               extraction={assessmentExtraction}
               extracting={extractAssessment.isPending}
+              extractionError={extractionFailures.assessment}
               onCriteria={changeCriteria}
               onPanel={changePanel}
               onToggleLock={(id) => setLockedCompetencies((current) => toggle(current, id))}
@@ -993,6 +1088,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
           onEditPosition={editPosition}
           editing={editingPublished}
           publishing={publish.isPending}
+          proposalCounts={proposalCounts}
         />
       </div>
     </div>

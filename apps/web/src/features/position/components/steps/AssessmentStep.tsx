@@ -16,6 +16,7 @@ export function AssessmentStep({
   document,
   extraction,
   extracting,
+  extractionError,
   onCriteria,
   onPanel,
   onToggleLock,
@@ -32,6 +33,7 @@ export function AssessmentStep({
   document: PositionDocument | null;
   extraction: PositionExtraction | null;
   extracting: boolean;
+  extractionError?: unknown;
   onCriteria: (criteria: Criterion[]) => void;
   onPanel: (panel: CompetencyPanelKey) => (rows: IdentifiedCompetency[]) => void;
   onToggleLock: (id: string) => void;
@@ -47,6 +49,7 @@ export function AssessmentStep({
         positionDocument={document}
         extraction={extraction}
         extracting={extracting}
+        error={extractionError}
         onExtract={onExtract}
         onAcceptProposal={onAcceptProposal}
         onDismissProposal={onDismissProposal}

@@ -19,8 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
  * principal and the repository answers with the shared library plus that workspace's own, so a
  * template id arriving in a request body can only resolve to something the caller may see.
  *
- * <p>Only {@link #list} is public; resolving an entity is for this package's own seeding and apply
- * paths.
+ * <p>{@link #list} and {@link #suggestFor} are the two public reads; resolving an entity is for this
+ * package's own seeding and apply paths.
  */
 @Service
 @RequiredArgsConstructor
@@ -41,6 +41,17 @@ public class PositionTemplateService {
         return templates.findAllVisibleTo(workspaceId).stream()
                 .map(PositionTemplateSummary::of)
                 .toList();
+    }
+
+    /**
+     * The workspace's matching brief template for a role title, offered as a whole-brief opt-in
+     * rather than applied. No generic fallback, unlike {@link #matching}: an unrecognised title
+     * suggests nothing rather than silently suggesting generic-executive as though it were a real
+     * match.
+     */
+    @Transactional(readOnly = true)
+    public Optional<PositionTemplateSummary> suggestFor(UUID workspaceId, String roleTitle) {
+        return matchingByTitle(workspaceId, roleTitle).map(PositionTemplateSummary::of);
     }
 
     PositionTemplate require(UUID workspaceId, UUID templateId) {

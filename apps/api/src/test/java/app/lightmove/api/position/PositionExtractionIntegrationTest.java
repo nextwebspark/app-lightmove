@@ -79,6 +79,42 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
         JsonNode brief = readBrief(admin, projectId);
         assertThat(brief.get("details").get("roleTitle").asText()).isEqualTo("CFO");
         assertThat(brief.get("details").get("location").asText()).isEqualTo("United Arab Emirates");
+
+        // "General Manager" matches no seeded template keyword, so the suggestion stays silent
+        // rather than offering the generic-executive fallback as though it were a real match.
+        assertThat(response.get("suggestedTemplate").isNull()).isTrue();
+    }
+
+    @Test
+    @DisplayName("a document whose title header matches a template keyword suggests that template")
+    void suggestsTheMatchingTemplateFromTheExtractedTitle() throws Exception {
+        // None of the four real sample documents heuristically yield a title that also matches a
+        // seeded keyword: the CFO brochure is narrative rather than a key-value header (only a live
+        // model call reads a title out of it, and this suite runs on StubChatModel — see the class
+        // doc), and the GM-IT/JD_CEO fixtures' own titles ("General Manager", "CEO" without the
+        // clean header shape HeuristicBriefReader's rule needs) match nothing or nothing reliably.
+        // A minimal plain-text fixture with an explicit "Job Title:" header proves the new wiring —
+        // suggestedTemplateFor's use of the proposed roleTitle — end to end with no model call.
+        String admin = adminOf("Suggestion Firm");
+        String projectId = createProject(admin, createClient(admin, "Meridian Holdings", "UAE"), "CFO");
+        attach(admin, projectId, new MockMultipartFile("file", "brief.txt", "text/plain",
+                        ("Job Title: Chief Financial Officer\n"
+                                + "Department: Finance\n"
+                                + "Location: Dubai, UAE\n").getBytes()))
+                .andExpect(status().isOk());
+
+        JsonNode response = body(mvc.perform(post(extractUrl(projectId))
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        JsonNode roleTitle = fieldNamed(response.get("fields"), "roleTitle");
+        assertThat(roleTitle).isNotNull();
+        assertThat(roleTitle.get("value").asText()).isEqualTo("Chief Financial Officer");
+
+        JsonNode suggested = response.get("suggestedTemplate");
+        assertThat(suggested.isNull()).isFalse();
+        assertThat(suggested.get("code").asText()).isEqualTo("chief-financial-officer");
     }
 
     @Test
