@@ -29,8 +29,10 @@ export function ReportingStructureStep({
   document,
   extraction,
   extracting,
+  extractionError,
   onChange,
   onExtract,
+  onRetryExtract,
   onAcceptProposal,
   onDismissProposal,
   onAcceptAllProposals,
@@ -41,8 +43,10 @@ export function ReportingStructureStep({
   document: PositionDocument | null;
   extraction: PositionExtraction | null;
   extracting: boolean;
+  extractionError: string | null;
   onChange: (patch: Partial<ReportingStructure>, immediate?: boolean) => void;
   onExtract: () => void;
+  onRetryExtract: () => void;
   onAcceptProposal: (field: ProposedField, value: string) => void;
   onDismissProposal: (field: ProposedField) => void;
   onAcceptAllProposals: () => void;
@@ -75,9 +79,12 @@ export function ReportingStructureStep({
             Attach a position description on the Details step to read this step from it.
           </span>
         )}
-        {extraction && (
+        {(extraction || extractionError) && (
           <PositionExtractionPanel
             extraction={extraction}
+            error={extractionError}
+            onRetry={onRetryExtract}
+            retrying={extracting}
             onAccept={onAcceptProposal}
             onDismiss={onDismissProposal}
             onAcceptAll={onAcceptAllProposals}

@@ -137,6 +137,28 @@ export function extractReporting(projectId: string): Promise<PositionExtraction>
   return request<PositionExtraction>(`${base(projectId)}/document/extract/reporting`, { method: "POST" });
 }
 
+/** One key per step that has an extraction call — every {@link StepKey} except `"review"`. */
+export type ExtractionSectionKey = "details" | "context" | "reporting" | "compensation" | "assessment";
+
+export type ExtractAllResult = Record<ExtractionSectionKey, PromiseSettledResult<PositionExtraction>>;
+
+/**
+ * "Read the whole document" — fires the five section calls in parallel and settles them
+ * independently. `Promise.allSettled`, never `Promise.all`: one section timing out or hitting its own
+ * budget must not take the other four down with it, so a caller reads each key of the result on its
+ * own rather than treating this call itself as capable of rejecting.
+ */
+export async function extractAll(projectId: string): Promise<ExtractAllResult> {
+  const [details, context, reporting, compensation, assessment] = await Promise.allSettled([
+    extractDetails(projectId),
+    extractContext(projectId),
+    extractReporting(projectId),
+    extractCompensation(projectId),
+    extractAssessment(projectId),
+  ]);
+  return { details, context, reporting, compensation, assessment };
+}
+
 /**
  * Fetches the stored position description and hands it to the browser to save.
  *

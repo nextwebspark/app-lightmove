@@ -117,7 +117,8 @@ export function PositionDocumentDropzone({
       {extracting && (
         <span className="mt-2.5 flex items-center gap-[7px] font-mono text-[11.5px] text-text3">
           <Spinner />
-          Parsing document and extracting details…
+          Reading the document — details, mandate context, reporting line, compensation and
+          assessment criteria…
         </span>
       )}
     </div>

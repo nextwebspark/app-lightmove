@@ -19,16 +19,27 @@ import {
  *
  * Rows are matched back to the caller's state by object identity, never by array index — dismissing or
  * accepting one row must not shift which row a still-open disclosure belongs to.
+ *
+ * `extraction` is nullable for one reason: a section this step's own call (or "Read the whole
+ * document"'s fan-out) failed to reach. That case renders neither the empty state nor a field list —
+ * just `error` and a retry — so a failed section never looks like a silent, empty success next to its
+ * four working siblings.
  */
 export function PositionExtractionPanel({
   extraction,
+  error,
+  onRetry,
+  retrying = false,
   onAccept,
   onDismiss,
   onAcceptAll,
   onApplySuggestedTemplate,
   applyingSuggestedTemplate = false,
 }: {
-  extraction: PositionExtraction;
+  extraction: PositionExtraction | null;
+  error: string | null;
+  onRetry: () => void;
+  retrying?: boolean;
   onAccept: (field: ProposedField, value: string) => void;
   onDismiss: (field: ProposedField) => void;
   onAcceptAll: () => void;
@@ -39,6 +50,26 @@ export function PositionExtractionPanel({
   onApplySuggestedTemplate?: (template: PositionTemplate) => void;
   applyingSuggestedTemplate?: boolean;
 }) {
+  if (!extraction) {
+    return (
+      <div className="flex flex-col gap-2 rounded-[10px] border border-amber/60 bg-amber-dim px-[15px] py-[13px]">
+        <div className="flex items-center gap-1.5 font-mono text-[11.5px] text-amber">
+          <Icon d={ICONS.warning} size={13} className="shrink-0" />
+          {error}
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onRetry}
+          loading={retrying}
+          className="w-fit px-2.5 py-1.5 text-[11.5px]"
+        >
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   const suggestion = extraction.suggestedTemplate && onApplySuggestedTemplate ? (
     <SuggestedTemplateOffer
       template={extraction.suggestedTemplate}

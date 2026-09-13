@@ -229,6 +229,12 @@ lightmove:
     rate-limit:
       # The import's column mapping is metered against shortlist-requests-per-minute, on a meter of
       # its own: one deliberate click either way, but a large import must not eat the shortlist.
+      #
+      # Position extraction's five section calls (details/context/reporting/compensation/assessment)
+      # are each metered against this same number too, each on a meter of its own (see
+      # LlmBudgetGuard's require*ExtractionBudget methods) — "Read the whole document" fires all five
+      # in parallel, so this is two full reads a minute per user, chosen deliberately rather than
+      # inherited by accident.
       enabled: ${LLM_RATE_LIMIT_ENABLED:true}
       shortlist-requests-per-minute: ${LLM_SHORTLIST_REQUESTS_PER_MINUTE:10}
       embed-requests-per-minute: ${LLM_EMBED_REQUESTS_PER_MINUTE:20}

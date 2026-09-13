@@ -17,11 +17,13 @@ export function AssessmentStep({
   document,
   extraction,
   extracting,
+  extractionError,
   onCriteria,
   onPanel,
   onToggleLock,
   onReorder,
   onExtract,
+  onRetryExtract,
   onAcceptProposal,
   onDismissProposal,
   onAcceptAllProposals,
@@ -33,11 +35,13 @@ export function AssessmentStep({
   document: PositionDocument | null;
   extraction: PositionExtraction | null;
   extracting: boolean;
+  extractionError: string | null;
   onCriteria: (criteria: Criterion[]) => void;
   onPanel: (panel: CompetencyPanelKey) => (rows: IdentifiedCompetency[]) => void;
   onToggleLock: (id: string) => void;
   onReorder: (panel: CompetencyPanelKey) => (fromId: string, toId: string) => void;
   onExtract: () => void;
+  onRetryExtract: () => void;
   onAcceptProposal: (field: ProposedField, value: string) => void;
   onDismissProposal: (field: ProposedField) => void;
   onAcceptAllProposals: () => void;
@@ -67,9 +71,12 @@ export function AssessmentStep({
             Attach a position description on the Details step to read this step from it.
           </span>
         )}
-        {extraction && (
+        {(extraction || extractionError) && (
           <PositionExtractionPanel
             extraction={extraction}
+            error={extractionError}
+            onRetry={onRetryExtract}
+            retrying={extracting}
             onAccept={onAcceptProposal}
             onDismiss={onDismissProposal}
             onAcceptAll={onAcceptAllProposals}

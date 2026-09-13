@@ -8,6 +8,7 @@ import { messageFor } from "../../../lib/errorCodes";
 import { useAutosave } from "../../../lib/useAutosave";
 import * as projectsApi from "../../projects/api/projectsApi";
 import * as positionApi from "../api/positionApi";
+import type { ExtractionSectionKey } from "../api/positionApi";
 import type {
   Benefit,
   BenefitFrequency,
@@ -116,6 +117,37 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const [reportingExtraction, setReportingExtraction] = useState<PositionExtraction | null>(null);
   const [compensationExtraction, setCompensationExtraction] = useState<PositionExtraction | null>(null);
   const [assessmentExtraction, setAssessmentExtraction] = useState<PositionExtraction | null>(null);
+  // A failed section's message, kept apart from a toast: the toast covers a standalone click, this is
+  // what "Read the whole document" leaves behind on the one step a person is not looking at, so its
+  // panel can show a retry rather than nothing.
+  const [extractionErrors, setExtractionErrors] = useState<Partial<Record<ExtractionSectionKey, string>>>(
+    {},
+  );
+  // What has already been turned into a field this session, by `fieldKey + accepted value` rather than
+  // `fieldKey` alone — a repeatable proposal (a responsibility, a benefit, a direct report) shares one
+  // fieldKey across many rows, so keying on the value too is what stops accepting one from silently
+  // suppressing the rest. Re-reading the same document must not re-propose what is already on the brief.
+  const [acceptedSignatures, setAcceptedSignatures] = useState<
+    Record<ExtractionSectionKey, ReadonlySet<string>>
+  >({
+    details: new Set(),
+    context: new Set(),
+    reporting: new Set(),
+    compensation: new Set(),
+    assessment: new Set(),
+  });
+  const signatureOf = (fieldKey: string, value: string) => `${fieldKey}::${value}`;
+  const remember = (section: ExtractionSectionKey, fieldKey: string, value: string) =>
+    setAcceptedSignatures((current) => ({
+      ...current,
+      [section]: new Set(current[section]).add(signatureOf(fieldKey, value)),
+    }));
+  const withoutAccepted = (section: ExtractionSectionKey, extracted: PositionExtraction): PositionExtraction => ({
+    ...extracted,
+    fields: extracted.fields.filter(
+      (field) => !acceptedSignatures[section].has(signatureOf(field.fieldKey, field.value)),
+    ),
+  });
 
   // The picker's options. A failed read leaves the type-ahead with nothing to offer, which is the
   // right degradation: the title is free text and stays typeable.
@@ -340,17 +372,30 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     toast("Changes published");
   };
 
+  // A proposal (or a failed attempt at one) against a document that has just been replaced is
+  // confusing, so none of it survives on any step, including which values this session had already
+  // accepted — a new document earns a clean read.
+  const clearExtractionState = () => {
+    setExtraction(null);
+    setContextExtraction(null);
+    setReportingExtraction(null);
+    setCompensationExtraction(null);
+    setAssessmentExtraction(null);
+    setExtractionErrors({});
+    setAcceptedSignatures({
+      details: new Set(),
+      context: new Set(),
+      reporting: new Set(),
+      compensation: new Set(),
+      assessment: new Set(),
+    });
+  };
+
   const attachDocument = useMutation({
     mutationFn: (file: File) => positionApi.attachDocument(projectId, file),
-    // A proposal against a document that has just been replaced is confusing, so it does not survive
-    // on any step.
     onSuccess: (saved) => {
       queryClient.setQueryData(key, saved);
-      setExtraction(null);
-      setContextExtraction(null);
-      setReportingExtraction(null);
-      setCompensationExtraction(null);
-      setAssessmentExtraction(null);
+      clearExtractionState();
     },
     onError: (error) => toast(messageFor(error)),
   });
@@ -358,11 +403,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     mutationFn: () => positionApi.removeDocument(projectId),
     onSuccess: (saved) => {
       queryClient.setQueryData(key, saved);
-      setExtraction(null);
-      setContextExtraction(null);
-      setReportingExtraction(null);
-      setCompensationExtraction(null);
-      setAssessmentExtraction(null);
+      clearExtractionState();
     },
     onError: (error) => toast(messageFor(error)),
   });
@@ -371,30 +412,82 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       positionApi.saveDocument(projectId, position.document?.fileName ?? "position-description"),
     onError: (error) => toast(messageFor(error)),
   });
+  /**
+   * One section's outcome, applied the same way whether it came from its own standalone click or from
+   * one branch of `extractAll`'s fan-out: a success is filtered against what this session has already
+   * accepted and clears any earlier failure; a failure leaves the existing proposals (if any) standing
+   * and records the message for that section's panel to show as a retry, never a whole-page failure.
+   */
+  const sectionSetters: Record<ExtractionSectionKey, (extraction: PositionExtraction | null) => void> = {
+    details: setExtraction,
+    context: setContextExtraction,
+    reporting: setReportingExtraction,
+    compensation: setCompensationExtraction,
+    assessment: setAssessmentExtraction,
+  };
+  const applySectionSuccess = (section: ExtractionSectionKey, extracted: PositionExtraction) => {
+    sectionSetters[section](withoutAccepted(section, extracted));
+    setExtractionErrors((current) => ({ ...current, [section]: undefined }));
+  };
+  const applySectionFailure = (section: ExtractionSectionKey, error: unknown) => {
+    setExtractionErrors((current) => ({ ...current, [section]: messageFor(error) }));
+  };
+
   const extractDetails = useMutation({
     mutationFn: () => positionApi.extractDetails(projectId),
-    onSuccess: setExtraction,
-    onError: (error) => toast(messageFor(error)),
+    onSuccess: (extracted) => applySectionSuccess("details", extracted),
+    onError: (error) => {
+      applySectionFailure("details", error);
+      toast(messageFor(error));
+    },
   });
   const extractContext = useMutation({
     mutationFn: () => positionApi.extractContext(projectId),
-    onSuccess: setContextExtraction,
-    onError: (error) => toast(messageFor(error)),
+    onSuccess: (extracted) => applySectionSuccess("context", extracted),
+    onError: (error) => {
+      applySectionFailure("context", error);
+      toast(messageFor(error));
+    },
   });
   const extractReporting = useMutation({
     mutationFn: () => positionApi.extractReporting(projectId),
-    onSuccess: setReportingExtraction,
-    onError: (error) => toast(messageFor(error)),
+    onSuccess: (extracted) => applySectionSuccess("reporting", extracted),
+    onError: (error) => {
+      applySectionFailure("reporting", error);
+      toast(messageFor(error));
+    },
   });
   const extractCompensation = useMutation({
     mutationFn: () => positionApi.extractCompensation(projectId),
-    onSuccess: setCompensationExtraction,
-    onError: (error) => toast(messageFor(error)),
+    onSuccess: (extracted) => applySectionSuccess("compensation", extracted),
+    onError: (error) => {
+      applySectionFailure("compensation", error);
+      toast(messageFor(error));
+    },
   });
   const extractAssessment = useMutation({
     mutationFn: () => positionApi.extractAssessment(projectId),
-    onSuccess: setAssessmentExtraction,
-    onError: (error) => toast(messageFor(error)),
+    onSuccess: (extracted) => applySectionSuccess("assessment", extracted),
+    onError: (error) => {
+      applySectionFailure("assessment", error);
+      toast(messageFor(error));
+    },
+  });
+
+  /**
+   * "Read from document" on step one: the whole document in one click. Each of the five sections
+   * settles independently (`positionApi.extractAll`'s own `Promise.allSettled`), so one timing out
+   * leaves the other four's proposals in place — this never rejects itself.
+   */
+  const extractAllMutation = useMutation({
+    mutationFn: () => positionApi.extractAll(projectId),
+    onSuccess: (result) => {
+      for (const section of Object.keys(result) as ExtractionSectionKey[]) {
+        const settled = result[section];
+        if (settled.status === "fulfilled") applySectionSuccess(section, settled.value);
+        else applySectionFailure(section, settled.reason);
+      }
+    },
   });
 
   /** Removed by object identity, never by index — a row's identity must not shift under a disclosure
@@ -430,6 +523,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     // other field stays on the ordinary debounce a typed edit would get.
     changeDetails(patchFor(field, value), field.fieldKey === "roleTitle");
     removeProposal(field);
+    remember("details", field.fieldKey, value);
   };
 
   const dismissProposal = (field: ProposedField) => removeProposal(field);
@@ -452,6 +546,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       { ...combined, responsibilities: [...details.responsibilities, ...responsibilities] },
       true,
     );
+    for (const field of extraction.fields) remember("details", field.fieldKey, field.value);
     setExtraction(null);
   };
 
@@ -488,6 +583,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const acceptContextProposal = (field: ProposedField, value: string) => {
     changeContext(patchForContext(field, value));
     removeContextProposal(field);
+    remember("context", field.fieldKey, value);
   };
 
   const dismissContextProposal = (field: ProposedField) => removeContextProposal(field);
@@ -507,6 +603,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       { ...combined, strategicPriorities: mergePriorities(context.strategicPriorities, priorityNames) },
       true,
     );
+    for (const field of contextExtraction.fields) remember("context", field.fieldKey, field.value);
     setContextExtraction(null);
   };
 
@@ -550,6 +647,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     }
     changeReporting(patch, true);
     removeReportingProposal(field);
+    remember("reporting", field.fieldKey, value);
   };
 
   const dismissReportingProposal = (field: ProposedField) => removeReportingProposal(field);
@@ -565,6 +663,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     if (!reportingExtraction) return;
     let orgChart = reporting.orgChart;
     let cappedOut = false;
+    const applied: ProposedField[] = [];
 
     // applyReportsToTitle only ever returns the same reference back when it declined to mint a new
     // manager because the chart is already full — renaming an existing one always maps to a new array.
@@ -572,6 +671,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     if (reportsTo) {
       const next = applyReportsToTitle(orgChart, reportsTo.value);
       if (next === orgChart) cappedOut = true;
+      else applied.push(reportsTo);
       orgChart = next;
     }
     for (const field of reportingExtraction.fields) {
@@ -582,6 +682,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
         break;
       }
       orgChart = next;
+      applied.push(field);
     }
 
     const patch: Partial<ReportingStructure> = { orgChart };
@@ -589,8 +690,12 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       if (field.fieldKey === "teamSize") patch.teamSize = field.value;
       if (field.fieldKey === "noticeValue") patch.noticeValue = Number(field.value);
       if (field.fieldKey === "noticeUnit") patch.noticeUnit = field.value as ReportingStructure["noticeUnit"];
+      if (["teamSize", "noticeValue", "noticeUnit"].includes(field.fieldKey)) applied.push(field);
     }
     changeReporting(patch, true);
+    // Only what actually landed on the chart earns a "don't re-propose this" signature — a proposal
+    // dropped by the 60-seat cap is still worth surfacing next time there is room for it.
+    for (const field of applied) remember("reporting", field.fieldKey, field.value);
     setReportingExtraction(null);
     if (cappedOut) toast("The chart reached its 60-seat limit before every proposal could be applied.");
   };
@@ -646,6 +751,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const acceptCompensationProposal = (field: ProposedField, value: string) => {
     changeCompensation(patchForCompensation(field, value));
     removeCompensationProposal(field);
+    remember("compensation", field.fieldKey, value);
   };
 
   const dismissCompensationProposal = (field: ProposedField) => removeCompensationProposal(field);
@@ -665,6 +771,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       { ...combined, benefits: [...compensation.benefits, ...benefits] },
       true,
     );
+    for (const field of compensationExtraction.fields) remember("compensation", field.fieldKey, field.value);
     setCompensationExtraction(null);
   };
 
@@ -715,6 +822,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     if (patch.technical) changePanel("technical", true)(patch.technical);
     if (patch.behavioural) changePanel("behavioural", true)(patch.behavioural);
     removeAssessmentProposal(field);
+    remember("assessment", field.fieldKey, value);
   };
 
   const dismissAssessmentProposal = (field: ProposedField) => removeAssessmentProposal(field);
@@ -744,6 +852,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     if (newCriteria.length > 0) changeCriteria([...criteria, ...newCriteria]);
     if (newTechnical.length > 0) changePanel("technical", true)([...technical, ...newTechnical]);
     if (newBehavioural.length > 0) changePanel("behavioural", true)([...behavioural, ...newBehavioural]);
+    for (const field of assessmentExtraction.fields) remember("assessment", field.fieldKey, field.value);
     setAssessmentExtraction(null);
   };
 
@@ -826,13 +935,16 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               applyingTemplate={applyTemplate.isPending}
               uploading={attachDocument.isPending || removeDocument.isPending}
               extraction={extraction}
-              extracting={extractDetails.isPending}
+              extracting={extractAllMutation.isPending}
+              extractionError={extractionErrors.details ?? null}
+              retryingExtract={extractDetails.isPending}
               onDownload={() => downloadDocument.mutate()}
               onChange={changeDetails}
               onPickTemplate={(template) => applyTemplate.mutate(template)}
               onAttachDocument={(file) => attachDocument.mutate(file)}
               onRemoveDocument={() => removeDocument.mutate()}
-              onExtract={() => extractDetails.mutate()}
+              onExtract={() => extractAllMutation.mutate()}
+              onRetryExtract={() => extractDetails.mutate()}
               onAcceptProposal={acceptProposal}
               onDismissProposal={dismissProposal}
               onAcceptAllProposals={acceptAllProposals}
@@ -845,8 +957,10 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               document={drafted.document}
               extraction={contextExtraction}
               extracting={extractContext.isPending}
+              extractionError={extractionErrors.context ?? null}
               onChange={changeContext}
               onExtract={() => extractContext.mutate()}
+              onRetryExtract={() => extractContext.mutate()}
               onAcceptProposal={acceptContextProposal}
               onDismissProposal={dismissContextProposal}
               onAcceptAllProposals={acceptAllContextProposals}
@@ -860,8 +974,10 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               document={drafted.document}
               extraction={reportingExtraction}
               extracting={extractReporting.isPending}
+              extractionError={extractionErrors.reporting ?? null}
               onChange={changeReporting}
               onExtract={() => extractReporting.mutate()}
+              onRetryExtract={() => extractReporting.mutate()}
               onAcceptProposal={acceptReportingProposal}
               onDismissProposal={dismissReportingProposal}
               onAcceptAllProposals={acceptAllReportingProposals}
@@ -873,8 +989,10 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               document={drafted.document}
               extraction={compensationExtraction}
               extracting={extractCompensation.isPending}
+              extractionError={extractionErrors.compensation ?? null}
               onChange={changeCompensation}
               onExtract={() => extractCompensation.mutate()}
+              onRetryExtract={() => extractCompensation.mutate()}
               onAcceptProposal={acceptCompensationProposal}
               onDismissProposal={dismissCompensationProposal}
               onAcceptAllProposals={acceptAllCompensationProposals}
@@ -889,11 +1007,13 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               document={drafted.document}
               extraction={assessmentExtraction}
               extracting={extractAssessment.isPending}
+              extractionError={extractionErrors.assessment ?? null}
               onCriteria={changeCriteria}
               onPanel={changePanel}
               onToggleLock={(id) => setLockedCompetencies((current) => toggle(current, id))}
               onReorder={reorderPanel}
               onExtract={() => extractAssessment.mutate()}
+              onRetryExtract={() => extractAssessment.mutate()}
               onAcceptProposal={acceptAssessmentProposal}
               onDismissProposal={dismissAssessmentProposal}
               onAcceptAllProposals={acceptAllAssessmentProposals}
@@ -922,6 +1042,16 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
           position={drafted}
           currentStep={currentStep}
           furthestStep={furthestStep}
+          // Accepted and dismissed rows are already removed from each slot's `fields` array (see
+          // `removeProposal` and its four siblings), so its length already *is* the unaccepted count —
+          // nothing further to track.
+          unacceptedCounts={{
+            details: extraction?.fields.length ?? 0,
+            context: contextExtraction?.fields.length ?? 0,
+            reporting: reportingExtraction?.fields.length ?? 0,
+            compensation: compensationExtraction?.fields.length ?? 0,
+            assessment: assessmentExtraction?.fields.length ?? 0,
+          }}
           onSelectStep={selectStep}
           onPublish={publishNow}
           onSaveDraft={() => void saveDraft()}

@@ -15,6 +15,7 @@ export function StepRail({
   position,
   currentStep,
   furthestStep,
+  unacceptedCounts,
   onSelectStep,
   onPublish,
   onSaveDraft,
@@ -27,6 +28,8 @@ export function StepRail({
   currentStep: StepKey;
   /** The furthest step reached: nothing beyond it is reported done. */
   furthestStep: StepKey;
+  /** How many of "Read from document"'s proposals a step is still holding, unaccepted. */
+  unacceptedCounts: Partial<Record<StepKey, number>>;
   onSelectStep: (key: StepKey) => void;
   onPublish: () => void;
   onSaveDraft: () => void;
@@ -78,6 +81,7 @@ export function StepRail({
           const stepDone = done[index];
           const current = step.key === currentStep;
           const label = current && !readingBack ? "Editing" : stepDone ? "✓" : "";
+          const suggestionCount = unacceptedCounts[step.key] ?? 0;
           return (
             <li key={step.key}>
               <button
@@ -102,13 +106,20 @@ export function StepRail({
                   >
                     {index + 1}. {step.name}
                   </span>
-                  <span
-                    className={cn(
-                      "ms-auto whitespace-nowrap font-mono text-[10.5px] font-semibold",
-                      label === "Editing" ? "text-sky" : "text-green",
+                  <span className="ms-auto flex items-center gap-1.5">
+                    {suggestionCount > 0 && (
+                      <span className="whitespace-nowrap rounded-full border border-sky bg-sky-dim px-2 py-[1px] font-mono text-[10px] font-semibold text-sky">
+                        {suggestionCount} suggestion{suggestionCount === 1 ? "" : "s"}
+                      </span>
                     )}
-                  >
-                    {label}
+                    <span
+                      className={cn(
+                        "whitespace-nowrap font-mono text-[10.5px] font-semibold",
+                        label === "Editing" ? "text-sky" : "text-green",
+                      )}
+                    >
+                      {label}
+                    </span>
                   </span>
                 </span>
                 <span

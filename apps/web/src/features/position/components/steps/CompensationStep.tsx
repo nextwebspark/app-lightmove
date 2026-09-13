@@ -35,8 +35,10 @@ export function CompensationStep({
   document,
   extraction,
   extracting,
+  extractionError,
   onChange,
   onExtract,
+  onRetryExtract,
   onAcceptProposal,
   onDismissProposal,
   onAcceptAllProposals,
@@ -45,8 +47,10 @@ export function CompensationStep({
   document: PositionDocument | null;
   extraction: PositionExtraction | null;
   extracting: boolean;
+  extractionError: string | null;
   onChange: (patch: Partial<Compensation>, immediate?: boolean) => void;
   onExtract: () => void;
+  onRetryExtract: () => void;
   onAcceptProposal: (field: ProposedField, value: string) => void;
   onDismissProposal: (field: ProposedField) => void;
   onAcceptAllProposals: () => void;
@@ -95,9 +99,12 @@ export function CompensationStep({
             Attach a position description on the Details step to read this step from it.
           </span>
         )}
-        {extraction && (
+        {(extraction || extractionError) && (
           <PositionExtractionPanel
             extraction={extraction}
+            error={extractionError}
+            onRetry={onRetryExtract}
+            retrying={extracting}
             onAccept={onAcceptProposal}
             onDismiss={onDismissProposal}
             onAcceptAll={onAcceptAllProposals}

@@ -6,8 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { AuthProvider } from "../../auth/AuthProvider";
 import * as authApi from "../../auth/api/authApi";
+import { ApiRequestError } from "../../../lib/apiClient";
 import type { Project } from "../../projects/api/types";
 import * as positionApi from "../api/positionApi";
+import type { ExtractAllResult, ExtractionSectionKey } from "../api/positionApi";
 import type { Position, PositionExtraction, PositionTemplate } from "../api/types";
 import { PositionPage } from "./PositionPage";
 
@@ -28,7 +30,10 @@ vi.mock("../api/positionApi", async (importOriginal) => ({
   applyTemplate: vi.fn(),
   extractDetails: vi.fn(),
   extractContext: vi.fn(),
+  extractReporting: vi.fn(),
   extractCompensation: vi.fn(),
+  extractAssessment: vi.fn(),
+  extractAll: vi.fn(),
 }));
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
@@ -176,6 +181,32 @@ const redrafted: Position = {
     behavioural: [{ name: "Independence & Objectivity", description: null, weight: 100 }],
   },
 };
+
+const emptyExtraction: PositionExtraction = { extractionSource: "documentHeadings", fields: [] };
+
+/**
+ * A full `extractAll` result, every section fulfilled-empty by default: the fan-out mutation reads
+ * all five keys, so a test focused on one section still has to hand back something for the other four.
+ * Override just the sections a test cares about, as a fulfilled extraction or a rejected error.
+ */
+function fanOut(
+  overrides: Partial<Record<ExtractionSectionKey, PositionExtraction | Error>>,
+): ExtractAllResult {
+  const sections: ExtractionSectionKey[] = [
+    "details",
+    "context",
+    "reporting",
+    "compensation",
+    "assessment",
+  ];
+  return Object.fromEntries(
+    sections.map((section) => {
+      const override = overrides[section];
+      if (override instanceof Error) return [section, { status: "rejected", reason: override }];
+      return [section, { status: "fulfilled", value: override ?? emptyExtraction }];
+    }),
+  ) as ExtractAllResult;
+}
 
 /** Where the wizard navigated to, for the step that leaves the screen entirely. */
 function Whereabouts() {
@@ -547,7 +578,7 @@ describe("PositionPage", () => {
         },
       ],
     };
-    vi.mocked(positionApi.extractDetails).mockResolvedValue(extracted);
+    vi.mocked(positionApi.extractAll).mockResolvedValue(fanOut({ details: extracted }));
     vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
     renderPage();
     const user = userEvent.setup();
@@ -579,7 +610,7 @@ describe("PositionPage", () => {
         { fieldKey: "department", value: "Group Finance & Treasury", confidence: "low", snippet: null },
       ],
     };
-    vi.mocked(positionApi.extractDetails).mockResolvedValue(extracted);
+    vi.mocked(positionApi.extractAll).mockResolvedValue(fanOut({ details: extracted }));
     vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
     renderPage();
     const user = userEvent.setup();
@@ -687,9 +718,11 @@ describe("PositionPage", () => {
       fields: [],
       suggestedTemplate: null,
     };
-    vi.mocked(positionApi.extractDetails)
-      .mockResolvedValueOnce(firstExtraction)
-      .mockResolvedValueOnce(rereadAfterTemplate);
+    // The initial click is the whole-document fan-out; the re-read after applying the template is
+    // `applySuggestedTemplate`'s own follow-up call, which goes through the single-section mutation
+    // directly rather than through another fan-out.
+    vi.mocked(positionApi.extractAll).mockResolvedValue(fanOut({ details: firstExtraction }));
+    vi.mocked(positionApi.extractDetails).mockResolvedValueOnce(rereadAfterTemplate);
     vi.mocked(positionApi.applyTemplate).mockResolvedValue(redrafted);
     vi.mocked(positionApi.putDetails).mockResolvedValue(redrafted);
     renderPage();
@@ -838,5 +871,141 @@ describe("PositionPage", () => {
         }),
       ),
     );
+  });
+
+  describe("reading the whole document in one click", () => {
+    const withDocument: Position = {
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    };
+
+    it("populates a badge on every step that got a proposal, and clears it once accepted", async () => {
+      vi.mocked(positionApi.getPosition).mockResolvedValue(withDocument);
+      const detailsExtraction: PositionExtraction = {
+        extractionSource: "model",
+        fields: [{ fieldKey: "narrative", value: "A steady hand.", confidence: "high", snippet: null }],
+      };
+      const contextExtraction: PositionExtraction = {
+        extractionSource: "model",
+        fields: [
+          { fieldKey: "businessDriver", value: "Board wants a public listing.", confidence: "high", snippet: null },
+        ],
+      };
+      vi.mocked(positionApi.extractAll).mockResolvedValue(
+        fanOut({ details: detailsExtraction, context: contextExtraction }),
+      );
+      vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
+      renderPage();
+      const user = userEvent.setup();
+
+      await user.click(await screen.findByRole("button", { name: "Read from document" }));
+      await screen.findByDisplayValue("A steady hand.");
+
+      const rail = screen.getByRole("complementary");
+      expect(within(rail).getByRole("button", { name: /Position details/ })).toHaveTextContent(
+        "1 suggestion",
+      );
+      expect(within(rail).getByRole("button", { name: /Mandate context/ })).toHaveTextContent(
+        "1 suggestion",
+      );
+      // Nothing came back for these three, so nothing nags.
+      expect(within(rail).getByRole("button", { name: /Reporting/ })).not.toHaveTextContent(
+        "suggestion",
+      );
+
+      await user.click(screen.getByRole("button", { name: /Accept$/ }));
+      expect(within(rail).getByRole("button", { name: /Position details/ })).not.toHaveTextContent(
+        "suggestion",
+      );
+      // The other section's badge is untouched by accepting this one.
+      expect(within(rail).getByRole("button", { name: /Mandate context/ })).toHaveTextContent(
+        "1 suggestion",
+      );
+    });
+
+    it("leaves the other sections' proposals standing when one section fails, and retries only that one", async () => {
+      vi.mocked(positionApi.getPosition).mockResolvedValue(withDocument);
+      const detailsExtraction: PositionExtraction = {
+        extractionSource: "model",
+        fields: [{ fieldKey: "narrative", value: "A steady hand.", confidence: "high", snippet: null }],
+      };
+      vi.mocked(positionApi.extractAll).mockResolvedValue(
+        fanOut({
+          details: detailsExtraction,
+          compensation: new ApiRequestError({
+            code: "RATE_LIMITED",
+            detail: "Too many requests",
+            status: 429,
+            correlationId: "abc",
+          }),
+        }),
+      );
+      renderPage();
+      const user = userEvent.setup();
+
+      await user.click(await screen.findByRole("button", { name: "Read from document" }));
+      // The section that came back fine is rendered, untouched by the sibling that failed.
+      expect(await screen.findByDisplayValue("A steady hand.")).toBeInTheDocument();
+
+      const rail = screen.getByRole("complementary");
+      await user.click(within(rail).getByRole("button", { name: /Compensation/ }));
+
+      // A rate-limit hit reads as a rate-limit message, not a generic failure — and there is no field
+      // list or empty-state line for a section that never came back.
+      expect(await screen.findByText("Too many requests — slow down a little.")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Accept$/ })).not.toBeInTheDocument();
+      expect(screen.queryByText(/nothing was found to propose/)).not.toBeInTheDocument();
+
+      // Mock call counts accumulate across this file's tests, so the assertion below reads the delta
+      // this one click made rather than an absolute count.
+      const compensationCallsBeforeRetry = vi.mocked(positionApi.extractCompensation).mock.calls.length;
+      const fanOutCallsBeforeRetry = vi.mocked(positionApi.extractAll).mock.calls.length;
+      vi.mocked(positionApi.extractCompensation).mockResolvedValue(emptyExtraction);
+      await user.click(screen.getByRole("button", { name: "Retry" }));
+
+      // Retrying one section re-issues only that section's own call — never another whole-document
+      // fan-out, and never a call to any of the other four sections' endpoints.
+      await waitFor(() =>
+        expect(vi.mocked(positionApi.extractCompensation).mock.calls.length).toBe(
+          compensationCallsBeforeRetry + 1,
+        ),
+      );
+      expect(vi.mocked(positionApi.extractAll).mock.calls.length).toBe(fanOutCallsBeforeRetry);
+      expect(await screen.findByText(/nothing was found to propose/)).toBeInTheDocument();
+
+      // The section that succeeded the first time round is still exactly as it was.
+      await user.click(within(rail).getByRole("button", { name: /Position details/ }));
+      expect(screen.getByDisplayValue("A steady hand.")).toBeInTheDocument();
+    });
+
+    it("does not re-propose a field this session already accepted", async () => {
+      vi.mocked(positionApi.getPosition).mockResolvedValue(withDocument);
+      const extracted: PositionExtraction = {
+        extractionSource: "model",
+        fields: [{ fieldKey: "narrative", value: "A steady hand.", confidence: "high", snippet: null }],
+      };
+      vi.mocked(positionApi.extractAll).mockResolvedValue(fanOut({ details: extracted }));
+      vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
+      renderPage();
+      const user = userEvent.setup();
+
+      await user.click(await screen.findByRole("button", { name: "Read from document" }));
+      await user.click(await screen.findByRole("button", { name: /Accept$/ }));
+      await waitFor(() => expect(positionApi.putDetails).toHaveBeenCalled());
+      const fanOutCallsBeforeSecondRead = vi.mocked(positionApi.extractAll).mock.calls.length;
+
+      // The document has not changed, so a second read still turns up the very same field and value —
+      // it must not come back looking untouched.
+      await user.click(screen.getByRole("button", { name: "Read from document" }));
+      await waitFor(() =>
+        expect(vi.mocked(positionApi.extractAll).mock.calls.length).toBe(fanOutCallsBeforeSecondRead + 1),
+      );
+      expect(await screen.findByText(/nothing was found to propose/)).toBeInTheDocument();
+    });
   });
 });

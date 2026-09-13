@@ -22,12 +22,15 @@ export function PositionDetailsStep({
   uploading,
   extraction,
   extracting,
+  extractionError,
+  retryingExtract,
   onDownload,
   onChange,
   onPickTemplate,
   onAttachDocument,
   onRemoveDocument,
   onExtract,
+  onRetryExtract,
   onAcceptProposal,
   onDismissProposal,
   onAcceptAllProposals,
@@ -39,13 +42,18 @@ export function PositionDetailsStep({
   applyingTemplate: boolean;
   uploading: boolean;
   extraction: PositionExtraction | null;
+  /** Whether "Read from document" — the whole-document fan-out — is in flight. */
   extracting: boolean;
+  extractionError: string | null;
+  /** Whether this section's own retry call, distinct from the fan-out, is in flight. */
+  retryingExtract: boolean;
   onDownload: () => void;
   onChange: (patch: Partial<PositionDetails>) => void;
   onPickTemplate: (template: PositionTemplate) => void;
   onAttachDocument: (file: File) => void;
   onRemoveDocument: () => void;
   onExtract: () => void;
+  onRetryExtract: () => void;
   onAcceptProposal: (field: ProposedField, value: string) => void;
   onDismissProposal: (field: ProposedField) => void;
   onAcceptAllProposals: () => void;
@@ -72,9 +80,12 @@ export function PositionDetailsStep({
         onExtract={onExtract}
       />
 
-      {extraction && (
+      {(extraction || extractionError) && (
         <PositionExtractionPanel
           extraction={extraction}
+          error={extractionError}
+          onRetry={onRetryExtract}
+          retrying={retryingExtract}
           onAccept={onAcceptProposal}
           onDismiss={onDismissProposal}
           onAcceptAll={onAcceptAllProposals}
