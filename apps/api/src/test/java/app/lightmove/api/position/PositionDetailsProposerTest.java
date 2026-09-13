@@ -14,11 +14,14 @@ import app.lightmove.api.core.config.LlmSettings;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.position.constant.ExtractionSource;
 import app.lightmove.api.position.constant.ProposalConfidence;
+import app.lightmove.api.position.constant.ProposalOrigin;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ProposedPositionDetails;
+import app.lightmove.api.position.service.ExtractedFieldReader;
 import app.lightmove.api.position.service.HeuristicBriefReader;
 import app.lightmove.api.position.service.PositionDetailsProposer;
 import app.lightmove.api.position.service.PositionDocumentRedactor;
+import app.lightmove.api.position.service.PositionTemplateService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +61,8 @@ class PositionDetailsProposerTest extends FlowTestSupport {
 
     @Autowired HeuristicBriefReader heuristics;
     @Autowired PositionDocumentRedactor redactor;
+    @Autowired PositionTemplateService templates;
+    @Autowired ExtractedFieldReader fieldReader;
 
     private static final String DOCUMENT_TEXT = """
             Company: Acme Holdings Group
@@ -156,9 +161,78 @@ class PositionDetailsProposerTest extends FlowTestSupport {
         ProposedPositionDetails proposed = proposerWith(model)
                 .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId());
 
-        assertThat(fieldNamed(proposed, "department")).isEmpty();
+        // The leaked placeholder never reaches the reviewer — whether department is now absent, or
+        // present because the "CFO" title's matched template backfilled it, the corrupted model value
+        // is gone either way.
+        Optional<ExtractedField> department = fieldNamed(proposed, "department");
+        assertThat(department.map(ExtractedField::value).orElse("")).doesNotContain("[[COMPANY_999]]");
         // The unaffected sibling field still lands.
         assertThat(valueOf(proposed, "roleTitle")).isEqualTo("CFO");
+    }
+
+    @Test
+    @DisplayName("a field neither the model nor the heuristic found is backfilled from the matched template")
+    void backfillsMissingFieldsFromTheMatchedTemplate() throws Exception {
+        Fixture f = fixture("Extraction Backfill Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"roleTitle":"Chief Financial Officer"}
+                """);
+
+        ProposedPositionDetails proposed = proposerWith(model)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId());
+
+        ExtractedField department = fieldNamed(proposed, "department").orElseThrow();
+        assertThat(department.value()).isEqualTo("Finance");
+        assertThat(department.origin()).isEqualTo(ProposalOrigin.TEMPLATE);
+        assertThat(department.confidence()).isEqualTo(ProposalConfidence.LOW);
+        assertThat(department.snippet()).isNull();
+
+        ExtractedField employmentType = fieldNamed(proposed, "employmentType").orElseThrow();
+        assertThat(employmentType.value()).isEqualTo("FULL_TIME_PERMANENT");
+        assertThat(employmentType.origin()).isEqualTo(ProposalOrigin.TEMPLATE);
+
+        ExtractedField narrative = fieldNamed(proposed, "narrative").orElseThrow();
+        assertThat(narrative.origin()).isEqualTo(ProposalOrigin.TEMPLATE);
+        assertThat(narrative.value()).isNotBlank();
+
+        List<ExtractedField> responsibilities = proposed.fields().stream()
+                .filter(field -> field.fieldKey().equals("responsibility")).toList();
+        assertThat(responsibilities).isNotEmpty();
+        responsibilities.forEach(field -> assertThat(field.origin()).isEqualTo(ProposalOrigin.TEMPLATE));
+    }
+
+    @Test
+    @DisplayName("a field the document already supplied is never overwritten by the template")
+    void neverOverwritesADocumentSourcedFieldWithTheTemplates() throws Exception {
+        Fixture f = fixture("Extraction No Overwrite Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"roleTitle":"Chief Financial Officer","department":"Group Treasury"}
+                """);
+
+        ProposedPositionDetails proposed = proposerWith(model)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId());
+
+        ExtractedField department = fieldNamed(proposed, "department").orElseThrow();
+        assertThat(department.value()).isEqualTo("Group Treasury");
+        assertThat(department.origin()).isEqualTo(ProposalOrigin.DOCUMENT);
+    }
+
+    @Test
+    @DisplayName("finding even one responsibility in the document keeps the template's own out")
+    void oneDocumentResponsibilityKeepsTheTemplatesOut() throws Exception {
+        Fixture f = fixture("Extraction Partial Responsibilities Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"roleTitle":"Chief Financial Officer",
+                 "responsibilities":[{"text":"Own the group's treasury function"}]}
+                """);
+
+        ProposedPositionDetails proposed = proposerWith(model)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId());
+
+        List<ExtractedField> responsibilities = proposed.fields().stream()
+                .filter(field -> field.fieldKey().equals("responsibility")).toList();
+        assertThat(responsibilities).hasSize(1);
+        assertThat(responsibilities.get(0).origin()).isEqualTo(ProposalOrigin.DOCUMENT);
     }
 
     @Test
@@ -207,15 +281,15 @@ class PositionDetailsProposerTest extends FlowTestSupport {
     private PositionDetailsProposer proposerWith(ChatModel model) {
         Resource prompt = new ClassPathResource("prompts/position-extract-details-system.st");
         Resource schema = new ClassPathResource("prompts/position-extract-details-schema.json");
-        return new PositionDetailsProposer(ChatClient.builder(model).build(), heuristics, redactor,
-                prompt, schema, TestLlmCallPolicy.asShipped(), budgetGuard());
+        return new PositionDetailsProposer(ChatClient.builder(model).build(), heuristics, redactor, templates,
+                fieldReader, prompt, schema, TestLlmCallPolicy.asShipped(), budgetGuard());
     }
 
     /** A guard whose limiter always says yes: the budget is metered in {@code LlmBudgetGuard}'s own test. */
     private static LlmBudgetGuard budgetGuard() {
         return new LlmBudgetGuard((key, limit, window) -> true,
                 new LightMoveProperties(null, null, null, null, null,
-                        new LlmSettings(new LlmRateLimitSettings(true, 10, 20), 20_000, 1, List.of()),
+                        new LlmSettings(new LlmRateLimitSettings(true, 10, 20, 10), 20_000, 1, List.of()),
                         null, null, null, null, null, null));
     }
 

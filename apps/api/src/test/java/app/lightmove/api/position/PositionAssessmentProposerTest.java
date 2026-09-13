@@ -13,8 +13,11 @@ import app.lightmove.api.core.config.LlmRateLimitSettings;
 import app.lightmove.api.core.config.LlmSettings;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.position.constant.ExtractionSource;
+import app.lightmove.api.position.constant.ProposalConfidence;
+import app.lightmove.api.position.constant.ProposalOrigin;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ProposedAssessment;
+import app.lightmove.api.position.service.ExtractedFieldReader;
 import app.lightmove.api.position.service.PositionAssessmentProposer;
 import app.lightmove.api.position.service.PositionDocumentRedactor;
 import app.lightmove.api.position.service.PositionDocumentTextReader;
@@ -61,6 +64,7 @@ class PositionAssessmentProposerTest extends FlowTestSupport {
     @Autowired PositionDocumentRedactor redactor;
     @Autowired PositionDocumentTextReader textReader;
     @Autowired PositionTemplateService templates;
+    @Autowired ExtractedFieldReader fieldReader;
 
     private static final String DOCUMENT_TEXT = """
             Company: Acme Holdings Group
@@ -298,6 +302,100 @@ class PositionAssessmentProposerTest extends FlowTestSupport {
                 .isEqualTo("Financial Modelling — 0 — Builds and stress-tests the model");
     }
 
+    @Test
+    @DisplayName("a competency name containing the packing separator is dropped, never silently truncated")
+    void dropsACompetencyWhoseNameContainsThePackingSeparator() throws Exception {
+        Fixture f = fixture("Assessment Separator Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"criteria":[],"technical":[{"name":"Financial planning — advanced"}]}
+                """);
+
+        ProposedAssessment proposed = proposerWith(model)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId(), null);
+
+        assertThat(fieldNamed(proposed, "technicalCompetency")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("AC5 Priority 2: criteria the document said nothing about are backfilled from the "
+            + "matched template, each carrying the matched mode")
+    void backfillsCriteriaFromTheMatchedTemplateWhenTheModelFoundNone() throws Exception {
+        Fixture f = fixture("Assessment Criteria Backfill Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"criteria":[]}
+                """);
+
+        ProposedAssessment proposed = proposerWith(model)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId(), "CFO");
+
+        List<ExtractedField> required = fieldsNamed(proposed, "requiredCriterion");
+        List<ExtractedField> preferred = fieldsNamed(proposed, "preferredCriterion");
+        assertThat(required).hasSize(3);
+        assertThat(preferred).hasSize(1);
+        assertThat(required).allSatisfy(field -> {
+            assertThat(field.origin()).isEqualTo(ProposalOrigin.TEMPLATE);
+            assertThat(field.confidence()).isEqualTo(ProposalConfidence.LOW);
+            assertThat(field.snippet()).isNull();
+        });
+        assertThat(preferred.get(0).value())
+                .isEqualTo("Sector experience relevant to the client's core business");
+    }
+
+    @Test
+    @DisplayName("AC5 Priority 2: each competency panel is backfilled from the matched template "
+            + "independently, and a panel the document did answer is left alone")
+    void backfillsOnlyTheAbsentCompetencyPanel() throws Exception {
+        Fixture f = fixture("Assessment Competency Backfill Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"criteria":[{"text":"Some criterion the document itself named","mode":"REQUIRED"}],
+                 "behavioural":[{"name":"Own Behavioural Read","weight":"40"}]}
+                """);
+
+        ProposedAssessment proposed = proposerWith(model)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId(), "CFO");
+
+        assertThat(fieldsNamed(proposed, "requiredCriterion")).hasSize(1);
+        assertThat(fieldsNamed(proposed, "technicalCompetency")).hasSize(4)
+                .allSatisfy(field -> assertThat(field.origin()).isEqualTo(ProposalOrigin.TEMPLATE));
+        List<ExtractedField> behavioural = fieldsNamed(proposed, "behaviouralCompetency");
+        assertThat(behavioural).hasSize(1);
+        assertThat(behavioural.get(0).origin()).isEqualTo(ProposalOrigin.DOCUMENT);
+        assertThat(behavioural.get(0).value()).startsWith("Own Behavioural Read");
+    }
+
+    @Test
+    @DisplayName("AC5 Priority 1 beats Priority 2: a partial criteria list from the document is never "
+            + "topped up from the template")
+    void neverTopsUpAPartialCriteriaListFromTheTemplate() throws Exception {
+        Fixture f = fixture("Assessment No Top Up Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"criteria":[{"text":"The one thing this document said","mode":"REQUIRED"}]}
+                """);
+
+        ProposedAssessment proposed = proposerWith(model)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId(), "CFO");
+
+        assertThat(fieldsNamed(proposed, "requiredCriterion")).hasSize(1);
+        assertThat(fieldsNamed(proposed, "preferredCriterion")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("the controlled vocabulary is never the generic fallback template's — an unmatched "
+            + "title gets no vocabulary at all")
+    void vocabularyNeverFallsBackToTheGenericTemplate() throws Exception {
+        Fixture f = fixture("Assessment Vocabulary Fallback Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"criteria":[]}
+                """);
+
+        proposerWith(model).propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId(),
+                "Underwater Basket Weaving Specialist");
+
+        // "Functional Depth" is the generic-executive template's own competency name — matching() would
+        // offer it as the fallback, but the vocabulary must use the stricter title-only lookup.
+        assertThat(model.lastPrompt()).doesNotContain("Functional Depth");
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private String fixtureText(String fixtureName) throws Exception {
@@ -308,7 +406,7 @@ class PositionAssessmentProposerTest extends FlowTestSupport {
     private PositionAssessmentProposer proposerWith(ChatModel model) {
         Resource prompt = new ClassPathResource("prompts/position-extract-assessment-system.st");
         Resource schema = new ClassPathResource("prompts/position-extract-assessment-schema.json");
-        return new PositionAssessmentProposer(ChatClient.builder(model).build(), redactor, templates,
+        return new PositionAssessmentProposer(ChatClient.builder(model).build(), redactor, templates, fieldReader,
                 prompt, schema, TestLlmCallPolicy.asShipped(), budgetGuard());
     }
 
@@ -316,12 +414,16 @@ class PositionAssessmentProposerTest extends FlowTestSupport {
     private static LlmBudgetGuard budgetGuard() {
         return new LlmBudgetGuard((key, limit, window) -> true,
                 new LightMoveProperties(null, null, null, null, null,
-                        new LlmSettings(new LlmRateLimitSettings(true, 10, 20), 20_000, 1, List.of()),
+                        new LlmSettings(new LlmRateLimitSettings(true, 10, 20, 10), 20_000, 1, List.of()),
                         null, null, null, null, null, null));
     }
 
     private static Optional<ExtractedField> fieldNamed(ProposedAssessment proposed, String key) {
         return proposed.fields().stream().filter(field -> field.fieldKey().equals(key)).findFirst();
+    }
+
+    private static List<ExtractedField> fieldsNamed(ProposedAssessment proposed, String key) {
+        return proposed.fields().stream().filter(field -> field.fieldKey().equals(key)).toList();
     }
 
     private static String valueOf(ProposedAssessment proposed, String key) {

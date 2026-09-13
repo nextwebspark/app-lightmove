@@ -178,21 +178,33 @@ export interface Position {
   document: PositionDocument | null;
 }
 
-/** What produced a step-one proposal, and how far it is worth trusting. */
+/**
+ * What produced a proposal, and how far it is worth trusting. `"none"` is step two and step four's
+ * own — they have no heuristic fallback the way step one does, so a failed, blocked or unresolving
+ * model call has nothing else to try and lands here instead of a degraded reading.
+ */
 export type ExtractionSource = "model" | "documentHeadings" | "none";
 
 export type ProposalConfidence = "high" | "medium" | "low";
 
+/** Whether a proposed value came from the document itself, or — for a field the document said
+ * nothing about — from the matched role-title template. */
+export type ProposalOrigin = "document" | "template";
+
 /**
- * One proposed field from "Read from document". `fieldKey` is one of `PositionDetails`'s own keys, or
+ * One proposed field from "Read from document". `id` is a per-response sequence number — the stable
+ * identity a row is keyed and matched on, since two responsibility rows share `fieldKey` and array
+ * index shifts when a row is removed. `fieldKey` is one of `PositionDetails`'s own keys, or
  * `"responsibility"` — one row per responsibility line rather than a list, so each carries its own
  * snippet and can be accepted or dismissed on its own.
  */
 export interface ProposedField {
+  id: number;
   fieldKey: string;
   value: string;
   confidence: ProposalConfidence;
   snippet: string | null;
+  origin: ProposalOrigin;
 }
 
 /** A reading of the attached document's step-one fields. Writes nothing on its own. */

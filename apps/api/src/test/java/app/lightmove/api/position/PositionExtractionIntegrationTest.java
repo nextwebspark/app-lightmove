@@ -5,12 +5,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
-import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -102,12 +102,10 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
                                  "employmentType":null,"seniority":null,"responsibilities":[],
                                  "narrative":null}""".formatted(proposedTitle)))
                 .andExpect(status().isOk())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
-                        .jsonPath("$.details.roleTitle").value(proposedTitle));
+                .andExpect(jsonPath("$.details.roleTitle").value(proposedTitle));
 
         mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + admin))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
-                        .jsonPath("$[0].positionTitle").value(proposedTitle));
+                .andExpect(jsonPath("$[0].positionTitle").value(proposedTitle));
     }
 
     @Test
@@ -118,8 +116,7 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
 
         mvc.perform(post(extractUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isBadRequest())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
-                        .jsonPath("$.code").value("VALIDATION_FAILED"));
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
     }
 
     @Test
@@ -135,8 +132,7 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
 
         mvc.perform(post(extractUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isBadRequest())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
-                        .jsonPath("$.code").value("POSITION_DOCUMENT_UNREADABLE"));
+                .andExpect(jsonPath("$.code").value("POSITION_DOCUMENT_UNREADABLE"));
     }
 
     @Test
@@ -184,23 +180,19 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
         mvc.perform(post(positionUrl(projectId) + "/document/extract/context")
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
-                        .jsonPath("$.extractionSource").exists());
+                .andExpect(jsonPath("$.extractionSource").exists());
         mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
-                        .jsonPath("$.extractionSource").exists());
+                .andExpect(jsonPath("$.extractionSource").exists());
         mvc.perform(post(positionUrl(projectId) + "/document/extract/assessment")
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
-                        .jsonPath("$.extractionSource").exists());
+                .andExpect(jsonPath("$.extractionSource").exists());
         mvc.perform(post(positionUrl(projectId) + "/document/extract/reporting")
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
-                        .jsonPath("$.extractionSource").exists());
+                .andExpect(jsonPath("$.extractionSource").exists());
 
         assertThat(updatedAtOf(projectId)).isEqualTo(beforeUpdatedAt);
     }

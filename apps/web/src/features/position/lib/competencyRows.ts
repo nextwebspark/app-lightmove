@@ -25,20 +25,25 @@ export function forWire(rows: IdentifiedCompetency[]): Competency[] {
 }
 
 /**
- * Unpacks a proposed competency's `"<name> — <weight> — <description>"` value — the same em-dash
- * convention `PositionPage.tsx`'s `benefitFrom` uses for a benefit's name and frequency, extended to
- * a third attribute. `PositionAssessmentProposer` never proposes a description without also packing
- * a weight segment ahead of it (defaulting to "0" when the document gave it none), so the second
- * segment, when present, is always the weight — splitting on the separator and reading positionally
- * is unambiguous.
+ * The em-dash convention `PositionPage.tsx`'s `benefitFrom` also uses, for a benefit's name and
+ * frequency — one exported constant rather than the same three characters typed out in both files.
+ */
+export const PACK_SEPARATOR = " — ";
+
+/**
+ * Unpacks a proposed competency's `"<name> — <weight> — <description>"` value. `PositionAssessmentProposer`
+ * never proposes a description without also packing a weight segment ahead of it (defaulting to "0"
+ * when the document gave it none), and never proposes a name containing the separator itself, so the
+ * second segment, when present, is always the weight — splitting on the separator and reading
+ * positionally is unambiguous.
  */
 export function competencyFrom(value: string): Competency {
-  const [name = value, weightToken, ...rest] = value.split(" — ");
+  const [name = value, weightToken, ...rest] = value.split(PACK_SEPARATOR);
   const weight = Number(weightToken);
   return {
     name,
     weight: Number.isFinite(weight) ? weight : 0,
-    description: rest.length > 0 ? rest.join(" — ") : null,
+    description: rest.length > 0 ? rest.join(PACK_SEPARATOR) : null,
   };
 }
 

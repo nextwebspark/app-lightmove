@@ -147,14 +147,35 @@ pre-truncated to `PutPositionDetailsRequest`'s own ceilings (title/department 16
 responsibilities ≤20 × ≤200 chars, narrative 4000) before the response leaves the service, on **both**
 the model and the heuristic path, so accepting a proposal can never 400 the autosave it is handed to.
 
+### Backfilling from the matched template
+
+A field neither the model nor the heuristic found anything for isn't necessarily left blank.
+`PositionDetailsProposer.finish` — after either path has produced its fields, and once a `roleTitle`
+is among them — matches that title against the same catalog `HeuristicBriefReader`'s seniority rule
+draws from (`PositionTemplateService.matching`) and proposes the matched template's own value, at flat
+`LOW` confidence with no snippet, for any of `department`, `employmentType`, `seniority`, `narrative`
+or `responsibility` still absent. Never `roleTitle` itself (it's the match key) and never `location`
+(a template carries neither by design, per `PositionTemplateBody`'s own class doc). A field the
+document *did* supply is never touched, however thin; `responsibility` backfills only when **none**
+were found at all, not to top up a partial list. Each backfilled field carries `ProposalOrigin.TEMPLATE`
+(wire token `"template"`) rather than `DOCUMENT`, and the panel marks it "From template" — reviewed and
+accepted through the exact same row every document-sourced proposal is, never applied automatically.
+
+This is deliberately narrower than `#283`'s later "suggest this template" checkbox, which offers the
+*whole* template as one wholesale, opt-in brief redraft. Backfill only fills in the gaps a reading
+already found nothing for, one field at a time.
+
 ### The orchestrator and the endpoint
 
 `PositionExtractionService` loads the brief, reads the already-attached document
 (`PositionDocumentRepository.findByPositionId`, the same accessor download already uses), calls the
-proposer, and records `POSITION_DOCUMENT_EXTRACTED`. It is `@Transactional(readOnly = true)` and
-**deliberately not folded into `PositionDocumentService#attach`'s write transaction** — extraction is
-its own explicit call, never a side effect of uploading or replacing a document, or every Replace
-would re-bill. `PositionExtractionController` exposes `POST
+proposer, and records `POSITION_DOCUMENT_EXTRACTED`. Reading the document and calling the model both
+happen **outside any transaction** — only the brief/document lookup (`ExtractionDocumentLoader`) is
+`@Transactional(readOnly = true)`, kept deliberately short so a slow parse or a slow model call never
+pins a database connection. Extraction is also **deliberately not folded into
+`PositionDocumentService#attach`'s write transaction** — it's its own explicit call, never a side
+effect of uploading or replacing a document, or every Replace would re-bill. `PositionExtractionController`
+exposes `POST
 /api/v1/projects/{projectId}/position/document/extract/details`, gated `PROJECT_EDIT` — not
 `WORK_VIEW` like the document's own download, because a read-only client seat must not be able to run
 up a billed model call.
@@ -190,7 +211,11 @@ earlier ones.
 - **Redaction runs on the original text for the heuristic, and on the redacted text for the model** —
   the heuristic needs the real title for the cross-check, and never reaches the prompt itself.
 - **Parsing untrusted documents happens outside every transaction.** `PositionExtractionService` is
-  read-only and separate from `PositionDocumentService#attach`'s write.
+  no longer transactional itself; `ExtractionDocumentLoader` holds the one short transaction the brief
+  lookup needs, separate from `PositionDocumentService#attach`'s write.
+- **Template backfill checks presence, not confidence.** A `LOW`-confidence document-sourced field
+  still counts as "found" and is never replaced by the template's guess — `backfillFromTemplate` only
+  fills a `fieldKey` that is entirely absent from the list.
 - **A new `PositionDocumentFormatReader` must be ordered ahead of `PlainTextFormatReader`.** That
   catch-all answers `supports()` `true` unconditionally, so a new reader added at a lower priority (a
   higher `@Order` number) than `LOWEST_PRECEDENCE` never gets a turn — its bytes are silently read as
@@ -212,8 +237,9 @@ earlier ones.
 - `.xlsx` and `.pptx` themselves. `PositionDocumentTextReader`'s reader-per-format design (see above)
   is what makes adding them later a new class rather than a rewrite, but no `XlsxFormatReader` or
   `PptxFormatReader` exists yet, and legacy `.doc`/`.xls`/`.ppt` stay refused rather than parsed.
-- A dedicated position-extraction rate-limit field — `LlmBudgetGuard.requirePositionExtractionBudget`
-  is sized off `shortlistRequestsPerMinute()`, exactly as the import's column-mapping budget is.
+- A rate-limit field of its own per extraction step — `LlmBudget.POSITION_EXTRACT`'s meter is sized off
+  `defaultRequestsPerMinute()`, shared with the import's column-mapping budget and every other
+  extraction step, each still counted against its own meter.
 - Detecting an unnamed third party's name in prose. Stated as a trade above, not attempted.
 
 ## Verification

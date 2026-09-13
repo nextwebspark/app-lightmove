@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.position.constant.ExtractionSource;
 import app.lightmove.api.position.constant.ProposalConfidence;
+import app.lightmove.api.position.constant.ProposalOrigin;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ProposedPositionDetails;
 import app.lightmove.api.position.service.HeuristicBriefReader;
@@ -126,6 +127,20 @@ class HeuristicBriefReaderTest {
     }
 
     @Test
+    @DisplayName("employment type from an explicit header is trusted more than one found by whole-document keyword search")
+    void employmentTypeConfidenceReflectsWhereItWasFound() {
+        ProposedPositionDetails fromHeader = reader.propose(UUID.randomUUID(),
+                "Employment Type: Permanent\n");
+        ExtractedField headerField = fieldNamed(fromHeader, "employmentType").orElseThrow();
+        assertThat(headerField.confidence()).isEqualTo(ProposalConfidence.MEDIUM);
+
+        ProposedPositionDetails fromProse = reader.propose(UUID.randomUUID(),
+                "The business is going through a permanent shift in strategy this year.\n");
+        ExtractedField proseField = fieldNamed(fromProse, "employmentType").orElseThrow();
+        assertThat(proseField.confidence()).isEqualTo(ProposalConfidence.LOW);
+    }
+
+    @Test
     @DisplayName("a recognised title reaches its own template's seniority, at medium confidence")
     void recognisedTitleReachesItsTemplatesSeniority() {
         ProposedPositionDetails proposed = reader.propose(UUID.randomUUID(),
@@ -134,6 +149,7 @@ class HeuristicBriefReaderTest {
         ExtractedField seniority = fieldNamed(proposed, "seniority").orElseThrow();
         assertThat(seniority.value()).isEqualTo("C_SUITE");
         assertThat(seniority.confidence()).isEqualTo(ProposalConfidence.MEDIUM);
+        assertThat(seniority.origin()).isEqualTo(ProposalOrigin.TEMPLATE);
     }
 
     @Test
@@ -144,6 +160,7 @@ class HeuristicBriefReaderTest {
 
         ExtractedField seniority = fieldNamed(proposed, "seniority").orElseThrow();
         assertThat(seniority.confidence()).isEqualTo(ProposalConfidence.LOW);
+        assertThat(seniority.origin()).isEqualTo(ProposalOrigin.TEMPLATE);
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────

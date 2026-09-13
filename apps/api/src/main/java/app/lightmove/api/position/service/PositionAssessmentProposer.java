@@ -5,23 +5,27 @@ import app.lightmove.api.core.llm.model.Pseudonyms;
 import app.lightmove.api.core.llm.model.PromptGuardSpec;
 import app.lightmove.api.core.llm.service.LlmCallPolicy;
 import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
+import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.position.constant.CompetencyPanel;
 import app.lightmove.api.position.constant.CriterionMode;
 import app.lightmove.api.position.constant.ExtractionSource;
 import app.lightmove.api.position.constant.ProposalConfidence;
+import app.lightmove.api.position.constant.ProposalOrigin;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ModelAssessmentAnswer;
 import app.lightmove.api.position.model.ModelAssessmentAnswer.ModelCompetency;
 import app.lightmove.api.position.model.ModelAssessmentAnswer.ModelCriterion;
 import app.lightmove.api.position.model.PositionTemplate;
+import app.lightmove.api.position.model.PositionTemplateBody;
 import app.lightmove.api.position.model.PositionTemplateCompetency;
+import app.lightmove.api.position.model.PositionTemplateCriterion;
 import app.lightmove.api.position.model.ProposedAssessment;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -34,19 +38,21 @@ import org.springframework.stereotype.Service;
 
 /**
  * Asks the model to read a position description into step-five proposals — the structural twin of
- * {@link PositionCompensationProposer}, simplified the same way: no heuristic reader backs this one
- * up, because there is no key-value header for a screening criterion and a heuristic built to guess
- * one would be the exact invention this feature exists to refuse.
+ * {@link PositionCompensationProposer}: no heuristic reader backs this one up, because there is no
+ * key-value header for a screening criterion.
  *
- * <p>The one thing no other proposer does: it resolves the mandate's matching role template (the same
- * lookup {@link HeuristicBriefReader#readSeniority} already reuses) and, when one matches, sends its
- * competency names — that template's alone, never the whole library — to the model as a controlled
- * vocabulary, so seventeen mandates do not grow seventeen spellings of "Stakeholder management".
+ * <p>Resolves the mandate's matching role template and, when the title itself matches one (never the
+ * generic fallback — see {@link #vocabularyParagraph}), sends its competency names as a controlled
+ * vocabulary, so mandates converge on shared spellings. A field neither the document nor the model
+ * found is, last, offered from the matched template — see {@link #backfillFromTemplate} — using the
+ * same fallback-inclusive {@link PositionTemplateService#matching} every other proposer's own backfill
+ * already does, since a generic draft is the right call there.
  */
 @Service
 @Slf4j
 public class PositionAssessmentProposer {
 
+    private static final String LABEL = "Assessment extraction";
     private static final String PROMPT_ID = "position-extract-assessment";
     private static final double EXTRACTION_TEMPERATURE = 0.0;
     private static final String ANSWER_MIME_TYPE = "application/json";
@@ -61,18 +67,18 @@ public class PositionAssessmentProposer {
     private static final int COMPETENCY_NAME_MAX_LENGTH = 120;
     private static final int COMPETENCY_DESCRIPTION_MAX_LENGTH = 300;
     private static final int COMPETENCY_MAX_COUNT_PER_PANEL = 10;
+    private static final int VOCABULARY_MAX_LENGTH = 2000;
 
-    /** The em-dash convention {@code PositionCompensationProposer.benefitFieldFrom} already packs a
-     * benefit's optional frequency into, extended to a competency's two optional attributes: a
-     * proposed value is {@code "<name>"}, {@code "<name> — <weight>"} or
-     * {@code "<name> — <weight> — <description>"} — never {@code "<name> — <description>"} alone, so
-     * the frontend's positional parser can always trust the second segment, when present, to be the
-     * weight. */
+    /** {@link PositionCompensationProposer}'s benefit-frequency convention, extended to a competency's
+     *  two optional attributes: {@code "<name>"}, {@code "<name> — <weight>"} or
+     *  {@code "<name> — <weight> — <description>"} — the weight segment is never skipped once either
+     *  optional attribute is present, so the frontend can always trust segment 2, when present, to be it. */
     private static final String PACK_SEPARATOR = " — ";
 
     private final ChatClient chatClient;
     private final PositionDocumentRedactor redactor;
     private final PositionTemplateService templates;
+    private final ExtractedFieldReader fieldReader;
     private final Resource systemPrompt;
     private final Consumer<ChatClient.AdvisorSpec> guarded;
     private final LlmBudgetGuard llmBudget;
@@ -82,6 +88,7 @@ public class PositionAssessmentProposer {
     public PositionAssessmentProposer(ChatClient chatClient,
                                       PositionDocumentRedactor redactor,
                                       PositionTemplateService templates,
+                                      ExtractedFieldReader fieldReader,
                                       @Value("classpath:prompts/position-extract-assessment-system.st") Resource systemPrompt,
                                       @Value("classpath:prompts/position-extract-assessment-schema.json") Resource answerSchema,
                                       LlmCallPolicy llmCalls,
@@ -89,6 +96,7 @@ public class PositionAssessmentProposer {
         this.chatClient = chatClient;
         this.redactor = redactor;
         this.templates = templates;
+        this.fieldReader = fieldReader;
         this.systemPrompt = systemPrompt;
         this.guarded = llmCalls.forPrompt(PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
         this.llmBudget = llmBudget;
@@ -96,7 +104,7 @@ public class PositionAssessmentProposer {
 
     public ProposedAssessment propose(UUID userId, String documentText, UUID clientId, UUID workspaceId,
                                       String roleTitle) {
-        llmBudget.requireAssessmentExtractionBudget(userId);
+        llmBudget.require(LlmBudget.ASSESSMENT_EXTRACT, userId);
 
         try {
             Redaction redaction = redactor.redact(documentText, clientId, workspaceId);
@@ -107,12 +115,12 @@ public class PositionAssessmentProposer {
                     log.warn("Assessment extraction blocked before reaching the model: the document "
                             + "matched the injection word list.");
                 }
-                return empty();
+                return finish(empty(), workspaceId, roleTitle);
             }
-            return finish(reconcile(answered, redaction.pseudonyms(), documentText));
+            return finish(reconcile(answered, redaction.pseudonyms(), documentText), workspaceId, roleTitle);
         } catch (RuntimeException e) {
             log.warn("Assessment extraction found nothing to propose: {}", e.toString());
-            return empty();
+            return finish(empty(), workspaceId, roleTitle);
         }
     }
 
@@ -137,15 +145,17 @@ public class PositionAssessmentProposer {
     }
 
     /**
-     * The matched template's own competency names, grouped by panel — that template's alone. Empty
-     * when the role title is blank, nothing matches, or the matched template names no competencies at
-     * all, so the prompt carries no stray heading when there is nothing to list.
+     * The matched template's own competency names, grouped by panel. Matched on the title alone, never
+     * the generic fallback {@link PositionTemplateService#matching} would offer: an unmatched title
+     * telling the model a generic brief's names are "this role's usual" would work against the
+     * convergent-spelling goal this exists for. Empty when the role title is blank, nothing matches, or
+     * the matched template names no competencies at all.
      */
     private String vocabularyParagraph(UUID workspaceId, String roleTitle) {
         if (roleTitle == null || roleTitle.isBlank()) {
             return "";
         }
-        return templates.matching(workspaceId, roleTitle).map(this::vocabularyOf).orElse("");
+        return templates.matchingByTitle(workspaceId, roleTitle).map(this::vocabularyOf).orElse("");
     }
 
     private String vocabularyOf(PositionTemplate template) {
@@ -162,19 +172,41 @@ public class PositionAssessmentProposer {
         if (!behaviouralNames.isEmpty()) {
             vocabulary.append("Behavioural: ").append(behaviouralNames).append('\n');
         }
-        return vocabulary.toString();
+        // Bounded even though app_lm_position_template is migration-owned today: cheap insurance
+        // against the per-workspace template screen CLAUDE.md says is coming, at which point a name is
+        // workspace-writable text reaching this prompt with none of the document's own redaction or
+        // PromptGuardSpec wrapping it. A name carrying a newline or a pseudonym-shaped token is dropped
+        // outright rather than merely truncated, since either could forge a new prompt section.
+        return vocabulary.length() > VOCABULARY_MAX_LENGTH
+                ? vocabulary.substring(0, VOCABULARY_MAX_LENGTH)
+                : vocabulary.toString();
     }
 
     private static String namesOf(List<PositionTemplateCompetency> competencies, CompetencyPanel panel) {
         return competencies.stream()
                 .filter(competency -> competency.panel() == panel)
                 .map(PositionTemplateCompetency::name)
+                .filter(PositionAssessmentProposer::safeVocabularyName)
+                .map(PositionAssessmentProposer::cappedVocabularyName)
                 .collect(Collectors.joining(", "));
+    }
+
+    private static boolean safeVocabularyName(String name) {
+        return name != null && !name.isBlank()
+                && !name.contains("\n") && !name.contains("[[") && !name.contains("]]");
+    }
+
+    private static String cappedVocabularyName(String name) {
+        return name.length() > COMPETENCY_NAME_MAX_LENGTH ? name.substring(0, COMPETENCY_NAME_MAX_LENGTH) : name;
     }
 
     private static boolean wasBlocked(ModelAssessmentAnswer answered) {
         List<ModelCriterion> criteria = answered.criteria();
-        return criteria != null && !criteria.isEmpty() && BlockedAnswer.matches(criteria.get(0).text());
+        if (criteria == null || criteria.isEmpty()) {
+            return false;
+        }
+        ModelCriterion first = criteria.get(0);
+        return first != null && BlockedAnswer.matches(first.text());
     }
 
     private static ProposedAssessment empty() {
@@ -183,59 +215,57 @@ public class PositionAssessmentProposer {
 
     private ProposedAssessment reconcile(ModelAssessmentAnswer answered, Pseudonyms pseudonyms,
                                          String originalText) {
+        String haystack = fieldReader.haystackOf(originalText);
         List<ExtractedField> fields = new ArrayList<>();
 
         if (answered.criteria() != null) {
             for (ModelCriterion criterion : answered.criteria()) {
                 if (criterion != null) {
-                    criterionFieldFrom(criterion, pseudonyms, originalText).ifPresent(fields::add);
+                    criterionFieldFrom(criterion, pseudonyms, haystack).ifPresent(fields::add);
                 }
             }
         }
-        addCompetencies(fields, answered.technical(), "technicalCompetency", pseudonyms, originalText);
-        addCompetencies(fields, answered.behavioural(), "behaviouralCompetency", pseudonyms, originalText);
+        addCompetencies(fields, answered.technical(), "technicalCompetency", pseudonyms, haystack);
+        addCompetencies(fields, answered.behavioural(), "behaviouralCompetency", pseudonyms, haystack);
 
         return new ProposedAssessment(ExtractionSource.MODEL, fields);
     }
 
-    /**
-     * A criterion's field key carries its mode ({@code requiredCriterion} / {@code preferredCriterion})
-     * rather than packing {@code mode} into the value — the classification the issue calls "most of the
-     * value of this story" reads straight off the key with no parsing on either side.
-     */
+    /** The field key carries the criterion's mode ({@code requiredCriterion} / {@code preferredCriterion}). */
     private Optional<ExtractedField> criterionFieldFrom(ModelCriterion criterion, Pseudonyms pseudonyms,
-                                                        String originalText) {
+                                                        String haystack) {
         if (criterion.mode() == null) {
             return Optional.empty();
         }
-        CriterionMode mode = enumFromName(CriterionMode.class, criterion.mode());
+        CriterionMode mode = fieldReader.enumFromName(CriterionMode.class, criterion.mode());
         if (mode == null) {
             return Optional.empty();
         }
         String fieldKey = mode == CriterionMode.REQUIRED ? "requiredCriterion" : "preferredCriterion";
-        return fieldFrom(fieldKey, criterion.text(), criterion.snippet(), pseudonyms, originalText);
+        return fieldReader.fieldFrom(LABEL, fieldKey, criterion.text(), criterion.snippet(), pseudonyms, haystack);
     }
 
     private void addCompetencies(List<ExtractedField> fields, List<ModelCompetency> competencies,
-                                 String fieldKey, Pseudonyms pseudonyms, String originalText) {
+                                 String fieldKey, Pseudonyms pseudonyms, String haystack) {
         if (competencies == null) {
             return;
         }
         for (ModelCompetency competency : competencies) {
             if (competency != null) {
-                competencyFieldFrom(fieldKey, competency, pseudonyms, originalText).ifPresent(fields::add);
+                competencyFieldFrom(fieldKey, competency, pseudonyms, haystack).ifPresent(fields::add);
             }
         }
     }
 
     /**
      * The whole row is dropped when the model states a weight that will not parse or falls outside
-     * 0-100 — an answer worth discarding, not coercing. A weight the document simply never
-     * suggested is a different, expected case: the competency is still proposed, with the weight
-     * segment left out of the packed value entirely.
+     * 0-100, or when the name itself contains {@link #PACK_SEPARATOR} — packing three typed attributes
+     * into one positional string only works when the name cannot be mistaken for a separator, and a
+     * dropped row is cheaper than a silently corrupted one. A weight the document simply never
+     * suggested is a different, expected case: the competency is still proposed, weight segment omitted.
      */
     private Optional<ExtractedField> competencyFieldFrom(String fieldKey, ModelCompetency competency,
-                                                          Pseudonyms pseudonyms, String originalText) {
+                                                          Pseudonyms pseudonyms, String haystack) {
         Integer weight = null;
         if (competency.weight() != null && !competency.weight().isBlank()) {
             try {
@@ -248,10 +278,17 @@ public class PositionAssessmentProposer {
             }
         }
         Integer resolvedWeight = weight;
-        return fieldFrom(fieldKey, competency.name(), competency.snippet(), pseudonyms, originalText)
-                .map(field -> new ExtractedField(fieldKey,
-                        pack(field.value(), resolvedWeight, descriptionOf(competency, pseudonyms)),
-                        field.confidence(), field.snippet()));
+        return fieldReader.fieldFrom(LABEL, fieldKey, competency.name(), competency.snippet(), pseudonyms, haystack)
+                .flatMap(field -> {
+                    if (field.value().contains(PACK_SEPARATOR)) {
+                        log.warn("Assessment extraction dropped a {} field: the competency name contained "
+                                + "the packing separator.", fieldKey);
+                        return Optional.empty();
+                    }
+                    return Optional.of(new ExtractedField(fieldKey,
+                            pack(field.value(), resolvedWeight, descriptionOf(competency, pseudonyms)),
+                            field.confidence(), field.snippet(), field.origin()));
+                });
     }
 
     /** A tainted description is dropped on its own — it does not cost the competency its name and weight. */
@@ -273,8 +310,7 @@ public class PositionAssessmentProposer {
      * When a description is present but no weight was proposed, the weight segment is still emitted
      * as {@code "0"} rather than omitted — the frontend's parser trusts the second " — " segment,
      * when present, to be the weight, and omitting it here would silently shift the description into
-     * that slot and lose it. {@code 0} reads as "not weighted yet", the same conservative default a
-     * reviewer would set themselves.
+     * that slot and lose it.
      */
     private static String pack(String name, Integer weight, String description) {
         boolean hasDescription = description != null && !description.isBlank();
@@ -286,55 +322,70 @@ public class PositionAssessmentProposer {
         return hasDescription ? packed + PACK_SEPARATOR + description : packed;
     }
 
-    private Optional<ExtractedField> fieldFrom(String fieldKey, String rawValue, String rawSnippet,
-                                               Pseudonyms pseudonyms, String originalText) {
-        if (rawValue == null || rawValue.isBlank()) {
-            return Optional.empty();
-        }
-        String value = pseudonyms.rehydrate(rawValue);
-        String snippet = rawSnippet == null || rawSnippet.isBlank() ? null : pseudonyms.rehydrate(rawSnippet);
-        if (pseudonyms.hasResidue(value) || pseudonyms.hasResidue(snippet)) {
-            log.warn("Assessment extraction dropped a {} field: a placeholder survived re-hydration.",
-                    fieldKey);
-            return Optional.empty();
-        }
-        ProposalConfidence confidence = ProposalConfidence.MEDIUM;
-        if (snippet != null && !occursIn(snippet, originalText)) {
-            snippet = null;
-            confidence = ProposalConfidence.LOW;
-        }
-        return Optional.of(new ExtractedField(fieldKey, value.trim(), confidence, snippet));
+    private ProposedAssessment finish(ProposedAssessment proposed, UUID workspaceId, String roleTitle) {
+        List<ExtractedField> withTemplateBackfill = backfillFromTemplate(proposed.fields(), workspaceId, roleTitle);
+        return new ProposedAssessment(proposed.source(), truncateToCeilings(withTemplateBackfill));
     }
 
-    private static <T extends Enum<T>> T enumFromName(Class<T> type, String token) {
-        for (T value : type.getEnumConstants()) {
-            if (value.name().equalsIgnoreCase(token.trim())) {
-                return value;
+    /**
+     * Proposes the matched template's own criteria and competencies for a group the document said
+     * nothing about — criteria and each competency panel independently, exactly like
+     * {@link PositionDetailsProposer#backfillFromTemplate}'s {@code responsibility} rule: never tops up
+     * a partial list, only fires when a group is entirely absent. Needs a role title to match on.
+     */
+    private List<ExtractedField> backfillFromTemplate(List<ExtractedField> fields, UUID workspaceId,
+                                                       String roleTitle) {
+        if (roleTitle == null || roleTitle.isBlank()) {
+            return fields;
+        }
+        Optional<PositionTemplate> matched = templates.matching(workspaceId, roleTitle);
+        if (matched.isEmpty()) {
+            return fields;
+        }
+        PositionTemplateBody body = matched.get().getBody();
+        Set<String> present = fields.stream().map(ExtractedField::fieldKey).collect(Collectors.toSet());
+
+        List<ExtractedField> backfilled = new ArrayList<>(fields);
+        if (!present.contains("requiredCriterion") && !present.contains("preferredCriterion")) {
+            for (PositionTemplateCriterion criterion : body.criteria()) {
+                if (criterion == null || criterion.text() == null || criterion.text().isBlank()) {
+                    continue;
+                }
+                String fieldKey = criterion.mode() == CriterionMode.PREFERRED
+                        ? "preferredCriterion" : "requiredCriterion";
+                backfilled.add(new ExtractedField(fieldKey, criterion.text(), ProposalConfidence.LOW, null,
+                        ProposalOrigin.TEMPLATE));
             }
         }
-        return null;
+        backfillCompetencyPanel(backfilled, present, body, CompetencyPanel.TECHNICAL, "technicalCompetency");
+        backfillCompetencyPanel(backfilled, present, body, CompetencyPanel.BEHAVIOURAL, "behaviouralCompetency");
+        return backfilled;
     }
 
-    private static boolean occursIn(String snippet, String originalText) {
-        String normalisedSnippet = normaliseWhitespace(snippet);
-        return !normalisedSnippet.isEmpty()
-                && normaliseWhitespace(originalText).toLowerCase(Locale.ROOT)
-                        .contains(normalisedSnippet.toLowerCase(Locale.ROOT));
-    }
-
-    private static String normaliseWhitespace(String text) {
-        return text.replaceAll("\\s+", " ").trim();
-    }
-
-    private static ProposedAssessment finish(ProposedAssessment proposed) {
-        return new ProposedAssessment(proposed.source(), truncateToCeilings(proposed.fields()));
+    private static void backfillCompetencyPanel(List<ExtractedField> backfilled, Set<String> present,
+                                                PositionTemplateBody body, CompetencyPanel panel, String fieldKey) {
+        if (present.contains(fieldKey)) {
+            return;
+        }
+        for (PositionTemplateCompetency competency : body.competencies()) {
+            if (competency == null || competency.panel() != panel
+                    || competency.name() == null || competency.name().isBlank()) {
+                continue;
+            }
+            backfilled.add(new ExtractedField(fieldKey,
+                    pack(competency.name(), competency.weight(), competency.description()),
+                    ProposalConfidence.LOW, null, ProposalOrigin.TEMPLATE));
+        }
     }
 
     /**
      * Pre-truncates every value to {@code PutCriteriaRequest}'s and {@code PutCompetenciesRequest}'s
-     * own ceilings, so accepting a proposal can never 400 the autosave it is handed to.
+     * own per-field ceilings, and caps how many of each this single proposal can carry to those same
+     * numbers. That bounds one proposal, not the brief it is accepted into: those DTOs' ceilings are
+     * per brief, so a brief already holding entries near its own ceiling can still 400 on accept —
+     * {@code PositionPage.tsx} caps on the brief's remaining headroom at accept time for that case.
      */
-    private static List<ExtractedField> truncateToCeilings(List<ExtractedField> fields) {
+    private List<ExtractedField> truncateToCeilings(List<ExtractedField> fields) {
         List<ExtractedField> truncated = new ArrayList<>();
         int criteriaCount = 0;
         int technicalCount = 0;
@@ -343,7 +394,7 @@ public class PositionAssessmentProposer {
             switch (field.fieldKey()) {
                 case "requiredCriterion", "preferredCriterion" -> {
                     if (criteriaCount < CRITERIA_MAX_COUNT) {
-                        truncated.add(capped(field, CRITERION_TEXT_MAX_LENGTH));
+                        truncated.add(fieldReader.capped(field, CRITERION_TEXT_MAX_LENGTH));
                         criteriaCount++;
                     }
                 }
@@ -363,14 +414,6 @@ public class PositionAssessmentProposer {
             }
         }
         return truncated;
-    }
-
-    private static ExtractedField capped(ExtractedField field, int maxLength) {
-        if (field.value().length() <= maxLength) {
-            return field;
-        }
-        return new ExtractedField(field.fieldKey(), field.value().substring(0, maxLength),
-                field.confidence(), field.snippet());
     }
 
     /**
@@ -394,6 +437,7 @@ public class PositionAssessmentProposer {
                 value.append(PACK_SEPARATOR).append(description);
             }
         }
-        return new ExtractedField(field.fieldKey(), value.toString(), field.confidence(), field.snippet());
+        return new ExtractedField(field.fieldKey(), value.toString(), field.confidence(), field.snippet(),
+                field.origin());
     }
 }

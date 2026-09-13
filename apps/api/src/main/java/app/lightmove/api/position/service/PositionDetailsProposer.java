@@ -6,21 +6,26 @@ import app.lightmove.api.core.llm.model.Pseudonyms;
 import app.lightmove.api.core.llm.model.PromptGuardSpec;
 import app.lightmove.api.core.llm.service.LlmCallPolicy;
 import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
+import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.position.constant.EmploymentType;
 import app.lightmove.api.position.constant.ExtractionSource;
 import app.lightmove.api.position.constant.ProposalConfidence;
+import app.lightmove.api.position.constant.ProposalOrigin;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ModelDetailsAnswer;
 import app.lightmove.api.position.model.ModelDetailsAnswer.ModelResponsibility;
+import app.lightmove.api.position.model.PositionTemplate;
+import app.lightmove.api.position.model.PositionTemplateBody;
 import app.lightmove.api.position.model.ProposedPositionDetails;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
@@ -45,12 +50,21 @@ import org.springframework.stereotype.Service;
  * cross-check — where the model and the heuristic agree on the role title, that field's confidence is
  * upgraded, because two independent readings landing on the same title is worth more than either
  * alone.
+ *
+ * <p><b>A field neither path found is, last, offered from the matched template.</b> Once a reading has
+ * a role title, {@link #finish} looks up that title's brief template ({@link PositionTemplateService})
+ * and proposes its value — at flat {@code LOW} confidence, no snippet — for any of {@code department},
+ * {@code employmentType}, {@code seniority}, {@code narrative} or {@code responsibility} the document
+ * said nothing about. Never {@code roleTitle} or {@code location}: a template carries neither. This
+ * never overwrites a document-sourced field, and it is reviewed through the exact same accept/dismiss
+ * row every other proposal is — never applied automatically.
  */
 @Service
 @Slf4j
 public class PositionDetailsProposer {
 
     private static final String PROMPT_ID = "position-extract-details";
+    private static final String LABEL = "Position extraction";
 
     /** Extraction has one right answer per field, so variance only buys answers that will not bind. */
     private static final double EXTRACTION_TEMPERATURE = 0.0;
@@ -77,6 +91,8 @@ public class PositionDetailsProposer {
     private final ChatClient chatClient;
     private final HeuristicBriefReader heuristics;
     private final PositionDocumentRedactor redactor;
+    private final PositionTemplateService templates;
+    private final ExtractedFieldReader fieldReader;
     private final Resource systemPrompt;
     private final Consumer<ChatClient.AdvisorSpec> guarded;
     private final LlmBudgetGuard llmBudget;
@@ -86,6 +102,8 @@ public class PositionDetailsProposer {
     public PositionDetailsProposer(ChatClient chatClient,
                                    HeuristicBriefReader heuristics,
                                    PositionDocumentRedactor redactor,
+                                   PositionTemplateService templates,
+                                   ExtractedFieldReader fieldReader,
                                    @Value("classpath:prompts/position-extract-details-system.st") Resource systemPrompt,
                                    @Value("classpath:prompts/position-extract-details-schema.json") Resource answerSchema,
                                    LlmCallPolicy llmCalls,
@@ -93,6 +111,8 @@ public class PositionDetailsProposer {
         this.chatClient = chatClient;
         this.heuristics = heuristics;
         this.redactor = redactor;
+        this.templates = templates;
+        this.fieldReader = fieldReader;
         this.systemPrompt = systemPrompt;
         this.guarded = llmCalls.forPrompt(PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
         this.llmBudget = llmBudget;
@@ -103,26 +123,26 @@ public class PositionDetailsProposer {
         // the ultimate fallback and the one cross-check a model answer gets.
         ProposedPositionDetails heuristic = heuristics.propose(workspaceId, documentText);
 
-        llmBudget.requirePositionExtractionBudget(userId);
+        llmBudget.require(LlmBudget.POSITION_EXTRACT, userId);
 
         try {
             Redaction redaction = redactor.redact(documentText, clientId, workspaceId);
             ModelDetailsAnswer answered = ask(redaction.text());
             if (answered == null) {
-                return finish(heuristic);
+                return finish(heuristic, workspaceId);
             }
             if (wasBlocked(answered)) {
                 log.warn("Position extraction blocked before reaching the model: the document matched "
                         + "the injection word list. Falling back to the heuristic reader.");
-                return finish(heuristic);
+                return finish(heuristic, workspaceId);
             }
-            return finish(reconcile(answered, redaction.pseudonyms(), documentText, heuristic));
+            return finish(reconcile(answered, redaction.pseudonyms(), documentText, heuristic), workspaceId);
         } catch (RuntimeException e) {
             // Deliberately broad and deliberately quiet, exactly as ColumnMappingProposer's catch is:
             // every way this call can fail has the same right answer, the heuristic's own reading, and
             // the response says which of the two produced it rather than claiming the model did.
             log.warn("Position extraction fell back to the heuristic reader: {}", e.toString());
-            return finish(heuristic);
+            return finish(heuristic, workspaceId);
         }
     }
 
@@ -150,97 +170,37 @@ public class PositionDetailsProposer {
 
     private ProposedPositionDetails reconcile(ModelDetailsAnswer answered, Pseudonyms pseudonyms,
                                               String originalText, ProposedPositionDetails heuristic) {
+        String haystack = fieldReader.haystackOf(originalText);
+
         List<ExtractedField> fields = new ArrayList<>();
-        fieldFrom("roleTitle", answered.roleTitle(), answered.roleTitleSnippet(), pseudonyms, originalText)
-                .ifPresent(fields::add);
-        fieldFrom("department", answered.department(), answered.departmentSnippet(), pseudonyms, originalText)
-                .ifPresent(fields::add);
-        fieldFrom("location", answered.location(), answered.locationSnippet(), pseudonyms, originalText)
-                .ifPresent(fields::add);
-        enumFieldFrom("employmentType", EmploymentType.class, answered.employmentType(),
-                answered.employmentTypeSnippet(), pseudonyms, originalText).ifPresent(fields::add);
-        enumFieldFrom("seniority", Seniority.class, answered.seniority(),
-                answered.senioritySnippet(), pseudonyms, originalText).ifPresent(fields::add);
-        fieldFrom("narrative", answered.narrative(), answered.narrativeSnippet(), pseudonyms, originalText)
-                .ifPresent(fields::add);
+        fieldReader.fieldFrom(LABEL, "roleTitle", answered.roleTitle(), answered.roleTitleSnippet(),
+                pseudonyms, haystack).ifPresent(fields::add);
+        fieldReader.fieldFrom(LABEL, "department", answered.department(), answered.departmentSnippet(),
+                pseudonyms, haystack).ifPresent(fields::add);
+        fieldReader.fieldFrom(LABEL, "location", answered.location(), answered.locationSnippet(),
+                pseudonyms, haystack).ifPresent(fields::add);
+        fieldReader.enumFieldFrom(LABEL, "employmentType", EmploymentType.class, answered.employmentType(),
+                answered.employmentTypeSnippet(), pseudonyms, haystack).ifPresent(fields::add);
+        fieldReader.enumFieldFrom(LABEL, "seniority", Seniority.class, answered.seniority(),
+                answered.senioritySnippet(), pseudonyms, haystack).ifPresent(fields::add);
+        fieldReader.fieldFrom(LABEL, "narrative", answered.narrative(), answered.narrativeSnippet(),
+                pseudonyms, haystack).ifPresent(fields::add);
         if (answered.responsibilities() != null) {
             for (ModelResponsibility responsibility : answered.responsibilities()) {
                 if (responsibility == null) {
                     continue;
                 }
-                fieldFrom("responsibility", responsibility.text(), responsibility.snippet(), pseudonyms, originalText)
-                        .ifPresent(fields::add);
+                fieldReader.fieldFrom(LABEL, "responsibility", responsibility.text(), responsibility.snippet(),
+                        pseudonyms, haystack).ifPresent(fields::add);
             }
         }
         return new ProposedPositionDetails(ExtractionSource.MODEL,
                 upgradeRoleTitleIfCorroborated(fields, heuristic));
     }
 
-    /**
-     * Re-hydrates a raw value and snippet, sweeps a redaction leak, and downgrades a snippet that does
-     * not literally occur in the source. Empty for a field the model left null — leaving it null was
-     * the model saying it found nothing, which is the correct answer to carry forward, not a value to
-     * invent.
-     */
-    private Optional<ExtractedField> fieldFrom(String fieldKey, String rawValue, String rawSnippet,
-                                               Pseudonyms pseudonyms, String originalText) {
-        if (rawValue == null || rawValue.isBlank()) {
-            return Optional.empty();
-        }
-        String value = pseudonyms.rehydrate(rawValue);
-        String snippet = rawSnippet == null || rawSnippet.isBlank() ? null : pseudonyms.rehydrate(rawSnippet);
-        if (pseudonyms.hasResidue(value) || pseudonyms.hasResidue(snippet)) {
-            // Rule 3: any surviving placeholder is a redaction leak, and the whole field is dropped
-            // rather than shown with a placeholder in it — the failure that would make this look broken.
-            log.warn("Position extraction dropped a {} field: a placeholder survived re-hydration.", fieldKey);
-            return Optional.empty();
-        }
-        ProposalConfidence confidence = ProposalConfidence.MEDIUM;
-        if (snippet != null && !occursIn(snippet, originalText)) {
-            // Rule 4: a re-hydrated snippet absent from the original text is a paraphrase, not a
-            // quote — the snippet is dropped and confidence downgraded, but the value itself stands.
-            snippet = null;
-            confidence = ProposalConfidence.LOW;
-        }
-        return Optional.of(new ExtractedField(fieldKey, value.trim(), confidence, snippet));
-    }
-
-    private <T extends Enum<T>> Optional<ExtractedField> enumFieldFrom(String fieldKey, Class<T> type,
-                                                                        String rawValue, String rawSnippet,
-                                                                        Pseudonyms pseudonyms, String originalText) {
-        return fieldFrom(fieldKey, rawValue, rawSnippet, pseudonyms, originalText).flatMap(field -> {
-            // Never Enum.valueOf: the model may answer a token this enum does not carry ("Permanent",
-            // "C-Level"), and that answer is dropped rather than thrown.
-            T resolved = enumFromName(type, field.value());
-            return resolved == null
-                    ? Optional.empty()
-                    : Optional.of(new ExtractedField(fieldKey, resolved.name(), field.confidence(), field.snippet()));
-        });
-    }
-
-    private static <T extends Enum<T>> T enumFromName(Class<T> type, String token) {
-        for (T value : type.getEnumConstants()) {
-            if (value.name().equalsIgnoreCase(token.trim())) {
-                return value;
-            }
-        }
-        return null;
-    }
-
-    private static boolean occursIn(String snippet, String originalText) {
-        String normalisedSnippet = normaliseWhitespace(snippet);
-        return !normalisedSnippet.isEmpty()
-                && normaliseWhitespace(originalText).toLowerCase(Locale.ROOT)
-                        .contains(normalisedSnippet.toLowerCase(Locale.ROOT));
-    }
-
-    private static String normaliseWhitespace(String text) {
-        return text.replaceAll("\\s+", " ").trim();
-    }
-
     /** Two independent readings landing on the same title outrank either reading alone. */
-    private static List<ExtractedField> upgradeRoleTitleIfCorroborated(List<ExtractedField> fields,
-                                                                        ProposedPositionDetails heuristic) {
+    private List<ExtractedField> upgradeRoleTitleIfCorroborated(List<ExtractedField> fields,
+                                                                 ProposedPositionDetails heuristic) {
         Optional<String> heuristicTitle = heuristic.fields().stream()
                 .filter(field -> field.fieldKey().equals("roleTitle"))
                 .map(ExtractedField::value)
@@ -250,32 +210,80 @@ public class PositionDetailsProposer {
         }
         return fields.stream()
                 .map(field -> field.fieldKey().equals("roleTitle")
-                        && normaliseWhitespace(field.value()).equalsIgnoreCase(normaliseWhitespace(heuristicTitle.get()))
+                        && fieldReader.normaliseWhitespace(field.value())
+                                .equalsIgnoreCase(fieldReader.normaliseWhitespace(heuristicTitle.get()))
                         ? field.withConfidence(ProposalConfidence.HIGH)
                         : field)
                 .toList();
     }
 
-    private static ProposedPositionDetails finish(ProposedPositionDetails proposed) {
-        return new ProposedPositionDetails(proposed.source(), truncateToCeilings(proposed.fields()));
+    private ProposedPositionDetails finish(ProposedPositionDetails proposed, UUID workspaceId) {
+        List<ExtractedField> withTemplateBackfill = backfillFromTemplate(proposed.fields(), workspaceId);
+        return new ProposedPositionDetails(proposed.source(), truncateToCeilings(withTemplateBackfill));
+    }
+
+    /**
+     * Proposes the matched template's own value for a field neither the model nor the heuristic found
+     * anything for. Needs a role title to match on — {@code roleTitle} itself is never backfilled this
+     * way, since it is the very thing used to find the template — and only touches a field genuinely
+     * absent from {@code fields}; a document-sourced value, however thin, is never replaced.
+     */
+    private List<ExtractedField> backfillFromTemplate(List<ExtractedField> fields, UUID workspaceId) {
+        Optional<String> roleTitle = fields.stream()
+                .filter(field -> field.fieldKey().equals("roleTitle"))
+                .map(ExtractedField::value)
+                .findFirst();
+        if (roleTitle.isEmpty()) {
+            return fields;
+        }
+        Optional<PositionTemplate> matched = templates.matching(workspaceId, roleTitle.get());
+        if (matched.isEmpty()) {
+            return fields;
+        }
+        PositionTemplate template = matched.get();
+        PositionTemplateBody body = template.getBody();
+        Set<String> present = fields.stream().map(ExtractedField::fieldKey).collect(Collectors.toSet());
+
+        List<ExtractedField> backfilled = new ArrayList<>(fields);
+        addIfMissing(backfilled, present, "department", body.department());
+        addIfMissing(backfilled, present, "employmentType",
+                body.employmentType() == null ? null : body.employmentType().name());
+        addIfMissing(backfilled, present, "seniority",
+                template.getSeniority() == null ? null : template.getSeniority().name());
+        addIfMissing(backfilled, present, "narrative", body.narrative());
+        if (!present.contains("responsibility")) {
+            body.responsibilities().stream()
+                    .filter(text -> text != null && !text.isBlank())
+                    .forEach(text -> backfilled.add(new ExtractedField("responsibility", text,
+                            ProposalConfidence.LOW, null, ProposalOrigin.TEMPLATE)));
+        }
+        return backfilled;
+    }
+
+    private static void addIfMissing(List<ExtractedField> fields, Set<String> present, String fieldKey,
+                                     String value) {
+        if (present.contains(fieldKey) || value == null || value.isBlank()) {
+            return;
+        }
+        fields.add(new ExtractedField(fieldKey, value, ProposalConfidence.LOW, null, ProposalOrigin.TEMPLATE));
     }
 
     /**
      * Pre-truncates every value to {@code PutPositionDetailsRequest}'s own ceilings, on both the model
      * and the heuristic path, so accepting a proposal can never 400 the autosave it is handed to.
      */
-    private static List<ExtractedField> truncateToCeilings(List<ExtractedField> fields) {
+    private List<ExtractedField> truncateToCeilings(List<ExtractedField> fields) {
         List<ExtractedField> truncated = new ArrayList<>();
         int responsibilityCount = 0;
         for (ExtractedField field : fields) {
             switch (field.fieldKey()) {
-                case "roleTitle" -> truncated.add(capped(field, ROLE_TITLE_MAX_LENGTH));
-                case "department" -> truncated.add(capped(field, DEPARTMENT_MAX_LENGTH));
-                case "location" -> truncated.add(capped(field, LOCATION_MAX_LENGTH));
-                case "narrative" -> truncated.add(capped(field, NARRATIVE_MAX_LENGTH));
+                case "roleTitle" -> truncated.add(fieldReader.capped(field, ROLE_TITLE_MAX_LENGTH));
+                case "department" -> truncated.add(fieldReader.capped(field, DEPARTMENT_MAX_LENGTH));
+                case "location" -> truncated.add(fieldReader.capped(field, LOCATION_MAX_LENGTH));
+                case "narrative" -> truncated.add(fieldReader.capped(field, NARRATIVE_MAX_LENGTH));
                 case "responsibility" -> {
                     if (responsibilityCount < RESPONSIBILITY_MAX_COUNT) {
-                        truncated.add(capped(field, RESPONSIBILITY_MAX_LENGTH));
+                        truncated.add(fieldReader.capped(field, RESPONSIBILITY_MAX_LENGTH));
                         responsibilityCount++;
                     }
                 }
@@ -283,13 +291,5 @@ public class PositionDetailsProposer {
             }
         }
         return truncated;
-    }
-
-    private static ExtractedField capped(ExtractedField field, int maxLength) {
-        if (field.value().length() <= maxLength) {
-            return field;
-        }
-        return new ExtractedField(field.fieldKey(), field.value().substring(0, maxLength),
-                field.confidence(), field.snippet());
     }
 }

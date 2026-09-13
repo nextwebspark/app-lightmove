@@ -59,11 +59,14 @@ class PositionDocumentTextReaderTest {
     }
 
     @Test
-    @DisplayName("text is truncated to the configured character cap, regardless of format")
-    void truncatesText() {
+    @DisplayName("text over the character cap is refused whole, regardless of format")
+    void refusesTextOverTheCharacterCap() {
         String longText = "a".repeat(100);
-        String text = readerWith(10, 60).read(longText.getBytes(StandardCharsets.UTF_8));
-        assertThat(text).hasSize(10);
+        assertThatThrownBy(() -> readerWith(10, 60).read(longText.getBytes(StandardCharsets.UTF_8)))
+                .isInstanceOfSatisfying(ApiException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo(ErrorCode.POSITION_DOCUMENT_UNREADABLE);
+                    assertThat(e.getMessage()).contains("10 characters");
+                });
     }
 
     @Test
@@ -115,6 +118,24 @@ class PositionDocumentTextReaderTest {
         assertThat(docx.supports(zipOf("word/document.xml", "<document/>"))).isTrue();
     }
 
+    @Test
+    @DisplayName("a zip past the entry-count ceiling is not scanned to the end")
+    void aZipPastTheEntryCeilingIsRejected() {
+        // word/document.xml is present, but 1,500 dummy entries ahead of it push the scan past its
+        // cap before it is ever reached.
+        DocxFormatReader docx = new DocxFormatReader();
+        assertThat(docx.supports(zipWithManyEntriesThenWordDocument(1_500))).isFalse();
+    }
+
+    @Test
+    @DisplayName("a zip whose first entry inflates past the byte ceiling is not scanned to the end")
+    void aZipPastTheInflatedByteCeilingIsRejected() {
+        // The first entry alone, once inflated, is already past the ceiling — word/document.xml as
+        // entry two is never reached.
+        DocxFormatReader docx = new DocxFormatReader();
+        assertThat(docx.supports(zipWithHugeFirstEntryThenWordDocument(70L * 1024 * 1024))).isFalse();
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private static PositionDocumentTextReader readerWith(int maxCharacters, int maxPages) {
@@ -135,6 +156,47 @@ class PositionDocumentTextReaderTest {
             try (ZipOutputStream zip = new ZipOutputStream(out)) {
                 zip.putNextEntry(new ZipEntry(entryName));
                 zip.write(content.getBytes(StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+            return out.toByteArray();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static byte[] zipWithManyEntriesThenWordDocument(int dummyEntryCount) {
+        try {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            try (ZipOutputStream zip = new ZipOutputStream(out)) {
+                for (int i = 0; i < dummyEntryCount; i++) {
+                    zip.putNextEntry(new ZipEntry("dummy/" + i + ".txt"));
+                    zip.write('x');
+                    zip.closeEntry();
+                }
+                zip.putNextEntry(new ZipEntry("word/document.xml"));
+                zip.write("<document/>".getBytes(StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+            return out.toByteArray();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static byte[] zipWithHugeFirstEntryThenWordDocument(long inflatedSize) {
+        try {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            try (ZipOutputStream zip = new ZipOutputStream(out)) {
+                zip.putNextEntry(new ZipEntry("bomb.bin"));
+                byte[] chunk = new byte[1024 * 1024];
+                for (long written = 0; written < inflatedSize; ) {
+                    int toWrite = (int) Math.min(chunk.length, inflatedSize - written);
+                    zip.write(chunk, 0, toWrite);
+                    written += toWrite;
+                }
+                zip.closeEntry();
+                zip.putNextEntry(new ZipEntry("word/document.xml"));
+                zip.write("<document/>".getBytes(StandardCharsets.UTF_8));
                 zip.closeEntry();
             }
             return out.toByteArray();
