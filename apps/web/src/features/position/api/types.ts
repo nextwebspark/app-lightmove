@@ -179,16 +179,19 @@ export interface Position {
 }
 
 /** What produced a step-one proposal, and how far it is worth trusting. */
-export type ExtractionSource = "model" | "documentHeadings" | "none";
+export type ExtractionSource = "model" | "documentHeadings";
 
 export type ProposalConfidence = "high" | "medium" | "low";
 
 /**
- * One proposed field from "Read from document". `fieldKey` is one of `PositionDetails`'s own keys, or
+ * One proposed field from "Read from document". `id` is a per-response sequence number — the stable
+ * identity a row is keyed and matched on, since two responsibility rows share `fieldKey` and array
+ * index shifts when a row is removed. `fieldKey` is one of `PositionDetails`'s own keys, or
  * `"responsibility"` — one row per responsibility line rather than a list, so each carries its own
  * snippet and can be accepted or dismissed on its own.
  */
 export interface ProposedField {
+  id: number;
   fieldKey: string;
   value: string;
   confidence: ProposalConfidence;

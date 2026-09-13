@@ -538,6 +538,7 @@ describe("PositionPage", () => {
       extractionSource: "documentHeadings",
       fields: [
         {
+          id: 0,
           fieldKey: "roleTitle",
           value: "Group Chief Financial Officer",
           confidence: "medium",
@@ -569,12 +570,19 @@ describe("PositionPage", () => {
       extractionSource: "documentHeadings",
       fields: [
         {
+          id: 0,
           fieldKey: "roleTitle",
           value: "Group Chief Financial Officer",
           confidence: "medium",
           snippet: "Job Title: Group Chief Financial Officer",
         },
-        { fieldKey: "department", value: "Group Finance & Treasury", confidence: "low", snippet: null },
+        {
+          id: 1,
+          fieldKey: "department",
+          value: "Group Finance & Treasury",
+          confidence: "low",
+          snippet: null,
+        },
       ],
     };
     vi.mocked(positionApi.extractDetails).mockResolvedValue(extracted);
@@ -602,6 +610,76 @@ describe("PositionPage", () => {
     expect(screen.queryByDisplayValue("Group Finance & Treasury")).not.toBeInTheDocument();
     // Dismissing writes nothing — the call count does not move.
     expect(vi.mocked(positionApi.putDetails).mock.calls.length).toBe(callsAfterAccept);
+  });
+
+  it("keeps a surviving row's own edited value when a row above it is dismissed", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "documentHeadings",
+      fields: [
+        { id: 0, fieldKey: "roleTitle", value: "Group Chief Financial Officer", confidence: "medium", snippet: null },
+        { id: 1, fieldKey: "department", value: "Group Finance & Treasury", confidence: "low", snippet: null },
+        { id: 2, fieldKey: "location", value: "Dubai Marina, UAE", confidence: "low", snippet: null },
+      ],
+    };
+    vi.mocked(positionApi.extractDetails).mockResolvedValue(extracted);
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    const locationInput = await screen.findByDisplayValue("Dubai Marina, UAE");
+
+    // Edit the last row, then dismiss the first — with array-index keys this used to re-seat the
+    // surviving rows' local state onto the wrong field.
+    await user.clear(locationInput);
+    await user.type(locationInput, "Downtown Dubai, UAE");
+    await user.click(screen.getAllByRole("button", { name: "Dismiss" })[0]);
+
+    expect(screen.getByDisplayValue("Downtown Dubai, UAE")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Group Finance & Treasury")).toBeInTheDocument();
+  });
+
+  it("accept all writes every row's edited value, not the original proposal", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "documentHeadings",
+      fields: [
+        { id: 0, fieldKey: "department", value: "Group Finance & Treasury", confidence: "low", snippet: null },
+      ],
+    };
+    vi.mocked(positionApi.extractDetails).mockResolvedValue(extracted);
+    vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    const departmentInput = await screen.findByDisplayValue("Group Finance & Treasury");
+    await user.clear(departmentInput);
+    await user.type(departmentInput, "Corrected Department");
+
+    await user.click(screen.getByRole("button", { name: "Accept all" }));
+
+    await waitFor(() =>
+      expect(vi.mocked(positionApi.putDetails).mock.calls.at(-1)?.[1]).toEqual(
+        expect.objectContaining({ department: "Corrected Department" }),
+      ),
+    );
   });
 
   it("suggests role templates, and lets a title nothing matches be typed anyway", async () => {

@@ -28,12 +28,19 @@ export function PositionExtractionPanel({
   extraction: PositionExtraction;
   onAccept: (field: ProposedField, value: string) => void;
   onDismiss: (field: ProposedField) => void;
-  onAcceptAll: () => void;
+  onAcceptAll: (edits: Record<number, string>) => void;
 }) {
+  // Every row's edited value, lifted here rather than left in each row's own state: "Accept all"
+  // reads this map, so it writes what the user typed rather than the original proposed value.
+  const [edits, setEdits] = useState<Record<number, string>>({});
+  const valueOf = (field: ProposedField) => edits[field.id] ?? field.value;
+
   if (extraction.fields.length === 0) {
     return (
       <div className="rounded-[10px] border border-line-soft bg-panel2 px-[15px] py-[13px] font-mono text-[12px] text-text3">
-        {EXTRACTION_SOURCE_LABELS[extraction.extractionSource]} — nothing was found to propose.
+        {extraction.extractionSource === "documentHeadings"
+          ? "The assistant could not be reached, and nothing in the document's own headings could be proposed."
+          : "Nothing was found to propose."}
       </div>
     );
   }
@@ -55,7 +62,7 @@ export function PositionExtractionPanel({
         <Button
           type="button"
           variant="secondary"
-          onClick={onAcceptAll}
+          onClick={() => onAcceptAll(edits)}
           className="px-2.5 py-1.5 text-[11.5px]"
         >
           Accept all
@@ -63,10 +70,12 @@ export function PositionExtractionPanel({
       </div>
 
       <div className="flex flex-col gap-2">
-        {extraction.fields.map((field, index) => (
+        {extraction.fields.map((field) => (
           <ProposalRow
-            key={`${field.fieldKey}-${index}`}
+            key={field.id}
             field={field}
+            value={valueOf(field)}
+            onValueChange={(value) => setEdits((current) => ({ ...current, [field.id]: value }))}
             onAccept={(value) => onAccept(field, value)}
             onDismiss={() => onDismiss(field)}
           />
@@ -78,26 +87,31 @@ export function PositionExtractionPanel({
 
 function ProposalRow({
   field,
+  value,
+  onValueChange,
   onAccept,
   onDismiss,
 }: {
   field: ProposedField;
+  value: string;
+  onValueChange: (value: string) => void;
   onAccept: (value: string) => void;
   onDismiss: () => void;
 }) {
-  const [value, setValue] = useState(field.value);
   const [showSnippet, setShowSnippet] = useState(false);
   const style = CONFIDENCE_STYLES[field.confidence];
+  const label = EXTRACTION_FIELD_LABELS[field.fieldKey] ?? field.fieldKey;
 
   return (
     <div className="rounded-lg border border-line bg-panel px-3 py-2.5">
       <div className="flex flex-wrap items-center gap-2">
         <span className="w-[112px] flex-none font-mono text-[10.5px] font-semibold uppercase tracking-[0.05em] text-text3">
-          {EXTRACTION_FIELD_LABELS[field.fieldKey] ?? field.fieldKey}
+          {label}
         </span>
         <Input
+          aria-label={label}
           value={value}
-          onChange={(event) => setValue(event.target.value)}
+          onChange={(event) => onValueChange(event.target.value)}
           className="min-w-[160px] flex-1 bg-panel2"
         />
         <DetailPill label={style.label} className={style.className} />
@@ -124,6 +138,7 @@ function ProposalRow({
       {field.snippet && (
         <button
           type="button"
+          aria-expanded={showSnippet}
           onClick={() => setShowSnippet((open) => !open)}
           className="mt-1.5 flex items-center gap-1 font-mono text-[10.5px] text-text3 hover:text-text2"
         >

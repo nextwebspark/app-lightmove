@@ -1,8 +1,8 @@
 import type { ExtractionSource, ProposalConfidence } from "../api/types";
 
 /**
- * How a step-one proposal's confidence and source read on screen, in one place — mirrors {@code
- * triageVocabulary.ts}'s placement and shape, since a confidence badge is the same kind of signal a
+ * How a step-one proposal's confidence and source read on screen, in one place — mirrors
+ * `triageVocabulary.ts`'s placement and shape, since a confidence badge is the same kind of signal a
  * source badge is: how far a reading is worth trusting before it is accepted.
  */
 
@@ -16,7 +16,6 @@ export const CONFIDENCE_STYLES: Record<ProposalConfidence, { label: string; clas
 export const EXTRACTION_SOURCE_LABELS: Record<ExtractionSource, string> = {
   model: "read by the assistant",
   documentHeadings: "the assistant could not be reached — read from the document's own headings, so check these",
-  none: "nothing was found to propose",
 };
 
 /** Field keys the panel renders a human label for, in the order they appear. */

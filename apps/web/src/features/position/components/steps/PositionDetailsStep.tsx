@@ -47,7 +47,7 @@ export function PositionDetailsStep({
   onExtract: () => void;
   onAcceptProposal: (field: ProposedField, value: string) => void;
   onDismissProposal: (field: ProposedField) => void;
-  onAcceptAllProposals: () => void;
+  onAcceptAllProposals: (edits: Record<number, string>) => void;
 }) {
   const [draft, setDraft] = useState("");
 

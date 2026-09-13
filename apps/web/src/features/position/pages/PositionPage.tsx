@@ -36,7 +36,19 @@ import { MandateContextStep, MandateReasonField } from "../components/steps/Mand
 import { PositionDetailsStep } from "../components/steps/PositionDetailsStep";
 import { ReportingStructureStep } from "../components/steps/ReportingStructureStep";
 import { ReviewStep } from "../components/steps/ReviewStep";
+import { EMPLOYMENT_TYPE_LABELS } from "../lib/labels";
 import { POSITION_STEPS, stepIndexOf, type StepKey } from "../lib/steps";
+import { SENIORITY_TIERS } from "../../../lib/seniority";
+
+const EMPLOYMENT_TYPES: readonly string[] = Object.keys(EMPLOYMENT_TYPE_LABELS);
+
+function isEmploymentType(value: string): value is NonNullable<PositionDetails["employmentType"]> {
+  return EMPLOYMENT_TYPES.includes(value);
+}
+
+function isSeniority(value: string): value is NonNullable<PositionDetails["seniority"]> {
+  return (SENIORITY_TIERS as readonly string[]).includes(value);
+}
 
 /** The Position tab: loads the brief, then hands the wizard a snapshot to draft against. */
 export function PositionPage() {
@@ -348,7 +360,8 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
     );
 
-  const patchFor = (field: ProposedField, value: string): Partial<PositionDetails> => {
+  /** Null for a fieldKey this step doesn't have a slot for — the caller must not treat that as "saved". */
+  const patchFor = (field: ProposedField, value: string): Partial<PositionDetails> | null => {
     switch (field.fieldKey) {
       case "roleTitle":
         return { roleTitle: value };
@@ -357,41 +370,48 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       case "location":
         return { location: value || null };
       case "employmentType":
-        return { employmentType: value as PositionDetails["employmentType"] };
+        return isEmploymentType(value) ? { employmentType: value } : null;
       case "seniority":
-        return { seniority: value as PositionDetails["seniority"] };
+        return isSeniority(value) ? { seniority: value } : null;
       case "narrative":
         return { narrative: value || null };
       case "responsibility":
         return { responsibilities: [...details.responsibilities, value] };
       default:
-        return {};
+        return null;
     }
   };
 
   const acceptProposal = (field: ProposedField, value: string) => {
+    const patch = patchFor(field, value);
+    if (!patch) return;
     // Renaming the mandate is a decision, like every other immediate-flagged edit in this file — every
     // other field stays on the ordinary debounce a typed edit would get.
-    changeDetails(patchFor(field, value), field.fieldKey === "roleTitle");
+    changeDetails(patch, field.fieldKey === "roleTitle");
     removeProposal(field);
   };
-
-  const dismissProposal = (field: ProposedField) => removeProposal(field);
 
   /**
    * One combined patch rather than one `changeDetails` call per field: `changeDetails` reads `details`
    * from this closure rather than a functional updater, so several calls fired synchronously in the
    * same handler would each start from the same stale snapshot and the later ones would silently
    * discard the earlier ones' edits.
+   *
+   * `edits` is the panel's own per-row corrections, keyed by field id — reading `field.value` alone
+   * here would silently drop everything a user had typed before pressing Accept all.
    */
-  const acceptAllProposals = () => {
+  const acceptAllProposals = (edits: Record<number, string>) => {
     if (!extraction) return;
+    const valueOf = (field: ProposedField) => edits[field.id] ?? field.value;
     const responsibilities = extraction.fields
         .filter((field) => field.fieldKey === "responsibility")
-        .map((field) => field.value);
+        .map(valueOf);
     const combined = extraction.fields
         .filter((field) => field.fieldKey !== "responsibility")
-        .reduce<Partial<PositionDetails>>((patch, field) => ({ ...patch, ...patchFor(field, field.value) }), {});
+        .reduce<Partial<PositionDetails>>((patch, field) => {
+          const fieldPatch = patchFor(field, valueOf(field));
+          return fieldPatch ? { ...patch, ...fieldPatch } : patch;
+        }, {});
     changeDetails(
       { ...combined, responsibilities: [...details.responsibilities, ...responsibilities] },
       true,
@@ -486,7 +506,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               onRemoveDocument={() => removeDocument.mutate()}
               onExtract={() => extractDetails.mutate()}
               onAcceptProposal={acceptProposal}
-              onDismissProposal={dismissProposal}
+              onDismissProposal={removeProposal}
               onAcceptAllProposals={acceptAllProposals}
             />
           )}
