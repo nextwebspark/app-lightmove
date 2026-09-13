@@ -9,6 +9,8 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.position.dto.PositionExtractionResponse;
 import app.lightmove.api.position.dto.ProposedFieldDto;
 import app.lightmove.api.position.model.ExtractedField;
+import app.lightmove.api.position.model.ProposedCompensation;
+import app.lightmove.api.position.model.ProposedMandateContext;
 import app.lightmove.api.position.model.ProposedPositionDetails;
 import app.lightmove.api.position.service.ExtractionDocumentLoader.LoadedDocument;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,16 +20,16 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
- * Reads the document already attached to a mandate's brief into a step-one proposal — the one
- * explicit act that opens {@link PositionDocumentService}'s "never read" boundary, on its own call,
- * never as a side effect of upload.
+ * Reads the document already attached to a mandate's brief into a step proposal — the one explicit
+ * act that opens {@link PositionDocumentService}'s "never read" boundary, on its own call, never as a
+ * side effect of upload.
  *
  * <p>Its own class rather than more methods on {@link PositionDocumentService} or {@link
  * PositionService}, for the same reason the document service is already split out: this orchestrates
  * a byte-reading, a redaction and a billed model call, none of which belong inside {@link
- * PositionDocumentService#attach}'s write transaction. This method is read-only — nothing here writes
- * a row, and nothing should ever make it. It is also deliberately not {@code @Transactional} itself:
- * {@link ExtractionDocumentLoader} holds the one short transaction this needs, so the PDF parse and
+ * PositionDocumentService#attach}'s write transaction. Every method here is read-only — nothing here
+ * writes a row, and nothing should ever make it. None of them are {@code @Transactional} themselves:
+ * {@link ExtractionDocumentLoader} holds the one short transaction each needs, so the PDF parse and
  * the Vertex round trip below never pin a database connection.
  */
 @Service
@@ -35,49 +37,81 @@ public class PositionExtractionService {
 
     private final ExtractionDocumentLoader documentLoader;
     private final PositionDocumentTextReader textReader;
-    private final PositionDetailsProposer proposer;
+    private final PositionDetailsProposer detailsProposer;
+    private final PositionContextProposer contextProposer;
+    private final PositionCompensationProposer compensationProposer;
     private final AuditService audit;
     private final PositionExtractionSettings settings;
 
     // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
     // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public PositionExtractionService(ExtractionDocumentLoader documentLoader,
-                                     PositionDocumentTextReader textReader, PositionDetailsProposer proposer,
+                                     PositionDocumentTextReader textReader,
+                                     PositionDetailsProposer detailsProposer,
+                                     PositionContextProposer contextProposer,
+                                     PositionCompensationProposer compensationProposer,
                                      AuditService audit, LightMoveProperties properties) {
         this.documentLoader = documentLoader;
         this.textReader = textReader;
-        this.proposer = proposer;
+        this.detailsProposer = detailsProposer;
+        this.contextProposer = contextProposer;
+        this.compensationProposer = compensationProposer;
         this.audit = audit;
         this.settings = properties.position().extraction();
     }
 
     public PositionExtractionResponse extractDetails(UUID userId, UUID workspaceId, UUID projectId,
                                                       HttpServletRequest httpRequest) {
+        LoadedDocument document = load(workspaceId, projectId);
+        String text = textReader.read(document.content());
+        ProposedPositionDetails proposed = detailsProposer.propose(
+                userId, text, document.clientId(), workspaceId);
+        recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
+        return assemble(proposed.source().value(), proposed.fields());
+    }
+
+    public PositionExtractionResponse extractContext(UUID userId, UUID workspaceId, UUID projectId,
+                                                      HttpServletRequest httpRequest) {
+        LoadedDocument document = load(workspaceId, projectId);
+        String text = textReader.read(document.content());
+        ProposedMandateContext proposed = contextProposer.propose(
+                userId, text, document.clientId(), workspaceId, document.roleTitle());
+        recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
+        return assemble(proposed.source().value(), proposed.fields());
+    }
+
+    public PositionExtractionResponse extractCompensation(UUID userId, UUID workspaceId, UUID projectId,
+                                                           HttpServletRequest httpRequest) {
+        LoadedDocument document = load(workspaceId, projectId);
+        String text = textReader.read(document.content());
+        ProposedCompensation proposed = compensationProposer.propose(
+                userId, text, document.clientId(), workspaceId, document.roleTitle());
+        recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
+        return assemble(proposed.source().value(), proposed.fields());
+    }
+
+    private LoadedDocument load(UUID workspaceId, UUID projectId) {
         if (!settings.enabled()) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                     "Reading a position description is turned off for this deployment");
         }
-        LoadedDocument document = documentLoader.require(workspaceId, projectId);
-
-        String text = textReader.read(document.content());
-        ProposedPositionDetails proposed = proposer.propose(
-                userId, text, document.clientId(), workspaceId);
-
-        audit.event(ProjectEventType.POSITION_DOCUMENT_EXTRACTED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
-                .detail("extractionSource", proposed.source().value())
-                .record();
-
-        return assemble(proposed);
+        return documentLoader.require(workspaceId, projectId);
     }
 
-    private static PositionExtractionResponse assemble(ProposedPositionDetails proposed) {
-        List<ExtractedField> fields = proposed.fields();
+    private void recordAudit(UUID userId, UUID workspaceId, UUID projectId, HttpServletRequest httpRequest,
+                             String extractionSource) {
+        audit.event(ProjectEventType.POSITION_DOCUMENT_EXTRACTED)
+                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                .detail("extractionSource", extractionSource)
+                .record();
+    }
+
+    private static PositionExtractionResponse assemble(String extractionSource, List<ExtractedField> fields) {
         List<ProposedFieldDto> dtos = new ArrayList<>(fields.size());
         for (int i = 0; i < fields.size(); i++) {
             dtos.add(toDto(i, fields.get(i)));
         }
-        return new PositionExtractionResponse(proposed.source().value(), dtos);
+        return new PositionExtractionResponse(extractionSource, dtos);
     }
 
     private static ProposedFieldDto toDto(int id, ExtractedField field) {

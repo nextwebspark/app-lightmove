@@ -1,17 +1,38 @@
 import { useState } from "react";
-import { Input, Select, TextArea } from "../../../../components/ui";
+import { Button, Input, Select, Spinner, TextArea } from "../../../../components/ui";
 import { cn } from "../../../../lib/cn";
-import type { MandateContext, StrategicPriority } from "../../api/types";
+import type {
+  MandateContext,
+  PositionDocument,
+  PositionExtraction,
+  ProposedField,
+  StrategicPriority,
+} from "../../api/types";
 import { MANDATE_REASON_LABELS } from "../../lib/labels";
+import { PositionExtractionPanel } from "../PositionExtractionPanel";
 import { AddRowButton, RemoveRowButton, StepField } from "../fields";
 
 /** Step two: why the mandate exists. Internal throughout — no candidate ever reads any of it. */
 export function MandateContextStep({
   context,
+  document,
+  extraction,
+  extracting,
   onChange,
+  onExtract,
+  onAcceptProposal,
+  onDismissProposal,
+  onAcceptAllProposals,
 }: {
   context: MandateContext;
+  document: PositionDocument | null;
+  extraction: PositionExtraction | null;
+  extracting: boolean;
   onChange: (patch: Partial<MandateContext>, immediate?: boolean) => void;
+  onExtract: () => void;
+  onAcceptProposal: (field: ProposedField, value: string) => void;
+  onDismissProposal: (field: ProposedField) => void;
+  onAcceptAllProposals: () => void;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
 
@@ -32,6 +53,40 @@ export function MandateContextStep({
 
   return (
     <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-2.5">
+        {document ? (
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onExtract}
+              disabled={extracting}
+              className="border-sky/60 px-2.5 py-[5px] text-[11.5px] text-sky hover:border-sky"
+            >
+              Read from document
+            </Button>
+            {extracting && (
+              <span className="flex items-center gap-[7px] font-mono text-[11.5px] text-text3">
+                <Spinner />
+                Reading document…
+              </span>
+            )}
+          </div>
+        ) : (
+          <span className="font-mono text-[11.5px] text-text3">
+            Attach a position description on the Details step to read this step from it.
+          </span>
+        )}
+        {extraction && (
+          <PositionExtractionPanel
+            extraction={extraction}
+            onAccept={onAcceptProposal}
+            onDismiss={onDismissProposal}
+            onAcceptAll={onAcceptAllProposals}
+          />
+        )}
+      </div>
+
       <StepField label="Business driver">
         <TextArea
           value={context.businessDriver ?? ""}

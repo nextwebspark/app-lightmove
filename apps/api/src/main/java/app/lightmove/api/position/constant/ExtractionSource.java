@@ -17,7 +17,14 @@ public enum ExtractionSource {
      * neither path found anything worth proposing — an empty {@code fields} list still names which
      * reading was tried.
      */
-    DOCUMENT_HEADINGS("documentHeadings");
+    DOCUMENT_HEADINGS("documentHeadings"),
+
+    /**
+     * No reading was possible at all — step two and step four's proposers have no heuristic fallback
+     * to fall back to, unlike step one, so a failed, blocked or unresolving model call has nothing
+     * else to try and lands here instead of a degraded reading.
+     */
+    NONE("none");
 
     private final String wireToken;
 

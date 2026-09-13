@@ -16,6 +16,9 @@ export const CONFIDENCE_STYLES: Record<ProposalConfidence, { label: string; clas
 export const EXTRACTION_SOURCE_LABELS: Record<ExtractionSource, string> = {
   model: "read by the assistant",
   documentHeadings: "the assistant could not be reached — read from the document's own headings, so check these",
+  // Reached with fields present only via template backfill: this step has no heuristic fallback, so a
+  // failed or blocked read still surfaces the matched template's own values, each labelled below.
+  none: "no reading — every field below is proposed from the matched template",
 };
 
 /** Field keys the panel renders a human label for, in the order they appear. */
@@ -27,4 +30,17 @@ export const EXTRACTION_FIELD_LABELS: Record<string, string> = {
   seniority: "Seniority",
   narrative: "Ideal profile",
   responsibility: "Responsibility",
+  mandateReason: "Mandate reason",
+  businessDriver: "Business driver",
+  strategicPriority: "Strategic priority",
+  currency: "Currency",
+  salaryMin: "Minimum base salary",
+  salaryMax: "Maximum base salary",
+  baseSalaryMode: "Base salary period",
+  bonusValue: "Bonus target",
+  bonusBasis: "Bonus basis",
+  incentiveType: "Incentive type",
+  incentiveAmount: "Incentive amount",
+  incentiveVesting: "Vesting schedule",
+  benefit: "Benefit",
 };

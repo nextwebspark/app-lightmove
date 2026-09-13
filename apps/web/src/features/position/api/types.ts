@@ -178,8 +178,12 @@ export interface Position {
   document: PositionDocument | null;
 }
 
-/** What produced a step-one proposal, and how far it is worth trusting. */
-export type ExtractionSource = "model" | "documentHeadings";
+/**
+ * What produced a proposal, and how far it is worth trusting. `"none"` is step two and step four's
+ * own — they have no heuristic fallback the way step one does, so a failed, blocked or unresolving
+ * model call has nothing else to try and lands here instead of a degraded reading.
+ */
+export type ExtractionSource = "model" | "documentHeadings" | "none";
 
 export type ProposalConfidence = "high" | "medium" | "low";
 
