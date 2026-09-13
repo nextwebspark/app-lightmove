@@ -99,7 +99,7 @@
         </div>
       </div>
       <div style="flex:1;overflow-y:auto;min-height:0">
-      <div style="max-width:760px;padding:22px 32px 60px">
+      <div style="max-width:{{ contentMax }};padding:{{ contentPad }}">
 
         <!-- ============ PROFILE ============ -->
         <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ true }}">
@@ -329,56 +329,93 @@
         <!-- ============ TEMPLATES (workspace) · TEMPLATE LIBRARY (platform) — list ============ -->
         <sc-if value="{{ isTplList }}" hint-placeholder-val="{{ false }}">
           <div data-screen-label="Settings · Templates" style="animation:fadeUp .4s ease both">
-            <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-              <div style="min-width:0">
-                <div style="font:600 19px/1.2 var(--sans)">{{ tplHeading }}</div>
-                <div style="color:var(--text3);font:400 12px var(--mono);margin-top:4px">{{ tplCountLine }}</div>
+            <!-- Strategy's toolbar with the filter rail hidden: one bar across the panel, the grid under it at a 20px gutter. -->
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;min-height:44px;padding:6px 20px;background:var(--panel2);border-bottom:1px solid var(--line-soft)">
+              <div style="display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:6px;padding:8px 12px;width:240px;max-width:100%">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                <input value="{{ tplQuery }}" onInput="{{ onTplSearch }}" placeholder="Search templates..." style="background:none;border:none;outline:none;width:100%;font:400 13px var(--sans);color:var(--text)">
               </div>
-              <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
-                <button onClick="{{ openImport }}" style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+              <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <button title="{{ tplNote }}" aria-label="About this list" style="width:36px;height:36px;display:grid;place-items:center;border-radius:6px;border:none;background:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text);background:var(--panel)">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 16v-4M12 8h.01"></path></svg>
+                </button>
+                <button onClick="{{ toastColumns }}" style="display:inline-flex;align-items:center;gap:6px;padding:8px;border-radius:6px;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text);background:var(--panel)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3zM9 3v18M15 3v18"></path></svg>
+                  Columns
+                </button>
+                <button onClick="{{ openImport }}" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:6px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:var(--panel);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"></path></svg>
                   Import
                 </button>
-                <button onClick="{{ toastExport }}" style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+                <button onClick="{{ toastExport }}" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:6px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:var(--panel);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
                   Export
                 </button>
-                <button onClick="{{ newTpl }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
+                <button onClick="{{ newTpl }}" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:6px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:var(--panel);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
                   New template
                 </button>
               </div>
             </div>
-            <div style="display:flex;gap:10px;align-items:flex-start;background:var(--sky-dim);border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px;margin-bottom:20px;font:400 12px/1.55 var(--mono);color:var(--text2)">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--sky)" stroke-width="2" style="flex:none;margin-top:1px"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 16v-4M12 8h.01"></path></svg>
-              <span>{{ tplNote }}</span>
-            </div>
-            <sc-for list="{{ tplGroups }}" as="g" hint-placeholder-count="3">
-              <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:0 0 8px 2px">{{ g.label }} · {{ g.count }}</div>
-              <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:0 20px;margin-bottom:18px">
-                <sc-for list="{{ g.rows }}" as="t" hint-placeholder-count="3">
-                  <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:{{ t.border }};opacity:{{ t.opacity }}">
-                    <div style="flex:1;min-width:0">
-                      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                        <span style="font:500 13px var(--sans)">{{ t.title }}</span>
-                        <span style="font:400 11px var(--mono);color:var(--text3)">{{ t.seniority }}</span>
-                        <span style="display:inline-flex;font:600 9.5px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid var(--line-soft);color:{{ t.badgeFg }};background:{{ t.badgeBg }}">{{ t.badge }}</span>
-                        <sc-if value="{{ t.libUpdated }}" hint-placeholder-val="{{ false }}">
-                          <span title="The library version changed after your firm customised this template" style="display:inline-flex;align-items:center;gap:5px;font:600 9.5px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;color:var(--amber);background:var(--amber-dim)">
-                            <span style="width:6px;height:6px;border-radius:50%;background:var(--amber-btn)"></span>Library updated
-                          </span>
-                        </sc-if>
-                      </div>
-                      <div style="font:400 11.5px var(--mono);color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.summary }}</div>
-                    </div>
-                    <sc-if value="{{ t.canToggle }}" hint-placeholder-val="{{ false }}">
-                      <button onClick="{{ toggleTplVisible }}" data-code="{{ t.code }}" style="font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer;padding:5px 8px;border-radius:6px;flex:none" style-hover="color:var(--text);background:var(--panel)">{{ t.toggleLabel }}</button>
-                    </sc-if>
-                    <button onClick="{{ openTpl }}" data-code="{{ t.code }}" style="display:inline-flex;align-items:center;padding:5px 12px;border-radius:7px;font:500 12.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:var(--panel);cursor:pointer;flex:none" style-hover="color:var(--text);border-color:var(--text3)">Open</button>
-                  </div>
-                </sc-for>
+            <div style="padding:20px">
+            <div style="border:1px solid var(--line);border-radius:8px;background:var(--panel);overflow-x:auto">
+              <div style="display:grid;grid-template-columns:{{ tplCols }};gap:12px;align-items:center;min-width:{{ tplMin }};padding:10px 16px;background:var(--panel2);border-bottom:1px solid var(--line);font:600 11px var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);white-space:nowrap">
+                <span>Template</span>
+                <span style="color:var(--text)">Discipline ↑</span>
+                <span>Seniority</span>
+                <span>Status</span>
+                <span>Summary</span>
+                <span>Match keywords</span>
+                <span style="display:{{ tplCopiesDisplay }}">Firm copies</span>
+                <span>Last revised</span>
+                <span>Revised by</span>
+                <span></span>
               </div>
-            </sc-for>
+              <sc-for list="{{ tplRows }}" as="t" hint-placeholder-count="6">
+                <div onClick="{{ openTpl }}" data-code="{{ t.code }}" style="display:grid;grid-template-columns:{{ tplCols }};gap:12px;align-items:center;min-width:{{ tplMin }};height:52px;padding:0 16px;border-bottom:1px solid var(--line-soft);cursor:pointer;opacity:{{ t.opacity }}" style-hover="background:var(--panel2)">
+                  <div style="min-width:0">
+                    <div style="font:600 13px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.title }}</div>
+                    <div style="font:400 11px var(--mono);color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.code }}</div>
+                  </div>
+                  <span style="font:400 13px var(--sans);color:var(--text2);white-space:nowrap">{{ t.discipline }}</span>
+                  <span style="font:400 13px var(--sans);color:var(--text2);white-space:nowrap">{{ t.seniority }}</span>
+                  <span style="display:flex;align-items:center;gap:6px;min-width:0">
+                    <span style="display:inline-flex;font:600 9.5px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid var(--line-soft);color:{{ t.badgeFg }};background:{{ t.badgeBg }}">{{ t.badge }}</span>
+                    <sc-if value="{{ t.libUpdated }}" hint-placeholder-val="{{ false }}">
+                      <span title="The library version changed after your firm customised this template" style="display:inline-flex;align-items:center;gap:5px;font:600 9.5px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;color:var(--amber);background:var(--amber-dim);white-space:nowrap">
+                        <span style="width:6px;height:6px;border-radius:50%;background:var(--amber-btn)"></span>Library updated
+                      </span>
+                    </sc-if>
+                  </span>
+                  <span style="min-width:0;font:400 13px var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.summary }}</span>
+                  <span style="min-width:0;font:400 13px var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.keywords }}</span>
+                  <span style="display:{{ tplCopiesDisplay }};font:500 13px var(--sans);color:var(--text2)">{{ t.copies }}</span>
+                  <span style="font:400 13px var(--sans);color:var(--text3);white-space:nowrap">{{ t.revised }}</span>
+                  <span style="font:400 13px var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.revisedBy }}</span>
+                  <span style="display:flex;align-items:center;justify-content:flex-end;gap:6px">
+                    <sc-if value="{{ t.canToggle }}" hint-placeholder-val="{{ false }}">
+                      <button onClick="{{ toggleTplVisible }}" data-code="{{ t.code }}" style="font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer;padding:5px 8px;border-radius:6px" style-hover="color:var(--text);background:var(--panel)">{{ t.toggleLabel }}</button>
+                    </sc-if>
+                    <button onClick="{{ openTpl }}" data-code="{{ t.code }}" style="display:inline-flex;align-items:center;padding:5px 11px;border-radius:7px;font:600 12px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer;white-space:nowrap" style-hover="color:var(--text);border-color:var(--text3);background:var(--panel)">Open →</button>
+                  </span>
+                </div>
+              </sc-for>
+              <sc-if value="{{ tplNoResults }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:40px;text-align:center;color:var(--text3);font:400 13px var(--mono)">No templates match. Clear the search or pick another filter.</div>
+              </sc-if>
+            </div>
+            <!-- The app's pager, as on Strategy: page controls on the left, page size and full screen on the right. -->
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin-top:12px;font:400 13px var(--sans);color:var(--text3)">
+              <span style="width:26px;height:26px;display:grid;place-items:center;border-radius:5px;opacity:.4">‹</span>
+              <span style="padding:5px 12px;border:1px solid var(--line-soft);border-radius:6px;font:600 13px var(--sans);color:var(--text)">1</span>
+              <span style="width:26px;height:26px;display:grid;place-items:center;border-radius:5px;opacity:.4">›</span>
+              <span>{{ tplRangeLine }}</span>
+              <span style="margin-left:auto">Rows per page <b style="display:inline-block;margin-left:6px;padding:5px 12px;border:1px solid var(--line-soft);border-radius:6px;font:600 13px var(--sans);color:var(--text)">25 ▾</b></span>
+              <button aria-label="Full screen" style="width:26px;height:26px;display:grid;place-items:center;border-radius:5px;border:none;background:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text);background:var(--panel2)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"></path></svg>
+              </button>
+            </div>
+            </div>
           </div>
         </sc-if>
 
@@ -852,6 +889,7 @@ class Component extends DCLogic {
       tplWs: { 'chief-financial-officer': 'CUSTOMISED', 'head-of-internal-audit': 'HIDDEN', 'group-treasury-lead': 'OWN' },
       tplWsLibUpdated: { 'chief-financial-officer': true },
       tplArchived: {},
+      tplQuery: '',
       tplOpen: null, tplDraft: null, tplDirty: false,
       chipDraft: { keywords: '', responsibilities: '', priorities: '', directReports: '' },
       critDraft: '',
@@ -1046,25 +1084,32 @@ class Component extends DCLogic {
       return st.tplWs[code] || 'LIBRARY';
     };
     const allTpls = isLib ? TPL_LIBRARY : [OWN_TPL, ...TPL_LIBRARY];
-    const tplGroups = DISCIPLINES.map(discipline => {
-      const rows = allTpls.filter(t => t.discipline === discipline).map((t, i) => {
-        const origin = tplOrigin(t.code), o = ORIGIN[origin];
-        return {
-          code: t.code, title: t.title, seniority: t.seniority, summary: t.summary,
-          badge: o.badge, badgeFg: o.fg, badgeBg: o.bg,
-          border: i === 0 ? 'none' : '1px solid var(--line-soft)',
-          opacity: origin === 'HIDDEN' || origin === 'ARCHIVED' ? '.55' : '1',
-          libUpdated: origin === 'CUSTOMISED' && !!st.tplWsLibUpdated[t.code],
-          canToggle: t.code !== 'generic-executive' && ['ACTIVE', 'ARCHIVED', 'LIBRARY', 'HIDDEN'].includes(origin),
-          toggleLabel: { ACTIVE: 'Archive', ARCHIVED: 'Restore', LIBRARY: 'Hide', HIDDEN: 'Show' }[origin] || '',
-        };
-      });
-      return { label: discipline, count: rows.length, rows };
-    }).filter(g => g.rows.length);
-    const countOf = (origin) => allTpls.filter(t => tplOrigin(t.code) === origin).length;
-    const tplCountLine = isLib
-      ? `${TPL_LIBRARY.length} templates · ${countOf('ARCHIVED')} archived · the library every workspace starts from`
-      : `${allTpls.length} templates · ${countOf('CUSTOMISED')} customised · ${countOf('OWN')} your own · ${countOf('HIDDEN')} hidden`;
+    const TPL_KEYWORDS = {
+      'chief-financial-officer': ['chief financial', 'cfo', 'finance director', 'group finance director'],
+      'chief-executive-officer': ['chief executive', 'ceo', 'managing director', 'group md'],
+      'group-treasury-lead': ['treasury', 'group treasurer'],
+      'generic-executive': [],
+    };
+    const TPL_COPIES = { 'chief-financial-officer': 3, 'chief-executive-officer': 1, 'head-of-finance': 1 };
+    const tplQ = (st.tplQuery || '').trim().toLowerCase();
+    const tplRows = allTpls.map(t => {
+      const origin = tplOrigin(t.code), o = ORIGIN[origin];
+      const keywords = TPL_KEYWORDS[t.code] || [t.title.toLowerCase()];
+      const libraryRow = origin === 'LIBRARY' || origin === 'HIDDEN';
+      const edited = isLib ? t.code === 'chief-financial-officer' : !libraryRow;
+      return {
+        origin, code: t.code, title: t.title, discipline: t.discipline, seniority: t.seniority, summary: t.summary,
+        keywords: keywords.join(', ') || '—', search: [t.title, t.code, t.summary, t.discipline, ...keywords].join(' ').toLowerCase(),
+        badge: o.badge, badgeFg: o.fg, badgeBg: o.bg,
+        opacity: origin === 'HIDDEN' || origin === 'ARCHIVED' ? '.55' : '1',
+        libUpdated: origin === 'CUSTOMISED' && !!st.tplWsLibUpdated[t.code],
+        canToggle: t.code !== 'generic-executive' && ['ACTIVE', 'ARCHIVED', 'LIBRARY', 'HIDDEN'].includes(origin),
+        toggleLabel: { ACTIVE: 'Archive', ARCHIVED: 'Restore', LIBRARY: 'Hide', HIDDEN: 'Show' }[origin] || '',
+        copies: String(TPL_COPIES[t.code] || 0),
+        revised: edited ? (isLib ? '02 Sep 2026' : '28 Aug 2026') : '14 Aug 2026',
+        revisedBy: edited ? 'Yara Haddad' : (libraryRow ? 'LightMove' : '—'),
+      };
+    }).filter(r => !tplQ || r.search.includes(tplQ)).sort((a, b) => DISCIPLINES.indexOf(a.discipline) - DISCIPLINES.indexOf(b.discipline));
 
     const d = st.tplDraft;
     const edOrigin = st.tplOpen ? tplOrigin(st.tplOpen) : null;
@@ -1193,7 +1238,20 @@ class Component extends DCLogic {
       isTplList: (sec === 'templates' || sec === 'library') && !st.tplOpen,
       isTplEditor: (sec === 'templates' || sec === 'library') && !!st.tplOpen && !!d,
       tplHeading: isLib ? 'Template library' : 'Templates',
-      tplCountLine, tplGroups,
+      // A grid screen takes the whole panel with no gutter, as Strategy does; forms keep the reading column.
+      contentMax: (sec === 'templates' || sec === 'library') && !st.tplOpen ? 'none' : '760px',
+      contentPad: (sec === 'templates' || sec === 'library') && !st.tplOpen ? '0' : '22px 32px 60px',
+      tplRows, tplNoResults: tplRows.length === 0,
+      tplRangeLine: tplRows.length ? `1–${tplRows.length} of ${tplRows.length}` : '0 of 0',
+      // One template for the header and every row, as the app's grid does; the library adds Firm copies.
+      tplCols: isLib
+        ? 'minmax(220px,24fr) 120px 112px 216px minmax(220px,30fr) minmax(180px,18fr) 112px 120px 150px 150px'
+        : 'minmax(220px,24fr) 120px 112px 216px minmax(220px,30fr) minmax(180px,18fr) 120px 150px 150px',
+      tplMin: isLib ? '1740px' : '1616px',
+      tplCopiesDisplay: isLib ? 'block' : 'none',
+      tplQuery: st.tplQuery,
+      onTplSearch: (e) => this.setState({ tplQuery: e.target.value }),
+      toastColumns: () => this.showToast('Columns: show or hide, drag a header to reorder or resize'),
       tplNote: isLib
         ? "Changes here reach every workspace that hasn't customised the template. Workspaces with their own copy keep it and are told the library moved on. Mandates already drafted never change."
         : "Your firm starts from the LightMove library. Edit any template to make it your own — library updates stop reaching your copy until you reset it. Mandates already drafted never change.",
@@ -1204,6 +1262,7 @@ class Component extends DCLogic {
       closeTpl: () => this.setState({ tplOpen: null, tplDraft: null, tplDirty: false }),
       newTpl: () => this.setState({ tplOpen: '__new', tplDraft: this.blankDraft(), tplDirty: true }),
       toggleTplVisible: (e) => {
+        e.stopPropagation();
         const code = e.currentTarget.dataset.code, origin = tplOrigin(code);
         if (origin === 'ACTIVE' || origin === 'ARCHIVED') setArchived(code, origin === 'ACTIVE');
         else setHidden(code, origin === 'LIBRARY');
