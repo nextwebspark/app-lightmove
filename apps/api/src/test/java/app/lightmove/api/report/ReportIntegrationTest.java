@@ -33,7 +33,7 @@ class ReportIntegrationTest extends FlowTestSupport {
         mvc.perform(get(reportUrl(f.projectId)).header("Authorization", "Bearer " + login(f.saraEmail)))
                 .andExpect(status().isForbidden());
         mvc.perform(get(reportUrl(UUID.randomUUID().toString())).header("Authorization", "Bearer " + f.admin))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
 
         seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
         mvc.perform(get(reportUrl(f.projectId)).header("Authorization", "Bearer " + login(f.saraEmail)))
