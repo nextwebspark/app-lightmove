@@ -17,6 +17,7 @@ import app.lightmove.api.position.constant.ProposalConfidence;
 import app.lightmove.api.position.constant.ProposalOrigin;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ProposedCompensation;
+import app.lightmove.api.position.service.ExtractedFieldReader;
 import app.lightmove.api.position.service.PositionCompensationProposer;
 import app.lightmove.api.position.service.PositionDocumentRedactor;
 import app.lightmove.api.position.service.PositionDocumentTextReader;
@@ -65,6 +66,7 @@ class PositionCompensationProposerTest extends FlowTestSupport {
     @Autowired PositionDocumentRedactor redactor;
     @Autowired PositionDocumentTextReader textReader;
     @Autowired PositionTemplateService templates;
+    @Autowired ExtractedFieldReader fieldReader;
 
     private static final String DOCUMENT_TEXT = """
             Company: Acme Holdings Group
@@ -388,7 +390,7 @@ class PositionCompensationProposerTest extends FlowTestSupport {
     private PositionCompensationProposer proposerWith(ChatModel model) {
         Resource prompt = new ClassPathResource("prompts/position-extract-compensation-system.st");
         Resource schema = new ClassPathResource("prompts/position-extract-compensation-schema.json");
-        return new PositionCompensationProposer(ChatClient.builder(model).build(), redactor, templates,
+        return new PositionCompensationProposer(ChatClient.builder(model).build(), redactor, templates, fieldReader,
                 prompt, schema, TestLlmCallPolicy.asShipped(), budgetGuard());
     }
 
@@ -396,7 +398,7 @@ class PositionCompensationProposerTest extends FlowTestSupport {
     private static LlmBudgetGuard budgetGuard() {
         return new LlmBudgetGuard((key, limit, window) -> true,
                 new LightMoveProperties(null, null, null, null, null,
-                        new LlmSettings(new LlmRateLimitSettings(true, 10, 20), 20_000, 1, List.of()),
+                        new LlmSettings(new LlmRateLimitSettings(true, 10, 20, 10), 20_000, 1, List.of()),
                         null, null, null, null, null, null));
     }
 

@@ -32,81 +32,17 @@ public class LlmBudgetGuard {
         this.settings = properties.llm().rateLimit();
     }
 
-    /** @throws ApiException RATE_LIMITED when this user has no shortlist calls left this minute */
-    public void requireShortlistBudget(UUID userId) {
-        requireBudget("shortlist", userId, settings.shortlistRequestsPerMinute());
-    }
-
-    /** @throws ApiException RATE_LIMITED when this user has no embedding calls left this minute */
-    public void requireEmbeddingBudget(UUID userId) {
-        requireBudget("embed", userId, settings.embedRequestsPerMinute());
-    }
-
     /**
-     * Spends one of this user's column-mapping calls — its own meter, so a large import cannot eat
-     * the shortlist a consultant is about to run. Keyed as the prompt id the call is logged under.
+     * Spends one of this user's calls against {@code budget}'s meter, or refuses the request.
      *
      * @throws ApiException RATE_LIMITED when they have none left
      */
-    public void requireColumnMappingBudget(UUID userId) {
-        requireBudget("import-column-mapping", userId, settings.shortlistRequestsPerMinute());
-    }
-
-    /**
-     * Spends one of this user's position-extraction calls, the model call behind step one's "Read
-     * from document".
-     *
-     * <p>Its own meter, sized off the shortlist's number for the same reason column mapping's is: an
-     * extraction must not eat the shortlist budget a consultant is about to spend, and vice versa.
-     *
-     * @throws ApiException RATE_LIMITED when they have none left
-     */
-    public void requirePositionExtractionBudget(UUID userId) {
-        requireBudget("position-extract", userId, settings.shortlistRequestsPerMinute());
-    }
-
-    /**
-     * Spends one of this user's mandate-context-extraction calls — its own meter, so step two's
-     * "Read from document" cannot eat step one's or step four's budget, or vice versa.
-     *
-     * @throws ApiException RATE_LIMITED when they have none left
-     */
-    public void requireContextExtractionBudget(UUID userId) {
-        requireBudget("context-extract", userId, settings.shortlistRequestsPerMinute());
-    }
-
-    /**
-     * Spends one of this user's compensation-extraction calls — its own meter, for the same reason
-     * {@link #requireContextExtractionBudget} is.
-     *
-     * @throws ApiException RATE_LIMITED when they have none left
-     */
-    public void requireCompensationExtractionBudget(UUID userId) {
-        requireBudget("compensation-extract", userId, settings.shortlistRequestsPerMinute());
-    }
-
-    /**
-     * Spends one of this user's assessment-extraction calls — its own meter, for the same reason
-     * {@link #requireCompensationExtractionBudget} is.
-     *
-     * @throws ApiException RATE_LIMITED when they have none left
-     */
-    public void requireAssessmentExtractionBudget(UUID userId) {
-        requireBudget("assessment-extract", userId, settings.shortlistRequestsPerMinute());
-    }
-
-    /**
-     * Spends one call from a per-user, per-minute budget, or refuses the request.
-     *
-     * @param budgetName the meter this call is counted against, not the endpoint that made it — two
-     *                   endpoints sharing a name deliberately share a budget
-     */
-    private void requireBudget(String budgetName, UUID userId, int callsPerMinute) {
+    public void require(LlmBudget budget, UUID userId) {
         if (!settings.enabled()) {
             return;
         }
-        boolean isWithinBudget = limiter.tryAcquire(
-                "llm-%s:user:%s".formatted(budgetName, userId), callsPerMinute, Duration.ofMinutes(1));
+        boolean isWithinBudget = limiter.tryAcquire("llm-%s:user:%s".formatted(budget.meter(), userId),
+                budget.callsPerMinute(settings), Duration.ofMinutes(1));
         if (!isWithinBudget) {
             throw ApiException.of(ErrorCode.RATE_LIMITED);
         }

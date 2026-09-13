@@ -7,6 +7,7 @@ import app.lightmove.api.candidate.dto.ShortlistResponse;
 import app.lightmove.api.candidate.service.CandidateEmbeddingService;
 import app.lightmove.api.candidate.service.CandidateShortlistService;
 import app.lightmove.api.core.config.LlmRateLimitSettings;
+import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import jakarta.validation.Valid;
@@ -39,7 +40,7 @@ public class CandidateLlmController {
     @PostMapping("/shortlist")
     public ResponseEntity<ShortlistResponse> shortlist(@AuthenticationPrincipal AuthPrincipal principal,
                                                         @Valid @RequestBody ShortlistRequest request) {
-        llmBudget.requireShortlistBudget(principal.userId());
+        llmBudget.require(LlmBudget.SHORTLIST, principal.userId());
         String verdict = shortlistService.shortlist(request.jobBrief(), request.candidateProfile());
         return ResponseEntity.ok(new ShortlistResponse(verdict));
     }
@@ -47,7 +48,7 @@ public class CandidateLlmController {
     @PostMapping("/embed")
     public ResponseEntity<EmbedResponse> embed(@AuthenticationPrincipal AuthPrincipal principal,
                                                @Valid @RequestBody EmbedRequest request) {
-        llmBudget.requireEmbeddingBudget(principal.userId());
+        llmBudget.require(LlmBudget.EMBED, principal.userId());
         float[] vector = embeddingService.embed(request.text());
         return ResponseEntity.ok(new EmbedResponse(vector.length, vector));
     }

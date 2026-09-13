@@ -5,6 +5,7 @@ import app.lightmove.api.core.llm.model.Pseudonyms;
 import app.lightmove.api.core.llm.model.PromptGuardSpec;
 import app.lightmove.api.core.llm.service.LlmCallPolicy;
 import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
+import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.position.constant.ExtractionSource;
 import app.lightmove.api.position.constant.MandateReason;
@@ -64,10 +65,12 @@ public class PositionContextProposer {
     private static final int BUSINESS_DRIVER_MAX_LENGTH = 1000;
     private static final int PRIORITY_NAME_MAX_LENGTH = 120;
     private static final int PRIORITY_MAX_COUNT = 20;
+    private static final String LABEL = "Mandate context extraction";
 
     private final ChatClient chatClient;
     private final PositionDocumentRedactor redactor;
     private final PositionTemplateService templates;
+    private final ExtractedFieldReader fieldReader;
     private final Resource systemPrompt;
     private final Consumer<ChatClient.AdvisorSpec> guarded;
     private final LlmBudgetGuard llmBudget;
@@ -77,6 +80,7 @@ public class PositionContextProposer {
     public PositionContextProposer(ChatClient chatClient,
                                    PositionDocumentRedactor redactor,
                                    PositionTemplateService templates,
+                                   ExtractedFieldReader fieldReader,
                                    @Value("classpath:prompts/position-extract-context-system.st") Resource systemPrompt,
                                    @Value("classpath:prompts/position-extract-context-schema.json") Resource answerSchema,
                                    LlmCallPolicy llmCalls,
@@ -84,6 +88,7 @@ public class PositionContextProposer {
         this.chatClient = chatClient;
         this.redactor = redactor;
         this.templates = templates;
+        this.fieldReader = fieldReader;
         this.systemPrompt = systemPrompt;
         this.guarded = llmCalls.forPrompt(PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
         this.llmBudget = llmBudget;
@@ -91,7 +96,7 @@ public class PositionContextProposer {
 
     public ProposedMandateContext propose(UUID userId, String documentText, UUID clientId, UUID workspaceId,
                                           String roleTitle) {
-        llmBudget.requireContextExtractionBudget(userId);
+        llmBudget.require(LlmBudget.CONTEXT_EXTRACT, userId);
 
         try {
             Redaction redaction = redactor.redact(documentText, clientId, workspaceId);
@@ -140,11 +145,12 @@ public class PositionContextProposer {
 
     private ProposedMandateContext reconcile(ModelContextAnswer answered, Pseudonyms pseudonyms,
                                              String originalText) {
+        String haystack = fieldReader.haystackOf(originalText);
         List<ExtractedField> fields = new ArrayList<>();
-        enumFieldFrom("mandateReason", MandateReason.class, answered.mandateReason(),
-                answered.mandateReasonSnippet(), pseudonyms, originalText).ifPresent(fields::add);
-        fieldFrom("businessDriver", answered.businessDriver(), answered.businessDriverSnippet(),
-                pseudonyms, originalText).ifPresent(fields::add);
+        fieldReader.enumFieldFrom(LABEL, "mandateReason", MandateReason.class, answered.mandateReason(),
+                answered.mandateReasonSnippet(), pseudonyms, haystack).ifPresent(fields::add);
+        fieldReader.fieldFrom(LABEL, "businessDriver", answered.businessDriver(), answered.businessDriverSnippet(),
+                pseudonyms, haystack).ifPresent(fields::add);
 
         if (answered.strategicPriorities() != null) {
             Set<String> seenCaseInsensitive = new LinkedHashSet<>();
@@ -152,7 +158,8 @@ public class PositionContextProposer {
                 if (priority == null) {
                     continue;
                 }
-                fieldFrom("strategicPriority", priority.name(), priority.snippet(), pseudonyms, originalText)
+                fieldReader.fieldFrom(LABEL, "strategicPriority", priority.name(), priority.snippet(),
+                        pseudonyms, haystack)
                         .ifPresent(field -> {
                             // Never let the proposal itself carry a case-insensitive duplicate: a
                             // single "Accept all" must not be able to trip PositionService's own
@@ -164,60 +171,6 @@ public class PositionContextProposer {
             }
         }
         return new ProposedMandateContext(ExtractionSource.MODEL, fields);
-    }
-
-    private Optional<ExtractedField> fieldFrom(String fieldKey, String rawValue, String rawSnippet,
-                                               Pseudonyms pseudonyms, String originalText) {
-        if (rawValue == null || rawValue.isBlank()) {
-            return Optional.empty();
-        }
-        String value = pseudonyms.rehydrate(rawValue);
-        String snippet = rawSnippet == null || rawSnippet.isBlank() ? null : pseudonyms.rehydrate(rawSnippet);
-        if (pseudonyms.hasResidue(value) || pseudonyms.hasResidue(snippet)) {
-            log.warn("Mandate context extraction dropped a {} field: a placeholder survived re-hydration.",
-                    fieldKey);
-            return Optional.empty();
-        }
-        ExtractedField field = new ExtractedField(fieldKey, value.trim(), ProposalConfidence.MEDIUM, snippet,
-                ProposalOrigin.DOCUMENT);
-        if (snippet != null && !occursIn(snippet, originalText)) {
-            field = field.withoutSnippet(ProposalConfidence.LOW);
-        }
-        return Optional.of(field);
-    }
-
-    private <T extends Enum<T>> Optional<ExtractedField> enumFieldFrom(String fieldKey, Class<T> type,
-                                                                        String rawValue, String rawSnippet,
-                                                                        Pseudonyms pseudonyms, String originalText) {
-        return fieldFrom(fieldKey, rawValue, rawSnippet, pseudonyms, originalText).flatMap(field -> {
-            // Never Enum.valueOf: the model may answer a token this enum does not carry, and that
-            // answer is dropped rather than thrown.
-            T resolved = enumFromName(type, field.value());
-            return resolved == null
-                    ? Optional.empty()
-                    : Optional.of(new ExtractedField(fieldKey, resolved.name(), field.confidence(),
-                            field.snippet(), field.origin()));
-        });
-    }
-
-    private static <T extends Enum<T>> T enumFromName(Class<T> type, String token) {
-        for (T value : type.getEnumConstants()) {
-            if (value.name().equalsIgnoreCase(token.trim())) {
-                return value;
-            }
-        }
-        return null;
-    }
-
-    private static boolean occursIn(String snippet, String originalText) {
-        String normalisedSnippet = normaliseWhitespace(snippet);
-        return !normalisedSnippet.isEmpty()
-                && normaliseWhitespace(originalText).toLowerCase(Locale.ROOT)
-                        .contains(normalisedSnippet.toLowerCase(Locale.ROOT));
-    }
-
-    private static String normaliseWhitespace(String text) {
-        return text.replaceAll("\\s+", " ").trim();
     }
 
     private ProposedMandateContext finish(ProposedMandateContext proposed, UUID workspaceId, String roleTitle) {
@@ -264,15 +217,15 @@ public class PositionContextProposer {
      * Pre-truncates every value to {@code PutMandateContextRequest}'s own ceilings, so accepting a
      * proposal can never 400 the autosave it is handed to.
      */
-    private static List<ExtractedField> truncateToCeilings(List<ExtractedField> fields) {
+    private List<ExtractedField> truncateToCeilings(List<ExtractedField> fields) {
         List<ExtractedField> truncated = new ArrayList<>();
         int priorityCount = 0;
         for (ExtractedField field : fields) {
             switch (field.fieldKey()) {
-                case "businessDriver" -> truncated.add(capped(field, BUSINESS_DRIVER_MAX_LENGTH));
+                case "businessDriver" -> truncated.add(fieldReader.capped(field, BUSINESS_DRIVER_MAX_LENGTH));
                 case "strategicPriority" -> {
                     if (priorityCount < PRIORITY_MAX_COUNT) {
-                        truncated.add(capped(field, PRIORITY_NAME_MAX_LENGTH));
+                        truncated.add(fieldReader.capped(field, PRIORITY_NAME_MAX_LENGTH));
                         priorityCount++;
                     }
                 }
@@ -280,13 +233,5 @@ public class PositionContextProposer {
             }
         }
         return truncated;
-    }
-
-    private static ExtractedField capped(ExtractedField field, int maxLength) {
-        if (field.value().length() <= maxLength) {
-            return field;
-        }
-        return new ExtractedField(field.fieldKey(), field.value().substring(0, maxLength),
-                field.confidence(), field.snippet(), field.origin());
     }
 }

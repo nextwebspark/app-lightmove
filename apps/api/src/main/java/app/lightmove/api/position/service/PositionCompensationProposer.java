@@ -5,6 +5,7 @@ import app.lightmove.api.core.llm.model.Pseudonyms;
 import app.lightmove.api.core.llm.model.PromptGuardSpec;
 import app.lightmove.api.core.llm.service.LlmCallPolicy;
 import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
+import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.position.constant.BaseSalaryMode;
 import app.lightmove.api.position.constant.BenefitFrequency;
@@ -82,9 +83,12 @@ public class PositionCompensationProposer {
     private static final Pattern BENEFIT_FREQUENCY_SUFFIX =
             Pattern.compile("^(.*) — (monthly|yearly)$", Pattern.CASE_INSENSITIVE);
 
+    private static final String LABEL = "Compensation extraction";
+
     private final ChatClient chatClient;
     private final PositionDocumentRedactor redactor;
     private final PositionTemplateService templates;
+    private final ExtractedFieldReader fieldReader;
     private final Resource systemPrompt;
     private final Consumer<ChatClient.AdvisorSpec> guarded;
     private final LlmBudgetGuard llmBudget;
@@ -92,6 +96,7 @@ public class PositionCompensationProposer {
     public PositionCompensationProposer(ChatClient chatClient,
                                         PositionDocumentRedactor redactor,
                                         PositionTemplateService templates,
+                                        ExtractedFieldReader fieldReader,
                                         @Value("classpath:prompts/position-extract-compensation-system.st") Resource systemPrompt,
                                         @Value("classpath:prompts/position-extract-compensation-schema.json") Resource answerSchema,
                                         LlmCallPolicy llmCalls,
@@ -99,6 +104,7 @@ public class PositionCompensationProposer {
         this.chatClient = chatClient;
         this.redactor = redactor;
         this.templates = templates;
+        this.fieldReader = fieldReader;
         this.systemPrompt = systemPrompt;
         this.guarded = llmCalls.forPrompt(PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
         this.llmBudget = llmBudget;
@@ -106,7 +112,7 @@ public class PositionCompensationProposer {
 
     public ProposedCompensation propose(UUID userId, String documentText, UUID clientId, UUID workspaceId,
                                         String roleTitle) {
-        llmBudget.requireCompensationExtractionBudget(userId);
+        llmBudget.require(LlmBudget.COMPENSATION_EXTRACT, userId);
 
         try {
             Redaction redaction = redactor.redact(documentText, clientId, workspaceId);
@@ -153,41 +159,42 @@ public class PositionCompensationProposer {
 
     private ProposedCompensation reconcile(ModelCompensationAnswer answered, Pseudonyms pseudonyms,
                                            String originalText) {
+        String haystack = fieldReader.haystackOf(originalText);
         List<ExtractedField> fields = new ArrayList<>();
 
-        currencyFieldFrom(answered.currency(), answered.currencySnippet(), pseudonyms, originalText)
+        currencyFieldFrom(answered.currency(), answered.currencySnippet(), pseudonyms, haystack)
                 .ifPresent(fields::add);
-        longFieldFrom("salaryMin", answered.salaryMin(), answered.salaryMinSnippet(), pseudonyms, originalText)
+        longFieldFrom("salaryMin", answered.salaryMin(), answered.salaryMinSnippet(), pseudonyms, haystack)
                 .ifPresent(fields::add);
-        longFieldFrom("salaryMax", answered.salaryMax(), answered.salaryMaxSnippet(), pseudonyms, originalText)
+        longFieldFrom("salaryMax", answered.salaryMax(), answered.salaryMaxSnippet(), pseudonyms, haystack)
                 .ifPresent(fields::add);
-        enumFieldFrom("baseSalaryMode", BaseSalaryMode.class, answered.baseSalaryMode(),
-                answered.baseSalaryModeSnippet(), pseudonyms, originalText).ifPresent(fields::add);
-        bonusValueFieldFrom(answered.bonusValue(), answered.bonusValueSnippet(), pseudonyms, originalText)
+        fieldReader.enumFieldFrom(LABEL, "baseSalaryMode", BaseSalaryMode.class, answered.baseSalaryMode(),
+                answered.baseSalaryModeSnippet(), pseudonyms, haystack).ifPresent(fields::add);
+        bonusValueFieldFrom(answered.bonusValue(), answered.bonusValueSnippet(), pseudonyms, haystack)
                 .ifPresent(fields::add);
-        enumFieldFrom("bonusBasis", BonusBasis.class, answered.bonusBasis(),
-                answered.bonusBasisSnippet(), pseudonyms, originalText).ifPresent(fields::add);
-        enumFieldFrom("incentiveType", IncentiveType.class, answered.incentiveType(),
-                answered.incentiveTypeSnippet(), pseudonyms, originalText).ifPresent(fields::add);
+        fieldReader.enumFieldFrom(LABEL, "bonusBasis", BonusBasis.class, answered.bonusBasis(),
+                answered.bonusBasisSnippet(), pseudonyms, haystack).ifPresent(fields::add);
+        fieldReader.enumFieldFrom(LABEL, "incentiveType", IncentiveType.class, answered.incentiveType(),
+                answered.incentiveTypeSnippet(), pseudonyms, haystack).ifPresent(fields::add);
         longFieldFrom("incentiveAmount", answered.incentiveAmount(), answered.incentiveAmountSnippet(),
-                pseudonyms, originalText).ifPresent(fields::add);
-        fieldFrom("incentiveVesting", answered.incentiveVesting(), answered.incentiveVestingSnippet(),
-                pseudonyms, originalText).ifPresent(fields::add);
+                pseudonyms, haystack).ifPresent(fields::add);
+        fieldReader.fieldFrom(LABEL, "incentiveVesting", answered.incentiveVesting(), answered.incentiveVestingSnippet(),
+                pseudonyms, haystack).ifPresent(fields::add);
 
         if (answered.benefits() != null) {
             for (ModelBenefit benefit : answered.benefits()) {
                 if (benefit == null) {
                     continue;
                 }
-                benefitFieldFrom(benefit, pseudonyms, originalText).ifPresent(fields::add);
+                benefitFieldFrom(benefit, pseudonyms, haystack).ifPresent(fields::add);
             }
         }
         return new ProposedCompensation(ExtractionSource.MODEL, fields);
     }
 
     private Optional<ExtractedField> currencyFieldFrom(String rawValue, String rawSnippet,
-                                                        Pseudonyms pseudonyms, String originalText) {
-        return fieldFrom("currency", rawValue, rawSnippet, pseudonyms, originalText).flatMap(field -> {
+                                                        Pseudonyms pseudonyms, String haystack) {
+        return fieldReader.fieldFrom(LABEL, "currency", rawValue, rawSnippet, pseudonyms, haystack).flatMap(field -> {
             String candidate = field.value().trim().toUpperCase(Locale.ROOT);
             return CURRENCY_SHAPE.matcher(candidate).matches()
                     ? Optional.of(new ExtractedField("currency", candidate, field.confidence(), field.snippet(),
@@ -197,8 +204,8 @@ public class PositionCompensationProposer {
     }
 
     private Optional<ExtractedField> longFieldFrom(String fieldKey, String rawValue, String rawSnippet,
-                                                   Pseudonyms pseudonyms, String originalText) {
-        return fieldFrom(fieldKey, rawValue, rawSnippet, pseudonyms, originalText).flatMap(field -> {
+                                                   Pseudonyms pseudonyms, String haystack) {
+        return fieldReader.fieldFrom(LABEL, fieldKey, rawValue, rawSnippet, pseudonyms, haystack).flatMap(field -> {
             try {
                 long value = Long.parseLong(field.value().trim().replaceAll("[,\\s]", ""));
                 return value < 0
@@ -216,8 +223,8 @@ public class PositionCompensationProposer {
      * {@code numeric(6,2)}: truncating a figure states something the document did not.
      */
     private Optional<ExtractedField> bonusValueFieldFrom(String rawValue, String rawSnippet,
-                                                         Pseudonyms pseudonyms, String originalText) {
-        return fieldFrom("bonusValue", rawValue, rawSnippet, pseudonyms, originalText).flatMap(field -> {
+                                                         Pseudonyms pseudonyms, String haystack) {
+        return fieldReader.fieldFrom(LABEL, "bonusValue", rawValue, rawSnippet, pseudonyms, haystack).flatMap(field -> {
             BigDecimal value;
             try {
                 value = new BigDecimal(field.value().trim().replaceAll("[,\\s]", ""));
@@ -252,68 +259,17 @@ public class PositionCompensationProposer {
      * {@code BenefitDto.amount} is nullable and "not stated" is exactly the safe default.
      */
     private Optional<ExtractedField> benefitFieldFrom(ModelBenefit benefit, Pseudonyms pseudonyms,
-                                                       String originalText) {
-        return fieldFrom("benefit", benefit.name(), benefit.snippet(), pseudonyms, originalText).map(field -> {
+                                                       String haystack) {
+        return fieldReader.fieldFrom(LABEL, "benefit", benefit.name(), benefit.snippet(), pseudonyms, haystack)
+                .map(field -> {
             BenefitFrequency frequency = benefit.frequency() == null
                     ? null
-                    : enumFromName(BenefitFrequency.class, benefit.frequency());
+                    : fieldReader.enumFromName(BenefitFrequency.class, benefit.frequency());
             String value = frequency == null
                     ? field.value()
                     : field.value() + " — " + frequency.name().toLowerCase(Locale.ROOT);
             return new ExtractedField("benefit", value, field.confidence(), field.snippet(), field.origin());
         });
-    }
-
-    private Optional<ExtractedField> fieldFrom(String fieldKey, String rawValue, String rawSnippet,
-                                               Pseudonyms pseudonyms, String originalText) {
-        if (rawValue == null || rawValue.isBlank()) {
-            return Optional.empty();
-        }
-        String value = pseudonyms.rehydrate(rawValue);
-        String snippet = rawSnippet == null || rawSnippet.isBlank() ? null : pseudonyms.rehydrate(rawSnippet);
-        if (pseudonyms.hasResidue(value) || pseudonyms.hasResidue(snippet)) {
-            log.warn("Compensation extraction dropped a {} field: a placeholder survived re-hydration.",
-                    fieldKey);
-            return Optional.empty();
-        }
-        ProposalConfidence confidence = ProposalConfidence.MEDIUM;
-        if (snippet != null && !occursIn(snippet, originalText)) {
-            snippet = null;
-            confidence = ProposalConfidence.LOW;
-        }
-        return Optional.of(new ExtractedField(fieldKey, value.trim(), confidence, snippet, ProposalOrigin.DOCUMENT));
-    }
-
-    private <T extends Enum<T>> Optional<ExtractedField> enumFieldFrom(String fieldKey, Class<T> type,
-                                                                        String rawValue, String rawSnippet,
-                                                                        Pseudonyms pseudonyms, String originalText) {
-        return fieldFrom(fieldKey, rawValue, rawSnippet, pseudonyms, originalText).flatMap(field -> {
-            T resolved = enumFromName(type, field.value());
-            return resolved == null
-                    ? Optional.empty()
-                    : Optional.of(new ExtractedField(fieldKey, resolved.name(), field.confidence(), field.snippet(),
-                            field.origin()));
-        });
-    }
-
-    private static <T extends Enum<T>> T enumFromName(Class<T> type, String token) {
-        for (T value : type.getEnumConstants()) {
-            if (value.name().equalsIgnoreCase(token.trim())) {
-                return value;
-            }
-        }
-        return null;
-    }
-
-    private static boolean occursIn(String snippet, String originalText) {
-        String normalisedSnippet = normaliseWhitespace(snippet);
-        return !normalisedSnippet.isEmpty()
-                && normaliseWhitespace(originalText).toLowerCase(Locale.ROOT)
-                        .contains(normalisedSnippet.toLowerCase(Locale.ROOT));
-    }
-
-    private static String normaliseWhitespace(String text) {
-        return text.replaceAll("\\s+", " ").trim();
     }
 
     private ProposedCompensation finish(ProposedCompensation proposed, UUID workspaceId, String roleTitle) {
@@ -381,12 +337,12 @@ public class PositionCompensationProposer {
      * after: capping the combined string could slice a resolved "yearly" down to something that no
      * longer matches on accept, silently turning a yearly benefit into a monthly one.
      */
-    private static List<ExtractedField> truncateToCeilings(List<ExtractedField> fields) {
+    private List<ExtractedField> truncateToCeilings(List<ExtractedField> fields) {
         List<ExtractedField> truncated = new ArrayList<>();
         int benefitCount = 0;
         for (ExtractedField field : fields) {
             switch (field.fieldKey()) {
-                case "incentiveVesting" -> truncated.add(capped(field, INCENTIVE_VESTING_MAX_LENGTH));
+                case "incentiveVesting" -> truncated.add(fieldReader.capped(field, INCENTIVE_VESTING_MAX_LENGTH));
                 case "benefit" -> {
                     if (benefitCount < BENEFIT_MAX_COUNT) {
                         truncated.add(cappedBenefit(field));
@@ -399,10 +355,10 @@ public class PositionCompensationProposer {
         return truncated;
     }
 
-    private static ExtractedField cappedBenefit(ExtractedField field) {
+    private ExtractedField cappedBenefit(ExtractedField field) {
         Matcher suffix = BENEFIT_FREQUENCY_SUFFIX.matcher(field.value());
         if (!suffix.matches()) {
-            return capped(field, BENEFIT_NAME_MAX_LENGTH);
+            return fieldReader.capped(field, BENEFIT_NAME_MAX_LENGTH);
         }
         String name = suffix.group(1);
         if (name.length() <= BENEFIT_NAME_MAX_LENGTH) {
@@ -410,13 +366,5 @@ public class PositionCompensationProposer {
         }
         String value = name.substring(0, BENEFIT_NAME_MAX_LENGTH) + " — " + suffix.group(2);
         return new ExtractedField(field.fieldKey(), value, field.confidence(), field.snippet(), field.origin());
-    }
-
-    private static ExtractedField capped(ExtractedField field, int maxLength) {
-        if (field.value().length() <= maxLength) {
-            return field;
-        }
-        return new ExtractedField(field.fieldKey(), field.value().substring(0, maxLength),
-                field.confidence(), field.snippet(), field.origin());
     }
 }
