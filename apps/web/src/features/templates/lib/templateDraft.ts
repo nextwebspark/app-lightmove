@@ -13,6 +13,8 @@ import { forWire, identify, type IdentifiedCompetency } from "../../position/lib
 import type { CompetencyPanelKind, TemplateDetail, TemplateWriteRequest } from "../api/types";
 
 export interface DraftBenefit {
+  /** Client-side only: keys the row, so removing one never hands its inputs to the next. */
+  id: string;
   name: string;
   frequency: BenefitFrequency;
 }
@@ -78,7 +80,11 @@ export function draftOf(detail: TemplateDetail): TemplateDraft {
     bonusBasis: body.bonusBasis,
     incentiveType: body.incentiveType,
     incentiveVesting: body.incentiveVesting ?? "",
-    benefits: body.benefits.map((benefit) => ({ name: benefit.name, frequency: benefit.frequency ?? "MONTHLY" })),
+    benefits: body.benefits.map((benefit) => ({
+      id: crypto.randomUUID(),
+      name: benefit.name,
+      frequency: benefit.frequency ?? "MONTHLY",
+    })),
     criteria: body.criteria.map((criterion) => ({
       text: criterion.text,
       mode: criterion.mode ?? "REQUIRED",
@@ -144,7 +150,7 @@ export function requestOf(draft: TemplateDraft, version: number | null): Templat
       bonusBasis: draft.bonusBasis,
       incentiveType: draft.incentiveType,
       incentiveVesting: orNull(draft.incentiveVesting),
-      benefits: draft.benefits,
+      benefits: draft.benefits.map(({ id: _id, ...benefit }) => benefit),
       criteria: draft.criteria.map(({ text, mode }) => ({ text, mode })),
       competencies: [...inPanel("TECHNICAL", draft.technical), ...inPanel("BEHAVIOURAL", draft.behavioural)],
     },

@@ -57,8 +57,8 @@ generic fallback) lives in the database, matched against the mandate's role titl
 one's **Role title is a combobox**: free text — a mandate is titled "Group CFO – Energy Division" as
 often as it is titled "Chief Financial Officer" — that type-aheads the seventeen titles, and picking
 one takes that title and redrafts the brief from its template (`GET /position-templates` +
-`POST .../position/template`). Templates are edited through the API (V51/V52; the Settings screens
-are the next session): a LightMove **super admin** — a *platform* role granted only by
+`POST .../position/template`). Templates are edited in Settings (V51/V52; **Settings → Templates** for a
+firm's admin, **Settings → Template library** for a super admin): a LightMove **super admin** — a *platform* role granted only by
 `ops/cloudsql/grant-platform-role.sh`, reading no tenant's data — edits the shared library, and a
 workspace admin customises, hides, adds, exports and imports the firm's own. A firm's copy **shadows**
 the library template of the same `code`, so a library edit reaches every firm that never customised

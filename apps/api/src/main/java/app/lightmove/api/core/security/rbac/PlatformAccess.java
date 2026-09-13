@@ -2,7 +2,9 @@ package app.lightmove.api.core.security.rbac;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,10 +26,14 @@ public class PlatformAccess {
         }
     }
 
+    /**
+     * Skips a name this build does not know rather than failing on it: a migration seeding a new platform
+     * action lands while older instances are still serving, and this runs on every login, refresh and /me.
+     */
     public List<PlatformAction> actionsOf(UUID userId) {
-        return roles.findPlatformActionNames(userId).stream()
-                .sorted()
-                .map(PlatformAction::valueOf)
+        Set<String> granted = Set.copyOf(roles.findPlatformActionNames(userId));
+        return Arrays.stream(PlatformAction.values())
+                .filter(action -> granted.contains(action.name()))
                 .toList();
     }
 }

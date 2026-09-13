@@ -8,6 +8,7 @@ import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.position.PositionTemplateFlowSupport;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
 
 /**
  * The platform tier: who reaches the shared library, how they learn they can, and that the role opens
@@ -37,6 +38,31 @@ class PlatformAuthorizationIntegrationTest extends PositionTemplateFlowSupport {
         assertThat(getJson(owner.token(), LIBRARY).size()).isGreaterThanOrEqualTo(17);
         assertThat(getJson(owner.token(), "/api/v1/auth/me").get("platformActions").get(0).asText())
                 .isEqualTo("TEMPLATE_LIBRARY_MANAGE");
+    }
+
+    @Test
+    @DisplayName("a platform action seeded by a newer build is left out of /me rather than failing every auth response")
+    void platformActionUnknownToThisBuildIsSkipped() throws Exception {
+        String owner = superAdmin();
+        db.update("insert into app_lm_action (scope, name, description) "
+                + "values ('PLATFORM', 'FROM_A_NEWER_BUILD', 'Seeded by a migration this build predates')");
+        try {
+            db.update("""
+                    insert into app_lm_role_action (role_id, action_id)
+                    select r.id, a.id from app_lm_role r, app_lm_action a
+                    where r.scope = 'PLATFORM' and r.name = 'SUPER_ADMIN'
+                      and a.scope = 'PLATFORM' and a.name = 'FROM_A_NEWER_BUILD'
+                    """);
+
+            JsonNode actions = getJson(owner, "/api/v1/auth/me").get("platformActions");
+            assertThat(actions.size()).isEqualTo(1);
+            assertThat(actions.get(0).asText()).isEqualTo("TEMPLATE_LIBRARY_MANAGE");
+        } finally {
+            // The catalog is shared by every suite and RbacCatalogTest holds it to the enums.
+            db.update("delete from app_lm_role_action where action_id in "
+                    + "(select id from app_lm_action where name = 'FROM_A_NEWER_BUILD')");
+            db.update("delete from app_lm_action where name = 'FROM_A_NEWER_BUILD'");
+        }
     }
 
     @Test

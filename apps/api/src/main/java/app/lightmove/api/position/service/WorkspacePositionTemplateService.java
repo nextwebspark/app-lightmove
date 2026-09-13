@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -49,6 +50,7 @@ public class WorkspacePositionTemplateService {
     private final PositionTemplateExchange exchange;
     private final UserRepository users;
     private final AuditService audit;
+    private final TransactionTemplate transactions;
 
     /** The firm's own rows first, then every active library template it has not copied, hidden ones included. */
     @Transactional(readOnly = true)
@@ -112,11 +114,15 @@ public class WorkspacePositionTemplateService {
         return detailOf(saved, catalog);
     }
 
-    /** Resets a copy to the library's template, or deletes a template the firm wrote. */
+    /**
+     * Resets a copy to the library's template, or deletes a template the firm wrote — only at the version
+     * the caller saw, since either discards content outright.
+     */
     @Transactional
-    public void remove(UUID userId, UUID workspaceId, String code, HttpServletRequest httpRequest) {
+    public void remove(UUID userId, UUID workspaceId, String code, long version, HttpServletRequest httpRequest) {
         PositionTemplate own = templates.findWorkspaceTemplate(workspaceId, code)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        PositionTemplateValidator.requireVersion(own, version);
         templates.delete(own);
         record(own.isCustomisation() ? WorkspaceEventType.POSITION_TEMPLATE_RESET
                 : WorkspaceEventType.POSITION_TEMPLATE_DELETED, userId, workspaceId, code, httpRequest);
@@ -134,7 +140,7 @@ public class WorkspacePositionTemplateService {
             throw ApiException.userFacing(ErrorCode.CONFLICT,
                     "Reset your firm's copy of this template before hiding it");
         }
-        if (hidden && PositionTemplateService.FALLBACK_CODE.equals(code)) {
+        if (hidden && PositionTemplateService.isFallback(library)) {
             throw ApiException.of(ErrorCode.TEMPLATE_FALLBACK_REQUIRED);
         }
 
@@ -161,15 +167,24 @@ public class WorkspacePositionTemplateService {
         return exchange.schema();
     }
 
-    @Transactional(readOnly = true)
+    /**
+     * Neither import call parses the file inside a transaction: reading it touches no row, and a pooled
+     * connection held across a megabyte of JSON is one the rest of the app is waiting for.
+     */
     public TemplateImportResponse previewImport(UUID workspaceId, MultipartFile file) {
-        return TemplateImportResponse.of(false, plan(catalogOf(workspaceId), exchange.read(file)));
+        List<ImportedTemplate> imported = exchange.read(file);
+        return TemplateImportResponse.of(false, plan(catalogOf(workspaceId), imported));
     }
 
-    @Transactional
     public TemplateImportResponse commitImport(UUID userId, UUID workspaceId, MultipartFile file,
                                                HttpServletRequest httpRequest) {
-        List<PlannedTemplateImport> plan = plan(catalogOf(workspaceId), exchange.read(file));
+        List<ImportedTemplate> imported = exchange.read(file);
+        return transactions.execute(status -> commit(userId, workspaceId, imported, httpRequest));
+    }
+
+    private TemplateImportResponse commit(UUID userId, UUID workspaceId, List<ImportedTemplate> entries,
+                                          HttpServletRequest httpRequest) {
+        List<PlannedTemplateImport> plan = plan(catalogOf(workspaceId), entries);
         if (plan.stream().anyMatch(step -> step.action() == TemplateImportAction.INVALID)) {
             throw ApiException.of(ErrorCode.TEMPLATE_IMPORT_INVALID);
         }
@@ -189,9 +204,9 @@ public class WorkspacePositionTemplateService {
         }
         audit.event(WorkspaceEventType.POSITION_TEMPLATES_IMPORTED)
                 .actor(userId).workspace(workspaceId).target("workspace", workspaceId).from(httpRequest)
-                .detail("created", count(plan, TemplateImportAction.CREATE))
-                .detail("customised", count(plan, TemplateImportAction.CUSTOMISE))
-                .detail("updated", count(plan, TemplateImportAction.UPDATE))
+                .detail("created", PlannedTemplateImport.count(plan, TemplateImportAction.CREATE))
+                .detail("customised", PlannedTemplateImport.count(plan, TemplateImportAction.CUSTOMISE))
+                .detail("updated", PlannedTemplateImport.count(plan, TemplateImportAction.UPDATE))
                 .record();
         return TemplateImportResponse.of(true, plan);
     }
@@ -233,7 +248,7 @@ public class WorkspacePositionTemplateService {
         String revisedBy = template.isSharedLibrary() ? null : reviserNames.get(template.getRevisedBy());
         return new PositionTemplateOverview(template.getCode(), template.getTitle(), template.getDiscipline(),
                 template.getSeniority(), template.getSummary(), List.copyOf(template.getKeywords()),
-                catalog.originOf(template), template.isActive(), isFallback(template), catalog.isBehind(template),
+                catalog.originOf(template), template.isActive(), PositionTemplateService.isFallback(template), catalog.isBehind(template),
                 null, template.getRevisedAt(), revisedBy);
     }
 
@@ -242,7 +257,7 @@ public class WorkspacePositionTemplateService {
                 : users.findById(template.getRevisedBy()).map(User::getFullName).orElse(null);
         return new PositionTemplateDetail(template.getCode(), template.getTitle(), template.getDiscipline(),
                 template.getSeniority(), template.getSummary(), List.copyOf(template.getKeywords()),
-                template.getBody(), catalog.originOf(template), template.isActive(), isFallback(template),
+                template.getBody(), catalog.originOf(template), template.isActive(), PositionTemplateService.isFallback(template),
                 catalog.isBehind(template), null, template.getVersion(), template.getRevisedAt(), revisedBy);
     }
 
@@ -250,14 +265,6 @@ public class WorkspacePositionTemplateService {
                         HttpServletRequest httpRequest) {
         audit.event(event).actor(userId).workspace(workspaceId).target("position_template", code)
                 .from(httpRequest).record();
-    }
-
-    private static boolean isFallback(PositionTemplate template) {
-        return PositionTemplateService.FALLBACK_CODE.equals(template.getCode());
-    }
-
-    private static long count(List<PlannedTemplateImport> plan, TemplateImportAction action) {
-        return plan.stream().filter(step -> step.action() == action).count();
     }
 
     private static Map<String, PositionTemplate> byCode(List<PositionTemplate> rows) {

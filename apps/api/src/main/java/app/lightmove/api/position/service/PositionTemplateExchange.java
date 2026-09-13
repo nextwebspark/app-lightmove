@@ -1,6 +1,8 @@
 package app.lightmove.api.position.service;
 
 import app.lightmove.api.common.constant.Seniority;
+import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.config.PositionTemplateImportSettings;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.position.constant.BaseSalaryMode;
@@ -49,6 +51,9 @@ import tools.jackson.databind.ObjectMapper;
  * <p>Reading checks the file against the format before binding it, because binding alone forgives too
  * much: {@link PositionTemplateBody} ignores unknown keys so a retired field never breaks a stored
  * template, and that would let a misspelt key in a hand-written file vanish without a word.
+ *
+ * <p>Its limits are {@link PositionTemplateImportSettings}. There is no content-type check: the bytes
+ * are parsed as JSON whatever the part claims.
  */
 @Component
 @RequiredArgsConstructor
@@ -56,8 +61,6 @@ class PositionTemplateExchange {
 
     static final String FORMAT = "lightmove.position-templates";
     static final int FORMAT_VERSION = 1;
-    static final int MAX_TEMPLATES = 100;
-    static final long MAX_FILE_BYTES = 1_048_576;
     static final String SCHEMA_RESOURCE = "position/position-templates.schema.json";
 
     private static final String UNTITLED = "Untitled template";
@@ -70,6 +73,7 @@ class PositionTemplateExchange {
 
     private final ObjectMapper json;
     private final PositionTemplateValidator validator;
+    private final LightMoveProperties properties;
 
     byte[] write(List<PositionTemplate> templates) {
         Map<String, Object> file = new LinkedHashMap<>();
@@ -90,8 +94,10 @@ class PositionTemplateExchange {
 
     /** One entry per template in the file, in file order. File-level faults refuse the whole file. */
     List<ImportedTemplate> read(MultipartFile file) {
-        if (file.getSize() > MAX_FILE_BYTES) {
-            throw ApiException.userFacing(ErrorCode.FILE_TOO_LARGE, "A template file can be at most 1 MB");
+        PositionTemplateImportSettings limits = properties.position().templateImport();
+        if (file.getSize() > limits.maxFileSizeBytes()) {
+            throw ApiException.userFacing(ErrorCode.FILE_TOO_LARGE,
+                    "A template file can be at most " + sizeOf(limits.maxFileSizeBytes()));
         }
         Object document;
         try {
@@ -109,9 +115,9 @@ class PositionTemplateExchange {
         if (!(root.get("templates") instanceof List<?> entries)) {
             throw new ApiException(ErrorCode.TEMPLATE_FILE_UNREADABLE, "Template import has no templates list");
         }
-        if (entries.size() > MAX_TEMPLATES) {
+        if (entries.size() > limits.maxTemplates()) {
             throw ApiException.userFacing(ErrorCode.TEMPLATE_FILE_UNREADABLE,
-                    "A template file can hold at most " + MAX_TEMPLATES + " templates");
+                    "A template file can hold at most " + limits.maxTemplates() + " templates");
         }
         Set<String> codesSeen = new HashSet<>();
         return entries.stream().map(entry -> readTemplate(entry, codesSeen)).toList();
@@ -310,6 +316,10 @@ class PositionTemplateExchange {
 
     private static String names(Class<? extends Enum<?>> type) {
         return Arrays.stream(type.getEnumConstants()).map(Enum::name).collect(Collectors.joining(", "));
+    }
+
+    private static String sizeOf(long bytes) {
+        return bytes >= 1_048_576 ? bytes / 1_048_576 + " MB" : Math.max(1, bytes / 1024) + " KB";
     }
 
     private static String shortened(String name) {

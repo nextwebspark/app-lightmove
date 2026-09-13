@@ -78,8 +78,9 @@ public class WorkspacePositionTemplateController {
     @DeleteMapping("/{code}")
     @PreAuthorize(TEMPLATES_GATE)
     public ResponseEntity<Void> remove(@AuthenticationPrincipal AuthPrincipal principal,
-                                       @PathVariable String code, HttpServletRequest httpRequest) {
-        templates.remove(principal.userId(), principal.requireWorkspaceId(), code, httpRequest);
+                                       @PathVariable String code, @RequestParam long version,
+                                       HttpServletRequest httpRequest) {
+        templates.remove(principal.userId(), principal.requireWorkspaceId(), code, version, httpRequest);
         return ResponseEntity.noContent().build();
     }
 

@@ -335,6 +335,14 @@ lightmove:
         - application/msword
         - application/vnd.openxmlformats-officedocument.wordprocessingml.document
         - text/plain
+    template-import:
+      # A role-template JSON file (Settings → Templates and Template library). Held whole in memory
+      # while it is parsed; an export of the whole library is a few hundred KB. Must stay at or below
+      # spring.servlet.multipart.max-file-size, which rejects the upload before it ever arrives.
+      max-file-size-bytes: ${POSITION_TEMPLATE_IMPORT_MAX_BYTES:1048576}
+      # Refused whole rather than truncated, like a spreadsheet's rows. position-templates.schema.json
+      # publishes 100 as its maxItems; raise both together.
+      max-templates: ${POSITION_TEMPLATE_IMPORT_MAX_TEMPLATES:100}
 
   custom-column:
     # The ceiling on the extra columns one mandate may add to its Companies grid, counted across the

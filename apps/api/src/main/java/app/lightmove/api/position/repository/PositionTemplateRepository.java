@@ -4,6 +4,7 @@ import app.lightmove.api.position.model.PositionTemplate;
 import app.lightmove.api.position.model.TemplateCodeCount;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -66,6 +67,9 @@ public interface PositionTemplateRepository extends JpaRepository<PositionTempla
             order by template.sortOrder, template.title
             """)
     List<PositionTemplate> findLibrary();
+
+    @Query("select template.code from PositionTemplate template where template.workspaceId is null")
+    Set<String> findLibraryCodes();
 
     @Query("""
             select template from PositionTemplate template

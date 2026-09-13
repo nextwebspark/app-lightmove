@@ -36,11 +36,9 @@ class PositionTemplateValidator {
     /** Normalises the draft and refuses it with every problem at once, keyed by field. */
     PositionTemplateDraft requireValid(PositionTemplateDraft draft) {
         PositionTemplateDraft normalised = draft.normalised();
-        List<TemplateProblem> problems = problemsOf(normalised);
+        Map<String, String> problems = problemsByField(normalised);
         if (!problems.isEmpty()) {
-            Map<String, String> byField = new LinkedHashMap<>();
-            problems.forEach(problem -> byField.putIfAbsent(problem.field(), problem.message()));
-            throw ApiException.withFields(ErrorCode.VALIDATION_FAILED, byField);
+            throw ApiException.withFields(ErrorCode.VALIDATION_FAILED, problems);
         }
         return normalised;
     }
@@ -52,8 +50,15 @@ class PositionTemplateValidator {
         }
     }
 
-    /** Expects a normalised draft. At most one problem per field, the first found. */
+    /** Expects a normalised draft. */
     List<TemplateProblem> problemsOf(PositionTemplateDraft draft) {
+        return problemsByField(draft).entrySet().stream()
+                .map(problem -> new TemplateProblem(problem.getKey(), problem.getValue()))
+                .toList();
+    }
+
+    /** At most one problem per field, the first found. */
+    private static Map<String, String> problemsByField(PositionTemplateDraft draft) {
         Map<String, String> problems = new LinkedHashMap<>();
 
         if (draft.title() == null || draft.title().isEmpty()) {
@@ -97,10 +102,7 @@ class PositionTemplateValidator {
         benefits(problems, body.benefits());
         criteria(problems, body.criteria());
         competencies(problems, body.competencies());
-
-        return problems.entrySet().stream()
-                .map(problem -> new TemplateProblem(problem.getKey(), problem.getValue()))
-                .toList();
+        return problems;
     }
 
     private static void benefits(Map<String, String> problems, List<PositionTemplateBenefit> benefits) {

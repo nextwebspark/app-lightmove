@@ -6,6 +6,7 @@ import { Button, Field, FormError, Input, Modal, Select, TextArea, useToast } fr
 import { ApiRequestError } from "../../../lib/apiClient";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
+import { formatInstantDate } from "../../../lib/format";
 import { SENIORITY_LABELS, SENIORITY_TIERS } from "../../../lib/seniority";
 import { POSITION_TEMPLATES_KEY } from "../../position/api/positionApi";
 import type {
@@ -139,7 +140,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
 
   const lifecycle = useMutation({
     mutationFn: async (action: Lifecycle): Promise<TemplateDetail | null> => {
-      if (code === null) return null;
+      if (code === null || !detail) return null;
       switch (action) {
         case "archive":
         case "restore":
@@ -148,10 +149,10 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
         case "show":
           return templateApi.setTemplateHidden(code, action === "hide");
         case "reset":
-          await templateApi.removeTemplate(code);
+          await templateApi.removeTemplate(code, detail.version);
           return templateApi.getTemplate(scope, code);
         case "delete":
-          await templateApi.removeTemplate(code);
+          await templateApi.removeTemplate(code, detail.version);
           return null;
       }
     },
@@ -627,11 +628,7 @@ function lifecycleMessage(action: Lifecycle): string {
 
 function metaLineOf(scope: TemplateScope, detail: TemplateDetail | null): string {
   if (!detail) return "Not saved yet";
-  const date = new Date(detail.revisedAt).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  const date = formatInstantDate(detail.revisedAt) ?? "—";
   if (scope === "workspace" && (detail.origin === "LIBRARY" || detail.origin === "HIDDEN")) {
     return `${detail.code} · LightMove library · updated ${date}`;
   }

@@ -63,12 +63,20 @@ class WorkspacePositionTemplateIntegrationTest extends PositionTemplateFlowSuppo
     }
 
     @Test
-    @DisplayName("resetting a copy hands the firm the library's template back")
+    @DisplayName("resetting a copy hands the firm the library's template back, but never over an edit it has not seen")
     void resettingRestoresTheLibrary() throws Exception {
         Firm firm = firm("Reset Firm", "alok");
-        expect(200, putJson(firm.token(), CFO, edited(getJson(firm.token(), CFO), "Our Finance", true)));
+        JsonNode copy = expect(200, putJson(firm.token(), CFO,
+                edited(getJson(firm.token(), CFO), "Our Finance", true)));
+        long version = copy.get("version").asLong();
 
-        mvc.perform(delete(CFO).header("Authorization", bearer(firm.token())))
+        mvc.perform(delete(CFO).param("version", String.valueOf(version + 1))
+                        .header("Authorization", bearer(firm.token())))
+                .andExpect(status().isConflict());
+        assertThat(getJson(firm.token(), CFO).get("origin").asText()).isEqualTo("CUSTOMISED");
+
+        mvc.perform(delete(CFO).param("version", String.valueOf(version))
+                        .header("Authorization", bearer(firm.token())))
                 .andExpect(status().isNoContent());
 
         assertThat(getJson(firm.token(), CFO).get("origin").asText()).isEqualTo("LIBRARY");
@@ -109,7 +117,8 @@ class WorkspacePositionTemplateIntegrationTest extends PositionTemplateFlowSuppo
         assertThat(draftedBrief(firm.token(), "Head of " + keyword).at("/details/department").asText())
                 .isEqualTo("Quills");
 
-        mvc.perform(delete(FIRM_TEMPLATES + "/" + code).header("Authorization", bearer(firm.token())))
+        mvc.perform(delete(FIRM_TEMPLATES + "/" + code).param("version", created.get("version").asText())
+                        .header("Authorization", bearer(firm.token())))
                 .andExpect(status().isNoContent());
         assertThat(codesIn(getJson(firm.token(), PICKER))).doesNotContain(code);
     }

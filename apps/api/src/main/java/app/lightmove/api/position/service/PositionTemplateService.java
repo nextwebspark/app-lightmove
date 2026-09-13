@@ -31,7 +31,7 @@ public class PositionTemplateService {
      * position: the library is ordered for a picker, and reordering it must not change what an
      * unrecognised mandate is drafted as.
      */
-    static final String FALLBACK_CODE = "generic-executive";
+    private static final String FALLBACK_CODE = "generic-executive";
 
     private final PositionTemplateRepository templates;
 
@@ -61,7 +61,12 @@ public class PositionTemplateService {
                 .filter(template -> template.matchesTitle(roleTitle))
                 .findFirst()
                 .or(() -> visible.stream()
-                        .filter(template -> FALLBACK_CODE.equals(template.getCode()))
+                        .filter(PositionTemplateService::isFallback)
                         .findFirst());
+    }
+
+    /** The one template that can be neither archived nor hidden, since every unmatched title needs it. */
+    static boolean isFallback(PositionTemplate template) {
+        return FALLBACK_CODE.equals(template.getCode());
     }
 }

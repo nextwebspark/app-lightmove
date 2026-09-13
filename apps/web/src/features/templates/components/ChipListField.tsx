@@ -27,10 +27,18 @@ export function ChipListField({
   onChange: (values: string[]) => void;
 }) {
   const [draft, setDraft] = useState("");
+  const [duplicate, setDuplicate] = useState<string | null>(null);
 
   const add = () => {
     const text = lowercase ? draft.trim().toLowerCase() : draft.trim();
-    if (!text || values.includes(text) || values.length >= max) return;
+    if (!text || values.length >= max) return;
+    // Already in the list is what the user asked for, so the box clears — but saying so, or + Add
+    // reads as broken.
+    if (values.includes(text)) {
+      setDuplicate(text);
+      setDraft("");
+      return;
+    }
     onChange([...values, text]);
     setDraft("");
   };
@@ -62,7 +70,10 @@ export function ChipListField({
               aria-label={`Add to ${label.toLowerCase()}`}
               placeholder={placeholder}
               maxLength={maxLength}
-              onChange={(event) => setDraft(event.target.value)}
+              onChange={(event) => {
+                setDraft(event.target.value);
+                setDuplicate(null);
+              }}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault();
@@ -74,6 +85,11 @@ export function ChipListField({
               + Add
             </AddRowButton>
           </div>
+        )}
+        {duplicate && (
+          <p role="status" className="mt-2.5 font-mono text-[11px] text-amber">
+            &ldquo;{duplicate}&rdquo; is already in the list.
+          </p>
         )}
         {hint && <p className="mt-2.5 font-mono text-[11px] text-text3">{hint}</p>}
       </div>

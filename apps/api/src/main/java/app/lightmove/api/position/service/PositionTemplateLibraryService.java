@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -46,6 +47,7 @@ public class PositionTemplateLibraryService {
     private final PositionTemplateExchange exchange;
     private final UserRepository users;
     private final AuditService audit;
+    private final TransactionTemplate transactions;
 
     @Transactional(readOnly = true)
     public List<PositionTemplateOverview> list() {
@@ -58,7 +60,7 @@ public class PositionTemplateLibraryService {
         return library.stream()
                 .map(template -> new PositionTemplateOverview(template.getCode(), template.getTitle(),
                         template.getDiscipline(), template.getSeniority(), template.getSummary(),
-                        List.copyOf(template.getKeywords()), null, template.isActive(), isFallback(template), false,
+                        List.copyOf(template.getKeywords()), null, template.isActive(), PositionTemplateService.isFallback(template), false,
                         copies.getOrDefault(template.getCode(), 0L), template.getRevisedAt(),
                         reviserNames.get(template.getRevisedBy())))
                 .toList();
@@ -73,9 +75,7 @@ public class PositionTemplateLibraryService {
     public PositionTemplateDetail create(UUID userId, PositionTemplateWriteRequest request,
                                          HttpServletRequest httpRequest) {
         PositionTemplateDraft draft = validator.requireValid(request.draft());
-        Set<String> taken = templates.findLibrary().stream()
-                .map(PositionTemplate::getCode)
-                .collect(Collectors.toSet());
+        Set<String> taken = templates.findLibraryCodes();
         PositionTemplate template = templates.saveAndFlush(PositionTemplate.forLibrary(
                 PositionTemplateCodes.unusedCode(draft.title(), taken), draft,
                 templates.findLastLibrarySortOrder() + SORT_STEP, userId));
@@ -100,7 +100,7 @@ public class PositionTemplateLibraryService {
     public PositionTemplateDetail setActive(UUID userId, String code, boolean active,
                                             HttpServletRequest httpRequest) {
         PositionTemplate template = require(code);
-        if (!active && isFallback(template)) {
+        if (!active && PositionTemplateService.isFallback(template)) {
             throw ApiException.of(ErrorCode.TEMPLATE_FALLBACK_REQUIRED);
         }
         if (template.isActive() != active) {
@@ -121,14 +121,23 @@ public class PositionTemplateLibraryService {
         return exchange.schema();
     }
 
-    @Transactional(readOnly = true)
+    /**
+     * Neither import call parses the file inside a transaction: reading it touches no row, and a pooled
+     * connection held across a megabyte of JSON is one the rest of the app is waiting for.
+     */
     public TemplateImportResponse previewImport(MultipartFile file) {
-        return TemplateImportResponse.of(false, plan(exchange.read(file)));
+        List<ImportedTemplate> imported = exchange.read(file);
+        return TemplateImportResponse.of(false, plan(imported));
     }
 
-    @Transactional
     public TemplateImportResponse commitImport(UUID userId, MultipartFile file, HttpServletRequest httpRequest) {
-        List<PlannedTemplateImport> plan = plan(exchange.read(file));
+        List<ImportedTemplate> imported = exchange.read(file);
+        return transactions.execute(status -> commit(userId, imported, httpRequest));
+    }
+
+    private TemplateImportResponse commit(UUID userId, List<ImportedTemplate> entries,
+                                          HttpServletRequest httpRequest) {
+        List<PlannedTemplateImport> plan = plan(entries);
         if (plan.stream().anyMatch(step -> step.action() == TemplateImportAction.INVALID)) {
             throw ApiException.of(ErrorCode.TEMPLATE_IMPORT_INVALID);
         }
@@ -144,8 +153,8 @@ public class PositionTemplateLibraryService {
         }
         audit.event(PlatformEventType.POSITION_TEMPLATE_LIBRARY_IMPORTED)
                 .actor(userId).target("position_template_library", null).from(httpRequest)
-                .detail("created", count(plan, TemplateImportAction.CREATE))
-                .detail("updated", count(plan, TemplateImportAction.UPDATE))
+                .detail("created", PlannedTemplateImport.count(plan, TemplateImportAction.CREATE))
+                .detail("updated", PlannedTemplateImport.count(plan, TemplateImportAction.UPDATE))
                 .record();
         return TemplateImportResponse.of(true, plan);
     }
@@ -170,7 +179,7 @@ public class PositionTemplateLibraryService {
     private PositionTemplateDetail detailOf(PositionTemplate template) {
         return new PositionTemplateDetail(template.getCode(), template.getTitle(), template.getDiscipline(),
                 template.getSeniority(), template.getSummary(), List.copyOf(template.getKeywords()),
-                template.getBody(), null, template.isActive(), isFallback(template), false,
+                template.getBody(), null, template.isActive(), PositionTemplateService.isFallback(template), false,
                 templates.countWorkspaceTemplatesCoded(template.getCode()), template.getVersion(),
                 template.getRevisedAt(), nameOf(template.getRevisedBy()));
     }
@@ -185,13 +194,5 @@ public class PositionTemplateLibraryService {
 
     private void record(PlatformEventType event, UUID userId, String code, HttpServletRequest httpRequest) {
         audit.event(event).actor(userId).target("position_template", code).from(httpRequest).record();
-    }
-
-    private static boolean isFallback(PositionTemplate template) {
-        return PositionTemplateService.FALLBACK_CODE.equals(template.getCode());
-    }
-
-    private static long count(List<PlannedTemplateImport> plan, TemplateImportAction action) {
-        return plan.stream().filter(step -> step.action() == action).count();
     }
 }

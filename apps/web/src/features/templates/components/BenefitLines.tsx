@@ -14,8 +14,8 @@ export function BenefitLines({
   benefits: DraftBenefit[];
   onChange: (benefits: DraftBenefit[]) => void;
 }) {
-  const patch = (index: number, changes: Partial<DraftBenefit>) =>
-    onChange(benefits.map((benefit, i) => (i === index ? { ...benefit, ...changes } : benefit)));
+  const patch = (id: string, changes: Partial<DraftBenefit>) =>
+    onChange(benefits.map((benefit) => (benefit.id === id ? { ...benefit, ...changes } : benefit)));
 
   return (
     <div>
@@ -24,18 +24,18 @@ export function BenefitLines({
       </span>
       <div className="rounded-[10px] border border-line-soft bg-panel px-3.5 pb-3 pt-1">
         {benefits.map((benefit, index) => (
-          <div key={index} className="flex items-center gap-2.5 border-b border-line-soft py-2">
+          <div key={benefit.id} className="flex items-center gap-2.5 border-b border-line-soft py-2">
             <InlineInput
               value={benefit.name}
               aria-label={`Benefit ${index + 1} name`}
               maxLength={120}
-              onChange={(event) => patch(index, { name: event.target.value })}
+              onChange={(event) => patch(benefit.id, { name: event.target.value })}
               className="min-w-0 flex-1 font-sans"
             />
             <Select
               value={benefit.frequency}
               aria-label={`Benefit ${index + 1} frequency`}
-              onChange={(event) => patch(index, { frequency: event.target.value as BenefitFrequency })}
+              onChange={(event) => patch(benefit.id, { frequency: event.target.value as BenefitFrequency })}
               className="w-[120px] flex-none !bg-panel2 !py-1.5"
             >
               {Object.entries(BENEFIT_FREQUENCY_LABELS).map(([value, label]) => (
@@ -46,13 +46,15 @@ export function BenefitLines({
             </Select>
             <RemoveRowButton
               label={`Remove benefit ${index + 1}`}
-              onClick={() => onChange(benefits.filter((_, i) => i !== index))}
+              onClick={() => onChange(benefits.filter((row) => row.id !== benefit.id))}
             />
           </div>
         ))}
         {benefits.length < MAX_BENEFITS && (
           <AddRowButton
-            onClick={() => onChange([...benefits, { name: "New allowance", frequency: "MONTHLY" }])}
+            onClick={() =>
+              onChange([...benefits, { id: crypto.randomUUID(), name: "New allowance", frequency: "MONTHLY" }])
+            }
             className="mt-2.5 w-full"
           >
             + Add benefit
