@@ -25,10 +25,7 @@ public record ModelReportingAnswer(
         String noticeUnitSnippet
 ) {
 
-    /**
-     * One seat reporting to the mandate. A multiplier in the document's own wording ("Assistant
-     * Manager x 2") is expanded into two entries with the same title by the prompt, not packed into
-     * one entry with a count — see {@code PositionReportingProposer}'s class doc for why.
-     */
+    /** One seat reporting to the mandate. See {@code position-extract-reporting-system.st} for the
+     *  multiplier-expansion rule ("Assistant Manager x 2" becomes two entries, not one with a count). */
     public record ModelDirectReport(String title, String snippet) {}
 }

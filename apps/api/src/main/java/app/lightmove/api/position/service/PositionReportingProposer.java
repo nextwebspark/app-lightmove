@@ -5,21 +5,26 @@ import app.lightmove.api.core.llm.model.Pseudonyms;
 import app.lightmove.api.core.llm.model.PromptGuardSpec;
 import app.lightmove.api.core.llm.service.LlmCallPolicy;
 import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
+import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.position.constant.ExtractionSource;
 import app.lightmove.api.position.constant.NoticeUnit;
 import app.lightmove.api.position.constant.ProposalConfidence;
+import app.lightmove.api.position.constant.ProposalOrigin;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ModelReportingAnswer;
 import app.lightmove.api.position.model.ModelReportingAnswer.ModelDirectReport;
+import app.lightmove.api.position.model.PositionTemplate;
+import app.lightmove.api.position.model.PositionTemplateBody;
 import app.lightmove.api.position.model.ProposedReportingStructure;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
@@ -44,11 +49,16 @@ import org.springframework.stereotype.Service;
  * <p>{@code reportsToTitle} is deliberately a title and never a person's name, even when the document
  * names one alongside their title ("Reporting to Ahmed Al-Mansoori, Group CEO") — the prompt is
  * explicit about this, and {@code name} is never populated by an accepted proposal.
+ *
+ * <p>A field neither the document nor the model found is, last, offered from the mandate's matched
+ * brief template, exactly as {@link PositionDetailsProposer#finish} does for step one — see
+ * {@link #backfillFromTemplate}.
  */
 @Service
 @Slf4j
 public class PositionReportingProposer {
 
+    private static final String LABEL = "Reporting extraction";
     private static final String PROMPT_ID = "position-extract-reporting";
     private static final double EXTRACTION_TEMPERATURE = 0.0;
     private static final String ANSWER_MIME_TYPE = "application/json";
@@ -65,12 +75,16 @@ public class PositionReportingProposer {
      * A generous ceiling on how many direct-report rows this proposer will hand back — well short of
      * {@code PutReportingStructureRequest}'s 60-seat chart cap, which also has to leave room for the
      * mandate seat, the reports-to seat and whatever the chart already held. The true 60-seat ceiling
-     * is enforced client-side, where the existing chart's size is actually known.
+     * is enforced client-side, where the existing chart's size is actually known. Applied to the
+     * model's raw answer before any per-entry work, not after — the schema also caps {@code
+     * directReports} at the same number, so this is defence in depth against a model that ignores it.
      */
     private static final int DIRECT_REPORT_MAX_COUNT = 40;
 
     private final ChatClient chatClient;
     private final PositionDocumentRedactor redactor;
+    private final PositionTemplateService templates;
+    private final ExtractedFieldReader fieldReader;
     private final Resource systemPrompt;
     private final Consumer<ChatClient.AdvisorSpec> guarded;
     private final LlmBudgetGuard llmBudget;
@@ -79,19 +93,24 @@ public class PositionReportingProposer {
     // parameter with @Value, matching every other proposer's own exemption.
     public PositionReportingProposer(ChatClient chatClient,
                                      PositionDocumentRedactor redactor,
+                                     PositionTemplateService templates,
+                                     ExtractedFieldReader fieldReader,
                                      @Value("classpath:prompts/position-extract-reporting-system.st") Resource systemPrompt,
                                      @Value("classpath:prompts/position-extract-reporting-schema.json") Resource answerSchema,
                                      LlmCallPolicy llmCalls,
                                      LlmBudgetGuard llmBudget) {
         this.chatClient = chatClient;
         this.redactor = redactor;
+        this.templates = templates;
+        this.fieldReader = fieldReader;
         this.systemPrompt = systemPrompt;
         this.guarded = llmCalls.forPrompt(PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
         this.llmBudget = llmBudget;
     }
 
-    public ProposedReportingStructure propose(UUID userId, String documentText, UUID clientId, UUID workspaceId) {
-        llmBudget.requireReportingExtractionBudget(userId);
+    public ProposedReportingStructure propose(UUID userId, String documentText, UUID clientId, UUID workspaceId,
+                                              String roleTitle) {
+        llmBudget.require(LlmBudget.REPORTING_EXTRACT, userId);
 
         try {
             Redaction redaction = redactor.redact(documentText, clientId, workspaceId);
@@ -101,12 +120,12 @@ public class PositionReportingProposer {
                     log.warn("Reporting extraction blocked before reaching the model: the document "
                             + "matched the injection word list.");
                 }
-                return empty();
+                return finish(empty(), workspaceId, roleTitle);
             }
-            return finish(reconcile(answered, redaction.pseudonyms(), documentText));
+            return finish(reconcile(answered, redaction.pseudonyms(), documentText), workspaceId, roleTitle);
         } catch (RuntimeException e) {
             log.warn("Reporting extraction found nothing to propose: {}", e.toString());
-            return empty();
+            return finish(empty(), workspaceId, roleTitle);
         }
     }
 
@@ -138,129 +157,124 @@ public class PositionReportingProposer {
 
     private ProposedReportingStructure reconcile(ModelReportingAnswer answered, Pseudonyms pseudonyms,
                                                  String originalText) {
+        String haystack = fieldReader.haystackOf(originalText);
         List<ExtractedField> fields = new ArrayList<>();
 
-        fieldFrom("reportsToTitle", answered.reportsToTitle(), answered.reportsToTitleSnippet(),
-                pseudonyms, originalText).ifPresent(fields::add);
+        fieldReader.fieldFrom(LABEL, "reportsToTitle", answered.reportsToTitle(), answered.reportsToTitleSnippet(),
+                pseudonyms, haystack).ifPresent(fields::add);
 
         if (answered.directReports() != null) {
-            for (ModelDirectReport directReport : answered.directReports()) {
+            // Bounded before any per-entry work, not after: the schema already caps this at the same
+            // number, but a model that ignores it must not pay for redaction/verification on entries
+            // that will only be discarded.
+            for (ModelDirectReport directReport : answered.directReports().stream()
+                    .limit(DIRECT_REPORT_MAX_COUNT).toList()) {
                 if (directReport != null) {
-                    fieldFrom("directReportTitle", directReport.title(), directReport.snippet(),
-                            pseudonyms, originalText).ifPresent(fields::add);
+                    fieldReader.fieldFrom(LABEL, "directReportTitle", directReport.title(), directReport.snippet(),
+                            pseudonyms, haystack).ifPresent(fields::add);
                 }
             }
         }
 
-        fieldFrom("teamSize", answered.teamSize(), answered.teamSizeSnippet(), pseudonyms, originalText)
-                .ifPresent(fields::add);
+        fieldReader.fieldFrom(LABEL, "teamSize", answered.teamSize(), answered.teamSizeSnippet(), pseudonyms,
+                haystack).ifPresent(fields::add);
         nonNegativeIntFieldFrom("noticeValue", answered.noticeValue(), answered.noticeValueSnippet(),
-                pseudonyms, originalText).ifPresent(fields::add);
-        enumFieldFrom("noticeUnit", NoticeUnit.class, answered.noticeUnit(), answered.noticeUnitSnippet(),
-                pseudonyms, originalText).ifPresent(fields::add);
+                pseudonyms, haystack).ifPresent(fields::add);
+        fieldReader.enumFieldFrom(LABEL, "noticeUnit", NoticeUnit.class, answered.noticeUnit(),
+                answered.noticeUnitSnippet(), pseudonyms, haystack).ifPresent(fields::add);
 
         return new ProposedReportingStructure(ExtractionSource.MODEL, fields);
     }
 
     /** Parsed as a non-negative whole number; unparsable or negative is dropped, never clamped to zero. */
     private Optional<ExtractedField> nonNegativeIntFieldFrom(String fieldKey, String rawValue, String rawSnippet,
-                                                             Pseudonyms pseudonyms, String originalText) {
-        return fieldFrom(fieldKey, rawValue, rawSnippet, pseudonyms, originalText).flatMap(field -> {
+                                                             Pseudonyms pseudonyms, String haystack) {
+        return fieldReader.fieldFrom(LABEL, fieldKey, rawValue, rawSnippet, pseudonyms, haystack).flatMap(field -> {
             try {
                 int value = Integer.parseInt(field.value().trim().replaceAll("[,\\s]", ""));
                 return value < 0
                         ? Optional.empty()
                         : Optional.of(new ExtractedField(fieldKey, Integer.toString(value), field.confidence(),
-                                field.snippet()));
+                                field.snippet(), field.origin()));
             } catch (NumberFormatException e) {
                 return Optional.empty();
             }
         });
     }
 
-    private Optional<ExtractedField> fieldFrom(String fieldKey, String rawValue, String rawSnippet,
-                                               Pseudonyms pseudonyms, String originalText) {
-        if (rawValue == null || rawValue.isBlank()) {
-            return Optional.empty();
+    private ProposedReportingStructure finish(ProposedReportingStructure proposed, UUID workspaceId,
+                                              String roleTitle) {
+        List<ExtractedField> withTemplateBackfill = backfillFromTemplate(proposed.fields(), workspaceId, roleTitle);
+        return new ProposedReportingStructure(proposed.source(), truncateToCeilings(withTemplateBackfill));
+    }
+
+    /**
+     * Proposes the matched template's own {@code reportsTo}, {@code directReports}, {@code
+     * noticeValue} and {@code noticeUnit} for whichever the document said nothing about — never {@code
+     * teamSize}, which no template carries, the same rule compensation's salary numbers follow. Needs
+     * the mandate's own persisted role title, since unlike step one this proposer never reads one out
+     * of the document itself. {@code directReportTitle} is group-checked like step one's {@code
+     * responsibility}: one document-sourced report suppresses the whole template list rather than
+     * topping it up.
+     */
+    private List<ExtractedField> backfillFromTemplate(List<ExtractedField> fields, UUID workspaceId,
+                                                       String roleTitle) {
+        if (roleTitle == null || roleTitle.isBlank()) {
+            return fields;
         }
-        String value = pseudonyms.rehydrate(rawValue);
-        String snippet = rawSnippet == null || rawSnippet.isBlank() ? null : pseudonyms.rehydrate(rawSnippet);
-        if (pseudonyms.hasResidue(value) || pseudonyms.hasResidue(snippet)) {
-            log.warn("Reporting extraction dropped a {} field: a placeholder survived re-hydration.", fieldKey);
-            return Optional.empty();
+        Optional<PositionTemplate> matched = templates.matching(workspaceId, roleTitle);
+        if (matched.isEmpty()) {
+            return fields;
         }
-        ProposalConfidence confidence = ProposalConfidence.MEDIUM;
-        if (snippet != null && !occursIn(snippet, originalText)) {
-            snippet = null;
-            confidence = ProposalConfidence.LOW;
+        PositionTemplateBody body = matched.get().getBody();
+        Set<String> present = fields.stream().map(ExtractedField::fieldKey).collect(Collectors.toSet());
+
+        List<ExtractedField> backfilled = new ArrayList<>(fields);
+        addIfMissing(backfilled, present, "reportsToTitle", body.reportsTo());
+        addIfMissing(backfilled, present, "noticeValue",
+                body.noticeValue() == null ? null : body.noticeValue().toString());
+        addIfMissing(backfilled, present, "noticeUnit",
+                body.noticeUnit() == null ? null : body.noticeUnit().name());
+        if (!present.contains("directReportTitle")) {
+            body.directReports().stream()
+                    .filter(text -> text != null && !text.isBlank())
+                    .forEach(text -> backfilled.add(new ExtractedField("directReportTitle", text,
+                            ProposalConfidence.LOW, null, ProposalOrigin.TEMPLATE)));
         }
-        return Optional.of(new ExtractedField(fieldKey, value.trim(), confidence, snippet));
+        return backfilled;
     }
 
-    private <T extends Enum<T>> Optional<ExtractedField> enumFieldFrom(String fieldKey, Class<T> type,
-                                                                        String rawValue, String rawSnippet,
-                                                                        Pseudonyms pseudonyms, String originalText) {
-        return fieldFrom(fieldKey, rawValue, rawSnippet, pseudonyms, originalText).flatMap(field -> {
-            T resolved = enumFromName(type, field.value());
-            return resolved == null
-                    ? Optional.empty()
-                    : Optional.of(new ExtractedField(fieldKey, resolved.name(), field.confidence(), field.snippet()));
-        });
-    }
-
-    private static <T extends Enum<T>> T enumFromName(Class<T> type, String token) {
-        for (T value : type.getEnumConstants()) {
-            if (value.name().equalsIgnoreCase(token.trim())) {
-                return value;
-            }
+    private static void addIfMissing(List<ExtractedField> fields, Set<String> present, String fieldKey,
+                                     String value) {
+        if (present.contains(fieldKey) || value == null || value.isBlank()) {
+            return;
         }
-        return null;
-    }
-
-    private static boolean occursIn(String snippet, String originalText) {
-        String normalisedSnippet = normaliseWhitespace(snippet);
-        return !normalisedSnippet.isEmpty()
-                && normaliseWhitespace(originalText).toLowerCase(Locale.ROOT)
-                        .contains(normalisedSnippet.toLowerCase(Locale.ROOT));
-    }
-
-    private static String normaliseWhitespace(String text) {
-        return text.replaceAll("\\s+", " ").trim();
-    }
-
-    private static ProposedReportingStructure finish(ProposedReportingStructure proposed) {
-        return new ProposedReportingStructure(proposed.source(), truncateToCeilings(proposed.fields()));
+        fields.add(new ExtractedField(fieldKey, value, ProposalConfidence.LOW, null, ProposalOrigin.TEMPLATE));
     }
 
     /**
      * Pre-truncates every value to {@code PutReportingStructureRequest}'s and {@code OrgNodeDto}'s own
      * ceilings, so accepting a proposal — and the client-side chart merge it feeds — can never 400 the
-     * autosave it is handed to.
+     * autosave it is handed to. {@code directReportTitle} is already bounded to
+     * {@link #DIRECT_REPORT_MAX_COUNT} before {@link #reconcile} runs; the count here is defence in
+     * depth against a template backfill topping it back up, not the load-bearing cap.
      */
-    private static List<ExtractedField> truncateToCeilings(List<ExtractedField> fields) {
+    private List<ExtractedField> truncateToCeilings(List<ExtractedField> fields) {
         List<ExtractedField> truncated = new ArrayList<>();
         int directReportCount = 0;
         for (ExtractedField field : fields) {
             switch (field.fieldKey()) {
-                case "reportsToTitle" -> truncated.add(capped(field, TITLE_MAX_LENGTH));
+                case "reportsToTitle" -> truncated.add(fieldReader.capped(field, TITLE_MAX_LENGTH));
                 case "directReportTitle" -> {
                     if (directReportCount < DIRECT_REPORT_MAX_COUNT) {
-                        truncated.add(capped(field, TITLE_MAX_LENGTH));
+                        truncated.add(fieldReader.capped(field, TITLE_MAX_LENGTH));
                         directReportCount++;
                     }
                 }
-                case "teamSize" -> truncated.add(capped(field, TEAM_SIZE_MAX_LENGTH));
+                case "teamSize" -> truncated.add(fieldReader.capped(field, TEAM_SIZE_MAX_LENGTH));
                 default -> truncated.add(field);
             }
         }
         return truncated;
-    }
-
-    private static ExtractedField capped(ExtractedField field, int maxLength) {
-        if (field.value().length() <= maxLength) {
-            return field;
-        }
-        return new ExtractedField(field.fieldKey(), field.value().substring(0, maxLength),
-                field.confidence(), field.snippet());
     }
 }

@@ -6,6 +6,7 @@
     "reportsToTitleSnippet": { "type": ["string", "null"] },
     "directReports": {
       "type": "array",
+      "maxItems": 40,
       "items": {
         "type": "object",
         "properties": {
