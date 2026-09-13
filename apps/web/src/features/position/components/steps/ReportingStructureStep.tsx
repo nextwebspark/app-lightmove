@@ -1,4 +1,4 @@
-import { Input, Select, Spinner } from "../../../../components/ui";
+import { Input, Select } from "../../../../components/ui";
 import type {
   PositionDocument,
   PositionExtraction,
@@ -9,7 +9,7 @@ import type {
 import { NOTICE_UNIT_LABELS, SENIORITY_LABELS } from "../../lib/labels";
 import { directReportsOf, labelOfNode, managerOf } from "../../lib/orgChart";
 import { OrgChartCanvas } from "../OrgChartCanvas";
-import { PositionExtractionPanel } from "../PositionExtractionPanel";
+import { StepExtraction } from "../StepExtraction";
 import { formatDate } from "../../../../lib/format";
 import { ColumnLabel, NumberInput, StepField } from "../fields";
 
@@ -52,38 +52,15 @@ export function ReportingStructureStep({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-2.5">
-        {document ? (
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onExtract}
-              disabled={extracting}
-              className="rounded-[7px] border border-sky/60 px-2.5 py-[5px] text-[11.5px] font-medium text-sky transition hover:border-sky disabled:opacity-50"
-            >
-              Read from document
-            </button>
-            {extracting && (
-              <span className="flex items-center gap-[7px] font-mono text-[11.5px] text-text3">
-                <Spinner />
-                Reading document…
-              </span>
-            )}
-          </div>
-        ) : (
-          <span className="font-mono text-[11.5px] text-text3">
-            Attach a position description on the Details step to read this step from it.
-          </span>
-        )}
-        {extraction && (
-          <PositionExtractionPanel
-            extraction={extraction}
-            onAccept={onAcceptProposal}
-            onDismiss={onDismissProposal}
-            onAcceptAll={onAcceptAllProposals}
-          />
-        )}
-      </div>
+      <StepExtraction
+        positionDocument={document}
+        extraction={extraction}
+        extracting={extracting}
+        onExtract={onExtract}
+        onAcceptProposal={onAcceptProposal}
+        onDismissProposal={onDismissProposal}
+        onAcceptAllProposals={onAcceptAllProposals}
+      />
 
       <div>
         <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2">

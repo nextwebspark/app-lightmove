@@ -14,7 +14,6 @@ import type {
   Compensation,
   Competency,
   Criterion,
-  CriterionMode,
   MandateContext,
   Position,
   PositionDetails,
@@ -35,7 +34,7 @@ import {
   toggle,
   type IdentifiedCompetency,
 } from "../lib/competencyRows";
-import { appendDirectReport, applyReportsToTitle } from "../lib/orgChart";
+import { appendDirectReport, applyReportsToTitle, MAX_ORG_CHART_SEATS, type ChartMergeBlock } from "../lib/orgChart";
 import { StepRail } from "../components/StepRail";
 import { AssessmentStep } from "../components/steps/AssessmentStep";
 import { CompensationStep } from "../components/steps/CompensationStep";
@@ -703,40 +702,61 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
     );
 
+  /** Why a chart-merging case in {@link patchForReporting} below declined to apply, in words a toast can use. */
+  const chartBlockMessage = (blocked: ChartMergeBlock): string => {
+    switch (blocked) {
+      case "full":
+        return `That chart is already at the ${MAX_ORG_CHART_SEATS}-seat limit.`;
+      case "duplicate":
+        return "That title is already a direct report on this chart.";
+      case "noMandateSeat":
+        return "This mandate has no seat on its chart yet.";
+    }
+  };
+
   /**
    * Unlike every other step's proposals, a "reportsToTitle" or "directReportTitle" proposal does not
    * become a flat field — it is folded into the existing org chart (renaming or minting the manager,
    * appending a direct report), never a chart of its own. See `orgChart.ts`'s
    * `applyReportsToTitle`/`appendDirectReport` and the class doc on `PositionReportingProposer` for why.
+   *
+   * `null` for a fieldKey this step doesn't have a slot for — the caller must not treat that as
+   * "saved", the same convention `patchForDetails` uses. `blocked` is reported separately from that:
+   * a chart-merge helper declining to apply is a real outcome with something to tell the user, not the
+   * same "nothing to do" as an unrecognised key.
    */
-  const patchForReporting = (field: ProposedField, value: string): Partial<ReportingStructure> => {
+  const patchForReporting = (
+    field: ProposedField,
+    value: string,
+  ): { patch: Partial<ReportingStructure>; blocked: ChartMergeBlock | null } | null => {
     switch (field.fieldKey) {
-      case "reportsToTitle":
-        return { orgChart: applyReportsToTitle(reporting.orgChart, value) };
-      case "directReportTitle":
-        return { orgChart: appendDirectReport(reporting.orgChart, value) };
+      case "reportsToTitle": {
+        const result = applyReportsToTitle(reporting.orgChart, value);
+        return { patch: { orgChart: result.chart }, blocked: result.blocked };
+      }
+      case "directReportTitle": {
+        const result = appendDirectReport(reporting.orgChart, value);
+        return { patch: { orgChart: result.chart }, blocked: result.blocked };
+      }
       case "teamSize":
-        return { teamSize: value };
+        return { patch: { teamSize: value }, blocked: null };
       case "noticeValue":
-        return { noticeValue: Number(value) };
+        return { patch: { noticeValue: Number(value) }, blocked: null };
       case "noticeUnit":
-        return { noticeUnit: value as ReportingStructure["noticeUnit"] };
+        return { patch: { noticeUnit: value as ReportingStructure["noticeUnit"] }, blocked: null };
       default:
-        return {};
+        return null;
     }
   };
 
-  /** Neither merge helper can grow the chart past 60 seats — a no-op is the same array back, by reference. */
-  const isOrgChartAtCapacity = (patch: Partial<ReportingStructure>) =>
-    patch.orgChart !== undefined && patch.orgChart === reporting.orgChart;
-
   const acceptReportingProposal = (field: ProposedField, value: string) => {
-    const patch = patchForReporting(field, value);
-    if (isOrgChartAtCapacity(patch)) {
-      toast("That chart is already at the 60-seat limit.");
+    const result = patchForReporting(field, value);
+    if (!result) return;
+    if (result.blocked) {
+      toast(chartBlockMessage(result.blocked));
       return;
     }
-    changeReporting(patch, true);
+    changeReporting(result.patch, true);
     removeReportingProposal(field);
   };
 
@@ -752,24 +772,28 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const acceptAllReportingProposals = () => {
     if (!reportingExtraction) return;
     let orgChart = reporting.orgChart;
-    let cappedOut = false;
+    let blockedCount = 0;
 
-    // applyReportsToTitle only ever returns the same reference back when it declined to mint a new
-    // manager because the chart is already full — renaming an existing one always maps to a new array.
     const reportsTo = reportingExtraction.fields.find((field) => field.fieldKey === "reportsToTitle");
     if (reportsTo) {
-      const next = applyReportsToTitle(orgChart, reportsTo.value);
-      if (next === orgChart) cappedOut = true;
-      orgChart = next;
+      const result = applyReportsToTitle(orgChart, reportsTo.value);
+      if (result.blocked) blockedCount++;
+      orgChart = result.chart;
     }
     for (const field of reportingExtraction.fields) {
       if (field.fieldKey !== "directReportTitle") continue;
-      const next = appendDirectReport(orgChart, field.value);
-      if (next === orgChart) {
-        cappedOut = true;
+      const result = appendDirectReport(orgChart, field.value);
+      // A duplicate is specific to this one proposal — later ones may still have headroom — but a
+      // full chart blocks every proposal after it, so only that reason stops the loop.
+      if (result.blocked === "full") {
+        blockedCount++;
         break;
       }
-      orgChart = next;
+      if (result.blocked === "duplicate") {
+        blockedCount++;
+        continue;
+      }
+      orgChart = result.chart;
     }
 
     const patch: Partial<ReportingStructure> = { orgChart };
@@ -780,7 +804,12 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     }
     changeReporting(patch, true);
     setReportingExtraction(null);
-    if (cappedOut) toast("The chart reached its 60-seat limit before every proposal could be applied.");
+    if (blockedCount > 0) {
+      toast(
+        `${blockedCount} of the proposed reporting changes could not be applied — the chart reached ` +
+          `its ${MAX_ORG_CHART_SEATS}-seat limit or already held that report.`,
+      );
+    }
   };
 
   const flushEverything = () => Promise.allSettled(channels.map((channel) => channel.flush()));

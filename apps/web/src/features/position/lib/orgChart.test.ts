@@ -126,20 +126,23 @@ describe("childrenOf", () => {
 });
 
 describe("applying a proposed reports-to title", () => {
-  it("renames the existing manager rather than adding a second root", () => {
-    const merged = applyReportsToTitle(chart, "Group Chief Executive Officer");
+  it("renames the existing manager rather than adding a second root, clearing their name", () => {
+    const { chart: merged, blocked } = applyReportsToTitle(chart, "Group Chief Executive Officer");
+    expect(blocked).toBeNull();
     expect(merged).toHaveLength(chart.length);
     expect(merged.find((node) => node.nodeId === "manager")?.title).toBe(
       "Group Chief Executive Officer",
     );
-    // The manager's name — a person, not this proposal's business — is left exactly as it was.
-    expect(merged.find((node) => node.nodeId === "manager")?.name).toBe("Hassan Al Marri");
+    // The proposal is title-only, so a stale name paired with the new title — a pairing the document
+    // never stated — must not survive the rename; labelOfNode prefers name over title.
+    expect(merged.find((node) => node.nodeId === "manager")?.name).toBeNull();
     expect(merged.filter((node) => node.parentNodeId === null)).toHaveLength(1);
   });
 
   it("mints a manager and re-parents the mandate seat under it when the chart has none", () => {
     const rootRole = [seat("role", null, { mandateSeat: true })];
-    const merged = applyReportsToTitle(rootRole, "Board of Directors");
+    const { chart: merged, blocked } = applyReportsToTitle(rootRole, "Board of Directors");
+    expect(blocked).toBeNull();
     expect(merged).toHaveLength(2);
     const mintedManager = managerOf(merged);
     expect(mintedManager?.title).toBe("Board of Directors");
@@ -153,7 +156,7 @@ describe("applying a proposed reports-to title", () => {
       seat("manager", null, { title: "Group CEO", canvasX: 10, canvasY: 20 }),
       seat("role", "manager", { mandateSeat: true, canvasX: 300, canvasY: 20 }),
     ];
-    const merged = applyReportsToTitle(placed, "Group Chief Executive Officer");
+    const { chart: merged } = applyReportsToTitle(placed, "Group Chief Executive Officer");
     expect(merged.find((node) => node.nodeId === "manager")).toMatchObject({ canvasX: 10, canvasY: 20 });
     expect(merged.find((node) => node.nodeId === "role")).toMatchObject({
       mandateSeat: true,
@@ -168,13 +171,22 @@ describe("applying a proposed reports-to title", () => {
       ...rootRole,
       ...Array.from({ length: MAX_ORG_CHART_SEATS - 1 }, (_, i) => seat(`extra-${i}`, "role")),
     ];
-    expect(applyReportsToTitle(full, "Board of Directors")).toBe(full);
+    const result = applyReportsToTitle(full, "Board of Directors");
+    expect(result.chart).toBe(full);
+    expect(result.blocked).toBe("full");
+  });
+
+  it("reports no mandate seat rather than silently doing nothing", () => {
+    const result = applyReportsToTitle([], "Board of Directors");
+    expect(result.chart).toEqual([]);
+    expect(result.blocked).toBe("noMandateSeat");
   });
 });
 
 describe("appending a proposed direct report", () => {
   it("appends a new child under the mandate seat, leaving other seats untouched", () => {
-    const merged = appendDirectReport(chart, "Head of Investor Relations");
+    const { chart: merged, blocked } = appendDirectReport(chart, "Head of Investor Relations");
+    expect(blocked).toBeNull();
     expect(merged).toHaveLength(chart.length + 1);
     const added = merged.find((node) => !chart.some((existing) => existing.nodeId === node.nodeId));
     expect(added?.title).toBe("Head of Investor Relations");
@@ -192,6 +204,16 @@ describe("appending a proposed direct report", () => {
       ...rootRole,
       ...Array.from({ length: MAX_ORG_CHART_SEATS - 1 }, (_, i) => seat(`extra-${i}`, "role")),
     ];
-    expect(appendDirectReport(full, "One too many")).toBe(full);
+    const result = appendDirectReport(full, "One too many");
+    expect(result.chart).toBe(full);
+    expect(result.blocked).toBe("full");
+  });
+
+  it("is idempotent against a sibling that already carries the same title, case-insensitively", () => {
+    const once = appendDirectReport(chart, "Head of Investor Relations");
+    expect(once.blocked).toBeNull();
+    const twice = appendDirectReport(once.chart, "head of investor relations");
+    expect(twice.chart).toBe(once.chart);
+    expect(twice.blocked).toBe("duplicate");
   });
 });

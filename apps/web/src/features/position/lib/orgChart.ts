@@ -85,49 +85,81 @@ export function branchHoldsMandateSeat(chart: OrgNode[], nodeId: string): boolea
 }
 
 /**
+ * Why a merge helper below declined to change the chart — `null` means it applied cleanly. The caller
+ * reads this instead of comparing the returned chart by reference, since more than one reason can
+ * produce the same "chart came back unchanged" outcome.
+ */
+export type ChartMergeBlock = "noMandateSeat" | "full" | "duplicate";
+
+export interface ChartMergeResult {
+  chart: OrgNode[];
+  blocked: ChartMergeBlock | null;
+}
+
+/**
  * Folds a proposed "reports to" title into the chart, in place of ever replacing it: renaming the
  * mandate seat's existing parent, or minting one and re-parenting the mandate seat under it. Reads a
  * "reports to" title exactly the way {@link managerOf} does — the mandate seat's parent — so accepting
  * a proposal edits the same relationship the summary rail already renders.
  *
- * A no-op, returning `chart` unchanged, when minting a new manager would push the chart past
- * {@link MAX_ORG_CHART_SEATS} — the caller is expected to tell the two cases apart by reference equality.
+ * Renaming an existing manager also clears their `name`: the proposal is title-only by design (see
+ * `PositionReportingProposer`'s class doc), and a stale name paired with a new title would render as a
+ * pairing the document never stated — `labelOfNode` prefers `name` over `title`.
  */
-export function applyReportsToTitle(chart: OrgNode[], title: string): OrgNode[] {
+export function applyReportsToTitle(chart: OrgNode[], title: string): ChartMergeResult {
   const manager = managerOf(chart);
   if (manager) {
-    return chart.map((node) => (node.nodeId === manager.nodeId ? { ...node, title } : node));
+    return {
+      chart: chart.map((node) =>
+        node.nodeId === manager.nodeId ? { ...node, title, name: null } : node,
+      ),
+      blocked: null,
+    };
   }
   const seat = mandateSeatOf(chart);
-  if (!seat || chart.length >= MAX_ORG_CHART_SEATS) return chart;
+  if (!seat) return { chart, blocked: "noMandateSeat" };
+  if (chart.length >= MAX_ORG_CHART_SEATS) return { chart, blocked: "full" };
   const nodeId = crypto.randomUUID();
-  return [
-    ...chart.map((node) => (node.nodeId === seat.nodeId ? { ...node, parentNodeId: nodeId } : node)),
-    { nodeId, parentNodeId: null, title, name: null, mandateSeat: false, canvasX: null, canvasY: null },
-  ];
+  return {
+    chart: [
+      ...chart.map((node) => (node.nodeId === seat.nodeId ? { ...node, parentNodeId: nodeId } : node)),
+      { nodeId, parentNodeId: null, title, name: null, mandateSeat: false, canvasX: null, canvasY: null },
+    ],
+    blocked: null,
+  };
 }
 
 /**
  * Folds a proposed direct-report title into the chart by appending it as a new child of the mandate
  * seat — never a replacement of the chart's existing reports.
  *
- * A no-op, returning `chart` unchanged, once the chart already holds {@link MAX_ORG_CHART_SEATS} seats.
+ * A no-op against a sibling that already carries a case-insensitively equal title: "Read from
+ * document" is a button a user can press twice, and nothing else stops accepting the same proposal
+ * twice from appending the same seat twice.
  */
-export function appendDirectReport(chart: OrgNode[], title: string): OrgNode[] {
+export function appendDirectReport(chart: OrgNode[], title: string): ChartMergeResult {
   const seat = mandateSeatOf(chart);
-  if (!seat || chart.length >= MAX_ORG_CHART_SEATS) return chart;
-  return [
-    ...chart,
-    {
-      nodeId: crypto.randomUUID(),
-      parentNodeId: seat.nodeId,
-      title,
-      name: null,
-      mandateSeat: false,
-      canvasX: null,
-      canvasY: null,
-    },
-  ];
+  if (!seat) return { chart, blocked: "noMandateSeat" };
+  const duplicate = childrenOf(chart, seat.nodeId).some(
+    (node) => node.title?.trim().toLowerCase() === title.trim().toLowerCase(),
+  );
+  if (duplicate) return { chart, blocked: "duplicate" };
+  if (chart.length >= MAX_ORG_CHART_SEATS) return { chart, blocked: "full" };
+  return {
+    chart: [
+      ...chart,
+      {
+        nodeId: crypto.randomUUID(),
+        parentNodeId: seat.nodeId,
+        title,
+        name: null,
+        mandateSeat: false,
+        canvasX: null,
+        canvasY: null,
+      },
+    ],
+    blocked: null,
+  };
 }
 
 /**
