@@ -64,4 +64,13 @@ public class PositionExtractionController {
         return ResponseEntity.ok(extraction.extractAssessment(
                 principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
     }
+
+    @PostMapping("/reporting")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
+    public ResponseEntity<PositionExtractionResponse> extractReporting(
+            @AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(extraction.extractReporting(
+                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
+    }
 }

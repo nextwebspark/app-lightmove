@@ -128,6 +128,16 @@ export function extractAssessment(projectId: string): Promise<PositionExtraction
 }
 
 /**
+ * Reads the already-attached document into step-three proposals. See {@link extractDetails}.
+ *
+ * <p>These proposals are titles, never a chart — merging one into the existing org chart is
+ * {@code orgChart.ts}'s {@code applyReportsToTitle}/{@code appendDirectReport}, not this call.
+ */
+export function extractReporting(projectId: string): Promise<PositionExtraction> {
+  return request<PositionExtraction>(`${base(projectId)}/document/extract/reporting`, { method: "POST" });
+}
+
+/**
  * Fetches the stored position description and hands it to the browser to save.
  *
  * Not an `<a href>`: the access token lives in a module variable inside `apiClient` and rides on the

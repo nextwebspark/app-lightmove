@@ -30,7 +30,10 @@ public enum LlmBudget {
     COMPENSATION_EXTRACT("compensation-extract", LlmRateLimitSettings::defaultRequestsPerMinute),
 
     /** Step five's "Read from document" — assessment criteria and competency extraction. */
-    ASSESSMENT_EXTRACT("assessment-extract", LlmRateLimitSettings::defaultRequestsPerMinute);
+    ASSESSMENT_EXTRACT("assessment-extract", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** Step three's "Read from document" — reporting-structure extraction. */
+    REPORTING_EXTRACT("reporting-extract", LlmRateLimitSettings::defaultRequestsPerMinute);
 
     private final String meter;
     private final ToIntFunction<LlmRateLimitSettings> callsPerMinute;

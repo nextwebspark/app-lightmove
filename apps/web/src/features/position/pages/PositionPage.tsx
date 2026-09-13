@@ -34,6 +34,7 @@ import {
   toggle,
   type IdentifiedCompetency,
 } from "../lib/competencyRows";
+import { appendDirectReport, applyReportsToTitle, MAX_ORG_CHART_SEATS, type ChartMergeBlock } from "../lib/orgChart";
 import { StepRail } from "../components/StepRail";
 import { AssessmentStep } from "../components/steps/AssessmentStep";
 import { CompensationStep } from "../components/steps/CompensationStep";
@@ -134,6 +135,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   // and back, the same reason contextSave/compensationSave are already separate autosave channels.
   const [detailsExtraction, setDetailsExtraction] = useState<PositionExtraction | null>(null);
   const [contextExtraction, setContextExtraction] = useState<PositionExtraction | null>(null);
+  const [reportingExtraction, setReportingExtraction] = useState<PositionExtraction | null>(null);
   const [compensationExtraction, setCompensationExtraction] = useState<PositionExtraction | null>(null);
   const [assessmentExtraction, setAssessmentExtraction] = useState<PositionExtraction | null>(null);
 
@@ -364,6 +366,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       queryClient.setQueryData(key, saved);
       setDetailsExtraction(null);
       setContextExtraction(null);
+      setReportingExtraction(null);
       setCompensationExtraction(null);
       setAssessmentExtraction(null);
     },
@@ -375,6 +378,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       queryClient.setQueryData(key, saved);
       setDetailsExtraction(null);
       setContextExtraction(null);
+      setReportingExtraction(null);
       setCompensationExtraction(null);
       setAssessmentExtraction(null);
     },
@@ -393,6 +397,11 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const extractContext = useMutation({
     mutationFn: () => positionApi.extractContext(projectId),
     onSuccess: setContextExtraction,
+    onError: (error) => toast(messageFor(error)),
+  });
+  const extractReporting = useMutation({
+    mutationFn: () => positionApi.extractReporting(projectId),
+    onSuccess: setReportingExtraction,
     onError: (error) => toast(messageFor(error)),
   });
   const extractCompensation = useMutation({
@@ -688,6 +697,121 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     setAssessmentExtraction(null);
   };
 
+  const removeReportingProposal = (field: ProposedField) =>
+    setReportingExtraction((current) =>
+      current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
+    );
+
+  /** Why a chart-merging case in {@link patchForReporting} below declined to apply, in words a toast can use. */
+  const chartBlockMessage = (blocked: ChartMergeBlock): string => {
+    switch (blocked) {
+      case "full":
+        return `That chart is already at the ${MAX_ORG_CHART_SEATS}-seat limit.`;
+      case "duplicate":
+        return "That title is already a direct report on this chart.";
+      case "noMandateSeat":
+        return "This mandate has no seat on its chart yet.";
+    }
+  };
+
+  /**
+   * Unlike every other step's proposals, a "reportsToTitle" or "directReportTitle" proposal does not
+   * become a flat field — it is folded into the existing org chart (renaming or minting the manager,
+   * appending a direct report), never a chart of its own. See `orgChart.ts`'s
+   * `applyReportsToTitle`/`appendDirectReport` and the class doc on `PositionReportingProposer` for why.
+   *
+   * `null` for a fieldKey this step doesn't have a slot for — the caller must not treat that as
+   * "saved", the same convention `patchForDetails` uses. `blocked` is reported separately from that:
+   * a chart-merge helper declining to apply is a real outcome with something to tell the user, not the
+   * same "nothing to do" as an unrecognised key.
+   */
+  const patchForReporting = (
+    field: ProposedField,
+    value: string,
+  ): { patch: Partial<ReportingStructure>; blocked: ChartMergeBlock | null } | null => {
+    switch (field.fieldKey) {
+      case "reportsToTitle": {
+        const result = applyReportsToTitle(reporting.orgChart, value);
+        return { patch: { orgChart: result.chart }, blocked: result.blocked };
+      }
+      case "directReportTitle": {
+        const result = appendDirectReport(reporting.orgChart, value);
+        return { patch: { orgChart: result.chart }, blocked: result.blocked };
+      }
+      case "teamSize":
+        return { patch: { teamSize: value }, blocked: null };
+      case "noticeValue":
+        return { patch: { noticeValue: Number(value) }, blocked: null };
+      case "noticeUnit":
+        return { patch: { noticeUnit: value as ReportingStructure["noticeUnit"] }, blocked: null };
+      default:
+        return null;
+    }
+  };
+
+  const acceptReportingProposal = (field: ProposedField, value: string) => {
+    const result = patchForReporting(field, value);
+    if (!result) return;
+    if (result.blocked) {
+      toast(chartBlockMessage(result.blocked));
+      return;
+    }
+    changeReporting(result.patch, true);
+    removeReportingProposal(field);
+  };
+
+  const dismissReportingProposal = (field: ProposedField) => removeReportingProposal(field);
+
+  /**
+   * Threads one evolving chart through every accepted proposal in turn — reports-to first, then each
+   * direct report in order — rather than starting each from the same `reporting.orgChart` snapshot the
+   * way `acceptAllCompensationProposals` folds its flat fields: two direct-report accepts applied
+   * independently would each append onto the chart this render started with and the second would
+   * silently discard the first.
+   */
+  const acceptAllReportingProposals = () => {
+    if (!reportingExtraction) return;
+    let orgChart = reporting.orgChart;
+    let blockedCount = 0;
+
+    const reportsTo = reportingExtraction.fields.find((field) => field.fieldKey === "reportsToTitle");
+    if (reportsTo) {
+      const result = applyReportsToTitle(orgChart, reportsTo.value);
+      if (result.blocked) blockedCount++;
+      orgChart = result.chart;
+    }
+    for (const field of reportingExtraction.fields) {
+      if (field.fieldKey !== "directReportTitle") continue;
+      const result = appendDirectReport(orgChart, field.value);
+      // A duplicate is specific to this one proposal — later ones may still have headroom — but a
+      // full chart blocks every proposal after it, so only that reason stops the loop.
+      if (result.blocked === "full") {
+        blockedCount++;
+        break;
+      }
+      if (result.blocked === "duplicate") {
+        blockedCount++;
+        continue;
+      }
+      orgChart = result.chart;
+    }
+
+    const patch: Partial<ReportingStructure> = { orgChart };
+    for (const field of reportingExtraction.fields) {
+      if (field.fieldKey === "teamSize") patch.teamSize = field.value;
+      if (field.fieldKey === "noticeValue") patch.noticeValue = Number(field.value);
+      if (field.fieldKey === "noticeUnit") patch.noticeUnit = field.value as ReportingStructure["noticeUnit"];
+    }
+    changeReporting(patch, true);
+    setReportingExtraction(null);
+    if (blockedCount > 0) {
+      toast(
+        `${blockedCount} of the proposed reporting changes could not be applied — the chart reached ` +
+          `its ${MAX_ORG_CHART_SEATS}-seat limit or already held that report.`,
+      );
+    }
+  };
+
   const flushEverything = () => Promise.allSettled(channels.map((channel) => channel.flush()));
 
   const saveDraft = async () => {
@@ -797,7 +921,14 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               roleTitle={details.roleTitle}
               seniority={details.seniority}
               reporting={reporting}
+              document={drafted.document}
+              extraction={reportingExtraction}
+              extracting={extractReporting.isPending}
               onChange={changeReporting}
+              onExtract={() => extractReporting.mutate()}
+              onAcceptProposal={acceptReportingProposal}
+              onDismissProposal={dismissReportingProposal}
+              onAcceptAllProposals={acceptAllReportingProposals}
             />
           )}
           {currentStep === "compensation" && (

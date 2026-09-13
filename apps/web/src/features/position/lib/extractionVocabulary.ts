@@ -1,7 +1,7 @@
 import type { ExtractionSource, ProposalConfidence } from "../api/types";
 
 /**
- * How a step-one proposal's confidence and source read on screen, in one place — mirrors
+ * How a proposal's confidence and source read on screen, in one place — mirrors
  * `triageVocabulary.ts`'s placement and shape, since a confidence badge is the same kind of signal a
  * source badge is: how far a reading is worth trusting before it is accepted.
  */
@@ -47,4 +47,9 @@ export const EXTRACTION_FIELD_LABELS: Record<string, string> = {
   preferredCriterion: "Preferred criterion",
   technicalCompetency: "Technical competency",
   behaviouralCompetency: "Behavioural competency",
+  reportsToTitle: "Reports to",
+  directReportTitle: "Direct report",
+  teamSize: "Total team size",
+  noticeValue: "Notice period",
+  noticeUnit: "Notice period unit",
 };

@@ -232,8 +232,6 @@ earlier ones.
 
 ## Out of scope (this slice)
 
-- Mandate context, compensation, assessment criteria and reporting — the epic's remaining stories
-  (#280–#284).
 - `.xlsx` and `.pptx` themselves. `PositionDocumentTextReader`'s reader-per-format design (see above)
   is what makes adding them later a new class rather than a rewrite, but no `XlsxFormatReader` or
   `PptxFormatReader` exists yet, and legacy `.doc`/`.xls`/`.ppt` stay refused rather than parsed.

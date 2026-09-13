@@ -1,8 +1,15 @@
 import { Input, Select } from "../../../../components/ui";
-import type { PositionSeniority, ReportingStructure } from "../../api/types";
+import type {
+  PositionDocument,
+  PositionExtraction,
+  PositionSeniority,
+  ProposedField,
+  ReportingStructure,
+} from "../../api/types";
 import { NOTICE_UNIT_LABELS, SENIORITY_LABELS } from "../../lib/labels";
 import { directReportsOf, labelOfNode, managerOf } from "../../lib/orgChart";
 import { OrgChartCanvas } from "../OrgChartCanvas";
+import { StepExtraction } from "../StepExtraction";
 import { formatDate } from "../../../../lib/format";
 import { ColumnLabel, NumberInput, StepField } from "../fields";
 
@@ -11,24 +18,50 @@ import { ColumnLabel, NumberInput, StepField } from "../fields";
  *
  * The chart is the editor. There are no separate "reports to" or "direct report" fields, because both
  * are readings of the chart — the manager is the mandate seat's parent, the reports are its children —
- * and a second set of inputs over the same structure is a second place for them to disagree.
+ * and a second set of inputs over the same structure is a second place for them to disagree. A proposed
+ * reports-to or direct-report title is folded into this same chart by `onAcceptProposal` — see
+ * `orgChart.ts`'s `applyReportsToTitle`/`appendDirectReport` — never replaced by one of its own.
  */
 export function ReportingStructureStep({
   roleTitle,
   seniority,
   reporting,
+  document,
+  extraction,
+  extracting,
   onChange,
+  onExtract,
+  onAcceptProposal,
+  onDismissProposal,
+  onAcceptAllProposals,
 }: {
   roleTitle: string;
   seniority: PositionSeniority | null;
   reporting: ReportingStructure;
+  document: PositionDocument | null;
+  extraction: PositionExtraction | null;
+  extracting: boolean;
   onChange: (patch: Partial<ReportingStructure>, immediate?: boolean) => void;
+  onExtract: () => void;
+  onAcceptProposal: (field: ProposedField, value: string) => void;
+  onDismissProposal: (field: ProposedField) => void;
+  onAcceptAllProposals: () => void;
 }) {
   const manager = labelOfNode(managerOf(reporting.orgChart));
   const reports = directReportsOf(reporting.orgChart);
 
   return (
     <div className="flex flex-col gap-5">
+      <StepExtraction
+        positionDocument={document}
+        extraction={extraction}
+        extracting={extracting}
+        onExtract={onExtract}
+        onAcceptProposal={onAcceptProposal}
+        onDismissProposal={onDismissProposal}
+        onAcceptAllProposals={onAcceptAllProposals}
+      />
+
       <div>
         <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2">
           <span className="text-xs font-semibold uppercase tracking-[0.02em] text-text2">
