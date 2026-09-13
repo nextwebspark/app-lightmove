@@ -126,6 +126,20 @@ class HeuristicBriefReaderTest {
     }
 
     @Test
+    @DisplayName("employment type from an explicit header is trusted more than one found by whole-document keyword search")
+    void employmentTypeConfidenceReflectsWhereItWasFound() {
+        ProposedPositionDetails fromHeader = reader.propose(UUID.randomUUID(),
+                "Employment Type: Permanent\n");
+        ExtractedField headerField = fieldNamed(fromHeader, "employmentType").orElseThrow();
+        assertThat(headerField.confidence()).isEqualTo(ProposalConfidence.MEDIUM);
+
+        ProposedPositionDetails fromProse = reader.propose(UUID.randomUUID(),
+                "The business is going through a permanent shift in strategy this year.\n");
+        ExtractedField proseField = fieldNamed(fromProse, "employmentType").orElseThrow();
+        assertThat(proseField.confidence()).isEqualTo(ProposalConfidence.LOW);
+    }
+
+    @Test
     @DisplayName("a recognised title reaches its own template's seniority, at medium confidence")
     void recognisedTitleReachesItsTemplatesSeniority() {
         ProposedPositionDetails proposed = reader.propose(UUID.randomUUID(),

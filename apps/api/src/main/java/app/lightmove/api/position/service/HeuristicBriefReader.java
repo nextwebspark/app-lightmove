@@ -87,7 +87,9 @@ public class HeuristicBriefReader {
         header.department().ifPresent(fields::add);
         header.location().ifPresent(fields::add);
         fields.addAll(readResponsibilities(documentText));
-        readEmploymentType(header.employmentTypeHint().orElse(documentText)).ifPresent(fields::add);
+        Optional<String> employmentTypeHint = header.employmentTypeHint();
+        readEmploymentType(employmentTypeHint.orElse(documentText), employmentTypeHint.isPresent())
+                .ifPresent(fields::add);
         header.roleTitle().ifPresent(title ->
                 readSeniority(workspaceId, title.value()).ifPresent(fields::add));
 
@@ -192,9 +194,10 @@ public class HeuristicBriefReader {
                 baselineIndent = indent;
             }
             Matcher bullet = BULLET_LINE.matcher(line);
-            boolean startsNewItem = bullet.matches() || previousBlank
+            boolean isBullet = bullet.matches();
+            boolean startsNewItem = isBullet || previousBlank
                     || (baselineIndent > 0 && indent <= baselineIndent);
-            String content = bullet.matches() ? bullet.group(1).trim() : line.trim();
+            String content = isBullet ? bullet.group(1).trim() : line.trim();
 
             if (startsNewItem) {
                 if (current != null) {
@@ -242,7 +245,13 @@ public class HeuristicBriefReader {
 
     // ── Rule 3: employment type by keyword ───────────────────────────────────
 
-    private static Optional<ExtractedField> readEmploymentType(String text) {
+    /**
+     * {@code fromHeaderHint} is {@code true} when this ran over an explicit "Employment Type:" (or
+     * similar) header value rather than the whole document — the whole-document path is a keyword
+     * search with no anchor at all, so a stray "permanent" in prose ("a permanent shift in the
+     * market") earns only {@code LOW} confidence, not the same trust an explicit header gets.
+     */
+    private static Optional<ExtractedField> readEmploymentType(String text, boolean fromHeaderHint) {
         String lower = text.toLowerCase(Locale.ROOT);
         EmploymentType type = null;
         // "Permanent" checked ahead of "contract" so "this is a permanent contract" resolves as
@@ -258,11 +267,13 @@ public class HeuristicBriefReader {
         } else if (lower.contains("retained") || lower.contains("retainer")) {
             type = EmploymentType.RETAINED_ADVISORY;
         }
-        return type == null
-                ? Optional.empty()
-                // The keyword search runs over a hint value or the whole document, neither of which
-                // is a single sentence — so no snippet is offered here rather than one spanning pages.
-                : Optional.of(new ExtractedField("employmentType", type.name(), ProposalConfidence.MEDIUM, null));
+        if (type == null) {
+            return Optional.empty();
+        }
+        ProposalConfidence confidence = fromHeaderHint ? ProposalConfidence.MEDIUM : ProposalConfidence.LOW;
+        // The keyword search runs over a hint value or the whole document, neither of which is a
+        // single sentence — so no snippet is offered here rather than one spanning pages.
+        return Optional.of(new ExtractedField("employmentType", type.name(), confidence, null));
     }
 
     // ── Rule 4: seniority, by reusing the shipped template catalog ──────────

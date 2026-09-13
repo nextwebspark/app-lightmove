@@ -150,25 +150,30 @@ public class PositionDetailsProposer {
 
     private ProposedPositionDetails reconcile(ModelDetailsAnswer answered, Pseudonyms pseudonyms,
                                               String originalText, ProposedPositionDetails heuristic) {
+        // Normalised once here rather than inside occursIn: reconcile calls it for up to six scalar
+        // fields plus every (uncapped, at this point) responsibility, and the document can be up to
+        // maxCharacters long — re-normalising it per field is wasted work on an identical result.
+        String haystack = normaliseWhitespace(originalText).toLowerCase(Locale.ROOT);
+
         List<ExtractedField> fields = new ArrayList<>();
-        fieldFrom("roleTitle", answered.roleTitle(), answered.roleTitleSnippet(), pseudonyms, originalText)
+        fieldFrom("roleTitle", answered.roleTitle(), answered.roleTitleSnippet(), pseudonyms, haystack)
                 .ifPresent(fields::add);
-        fieldFrom("department", answered.department(), answered.departmentSnippet(), pseudonyms, originalText)
+        fieldFrom("department", answered.department(), answered.departmentSnippet(), pseudonyms, haystack)
                 .ifPresent(fields::add);
-        fieldFrom("location", answered.location(), answered.locationSnippet(), pseudonyms, originalText)
+        fieldFrom("location", answered.location(), answered.locationSnippet(), pseudonyms, haystack)
                 .ifPresent(fields::add);
         enumFieldFrom("employmentType", EmploymentType.class, answered.employmentType(),
-                answered.employmentTypeSnippet(), pseudonyms, originalText).ifPresent(fields::add);
+                answered.employmentTypeSnippet(), pseudonyms, haystack).ifPresent(fields::add);
         enumFieldFrom("seniority", Seniority.class, answered.seniority(),
-                answered.senioritySnippet(), pseudonyms, originalText).ifPresent(fields::add);
-        fieldFrom("narrative", answered.narrative(), answered.narrativeSnippet(), pseudonyms, originalText)
+                answered.senioritySnippet(), pseudonyms, haystack).ifPresent(fields::add);
+        fieldFrom("narrative", answered.narrative(), answered.narrativeSnippet(), pseudonyms, haystack)
                 .ifPresent(fields::add);
         if (answered.responsibilities() != null) {
             for (ModelResponsibility responsibility : answered.responsibilities()) {
                 if (responsibility == null) {
                     continue;
                 }
-                fieldFrom("responsibility", responsibility.text(), responsibility.snippet(), pseudonyms, originalText)
+                fieldFrom("responsibility", responsibility.text(), responsibility.snippet(), pseudonyms, haystack)
                         .ifPresent(fields::add);
             }
         }
@@ -183,7 +188,7 @@ public class PositionDetailsProposer {
      * invent.
      */
     private Optional<ExtractedField> fieldFrom(String fieldKey, String rawValue, String rawSnippet,
-                                               Pseudonyms pseudonyms, String originalText) {
+                                               Pseudonyms pseudonyms, String haystack) {
         if (rawValue == null || rawValue.isBlank()) {
             return Optional.empty();
         }
@@ -195,20 +200,19 @@ public class PositionDetailsProposer {
             log.warn("Position extraction dropped a {} field: a placeholder survived re-hydration.", fieldKey);
             return Optional.empty();
         }
-        ProposalConfidence confidence = ProposalConfidence.MEDIUM;
-        if (snippet != null && !occursIn(snippet, originalText)) {
+        ExtractedField field = new ExtractedField(fieldKey, value.trim(), ProposalConfidence.MEDIUM, snippet);
+        if (snippet != null && !occursIn(snippet, haystack)) {
             // Rule 4: a re-hydrated snippet absent from the original text is a paraphrase, not a
             // quote — the snippet is dropped and confidence downgraded, but the value itself stands.
-            snippet = null;
-            confidence = ProposalConfidence.LOW;
+            field = field.withoutSnippet(ProposalConfidence.LOW);
         }
-        return Optional.of(new ExtractedField(fieldKey, value.trim(), confidence, snippet));
+        return Optional.of(field);
     }
 
     private <T extends Enum<T>> Optional<ExtractedField> enumFieldFrom(String fieldKey, Class<T> type,
                                                                         String rawValue, String rawSnippet,
-                                                                        Pseudonyms pseudonyms, String originalText) {
-        return fieldFrom(fieldKey, rawValue, rawSnippet, pseudonyms, originalText).flatMap(field -> {
+                                                                        Pseudonyms pseudonyms, String haystack) {
+        return fieldFrom(fieldKey, rawValue, rawSnippet, pseudonyms, haystack).flatMap(field -> {
             // Never Enum.valueOf: the model may answer a token this enum does not carry ("Permanent",
             // "C-Level"), and that answer is dropped rather than thrown.
             T resolved = enumFromName(type, field.value());
@@ -227,11 +231,10 @@ public class PositionDetailsProposer {
         return null;
     }
 
-    private static boolean occursIn(String snippet, String originalText) {
-        String normalisedSnippet = normaliseWhitespace(snippet);
-        return !normalisedSnippet.isEmpty()
-                && normaliseWhitespace(originalText).toLowerCase(Locale.ROOT)
-                        .contains(normalisedSnippet.toLowerCase(Locale.ROOT));
+    /** {@code haystack} is already whitespace-normalised and lower-cased — only the snippet needs it here. */
+    private static boolean occursIn(String snippet, String haystack) {
+        String normalisedSnippet = normaliseWhitespace(snippet).toLowerCase(Locale.ROOT);
+        return !normalisedSnippet.isEmpty() && haystack.contains(normalisedSnippet);
     }
 
     private static String normaliseWhitespace(String text) {
