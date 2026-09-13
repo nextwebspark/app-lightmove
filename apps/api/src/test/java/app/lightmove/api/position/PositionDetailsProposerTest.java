@@ -17,6 +17,7 @@ import app.lightmove.api.position.constant.ProposalConfidence;
 import app.lightmove.api.position.constant.ProposalOrigin;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ProposedPositionDetails;
+import app.lightmove.api.position.service.ExtractedFieldReader;
 import app.lightmove.api.position.service.HeuristicBriefReader;
 import app.lightmove.api.position.service.PositionDetailsProposer;
 import app.lightmove.api.position.service.PositionDocumentRedactor;
@@ -61,6 +62,7 @@ class PositionDetailsProposerTest extends FlowTestSupport {
     @Autowired HeuristicBriefReader heuristics;
     @Autowired PositionDocumentRedactor redactor;
     @Autowired PositionTemplateService templates;
+    @Autowired ExtractedFieldReader fieldReader;
 
     private static final String DOCUMENT_TEXT = """
             Company: Acme Holdings Group
@@ -280,14 +282,14 @@ class PositionDetailsProposerTest extends FlowTestSupport {
         Resource prompt = new ClassPathResource("prompts/position-extract-details-system.st");
         Resource schema = new ClassPathResource("prompts/position-extract-details-schema.json");
         return new PositionDetailsProposer(ChatClient.builder(model).build(), heuristics, redactor, templates,
-                prompt, schema, TestLlmCallPolicy.asShipped(), budgetGuard());
+                fieldReader, prompt, schema, TestLlmCallPolicy.asShipped(), budgetGuard());
     }
 
     /** A guard whose limiter always says yes: the budget is metered in {@code LlmBudgetGuard}'s own test. */
     private static LlmBudgetGuard budgetGuard() {
         return new LlmBudgetGuard((key, limit, window) -> true,
                 new LightMoveProperties(null, null, null, null, null,
-                        new LlmSettings(new LlmRateLimitSettings(true, 10, 20), 20_000, 1, List.of()),
+                        new LlmSettings(new LlmRateLimitSettings(true, 10, 20, 10), 20_000, 1, List.of()),
                         null, null, null, null, null, null));
     }
 

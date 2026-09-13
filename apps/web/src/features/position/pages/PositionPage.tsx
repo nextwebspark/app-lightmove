@@ -26,9 +26,11 @@ import type {
 import { StepNavigation } from "../components/StepNavigation";
 import type { CompetencyPanelKey } from "../components/steps/AssessmentStep";
 import {
+  competencyFrom,
   forWire,
   identify,
   moveRow,
+  PACK_SEPARATOR,
   toggle,
   type IdentifiedCompetency,
 } from "../lib/competencyRows";
@@ -44,6 +46,16 @@ import { POSITION_STEPS, stepIndexOf, type StepKey } from "../lib/steps";
 import { SENIORITY_TIERS } from "../../../lib/seniority";
 
 const EMPLOYMENT_TYPES: readonly string[] = Object.keys(EMPLOYMENT_TYPE_LABELS);
+
+/** Mirrors `PutCriteriaRequest`'s and `PutCompetenciesRequest`'s own per-brief ceilings. */
+const CRITERIA_MAX_COUNT = 30;
+const COMPETENCY_MAX_COUNT_PER_PANEL = 10;
+
+interface AssessmentAccumulator {
+  criteria: Criterion[];
+  technical: IdentifiedCompetency[];
+  behavioural: IdentifiedCompetency[];
+}
 
 function isEmploymentType(value: string): value is NonNullable<PositionDetails["employmentType"]> {
   return EMPLOYMENT_TYPES.includes(value);
@@ -123,6 +135,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const [detailsExtraction, setDetailsExtraction] = useState<PositionExtraction | null>(null);
   const [contextExtraction, setContextExtraction] = useState<PositionExtraction | null>(null);
   const [compensationExtraction, setCompensationExtraction] = useState<PositionExtraction | null>(null);
+  const [assessmentExtraction, setAssessmentExtraction] = useState<PositionExtraction | null>(null);
 
   // The picker's options. A failed read leaves the type-ahead with nothing to offer, which is the
   // right degradation: the title is free text and stays typeable.
@@ -258,21 +271,32 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     setCriteria(next);
     criteriaSave.schedule(next);
   };
+  /**
+   * The one place both competency panels are ever written, so two panels can be updated in the same
+   * handler without either write reading the other's stale, pre-update value from this closure — the
+   * hazard a `setTechnical` and a `setBehavioural` fired from two separate calls run straight into.
+   */
+  const changeCompetencyPanels = (
+    nextTechnical: IdentifiedCompetency[],
+    nextBehavioural: IdentifiedCompetency[],
+    immediate = false,
+  ) => {
+    setTechnical(nextTechnical);
+    setBehavioural(nextBehavioural);
+    competenciesSave.schedule({
+      technical: forWire(nextTechnical),
+      behavioural: forWire(nextBehavioural),
+    });
+    if (immediate) void competenciesSave.flush();
+  };
   const changePanel =
     (panel: CompetencyPanelKey, immediate = false) =>
-    (rows: IdentifiedCompetency[]) => {
-      const next = {
-        technical: panel === "technical" ? rows : technical,
-        behavioural: panel === "behavioural" ? rows : behavioural,
-      };
-      setTechnical(next.technical);
-      setBehavioural(next.behavioural);
-      competenciesSave.schedule({
-        technical: forWire(next.technical),
-        behavioural: forWire(next.behavioural),
-      });
-      if (immediate) void competenciesSave.flush();
-    };
+    (rows: IdentifiedCompetency[]) =>
+      changeCompetencyPanels(
+        panel === "technical" ? rows : technical,
+        panel === "behavioural" ? rows : behavioural,
+        immediate,
+      );
 
   /** Where a published brief leads: the mandate's own market, which is the next thing to be done. */
   const goToStrategy = () => navigate(`/projects/${projectId}/strategy`);
@@ -341,6 +365,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       setDetailsExtraction(null);
       setContextExtraction(null);
       setCompensationExtraction(null);
+      setAssessmentExtraction(null);
     },
     onError: (error) => toast(messageFor(error)),
   });
@@ -351,6 +376,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       setDetailsExtraction(null);
       setContextExtraction(null);
       setCompensationExtraction(null);
+      setAssessmentExtraction(null);
     },
     onError: (error) => toast(messageFor(error)),
   });
@@ -372,6 +398,11 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const extractCompensation = useMutation({
     mutationFn: () => positionApi.extractCompensation(projectId),
     onSuccess: setCompensationExtraction,
+    onError: (error) => toast(messageFor(error)),
+  });
+  const extractAssessment = useMutation({
+    mutationFn: () => positionApi.extractAssessment(projectId),
+    onSuccess: setAssessmentExtraction,
     onError: (error) => toast(messageFor(error)),
   });
 
@@ -509,7 +540,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
    * only an exact, backend-appended trailing " — monthly"/" — yearly" is split off.
    */
   const benefitFrom = (value: string): Benefit => {
-    const suffix = value.match(/^(.*) — (monthly|yearly)$/i);
+    const suffix = value.match(new RegExp(`^(.*)${PACK_SEPARATOR}(monthly|yearly)$`, "i"));
     if (!suffix) {
       return { name: value, amount: null, frequency: "MONTHLY" };
     }
@@ -565,6 +596,96 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       true,
     );
     setCompensationExtraction(null);
+  };
+
+  const removeAssessmentProposal = (field: ProposedField) =>
+    setAssessmentExtraction((current) =>
+      current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
+    );
+
+  /**
+   * Folds one proposed field into an assessment accumulator — the one place the fieldKey → state-slot
+   * mapping lives, so `acceptAssessmentProposal` and `acceptAllAssessmentProposals` read it the same
+   * way instead of each keeping their own copy. Returns `acc` unchanged, rather than over-filling it,
+   * once a group is already at `PutCriteriaRequest`'s/`PutCompetenciesRequest`'s own per-brief ceiling
+   * — those ceilings are per brief, not per proposal, so a brief already near one can still not take
+   * everything an "Accept all" offers.
+   *
+   * A criterion built from an accepted proposal is written `fromBrief: false`, exactly like one typed
+   * by hand into `CriteriaCard` — never `true`. `fromBrief` marks a row a template redraft is free to
+   * delete and replace (`PositionTemplateApplier.draftedCriteria`); a criterion a person read out of
+   * the client's own document and accepted is not the template's to discard on the next re-apply.
+   */
+  const patchForAssessment = (
+    field: ProposedField,
+    value: string,
+    acc: AssessmentAccumulator,
+  ): AssessmentAccumulator => {
+    switch (field.fieldKey) {
+      case "requiredCriterion":
+        return acc.criteria.length >= CRITERIA_MAX_COUNT
+          ? acc
+          : { ...acc, criteria: [...acc.criteria, { text: value, mode: "REQUIRED", fromBrief: false }] };
+      case "preferredCriterion":
+        return acc.criteria.length >= CRITERIA_MAX_COUNT
+          ? acc
+          : { ...acc, criteria: [...acc.criteria, { text: value, mode: "PREFERRED", fromBrief: false }] };
+      case "technicalCompetency":
+        return acc.technical.length >= COMPETENCY_MAX_COUNT_PER_PANEL
+          ? acc
+          : { ...acc, technical: [...acc.technical, { ...competencyFrom(value), id: crypto.randomUUID() }] };
+      case "behaviouralCompetency":
+        return acc.behavioural.length >= COMPETENCY_MAX_COUNT_PER_PANEL
+          ? acc
+          : { ...acc, behavioural: [...acc.behavioural, { ...competencyFrom(value), id: crypto.randomUUID() }] };
+      default:
+        return acc;
+    }
+  };
+
+  /** Writes whichever of `after`'s three slots actually changed from `before`, in one combined write
+   *  per channel — `changeCriteria`/`changeCompetencyPanels` read their current arrays from this
+   *  closure rather than a functional updater, so this must be the only call each makes. */
+  const writeAssessmentAccumulator = (before: AssessmentAccumulator, after: AssessmentAccumulator) => {
+    if (after.criteria !== before.criteria) changeCriteria(after.criteria);
+    if (after.technical !== before.technical || after.behavioural !== before.behavioural) {
+      changeCompetencyPanels(after.technical, after.behavioural, true);
+    }
+  };
+
+  const acceptAssessmentProposal = (field: ProposedField, value: string) => {
+    const before: AssessmentAccumulator = { criteria, technical, behavioural };
+    const after = patchForAssessment(field, value, before);
+    if (after === before) {
+      toast("This brief is already at its limit for that — remove something first.");
+      return;
+    }
+    writeAssessmentAccumulator(before, after);
+    removeAssessmentProposal(field);
+  };
+
+  const dismissAssessmentProposal = (field: ProposedField) => removeAssessmentProposal(field);
+
+  const acceptAllAssessmentProposals = (edits: Record<number, string>) => {
+    if (!assessmentExtraction) return;
+    const valueOf = (field: ProposedField) => edits[field.id] ?? field.value;
+    const before: AssessmentAccumulator = { criteria, technical, behavioural };
+    const after = assessmentExtraction.fields.reduce(
+      (acc, field) => patchForAssessment(field, valueOf(field), acc),
+      before,
+    );
+    writeAssessmentAccumulator(before, after);
+    const added =
+      (after.criteria.length - before.criteria.length) +
+      (after.technical.length - before.technical.length) +
+      (after.behavioural.length - before.behavioural.length);
+    if (added < assessmentExtraction.fields.length) {
+      toast(
+        `${assessmentExtraction.fields.length - added} of ${assessmentExtraction.fields.length} ` +
+          "proposals could not be added — the brief is already at its limit.",
+      );
+    }
+    setAssessmentExtraction(null);
   };
 
   const flushEverything = () => Promise.allSettled(channels.map((channel) => channel.flush()));
@@ -698,10 +819,17 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               technical={technical}
               behavioural={behavioural}
               locked={lockedCompetencies}
+              document={drafted.document}
+              extraction={assessmentExtraction}
+              extracting={extractAssessment.isPending}
               onCriteria={changeCriteria}
               onPanel={changePanel}
               onToggleLock={(id) => setLockedCompetencies((current) => toggle(current, id))}
               onReorder={reorderPanel}
+              onExtract={() => extractAssessment.mutate()}
+              onAcceptProposal={acceptAssessmentProposal}
+              onDismissProposal={dismissAssessmentProposal}
+              onAcceptAllProposals={acceptAllAssessmentProposals}
             />
           )}
           {currentStep === "review" && (

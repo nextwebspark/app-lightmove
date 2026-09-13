@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Input, Select, Spinner } from "../../../../components/ui";
+import { Input, Select } from "../../../../components/ui";
 import { formatNumber } from "../../../../lib/format";
 import type {
   Benefit,
@@ -17,7 +17,7 @@ import {
   CURRENCIES,
   INCENTIVE_TYPE_LABELS,
 } from "../../lib/labels";
-import { PositionExtractionPanel } from "../PositionExtractionPanel";
+import { StepExtraction } from "../StepExtraction";
 import {
   AddRowButton,
   ColumnLabel,
@@ -72,39 +72,15 @@ export function CompensationStep({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-2.5">
-        {document ? (
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onExtract}
-              disabled={extracting}
-              className="border-sky/60 px-2.5 py-[5px] text-[11.5px] text-sky hover:border-sky"
-            >
-              Read from document
-            </Button>
-            {extracting && (
-              <span className="flex items-center gap-[7px] font-mono text-[11.5px] text-text3">
-                <Spinner />
-                Reading document…
-              </span>
-            )}
-          </div>
-        ) : (
-          <span className="font-mono text-[11.5px] text-text3">
-            Attach a position description on the Details step to read this step from it.
-          </span>
-        )}
-        {extraction && (
-          <PositionExtractionPanel
-            extraction={extraction}
-            onAccept={onAcceptProposal}
-            onDismiss={onDismissProposal}
-            onAcceptAll={onAcceptAllProposals}
-          />
-        )}
-      </div>
+      <StepExtraction
+        positionDocument={document}
+        extraction={extraction}
+        extracting={extracting}
+        onExtract={onExtract}
+        onAcceptProposal={onAcceptProposal}
+        onDismissProposal={onDismissProposal}
+        onAcceptAllProposals={onAcceptAllProposals}
+      />
 
       <div>
         <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.02em] text-text2">

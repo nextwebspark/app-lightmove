@@ -237,8 +237,9 @@ earlier ones.
 - `.xlsx` and `.pptx` themselves. `PositionDocumentTextReader`'s reader-per-format design (see above)
   is what makes adding them later a new class rather than a rewrite, but no `XlsxFormatReader` or
   `PptxFormatReader` exists yet, and legacy `.doc`/`.xls`/`.ppt` stay refused rather than parsed.
-- A dedicated position-extraction rate-limit field — `LlmBudgetGuard.requirePositionExtractionBudget`
-  is sized off `shortlistRequestsPerMinute()`, exactly as the import's column-mapping budget is.
+- A rate-limit field of its own per extraction step — `LlmBudget.POSITION_EXTRACT`'s meter is sized off
+  `defaultRequestsPerMinute()`, shared with the import's column-mapping budget and every other
+  extraction step, each still counted against its own meter.
 - Detecting an unnamed third party's name in prose. Stated as a trade above, not attempted.
 
 ## Verification

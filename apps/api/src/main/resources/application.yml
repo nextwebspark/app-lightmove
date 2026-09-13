@@ -227,11 +227,13 @@ lightmove:
     # injection-phrases:
     #   - ignore previous instructions
     rate-limit:
-      # The import's column mapping is metered against shortlist-requests-per-minute, on a meter of
-      # its own: one deliberate click either way, but a large import must not eat the shortlist.
+      # Every meter but shortlist and embed (the import's column mapping, each extraction step) shares
+      # default-requests-per-minute: one deliberate click either way, but each still its own budget so
+      # none of them can eat another's calls.
       enabled: ${LLM_RATE_LIMIT_ENABLED:true}
       shortlist-requests-per-minute: ${LLM_SHORTLIST_REQUESTS_PER_MINUTE:10}
       embed-requests-per-minute: ${LLM_EMBED_REQUESTS_PER_MINUTE:20}
+      default-requests-per-minute: ${LLM_DEFAULT_REQUESTS_PER_MINUTE:10}
 
   email:
     provider: ${EMAIL_PROVIDER:resend}

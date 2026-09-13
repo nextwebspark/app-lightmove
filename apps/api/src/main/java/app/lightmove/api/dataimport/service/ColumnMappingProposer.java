@@ -8,6 +8,7 @@ import app.lightmove.api.core.llm.service.LlmCallPolicy;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.constant.CustomColumnType;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
+import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.dataimport.constant.ImportTargetField;
 import app.lightmove.api.dataimport.constant.MappingSource;
@@ -152,7 +153,7 @@ public class ColumnMappingProposer {
         // Spent here rather than at the endpoint, because this is the first line that knows a call
         // is actually going to happen. Metering every preview would refuse a run of template-built
         // files — which reach Vertex never — with a message saying the model budget was exhausted.
-        llmBudget.requireColumnMappingBudget(userId);
+        llmBudget.require(LlmBudget.IMPORT_COLUMN_MAPPING, userId);
 
         List<ColumnMapping> fallback = heuristic.mappings();
         try {
