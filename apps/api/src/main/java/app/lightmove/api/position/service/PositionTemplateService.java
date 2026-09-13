@@ -57,11 +57,22 @@ public class PositionTemplateService {
      */
     Optional<PositionTemplate> matching(UUID workspaceId, String roleTitle) {
         List<PositionTemplate> visible = templates.findAllVisibleTo(workspaceId);
-        return visible.stream()
-                .filter(template -> template.matchesTitle(roleTitle))
-                .findFirst()
+        return matchingByTitle(visible, roleTitle)
                 .or(() -> visible.stream()
                         .filter(template -> FALLBACK_CODE.equals(template.getCode()))
                         .findFirst());
+    }
+
+    /**
+     * The template a role title actually names, with no generic fallback — for a caller that would
+     * rather have nothing than a wrong answer, unlike {@link #matching}, whose fallback exists for
+     * drafting a whole brief.
+     */
+    Optional<PositionTemplate> matchingByTitle(UUID workspaceId, String roleTitle) {
+        return matchingByTitle(templates.findAllVisibleTo(workspaceId), roleTitle);
+    }
+
+    private static Optional<PositionTemplate> matchingByTitle(List<PositionTemplate> visible, String roleTitle) {
+        return visible.stream().filter(template -> template.matchesTitle(roleTitle)).findFirst();
     }
 }
