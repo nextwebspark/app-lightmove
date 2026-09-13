@@ -72,6 +72,10 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
             }
         });
 
+        // The GM-IT title matches no template keyword, so nothing is suggested — never the generic
+        // fallback that project creation would have fallen back to for the same title.
+        assertThat(response.get("suggestedTemplate").isNull()).isTrue();
+
         // AC2: nothing persists until a row is accepted. The brief's location is already the
         // client's own HQ country, seeded at project creation, and stays exactly that — not the
         // fixture's "Dubai, UAE" the extraction proposed.
@@ -79,6 +83,29 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
         JsonNode brief = readBrief(admin, projectId);
         assertThat(brief.get("details").get("roleTitle").asText()).isEqualTo("CFO");
         assertThat(brief.get("details").get("location").asText()).isEqualTo("United Arab Emirates");
+    }
+
+    @Test
+    @DisplayName("the CFO brochure's proposed role title suggests the chief-financial-officer template")
+    void suggestsTheMatchingTemplateFromTheCfoFixture() throws Exception {
+        String admin = adminOf("Suggestion Firm");
+        String clientId = createClient(admin, "Meridian Holdings", "UAE");
+        String projectId = createProject(admin, clientId, "New Mandate");
+        attach(admin, projectId, cfoFixture()).andExpect(status().isOk());
+
+        JsonNode response = body(mvc.perform(post(extractUrl(projectId))
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        JsonNode roleTitle = fieldNamed(response.get("fields"), "roleTitle");
+        assertThat(roleTitle).isNotNull();
+        assertThat(roleTitle.get("value").asText()).isEqualTo("Chief Financial Officer");
+
+        JsonNode suggested = response.get("suggestedTemplate");
+        assertThat(suggested).isNotNull();
+        assertThat(suggested.isNull()).isFalse();
+        assertThat(suggested.get("code").asText()).isEqualTo("chief-financial-officer");
     }
 
     @Test
@@ -306,6 +333,30 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
                 "documents/position/Spec--General Manager - IT_vF.pdf").getInputStream());
         return new MockMultipartFile("file", "Spec--General Manager - IT_vF.pdf",
                 "application/pdf", content);
+    }
+
+    /**
+     * A brochure's own key-value header, exactly the shape {@link HeuristicBriefReader}'s colon rule
+     * reads — declared as a PDF (an allowed upload type) but plain text underneath, which the reader's
+     * byte-signature sniff sends to {@code PlainTextFormatReader} regardless of what it is labelled.
+     * A real PDF fixture would depend on how its own text layer happens to extract, which is exactly
+     * what {@code refusesALegacyDoc} proves the format sniff does not trust either.
+     */
+    private static MockMultipartFile cfoFixture() {
+        String text = """
+                Job Title: Chief Financial Officer
+                Department: Group Finance
+                Location: Abu Dhabi, UAE
+
+                Key Responsibilities:
+                - Own the group's capital structure and banking relationships
+                - Lead financial planning, budgeting and board reporting
+                - Partner with the CEO on investment and M&A decisions
+                - Build and lead a high-performing finance organisation
+                - Oversee treasury, tax and regulatory compliance
+                """;
+        return new MockMultipartFile("file", "cfo-brief.pdf", "application/pdf",
+                text.getBytes(StandardCharsets.UTF_8));
     }
 
     private static JsonNode fieldNamed(JsonNode fields, String fieldKey) {

@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Input } from "../../../components/ui";
 import { DetailPill } from "../../../components/ui/DetailList";
+import { FilterCheckRow } from "../../../components/ui/FilterCheckRow";
 import { cn } from "../../../lib/cn";
-import type { PositionExtraction, ProposedField } from "../api/types";
+import type { PositionExtraction, PositionTemplate, ProposedField } from "../api/types";
 import {
   CONFIDENCE_STYLES,
   EXTRACTION_FIELD_LABELS,
@@ -24,16 +25,35 @@ export function PositionExtractionPanel({
   onAccept,
   onDismiss,
   onAcceptAll,
+  onApplySuggestedTemplate,
+  applyingSuggestedTemplate = false,
 }: {
   extraction: PositionExtraction;
   onAccept: (field: ProposedField, value: string) => void;
   onDismiss: (field: ProposedField) => void;
   onAcceptAll: () => void;
+  /**
+   * Absent on every step but step one — only its own extraction ever carries a `suggestedTemplate`,
+   * so the other four steps render this panel without ever needing to answer for one.
+   */
+  onApplySuggestedTemplate?: (template: PositionTemplate) => void;
+  applyingSuggestedTemplate?: boolean;
 }) {
+  const suggestion = extraction.suggestedTemplate && onApplySuggestedTemplate ? (
+    <SuggestedTemplateOffer
+      template={extraction.suggestedTemplate}
+      applying={applyingSuggestedTemplate}
+      onApply={onApplySuggestedTemplate}
+    />
+  ) : null;
+
   if (extraction.fields.length === 0) {
     return (
-      <div className="rounded-[10px] border border-line-soft bg-panel2 px-[15px] py-[13px] font-mono text-[12px] text-text3">
-        {EXTRACTION_SOURCE_LABELS[extraction.extractionSource]} — nothing was found to propose.
+      <div className="flex flex-col gap-3">
+        {suggestion}
+        <div className="rounded-[10px] border border-line-soft bg-panel2 px-[15px] py-[13px] font-mono text-[12px] text-text3">
+          {EXTRACTION_SOURCE_LABELS[extraction.extractionSource]} — nothing was found to propose.
+        </div>
       </div>
     );
   }
@@ -41,37 +61,72 @@ export function PositionExtractionPanel({
   const degraded = extraction.extractionSource === "documentHeadings";
 
   return (
-    <div className="flex flex-col gap-3 rounded-[10px] border border-line-soft bg-panel2 p-[15px]">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div
-          className={cn(
-            "flex items-center gap-1.5 font-mono text-[11.5px]",
-            degraded ? "text-amber" : "text-text3",
-          )}
-        >
-          {degraded && <Icon d={ICONS.warning} size={13} className="shrink-0" />}
-          {EXTRACTION_SOURCE_LABELS[extraction.extractionSource]}
+    <div className="flex flex-col gap-3">
+      {suggestion}
+      <div className="flex flex-col gap-3 rounded-[10px] border border-line-soft bg-panel2 p-[15px]">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div
+            className={cn(
+              "flex items-center gap-1.5 font-mono text-[11.5px]",
+              degraded ? "text-amber" : "text-text3",
+            )}
+          >
+            {degraded && <Icon d={ICONS.warning} size={13} className="shrink-0" />}
+            {EXTRACTION_SOURCE_LABELS[extraction.extractionSource]}
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onAcceptAll}
+            className="px-2.5 py-1.5 text-[11.5px]"
+          >
+            Accept all
+          </Button>
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={onAcceptAll}
-          className="px-2.5 py-1.5 text-[11.5px]"
-        >
-          Accept all
-        </Button>
-      </div>
 
-      <div className="flex flex-col gap-2">
-        {extraction.fields.map((field, index) => (
-          <ProposalRow
-            key={`${field.fieldKey}-${index}`}
-            field={field}
-            onAccept={(value) => onAccept(field, value)}
-            onDismiss={() => onDismiss(field)}
-          />
-        ))}
+        <div className="flex flex-col gap-2">
+          {extraction.fields.map((field, index) => (
+            <ProposalRow
+              key={`${field.fieldKey}-${index}`}
+              field={field}
+              onAccept={(value) => onAccept(field, value)}
+              onDismiss={() => onDismiss(field)}
+            />
+          ))}
+        </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The offer to draft the whole brief from the matching template — always unchecked, since ticking it
+ * *is* the deliberate action rather than arming a separate confirm step, the same "pick and it applies"
+ * shape the role-title combobox already uses. Applying rewrites five other steps, so this never fires
+ * on its own; it is only ever a person's own tick.
+ */
+function SuggestedTemplateOffer({
+  template,
+  applying,
+  onApply,
+}: {
+  template: PositionTemplate;
+  applying: boolean;
+  onApply: (template: PositionTemplate) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-amber bg-amber-dim px-3 py-2">
+      <FilterCheckRow
+        label={
+          applying
+            ? "Applying…"
+            : `This reads like a ${template.title} mandate — draft the brief from that template too?`
+        }
+        checked={false}
+        onToggle={() => {
+          if (!applying) onApply(template);
+        }}
+      />
     </div>
   );
 }

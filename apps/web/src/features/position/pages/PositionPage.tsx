@@ -247,6 +247,21 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     onError: (error) => toast(messageFor(error)),
   });
 
+  /**
+   * The extraction panel's own offer, ticked rather than picked from the combobox. Reuses the same
+   * mutation — flush, post, adopt is identical either way — and layers "clear the stale proposals and
+   * read the document again" on top via this call's own `onSuccess`, which fires after the mutation's,
+   * so the redraft is already in place before anything here runs.
+   */
+  const applySuggestedTemplate = (template: PositionTemplate) => {
+    applyTemplate.mutate(template, {
+      onSuccess: () => {
+        setExtraction(null);
+        extractDetails.mutate();
+      },
+    });
+  };
+
   const changeCriteria = (next: Criterion[]) => {
     setCriteria(next);
     criteriaSave.schedule(next);
@@ -821,6 +836,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               onAcceptProposal={acceptProposal}
               onDismissProposal={dismissProposal}
               onAcceptAllProposals={acceptAllProposals}
+              onApplySuggestedTemplate={applySuggestedTemplate}
             />
           )}
           {currentStep === "context" && (

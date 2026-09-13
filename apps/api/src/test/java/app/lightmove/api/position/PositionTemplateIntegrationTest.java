@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.position.service.PositionTemplateService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -35,6 +36,7 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
             """;
 
     @Autowired JdbcTemplate db;
+    @Autowired PositionTemplateService templates;
 
     @Test
     @DisplayName("the picker lists the seeded library, and every template in it is readable")
@@ -213,6 +215,33 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"templateId\":\"%s\"}".formatted(ours)))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("suggestFor offers only a genuine keyword match, is workspace-scoped, and never the "
+            + "generic fallback matching() uses for seeding")
+    void suggestForNeverFallsBackAndRespectsWorkspaceScope() throws Exception {
+        Firm firm = firmOf("Suggestion Firm", "alok");
+        UUID firmId = UUID.fromString(firm.workspaceId());
+        insertWorkspaceTemplate(firm.workspaceId(), "group-treasury-lead", "Group Treasury Lead",
+                "Treasury Lead");
+
+        // A genuine keyword match on the firm's own template.
+        assertThat(templates.suggestFor(firmId, "Group Treasury Lead"))
+                .hasValueSatisfying(summary -> assertThat(summary.code()).isEqualTo("group-treasury-lead"));
+
+        // The shared library still matches for a title none of the firm's own templates answer to.
+        assertThat(templates.suggestFor(firmId, "Chief Financial Officer"))
+                .hasValueSatisfying(summary -> assertThat(summary.code()).isEqualTo("chief-financial-officer"));
+
+        // A title matching nothing suggests nothing at all — never generic-executive, unlike matching()
+        // at project-creation time.
+        assertThat(templates.suggestFor(firmId, "Head of Alchemy")).isEmpty();
+
+        // The firm next door never has this workspace's own template suggested to it.
+        Firm neighbour = firmOf("Suggestion Neighbour Firm", "sara");
+        assertThat(templates.suggestFor(UUID.fromString(neighbour.workspaceId()), "Treasury Lead"))
+                .isEmpty();
     }
 
     private JsonNode templates(String token) throws Exception {

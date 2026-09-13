@@ -7,6 +7,7 @@ import app.lightmove.api.core.config.PositionExtractionSettings;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.position.dto.PositionExtractionResponse;
+import app.lightmove.api.position.dto.PositionTemplateSummary;
 import app.lightmove.api.position.dto.ProposedFieldDto;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.PositionDocument;
@@ -44,6 +45,7 @@ public class PositionExtractionService {
     private final PositionCompensationProposer compensationProposer;
     private final PositionAssessmentProposer assessmentProposer;
     private final PositionReportingProposer reportingProposer;
+    private final PositionTemplateService templates;
     private final AuditService audit;
     private final PositionExtractionSettings settings;
 
@@ -55,6 +57,7 @@ public class PositionExtractionService {
                                      PositionCompensationProposer compensationProposer,
                                      PositionAssessmentProposer assessmentProposer,
                                      PositionReportingProposer reportingProposer,
+                                     PositionTemplateService templates,
                                      AuditService audit, LightMoveProperties properties) {
         this.briefs = briefs;
         this.documents = documents;
@@ -64,6 +67,7 @@ public class PositionExtractionService {
         this.compensationProposer = compensationProposer;
         this.assessmentProposer = assessmentProposer;
         this.reportingProposer = reportingProposer;
+        this.templates = templates;
         this.audit = audit;
         this.settings = properties.position().extraction();
     }
@@ -75,7 +79,12 @@ public class PositionExtractionService {
         ProposedPositionDetails proposed = detailsProposer.propose(
                 userId, read.text(), read.brief().project().getClientId(), workspaceId);
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
-        return assemble(proposed.source().value(), proposed.fields());
+        PositionTemplateSummary suggested = proposed.fields().stream()
+                .filter(field -> "roleTitle".equals(field.fieldKey()))
+                .findFirst()
+                .flatMap(field -> templates.suggestFor(workspaceId, field.value()))
+                .orElse(null);
+        return assemble(proposed.source().value(), proposed.fields(), suggested);
     }
 
     @Transactional(readOnly = true)
@@ -85,7 +94,7 @@ public class PositionExtractionService {
         ProposedMandateContext proposed = contextProposer.propose(
                 userId, read.text(), read.brief().project().getClientId(), workspaceId);
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
-        return assemble(proposed.source().value(), proposed.fields());
+        return assemble(proposed.source().value(), proposed.fields(), null);
     }
 
     @Transactional(readOnly = true)
@@ -95,7 +104,7 @@ public class PositionExtractionService {
         ProposedCompensation proposed = compensationProposer.propose(
                 userId, read.text(), read.brief().project().getClientId(), workspaceId);
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
-        return assemble(proposed.source().value(), proposed.fields());
+        return assemble(proposed.source().value(), proposed.fields(), null);
     }
 
     @Transactional(readOnly = true)
@@ -105,7 +114,7 @@ public class PositionExtractionService {
         ProposedAssessment proposed = assessmentProposer.propose(userId, read.text(),
                 read.brief().project().getClientId(), workspaceId, read.brief().project().getPositionTitle());
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
-        return assemble(proposed.source().value(), proposed.fields());
+        return assemble(proposed.source().value(), proposed.fields(), null);
     }
 
     @Transactional(readOnly = true)
@@ -115,7 +124,7 @@ public class PositionExtractionService {
         ProposedReportingStructure proposed = reportingProposer.propose(
                 userId, read.text(), read.brief().project().getClientId(), workspaceId);
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
-        return assemble(proposed.source().value(), proposed.fields());
+        return assemble(proposed.source().value(), proposed.fields(), null);
     }
 
     private record Read(PositionBrief brief, String text) {}
@@ -140,9 +149,10 @@ public class PositionExtractionService {
                 .record();
     }
 
-    private static PositionExtractionResponse assemble(String extractionSource, List<ExtractedField> fields) {
+    private static PositionExtractionResponse assemble(String extractionSource, List<ExtractedField> fields,
+                                                        PositionTemplateSummary suggestedTemplate) {
         return new PositionExtractionResponse(extractionSource,
-                fields.stream().map(PositionExtractionService::toDto).toList());
+                fields.stream().map(PositionExtractionService::toDto).toList(), suggestedTemplate);
     }
 
     private static ProposedFieldDto toDto(ExtractedField field) {

@@ -10,5 +10,10 @@ import java.util.List;
  * @param extractionSource an {@code ExtractionSource} wire token — what produced this reading, and
  *                          how far it is worth trusting, exactly as {@code ImportPreviewResponse}
  *                          carries {@code mappingSource}
+ * @param suggestedTemplate the brief template the proposed role title matches, offered as a separate,
+ *                          explicit opt-in — {@code null} for every step but step one, and {@code null}
+ *                          there too when nothing genuinely matched. Never the generic fallback: that
+ *                          would read as a match when none was found.
  */
-public record PositionExtractionResponse(String extractionSource, List<ProposedFieldDto> fields) {}
+public record PositionExtractionResponse(String extractionSource, List<ProposedFieldDto> fields,
+                                          PositionTemplateSummary suggestedTemplate) {}

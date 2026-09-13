@@ -31,6 +31,7 @@ export function PositionDetailsStep({
   onAcceptProposal,
   onDismissProposal,
   onAcceptAllProposals,
+  onApplySuggestedTemplate,
 }: {
   details: PositionDetails;
   document: PositionDocument | null;
@@ -48,6 +49,7 @@ export function PositionDetailsStep({
   onAcceptProposal: (field: ProposedField, value: string) => void;
   onDismissProposal: (field: ProposedField) => void;
   onAcceptAllProposals: () => void;
+  onApplySuggestedTemplate: (template: PositionTemplate) => void;
 }) {
   const [draft, setDraft] = useState("");
 
@@ -76,6 +78,8 @@ export function PositionDetailsStep({
           onAccept={onAcceptProposal}
           onDismiss={onDismissProposal}
           onAcceptAll={onAcceptAllProposals}
+          onApplySuggestedTemplate={onApplySuggestedTemplate}
+          applyingSuggestedTemplate={applyingTemplate}
         />
       )}
 

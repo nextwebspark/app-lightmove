@@ -57,11 +57,25 @@ public class PositionTemplateService {
      */
     Optional<PositionTemplate> matching(UUID workspaceId, String roleTitle) {
         List<PositionTemplate> visible = templates.findAllVisibleTo(workspaceId);
-        return visible.stream()
-                .filter(template -> template.matchesTitle(roleTitle))
-                .findFirst()
+        return keywordMatch(visible, roleTitle)
                 .or(() -> visible.stream()
                         .filter(template -> FALLBACK_CODE.equals(template.getCode()))
                         .findFirst());
+    }
+
+    /**
+     * The template to offer alongside a proposed role title — a genuine keyword match only, never the
+     * generic fallback: "this reads like a Generic Executive mandate" would not read as a real
+     * suggestion, so an unrecognised title suggests nothing rather than the same catch-all every
+     * unrecognised title would land on.
+     */
+    @Transactional(readOnly = true)
+    public Optional<PositionTemplateSummary> suggestFor(UUID workspaceId, String roleTitle) {
+        return keywordMatch(templates.findAllVisibleTo(workspaceId), roleTitle)
+                .map(PositionTemplateSummary::of);
+    }
+
+    private static Optional<PositionTemplate> keywordMatch(List<PositionTemplate> visible, String roleTitle) {
+        return visible.stream().filter(template -> template.matchesTitle(roleTitle)).findFirst();
     }
 }

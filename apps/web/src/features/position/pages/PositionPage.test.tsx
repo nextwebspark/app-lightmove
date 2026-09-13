@@ -657,6 +657,74 @@ describe("PositionPage", () => {
     expect(screen.queryByDisplayValue("Treasury")).not.toBeInTheDocument();
   });
 
+  it("offers the suggested template unchecked, and ticking it flushes, adopts, and re-reads the document", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const suggested = catalog[1]; // t-cco, "Chief Compliance Officer"
+    const firstExtraction: PositionExtraction = {
+      extractionSource: "documentHeadings",
+      fields: [
+        {
+          fieldKey: "roleTitle",
+          value: "Chief Compliance Officer",
+          confidence: "medium",
+          snippet: "Job Title: Chief Compliance Officer",
+        },
+      ],
+      suggestedTemplate: suggested,
+    };
+    // What the panel reads once the redraft has landed: this action's whole point is that a stale
+    // proposal against the pre-template brief is never left sitting there to be accepted over it.
+    const rereadAfterTemplate: PositionExtraction = {
+      extractionSource: "documentHeadings",
+      fields: [],
+      suggestedTemplate: null,
+    };
+    vi.mocked(positionApi.extractDetails)
+      .mockResolvedValueOnce(firstExtraction)
+      .mockResolvedValueOnce(rereadAfterTemplate);
+    vi.mocked(positionApi.applyTemplate).mockResolvedValue(redrafted);
+    vi.mocked(positionApi.putDetails).mockResolvedValue(redrafted);
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    const extractCallsBeforeApplying = vi.mocked(positionApi.extractDetails).mock.calls.length;
+
+    const offer = await screen.findByRole("checkbox", {
+      name: /This reads like a Chief Compliance Officer mandate/,
+    });
+    // AC3: unchecked by default — the offer is never pre-armed.
+    expect(offer).toHaveAttribute("aria-checked", "false");
+
+    await user.click(offer);
+
+    await waitFor(() => expect(positionApi.applyTemplate).toHaveBeenCalledWith("p1", "t-cco"));
+    // Same title write-through the combobox uses — a suggestion applies a template, it does not rename
+    // the mandate on the template's behalf.
+    await waitFor(() =>
+      expect(positionApi.putDetails).toHaveBeenCalledWith(
+        "p1",
+        expect.objectContaining({ roleTitle: "Chief Compliance Officer" }),
+      ),
+    );
+    // AC4: the panel is cleared and the document read again, exactly once, only after the redraft is
+    // in — proving the re-read is a consequence of applying the template, not of something else.
+    await waitFor(() =>
+      expect(vi.mocked(positionApi.extractDetails).mock.calls.length).toBe(
+        extractCallsBeforeApplying + 1,
+      ),
+    );
+    expect(await screen.findByText(/nothing was found to propose/)).toBeInTheDocument();
+  });
+
   it("keeps the title typeable when the catalog cannot be read", async () => {
     vi.mocked(positionApi.listTemplates).mockRejectedValue(new Error("nope"));
     renderPage();

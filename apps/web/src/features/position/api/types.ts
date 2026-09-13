@@ -199,4 +199,10 @@ export interface ProposedField {
 export interface PositionExtraction {
   extractionSource: ExtractionSource;
   fields: ProposedField[];
+  /**
+   * The brief template the proposed role title matches — step one only, and only a genuine keyword
+   * match, never the generic fallback. Optional rather than always-present because it is absent for
+   * every other step's extraction, not merely null.
+   */
+  suggestedTemplate?: PositionTemplate | null;
 }
