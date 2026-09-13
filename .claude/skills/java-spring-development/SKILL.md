@@ -321,6 +321,12 @@ method plus the records it returns — never another feature's internals:
   the same way `CandidateService` does — a brief cannot be scoped, titled or dated without it — and
   `project`'s `ProjectService.create` seeds the new mandate's brief through one call taking primitives
   rather than handing a `Project` across.
+- `position` reads `positiontemplate` through `PositionTemplateService.matching` (seeding a new
+  mandate) and `require` (applying a picked template), and writes the result onto the brief in its own
+  `PositionTemplateApplier`. **`positiontemplate` never depends on `position`** — the admin-curated
+  library knows nothing about briefs — which is why the enums both speak (`EmploymentType`,
+  `BenefitFrequency`, `CompetencyPanel`, `CriterionMode`, …) live in `common/constant` beside
+  `Seniority` rather than in either feature.
 - `project`'s `ClientService` calls `ApolloCompanyQueryService` to resolve the company a new client
   record names.
 

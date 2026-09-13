@@ -1,6 +1,6 @@
 package app.lightmove.api.position.dto;
 
-import app.lightmove.api.position.constant.EmploymentType;
+import app.lightmove.api.common.constant.EmploymentType;
 import app.lightmove.api.common.constant.Seniority;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

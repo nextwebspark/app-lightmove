@@ -74,7 +74,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport`, `geocoding`, `talentmap` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport`, `geocoding`, `talentmap` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -86,6 +86,13 @@ because the mandate keeps two of the fields the screen shows: the role title, wh
 the one target date (V8), which the screen only displays — it is set on the project and nowhere else.
 Nothing else depends on it: the one reverse edge that existed — `project`'s `ReportService` reading the
 position repository for the report's salary band — went with the report.
+
+`positiontemplate` is the **role-template library** a brief is drafted from — the shared library, each
+firm's copies and own templates, the picker, and the JSON export/import. It is admin-curated reference
+content, so it is its own feature rather than part of the brief: `position` reads it through two public
+methods (`PositionTemplateService.matching` when a mandate is created, `require` when a consultant picks
+one) and `positiontemplate` never depends back. The vocabulary both speak (employment type, benefit
+frequency, competency panel, …) lives in `common/constant` for exactly that reason.
 
 `strategy` and `triagecompany` split one story in two, in the order a consultant works: **`strategy`
 is the market side** — the saved filter, the saved searches, the reads over the Apollo universe, and

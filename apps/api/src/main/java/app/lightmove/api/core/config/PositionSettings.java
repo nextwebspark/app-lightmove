@@ -1,4 +1,4 @@
 package app.lightmove.api.core.config;
 
-/** The position brief's own tunables: the attached position description, and the role-template import. */
-public record PositionSettings(PositionDocumentSettings document, PositionTemplateImportSettings templateImport) {}
+/** The mandate's role definition: the attached position description, and the role templates it is drafted from. */
+public record PositionSettings(PositionDocumentSettings document, PositionTemplateSettings template) {}
