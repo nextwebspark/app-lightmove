@@ -114,6 +114,9 @@ function ProposalRow({
           onChange={(event) => onValueChange(event.target.value)}
           className="min-w-[160px] flex-1 bg-panel2"
         />
+        {field.origin === "template" && (
+          <DetailPill label="From template" className="text-text3 bg-line-soft" />
+        )}
         <DetailPill label={style.label} className={style.className} />
         <div className="ms-auto flex flex-none gap-1.5">
           <Button

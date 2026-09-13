@@ -543,6 +543,7 @@ describe("PositionPage", () => {
           value: "Group Chief Financial Officer",
           confidence: "medium",
           snippet: "Job Title: Group Chief Financial Officer",
+          origin: "document",
         },
       ],
     };
@@ -575,6 +576,7 @@ describe("PositionPage", () => {
           value: "Group Chief Financial Officer",
           confidence: "medium",
           snippet: "Job Title: Group Chief Financial Officer",
+          origin: "document",
         },
         {
           id: 1,
@@ -582,6 +584,7 @@ describe("PositionPage", () => {
           value: "Group Finance & Treasury",
           confidence: "low",
           snippet: null,
+          origin: "document",
         },
       ],
     };
@@ -625,9 +628,9 @@ describe("PositionPage", () => {
     const extracted: PositionExtraction = {
       extractionSource: "documentHeadings",
       fields: [
-        { id: 0, fieldKey: "roleTitle", value: "Group Chief Financial Officer", confidence: "medium", snippet: null },
-        { id: 1, fieldKey: "department", value: "Group Finance & Treasury", confidence: "low", snippet: null },
-        { id: 2, fieldKey: "location", value: "Dubai Marina, UAE", confidence: "low", snippet: null },
+        { id: 0, fieldKey: "roleTitle", value: "Group Chief Financial Officer", confidence: "medium", snippet: null, origin: "document" },
+        { id: 1, fieldKey: "department", value: "Group Finance & Treasury", confidence: "low", snippet: null, origin: "document" },
+        { id: 2, fieldKey: "location", value: "Dubai Marina, UAE", confidence: "low", snippet: null, origin: "document" },
       ],
     };
     vi.mocked(positionApi.extractDetails).mockResolvedValue(extracted);
@@ -660,7 +663,7 @@ describe("PositionPage", () => {
     const extracted: PositionExtraction = {
       extractionSource: "documentHeadings",
       fields: [
-        { id: 0, fieldKey: "department", value: "Group Finance & Treasury", confidence: "low", snippet: null },
+        { id: 0, fieldKey: "department", value: "Group Finance & Treasury", confidence: "low", snippet: null, origin: "document" },
       ],
     };
     vi.mocked(positionApi.extractDetails).mockResolvedValue(extracted);
@@ -680,6 +683,33 @@ describe("PositionPage", () => {
         expect.objectContaining({ department: "Corrected Department" }),
       ),
     );
+  });
+
+  it("labels a template-sourced proposal, and only that one", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "documentHeadings",
+      fields: [
+        { id: 0, fieldKey: "roleTitle", value: "Group Chief Financial Officer", confidence: "medium", snippet: "Job Title: Group Chief Financial Officer", origin: "document" },
+        { id: 1, fieldKey: "department", value: "Finance", confidence: "low", snippet: null, origin: "template" },
+      ],
+    };
+    vi.mocked(positionApi.extractDetails).mockResolvedValue(extracted);
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    await screen.findByDisplayValue("Group Chief Financial Officer");
+
+    expect(screen.getAllByText("From template")).toHaveLength(1);
   });
 
   it("suggests role templates, and lets a title nothing matches be typed anyway", async () => {

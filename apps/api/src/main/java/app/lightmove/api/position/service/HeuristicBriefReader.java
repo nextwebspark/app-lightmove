@@ -3,6 +3,7 @@ package app.lightmove.api.position.service;
 import app.lightmove.api.position.constant.EmploymentType;
 import app.lightmove.api.position.constant.ExtractionSource;
 import app.lightmove.api.position.constant.ProposalConfidence;
+import app.lightmove.api.position.constant.ProposalOrigin;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ProposedPositionDetails;
 import java.util.ArrayList;
@@ -116,11 +117,14 @@ public class HeuristicBriefReader {
             }
             String snippet = matcher.group().trim();
             if (roleTitle == null && isTitleLabel(label)) {
-                roleTitle = new ExtractedField("roleTitle", value, ProposalConfidence.MEDIUM, snippet);
+                roleTitle = new ExtractedField("roleTitle", value, ProposalConfidence.MEDIUM, snippet,
+                        ProposalOrigin.DOCUMENT);
             } else if (department == null && isDepartmentLabel(label)) {
-                department = new ExtractedField("department", value, ProposalConfidence.MEDIUM, snippet);
+                department = new ExtractedField("department", value, ProposalConfidence.MEDIUM, snippet,
+                        ProposalOrigin.DOCUMENT);
             } else if (location == null && isLocationLabel(label)) {
-                location = new ExtractedField("location", value, ProposalConfidence.MEDIUM, snippet);
+                location = new ExtractedField("location", value, ProposalConfidence.MEDIUM, snippet,
+                        ProposalOrigin.DOCUMENT);
             } else if (employmentTypeHint == null && isEmploymentTypeLabel(label)) {
                 employmentTypeHint = value;
             }
@@ -240,7 +244,8 @@ public class HeuristicBriefReader {
 
     private static ExtractedField itemOf(String text) {
         String trimmed = text.trim();
-        return new ExtractedField("responsibility", trimmed, ProposalConfidence.MEDIUM, trimmed);
+        return new ExtractedField("responsibility", trimmed, ProposalConfidence.MEDIUM, trimmed,
+                ProposalOrigin.DOCUMENT);
     }
 
     // ── Rule 3: employment type by keyword ───────────────────────────────────
@@ -273,7 +278,8 @@ public class HeuristicBriefReader {
         ProposalConfidence confidence = fromHeaderHint ? ProposalConfidence.MEDIUM : ProposalConfidence.LOW;
         // The keyword search runs over a hint value or the whole document, neither of which is a
         // single sentence — so no snippet is offered here rather than one spanning pages.
-        return Optional.of(new ExtractedField("employmentType", type.name(), confidence, null));
+        return Optional.of(new ExtractedField("employmentType", type.name(), confidence, null,
+                ProposalOrigin.DOCUMENT));
     }
 
     // ── Rule 4: seniority, by reusing the shipped template catalog ──────────
@@ -283,7 +289,10 @@ public class HeuristicBriefReader {
             ProposalConfidence confidence = FALLBACK_TEMPLATE_CODE.equals(template.getCode())
                     ? ProposalConfidence.LOW
                     : ProposalConfidence.MEDIUM;
-            return new ExtractedField("seniority", template.getSeniority().name(), confidence, null);
+            // Template-sourced, not document-sourced — same catalog PositionDetailsProposer's own
+            // template backfill draws from for every other step-one field.
+            return new ExtractedField("seniority", template.getSeniority().name(), confidence, null,
+                    ProposalOrigin.TEMPLATE);
         });
     }
 }

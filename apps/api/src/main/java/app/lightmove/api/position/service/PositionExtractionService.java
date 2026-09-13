@@ -82,6 +82,6 @@ public class PositionExtractionService {
 
     private static ProposedFieldDto toDto(int id, ExtractedField field) {
         return new ProposedFieldDto(id, field.fieldKey(), field.value(), field.confidence().value(),
-                field.snippet());
+                field.snippet(), field.origin().value());
     }
 }

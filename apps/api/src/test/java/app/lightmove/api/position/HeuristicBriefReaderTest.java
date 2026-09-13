@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.position.constant.ExtractionSource;
 import app.lightmove.api.position.constant.ProposalConfidence;
+import app.lightmove.api.position.constant.ProposalOrigin;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ProposedPositionDetails;
 import app.lightmove.api.position.service.HeuristicBriefReader;
@@ -148,6 +149,7 @@ class HeuristicBriefReaderTest {
         ExtractedField seniority = fieldNamed(proposed, "seniority").orElseThrow();
         assertThat(seniority.value()).isEqualTo("C_SUITE");
         assertThat(seniority.confidence()).isEqualTo(ProposalConfidence.MEDIUM);
+        assertThat(seniority.origin()).isEqualTo(ProposalOrigin.TEMPLATE);
     }
 
     @Test
@@ -158,6 +160,7 @@ class HeuristicBriefReaderTest {
 
         ExtractedField seniority = fieldNamed(proposed, "seniority").orElseThrow();
         assertThat(seniority.confidence()).isEqualTo(ProposalConfidence.LOW);
+        assertThat(seniority.origin()).isEqualTo(ProposalOrigin.TEMPLATE);
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────

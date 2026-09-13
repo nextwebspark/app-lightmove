@@ -183,6 +183,10 @@ export type ExtractionSource = "model" | "documentHeadings";
 
 export type ProposalConfidence = "high" | "medium" | "low";
 
+/** Whether a proposed value came from the document itself, or — for a field the document said
+ * nothing about — from the matched role-title template. */
+export type ProposalOrigin = "document" | "template";
+
 /**
  * One proposed field from "Read from document". `id` is a per-response sequence number — the stable
  * identity a row is keyed and matched on, since two responsibility rows share `fieldKey` and array
@@ -196,6 +200,7 @@ export interface ProposedField {
   value: string;
   confidence: ProposalConfidence;
   snippet: string | null;
+  origin: ProposalOrigin;
 }
 
 /** A reading of the attached document's step-one fields. Writes nothing on its own. */
