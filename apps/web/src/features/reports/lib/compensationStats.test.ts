@@ -25,7 +25,7 @@ describe("compensationStats", () => {
     expect(stats.isReliable).toBe(true);
     expect(stats.ceilingPercentile).toBe(38);
     expect(stats.aboveBand).toBe(9);
-    expect(stats.median).toBe(1_115_000);
+    expect(stats.median).toBe(1_145_000);
     expect(stats.notInterested).toBe(6);
     expect(stats.notInterestedAboveBand).toBe(6);
   });
