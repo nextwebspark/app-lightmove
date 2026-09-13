@@ -972,4 +972,74 @@ describe("PositionPage", () => {
       expect(technicalSent).toHaveLength(10);
     });
   });
+
+  it("accepting a reports-to proposal against a full chart states the real reason, not a false claim", async () => {
+    const fullChart = [
+      { nodeId: "n-seat", parentNodeId: null, title: null, name: null, mandateSeat: true, canvasX: null, canvasY: null },
+      ...Array.from({ length: 59 }, (_, i) => ({
+        nodeId: `n-extra-${i}`,
+        parentNodeId: "n-seat",
+        title: `Extra seat ${i}`,
+        name: null,
+        mandateSeat: false,
+        canvasX: null,
+        canvasY: null,
+      })),
+    ];
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      reporting: { ...seeded.reporting, orgChart: fullChart },
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "model",
+      fields: [
+        { id: 0, fieldKey: "reportsToTitle", value: "Board of Directors", confidence: "medium", snippet: null, origin: "document" },
+      ],
+    };
+    vi.mocked(positionApi.extractReporting).mockResolvedValue(extracted);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Reporting/ }));
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    await user.click(await screen.findByRole("button", { name: /Accept$/ }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(/60-seat limit/);
+    expect(positionApi.putReporting).not.toHaveBeenCalled();
+  });
+
+  it("accepting a proposal with a fieldKey this step has no slot for saves nothing and drops the row silently", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "model",
+      fields: [
+        { id: 0, fieldKey: "somethingUnrecognised", value: "whatever", confidence: "medium", snippet: null, origin: "document" },
+      ],
+    };
+    vi.mocked(positionApi.extractReporting).mockResolvedValue(extracted);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Reporting/ }));
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    await user.click(await screen.findByRole("button", { name: /Accept$/ }));
+
+    await waitFor(() => expect(positionApi.putReporting).not.toHaveBeenCalled());
+  });
 });
