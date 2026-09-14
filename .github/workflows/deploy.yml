@@ -102,6 +102,11 @@ jobs:
         env:
           VERSION: ${{ inputs.ref }}
           EXTENSION_ID: ${{ steps.extension.outputs.id }}
+          # The origin the bundle's link-preview tags name. Read straight from the variable rather than
+          # from the step below that resolves it, which runs after this one and can only answer with the
+          # run.app URL anyway — a preview should name the domain a person is given, so an unset variable
+          # leaves vite.config.ts to fall back to the mapped one.
+          PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
         run: |
           SHA="$(git rev-parse HEAD)"
           BASE="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/${AR_REPO}/${SERVICE}"
@@ -110,6 +115,7 @@ jobs:
             --build-arg APP_VERSION="${VERSION}" \
             --build-arg GIT_SHA="${SHA}" \
             --build-arg EXTENSION_ID="${EXTENSION_ID}" \
+            --build-arg PUBLIC_BASE_URL="${PUBLIC_BASE_URL}" \
             -t "${BASE}:${VERSION}" -t "${BASE}:${SHA}" .
           docker push "${BASE}:${VERSION}"
           docker push "${BASE}:${SHA}"
