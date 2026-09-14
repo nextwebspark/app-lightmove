@@ -105,7 +105,7 @@ chrome.runtime.onMessage.addListener((message: ExtensionRequest, _sender, respon
  */
 chrome.runtime.onMessageExternal.addListener((message: WorkspaceMessage, sender, respond) => {
   if (!isWorkspaceSender(sender)) {
-    respond({ ok: false, code: "SENDER_REFUSED", message: "Not the LightMove workspace." });
+    respond({ ok: false, code: "SENDER_REFUSED", message: "Not the Uncava workspace." });
     return false;
   }
   // Answered before a token exists, so the page can find out whether this extension is installed
@@ -175,7 +175,7 @@ async function handle(message: ExtensionRequest): Promise<unknown> {
       // running against the older contract. Without this the switch falls through to `undefined` and
       // the caller reads `{ ok: true, value: undefined }` — a successful empty reply, rendering a blank
       // project list rather than reporting anything.
-      throw new Error(`This version of LightMove Capture cannot handle "${(message as { kind: string }).kind}".`);
+      throw new Error(`This version of Uncava Capture cannot handle "${(message as { kind: string }).kind}".`);
   }
 }
 

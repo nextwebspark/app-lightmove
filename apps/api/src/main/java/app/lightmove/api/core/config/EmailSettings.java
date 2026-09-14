@@ -12,8 +12,8 @@ public record EmailSettings(
          * build and a fresh clone stay runnable without a provider account.
          */
         @DefaultValue("resend") String provider,
-        @DefaultValue("LightMove") String fromName,
-        @DefaultValue("noreply@lightmove.ai") String fromAddress,
+        @DefaultValue("Uncava") String fromName,
+        @DefaultValue("noreply@uncava.com") String fromAddress,
         ResendSettings resend,
         EmailValidationSettings validation
 ) {}

@@ -1,4 +1,4 @@
-# LightMove Capture
+# Uncava Capture
 
 A Chrome extension that reads whatever the page you are looking at is about — a company or a person —
 and writes it into a mandate. A company lands in its triage as **in universe** or **shortlisted**; a
@@ -57,11 +57,11 @@ the manifest and the bundle so they cannot disagree.
 | unset | production | a placeholder, with a warning — **not shippable** |
 | set | either | exactly what you set |
 
-There is no deployed LightMove domain yet, and the placeholder is deliberately not a real one. Until
-there is a domain, the Cloud Run URL the deploy prints is a perfectly good origin to build against:
+The deployed workspace is `https://beta.uncava.com`, and the placeholder is deliberately not it — a
+production build has to say where it points:
 
 ```bash
-LM_WORKSPACE_ORIGIN=https://lightmove-api-xxxx.run.app npm run build
+LM_WORKSPACE_ORIGIN=https://beta.uncava.com npm run build
 ```
 
 To capture a company that resolves against the Apollo universe you need the universe locally:
@@ -73,7 +73,7 @@ The extension does not use the web app's session cookie, and deliberately: that 
 `SameSite=Strict`, host-only and scoped to `/api/v1/auth`, and letting another origin present it would
 mean removing every attribute that protects it. Instead:
 
-1. The popup's **Open LightMove** button opens `<workspace>/extension/connect`.
+1. The popup's **Open Uncava** button opens `<workspace>/extension/connect`.
 2. That page — where you are already signed in — asks the API for a refresh token of its own.
 3. It hands the token to this extension with `chrome.runtime.sendMessage(EXTENSION_ID, …)`, which the
    manifest permits through `externally_connectable` and the service worker accepts only from the
@@ -84,7 +84,7 @@ Step 3 is addressed, not broadcast, and that matters: `window.postMessage` would
 consultant has installed.
 
 The result is an ordinary refresh-token family with a shorter TTL, listed in **Settings → Active
-sessions** as *LightMove Capture* and revocable from there. Signing out of the extension leaves the
+sessions** as *Uncava Capture* and revocable from there. Signing out of the extension leaves the
 browser session alone, and vice versa.
 
 Pairing is a **one-time click, never a login**: on `/extension/connect` you are already signed into the
@@ -181,7 +181,7 @@ same name at a different page" recognisable at all — the signed-in layout decl
 on the layout consultants actually use it is the only evidence there is.
 
 **The plugin reads LinkedIn only.** On any other site the panel says so and offers an
-"Open LightMove" button to the selected mandate's Companies page (the projects list when none is
+"Open Uncava" button to the selected mandate's Companies page (the projects list when none is
 selected) — manual adds live in the app. A LinkedIn page that names nobody (the feed, search, jobs)
 asks for a profile or company page instead.
 

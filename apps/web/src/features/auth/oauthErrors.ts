@@ -19,7 +19,7 @@ export function messageForOAuthError(code: string): string | null {
     case "OAUTH_CANCELLED":
       return null;
     case "EMAIL_NOT_WORK_ADDRESS":
-      return "Please sign in with your work account. LightMove is for search firms.";
+      return "Please sign in with your work account. Uncava is for search firms.";
     case "EMAIL_NOT_VERIFIED":
       return "Your provider reports that address as unverified. Verify it with them, then try again.";
     case "ACCOUNT_SUSPENDED":

@@ -23,12 +23,12 @@ public class EmailTemplates {
                   Confirm your email
                 </h1>
                 <p style="margin:0 0 24px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
-                  Hi %s — confirm this address to carry on setting up your LightMove account. You will
+                  Hi %s — confirm this address to carry on setting up your Uncava account. You will
                   be signed in and taken straight to the next step.
                 </p>
                 %s
                 <p style="margin:24px 0 0;font:400 12px/1.6 -apple-system,system-ui,sans-serif;color:#98a1b3">
-                  This link expires in 24 hours. If you didn't create a LightMove account, ignore this
+                  This link expires in 24 hours. If you didn't create a Uncava account, ignore this
                   email — no account will be activated.
                 </p>
                 """.formatted(name, button("Confirm email", link)));
@@ -36,16 +36,16 @@ public class EmailTemplates {
         String text = """
                 Confirm your email
 
-                Hi %s — confirm this address to carry on setting up your LightMove account. You will be
+                Hi %s — confirm this address to carry on setting up your Uncava account. You will be
                 signed in and taken straight to the next step:
 
                 %s
 
-                This link expires in 24 hours. If you didn't create a LightMove account, ignore this
+                This link expires in 24 hours. If you didn't create a Uncava account, ignore this
                 email — no account will be activated.
                 """.formatted(firstName(recipientName), verifyLink);
 
-        return new EmailMessage(recipient, "Confirm your LightMove email", html, text);
+        return new EmailMessage(recipient, "Confirm your Uncava email", html, text);
     }
 
     public EmailMessage buildPasswordResetEmail(String recipient, String recipientName, String resetLink) {
@@ -57,7 +57,7 @@ public class EmailTemplates {
                   Reset your password
                 </h1>
                 <p style="margin:0 0 24px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
-                  Hi %s — we received a request to reset your LightMove password.
+                  Hi %s — we received a request to reset your Uncava password.
                 </p>
                 %s
                 <p style="margin:24px 0 0;font:400 12px/1.6 -apple-system,system-ui,sans-serif;color:#98a1b3">
@@ -69,7 +69,7 @@ public class EmailTemplates {
         String text = """
                 Reset your password
 
-                Hi %s — we received a request to reset your LightMove password:
+                Hi %s — we received a request to reset your Uncava password:
 
                 %s
 
@@ -77,7 +77,7 @@ public class EmailTemplates {
                 ignore this email — your password is unchanged.
                 """.formatted(firstName(recipientName), resetLink);
 
-        return new EmailMessage(recipient, "Reset your LightMove password", html, text);
+        return new EmailMessage(recipient, "Reset your Uncava password", html, text);
     }
 
     /**
@@ -96,7 +96,7 @@ public class EmailTemplates {
                   Your account is temporarily locked
                 </h1>
                 <p style="margin:0 0 24px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
-                  Hi %s — too many sign-in attempts failed, so we locked your LightMove account until
+                  Hi %s — too many sign-in attempts failed, so we locked your Uncava account until
                   <strong>%s</strong>. Signing in before then will be refused even with the right password.
                 </p>
                 <p style="margin:24px 0 0;font:400 12px/1.6 -apple-system,system-ui,sans-serif;color:#98a1b3">
@@ -108,14 +108,14 @@ public class EmailTemplates {
         String text = """
                 Your account is temporarily locked
 
-                Hi %s — too many sign-in attempts failed, so we locked your LightMove account until %s.
+                Hi %s — too many sign-in attempts failed, so we locked your Uncava account until %s.
                 Signing in before then will be refused even with the right password.
 
                 Resetting your password lifts the lock immediately. If none of these attempts were yours,
                 reset it anyway — somebody knows your address and is guessing.
                 """.formatted(firstName(recipientName), lockedUntil);
 
-        return new EmailMessage(recipient, "Your LightMove account is temporarily locked", html, text);
+        return new EmailMessage(recipient, "Your Uncava account is temporarily locked", html, text);
     }
 
     /**
@@ -131,7 +131,7 @@ public class EmailTemplates {
                   Your password was changed
                 </h1>
                 <p style="margin:0 0 24px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
-                  Hi %s — your LightMove password was just changed, and every other signed-in device was
+                  Hi %s — your Uncava password was just changed, and every other signed-in device was
                   signed out.
                 </p>
                 %s
@@ -144,7 +144,7 @@ public class EmailTemplates {
         String text = """
                 Your password was changed
 
-                Hi %s — your LightMove password was just changed, and every other signed-in device was
+                Hi %s — your Uncava password was just changed, and every other signed-in device was
                 signed out.
 
                 If this was you, nothing more to do. If it was not, reset your password now and tell your
@@ -153,7 +153,7 @@ public class EmailTemplates {
                 %s
                 """.formatted(firstName(recipientName), resetLink);
 
-        return new EmailMessage(recipient, "Your LightMove password was changed", html, text);
+        return new EmailMessage(recipient, "Your Uncava password was changed", html, text);
     }
 
     public EmailMessage buildInvitationEmail(String recipient, String inviterName, String workspaceName,
@@ -167,7 +167,7 @@ public class EmailTemplates {
                   %s invited you to %s
                 </h1>
                 <p style="margin:0 0 24px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
-                  You've been invited to join the <strong>%s</strong> workspace on LightMove as a %s.
+                  You've been invited to join the <strong>%s</strong> workspace on Uncava as a %s.
                 </p>
                 %s
                 <p style="margin:24px 0 0;font:400 12px/1.6 -apple-system,system-ui,sans-serif;color:#98a1b3">
@@ -179,14 +179,14 @@ public class EmailTemplates {
         String text = """
                 %s invited you to %s
 
-                You've been invited to join the %s workspace on LightMove as a %s.
+                You've been invited to join the %s workspace on Uncava as a %s.
 
                 %s
 
                 This invitation expires in 7 days.
                 """.formatted(inviterName, workspaceName, workspaceName, role.toLowerCase(), acceptLink);
 
-        return new EmailMessage(recipient, "%s invited you to %s on LightMove".formatted(inviterName, workspaceName),
+        return new EmailMessage(recipient, "%s invited you to %s on Uncava".formatted(inviterName, workspaceName),
                 html, text);
     }
 
@@ -206,7 +206,7 @@ public class EmailTemplates {
                   %s invited you to the %s portal
                 </h1>
                 <p style="margin:0 0 24px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
-                  %s works with <strong>%s</strong> on LightMove and has invited you to follow the searches
+                  %s works with <strong>%s</strong> on Uncava and has invited you to follow the searches
                   they are running for you. Set a password to open your portal.
                 </p>
                 %s
@@ -218,7 +218,7 @@ public class EmailTemplates {
         String text = """
                 %s invited you to the %s portal
 
-                %s works with %s on LightMove and has invited you to follow the searches they are
+                %s works with %s on Uncava and has invited you to follow the searches they are
                 running for you. Set a password to open your portal:
 
                 %s
@@ -227,7 +227,7 @@ public class EmailTemplates {
                 """.formatted(inviterName, clientName, workspaceName, clientName, acceptLink);
 
         return new EmailMessage(recipient,
-                "%s invited you to the %s portal on LightMove".formatted(inviterName, clientName), html, text);
+                "%s invited you to the %s portal on Uncava".formatted(inviterName, clientName), html, text);
     }
 
     /**
@@ -248,7 +248,7 @@ public class EmailTemplates {
                 </h1>
                 <p style="margin:0 0 8px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
                   Hi %s — %s added you as a representative for <strong>%s</strong> in the %s workspace on
-                  LightMove. You'll see the mandates you're given access to next time you sign in. Nothing
+                  Uncava. You'll see the mandates you're given access to next time you sign in. Nothing
                   to do — your existing login already works.
                 </p>
                 """.formatted(client, name, adder, client, workspace));
@@ -256,12 +256,12 @@ public class EmailTemplates {
         String text = """
                 You now represent %s
 
-                Hi %s — %s added you as a representative for %s in the %s workspace on LightMove. You'll
+                Hi %s — %s added you as a representative for %s in the %s workspace on Uncava. You'll
                 see the mandates you're given access to next time you sign in. Nothing to do — your
                 existing login already works.
                 """.formatted(clientName, firstName(recipientName), adderName, clientName, workspaceName);
 
-        return new EmailMessage(recipient, "You now represent %s on LightMove".formatted(clientName),
+        return new EmailMessage(recipient, "You now represent %s on Uncava".formatted(clientName),
                 html, text);
     }
 
@@ -284,7 +284,7 @@ public class EmailTemplates {
                 </h1>
                 <p style="margin:0 0 8px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
                   Hi %s — %s gave you access to the <strong>%s</strong> search for <strong>%s</strong> on
-                  LightMove. You'll find it in your portal next time you sign in. Nothing to do — your
+                  Uncava. You'll find it in your portal next time you sign in. Nothing to do — your
                   existing login already works.
                 </p>
                 """.formatted(name, adder, position, client));
@@ -292,12 +292,12 @@ public class EmailTemplates {
         String text = """
                 A search was shared with you
 
-                Hi %s — %s gave you access to the %s search for %s on LightMove. You'll find it in
+                Hi %s — %s gave you access to the %s search for %s on Uncava. You'll find it in
                 your portal next time you sign in. Nothing to do — your existing login already works.
                 """.formatted(firstName(recipientName), adderName, positionTitle, clientName);
 
         return new EmailMessage(recipient,
-                "The %s search was shared with you on LightMove".formatted(positionTitle), html, text);
+                "The %s search was shared with you on Uncava".formatted(positionTitle), html, text);
     }
 
     /** The amber call-to-action from the mockups. Table-based because Outlook still ignores flexbox. */
@@ -317,8 +317,7 @@ public class EmailTemplates {
                 <html><body style="margin:0;padding:32px 16px;background:#f4f5f8">
                   <table cellpadding="0" cellspacing="0" role="presentation" width="100%%" style="max-width:480px;margin:0 auto">
                     <tr><td style="padding:0 0 24px">
-                      <span style="display:inline-block;width:28px;height:28px;border-radius:8px;background:#f0b429;color:#141414;text-align:center;line-height:28px;font:700 13px ui-monospace,monospace">L</span>
-                      <span style="margin-left:8px;font:600 15px ui-monospace,monospace;color:#1b2230">LightMove</span>
+                      <span style="font:400 15px -apple-system,system-ui,sans-serif;letter-spacing:0.32em;color:#16181c">UNCAVA</span>
                     </td></tr>
                     <tr><td style="padding:32px;background:#ffffff;border:1px solid #e3e6ee;border-radius:14px">
                       %s

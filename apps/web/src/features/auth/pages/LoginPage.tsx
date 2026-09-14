@@ -78,7 +78,7 @@ export function LoginPage() {
       setFormError(
         error instanceof ApiRequestError
           ? error.problem.detail
-          : "Could not reach LightMove. Check your connection and try again.",
+          : "Could not reach Uncava. Check your connection and try again.",
       );
     }
   };
@@ -139,7 +139,7 @@ export function LoginPage() {
       </Card>
 
       <p className="animate-fade-up text-[12.5px] text-text2 [animation-delay:120ms]">
-        New to LightMove?{" "}
+        New to Uncava?{" "}
         <Link to="/signup" className="text-sky hover:underline">
           Create an account
         </Link>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
-import { Avatar } from "../ui";
+import { Avatar, BrandMark } from "../ui";
 import { Icon, ICONS } from "./Icon";
 
 /**
@@ -129,18 +129,16 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        title={compact ? "LightMove workspace" : undefined}
+        title={compact ? workspace.name : undefined}
         className={
           compact
             ? "flex items-center gap-1 rounded-[7px] p-1 hover:bg-panel2"
-            : "flex items-center gap-2 rounded-lg py-[5px] pl-1.5 pr-2.5 hover:bg-panel2"
+            : "flex items-center gap-2.5 rounded-lg py-[5px] pl-1.5 pr-2.5 hover:bg-panel2"
         }
       >
-        <LogoTile mark={workspace.logoMark ?? workspace.name[0]} />
+        <BrandMark size={26} />
         {!compact && (
-          <span className="max-w-[40vw] truncate font-mono text-[13px] font-semibold tracking-[0.02em] sm:max-w-none">
-            {workspace.name}
-          </span>
+          <span className="text-[14px] font-medium uppercase tracking-[0.3em] text-text">Uncava</span>
         )}
         <Icon d={ICONS.chevronDown} size={13} className="text-text3" />
       </button>
@@ -149,13 +147,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
         <div className="absolute left-0 top-10 z-[80] w-[min(268px,calc(100vw-24px))] rounded-[10px] border border-line bg-panel p-1.5 shadow-panel">
           <div className="mb-1.5 flex items-center gap-2.5 border-b border-line-soft p-2.5">
             <LogoTile mark={workspace.logoMark ?? workspace.name[0]} size={30} />
-            <div>
-              <div className="font-mono text-[13px] font-semibold">{workspace.name}</div>
-              {/* Absent for a pure client — the server sends the brand, not the firm's email domain. */}
-              {workspace.emailDomain && (
-                <div className="font-mono text-[11px] text-text3">{workspace.emailDomain}</div>
-              )}
-            </div>
+            <div className="font-mono text-[13px] font-semibold">{workspace.name}</div>
           </div>
 
           {/* Outside the admin block on purpose: this is the one settings item that is everybody's,

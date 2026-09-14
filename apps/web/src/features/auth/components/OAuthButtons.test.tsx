@@ -144,7 +144,7 @@ describe("OAuthButtons", () => {
 
     await vi.waitFor(() =>
       expect(onError).toHaveBeenLastCalledWith(
-        "Please sign in with your work account. LightMove is for search firms.",
+        "Please sign in with your work account. Uncava is for search firms.",
       ),
     );
     await vi.waitFor(() => expect(screen.getByRole("button", { name: /LinkedIn/ })).toBeEnabled());

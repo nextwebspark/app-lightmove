@@ -140,7 +140,7 @@ try {
 
     // Finish the wizard in the original tab, so everything downstream has a workspace as before.
     if (page.url().includes("/signup/workspace")) {
-      await page.getByPlaceholder("e.g. LightMove Search Partners").fill(WS);
+      await page.getByPlaceholder("e.g. Uncava Search Partners").fill(WS);
       await page.getByRole("button", { name: "Continue", exact: true }).click();
       await page.waitForURL(/\/signup\/invite/, { timeout: 15000 }).catch(() => {});
       check("S2.6", "the organization step lands on the invite step", `${WEB}/signup/invite`, page.url());

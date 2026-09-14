@@ -66,7 +66,12 @@ confidence, source snippet) reviewed and accepted one at a time through the same
 already have; nothing is written until a row is accepted, and a run with no Vertex credentials still
 proposes from the document's own headings, honestly labelled. `Position.dc.html`'s dropzone promises a
 **silent** auto-fill on drop — review-then-accept is a deliberate, correct deviation from that mockup,
-not a bug to fix later. Publishing stamps who
+not a bug to fix later. **The product is Uncava**: the mark is the rhombus-over-hexagon SVG
+(`BrandMark` in the SPA, its twin in the extension, `favicon.svg` and the extension icons rendered
+from the same geometry) and every user-facing string says Uncava, while the mockups still draw the
+amber "L" tile and the code, packages, persisted keys and JWT issuer keep the `lightmove` name — a
+deliberate split, not drift. It is served at `https://beta.uncava.com` (Cloud Run domain mapping,
+Cloudflare DNS with the proxy off; README, "Custom domain"). Publishing stamps who
 called the brief ready and **freezes nothing** (V38 retired the lock deliberately). Don't build ahead of
 the mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
 

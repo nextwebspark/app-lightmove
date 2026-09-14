@@ -45,7 +45,7 @@ export function SignupPage() {
       navigate("/signup/verify-email", { replace: true });
     } catch (error) {
       if (!(error instanceof ApiRequestError)) {
-        setFormError("Could not reach LightMove. Check your connection and try again.");
+        setFormError("Could not reach Uncava. Check your connection and try again.");
         return;
       }
 

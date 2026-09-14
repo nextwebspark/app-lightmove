@@ -28,9 +28,9 @@ const { version: packageVersion } = packageJson as { version: string };
 export function buildManifest(workspaceOrigin: string) {
   return {
     manifest_version: 3,
-    name: "LightMove Capture",
+    name: "Uncava Capture",
     version: packageVersion,
-    description: "Capture a company or an executive from the page you are on into a LightMove mandate.",
+    description: "Capture a company or an executive from the page you are on into an Uncava mandate.",
     key: PINNED_PUBLIC_KEY,
 
     // Every permission below is here for one named feature. An unexplained permission is a review
@@ -56,7 +56,7 @@ export function buildManifest(workspaceOrigin: string) {
 
     // No default_popup: the click opens the side panel instead, wired in the service worker.
     action: {
-      default_title: "LightMove Capture",
+      default_title: "Uncava Capture",
       default_icon: {
         16: "icons/icon-16.png",
         32: "icons/icon-32.png",
@@ -92,7 +92,7 @@ export function buildManifest(workspaceOrigin: string) {
     commands: {
       _execute_action: {
         suggested_key: { default: "Alt+Shift+L" },
-        description: "Open LightMove Capture",
+        description: "Open Uncava Capture",
       },
     },
   } as const;

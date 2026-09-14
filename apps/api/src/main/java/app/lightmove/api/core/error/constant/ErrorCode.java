@@ -45,7 +45,7 @@ public enum ErrorCode {
 
     /** A consumer provider (gmail, outlook…). The domain must name a company — it is the organisation. */
     EMAIL_NOT_WORK_ADDRESS(HttpStatus.BAD_REQUEST,
-            "Please sign up with your work email. LightMove is for search firms, and your email domain identifies your organization"),
+            "Please sign up with your work email. Uncava is for search firms, and your email domain identifies your organization"),
 
     /** The user already has an active workspace. One at a time. */
     ALREADY_IN_WORKSPACE(HttpStatus.CONFLICT, "You already belong to a workspace"),

@@ -14,7 +14,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 /** A page on a second hostname is sent to the base URL; the API and the canonical host are left alone. */
 class CanonicalOriginRedirectFilterTest {
 
-    private static final String BASE_URL = "https://lightmove-52hjvmu2bq-uc.a.run.app";
+    private static final String BASE_URL = "https://beta.uncava.com";
     private static final String OTHER_HOST = "lightmove-586609281886.us-central1.run.app";
 
     private final CanonicalOriginRedirectFilter filter = new CanonicalOriginRedirectFilter(
@@ -40,7 +40,7 @@ class CanonicalOriginRedirectFilterTest {
     @Test
     @DisplayName("serves a page opened on the base URL's own hostname")
     void servesTheCanonicalHostname() throws Exception {
-        filter.doFilter(request("lightmove-52hjvmu2bq-uc.a.run.app", "/login"), response, chain);
+        filter.doFilter(request("beta.uncava.com", "/login"), response, chain);
 
         assertThat(response.getRedirectedUrl()).isNull();
         assertThat(chain.getRequest()).isNotNull();

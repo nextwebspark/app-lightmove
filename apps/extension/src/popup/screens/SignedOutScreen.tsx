@@ -26,7 +26,7 @@ export function SignedOutScreen({ onConnected }: SignedOutScreenProps) {
     <PopupShell>
       <header className="flex items-center gap-[9px] border-b border-line-soft px-3.5 py-[11px]">
         <BrandTile />
-        <span className="font-mono text-[13px] font-semibold tracking-[0.02em]">LightMove Capture</span>
+        <span className="font-mono text-[13px] font-semibold tracking-[0.02em]">Uncava Capture</span>
       </header>
 
       <div className="flex flex-1 flex-col items-center justify-center px-3.5 text-center">
@@ -36,7 +36,7 @@ export function SignedOutScreen({ onConnected }: SignedOutScreenProps) {
         >
           <Icon d={ICONS.lock} size={20} />
         </span>
-        <h1 className="mt-3.5 text-[15px] font-semibold">Connect to LightMove</h1>
+        <h1 className="mt-3.5 text-[15px] font-semibold">Connect to Uncava</h1>
         <p className="mt-2 max-w-[280px] text-[12.5px] leading-[1.6] text-text2">
           Open your workspace to link this extension to your account. You will not need to sign in
           again here.
@@ -46,7 +46,7 @@ export function SignedOutScreen({ onConnected }: SignedOutScreenProps) {
           onClick={handleConnect}
           className="mt-4 inline-flex items-center gap-2 rounded-lg bg-amber-btn px-4 py-[9px] text-[13px] font-semibold text-on-amber"
         >
-          Open LightMove
+          Open Uncava
           <Icon d={ICONS.externalLink} />
         </button>
         <p className="mt-2.5 font-mono text-[11px] text-text3">{extensionConnectUrl}</p>

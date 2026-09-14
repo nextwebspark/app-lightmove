@@ -6,8 +6,10 @@ import type {
   TextareaHTMLAttributes,
 } from "react";
 import { cn } from "../../lib/cn";
+import { BrandMark } from "./BrandMark";
 
 export { Avatar } from "./Avatar";
+export { BrandMark } from "./BrandMark";
 export { CompanyLogo } from "./CompanyLogo";
 export { HealthDot, StagePill, stageLabel } from "./Badge";
 export { DateInput } from "./DateInput";
@@ -200,14 +202,12 @@ export function Card({ children, className }: { children: ReactNode; className?:
   );
 }
 
-/** The amber "L" tile and wordmark that heads every unauthenticated screen. */
+/** The Uncava mark and wordmark that head every unauthenticated screen. */
 export function Logo() {
   return (
-    <div className="flex animate-fade-up items-center gap-2.5">
-      <span className="grid size-[30px] place-items-center rounded-lg bg-amber-btn font-mono text-sm font-bold text-on-amber">
-        L
-      </span>
-      <span className="font-mono text-base font-semibold tracking-[0.02em]">LightMove</span>
+    <div className="flex animate-fade-up items-center gap-3">
+      <BrandMark size={36} />
+      <span className="text-[16px] font-medium uppercase tracking-[0.32em] text-text">Uncava</span>
     </div>
   );
 }
