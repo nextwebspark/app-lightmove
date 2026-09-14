@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { OrgNode } from "../api/types";
 import {
+  appendDirectReport,
+  applyReportsToTitle,
   branchHoldsMandateSeat,
   childrenOf,
   directReportsOf,
   labelOfNode,
   layoutChart,
+  MAX_ORG_CHART_SEATS,
   managerOf,
   removeBranch,
   removeSeat,
@@ -119,5 +122,98 @@ describe("layout", () => {
 describe("childrenOf", () => {
   it("reads the roots as the children of nothing", () => {
     expect(childrenOf(chart, null).map((node) => node.nodeId)).toEqual(["manager"]);
+  });
+});
+
+describe("applying a proposed reports-to title", () => {
+  it("renames the existing manager rather than adding a second root, clearing their name", () => {
+    const { chart: merged, blocked } = applyReportsToTitle(chart, "Group Chief Executive Officer");
+    expect(blocked).toBeNull();
+    expect(merged).toHaveLength(chart.length);
+    expect(merged.find((node) => node.nodeId === "manager")?.title).toBe(
+      "Group Chief Executive Officer",
+    );
+    // The proposal is title-only, so a stale name paired with the new title — a pairing the document
+    // never stated — must not survive the rename; labelOfNode prefers name over title.
+    expect(merged.find((node) => node.nodeId === "manager")?.name).toBeNull();
+    expect(merged.filter((node) => node.parentNodeId === null)).toHaveLength(1);
+  });
+
+  it("mints a manager and re-parents the mandate seat under it when the chart has none", () => {
+    const rootRole = [seat("role", null, { mandateSeat: true })];
+    const { chart: merged, blocked } = applyReportsToTitle(rootRole, "Board of Directors");
+    expect(blocked).toBeNull();
+    expect(merged).toHaveLength(2);
+    const mintedManager = managerOf(merged);
+    expect(mintedManager?.title).toBe("Board of Directors");
+    expect(merged.find((node) => node.nodeId === "role")?.parentNodeId).toBe(mintedManager?.nodeId);
+    // The mandate seat keeps its own id and never gains a title of its own.
+    expect(merged.find((node) => node.nodeId === "role")?.title).toBeNull();
+  });
+
+  it("preserves canvas positions and the mandate seat untouched by the merge", () => {
+    const placed = [
+      seat("manager", null, { title: "Group CEO", canvasX: 10, canvasY: 20 }),
+      seat("role", "manager", { mandateSeat: true, canvasX: 300, canvasY: 20 }),
+    ];
+    const { chart: merged } = applyReportsToTitle(placed, "Group Chief Executive Officer");
+    expect(merged.find((node) => node.nodeId === "manager")).toMatchObject({ canvasX: 10, canvasY: 20 });
+    expect(merged.find((node) => node.nodeId === "role")).toMatchObject({
+      mandateSeat: true,
+      canvasX: 300,
+      canvasY: 20,
+    });
+  });
+
+  it("does not mint a manager past the 60-seat ceiling", () => {
+    const rootRole = [seat("role", null, { mandateSeat: true })];
+    const full = [
+      ...rootRole,
+      ...Array.from({ length: MAX_ORG_CHART_SEATS - 1 }, (_, i) => seat(`extra-${i}`, "role")),
+    ];
+    const result = applyReportsToTitle(full, "Board of Directors");
+    expect(result.chart).toBe(full);
+    expect(result.blocked).toBe("full");
+  });
+
+  it("reports no mandate seat rather than silently doing nothing", () => {
+    const result = applyReportsToTitle([], "Board of Directors");
+    expect(result.chart).toEqual([]);
+    expect(result.blocked).toBe("noMandateSeat");
+  });
+});
+
+describe("appending a proposed direct report", () => {
+  it("appends a new child under the mandate seat, leaving other seats untouched", () => {
+    const { chart: merged, blocked } = appendDirectReport(chart, "Head of Investor Relations");
+    expect(blocked).toBeNull();
+    expect(merged).toHaveLength(chart.length + 1);
+    const added = merged.find((node) => !chart.some((existing) => existing.nodeId === node.nodeId));
+    expect(added?.title).toBe("Head of Investor Relations");
+    expect(added?.parentNodeId).toBe("role");
+    expect(added?.name).toBeNull();
+    expect(added?.mandateSeat).toBe(false);
+    expect(directReportsOf(merged).map((node) => node.title)).toContain(
+      "Head of Investor Relations",
+    );
+  });
+
+  it("does not append past the 60-seat ceiling", () => {
+    const rootRole = [seat("role", null, { mandateSeat: true })];
+    const full = [
+      ...rootRole,
+      ...Array.from({ length: MAX_ORG_CHART_SEATS - 1 }, (_, i) => seat(`extra-${i}`, "role")),
+    ];
+    const result = appendDirectReport(full, "One too many");
+    expect(result.chart).toBe(full);
+    expect(result.blocked).toBe("full");
+  });
+
+  it("is idempotent against a sibling that already carries the same title, case-insensitively", () => {
+    const once = appendDirectReport(chart, "Head of Investor Relations");
+    expect(once.blocked).toBeNull();
+    const twice = appendDirectReport(once.chart, "head of investor relations");
+    expect(twice.chart).toBe(once.chart);
+    expect(twice.blocked).toBe("duplicate");
   });
 });

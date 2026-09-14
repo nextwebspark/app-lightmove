@@ -66,7 +66,12 @@ it; neither ever touches a brief already drafted. The file format is JSON with a
 a template can be written outside the app, AI included, and previewed before anything is written. Step three is an editable
 React Flow org chart — add, rename, re-parent and drag any seat; only the role's own seat is fixed.
 Step one attaches the position
-description, which is *stored and never read* — no extraction, no auto-fill. Publishing stamps who
+description and can read it on request — **Read from document** proposes step-one fields (value,
+confidence, source snippet) reviewed and accepted one at a time through the same autosave the fields
+already have; nothing is written until a row is accepted, and a run with no Vertex credentials still
+proposes from the document's own headings, honestly labelled. `Position.dc.html`'s dropzone promises a
+**silent** auto-fill on drop — review-then-accept is a deliberate, correct deviation from that mockup,
+not a bug to fix later. Publishing stamps who
 called the brief ready and **freezes nothing** (V38 retired the lock deliberately). Don't build ahead of
 the mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
 
@@ -89,9 +94,9 @@ position repository for the report's salary band — went with the report.
 
 `positiontemplate` is the **role-template library** a brief is drafted from — the shared library, each
 firm's copies and own templates, the picker, and the JSON export/import. It is admin-curated reference
-content, so it is its own feature rather than part of the brief: `position` reads it through two public
-methods (`PositionTemplateService.matching` when a mandate is created, `require` when a consultant picks
-one) and `positiontemplate` never depends back. The vocabulary both speak (employment type, benefit
+content, so it is its own feature rather than part of the brief: `position` reads it through
+`PositionTemplateService` (`matching` when a mandate is created, `require` when a consultant picks one,
+`suggestFor`/`matchingByTitle` when a read document proposes one) and `positiontemplate` never depends back. The vocabulary both speak (employment type, benefit
 frequency, competency panel, …) lives in `common/constant` for exactly that reason.
 
 `strategy` and `triagecompany` split one story in two, in the order a consultant works: **`strategy`

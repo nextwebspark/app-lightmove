@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "mandateReason": { "type": ["string", "null"] },
+    "mandateReasonSnippet": { "type": ["string", "null"] },
+    "businessDriver": { "type": ["string", "null"] },
+    "businessDriverSnippet": { "type": ["string", "null"] },
+    "strategicPriorities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "snippet": { "type": ["string", "null"] }
+        },
+        "required": ["name"]
+      }
+    }
+  },
+  "required": ["mandateReason"]
+}

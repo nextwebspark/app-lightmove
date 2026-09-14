@@ -8,7 +8,7 @@ import { AuthProvider } from "../../auth/AuthProvider";
 import * as authApi from "../../auth/api/authApi";
 import type { Project } from "../../projects/api/types";
 import * as positionApi from "../api/positionApi";
-import type { Position, PositionTemplate } from "../api/types";
+import type { Position, PositionExtraction, PositionTemplate } from "../api/types";
 import { PositionPage } from "./PositionPage";
 
 vi.mock("../../auth/api/authApi");
@@ -26,6 +26,11 @@ vi.mock("../api/positionApi", async (importOriginal) => ({
   withdrawPublication: vi.fn(),
   listTemplates: vi.fn(),
   applyTemplate: vi.fn(),
+  extractDetails: vi.fn(),
+  extractContext: vi.fn(),
+  extractCompensation: vi.fn(),
+  extractAssessment: vi.fn(),
+  extractReporting: vi.fn(),
 }));
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
@@ -524,6 +529,199 @@ describe("PositionPage", () => {
     expect(screen.queryByText(/auto-fill/i)).not.toBeInTheDocument();
   });
 
+  it("reads the document into proposals, labelling a degraded reading honestly", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "documentHeadings",
+      suggestedTemplate: null,
+      fields: [
+        {
+          id: 0,
+          fieldKey: "roleTitle",
+          value: "Group Chief Financial Officer",
+          confidence: "medium",
+          snippet: "Job Title: Group Chief Financial Officer",
+          origin: "document",
+        },
+      ],
+    };
+    vi.mocked(positionApi.extractDetails).mockResolvedValue(extracted);
+    vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+
+    expect(await screen.findByText(/could not be reached/)).toBeInTheDocument();
+  });
+
+  it("accepting a proposal issues exactly one PUT with only that field changed", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "documentHeadings",
+      suggestedTemplate: null,
+      fields: [
+        {
+          id: 0,
+          fieldKey: "roleTitle",
+          value: "Group Chief Financial Officer",
+          confidence: "medium",
+          snippet: "Job Title: Group Chief Financial Officer",
+          origin: "document",
+        },
+        {
+          id: 1,
+          fieldKey: "department",
+          value: "Group Finance & Treasury",
+          confidence: "low",
+          snippet: null,
+          origin: "document",
+        },
+      ],
+    };
+    vi.mocked(positionApi.extractDetails).mockResolvedValue(extracted);
+    vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    await screen.findByDisplayValue("Group Chief Financial Officer");
+
+    // Accepted immediately, like every other decision-shaped edit — renaming the mandate does not
+    // wait out the ordinary typing debounce.
+    await user.click(screen.getAllByRole("button", { name: /Accept$/ })[0]);
+
+    await waitFor(() =>
+      expect(vi.mocked(positionApi.putDetails).mock.calls.at(-1)?.[1]).toEqual(
+        expect.objectContaining({ roleTitle: "Group Chief Financial Officer" }),
+      ),
+    );
+    const callsAfterAccept = vi.mocked(positionApi.putDetails).mock.calls.length;
+    // The accepted row is gone; only the department proposal remains for review.
+    expect(screen.getAllByRole("button", { name: /Accept$/ })).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByDisplayValue("Group Finance & Treasury")).not.toBeInTheDocument();
+    // Dismissing writes nothing — the call count does not move.
+    expect(vi.mocked(positionApi.putDetails).mock.calls.length).toBe(callsAfterAccept);
+  });
+
+  it("keeps a surviving row's own edited value when a row above it is dismissed", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "documentHeadings",
+      suggestedTemplate: null,
+      fields: [
+        { id: 0, fieldKey: "roleTitle", value: "Group Chief Financial Officer", confidence: "medium", snippet: null, origin: "document" },
+        { id: 1, fieldKey: "department", value: "Group Finance & Treasury", confidence: "low", snippet: null, origin: "document" },
+        { id: 2, fieldKey: "location", value: "Dubai Marina, UAE", confidence: "low", snippet: null, origin: "document" },
+      ],
+    };
+    vi.mocked(positionApi.extractDetails).mockResolvedValue(extracted);
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    const locationInput = await screen.findByDisplayValue("Dubai Marina, UAE");
+
+    // Edit the last row, then dismiss the first — with array-index keys this used to re-seat the
+    // surviving rows' local state onto the wrong field.
+    await user.clear(locationInput);
+    await user.type(locationInput, "Downtown Dubai, UAE");
+    await user.click(screen.getAllByRole("button", { name: "Dismiss" })[0]);
+
+    expect(screen.getByDisplayValue("Downtown Dubai, UAE")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Group Finance & Treasury")).toBeInTheDocument();
+  });
+
+  it("accept all writes every row's edited value, not the original proposal", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "documentHeadings",
+      suggestedTemplate: null,
+      fields: [
+        { id: 0, fieldKey: "department", value: "Group Finance & Treasury", confidence: "low", snippet: null, origin: "document" },
+      ],
+    };
+    vi.mocked(positionApi.extractDetails).mockResolvedValue(extracted);
+    vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    const departmentInput = await screen.findByDisplayValue("Group Finance & Treasury");
+    await user.clear(departmentInput);
+    await user.type(departmentInput, "Corrected Department");
+
+    await user.click(screen.getByRole("button", { name: "Accept all" }));
+
+    await waitFor(() =>
+      expect(vi.mocked(positionApi.putDetails).mock.calls.at(-1)?.[1]).toEqual(
+        expect.objectContaining({ department: "Corrected Department" }),
+      ),
+    );
+  });
+
+  it("labels a template-sourced proposal, and only that one", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "documentHeadings",
+      suggestedTemplate: null,
+      fields: [
+        { id: 0, fieldKey: "roleTitle", value: "Group Chief Financial Officer", confidence: "medium", snippet: "Job Title: Group Chief Financial Officer", origin: "document" },
+        { id: 1, fieldKey: "department", value: "Finance", confidence: "low", snippet: null, origin: "template" },
+      ],
+    };
+    vi.mocked(positionApi.extractDetails).mockResolvedValue(extracted);
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    await screen.findByDisplayValue("Group Chief Financial Officer");
+
+    expect(screen.getAllByText("From template")).toHaveLength(1);
+  });
+
   it("suggests role templates, and lets a title nothing matches be typed anyway", async () => {
     renderPage();
     const user = userEvent.setup();
@@ -586,5 +784,511 @@ describe("PositionPage", () => {
 
     expect(title).toHaveValue("Group CFO – Energy Division");
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  it("reads the document into mandate-context proposals, and merges a case-insensitive duplicate priority", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "model",
+      suggestedTemplate: null,
+      fields: [
+        {
+          id: 0,
+          fieldKey: "mandateReason",
+          value: "GROWTH_EXPANSION",
+          confidence: "medium",
+          snippet: "the business is expanding into new markets",
+          origin: "document",
+        },
+        // A case-variant of a priority already on the brief — must merge, not duplicate.
+        {
+          id: 1,
+          fieldKey: "strategicPriority",
+          value: "capital discipline",
+          confidence: "medium",
+          snippet: null,
+          origin: "document",
+        },
+      ],
+    };
+    vi.mocked(positionApi.extractContext).mockResolvedValue(extracted);
+    vi.mocked(positionApi.putContext).mockResolvedValue(seeded);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Mandate context/ }));
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+
+    await user.click(screen.getAllByRole("button", { name: /Accept$/ })[0]);
+    await waitFor(() =>
+      expect(vi.mocked(positionApi.putContext).mock.calls.at(-1)?.[1]).toEqual(
+        expect.objectContaining({ mandateReason: "GROWTH_EXPANSION" }),
+      ),
+    );
+
+    await user.click(screen.getByRole("button", { name: /Accept$/ }));
+    await waitFor(() => {
+      const priorities = vi.mocked(positionApi.putContext).mock.calls.at(-1)?.[1].strategicPriorities ?? [];
+      expect(priorities.filter((p) => p.name.toLowerCase() === "capital discipline")).toHaveLength(1);
+    });
+  });
+
+  it("reads the document into compensation proposals, saying honestly when no package is stated", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    vi.mocked(positionApi.extractCompensation).mockResolvedValue({
+      extractionSource: "none",
+      fields: [],
+      suggestedTemplate: null,
+    });
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Compensation/ }));
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+
+    expect(await screen.findByText(/nothing was found to propose/i)).toBeInTheDocument();
+  });
+
+  it("accepting a proposed benefit sets its name and frequency, and leaves the amount for a person to fill in", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "model",
+      suggestedTemplate: null,
+      fields: [
+        {
+          id: 0,
+          fieldKey: "benefit",
+          value: "Housing allowance — monthly",
+          confidence: "medium",
+          snippet: null,
+          origin: "document",
+        },
+      ],
+    };
+    vi.mocked(positionApi.extractCompensation).mockResolvedValue(extracted);
+    vi.mocked(positionApi.putCompensation).mockResolvedValue(seeded);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Compensation/ }));
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    await user.click(await screen.findByRole("button", { name: /Accept$/ }));
+
+    await waitFor(() =>
+      expect(vi.mocked(positionApi.putCompensation).mock.calls.at(-1)?.[1]).toEqual(
+        expect.objectContaining({
+          benefits: [{ name: "Housing allowance", amount: null, frequency: "MONTHLY" }],
+        }),
+      ),
+    );
+  });
+
+  it("accept all keeps proposals in both competency panels, not just the last one written", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "model",
+      suggestedTemplate: null,
+      fields: [
+        { id: 0, fieldKey: "technicalCompetency", value: "M&A Experience — 20", confidence: "medium", snippet: null, origin: "document" },
+        { id: 1, fieldKey: "behaviouralCompetency", value: "Resilience — 15", confidence: "medium", snippet: null, origin: "document" },
+      ],
+    };
+    vi.mocked(positionApi.extractAssessment).mockResolvedValue(extracted);
+    vi.mocked(positionApi.putCompetencies).mockResolvedValue(seeded);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Assessment criteria/ }));
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    await user.click(await screen.findByRole("button", { name: "Accept all" }));
+
+    // Before the fix, the second of two synchronous setState calls read the first panel's stale,
+    // pre-update value from its closure and reverted it — this is the case that would have caught it.
+    await waitFor(() => {
+      const [, technicalSent, behaviouralSent] =
+        vi.mocked(positionApi.putCompetencies).mock.calls.at(-1)!;
+      expect(technicalSent.map((c) => c.name)).toEqual(["Treasury", "Controls", "M&A Experience"]);
+      expect(behaviouralSent.map((c) => c.name)).toEqual(["Strategic Leadership", "Resilience"]);
+    });
+  });
+
+  it("accept all caps each competency panel at its per-brief ceiling rather than 400ing the autosave", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    // seeded already carries 2 technical rows, so only 8 of these 10 proposals have headroom.
+    const extracted: PositionExtraction = {
+      extractionSource: "model",
+      suggestedTemplate: null,
+      fields: Array.from({ length: 10 }, (_, i) => ({
+        id: i,
+        fieldKey: "technicalCompetency" as const,
+        value: `Proposed ${i} — 5`,
+        confidence: "medium" as const,
+        snippet: null,
+        origin: "document" as const,
+      })),
+    };
+    vi.mocked(positionApi.extractAssessment).mockResolvedValue(extracted);
+    vi.mocked(positionApi.putCompetencies).mockResolvedValue(seeded);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Assessment criteria/ }));
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    await user.click(await screen.findByRole("button", { name: "Accept all" }));
+
+    await waitFor(() => {
+      const [, technicalSent] = vi.mocked(positionApi.putCompetencies).mock.calls.at(-1)!;
+      expect(technicalSent).toHaveLength(10);
+    });
+  });
+
+  it("accepting a reports-to proposal against a full chart states the real reason, not a false claim", async () => {
+    const fullChart = [
+      { nodeId: "n-seat", parentNodeId: null, title: null, name: null, mandateSeat: true, canvasX: null, canvasY: null },
+      ...Array.from({ length: 59 }, (_, i) => ({
+        nodeId: `n-extra-${i}`,
+        parentNodeId: "n-seat",
+        title: `Extra seat ${i}`,
+        name: null,
+        mandateSeat: false,
+        canvasX: null,
+        canvasY: null,
+      })),
+    ];
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      reporting: { ...seeded.reporting, orgChart: fullChart },
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "model",
+      suggestedTemplate: null,
+      fields: [
+        { id: 0, fieldKey: "reportsToTitle", value: "Board of Directors", confidence: "medium", snippet: null, origin: "document" },
+      ],
+    };
+    vi.mocked(positionApi.extractReporting).mockResolvedValue(extracted);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Reporting/ }));
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    await user.click(await screen.findByRole("button", { name: /Accept$/ }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(/60-seat limit/);
+    expect(positionApi.putReporting).not.toHaveBeenCalled();
+  });
+
+  it("accepting a proposal with a fieldKey this step has no slot for saves nothing and drops the row silently", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "model",
+      suggestedTemplate: null,
+      fields: [
+        { id: 0, fieldKey: "somethingUnrecognised", value: "whatever", confidence: "medium", snippet: null, origin: "document" },
+      ],
+    };
+    vi.mocked(positionApi.extractReporting).mockResolvedValue(extracted);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Reporting/ }));
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+    await user.click(await screen.findByRole("button", { name: /Accept$/ }));
+
+    await waitFor(() => expect(positionApi.putReporting).not.toHaveBeenCalled());
+  });
+
+  describe("reading the whole document in one click (#284)", () => {
+    const withDocument: Position = {
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    };
+
+    const emptyExtraction: PositionExtraction = {
+      extractionSource: "model",
+      suggestedTemplate: null,
+      fields: [],
+    };
+
+    // Mocks are not reset between tests in this file, and every test below fans out all five
+    // endpoints from one click — so each one needs an explicit baseline, or it inherits whatever
+    // resolved value a previous test in this block left configured.
+    beforeEach(() => {
+      vi.mocked(positionApi.getPosition).mockResolvedValue(withDocument);
+      vi.mocked(positionApi.extractDetails).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractCompensation).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+    });
+
+    it("populates every step's proposals from one click on step one", async () => {
+      vi.mocked(positionApi.extractDetails).mockResolvedValue({
+        extractionSource: "model",
+        suggestedTemplate: null,
+        fields: [
+          { id: 0, fieldKey: "roleTitle", value: "Group CFO", confidence: "medium", snippet: null, origin: "document" },
+        ],
+      });
+      vi.mocked(positionApi.extractContext).mockResolvedValue({
+        extractionSource: "model",
+        suggestedTemplate: null,
+        fields: [
+          { id: 0, fieldKey: "businessDriver", value: "Board mandate", confidence: "medium", snippet: null, origin: "document" },
+        ],
+      });
+      vi.mocked(positionApi.extractCompensation).mockResolvedValue({
+        extractionSource: "model",
+        suggestedTemplate: null,
+        fields: [{ id: 0, fieldKey: "currency", value: "AED", confidence: "medium", snippet: null, origin: "document" }],
+      });
+      renderPage();
+      const user = userEvent.setup();
+
+      await user.click(await screen.findByRole("button", { name: "Read from document" }));
+
+      await waitFor(() => expect(positionApi.extractContext).toHaveBeenCalled());
+      expect(positionApi.extractReporting).toHaveBeenCalled();
+      expect(positionApi.extractCompensation).toHaveBeenCalled();
+      expect(positionApi.extractAssessment).toHaveBeenCalled();
+
+      // Navigating to another step shows its panel already filled — no separate click needed.
+      const rail = screen.getByRole("complementary");
+      await user.click(within(rail).getByRole("button", { name: /Mandate context/ }));
+      expect(await screen.findByDisplayValue("Board mandate")).toBeInTheDocument();
+      await user.click(within(rail).getByRole("button", { name: /Compensation/ }));
+      expect(await screen.findByDisplayValue("AED")).toBeInTheDocument();
+    });
+
+    it("leaves the other four sections rendered when one fails, with a retry on that section only", async () => {
+      vi.mocked(positionApi.extractCompensation)
+        .mockRejectedValueOnce(new Error("timed out"))
+        .mockResolvedValueOnce({
+          extractionSource: "model",
+          suggestedTemplate: null,
+          fields: [{ id: 0, fieldKey: "currency", value: "AED", confidence: "medium", snippet: null, origin: "document" }],
+        });
+      renderPage();
+      const user = userEvent.setup();
+
+      await user.click(await screen.findByRole("button", { name: "Read from document" }));
+      await waitFor(() => expect(positionApi.extractAssessment).toHaveBeenCalled());
+
+      const rail = screen.getByRole("complementary");
+      await user.click(within(rail).getByRole("button", { name: /Compensation/ }));
+      expect(await screen.findByText("Something went wrong. Try again.")).toBeInTheDocument();
+
+      // A section that succeeded carries no trace of the sibling failure.
+      await user.click(within(rail).getByRole("button", { name: /Mandate context/ }));
+      expect(screen.queryByText("Something went wrong. Try again.")).not.toBeInTheDocument();
+
+      // Retrying is the section's own "Read from document" — no separate control appears.
+      await user.click(within(rail).getByRole("button", { name: /Compensation/ }));
+      await user.click(screen.getByRole("button", { name: "Read from document" }));
+      expect(await screen.findByDisplayValue("AED")).toBeInTheDocument();
+      expect(screen.queryByText("Something went wrong. Try again.")).not.toBeInTheDocument();
+    });
+
+    it("badges the rail with each step's unaccepted proposal count, clearing as rows are accepted", async () => {
+      vi.mocked(positionApi.extractDetails).mockResolvedValue({
+        extractionSource: "model",
+        suggestedTemplate: null,
+        fields: [
+          { id: 0, fieldKey: "department", value: "Group Finance & Treasury", confidence: "low", snippet: null, origin: "document" },
+          { id: 1, fieldKey: "narrative", value: "A hands-on CFO for a scaling group.", confidence: "medium", snippet: null, origin: "document" },
+        ],
+      });
+      vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
+      renderPage();
+      const user = userEvent.setup();
+
+      await user.click(await screen.findByRole("button", { name: "Read from document" }));
+      await screen.findByDisplayValue("Group Finance & Treasury");
+
+      const rail = screen.getByRole("complementary");
+      expect(within(rail).getByText("2 suggestions")).toBeInTheDocument();
+
+      await user.click(screen.getAllByRole("button", { name: /Accept$/ })[0]);
+      await waitFor(() => expect(within(rail).getByText("1 suggestion")).toBeInTheDocument());
+    });
+  });
+
+  describe("suggesting a brief template from the extracted title (#283)", () => {
+    const withDocument: Position = {
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    };
+    const emptyExtraction: PositionExtraction = {
+      extractionSource: "model",
+      suggestedTemplate: null,
+      fields: [],
+    };
+
+    // Every test below clicks step one's "Read from document", which now fans out all five
+    // endpoints — mocks are not reset between tests in this file, so each needs its own baseline.
+    beforeEach(() => {
+      vi.mocked(positionApi.getPosition).mockResolvedValue(withDocument);
+      vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractCompensation).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+    });
+
+    it("offers the matching template unchecked, and applying it clears and re-runs extraction", async () => {
+      // The first read proposes a title and its matching template; the re-read a redraft triggers
+      // resolves differently, so a stale row still on screen after the redraft is unambiguously the
+      // old panel having survived rather than a fresh read that happened to look the same.
+      vi.mocked(positionApi.extractDetails)
+        .mockResolvedValueOnce({
+          extractionSource: "model",
+          suggestedTemplate: catalog[0],
+          fields: [
+            { id: 0, fieldKey: "roleTitle", value: "Group Chief Financial Officer", confidence: "medium", snippet: null, origin: "document" },
+          ],
+        })
+        .mockResolvedValue({ extractionSource: "model", suggestedTemplate: null, fields: [] });
+      const redraftedWithDocument: Position = { ...redrafted, document: withDocument.document };
+      vi.mocked(positionApi.applyTemplate).mockResolvedValue(redraftedWithDocument);
+      vi.mocked(positionApi.putDetails).mockResolvedValue(redraftedWithDocument);
+      renderPage();
+      const user = userEvent.setup();
+
+      await user.click(await screen.findByRole("button", { name: "Read from document" }));
+      await screen.findByDisplayValue("Group Chief Financial Officer");
+
+      const offer = await screen.findByRole("checkbox", {
+        name: /This reads like a Chief Financial Officer mandate/,
+      });
+      expect(offer).not.toBeChecked();
+
+      const readsBefore = vi.mocked(positionApi.extractDetails).mock.calls.length;
+      await user.click(offer);
+
+      await waitFor(() => expect(positionApi.applyTemplate).toHaveBeenCalledWith("p1", "t-cfo"));
+      await waitFor(() =>
+        expect(vi.mocked(positionApi.extractDetails).mock.calls.length).toBeGreaterThan(readsBefore),
+      );
+      // The redraft clears the whole panel — the offer and the stale roleTitle row both — rather
+      // than leaving proposals that might now describe a value the template just replaced.
+      await waitFor(() =>
+        expect(screen.queryByRole("checkbox", { name: /This reads like a/ })).not.toBeInTheDocument(),
+      );
+      expect(screen.queryByDisplayValue("Group Chief Financial Officer")).not.toBeInTheDocument();
+    });
+
+    it("suggests nothing when the response carries no match, and never auto-checks the offer", async () => {
+      vi.mocked(positionApi.extractDetails).mockResolvedValue({
+        extractionSource: "documentHeadings",
+        suggestedTemplate: null,
+        fields: [
+          { id: 0, fieldKey: "roleTitle", value: "Warehouse Shift Supervisor", confidence: "low", snippet: null, origin: "document" },
+        ],
+      });
+      renderPage();
+      const user = userEvent.setup();
+
+      await user.click(await screen.findByRole("button", { name: "Read from document" }));
+      await screen.findByDisplayValue("Warehouse Shift Supervisor");
+
+      expect(screen.queryByRole("checkbox", { name: /This reads like a/ })).not.toBeInTheDocument();
+    });
+
+    it("applying a template via the role-title combobox also clears stale proposals from any step", async () => {
+      vi.mocked(positionApi.extractDetails).mockResolvedValue({
+        extractionSource: "model",
+        suggestedTemplate: null,
+        fields: [
+          { id: 0, fieldKey: "department", value: "Stale Department", confidence: "low", snippet: null, origin: "document" },
+        ],
+      });
+      vi.mocked(positionApi.applyTemplate).mockResolvedValue(redrafted);
+      vi.mocked(positionApi.putDetails).mockResolvedValue(redrafted);
+      renderPage();
+      const user = userEvent.setup();
+
+      await user.click(await screen.findByRole("button", { name: "Read from document" }));
+      await screen.findByDisplayValue("Stale Department");
+
+      const title = await screen.findByRole("combobox", { name: /Role title/ });
+      await user.clear(title);
+      await user.type(title, "Chief Compliance");
+      await user.click(
+        within(screen.getByRole("listbox")).getByRole("option", { name: /Chief Compliance Officer/ }),
+      );
+
+      await waitFor(() => expect(positionApi.applyTemplate).toHaveBeenCalledWith("p1", "t-cco"));
+      await waitFor(() => expect(screen.queryByDisplayValue("Stale Department")).not.toBeInTheDocument());
+    });
   });
 });

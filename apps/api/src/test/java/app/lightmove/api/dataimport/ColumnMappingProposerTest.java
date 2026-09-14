@@ -8,6 +8,7 @@ import app.lightmove.api.core.config.LlmRateLimitSettings;
 import app.lightmove.api.core.config.LlmSettings;
 import app.lightmove.api.core.config.SpreadsheetImportSettings;
 import app.lightmove.api.core.llm.service.ChatCallLog;
+import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
 import app.lightmove.api.dataimport.constant.ImportTargetField;
 import app.lightmove.api.dataimport.constant.MappingSource;
@@ -17,7 +18,6 @@ import app.lightmove.api.dataimport.model.ProposedColumnMappings;
 import app.lightmove.api.dataimport.model.SheetColumn;
 import app.lightmove.api.dataimport.service.ColumnMappingProposer;
 import app.lightmove.api.dataimport.service.HeuristicColumnMatcher;
-import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -424,7 +424,7 @@ class ColumnMappingProposerTest {
     private static LlmBudgetGuard budgetGuard() {
         return new LlmBudgetGuard((key, limit, window) -> true,
                 new LightMoveProperties(null, null, null, null, null,
-                        new LlmSettings(new LlmRateLimitSettings(true, 10, 20), 20_000, 1, List.of()),
+                        new LlmSettings(new LlmRateLimitSettings(true, 10, 20, 10), 20_000, 1, List.of()),
                         null, null, null, null, null, null));
     }
 

@@ -1,17 +1,40 @@
 import { useState } from "react";
 import { Input, Select, TextArea } from "../../../../components/ui";
 import { cn } from "../../../../lib/cn";
-import type { MandateContext, StrategicPriority } from "../../api/types";
+import type {
+  MandateContext,
+  PositionDocument,
+  PositionExtraction,
+  ProposedField,
+  StrategicPriority,
+} from "../../api/types";
 import { MANDATE_REASON_LABELS } from "../../lib/labels";
+import { StepExtraction } from "../StepExtraction";
 import { AddRowButton, RemoveRowButton, StepField } from "../fields";
 
 /** Step two: why the mandate exists. Internal throughout — no candidate ever reads any of it. */
 export function MandateContextStep({
   context,
+  document,
+  extraction,
+  extracting,
+  extractionError,
   onChange,
+  onExtract,
+  onAcceptProposal,
+  onDismissProposal,
+  onAcceptAllProposals,
 }: {
   context: MandateContext;
+  document: PositionDocument | null;
+  extraction: PositionExtraction | null;
+  extracting: boolean;
+  extractionError?: unknown;
   onChange: (patch: Partial<MandateContext>, immediate?: boolean) => void;
+  onExtract: () => void;
+  onAcceptProposal: (field: ProposedField, value: string) => void;
+  onDismissProposal: (field: ProposedField) => void;
+  onAcceptAllProposals: () => void;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
 
@@ -32,6 +55,17 @@ export function MandateContextStep({
 
   return (
     <div className="flex flex-col gap-5">
+      <StepExtraction
+        positionDocument={document}
+        extraction={extraction}
+        extracting={extracting}
+        error={extractionError}
+        onExtract={onExtract}
+        onAcceptProposal={onAcceptProposal}
+        onDismissProposal={onDismissProposal}
+        onAcceptAllProposals={onAcceptAllProposals}
+      />
+
       <StepField label="Business driver">
         <TextArea
           value={context.businessDriver ?? ""}
