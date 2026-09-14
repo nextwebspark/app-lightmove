@@ -244,17 +244,24 @@ fi
 # ── Prove it serves ───────────────────────────────────────────────────────────
 # `gcloud run deploy` returning 0 means the revision started, not that it works. These assert the
 # properties this whole arrangement exists to preserve.
+# With a custom domain the service's own URL redirects every page to it, so the page checks run
+# against the public origin — against status.url they read an empty 302 (v0.3.0).
+PUBLIC_URL="${PUBLIC_BASE_URL:-$URL}"
+PUBLIC_URL="${PUBLIC_URL%/}"
 say "Smoke test"
-curl -fsS --retry 5 --retry-delay 3 "$URL/actuator/health" >/dev/null && echo "  ✓ healthy"
-curl -fsS "$URL/" | grep -q '<div id="root">' && echo "  ✓ the SPA is in the image and served at /"
-[ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/auth/verify?token=x")" = "200" ] && echo "  ✓ history fallback (the URL in every verification email)"
-[ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/actuator/prometheus")" = "401" ] && echo "  ✓ metrics are not public"
-[ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/v1/onboarding/workspaces")" = "401" ] && echo "  ✓ the API is still shut"
+curl -fsS --retry 5 --retry-delay 3 "$PUBLIC_URL/actuator/health" >/dev/null && echo "  ✓ healthy"
+curl -fsS "$PUBLIC_URL/" | grep -q '<div id="root">' && echo "  ✓ the SPA is in the image and served at /"
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_URL/auth/verify?token=x")" = "200" ] && echo "  ✓ history fallback (the URL in every verification email)"
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_URL/actuator/prometheus")" = "401" ] && echo "  ✓ metrics are not public"
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_URL/api/v1/onboarding/workspaces")" = "401" ] && echo "  ✓ the API is still shut"
+if [ "$PUBLIC_URL" != "$URL" ]; then
+    [ "$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/")" = "$PUBLIC_URL/" ] && echo "  ✓ ${URL} sends pages to ${PUBLIC_URL}"
+fi
 
 cat <<EOF
 
 ────────────────────────────────────────────────────────────────────────────────
-  ${URL}
+  ${PUBLIC_URL}
 
   Email is '${EMAIL_PROVIDER}'. $([ "$EMAIL_PROVIDER" = "log" ] && echo "Verification links go to Cloud Logging, not a mailbox:" || echo "Sending for real.")
 $([ "$EMAIL_PROVIDER" = "log" ] && echo "

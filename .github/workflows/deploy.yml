@@ -333,8 +333,13 @@ jobs:
       - name: Smoke test
         env:
           VERSION: ${{ inputs.ref }}
+          PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
         run: |
-          URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
+          # With a custom domain the service's own URL redirects every page to it, so a page check
+          # against status.url reads an empty 302 and fails a deploy that is serving fine (v0.3.0).
+          SERVICE_URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
+          URL="${PUBLIC_BASE_URL:-$SERVICE_URL}"
+          URL="${URL%/}"
 
           echo "health"
           curl -fsS --retry 5 --retry-delay 3 "$URL/actuator/health" > /dev/null
@@ -347,5 +352,10 @@ jobs:
 
           echo "the API is still shut to anonymous callers"
           [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/v1/onboarding/workspaces")" = "401" ]
+
+          if [ "$URL" != "$SERVICE_URL" ]; then
+            echo "the service's own URL sends pages to the public origin"
+            [ "$(curl -s -o /dev/null -w '%{redirect_url}' "$SERVICE_URL/")" = "$URL/" ]
+          fi
 
           echo "::notice::Deployed ${VERSION} ($(git rev-parse --short HEAD)) to ${URL}"
