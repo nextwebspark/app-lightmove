@@ -38,6 +38,9 @@ export interface PinCollection {
   features: PinFeature[];
 }
 
+/** South-west then north-east, the order Mapbox's `fitBounds` reads. */
+export type MapBounds = [[number, number], [number, number]];
+
 /** Degrees between neighbours on the spiral — about 3 km, which separates pins at city zoom. */
 const SPIRAL_STEP_DEGREES = 0.03;
 /**
@@ -206,19 +209,45 @@ export function toFeatureCollection(tree: MappingTree, showExecutives: boolean):
   return { type: "FeatureCollection", features };
 }
 
+/**
+ * The people a zoomed-in map draws a card for: the ones in view, and only while there are few
+ * enough of them to read. Past the cap it reports `crowded` and no ids — a hundred overlapping
+ * cards say less than the dots they would bury.
+ *
+ * <p>Takes the viewport as a predicate rather than a box, because the map's own bounds know about
+ * the antimeridian and a pair of numbers compared by hand does not.
+ */
+export function profileCards(
+  features: readonly PinFeature[],
+  inView: (coordinates: [number, number]) => boolean,
+  cap: number,
+): { ids: string[]; crowded: boolean } {
+  const ids: string[] = [];
+  for (const feature of features) {
+    if (feature.properties.kind !== "executive" || !inView(feature.geometry.coordinates)) continue;
+    if (ids.length === cap) return { ids: [], crowded: true };
+    ids.push(feature.id);
+  }
+  return { ids, crowded: false };
+}
+
 /** "1 exec", "3 execs", "2 companies" — the panel's and the pill's counts, spelled once. */
 export function countOf(count: number, noun: string, plural = `${noun}s`): string {
   return `${count} ${count === 1 ? noun : plural}`;
 }
 
-/** The box every pin fits in, for "Fit to mapping"; null when nothing is drawn. */
-export function boundsOf(collection: PinCollection): [[number, number], [number, number]] | null {
-  if (!collection.features.length) return null;
+/**
+ * The box the given pins fit in — every one for "Fit to mapping", a country's for flying into it;
+ * null when the set is empty. A fresh array on every call, which is what makes a repeated ask for
+ * the same country a new camera move rather than a no-op.
+ */
+export function boundsOf(features: readonly PinFeature[]): MapBounds | null {
+  if (!features.length) return null;
   let west = Infinity;
   let south = Infinity;
   let east = -Infinity;
   let north = -Infinity;
-  for (const feature of collection.features) {
+  for (const feature of features) {
     const [longitude, latitude] = feature.geometry.coordinates;
     west = Math.min(west, longitude);
     east = Math.max(east, longitude);

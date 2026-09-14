@@ -13,13 +13,19 @@ vi.mock("./TalentMapGlobe", () => ({
   default: ({
     features,
     selectedId,
+    flyTo,
     onSelect,
+    onSelectCountry,
     renderPopup,
+    renderProfile,
   }: {
-    features: { features: { id: string; properties: { label: string } }[] };
+    features: { features: { id: string; properties: { kind: string; label: string } }[] };
     selectedId: string | null;
+    flyTo: [[number, number], [number, number]] | null;
     onSelect: (id: string | null) => void;
+    onSelectCountry: (code: string | null, name: string | null) => void;
     renderPopup: (id: string) => React.ReactNode;
+    renderProfile: (id: string) => React.ReactNode;
   }) => (
     <div data-testid="globe-stub">
       {features.features.map((feature) => (
@@ -27,6 +33,19 @@ vi.mock("./TalentMapGlobe", () => ({
           pin: {feature.properties.label}
         </button>
       ))}
+      {/* The globe's country click, which the real one reads off the tileset under the cursor. */}
+      <button type="button" onClick={() => onSelectCountry("AE", "United Arab Emirates")}>
+        ground: AE
+      </button>
+      <div data-testid="fly-to">{flyTo ? JSON.stringify(flyTo) : "none"}</div>
+      {/* The cards the real globe draws once it is zoomed in; here, every person, always. */}
+      <div data-testid="profile-cards">
+        {features.features
+          .filter((feature) => feature.properties.kind === "executive")
+          .map((feature) => (
+            <div key={feature.id}>{renderProfile(feature.id)}</div>
+          ))}
+      </div>
       {selectedId && <div data-testid="popup">{renderPopup(selectedId)}</div>}
     </div>
   ),
@@ -168,7 +187,8 @@ describe("TalentMapView", () => {
     await userEvent.click(screen.getByRole("button", { name: "pin: Yasmin El-Sayed" }));
     expect(screen.getByRole("treeitem", { name: "Yasmin El-Sayed" })).toHaveAttribute("aria-selected", "true");
     const popup = screen.getByTestId("popup");
-    expect(within(popup).getByText("Executive")).toBeInTheDocument();
+    // A person's popup carries no kind tag: the face, the name and the title already say what it is.
+    expect(within(popup).queryByText("Executive")).not.toBeInTheDocument();
     expect(within(popup).queryByRole("button", { name: /^Open$/ })).not.toBeInTheDocument();
     await userEvent.click(within(popup).getByRole("button", { name: "Yasmin El-Sayed" }));
     expect(handlers.onOpenCandidate).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }));
@@ -221,6 +241,57 @@ describe("TalentMapView", () => {
     expect(
       within(tree).getAllByRole("treeitem").filter((row) => row.getAttribute("tabindex") === "0"),
     ).toHaveLength(1);
+  });
+
+  it("moves the map into a country picked in the panel, and opens its branch", async () => {
+    renderView();
+    const tree = screen.getByRole("tree", { name: "Mapping" });
+    expect(screen.getByTestId("fly-to")).toHaveTextContent("none");
+
+    // Saudi Arabia holds one company at Riyadh and the executive ringed around it.
+    await userEvent.click(within(tree).getByRole("treeitem", { name: /Saudi Arabia, 1 company/ }));
+    const [[west, south], [east, north]] = JSON.parse(screen.getByTestId("fly-to").textContent!);
+    expect(west).toBeCloseTo(46.7, 1);
+    expect(east).toBeCloseTo(46.7, 1);
+    expect(south).toBeCloseTo(24.7, 1);
+    expect(north).toBeCloseTo(24.7, 1);
+    expect(within(tree).getByRole("treeitem", { name: /Saudi Arabia/ })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+
+    // The chevron still folds the branch without moving the camera.
+    await userEvent.click(within(tree).getByRole("button", { name: "Collapse Saudi Arabia" }));
+    expect(within(tree).getByRole("treeitem", { name: /Saudi Arabia/ })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
+  it("moves into the country a click on the globe's ground landed in", async () => {
+    renderView();
+    await userEvent.click(screen.getByRole("button", { name: "ground: AE" }));
+
+    const [[west], [east]] = JSON.parse(screen.getByTestId("fly-to").textContent!);
+    expect(west).toBeCloseTo(55.3, 1);
+    expect(east).toBeCloseTo(55.3, 1);
+  });
+
+  it("draws each person on the map with their name, title and face", async () => {
+    renderView();
+
+    const cards = screen.getByTestId("profile-cards");
+    const card = within(cards).getByRole("button", { name: /Yasmin El-Sayed/ });
+    expect(within(card).getByText("VP Finance")).toBeInTheDocument();
+    expect(within(card).getByAltText("Yasmin El-Sayed")).toHaveAttribute("src", "blob:photo");
+    expect(within(cards).getByRole("button", { name: /Lina Said/ })).toBeInTheDocument();
+
+    // A card selects the row it draws, exactly as its pin and its panel row do.
+    await userEvent.click(card);
+    expect(screen.getByRole("treeitem", { name: "Yasmin El-Sayed" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   it("says when the server is still placing rows, and when a read was refused", () => {

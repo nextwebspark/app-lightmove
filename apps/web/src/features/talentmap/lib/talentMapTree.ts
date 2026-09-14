@@ -256,6 +256,35 @@ export function nodesOf(tree: MappingTree): (TreeCompany | TreeExecutive)[] {
   return nodes;
 }
 
+/** Every row id filed under one country — the pins the camera fits in when a country is picked. */
+export function rowIdsIn(country: TreeCountry): Set<string> {
+  const ids = new Set<string>();
+  for (const company of country.companies) {
+    ids.add(company.id);
+    for (const executive of company.executives) ids.add(executive.id);
+  }
+  for (const executive of country.unmapped) ids.add(executive.id);
+  return ids;
+}
+
+/**
+ * The country a click on the globe's landmass landed in, or null for one this mandate has nothing in.
+ * Matched on the ISO code the tileset carries, because that is what the tree keys on where it has
+ * one; the English name is the fallback for a country grouped from a snapshot spelling alone.
+ */
+export function countryAt(
+  tree: MappingTree,
+  code: string | null,
+  name: string | null,
+): TreeCountry | null {
+  const key = code?.toLowerCase() ?? null;
+  const spelling = name?.toLowerCase() ?? null;
+  return (
+    tree.countries.find((country) => (key !== null && country.key === key)
+      || (spelling !== null && country.name.toLowerCase() === spelling)) ?? null
+  );
+}
+
 /**
  * The country and company a row sits under, so selecting a pin can open the branches above its row.
  * Both null for a row that is not in the tree.

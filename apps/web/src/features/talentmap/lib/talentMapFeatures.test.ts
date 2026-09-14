@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TalentMapPage } from "../api/types";
 import { buildTree } from "./talentMapTree";
-import { boundsOf, countOf, spreadPoints, toFeatureCollection } from "./talentMapFeatures";
+import { boundsOf, countOf, profileCards, spreadPoints, toFeatureCollection } from "./talentMapFeatures";
 
 describe("spreadPoints", () => {
   it("leaves a lone point where it is and steps shared points apart, the same way every time", () => {
@@ -45,25 +45,25 @@ describe("spreadPoints", () => {
   });
 });
 
-describe("toFeatureCollection", () => {
-  const page = {
-    companies: [
-      { id: "u1", companyName: "ACWA Power", companyCountry: "Saudi Arabia", companyCity: "Riyadh", industry: "oil & energy", numEmployees: 3000, logoUrl: null },
-      { id: "u4", companyName: "Gulf Trader", companyCountry: null, companyCity: null, industry: null, numEmployees: null, logoUrl: null },
-    ],
-    totalCompanies: 2,
-    candidates: [
-      { id: "c1", triageCompanyId: "u1", companyName: "ACWA Power", fullName: "Yasmin El-Sayed", title: "VP Finance", seniority: "N-1", locationCity: null, locationCountry: null },
-      { id: "c4", triageCompanyId: null, companyName: "Untriaged", fullName: "Lina Said", title: null, seniority: null, locationCity: null, locationCountry: "Oman" },
-    ],
-    totalCandidates: 2,
-    locations: {
-      u1: { latitude: 24.7, longitude: 46.7, precision: "CITY", placeLabel: "Riyadh, Saudi Arabia" },
-      c4: { latitude: 21, longitude: 57, precision: "COUNTRY", placeLabel: "Oman" },
-    },
-    geocodingPending: 0,
-  } as unknown as TalentMapPage;
+const page = {
+  companies: [
+    { id: "u1", companyName: "ACWA Power", companyCountry: "Saudi Arabia", companyCity: "Riyadh", industry: "oil & energy", numEmployees: 3000, logoUrl: null },
+    { id: "u4", companyName: "Gulf Trader", companyCountry: null, companyCity: null, industry: null, numEmployees: null, logoUrl: null },
+  ],
+  totalCompanies: 2,
+  candidates: [
+    { id: "c1", triageCompanyId: "u1", companyName: "ACWA Power", fullName: "Yasmin El-Sayed", title: "VP Finance", seniority: "N-1", locationCity: null, locationCountry: null },
+    { id: "c4", triageCompanyId: null, companyName: "Untriaged", fullName: "Lina Said", title: null, seniority: null, locationCity: null, locationCountry: "Oman" },
+  ],
+  totalCandidates: 2,
+  locations: {
+    u1: { latitude: 24.7, longitude: 46.7, precision: "CITY", placeLabel: "Riyadh, Saudi Arabia" },
+    c4: { latitude: 21, longitude: 57, precision: "COUNTRY", placeLabel: "Oman" },
+  },
+  geocodingPending: 0,
+} as unknown as TalentMapPage;
 
+describe("toFeatureCollection", () => {
   it("draws every located row with the label the pill and the popup read", () => {
     const collection = toFeatureCollection(buildTree(page), true);
     const byId = Object.fromEntries(collection.features.map((f) => [f.id, f.properties]));
@@ -78,8 +78,33 @@ describe("toFeatureCollection", () => {
   it("leaves the executives out when they are hidden, and reports the box the rest fit in", () => {
     const companiesOnly = toFeatureCollection(buildTree(page), false);
     expect(companiesOnly.features.map((f) => f.id)).toEqual(["u1"]);
-    expect(boundsOf(companiesOnly)).toEqual([[46.7, 24.7], [46.7, 24.7]]);
-    expect(boundsOf({ type: "FeatureCollection", features: [] })).toBeNull();
+    expect(boundsOf(companiesOnly.features)).toEqual([[46.7, 24.7], [46.7, 24.7]]);
+    expect(boundsOf([])).toBeNull();
+  });
+
+  it("boxes a subset on its own, which is what flying into one country reads", () => {
+    const all = toFeatureCollection(buildTree(page), true);
+    const oman = all.features.filter((feature) => feature.id === "c4");
+    expect(boundsOf(oman)).toEqual([[57, 21], [57, 21]]);
+  });
+});
+
+describe("profileCards", () => {
+  const all = toFeatureCollection(buildTree(page), true).features;
+  const everywhere = () => true;
+
+  it("cards the people in view and nobody else", () => {
+    expect(profileCards(all, everywhere, 10).ids.sort()).toEqual(["c1", "c4"]);
+    // Companies are never carded, however close in the map is.
+    expect(profileCards(all, everywhere, 10).ids).not.toContain("u1");
+    // Oman only: the executive mapped at no company of the mandate.
+    const oman = profileCards(all, ([longitude]) => longitude > 56, 10);
+    expect(oman).toEqual({ ids: ["c4"], crowded: false });
+  });
+
+  it("keeps the dots rather than burying them once past the cap", () => {
+    expect(profileCards(all, everywhere, 1)).toEqual({ ids: [], crowded: true });
+    expect(profileCards(all, () => false, 1)).toEqual({ ids: [], crowded: false });
   });
 });
 
