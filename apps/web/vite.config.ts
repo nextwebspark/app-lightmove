@@ -10,8 +10,23 @@ import tailwindcss from "@tailwindcss/vite";
  */
 const DEVELOPMENT_EXTENSION_ID = "kllpamcdcnecpdblgdkehgbhdjdlbofh";
 
+/**
+ * The origin index.html's link-preview tags name. They have to be absolute (a crawler has no page to
+ * resolve them against), which would otherwise mean a second copy of the public host living in the
+ * HTML — so the deploy's own `PUBLIC_BASE_URL` decides it here too, and the mapped domain is the
+ * fallback for a build that is not the deploy: the run.app URL redirects there anyway.
+ */
+const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "https://beta.uncava.com").replace(/\/+$/, "");
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    {
+      name: "lightmove-public-base-url",
+      transformIndexHtml: (html: string) => html.replaceAll("__PUBLIC_BASE_URL__", PUBLIC_BASE_URL),
+    },
+  ],
 
   // Build parameters, not settings the bundle reads for itself, so they are frozen in here rather than
   // exposed as VITE_-prefixed env. Both arrive as real environment variables from the Dockerfile's
