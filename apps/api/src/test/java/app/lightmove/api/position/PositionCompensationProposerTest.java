@@ -21,7 +21,7 @@ import app.lightmove.api.position.service.ExtractedFieldReader;
 import app.lightmove.api.position.service.PositionCompensationProposer;
 import app.lightmove.api.position.service.PositionDocumentRedactor;
 import app.lightmove.api.position.service.PositionDocumentTextReader;
-import app.lightmove.api.position.service.PositionTemplateService;
+import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;

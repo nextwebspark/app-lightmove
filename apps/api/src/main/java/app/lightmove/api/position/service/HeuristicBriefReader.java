@@ -1,11 +1,12 @@
 package app.lightmove.api.position.service;
 
-import app.lightmove.api.position.constant.EmploymentType;
+import app.lightmove.api.common.constant.EmploymentType;
 import app.lightmove.api.position.constant.ExtractionSource;
 import app.lightmove.api.position.constant.ProposalConfidence;
 import app.lightmove.api.position.constant.ProposalOrigin;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ProposedPositionDetails;
+import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;

@@ -106,6 +106,28 @@ The project *list* rides any active membership (`@workspaceAuthorizer.member`; t
 pure client to the mandates they're seated on), and shared reference data
 (`CompanyReferenceController`) rides `PROJECT_BROWSE`: existence isn't secret, content is.
 
+**A platform role sits above every tenant and inside none.** The role-template library (V42) is the
+first thing no workspace owns that someone still has to edit, so V51 added a third scope, `PLATFORM`,
+with one role (`SUPER_ADMIN`) granting one action (`TEMPLATE_LIBRARY_MANAGE`). Four things about it are
+deliberate:
+
+- **It opens nothing inside a workspace.** `@platformAuthorizer` gates `/api/v1/platform/**` only and
+  never calls `requireWorkspaceId()`; `ProjectAccess`'s workspace-admin bypass does not know it exists.
+  A super admin is an ordinary member of their own workspace besides, and sees another firm's data
+  exactly as any stranger does — a 404.
+- **Granted outside the application only.** `ops/cloudsql/grant-platform-role.sh` writes
+  `app_lm_user_platform_role`; there is no endpoint for it, because an app that could mint a super admin
+  hands that to whoever compromises it. `harden.sql` leaves `lm_app` SELECT on the table — a real control
+  once the table is not lm_app's own, a claim until then, like the rest of that file.
+- **Never in the JWT.** `PlatformAccess` re-reads the grant on every check, so a revocation lands on the
+  next request and a grant needs no new token; `/me` carries `platformActions` for the SPA to show the
+  Platform tab, and nothing trusts it for a decision.
+- **A miss is a 404**, not a 403 — the platform surface is not advertised to anyone who cannot use it.
+
+A workspace's own template edits are a separate, ordinary workspace action (`POSITION_TEMPLATE_MANAGE`,
+ADMIN), and they write the firm's own rows only: a firm's copy shadows the library template of the same
+code for that firm alone, which is what lets the library and every firm's copy of it move independently.
+
 ## An identity provider is configuration, not code
 
 Adding Google, LinkedIn, or anything else that speaks OIDC is a `spring.security.oauth2.client`

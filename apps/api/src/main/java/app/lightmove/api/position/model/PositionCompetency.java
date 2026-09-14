@@ -1,6 +1,6 @@
 package app.lightmove.api.position.model;
 
-import app.lightmove.api.position.constant.CompetencyPanel;
+import app.lightmove.api.common.constant.CompetencyPanel;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.EnumType;

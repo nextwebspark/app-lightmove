@@ -4,6 +4,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.position.model.Position;
 import app.lightmove.api.position.repository.PositionRepository;
+import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ClientRepository;

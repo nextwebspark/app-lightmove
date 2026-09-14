@@ -20,7 +20,7 @@ import app.lightmove.api.position.model.ProposedMandateContext;
 import app.lightmove.api.position.service.ExtractedFieldReader;
 import app.lightmove.api.position.service.PositionContextProposer;
 import app.lightmove.api.position.service.PositionDocumentRedactor;
-import app.lightmove.api.position.service.PositionTemplateService;
+import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
