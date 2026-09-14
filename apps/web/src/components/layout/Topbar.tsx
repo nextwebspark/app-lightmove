@@ -44,7 +44,7 @@ export function Topbar({
   );
 }
 
-/** The project shell's breadcrumb: `[L] Projects / {client} / {position title}` (mockup header). */
+/** The project shell's breadcrumb: `[mark] Projects / {client} / {position title}` (mockup header). */
 export function ProjectBreadcrumb({
   clientName,
   positionTitle,
@@ -74,7 +74,7 @@ export function ProjectBreadcrumb({
   );
 }
 
-/** The breadcrumb variant: `[L] Workspace / Settings / {section}`. */
+/** The breadcrumb variant: `[mark] Workspace / Settings / {section}`. */
 export function SettingsBreadcrumb({ section }: { section: string }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
