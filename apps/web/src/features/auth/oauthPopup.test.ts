@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readCookie } from "../../lib/cookies";
-import { reportOAuthOutcome, startOAuthSignIn, takeHandshakeId } from "./oauthPopup";
+import { isReturningSignInPopup, reportOAuthOutcome, startOAuthSignIn, takeHandshakeId } from "./oauthPopup";
 
 const HANDSHAKE_COOKIE = "lm_oauth_popup";
 
@@ -291,6 +291,32 @@ describe("oauthPopup", () => {
 
       expect(() => reportOAuthOutcome("handshake-1", { status: "success" })).not.toThrow();
       vi.unstubAllGlobals();
+    });
+  });
+
+  describe("recognising a popup back from the provider", () => {
+    const atPath = (pathname: string) =>
+      vi.spyOn(window, "location", "get").mockReturnValue({ ...window.location, pathname } as Location);
+
+    it("is a popup on the callback path while a handshake is pending, and leaves the handshake in place", () => {
+      atPath("/auth/callback");
+      document.cookie = `${HANDSHAKE_COOKIE}=handshake-1; Path=/`;
+
+      expect(isReturningSignInPopup()).toBe(true);
+      expect(takeHandshakeId()).toBe("handshake-1");
+    });
+
+    it("is not the opener, which holds the same handshake on its own page", () => {
+      atPath("/login");
+      sessionStorage.setItem("lightmove.oauth.handshake", "handshake-1");
+
+      expect(isReturningSignInPopup()).toBe(false);
+    });
+
+    it("is not an ordinary redirect sign-in, which lands on the callback with no handshake", () => {
+      atPath("/auth/callback");
+
+      expect(isReturningSignInPopup()).toBe(false);
     });
   });
 });
