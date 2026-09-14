@@ -93,18 +93,52 @@ describe("profileCards", () => {
   const all = toFeatureCollection(buildTree(page), true).features;
   const everywhere = () => true;
 
+  // A stand-in for the map's own projection: 1000px per degree, y growing downwards.
+  const at = ([longitude, latitude]: [number, number]) => ({ x: longitude * 1000, y: -latitude * 1000 });
+
   it("cards the people in view and nobody else", () => {
-    expect(profileCards(all, everywhere, 10).ids.sort()).toEqual(["c1", "c4"]);
     // Companies are never carded, however close in the map is.
-    expect(profileCards(all, everywhere, 10).ids).not.toContain("u1");
+    expect(profileCards(all, everywhere, 10, at).cards.map((card) => card.id).sort()).toEqual(["c1", "c4"]);
     // Oman only: the executive mapped at no company of the mandate.
-    const oman = profileCards(all, ([longitude]) => longitude > 56, 10);
-    expect(oman).toEqual({ ids: ["c4"], crowded: false });
+    const oman = profileCards(all, ([longitude]) => longitude > 56, 10, at);
+    expect(oman).toEqual({ cards: [{ id: "c4", lift: 10 }], crowded: false });
+  });
+
+  it("lifts a card clear of one it would land on, and leaves a distant one where it is", () => {
+    const crowd = {
+      ...page,
+      candidates: [
+        page.candidates[0],
+        { ...page.candidates[0], id: "c2", fullName: "Ahmed Bakr" },
+        { ...page.candidates[0], id: "c3", fullName: "Noura Al-Qahtani" },
+      ],
+    } as typeof page;
+    const together = toFeatureCollection(buildTree(crowd), true).features;
+
+    // Three at one address, seen from close in and from far enough out to be one pixel: a stack
+    // either way, and no two cards sharing a box.
+    for (const scale of [1000, 1]) {
+      const project = ([longitude, latitude]: [number, number]) => ({ x: longitude * scale, y: -latitude * scale });
+      const { cards } = profileCards(together, everywhere, 10, project);
+      expect(cards).toHaveLength(3);
+      const boxes = cards.map((card, index) => {
+        const point = project(together.filter((f) => f.properties.kind === "executive")[index].geometry.coordinates);
+        return { x: point.x, bottom: point.y - card.lift };
+      });
+      for (const [i, box] of boxes.entries()) {
+        for (const other of boxes.slice(i + 1)) {
+          expect(Math.abs(box.x - other.x) >= 190 || Math.abs(box.bottom - other.bottom) >= 34).toBe(true);
+        }
+      }
+    }
+
+    // Riyadh and Oman never collide, so neither is lifted off its pin.
+    expect(profileCards(all, everywhere, 10, at).cards.map((card) => card.lift)).toEqual([10, 10]);
   });
 
   it("keeps the dots rather than burying them once past the cap", () => {
-    expect(profileCards(all, everywhere, 1)).toEqual({ ids: [], crowded: true });
-    expect(profileCards(all, () => false, 1)).toEqual({ ids: [], crowded: false });
+    expect(profileCards(all, everywhere, 1, at)).toEqual({ cards: [], crowded: true });
+    expect(profileCards(all, () => false, 1, at)).toEqual({ cards: [], crowded: false });
   });
 });
 

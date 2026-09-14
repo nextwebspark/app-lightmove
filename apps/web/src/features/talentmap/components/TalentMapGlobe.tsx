@@ -4,7 +4,13 @@ import "./talentMapGlobe.css";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { boundsOf, profileCards, type MapBounds, type PinCollection } from "../lib/talentMapFeatures";
+import {
+  boundsOf,
+  profileCards,
+  type MapBounds,
+  type PinCollection,
+  type ProfileCard,
+} from "../lib/talentMapFeatures";
 
 const SOURCE = "talent-map";
 /** Mapbox's own country polygons, carried only to answer "which country did that click land in". */
@@ -93,7 +99,10 @@ export default function TalentMapGlobe({
   const popupNodeRef = useRef<HTMLDivElement | null>(null);
   const markersRef = useRef(new Map<string, { marker: mapboxgl.Marker; node: HTMLDivElement }>());
   const [popupOpenFor, setPopupOpenFor] = useState<string | null>(null);
-  const [cards, setCards] = useState<{ ids: string[]; crowded: boolean }>({ ids: [], crowded: false });
+  const [cards, setCards] = useState<{ cards: ProfileCard[]; crowded: boolean }>({
+    cards: [],
+    crowded: false,
+  });
   const [cardNodes, setCardNodes] = useState<{ id: string; node: HTMLDivElement }[]>([]);
   const [dark, setDark] = useState(() => document.body.classList.contains("dark"));
   const [styleReady, setStyleReady] = useState(0);
@@ -125,11 +134,14 @@ export default function TalentMapGlobe({
     const bounds = map.getBounds();
     const next =
       showing && bounds && map.getZoom() >= PROFILE_ZOOM
-        ? profileCards(current.features, (point) => bounds.contains(point), PROFILE_CARD_CAP)
-        : { ids: [], crowded: false };
-    setCards((held) =>
-      held.crowded === next.crowded && sameIds(held.ids, next.ids) ? held : next,
-    );
+        ? profileCards(
+            current.features,
+            (point) => bounds.contains(point),
+            PROFILE_CARD_CAP,
+            (point) => map.project(point),
+          )
+        : { cards: [], crowded: false };
+    setCards((held) => (held.crowded === next.crowded && same(held.cards, next.cards) ? held : next));
   }, []);
 
   useEffect(() => {
@@ -282,29 +294,29 @@ export default function TalentMapGlobe({
     const map = mapRef.current;
     if (!map) return;
     const held = markersRef.current;
-    const wanted = new Set(cards.ids);
+    const wanted = new Set(cards.cards.map((card) => card.id));
     for (const [id, entry] of held) {
       if (wanted.has(id)) continue;
       entry.marker.remove();
       held.delete(id);
     }
     const points = new Map(features.features.map((feature) => [feature.id, feature.geometry.coordinates]));
-    for (const id of cards.ids) {
+    for (const { id, lift } of cards.cards) {
       const coordinates = points.get(id);
       if (!coordinates) continue;
       const entry = held.get(id);
       if (entry) {
-        entry.marker.setLngLat(coordinates);
+        entry.marker.setLngLat(coordinates).setOffset([0, -lift]);
         continue;
       }
       const node = document.createElement("div");
       node.className = CARD_CLASS;
-      const marker = new mapboxgl.Marker({ element: node, anchor: "bottom", offset: [0, -9] })
+      const marker = new mapboxgl.Marker({ element: node, anchor: "bottom", offset: [0, -lift] })
         .setLngLat(coordinates)
         .addTo(map);
       held.set(id, { marker, node });
     }
-    const next = cards.ids.flatMap((id) => {
+    const next = cards.cards.flatMap(({ id }) => {
       const entry = held.get(id);
       return entry ? [{ id, node: entry.node }] : [];
     });
@@ -569,6 +581,7 @@ function textOf(value: unknown): string | null {
   return typeof value === "string" && value.trim() !== "" ? value : null;
 }
 
-function sameIds(a: readonly string[], b: readonly string[]): boolean {
-  return a.length === b.length && a.every((id, index) => id === b[index]);
+function same(a: readonly ProfileCard[], b: readonly ProfileCard[]): boolean {
+  return a.length === b.length
+    && a.every((card, index) => card.id === b[index].id && card.lift === b[index].lift);
 }

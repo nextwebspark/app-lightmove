@@ -209,26 +209,55 @@ export function toFeatureCollection(tree: MappingTree, showExecutives: boolean):
   return { type: "FeatureCollection", features };
 }
 
+/** A person's card and how far above their pin it sits, in pixels. */
+export interface ProfileCard {
+  id: string;
+  lift: number;
+}
+
+/** Clear of the pin the card belongs to. */
+const CARD_LIFT = 10;
+/** A card at its widest and its tallest — the box two of them must not share. */
+const CARD_WIDTH = 190;
+const CARD_HEIGHT = 34;
+/** What the search for a free slot climbs by — small, so a stack packs tightly rather than towers. */
+const CARD_STACK_STEP = 8;
+
 /**
  * The people a zoomed-in map draws a card for: the ones in view, and only while there are few
- * enough of them to read. Past the cap it reports `crowded` and no ids — a hundred overlapping
+ * enough of them to read. Past the cap it reports `crowded` and no cards — a hundred overlapping
  * cards say less than the dots they would bury.
  *
- * <p>Takes the viewport as a predicate rather than a box, because the map's own bounds know about
- * the antimeridian and a pair of numbers compared by hand does not.
+ * <p>Takes the viewport as a predicate and the projection as a function rather than working in
+ * degrees: the map's own bounds know about the antimeridian, and only the map knows how far apart
+ * two places are on screen — which is the distance that decides whether two cards collide.
+ *
+ * <p>Whoever would land on a card already placed is lifted clear of it, which is what makes three
+ * people at one address three lines rather than one smear. Deterministic in feature order, so the
+ * same view stacks the same way twice.
  */
 export function profileCards(
   features: readonly PinFeature[],
   inView: (coordinates: [number, number]) => boolean,
   cap: number,
-): { ids: string[]; crowded: boolean } {
-  const ids: string[] = [];
+  at: (coordinates: [number, number]) => { x: number; y: number },
+): { cards: ProfileCard[]; crowded: boolean } {
+  const cards: ProfileCard[] = [];
+  const placed: { x: number; bottom: number }[] = [];
   for (const feature of features) {
     if (feature.properties.kind !== "executive" || !inView(feature.geometry.coordinates)) continue;
-    if (ids.length === cap) return { ids: [], crowded: true };
-    ids.push(feature.id);
+    if (cards.length === cap) return { cards: [], crowded: true };
+    const { x, y } = at(feature.geometry.coordinates);
+    let lift = CARD_LIFT;
+    const collides = () =>
+      placed.some(
+        (box) => Math.abs(box.x - x) < CARD_WIDTH && Math.abs(box.bottom - (y - lift)) < CARD_HEIGHT,
+      );
+    while (collides()) lift += CARD_STACK_STEP;
+    placed.push({ x, bottom: y - lift });
+    cards.push({ id: feature.id, lift });
   }
-  return { ids, crowded: false };
+  return { cards, crowded: false };
 }
 
 /** "1 exec", "3 execs", "2 companies" — the panel's and the pill's counts, spelled once. */
