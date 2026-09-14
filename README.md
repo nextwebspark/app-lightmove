@@ -328,6 +328,34 @@ generated once, **on your machine, never in CI** — a pipeline that mints a sig
 logs one. Losing it signs everyone out (access tokens live 15 minutes, refresh tokens are in the database,
 so no data is lost); leaking it lets anyone mint a token for any user.
 
+### Custom domain
+
+The app is reached at `https://beta.uncava.com`; the service's own `run.app` URL redirects there
+(`CanonicalOriginRedirectFilter`). DNS is on Cloudflare with the proxy **off** — the grey cloud — so
+Google issues and renews the certificate; the orange cloud intercepts the validation request and the
+mapping never leaves *pending*. A Cloud Run domain mapping is free and the preview status is fine
+for a beta; the production domain goes behind a global external load balancer instead.
+
+```bash
+gcloud domains verify uncava.com          # once, in Search Console, as the account running gcloud
+gcloud beta run domain-mappings create --service lightmove --domain beta.uncava.com --region us-central1
+# Cloudflare: CNAME beta → ghs.googlehosted.com, DNS only. Then wait for the certificate:
+gcloud beta run domain-mappings describe --domain beta.uncava.com --region us-central1
+```
+
+Then set the `PUBLIC_BASE_URL` repository variable to `https://beta.uncava.com` and deploy: the deploy
+reads it instead of the service URL, so `WEB_BASE_URL`, the CORS allow-list and both OAuth redirect
+URIs carry the domain. The identity providers have to hear about it too — Google's OAuth client needs
+`https://beta.uncava.com/login/oauth2/code/google` as an authorised redirect URI and LinkedIn's app
+the `linkedin` twin — and the next extension release is built with
+`LM_WORKSPACE_ORIGIN=https://beta.uncava.com`, which changes its host permission and so goes through
+Web Store review. Sessions do not survive the switch: the refresh cookie is host-only, so everyone
+signs in again on the new host. Old email links still land — the redirect keeps the query string.
+
+Transactional mail is sent as `noreply@uncava.com`, which means `uncava.com` verified in Resend: its
+DKIM and SPF records and a `_dmarc` TXT live in Cloudflare next to the CNAME, and the `EMAIL_FROM`
+variable names the address.
+
 ### What ships, and what does not
 
 | | |

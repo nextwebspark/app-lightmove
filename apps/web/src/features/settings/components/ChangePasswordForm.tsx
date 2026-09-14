@@ -46,7 +46,7 @@ export function ChangePasswordForm({
       reset(EMPTY_FORM);
     } catch (error) {
       if (!(error instanceof ApiRequestError)) {
-        setFormError("Could not reach LightMove. Check your connection and try again.");
+        setFormError("Could not reach Uncava. Check your connection and try again.");
         return;
       }
 

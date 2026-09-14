@@ -159,14 +159,18 @@ jobs:
             migrate
 
       # ── Deploy ───────────────────────────────────────────────────────────────
-      # WEB_BASE_URL has to be the service's own URL, which does not exist until the service does. On the
-      # very first deploy we therefore fall back to a placeholder and correct it below; on every deploy
-      # after that the URL is already known and this is a single revision.
-      - name: Resolve the service URL
+      # WEB_BASE_URL is the origin users open. With a custom domain mapped (see README, "Custom
+      # domain") the PUBLIC_BASE_URL variable names it and the service's own run.app URL is never
+      # exposed. Without it, it is the service's own URL — which does not exist until the service
+      # does, so the very first deploy falls back to a placeholder and is corrected below.
+      - name: Resolve the public origin
         id: url
         run: |
-          URL=$(gcloud run services describe "$SERVICE" --region "$REGION" \
-                  --format='value(status.url)' 2>/dev/null || true)
+          URL="${{ vars.PUBLIC_BASE_URL }}"
+          if [ -z "$URL" ]; then
+            URL=$(gcloud run services describe "$SERVICE" --region "$REGION" \
+                    --format='value(status.url)' 2>/dev/null || true)
+          fi
           echo "known=${URL}" >> "$GITHUB_OUTPUT"
           echo "url=${URL:-http://localhost:8080}" >> "$GITHUB_OUTPUT"
 
@@ -233,7 +237,7 @@ jobs:
           fi
 
           # Same for Resend: EMAIL_PROVIDER=resend without a key fails fast at startup, by design. The
-          # sending domain (lightmove.ai) is verified, so the provider defaults to `resend` and the
+          # sending domain (uncava.com) is verified, so the provider defaults to `resend` and the
           # lightmove-resend-api-key secret is mounted below — a deploy fails if that secret has no
           # version. Set the EMAIL_PROVIDER var to `log` for an environment that should not send.
           EMAIL_PROVIDER="${{ vars.EMAIL_PROVIDER || 'resend' }}"
@@ -301,11 +305,12 @@ jobs:
             --cpu 1 --memory 1Gi --cpu-boost \
             --concurrency 80 \
             --timeout 60s \
-            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@lightmove.ai' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem${OAUTH_ENV}${ENRICHMENT_ENV}" \
+            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@uncava.com' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem${OAUTH_ENV}${ENRICHMENT_ENV}" \
             --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}${MAPBOX_SECRETS}"
 
-      # First deploy only: the service now has a URL, and it is not the placeholder we booted with.
-      # Verification emails and the OAuth redirect are built from WEB_BASE_URL, so this cannot be left.
+      # First deploy only, and only without a custom domain: the service now has a URL, and it is not
+      # the placeholder we booted with. Verification emails and the OAuth redirect are built from
+      # WEB_BASE_URL, so this cannot be left.
       - name: Correct WEB_BASE_URL on first deploy
         if: steps.url.outputs.known == ''
         env:

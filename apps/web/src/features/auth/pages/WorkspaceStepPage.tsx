@@ -104,7 +104,7 @@ function CreateWorkspace({
         >
           <Input
             autoFocus
-            placeholder="e.g. LightMove Search Partners"
+            placeholder="e.g. Uncava Search Partners"
             invalid={!!errors.name}
             {...register("name")}
           />

@@ -212,7 +212,7 @@ class ExtensionPairingIntegrationTest extends FlowTestSupport {
         createWorkspace(verifiedUser("Alok Kumar", workspaceOwner), "Spoofed Label Firm");
 
         MvcResult signIn = mvc.perform(post("/api/v1/auth/login")
-                        .header("User-Agent", "LightMove Capture (browser extension)")
+                        .header("User-Agent", "Uncava Capture (browser extension)")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"email":"%s","password":"%s"}""".formatted(workspaceOwner, PASSWORD)))

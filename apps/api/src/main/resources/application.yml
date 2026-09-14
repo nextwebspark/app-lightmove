@@ -243,8 +243,8 @@ lightmove:
 
   email:
     provider: ${EMAIL_PROVIDER:resend}
-    from-name: LightMove
-    from-address: ${EMAIL_FROM:noreply@lightmove.ai}
+    from-name: Uncava
+    from-address: ${EMAIL_FROM:noreply@uncava.com}
     resend:
       api-key: ${RESEND_API_KEY:}
     validation:

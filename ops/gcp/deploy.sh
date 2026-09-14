@@ -25,11 +25,11 @@ RUNTIME_SA="lightmove-api@${PROJECT}.iam.gserviceaccount.com"
 # lm_app today. Becomes lm_migrate once ops/cloudsql/create-migrate-role.sh has been applied.
 MIGRATE_USER="${DB_MIGRATE_USER:-lm_app}"
 
-# Defaults to resend + the verified lightmove.ai sender, so a plain run sends real mail. Requires the
+# Defaults to resend + the verified uncava.com sender, so a plain run sends real mail. Requires the
 # lightmove-resend-api-key secret to have a value (preflight below fails fast if it does not). Override
 # EMAIL_PROVIDER=log for a dry-run environment that should not send.
 EMAIL_PROVIDER="${EMAIL_PROVIDER:-resend}"
-EMAIL_FROM="${EMAIL_FROM:-noreply@lightmove.ai}"
+EMAIL_FROM="${EMAIL_FROM:-noreply@uncava.com}"
 GOOGLE_OAUTH_CLIENT_ID="${GOOGLE_OAUTH_CLIENT_ID:-}"
 
 # ⚠ Verification off. Every signup is treated as though the address had been proved.
@@ -182,10 +182,11 @@ trap - EXIT
 # ── Deploy ────────────────────────────────────────────────────────────────────
 say "Deploy to Cloud Run"
 
-# WEB_BASE_URL is the service's own URL, which does not exist until the service does. First run therefore
-# boots on a placeholder and is corrected below; every run after that already knows it.
-KNOWN_URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" \
-    --format='value(status.url)' 2>/dev/null || true)"
+# WEB_BASE_URL is the origin users open: PUBLIC_BASE_URL when a custom domain is mapped (README,
+# "Custom domain"), else the service's own URL — which does not exist until the service does, so a
+# first run boots on a placeholder and is corrected below.
+KNOWN_URL="${PUBLIC_BASE_URL:-$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" \
+    --format='value(status.url)' 2>/dev/null || true)}"
 BASE_URL="${KNOWN_URL:-http://localhost:8080}"
 
 # Google sign-in is wired only when it is actually configured. Spring validates every declared

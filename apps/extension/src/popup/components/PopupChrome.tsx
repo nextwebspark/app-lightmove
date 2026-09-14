@@ -1,18 +1,17 @@
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn";
 
-/** The amber logo tile that opens the popup's header, per Extension.dc.html. */
+/** The Uncava mark that opens the popup's header — the same geometry as the extension icons. */
 export function BrandTile({ className }: { className?: string }) {
   return (
     <span
-      className={cn(
-        "grid h-[22px] w-[22px] place-items-center rounded-md bg-amber-btn",
-        "font-mono text-[11px] font-bold text-on-amber",
-        className,
-      )}
+      className={cn("grid h-[22px] w-[22px] shrink-0 place-items-center rounded-[5px] bg-text text-panel", className)}
       aria-hidden
     >
-      L
+      <svg viewBox="86 86 340 340" width={22} height={22} fill="currentColor" stroke="currentColor">
+        <path d="M256 131 332 174 256 216 180 174Z" strokeWidth="11" strokeLinejoin="round" />
+        <path d="M256 241 332 285V336L256 380 180 336V285Z" fill="none" strokeWidth="11" strokeLinejoin="round" />
+      </svg>
     </span>
   );
 }

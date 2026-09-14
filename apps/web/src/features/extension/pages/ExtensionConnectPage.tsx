@@ -37,7 +37,7 @@ function extensionChannel(): PageAccessibleChromeRuntime | null {
   return typeof runtime?.sendMessage === "function" ? runtime : null;
 }
 
-/** Whether LightMove Capture is installed and listening, asked with a message that changes nothing. */
+/** Whether Uncava Capture is installed and listening, asked with a message that changes nothing. */
 function extensionAnswers(runtime: PageAccessibleChromeRuntime): Promise<boolean> {
   return new Promise((resolve) => {
     try {
@@ -129,13 +129,13 @@ function ConnectStatus({
   if (state === "paired") {
     return (
       <>
-        <h1 className="mt-6 text-lg font-semibold text-text">LightMove Capture is connected</h1>
+        <h1 className="mt-6 text-lg font-semibold text-text">Uncava Capture is connected</h1>
         <p className="mt-2 text-sm leading-relaxed text-text2">
           You can close this tab. Open the extension from your toolbar, or press ⌥⇧L, on any company
           page to capture it into a mandate.
         </p>
         <p className="mt-4 text-xs text-text3">
-          It appears in Settings → Active sessions as <span className="font-medium">LightMove Capture</span>,
+          It appears in Settings → Active sessions as <span className="font-medium">Uncava Capture</span>,
           and you can end it there at any time without signing out of this browser.
         </p>
       </>
@@ -147,7 +147,7 @@ function ConnectStatus({
       <>
         <h1 className="mt-6 text-lg font-semibold text-text">Extension not detected</h1>
         <p className="mt-2 text-sm leading-relaxed text-text2">
-          This page could not reach LightMove Capture. Install it, make sure it is enabled at
+          This page could not reach Uncava Capture. Install it, make sure it is enabled at
           <span className="font-mono"> chrome://extensions</span>, then try again.
         </p>
         <Button className="mt-5" onClick={onConnect}>
@@ -173,7 +173,7 @@ function ConnectStatus({
 
   return (
     <>
-      <h1 className="mt-6 text-lg font-semibold text-text">Connecting LightMove Capture…</h1>
+      <h1 className="mt-6 text-lg font-semibold text-text">Connecting Uncava Capture…</h1>
       <p className="mt-2 text-sm leading-relaxed text-text2">Handing the session to the extension.</p>
       <div className="mt-5 flex justify-center">
         <Spinner />

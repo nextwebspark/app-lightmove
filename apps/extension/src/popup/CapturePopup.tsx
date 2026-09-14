@@ -149,7 +149,7 @@ function CapturePanel({
 function SessionUnreachable({ message, onRetry }: { message: string | null; onRetry: () => void }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-      <h1 className="text-[15px] font-semibold">LightMove Capture is not responding</h1>
+      <h1 className="text-[15px] font-semibold">Uncava Capture is not responding</h1>
       <p className="mt-2 max-w-[280px] text-[12.5px] leading-[1.6] text-text2">
         {message ?? "Its background worker did not answer."} Your session is untouched — try again
         rather than reconnecting.
