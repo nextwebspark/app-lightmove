@@ -338,6 +338,10 @@ public class ApolloCompanyQueryService {
             clauses.add("apollo_account_id NOT IN (:offLimitsIds)");
             params.put("offLimitsIds", scope.offLimitsAccountIds());
         }
+        if (!scope.triagedAccountIds().isEmpty()) {
+            clauses.add("apollo_account_id NOT IN (:triagedIds)");
+            params.put("triagedIds", scope.triagedAccountIds());
+        }
         if (scope.nameQuery() != null) {
             clauses.add("company_name ILIKE :nameQuery ESCAPE '\\'");
             params.put("nameQuery", "%" + escapeLikePattern(scope.nameQuery()) + "%");

@@ -298,7 +298,11 @@ method plus the records it returns — never another feature's internals:
 
 - `triagecompany`'s `TriageCompanyService` calls `strategy`'s `ApolloCompanyQueryService` to resolve
   a company snapshot at write time, and `StrategyService.scopeOf` to resolve the saved filter behind
-  "Add all to Universe". `strategy` never looks back at a mandate's triaged companies.
+  "Add all to Universe". The one exception to "never the reverse": the Strategy search excludes a
+  project's already-triaged companies, so they stop reappearing once filed. That's bridged through
+  `TriagedCompanyLookup` — an interface `strategy` declares and `triagecompany` implements
+  (`TriagedCompanyLookupAdapter`) — so the compile-time dependency stays one-way; only a bean
+  satisfying the interface crosses back.
 - `candidate` calls `triagecompany` through exactly two public methods, both answering in
   triagecompany's own DTO: `CandidateService.save` calls
   `TriageCompanyService.requireCompanyOfProject` to resolve and scope-check the company an executive
