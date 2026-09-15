@@ -72,7 +72,7 @@ geometry) and every user-facing string says Uncava, while the mockups still draw
 amber "L" tile and the code, packages, persisted keys and JWT issuer keep the `lightmove` name — a
 deliberate split, not drift. It is served at `https://beta.uncava.com` (Cloud Run domain mapping,
 Cloudflare DNS with the proxy off; README, "Custom domain"), and a link to it pasted into a chat app
-draws a card from the Open Graph tags in `apps/web/index.html` over `public/og-image.png` — static,
+draws a card from the Open Graph tags in `apps/web/index.html` over `public/og-image-v2.png` — static,
 because no crawler runs the bundle (README, "Link previews"). Publishing stamps who
 called the brief ready and **freezes nothing** (V38 retired the lock deliberately). Don't build ahead of
 the mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
