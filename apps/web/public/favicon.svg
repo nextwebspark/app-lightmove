@@ -1,7 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="110" fill="#16181c"/>
-  <g fill="#f4f5f7" stroke="#f4f5f7" stroke-width="11" stroke-linejoin="round">
-    <path d="M256 131 332 174 256 216 180 174Z"/>
-    <path fill="none" d="M256 241 332 285V336L256 380 180 336V285Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-54 -52 108 108">
+  <style>
+    .ink { fill: #12141A; stroke: #12141A; }
+    @media (prefers-color-scheme: dark) { .ink { fill: #F2F4F8; stroke: #F2F4F8; } }
+  </style>
+  <g class="ink" stroke-width="5.5" stroke-linejoin="round">
+    <path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" fill="none"/>
+    <path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" stroke="none"/>
   </g>
 </svg>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Card, FormError, Input, Logo, Notice, Select } from "../../../components/ui";
+import { AuthLogo, Button, Card, FormError, Input, Notice, Select } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
 import { homeFor } from "../homeFor";
@@ -102,7 +102,7 @@ export function InviteStepPage() {
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-4 sm:p-6">
-      <Logo />
+      <AuthLogo />
 
       {/* Organization only. The account and the verification are done and cannot be redone. */}
       <Stepper
