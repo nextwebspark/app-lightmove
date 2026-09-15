@@ -14,7 +14,16 @@ import {
 
 /** One line of the panel as the keyboard walks it: a group header or a row it can open. */
 type Line =
-  | { kind: "group"; key: string; label: string; count: string; expandable: boolean; muted?: boolean }
+  | {
+      kind: "group";
+      key: string;
+      label: string;
+      count: string;
+      expandable: boolean;
+      /** A country, whose row moves the map into it; the groups that are not are toggles alone. */
+      focusable?: boolean;
+      muted?: boolean;
+    }
   | { kind: "node"; node: TreeCompany | TreeExecutive; depth: number };
 
 /**
@@ -24,6 +33,7 @@ type Line =
  */
 interface RowHandlers {
   toggle: (key: string) => void;
+  focusCountry: (key: string) => void;
   select: (id: string) => void;
   hover: (id: string | null) => void;
   open: (node: TreeCompany | TreeExecutive) => void;
@@ -47,6 +57,7 @@ export function TalentMapTree({
   projectId,
   expanded,
   onToggle,
+  onFocusCountry,
   selectedId,
   hoveredId,
   onSelect,
@@ -58,6 +69,8 @@ export function TalentMapTree({
   /** Group keys (a country's, a company's, the unlocated group's) currently open. */
   expanded: ReadonlySet<string>;
   onToggle: (key: string) => void;
+  /** Picking a country: the branch opens and the map moves into it. */
+  onFocusCountry: (key: string) => void;
   selectedId: string | null;
   hoveredId: string | null;
   onSelect: (id: string | null) => void;
@@ -71,9 +84,9 @@ export function TalentMapTree({
   const active = lines.length ? Math.min(activeIndex, lines.length - 1) : 0;
 
   // The props as they stand, for the stable handlers below to read at click time.
-  const latest = useRef({ lines, expanded, onToggle, onSelect, onHover, onOpen });
+  const latest = useRef({ lines, expanded, onToggle, onFocusCountry, onSelect, onHover, onOpen });
   useEffect(() => {
-    latest.current = { lines, expanded, onToggle, onSelect, onHover, onOpen };
+    latest.current = { lines, expanded, onToggle, onFocusCountry, onSelect, onHover, onOpen };
   });
 
   // A pin click selects a row the reader may have scrolled past; bring it back into view.
@@ -121,6 +134,7 @@ export function TalentMapTree({
         case "Enter":
           event.preventDefault();
           if (line.kind === "node") held.onOpen(line.node);
+          else if (line.focusable) held.onFocusCountry(line.key);
           else if (line.expandable) held.onToggle(line.key);
           return;
         case " ":
@@ -135,6 +149,7 @@ export function TalentMapTree({
     };
     return {
       toggle: (key) => latest.current.onToggle(key),
+      focusCountry: (key) => latest.current.onFocusCountry(key),
       select: (id) => latest.current.onSelect(id),
       hover: (id) => latest.current.onHover(id),
       open: (node) => latest.current.onOpen(node),
@@ -198,19 +213,38 @@ const GroupRow = memo(function GroupRow({
       aria-label={`${line.label}, ${line.count}`}
       tabIndex={tabbable ? 0 : -1}
       onFocus={() => handlers.focused(index)}
-      onClick={line.expandable ? () => handlers.toggle(line.key) : undefined}
+      onClick={
+        line.focusable
+          ? () => handlers.focusCountry(line.key)
+          : line.expandable
+            ? () => handlers.toggle(line.key)
+            : undefined
+      }
       onKeyDown={(event) => handlers.keyDown(event, index)}
+      title={line.focusable ? `Show ${line.label} on the map` : undefined}
       className={cn(
         "mt-1 flex cursor-pointer select-none items-center gap-1.5 px-3 py-1.5 outline-none focus-visible:bg-panel2",
-        line.muted && "cursor-default",
+        line.focusable && "hover:bg-panel2",
+        !line.expandable && line.muted && "cursor-default",
       )}
     >
       {line.expandable ? (
-        <Icon
-          d={ICONS.chevronRight}
-          size={13}
-          className={cn("flex-none text-text3 transition-transform", open && "rotate-90")}
-        />
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={(event) => {
+            event.stopPropagation();
+            handlers.toggle(line.key);
+          }}
+          aria-label={open ? `Collapse ${line.label}` : `Expand ${line.label}`}
+          className="-ms-0.5 flex-none cursor-pointer rounded p-0.5 text-text3 hover:text-text"
+        >
+          <Icon
+            d={ICONS.chevronRight}
+            size={13}
+            className={cn("transition-transform", open && "rotate-90")}
+          />
+        </button>
       ) : (
         <span className="w-[13px] flex-none" />
       )}
@@ -353,6 +387,7 @@ function linesOf(tree: MappingTree, expanded: ReadonlySet<string>): Line[] {
       label: country.name,
       count: countOf(country.companyCount, "company", "companies"),
       expandable: true,
+      focusable: true,
     });
     if (!expanded.has(country.key)) return;
     country.companies.forEach(pushCompany);

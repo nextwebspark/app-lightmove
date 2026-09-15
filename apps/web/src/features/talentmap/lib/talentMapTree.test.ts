@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Candidate } from "../../candidates/api/types";
 import type { TriageCompany } from "../../triage/api/types";
 import type { MapLocation, TalentMapPage } from "../api/types";
-import { buildTree, filterTree, nodesOf, pathTo, UNLOCATED_KEY } from "./talentMapTree";
+import { buildTree, countryAt, filterTree, nodesOf, pathTo, rowIdsIn, UNLOCATED_KEY } from "./talentMapTree";
 
 const company = (overrides: Partial<TriageCompany>): TriageCompany => ({
   id: "u1",
@@ -202,6 +202,24 @@ describe("filterTree", () => {
     const tree = buildTree(page);
     expect(filterTree(tree, "lina").countries.map((c) => c.name)).toEqual(["Oman"]);
     expect(filterTree(tree, "   ")).toBe(tree);
+  });
+});
+
+describe("rowIdsIn / countryAt", () => {
+  it("gathers every row a country holds, so the camera can fit the lot", () => {
+    const tree = buildTree(page);
+    expect([...rowIdsIn(tree.countries[0])].sort()).toEqual(["c1", "c2", "c3", "u1", "u2", "u3"]);
+    // Oman carries only the executive whose employer this mandate never triaged.
+    expect([...rowIdsIn(tree.countries[1])]).toEqual(["c4"]);
+  });
+
+  it("finds the country a click on the globe's ground landed in, by code or by name", () => {
+    const tree = buildTree(page);
+    expect(countryAt(tree, "SA", "Saudi Arabia")?.name).toBe("Saudi Arabia");
+    // A tileset that named the country but not its code still lands on the right group.
+    expect(countryAt(tree, null, "Oman")?.key).toBe("om");
+    expect(countryAt(tree, "FR", "France")).toBeNull();
+    expect(countryAt(tree, null, null)).toBeNull();
   });
 });
 

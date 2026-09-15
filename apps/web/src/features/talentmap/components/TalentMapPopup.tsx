@@ -41,14 +41,12 @@ export function TalentMapPopup({
   return (
     <div className="w-[260px] rounded-[10px] border border-line bg-panel p-3 font-sans shadow-panel">
       <div className="flex items-start gap-2">
-        <span
-          className={cn(
-            "mt-0.5 flex-none rounded-full px-1.5 py-px font-mono text-[9.5px] font-semibold uppercase tracking-[0.1em]",
-            isCompany ? "bg-panel2 text-text2" : "bg-sky-dim text-sky",
-          )}
-        >
-          {isCompany ? "Company" : "Executive"}
-        </span>
+        {/* Only a company is tagged: a face, a name and a title already say what a person's card is. */}
+        {isCompany && (
+          <span className="mt-0.5 flex-none rounded-full bg-panel2 px-1.5 py-px font-mono text-[9.5px] font-semibold uppercase tracking-[0.1em] text-text2">
+            Company
+          </span>
+        )}
         <button
           type="button"
           onClick={onClose}
