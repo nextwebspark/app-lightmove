@@ -10,9 +10,11 @@ export interface GridLayoutColumn {
 export interface GridLayout {
   order: string[];
   widths: Record<string, number>;
+  /** Columns a user froze beyond the grid's own always-pinned one — see `useDataGridTable`. */
+  pinnedIds: string[];
 }
 
-export const EMPTY_GRID_LAYOUT: GridLayout = { order: [], widths: {} };
+export const EMPTY_GRID_LAYOUT: GridLayout = { order: [], widths: {}, pinnedIds: [] };
 
 /** The floor a column without declared layout falls back to, both when laid out and when stored. */
 export const DEFAULT_COLUMN_MIN = 96;
@@ -72,9 +74,13 @@ function read(namespace: string, columns: readonly GridLayoutColumn[]): GridLayo
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
       return EMPTY_GRID_LAYOUT;
     }
-    const record = parsed as { order?: unknown; widths?: unknown };
+    const record = parsed as { order?: unknown; widths?: unknown; pinnedIds?: unknown };
     const floors = new Map(columns.map((column) => [column.id, column.min]));
-    return { order: readOrder(record.order, columns), widths: readWidths(record.widths, floors) };
+    return {
+      order: readOrder(record.order, columns),
+      widths: readWidths(record.widths, floors),
+      pinnedIds: readPinnedIds(record.pinnedIds, columns),
+    };
   } catch {
     return EMPTY_GRID_LAYOUT;
   }
@@ -98,6 +104,17 @@ function readOrder(stored: unknown, columns: readonly GridLayoutColumn[]): strin
     order.splice(Math.min(index, order.length), 0, column.id);
   });
   return order;
+}
+
+/** The stored frozen columns, with ids the grid no longer declares dropped — same rule as `readOrder`. */
+function readPinnedIds(stored: unknown, columns: readonly GridLayoutColumn[]): string[] {
+  if (!Array.isArray(stored)) return [];
+  const declared = new Set(columns.map((column) => column.id));
+  const seen = new Set<string>();
+  return stored.filter(
+    (id): id is string =>
+      typeof id === "string" && declared.has(id) && !seen.has(id) && (seen.add(id), true),
+  );
 }
 
 /** A width below the column's floor would break the layout's `minmax`, so it is raised rather than kept. */

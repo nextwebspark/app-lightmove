@@ -1071,6 +1071,80 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.counts.inUniverse").value(2));
     }
 
+    @Test
+    @DisplayName("the executive-name filter narrows to a mapped company independently of the name one")
+    void listFiltersByExecutiveNameIndependently() throws Exception {
+        String admin = adminOf("Universe Executive Filter Firm");
+        String projectId = project(admin);
+        seedUniverse(UUID.fromString(projectId), actorId(),
+                List.of(row("a1", "Zenith Holdings", 900), row("a2", "Alpha Industrial", 100)));
+        String zenithId = idOfCompanyNamed(projectId, "Zenith Holdings");
+        mapExecutive(admin, projectId, zenithId, "Yasmin El-Sayed", "interested");
+
+        mvc.perform(get(triageUrl(projectId)).param("executiveQuery", "yasmin")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(1))
+                .andExpect(jsonPath("$.companies[0].companyName").value("Zenith Holdings"));
+
+        // The two filters narrow independently — Company and Executive are the grid's own two header
+        // boxes, neither standing in for the other.
+        mvc.perform(get(triageUrl(projectId)).param("q", "alpha").param("executiveQuery", "yasmin")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.totalCount").value(0));
+    }
+
+    @Test
+    @DisplayName("sorting by executive status ranks a company by its best-status executive, unmapped last either way")
+    void listSortsByExecutiveStatus() throws Exception {
+        String admin = adminOf("Universe Executive Status Firm");
+        String projectId = project(admin);
+        seedUniverse(UUID.fromString(projectId), actorId(),
+                List.of(row("a1", "Furthest Along", 100), row("a2", "Just Identified", 200),
+                        row("a3", "Nobody Mapped", 300)));
+        mapExecutive(admin, projectId, idOfCompanyNamed(projectId, "Furthest Along"),
+                "Interested Exec", "interested");
+        mapExecutive(admin, projectId, idOfCompanyNamed(projectId, "Just Identified"),
+                "Identified Exec", "identified");
+
+        mvc.perform(get(triageUrl(projectId)).param("sort", "executiveStatus").param("direction", "asc")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.companies[0].companyName").value("Just Identified"))
+                .andExpect(jsonPath("$.companies[1].companyName").value("Furthest Along"))
+                // Unmapped sinks to the bottom even ascending, rather than opening on "nothing done yet".
+                .andExpect(jsonPath("$.companies[2].companyName").value("Nobody Mapped"));
+
+        mvc.perform(get(triageUrl(projectId)).param("sort", "executiveStatus").param("direction", "desc")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.companies[0].companyName").value("Furthest Along"))
+                .andExpect(jsonPath("$.companies[1].companyName").value("Just Identified"))
+                // NULLS LAST on both directions: Postgres's own default (nulls first, descending) would
+                // otherwise put the least-researched company first on this sort too.
+                .andExpect(jsonPath("$.companies[2].companyName").value("Nobody Mapped"));
+    }
+
+    private String idOfCompanyNamed(String projectId, String companyName) {
+        return db.queryForObject(
+                "SELECT id FROM app_lm_project_triage_company WHERE project_id = ? AND company_name = ?",
+                UUID.class, UUID.fromString(projectId), companyName).toString();
+    }
+
+    private void mapExecutive(String token, String projectId, String triageCompanyId, String fullName,
+                              String status) throws Exception {
+        mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"triageCompanyId":"%s","fullName":"%s","status":"%s"}"""
+                                .formatted(triageCompanyId, fullName, status)))
+                .andExpect(status().isCreated());
+    }
+
+    private static String candidatesUrl(String projectId) {
+        return "/api/v1/projects/" + projectId + "/candidates";
+    }
+
     /** {@code added_by} is a non-null foreign key, so seeding straight at the writer needs a real user. */
     private UUID actorId() {
         return db.queryForObject("SELECT id FROM app_lm_user WHERE email = ?", UUID.class,

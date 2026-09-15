@@ -403,7 +403,7 @@ describe("TriageStagePage", () => {
     await screen.findByText("ACWA Power");
     const grid = screen.getByRole("table", { name: /In universe companies/i });
     await userEvent.click(within(grid).getByTitle(/click to edit/i));
-    const input = within(grid).getByRole("textbox");
+    const input = within(grid).getByRole("textbox", { name: "Note for ACWA Power" });
     await userEvent.type(input, "Called, promising");
     await userEvent.tab();
 
@@ -1184,9 +1184,10 @@ describe("TriageStagePage — full screen", () => {
     renderStage();
     await userEvent.click(await screen.findByRole("button", { name: "Full screen" }));
 
-    expect(screen.getByRole("textbox", { name: /Search companies/i })).toBeInTheDocument();
-    expect(within(await screen.findByRole("table", { name: /In universe companies/i }))
-      .getByText("ACWA Power")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add company" })).toBeInTheDocument();
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+    expect(within(grid).getByRole("textbox", { name: "Filter by company name" })).toBeInTheDocument();
+    expect(within(grid).getByText("ACWA Power")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Full screen" })).toHaveAttribute("aria-pressed", "true");
   });
 

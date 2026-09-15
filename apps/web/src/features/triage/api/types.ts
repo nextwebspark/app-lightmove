@@ -68,7 +68,11 @@ export interface BulkAddResult {
   skipped: number;
 }
 
-/** The columns a Companies grid can be sorted by. Mirrors the server's allowlist token for token. */
+/**
+ * The columns a Companies grid can be sorted by. Mirrors the server's allowlist token for token, plus
+ * `executiveStatus` — kept outside that allowlist on the server (it ranks by a joined table's
+ * aggregate, not a flat property) but still a real, server-ordered sort from here.
+ */
 export type TriageSortField =
   | "name"
   | "sector"
@@ -77,7 +81,8 @@ export type TriageSortField =
   | "employees"
   | "revenue"
   | "founded"
-  | "added";
+  | "added"
+  | "executiveStatus";
 
 /**
  * A company the mandate supplies itself — typed into the Add company form, or read off a live page by

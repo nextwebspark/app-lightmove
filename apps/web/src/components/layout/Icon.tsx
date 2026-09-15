@@ -36,6 +36,9 @@ export const ICONS = {
   expand: "m13 17 5-5-5-5M6 17l5-5-5-5",
   plus: "M12 5v14M5 12h14",
   arrowRight: "M5 12h14M13 6l6 6-6 6",
+  arrowLeft: "M19 12H5M12 19l-7-7 7-7",
+  arrowUp: "M12 19V5M5 12l7-7 7 7",
+  arrowDown: "M12 5v14M19 12l-7 7-7-7",
   /** A check inside a circle — the Position wizard's "this field now holds something" affordance. */
   checkCircle: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M8.5 12.2l2.3 2.3 4.7-4.7",
   uploadCloud: "M12 13v8m0-8-3 3m3-3 3 3M20 16.7A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9",

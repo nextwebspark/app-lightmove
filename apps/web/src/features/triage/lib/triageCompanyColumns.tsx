@@ -102,8 +102,10 @@ const PILL =
  *
  * <p><b>A row is a person at a company, not a company.</b> Executive, Title and Status are the mandate's
  * mapping of who sits there, and a company with three of them is three lines with the company
- * repeated. None of the three sorts: they are not in the server's allowlist, and could not be — the
- * grid is paged by company, so ordering by a person would order a page rather than a result.
+ * repeated. Executive and Title do not sort: neither is in the server's allowlist, and could not be —
+ * the grid is paged by company, so ordering by a person's own field would order a page rather than a
+ * result. Status is the one exception — the server ranks a *company* by the best status among its own
+ * executives, which is a question about the page's companies after all, just answered by a join.
  *
  * <p>Two columns Strategy has are deliberately absent: `Fit`, which has no score to show, and the
  * Facebook and X links, which the snapshot does not carry. One is added — `Source`, last in the order
@@ -344,7 +346,9 @@ const BUILT_IN_COLUMNS = helper.columns([
   helper.accessor((row) => row.candidate?.status ?? null, {
     id: "executiveStatus",
     header: "Status",
-    enableSorting: false,
+    // The one exception to the "person-level fields don't sort" rule below: the server ranks a page
+    // by each company's best-status executive rather than trying to order people directly, over a
+    // query built for exactly this column — see `TriageCompanyRepository`'s executive-status methods.
     meta: { share: 0, min: 104 },
     cell: (info) => {
       const { candidate } = info.row.original;
@@ -420,6 +424,7 @@ const BUILT_IN_COLUMNS = helper.columns([
           editable
           onSave={(next) => meta.onSaveNote(company, next)}
           placeholder="Your own remark…"
+          aria-label={`Note for ${company.companyName}`}
         />
       );
     },
@@ -559,4 +564,5 @@ export const TRIAGE_SORT_FIELDS = [
   "revenue",
   "founded",
   "added",
+  "executiveStatus",
 ] as const satisfies readonly TriageSortField[];

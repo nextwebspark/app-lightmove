@@ -49,12 +49,13 @@ public class TriageCompanyController {
                                                         @PathVariable UUID projectId,
                                                         @RequestParam(required = false) String status,
                                                         @RequestParam(required = false) String q,
+                                                        @RequestParam(required = false) String executiveQuery,
                                                         @RequestParam(required = false) String sort,
                                                         @RequestParam(required = false) String direction,
                                                         @RequestParam(required = false) Integer page,
                                                         @RequestParam(required = false) Integer size) {
         TriageCompanyListCriteria criteria =
-                new TriageCompanyListCriteria(status, q, sort, direction, page, size);
+                new TriageCompanyListCriteria(status, q, executiveQuery, sort, direction, page, size);
         return ResponseEntity.ok(triage.list(principal.requireWorkspaceId(), projectId, criteria));
     }
 

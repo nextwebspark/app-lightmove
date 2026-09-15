@@ -86,4 +86,34 @@ describe("InlineEditCell", () => {
     expect(onSave).toHaveBeenCalledWith("New note");
     expect(await screen.findByDisplayValue("New note")).toBeInTheDocument();
   });
+
+  it("clears an existing value to empty via the Save button", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<InlineEditCell value="Old note" editable onSave={onSave} />);
+
+    await user.click(screen.getByText("Old note"));
+    await user.clear(screen.getByRole("textbox"));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(onSave).toHaveBeenCalledWith("");
+  });
+
+  it("disables Save until the draft actually differs, and Cancel discards it", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<InlineEditCell value="Old note" editable onSave={onSave} />);
+
+    await user.click(screen.getByText("Old note"));
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+
+    const input = screen.getByRole("textbox");
+    await user.type(input, " more");
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByText("Old note")).toBeInTheDocument();
+  });
 });
