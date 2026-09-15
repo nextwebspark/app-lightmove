@@ -7,12 +7,14 @@ import { DetailGrid, DetailPill, DetailTile, DrawerSection } from "../../../comp
 import { Drawer } from "../../../components/ui/Drawer";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate } from "../../../lib/format";
+import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompany, TriageCompanyStatus } from "../api/types";
 import { stageByStatus } from "../lib/triageStages";
-import { MOVES, SOURCE_STYLES } from "../lib/triageVocabulary";
+import { MOVES, removeTooltip, SOURCE_STYLES } from "../lib/triageVocabulary";
+import { useSaveCompanyNote } from "../lib/useSaveCompanyNote";
 import { AddCompanyPanel } from "./AddCompanyPanel";
 import { CompanyFactsForm, editPayloadOf } from "./CompanyFactsForm";
 import { CompanyFactsSections } from "./CompanyFactsSections";
@@ -50,6 +52,7 @@ export function CompanyDrawer({
   onMove,
   onDelete,
   onAddExecutive,
+  onMarkNoExecutiveFound,
 }: {
   open: boolean;
   projectId: string;
@@ -66,6 +69,8 @@ export function CompanyDrawer({
   onDelete: (company: TriageCompany) => void;
   /** Maps somebody at this company, from the panel that is already open on it. */
   onAddExecutive: (company: TriageCompany) => void;
+  /** Flags the company as researched-and-nobody-suitable, from the panel already open on it. */
+  onMarkNoExecutiveFound: (company: TriageCompany) => void;
 }) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
@@ -84,14 +89,9 @@ export function CompanyDrawer({
     onError: (error) => toast(messageFor(error)),
   });
 
-  const saveNote = useMutation({
-    mutationFn: (text: string) =>
-      triageApi.updateTriageCompany(projectId, company!.id, { note: text }),
-    onSuccess: () => {
-      onSaved();
-      toast("Note saved");
-    },
-    onError: (error) => toast(messageFor(error)),
+  const saveNote = useSaveCompanyNote(projectId, onSaved);
+  const handleNoteShortcut = useSubmitShortcut(() => {
+    if (company && note !== (company.note ?? "")) saveNote.mutate({ company, note });
   });
 
   // Reopening should show the company being read, never the half-typed edit that was abandoned.
@@ -160,6 +160,15 @@ export function CompanyDrawer({
                   Add executive
                 </Button>
               )}
+              {canWrite && !company.noExecutiveFound && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => onMarkNoExecutiveFound(company)}
+                >
+                  No executive found
+                </Button>
+              )}
               {canEdit && (
                 <Button type="button" variant="secondary" onClick={() => setEditing(true)}>
                   <Icon d={ICONS.pencil} size={14} />
@@ -226,7 +235,7 @@ export function CompanyDrawer({
                 note !== (company.note ?? "") && (
                   <button
                     type="button"
-                    onClick={() => saveNote.mutate(note)}
+                    onClick={() => saveNote.mutate({ company, note })}
                     disabled={saveNote.isPending}
                     className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-amber transition hover:underline disabled:opacity-50"
                   >
@@ -238,6 +247,7 @@ export function CompanyDrawer({
               <TextArea
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
+                onKeyDown={handleNoteShortcut}
                 readOnly={!canWrite}
                 rows={3}
                 aria-label="Note on this company"
@@ -253,6 +263,7 @@ export function CompanyDrawer({
                   key={move.status}
                   type="button"
                   variant="secondary"
+                  title={move.tooltip}
                   onClick={() => onMove(company, move.status)}
                 >
                   <Icon d={move.icon} size={14} />
@@ -263,6 +274,7 @@ export function CompanyDrawer({
                 type="button"
                 variant="secondary"
                 className="ms-auto text-red"
+                title={removeTooltip(company.companyName)}
                 onClick={() => onDelete(company)}
               >
                 Remove

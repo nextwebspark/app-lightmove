@@ -197,6 +197,9 @@ public class CandidateService {
                 request.triageCompanyId(), source, details));
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
+        if (request.triageCompanyId() != null) {
+            triage.clearNoExecutiveFoundIfSet(projectId, request.triageCompanyId());
+        }
 
         if (source == CandidateSource.EXTENSION && isLinkedInProfileUrl(details.linkedinUrl())) {
             events.publishEvent(new CandidateCapturedEvent(candidate.getId(), projectId,
@@ -231,6 +234,9 @@ public class CandidateService {
         candidate.describe(details);
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
+        if (request.triageCompanyId() != null) {
+            triage.clearNoExecutiveFoundIfSet(projectId, request.triageCompanyId());
+        }
 
         audit.event(ProjectEventType.CANDIDATE_UPDATED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)

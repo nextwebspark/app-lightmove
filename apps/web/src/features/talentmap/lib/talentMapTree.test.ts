@@ -10,6 +10,7 @@ const company = (overrides: Partial<TriageCompany>): TriageCompany => ({
   source: "strategy",
   status: "inUniverse",
   note: null,
+  noExecutiveFound: false,
   companyName: "ACWA Power",
   industry: "oil & energy",
   companyCountry: "Saudi Arabia",

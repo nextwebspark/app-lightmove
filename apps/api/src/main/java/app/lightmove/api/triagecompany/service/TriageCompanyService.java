@@ -160,6 +160,19 @@ public class TriageCompanyService {
     }
 
     /**
+     * The other half of the {@code candidate} seam: called once a candidate is actually mapped to this
+     * company, so "no executive found" cannot outlive the executive that disproves it. A no-op, not a
+     * 404, when the company is not this mandate's or was never flagged — this runs inside someone
+     * else's write and must never be the reason it fails.
+     */
+    @Transactional
+    public void clearNoExecutiveFoundIfSet(UUID projectId, UUID triageCompanyId) {
+        triaged.findByIdAndProjectId(triageCompanyId, projectId)
+                .filter(TriageCompany::isNoExecutiveFound)
+                .ifPresent(company -> company.markNoExecutiveFound(false));
+    }
+
+    /**
      * The mandate's company of that name — how an import resolves a company cell. Oldest first when a
      * mandate holds two: nothing stops Apollo publishing two accounts under one name, so this has to
      * answer deterministically rather than throw.
@@ -499,6 +512,9 @@ public class TriageCompanyService {
         if (request.note() != null) {
             company.annotate(request.note());
         }
+        if (request.noExecutiveFound() != null) {
+            company.markNoExecutiveFound(request.noExecutiveFound());
+        }
 
         audit.event(ProjectEventType.TRIAGE_COMPANY_MOVED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
@@ -705,6 +721,7 @@ public class TriageCompanyService {
     private static TriageCompanyResponse toDto(TriageCompany company) {
         return new TriageCompanyResponse(company.getId(), company.getApolloAccountId(),
                 company.getSource().value(), company.getStatus().value(), company.getNote(),
+                company.isNoExecutiveFound(),
                 company.getCompanyName(), company.getIndustry(), company.getCompanyCountry(),
                 company.getCompanyCity(), company.getNumEmployees(), company.getAnnualRevenue(),
                 company.getWebsite(), company.getCompanyLinkedinUrl(), company.getFoundedYear(),

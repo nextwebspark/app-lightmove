@@ -64,6 +64,30 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("mapping an executive clears a company's no-executive-found flag")
+    void mappingClearsNoExecutiveFound() throws Exception {
+        String projectId = mandate("Clears Flag Firm");
+        String companyId = captureCompany(projectId, "Al Rawabi Dairy");
+
+        mvc.perform(patch("/api/v1/projects/" + projectId + "/triage/" + companyId)
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"noExecutiveFound":true}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.noExecutiveFound").value(true));
+
+        mapTo(projectId, companyId, "Yasmin El-Sayed");
+
+        JsonNode company = body(mvc.perform(get("/api/v1/projects/" + projectId + "/triage")
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isOk())
+                .andReturn()).get("companies").get(0);
+        assertThat(company.get("id").asText()).isEqualTo(companyId);
+        assertThat(company.get("noExecutiveFound").asBoolean()).isFalse();
+    }
+
+    @Test
     @DisplayName("an executive whose employer is not in the universe is mapped to the project alone")
     void unmappedExecutiveKeepsTheirTypedEmployer() throws Exception {
         String projectId = mandate("Unmapped Executive Firm");

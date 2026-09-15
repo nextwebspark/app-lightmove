@@ -25,6 +25,8 @@ export interface TriageCompany {
   source: TriageCompanySource;
   status: TriageCompanyStatus;
   note: string | null;
+  /** Set once the mandate has looked and concluded nobody here fits. Orthogonal to `status`. */
+  noExecutiveFound: boolean;
   companyName: string;
   industry: string | null;
   companyCountry: string | null;

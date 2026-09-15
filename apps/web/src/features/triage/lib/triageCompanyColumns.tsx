@@ -16,15 +16,17 @@ import {
   GRID_ICON_BUTTON,
   type DataGridColumnLayout,
 } from "../../../components/ui/DataGrid";
+import { InlineEditCell } from "../../../components/ui/InlineEditCell";
+import { Select } from "../../../components/ui";
 import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { cn } from "../../../lib/cn";
 import { formatInstantDate, formatMoney } from "../../../lib/format";
-import type { Candidate } from "../../candidates/api/types";
+import type { Candidate, CandidateStatus } from "../../candidates/api/types";
 import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
-import { candidateStatusStyle } from "../../candidates/lib/candidateVocabulary";
+import { candidateStatusStyle, CANDIDATE_STATUSES } from "../../candidates/lib/candidateVocabulary";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
-import { MOVES, SOURCE_STYLES } from "./triageVocabulary";
+import { MOVES, removeTooltip, SOURCE_STYLES } from "./triageVocabulary";
 import type { TriageCompanyRow } from "./triageRows";
 
 /**
@@ -54,6 +56,12 @@ interface TriageTableMeta {
   onDelete: (company: TriageCompany) => void;
   /** Opens the drawer to map someone new at this company. */
   onAddExecutive: (company: TriageCompany) => void;
+  /** Flags a company as researched-and-nobody-suitable, from its own "+ Add executive" cell. */
+  onMarkNoExecutiveFound: (company: TriageCompany) => void;
+  /** Saves the grid's own inline-edited Note cell. */
+  onSaveNote: (company: TriageCompany, note: string) => Promise<unknown>;
+  /** Changes a mapped executive's status from the grid's own Status column. */
+  onChangeCandidateStatus: (candidate: Candidate, status: CandidateStatus) => void;
   /** Opens the drawer on an executive already mapped. */
   onEditCandidate: (candidate: Candidate) => void;
   /** Asks to remove an executive — the one action a row with no company in the universe offers. */
@@ -170,7 +178,7 @@ const BUILT_IN_COLUMNS = helper.columns([
           <span className="flex justify-start gap-1.5">
             <button
               type="button"
-              title={`Remove ${candidate.fullName} from this mandate`}
+              title={`Remove ${candidate.fullName} from this mandate — not remembered; use "Out of scope" to keep a record`}
               aria-label={`Remove ${candidate.fullName} from this mandate`}
               onClick={() => meta.onRemoveCandidate(candidate)}
               className={cn(GRID_ICON_BUTTON, "hover:text-red")}
@@ -197,7 +205,7 @@ const BUILT_IN_COLUMNS = helper.columns([
             <button
               key={move.status}
               type="button"
-              title={move.label}
+              title={move.tooltip ?? move.label}
               aria-label={`${move.label}: ${company.companyName}`}
               disabled={busy}
               onClick={() => meta.onMove(company, move.status)}
@@ -208,7 +216,7 @@ const BUILT_IN_COLUMNS = helper.columns([
           ))}
           <button
             type="button"
-            title={`Remove ${company.companyName} from this mandate`}
+            title={removeTooltip(company.companyName)}
             aria-label={`Remove ${company.companyName} from this mandate`}
             disabled={busy}
             onClick={() => meta.onDelete(company)}
@@ -284,14 +292,39 @@ const BUILT_IN_COLUMNS = helper.columns([
       // A company with nobody mapped is the most useful thing this grid shows, so the empty cell is
       // the invitation rather than a dash.
       if (company && meta?.canWrite) {
+        // Flagged: the mandate already looked and found nobody. Still opens the same form — one
+        // action per cell — so the flag has nothing separate to unset; it clears itself the moment
+        // an executive is actually saved against this company.
+        if (company.noExecutiveFound) {
+          return (
+            <button
+              type="button"
+              onClick={() => meta.onAddExecutive(company)}
+              title="Researched — nobody suitable found. Click to search again."
+              className="rounded-[4px] font-sans text-[13px] text-text3 transition hover:underline"
+            >
+              No executive found
+            </button>
+          );
+        }
         return (
-          <button
-            type="button"
-            onClick={() => meta.onAddExecutive(company)}
-            className="rounded-[4px] font-sans text-[13px] text-amber transition hover:underline"
-          >
-            + Add executive
-          </button>
+          <span className="flex min-w-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => meta.onAddExecutive(company)}
+              className="rounded-[4px] font-sans text-[13px] text-amber transition hover:underline"
+            >
+              + Add executive
+            </button>
+            <button
+              type="button"
+              onClick={() => meta.onMarkNoExecutiveFound(company)}
+              title="Mark this company as researched, with nobody suitable found"
+              className="rounded-[4px] font-mono text-[10.5px] text-text3 transition hover:text-text hover:underline"
+            >
+              No executive found
+            </button>
+          </span>
         );
       }
       return <DataGridCell value={null} />;
@@ -312,9 +345,29 @@ const BUILT_IN_COLUMNS = helper.columns([
     enableSorting: false,
     meta: { share: 0, min: 104 },
     cell: (info) => {
-      const status = info.getValue();
-      if (!status) return <DataGridCell value={null} />;
-      const { label, className } = candidateStatusStyle(status);
+      const { candidate } = info.row.original;
+      const meta = info.table.options.meta;
+      if (!candidate) return <DataGridCell value={null} />;
+
+      if (meta?.canWrite) {
+        return (
+          <Select
+            value={candidate.status}
+            aria-label={`Status for ${candidate.fullName}`}
+            onChange={(event) =>
+              meta.onChangeCandidateStatus(candidate, event.target.value as CandidateStatus)
+            }
+            className="h-7 w-auto px-1.5 py-0 text-[11px]"
+          >
+            {CANDIDATE_STATUSES.map((status) => (
+              <option key={status.value} value={status.value}>
+                {status.label}
+              </option>
+            ))}
+          </Select>
+        );
+      }
+      const { label, className } = candidateStatusStyle(candidate.status);
       return <span className={`${PILL} ${className}`}>{label}</span>;
     },
   }),
@@ -353,7 +406,19 @@ const BUILT_IN_COLUMNS = helper.columns([
     // Not in the server's sort allowlist: alphabetising a remark answers no question.
     enableSorting: false,
     meta: { share: 16, min: 120 },
-    cell: (info) => <DataGridCell value={info.getValue()} muted />,
+    cell: (info) => {
+      const { company } = info.row.original;
+      const meta = info.table.options.meta;
+      if (!company || !meta?.canWrite) return <DataGridCell value={info.getValue()} muted />;
+      return (
+        <InlineEditCell
+          value={info.getValue()}
+          editable
+          onSave={(next) => meta.onSaveNote(company, next)}
+          placeholder="Your own remark…"
+        />
+      );
+    },
   }),
 
   helper.accessor((row) => row.company?.foundedYear ?? null, {

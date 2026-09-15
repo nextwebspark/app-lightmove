@@ -258,6 +258,31 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("no-executive-found is independent of status and note")
+    void noExecutiveFoundIsIndependentOfStatusAndNote() throws Exception {
+        String admin = adminOf("Universe No Exec Firm");
+        String projectId = project(admin);
+        universe.company("a1", "ACWA Power").industry("oil & energy").employees(10).insert();
+        String id = add(admin, projectId, "a1");
+
+        patchUniverse(admin, projectId, id, """
+                {"noExecutiveFound":true}""")
+                .andExpect(jsonPath("$.noExecutiveFound").value(true))
+                .andExpect(jsonPath("$.status").value("inUniverse"));
+
+        // Shortlisting a flagged company must not silently clear the flag.
+        patchUniverse(admin, projectId, id, """
+                {"status":"shortlisted"}""")
+                .andExpect(jsonPath("$.status").value("shortlisted"))
+                .andExpect(jsonPath("$.noExecutiveFound").value(true));
+
+        patchUniverse(admin, projectId, id, """
+                {"noExecutiveFound":false}""")
+                .andExpect(jsonPath("$.noExecutiveFound").value(false))
+                .andExpect(jsonPath("$.status").value("shortlisted"));
+    }
+
+    @Test
     @DisplayName("an unknown status is rejected rather than stored")
     void unknownStatusRejected() throws Exception {
         String admin = adminOf("Universe Bad Status Firm");

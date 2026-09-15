@@ -20,6 +20,7 @@ import {
   type CandidateCompanyContext,
 } from "../../candidates/components/CandidateDrawer";
 import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandidateDialog";
+import { useChangeCandidateStatus } from "../../candidates/lib/useChangeCandidateStatus";
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import { canExecuteProjectWork } from "../../projects/lib/access";
@@ -43,6 +44,7 @@ import {
 import { awaitingResearch, toTriageRows } from "../lib/triageRows";
 import { stageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
 import { useProjectStream, type ProjectStreamKind } from "../lib/useProjectStream";
+import { useSaveCompanyNote } from "../lib/useSaveCompanyNote";
 
 /**
  * The grid's built-in columns for the layout hook. A mandate's own custom columns are deliberately
@@ -413,6 +415,19 @@ function TriageStage() {
     onError: (error) => toast(messageFor(error)),
   });
 
+  const markNoExecutiveFound = useMutation({
+    mutationFn: (company: TriageCompany) =>
+      triageApi.updateTriageCompany(project.id, company.id, { noExecutiveFound: true }),
+    onSuccess: (_result, company) => {
+      refreshEveryStage();
+      toast(`${company.companyName}: marked no executive found`);
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  const saveNote = useSaveCompanyNote(project.id, refreshEveryStage);
+  const changeCandidateStatus = useChangeCandidateStatus(project.id, refreshPeople);
+
   // A page that outlives its rows — the last company on page 3 was moved away — would otherwise sit
   // on an empty grid with no way back but the pager.
   useEffect(() => {
@@ -506,6 +521,11 @@ function TriageStage() {
               company: { triageCompanyId: company.id, companyName: company.companyName },
             })
           }
+          onMarkNoExecutiveFound={(company) => markNoExecutiveFound.mutate(company)}
+          onSaveNote={(company, note) => saveNote.mutateAsync({ company, note })}
+          onChangeCandidateStatus={(candidate, status) =>
+            changeCandidateStatus.mutate({ candidateId: candidate.id, status })
+          }
           onEditCandidate={(candidate) => setProfile({ candidate, company: null })}
           onRemoveCandidate={setPendingCandidateRemoval}
           onOpenCompany={(company) => setOpenCompany({ company })}
@@ -556,6 +576,7 @@ function TriageStage() {
             company: { triageCompanyId: company.id, companyName: company.companyName },
           });
         }}
+        onMarkNoExecutiveFound={(company) => markNoExecutiveFound.mutate(company)}
       />
 
       <CandidateDrawer
