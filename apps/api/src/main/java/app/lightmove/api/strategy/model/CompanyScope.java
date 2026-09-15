@@ -15,6 +15,11 @@ import java.util.List;
  *   <li>{@code marketSegments} are segment names resolved to keyword aliases, because the universe
  *       expresses go-to-market through a free-text {@code keywords} array rather than a column.
  *   <li>{@code offLimitsAccountIds} excludes unconditionally — no toggle, no flagged-but-visible row.
+ *   <li>{@code triagedAccountIds} excludes unconditionally too, the same way — but is only ever
+ *       populated for the Strategy search itself. {@code TriageCompanyService.addAllInScope}/
+ *       {@code addSelected} keep it empty and read the full filter match: they already dedupe
+ *       accurately against held companies through {@code TriageCompanyWriter.insertIgnoringHeld} and
+ *       report a real "already there" count, which pre-filtering here would silently zero out.
  *   <li>{@code nameQuery} changes which companies match, so the total count applies it too.
  * </ul>
  */
@@ -22,7 +27,8 @@ public record CompanyScope(List<String> industries, List<String> keywords,
                            List<String> marketSegments, List<String> countries,
                            List<String> employeeBands, List<String> revenueBands,
                            NumericRange employeeRange, NumericRange revenueRange,
-                           List<String> offLimitsAccountIds, String nameQuery) {
+                           List<String> offLimitsAccountIds, List<String> triagedAccountIds,
+                           String nameQuery) {
 
     public CompanyScope {
         nameQuery = nameQuery == null || nameQuery.isBlank() ? null : nameQuery.trim();
@@ -31,6 +37,6 @@ public record CompanyScope(List<String> industries, List<String> keywords,
     /** The whole universe, narrowed by nothing — what an aggregate over the market as a whole reads. */
     public static CompanyScope unfiltered() {
         return new CompanyScope(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-                null, null, List.of(), null);
+                null, null, List.of(), List.of(), null);
     }
 }

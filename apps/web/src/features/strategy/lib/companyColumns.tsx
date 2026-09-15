@@ -11,17 +11,11 @@ import {
 } from "@tanstack/react-table";
 import { CompanyLink } from "../../../components/ui/CompanyLink";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
-import { DataGridCell, GRID_ICON_BUTTON, type DataGridColumnLayout } from "../../../components/ui/DataGrid";
+import { DataGridCell, type DataGridColumnLayout } from "../../../components/ui/DataGrid";
 import { TruncatedText } from "../../../components/ui/TruncatedText";
-import { Icon, ICONS } from "../../../components/layout/Icon";
+import { ICONS } from "../../../components/layout/Icon";
 import { formatMoney, joined } from "../../../lib/format";
 import type { CompanyResult, CompanySortField } from "../api/types";
-
-/** What the Actions column needs, supplied per render rather than baked into the column defs. */
-interface CompanyTableMeta {
-  onAddToUniverse: (company: CompanyResult) => void;
-  addingIds: ReadonlySet<string>;
-}
 
 /**
  * No pagination, filtering or sorted row model registered: all three are the server's, and a client
@@ -38,7 +32,6 @@ export const companyTableFeatures = tableFeatures({
   rowSelectionFeature,
   rowSortingFeature,
   columnMeta: {} as DataGridColumnLayout,
-  tableMeta: {} as CompanyTableMeta,
 });
 
 const helper = createColumnHelper<typeof companyTableFeatures, CompanyResult>();
@@ -66,32 +59,6 @@ export const companyColumns = helper.columns([
         />
       </span>
     ),
-  }),
-
-  helper.display({
-    id: "actions",
-    header: "Actions",
-    enableSorting: false,
-    enableHiding: false,
-    meta: { share: 0, min: 64 },
-    cell: (info) => {
-      const company = info.row.original;
-      const meta = info.table.options.meta;
-      return (
-        <span className="flex justify-start gap-1.5">
-          <button
-            type="button"
-            title="Add to universe"
-            aria-label={`Add ${company.companyName} to universe`}
-            onClick={() => meta?.onAddToUniverse(company)}
-            disabled={meta?.addingIds.has(company.apolloAccountId)}
-            className={`${GRID_ICON_BUTTON} disabled:opacity-40`}
-          >
-            <Icon d={ICONS.plus} size={14} />
-          </button>
-        </span>
-      );
-    },
   }),
 
   helper.display({

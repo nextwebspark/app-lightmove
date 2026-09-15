@@ -43,9 +43,6 @@ const DEFAULT_SORT: CompanySort = { field: "employees", direction: "desc" };
 /** A stable empty selection, so "nothing ticked" is one identity rather than a new object per render. */
 const NOTHING_SELECTED: RowSelectionState = {};
 
-/** The same, for "no add in flight". */
-const NOTHING_ADDING: ReadonlySet<string> = new Set();
-
 export function StrategyPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
   const strategy = useQuery({
@@ -107,7 +104,6 @@ function StrategyEditor() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [sort, setSort] = useGridSort("strategy", project.id, COMPANY_SORT_FIELDS, DEFAULT_SORT);
-  const [addingIds, setAddingIds] = useState<ReadonlySet<string>>(NOTHING_ADDING);
   const [openCompany, setOpenCompany] = useState<CompanyResult | null>(null);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility(
     "strategy",
@@ -285,10 +281,15 @@ function StrategyEditor() {
     mutationFn: ({ company, status }: { company: CompanyResult; status: TriageCompanyStatus }) =>
       triageApi.addMarketCompany(project.id, company.apolloAccountId, { status }),
     onSuccess: (added, { company, status }) => {
-      void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
+      // Not just the triage prefix: the search excludes a company the moment it is triaged, so the
+      // grid behind this panel has to refetch too, or the row it was just read from lingers on screen
+      // until something else happens to invalidate it.
+      void refreshScopedReads();
       // The stage that comes back, never the one asked for: a company the mandate already holds is
       // returned untouched, so "Shortlisted" on a declined row files nothing. Saying it did would
-      // leave a mandate believing in a shortlist entry that is not there.
+      // leave a mandate believing in a shortlist entry that is not there. The search itself excludes
+      // an already-triaged company, so this only fires from a race — the panel open on a row another
+      // tab just triaged — not from the ordinary path.
       toast(
         added.status === status
           ? `${company.companyName} added to ${stageByStatus(status).label}`
@@ -296,17 +297,6 @@ function StrategyEditor() {
       );
     },
     onError: (error) => toast(messageFor(error)),
-    // Tracked per company rather than as one id: the row's "+" and the panel both fire this, so a
-    // second add starting would otherwise re-enable the first row's button while its POST was still
-    // out, and whichever settled first would clear the other's spinner too.
-    onMutate: ({ company }) =>
-      setAddingIds((busy) => new Set(busy).add(company.apolloAccountId)),
-    onSettled: (_added, _error, { company }) =>
-      setAddingIds((busy) => {
-        const next = new Set(busy);
-        next.delete(company.apolloAccountId);
-        return next;
-      }),
   });
 
   const addAll = useMutation({
@@ -317,7 +307,8 @@ function StrategyEditor() {
       return triageApi.addAllInScope(project.id);
     },
     onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
+      // Every company just taken in stops matching the search that found it.
+      void refreshScopedReads();
       toast(
         `Added ${result.added} companies to universe${result.skipped > 0 ? `, ${result.skipped} already there` : ""}`,
       );
@@ -336,7 +327,8 @@ function StrategyEditor() {
     mutationFn: (status: TriageCompanyStatus) =>
       triageApi.addSelectedCompanies(project.id, selectedIds, status),
     onSuccess: (result, status) => {
-      void queryClient.invalidateQueries({ queryKey: triageApi.TRIAGE_KEY_PREFIX(project.id) });
+      // Every company just moved stops matching the search that found it.
+      void refreshScopedReads();
       clearSelection();
       // Every one skipped is a company the mandate already holds, and it keeps the stage it is at —
       // so saying so is the difference between "nothing happened" and "they were already there".
@@ -412,8 +404,6 @@ function StrategyEditor() {
               onLayoutChange={setLayout}
               loading={companies.isFetching}
               error={companies.isError}
-              onAddToUniverse={(company) => addOne.mutate({ company, status: "inUniverse" })}
-              addingIds={addingIds}
               rowSelection={rowSelection}
               onRowSelectionChange={setRowSelection}
               onOpenCompany={setOpenCompany}
