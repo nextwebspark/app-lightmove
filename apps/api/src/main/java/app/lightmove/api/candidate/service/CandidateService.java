@@ -197,9 +197,6 @@ public class CandidateService {
                 request.triageCompanyId(), source, details));
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
-        if (request.triageCompanyId() != null) {
-            triage.clearNoExecutiveFoundIfSet(projectId, request.triageCompanyId());
-        }
 
         if (source == CandidateSource.EXTENSION && isLinkedInProfileUrl(details.linkedinUrl())) {
             events.publishEvent(new CandidateCapturedEvent(candidate.getId(), projectId,
@@ -234,9 +231,6 @@ public class CandidateService {
         candidate.describe(details);
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
-        if (request.triageCompanyId() != null) {
-            triage.clearNoExecutiveFoundIfSet(projectId, request.triageCompanyId());
-        }
 
         audit.event(ProjectEventType.CANDIDATE_UPDATED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
@@ -390,7 +384,9 @@ public class CandidateService {
 
     /**
      * Where a candidate sits. A named company is resolved through {@code triagecompany}'s public seam,
-     * which proves it belongs to this mandate — so one cannot be filed against another project's.
+     * which proves it belongs to this mandate — so one cannot be filed against another project's — and
+     * clears that company's {@code noExecutiveFound} flag as a side effect of the same resolution,
+     * since mapping someone here is exactly the event that disproves it.
      */
     private CandidateDetails detailsOf(UUID projectId, SaveCandidateRequest request) {
         CandidateDetails details = new CandidateDetails(

@@ -150,26 +150,17 @@ public class TriageCompanyService {
     /**
      * One of this mandate's own company rows — the seam {@code candidate} maps an executive through.
      * It adds that the company belongs to <i>that</i> project, so a candidate cannot be filed against
-     * another mandate's company by id.
-     */
-    @Transactional(readOnly = true)
-    public TriageCompanyResponse requireCompanyOfProject(UUID projectId, UUID triageCompanyId) {
-        return triaged.findByIdAndProjectId(triageCompanyId, projectId)
-                .map(TriageCompanyService::toDto)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-    }
-
-    /**
-     * The other half of the {@code candidate} seam: called once a candidate is actually mapped to this
-     * company, so "no executive found" cannot outlive the executive that disproves it. A no-op, not a
-     * 404, when the company is not this mandate's or was never flagged — this runs inside someone
-     * else's write and must never be the reason it fails.
+     * another mandate's company by id, and it clears {@code noExecutiveFound} as part of that
+     * resolution: an executive being mapped here is exactly the event that disproves the flag, so
+     * "nobody here fits" cannot outlive it. Runs inside the candidate write this backs — a validation
+     * failure afterward (a duplicate name, a held profile) rolls the clear back with everything else.
      */
     @Transactional
-    public void clearNoExecutiveFoundIfSet(UUID projectId, UUID triageCompanyId) {
-        triaged.findByIdAndProjectId(triageCompanyId, projectId)
-                .filter(TriageCompany::isNoExecutiveFound)
-                .ifPresent(company -> company.markNoExecutiveFound(false));
+    public TriageCompanyResponse requireCompanyOfProject(UUID projectId, UUID triageCompanyId) {
+        TriageCompany company = triaged.findByIdAndProjectId(triageCompanyId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        company.setNoExecutiveFound(false);
+        return toDto(company);
     }
 
     /**
@@ -513,13 +504,22 @@ public class TriageCompanyService {
             company.annotate(request.note());
         }
         if (request.noExecutiveFound() != null) {
-            company.markNoExecutiveFound(request.noExecutiveFound());
+            company.setNoExecutiveFound(request.noExecutiveFound());
         }
 
-        audit.event(ProjectEventType.TRIAGE_COMPANY_MOVED)
+        // The event type is the pre-existing one regardless of which fields moved: this endpoint has
+        // always answered a note-only edit the same way. The detail flags make that legible rather than
+        // renaming the event, so a note edit or a flag toggle does not read as a stage change.
+        var event = audit.event(ProjectEventType.TRIAGE_COMPANY_MOVED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
-                .detail("triageCompanyId", triageCompanyId.toString())
-                .record();
+                .detail("triageCompanyId", triageCompanyId.toString());
+        if (request.status() != null) {
+            event = event.detail("status", request.status());
+        }
+        if (request.noExecutiveFound() != null) {
+            event = event.detail("noExecutiveFound", String.valueOf(request.noExecutiveFound()));
+        }
+        event.record();
         return toDto(company);
     }
 

@@ -363,6 +363,39 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("remapping an executive onto a company clears its no-executive-found flag")
+    void remappingClearsNoExecutiveFound() throws Exception {
+        String projectId = mandate("Remap Clears Flag Firm");
+        String almarai = captureCompany(projectId, "Almarai");
+        String nadec = captureCompany(projectId, "NADEC");
+        String candidateId = mapTo(projectId, almarai, "Omar Haddad");
+
+        mvc.perform(patch("/api/v1/projects/" + projectId + "/triage/" + nadec)
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"noExecutiveFound":true}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.noExecutiveFound").value(true));
+
+        mvc.perform(put(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"triageCompanyId":"%s","fullName":"Omar Haddad"}
+                                """.formatted(nadec)))
+                .andExpect(status().isOk());
+
+        // Newest first: NADEC was captured after Almarai, so it is the first row.
+        JsonNode company = body(mvc.perform(get("/api/v1/projects/" + projectId + "/triage")
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isOk())
+                .andReturn()).get("companies").get(0);
+        assertThat(company.get("id").asText()).isEqualTo(nadec);
+        assertThat(company.get("noExecutiveFound").asBoolean()).isFalse();
+    }
+
+    @Test
     @DisplayName("removing a company from the mandate unmaps its people rather than deleting them")
     void removingACompanyLeavesItsPeopleUnmapped() throws Exception {
         String projectId = mandate("Company Removal Firm");

@@ -56,7 +56,7 @@ public class TriageCompany extends BaseEntity {
     /**
      * Set once the mandate has looked and concluded nobody here fits — orthogonal to {@code status},
      * since a company can be shortlisted and still carry this. Cleared automatically the moment an
-     * executive is actually mapped here; see {@code TriageCompanyService.clearNoExecutiveFoundIfSet}.
+     * executive is actually mapped here; see {@code TriageCompanyService.requireCompanyOfProject}.
      */
     @Column(name = "no_executive_found", nullable = false)
     private boolean noExecutiveFound = false;
@@ -222,7 +222,7 @@ public class TriageCompany extends BaseEntity {
         this.note = newNote == null || newNote.isBlank() ? null : newNote.trim();
     }
 
-    public void markNoExecutiveFound(boolean value) {
+    public void setNoExecutiveFound(boolean value) {
         this.noExecutiveFound = value;
     }
 }
