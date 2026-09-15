@@ -1186,6 +1186,7 @@ describe("TriageStagePage — full screen", () => {
 
     expect(screen.getByRole("button", { name: "Add company" })).toBeInTheDocument();
     const grid = await screen.findByRole("table", { name: /In universe companies/i });
+    await userEvent.click(within(grid).getByRole("button", { name: "Company column menu" }));
     expect(within(grid).getByRole("textbox", { name: "Filter by company name" })).toBeInTheDocument();
     expect(within(grid).getByText("ACWA Power")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Full screen" })).toHaveAttribute("aria-pressed", "true");

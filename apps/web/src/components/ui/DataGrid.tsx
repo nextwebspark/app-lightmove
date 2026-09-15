@@ -37,7 +37,7 @@ export interface DataGridColumnLayout {
   min: number;
 }
 
-/** One column's own text filter, drawn in a row beneath the header labels — "at the top of the column". */
+/** One column's own text filter, offered as a "Filter by" section of that column's header menu. */
 export interface DataGridColumnFilter {
   value: string;
   onChange: (value: string) => void;
@@ -194,9 +194,8 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
    */
   onEditColumn?: (columnId: string) => void;
   /**
-   * A text filter drawn under a column's label — "type a few letters" narrowing, keyed by column id.
-   * A column with no entry renders an empty cell instead, so the row still lines up beneath the
-   * columns that do have one.
+   * A text filter offered from a column's own header menu — "type a few letters" narrowing, keyed by
+   * column id. A column with no entry gets no "Filter by" section on its menu.
    */
   columnFilters?: Record<string, DataGridColumnFilter>;
 }) {
@@ -251,7 +250,6 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   }, [pinnedIds.join(","), layout.widths]);
 
   const { cols, min } = templateOf(visibleColumns, layout.widths);
-  const hasColumnFilters = columnFilters !== undefined && Object.keys(columnFilters).length > 0;
 
   const setWidth = (column: GridColumn<TData>, width: number) => {
     onLayoutChange({ ...layout, widths: { ...layout.widths, [column.id]: width } });
@@ -502,6 +500,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                         column={column}
                         visibleColumns={visibleColumns}
                         frozen={layout.pinnedIds.includes(column.id)}
+                        filter={columnFilters?.[column.id]}
                         onMove={moveByStep}
                         onFreeze={setFrozen}
                         onEditColumn={onEditColumn}
@@ -537,41 +536,6 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
               );
             })}
           </div>
-
-          {hasColumnFilters && (
-            <div role="row" style={track} className="grid items-center gap-3 border-t border-line-soft py-1.5">
-              {headerGroup.headers.map((header) => {
-                const column = header.column;
-                const filter = columnFilters?.[column.id];
-                const pinned = column.getIsPinned();
-                return (
-                  <div
-                    key={header.id}
-                    role="cell"
-                    style={
-                      pinned === "start" ? { insetInlineStart: pinnedOffsets[column.id] ?? 0 } : undefined
-                    }
-                    className={cn(
-                      "min-w-0",
-                      pinned === "start" && `${PINNED_START} z-10 self-stretch bg-panel2`,
-                      !pinned && "first:ps-4 last:pe-4",
-                    )}
-                  >
-                    {filter && (
-                      <input
-                        type="text"
-                        value={filter.value}
-                        onChange={(event) => filter.onChange(event.target.value)}
-                        placeholder={filter.placeholder}
-                        aria-label={filter["aria-label"]}
-                        className="h-7 w-full min-w-0 rounded-[4px] border border-line bg-panel px-2 font-sans text-[12px] text-text outline-none placeholder:text-text3 focus:border-sky"
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
           </div>
         ))}
 
@@ -744,17 +708,18 @@ function titleOf<TData extends RowData>(column: GridColumn<TData>): string {
 }
 
 /**
- * The menu every column header opens on click: sort, move, freeze, and — for a mandate's own column —
- * edit. Standardised rather than scattered across per-column affordances, so a reader learns the one
- * place every column's behaviour lives instead of a different gesture per column.
+ * The menu every column header opens on click: sort, move, freeze, filter, and — for a mandate's own
+ * column — edit. Standardised rather than scattered across per-column affordances, so a reader learns
+ * the one place every column's behaviour lives instead of a different gesture per column.
  *
- * <p>Hidden entirely when it would offer nothing: a column that cannot sort, move, freeze or (being
- * built in) be edited has no menu to open, not an empty one.
+ * <p>Hidden entirely when it would offer nothing: a column that cannot sort, move, freeze, filter or
+ * (being built in) be edited has no menu to open, not an empty one.
  */
 function HeaderMenu<TData extends RowData>({
   column,
   visibleColumns,
   frozen,
+  filter,
   onMove,
   onFreeze,
   onEditColumn,
@@ -763,6 +728,10 @@ function HeaderMenu<TData extends RowData>({
   visibleColumns: readonly GridColumn<TData>[];
   /** Whether this is the one column, beyond the grid's own always-pinned one, that a user froze. */
   frozen: boolean;
+  /** This column's own text filter, if the caller offers one — narrowed here rather than in a row of
+   *  its own under the header labels, so a filtered column reads like a sorted or frozen one: a state
+   *  set from the same menu, not a second control competing for the same strip of space. */
+  filter?: DataGridColumnFilter;
   onMove: (column: GridColumn<TData>, step: 1 | -1) => void;
   onFreeze: (column: GridColumn<TData>, freeze: boolean) => void;
   onEditColumn?: (columnId: string) => void;
@@ -778,19 +747,58 @@ function HeaderMenu<TData extends RowData>({
   const canMoveLeft = !pinned && !!leftNeighbour && !leftNeighbour.getIsPinned();
   const canMoveRight = !pinned && !!rightNeighbour && !rightNeighbour.getIsPinned();
   const editable = !!onEditColumn && column.id.startsWith("custom:");
+  const filtered = !!filter?.value;
 
-  if (!sortable && !canMoveLeft && !canMoveRight && structurallyPinned && !editable) return null;
+  if (!sortable && !canMoveLeft && !canMoveRight && structurallyPinned && !editable && !filter) {
+    return null;
+  }
 
   return (
     <Popover
       label={`${titleOf(column)} column menu`}
       align="left"
       width={190}
-      trigger={() => <Icon d={ICONS.chevronDown} size={12} />}
-      triggerClassName="grid size-5 shrink-0 place-items-center rounded-[4px] text-text3 opacity-0 transition hover:bg-panel2 hover:text-text group-hover/header:opacity-100 aria-expanded:opacity-100 focus-visible:opacity-100"
+      trigger={() => <Icon d={filtered ? ICONS.filter : ICONS.chevronDown} size={12} />}
+      triggerClassName={cn(
+        "grid size-5 shrink-0 place-items-center rounded-[4px] transition hover:bg-panel2",
+        "aria-expanded:opacity-100 focus-visible:opacity-100",
+        filtered
+          ? "text-sky opacity-100"
+          : "text-text3 opacity-0 hover:text-text group-hover/header:opacity-100",
+      )}
     >
       {(close) => (
         <div className="flex flex-col">
+          {filter && (
+            <>
+              <div className="px-2.5 py-1.5">
+                <label className="mb-1 block font-sans text-[11px] font-medium text-text3">
+                  Filter by
+                </label>
+                <input
+                  type="text"
+                  value={filter.value}
+                  onChange={(event) => filter.onChange(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") close();
+                  }}
+                  placeholder={filter.placeholder}
+                  aria-label={filter["aria-label"]}
+                  className="h-7 w-full min-w-0 rounded-[4px] border border-line bg-panel px-2 font-sans text-[12px] text-text outline-none placeholder:text-text3 focus:border-sky"
+                />
+                <button
+                  type="button"
+                  onClick={close}
+                  className="mt-1.5 w-full rounded-[6px] bg-amber-btn px-2.5 py-1.5 font-sans text-[12px] font-semibold text-on-amber transition hover:brightness-105"
+                >
+                  Apply
+                </button>
+              </div>
+              {(sortable || canMoveLeft || canMoveRight || !structurallyPinned || editable) && (
+                <div className="my-1 border-t border-line-soft" />
+              )}
+            </>
+          )}
           {sortable && (
             <MenuItem
               icon={ICONS.arrowUp}
