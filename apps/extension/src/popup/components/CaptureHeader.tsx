@@ -1,5 +1,5 @@
 import type { WorkspaceUser } from "../../api/types";
-import { BrandTile, InitialsAvatar } from "./PopupChrome";
+import { BrandMark, InitialsAvatar } from "./PopupChrome";
 import { ICONS } from "../lib/icons";
 import { Icon } from "./Icon";
 
@@ -13,8 +13,8 @@ interface CaptureHeaderProps {
 export function CaptureHeader({ user, onOpenSettings, onSignOut }: CaptureHeaderProps) {
   return (
     <header className="flex items-center gap-[9px] border-b border-line-soft px-3.5 py-[11px]">
-      <BrandTile />
-      <span className="flex-1 font-mono text-[12.5px] font-semibold tracking-[0.02em]">Capture</span>
+      <BrandMark />
+      <span className="flex-1 font-mono text-[12.5px] font-semibold tracking-[0.02em]">UNCAVA Capture</span>
       <button
         type="button"
         onClick={onOpenSettings}

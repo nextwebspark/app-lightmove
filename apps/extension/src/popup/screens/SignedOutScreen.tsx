@@ -1,6 +1,6 @@
 import { askServiceWorker } from "../../background/extensionMessages";
 import { extensionConnectUrl } from "../../workspaceOrigin";
-import { BrandTile, PopupShell } from "../components/PopupChrome";
+import { BrandMark, PopupShell } from "../components/PopupChrome";
 import { Icon } from "../components/Icon";
 import { ICONS } from "../lib/icons";
 
@@ -25,18 +25,13 @@ export function SignedOutScreen({ onConnected }: SignedOutScreenProps) {
   return (
     <PopupShell>
       <header className="flex items-center gap-[9px] border-b border-line-soft px-3.5 py-[11px]">
-        <BrandTile />
-        <span className="font-mono text-[13px] font-semibold tracking-[0.02em]">Uncava Capture</span>
+        <BrandMark />
+        <span className="font-mono text-[13px] font-semibold tracking-[0.02em]">UNCAVA Capture</span>
       </header>
 
       <div className="flex flex-1 flex-col items-center justify-center px-3.5 text-center">
-        <span
-          className="grid h-11 w-11 place-items-center rounded-xl border border-line bg-panel2 text-text3"
-          aria-hidden
-        >
-          <Icon d={ICONS.lock} size={20} />
-        </span>
-        <h1 className="mt-3.5 text-[15px] font-semibold">Connect to Uncava</h1>
+        <BrandMark className="h-14" />
+        <h1 className="mt-4 text-[15px] font-semibold">Connect to UNCAVA</h1>
         <p className="mt-2 max-w-[280px] text-[12.5px] leading-[1.6] text-text2">
           Open your workspace to link this extension to your account. You will not need to sign in
           again here.
