@@ -13,7 +13,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DataGrid, type DataGridColumnLayout } from "./DataGrid";
+import { DataGrid, type DataGridColumnFilter, type DataGridColumnLayout } from "./DataGrid";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, type GridLayout } from "../../lib/useGridLayout";
 
 interface Row {
@@ -48,7 +48,13 @@ const DATA: Row[] = [{ name: "Aramco", sector: "Energy", revenue: "$1bn" }];
 
 const onSort = vi.fn();
 
-function Harness({ onLayout }: { onLayout?: (layout: GridLayout) => void }) {
+function Harness({
+  onLayout,
+  columnFilters,
+}: {
+  onLayout?: (layout: GridLayout) => void;
+  columnFilters?: Record<string, DataGridColumnFilter>;
+}) {
   const [layout, setLayout] = useState<GridLayout>(EMPTY_GRID_LAYOUT);
   const table = useTable({
     features,
@@ -77,6 +83,7 @@ function Harness({ onLayout }: { onLayout?: (layout: GridLayout) => void }) {
         setLayout(next);
         onLayout?.(next);
       }}
+      columnFilters={columnFilters}
     />
   );
 }
@@ -298,5 +305,51 @@ describe("DataGrid columns", () => {
       { id: "sector", min: 140 },
       { id: "revenue", min: 120 },
     ]);
+  });
+});
+
+describe("DataGrid header menu — Filter by", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it("offers a Filter by section, pre-filled with the current value, only for a column with one", async () => {
+    const onChange = vi.fn();
+    render(<Harness columnFilters={{ sector: { value: "Ener", onChange, "aria-label": "Filter by sector" } }} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+
+    expect(screen.getByRole("textbox", { name: "Filter by sector" })).toHaveValue("Ener");
+
+    // Revenue has no entry in columnFilters, so its own menu offers no Filter by section.
+    await userEvent.click(screen.getByRole("button", { name: "Revenue column menu" }));
+    expect(screen.queryByText("Filter by")).not.toBeInTheDocument();
+  });
+
+  it("narrows as you type", async () => {
+    const onChange = vi.fn();
+    render(<Harness columnFilters={{ sector: { value: "", onChange, "aria-label": "Filter by sector" } }} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    // The harness's filter value never changes (onChange is a plain spy), so each keystroke re-renders
+    // the input back to its fixed "" prop — each character therefore arrives as its own call.
+    await userEvent.type(screen.getByRole("textbox", { name: "Filter by sector" }), "Ene");
+
+    expect(onChange.mock.calls).toEqual([["E"], ["n"], ["e"]]);
+  });
+
+  it("closes on Apply, and on Enter, without touching the already-applied value", async () => {
+    const onChange = vi.fn();
+    render(<Harness columnFilters={{ sector: { value: "Energy", onChange, "aria-label": "Filter by sector" } }} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    await userEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.queryByRole("textbox", { name: "Filter by sector" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    screen.getByRole("textbox", { name: "Filter by sector" }).focus();
+    await userEvent.keyboard("{Enter}");
+
+    expect(screen.queryByRole("textbox", { name: "Filter by sector" })).not.toBeInTheDocument();
   });
 });

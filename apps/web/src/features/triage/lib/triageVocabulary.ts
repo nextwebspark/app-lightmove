@@ -19,7 +19,12 @@ export interface TriageMove {
   status: TriageCompanyStatus;
   label: string;
   icon: string;
+  /** Read on hover. Only Decline carries one — it is the move easy to mistake for the trash bin. */
+  tooltip?: string;
 }
+
+/** What clicking Decline means, versus the trash bin beside it — read by the grid and the drawer alike. */
+const DECLINE_TOOLTIP = "Decline — kept as a record that this company was assessed and ruled out";
 
 /**
  * The moves a stage offers, keyed by where the company currently is. A company is never offered the
@@ -28,14 +33,23 @@ export interface TriageMove {
 export const MOVES: Record<TriageCompanyStatus, TriageMove[]> = {
   inUniverse: [
     { status: "shortlisted", label: "Shortlist", icon: ICONS.star },
-    { status: "declined", label: "Decline", icon: ICONS.close },
+    { status: "declined", label: "Decline", icon: ICONS.close, tooltip: DECLINE_TOOLTIP },
   ],
   shortlisted: [
     { status: "inUniverse", label: "Back to universe", icon: ICONS.globe },
-    { status: "declined", label: "Decline", icon: ICONS.close },
+    { status: "declined", label: "Decline", icon: ICONS.close, tooltip: DECLINE_TOOLTIP },
   ],
   declined: [
     { status: "inUniverse", label: "Back to universe", icon: ICONS.globe },
     { status: "shortlisted", label: "Shortlist", icon: ICONS.star },
   ],
 };
+
+/**
+ * What the trash bin means, for the grid's row action and the drawer's footer button alike — read on
+ * hover beside {@link MOVES}' own Decline tooltip, so the two explain the difference between them
+ * rather than each explaining only itself.
+ */
+export function removeTooltip(companyName: string): string {
+  return `Remove ${companyName} from this mandate — not remembered; use Decline to keep a record`;
+}

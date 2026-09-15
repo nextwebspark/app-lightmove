@@ -13,6 +13,7 @@ import {
 } from "@tanstack/react-table";
 import {
   Fragment,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -22,6 +23,7 @@ import {
 } from "react";
 import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
+import { Popover } from "./Popover";
 import { TruncatedText } from "./TruncatedText";
 import { DEFAULT_COLUMN_MIN, type GridLayout } from "../../lib/useGridLayout";
 
@@ -33,6 +35,14 @@ import { DEFAULT_COLUMN_MIN, type GridLayout } from "../../lib/useGridLayout";
 export interface DataGridColumnLayout {
   share: number;
   min: number;
+}
+
+/** One column's own text filter, offered as a "Filter by" section of that column's header menu. */
+export interface DataGridColumnFilter {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  "aria-label": string;
 }
 
 /**
@@ -71,8 +81,11 @@ const KEYBOARD_RESIZE_STEP = 16;
 const KEYBOARD_RESIZE_LEAP = 64;
 
 // A shadow rather than a border: a border would join the grid track and shift every column by a
-// pixel. The opaque background stops the scrolling columns showing through the pinned one.
-const PINNED_START = "sticky start-0 ps-4 shadow-[1px_0_0_0_var(--color-line-soft)]";
+// pixel. The opaque background stops the scrolling columns showing through the pinned one. No
+// `start-0` here — a grid can have more than one pinned-start column (the always-pinned one, plus at
+// most one a user froze from the header menu), and each needs its own offset, applied inline below,
+// rather than every pinned cell sticking to the same edge and overlapping.
+const PINNED_START = "sticky ps-4 shadow-[1px_0_0_0_var(--color-line-soft)]";
 
 // The row centres its cells, so without `self-stretch` an opaque cell is a band with daylight
 // above and below it, and the scrolling columns slide through the gaps.
@@ -132,6 +145,8 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   fit = "fill",
   renderCard,
   onRowClick,
+  onEditColumn,
+  columnFilters,
 }: {
   table: ReactTable<TFeatures, TData>;
   /** Names the grid for screen readers — "Companies", "Shortlisted companies". */
@@ -172,6 +187,17 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
    * inside a cell keeps its own click: a button or link in a row is never also the row.
    */
   onRowClick?: (row: TData) => void;
+  /**
+   * Opens a mandate's own column for rename, from its header menu's "Edit field" — left out entirely
+   * by a caller with no custom columns, which is what keeps the item off every built-in column's menu
+   * and off every column in a grid (Strategy's) that has none at all.
+   */
+  onEditColumn?: (columnId: string) => void;
+  /**
+   * A text filter offered from a column's own header menu — "type a few letters" narrowing, keyed by
+   * column id. A column with no entry gets no "Filter by" section on its menu.
+   */
+  columnFilters?: Record<string, DataGridColumnFilter>;
 }) {
   /*
    * The one cast, and the reason GridFeatures exists. Every caller registers at least those four
@@ -190,6 +216,38 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   // a flag only a movable header could clear ate its next sort.
   const draggedRef = useRef(false);
   const [announcement, setAnnouncement] = useState("");
+
+  const pinnedIds = visibleColumns
+    .filter((column) => column.getIsPinned() === "start")
+    .map((column) => column.id);
+  const [pinnedOffsets, setPinnedOffsets] = useState<Record<string, number>>({});
+
+  // Pinned-start columns stack left to right rather than all sticking to the scroll edge, so each
+  // needs its own offset — the sum of the pinned columns before it. Measured rather than computed from
+  // declared widths: a pinned column can be a flexible `fr` track (the always-pinned one is), whose
+  // rendered width is only known once painted. `useLayoutEffect` for the first measurement so it lands
+  // before paint; the observer catches everything after — a column resize, the viewport, a sidebar.
+  useLayoutEffect(() => {
+    const box = scrollRef.current;
+    if (!box) return;
+    const measure = () => {
+      let cumulative = 0;
+      const next: Record<string, number> = {};
+      for (const id of pinnedIds) {
+        next[id] = cumulative;
+        cumulative += cellOf(box, id)?.getBoundingClientRect().width ?? 0;
+      }
+      setPinnedOffsets(next);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    return () => observer.disconnect();
+    // Keyed on the pinned set's own identity, not `pinnedIds` itself — a fresh array every render off
+    // `visibleColumns` — which would rerun this on every paint rather than only when what it measures
+    // could actually differ.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinnedIds.join(","), layout.widths]);
 
   const { cols, min } = templateOf(visibleColumns, layout.widths);
 
@@ -290,14 +348,29 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
     moveColumn(grid, session.column, session.target.id, setAnnouncement);
   };
 
+  // Shared by the Alt+Arrow keyboard shortcut below and the header menu's Move left/right — one rule
+  // for what a legal move is, so the two cannot disagree about it.
+  const moveByStep = (column: GridColumn<TData>, step: 1 | -1) => {
+    const neighbour = visibleColumns[column.getIndex() + step];
+    if (!neighbour || neighbour.getIsPinned()) return;
+    moveColumn(grid, column, neighbour.id, setAnnouncement);
+  };
+
+  const setFrozen = (column: GridColumn<TData>, freeze: boolean) => {
+    // Capped at one: a pinned column is `sticky` at a left offset equal to the pinned columns before
+    // it, measured above — correct for the always-pinned column plus one more, but stacking a second
+    // frozen column on top of that would need every one of them re-measured and re-offset on every
+    // resize, for a case no grid here has asked for yet.
+    onLayoutChange({ ...layout, pinnedIds: freeze ? [column.id] : [] });
+    setAnnouncement(freeze ? `${titleOf(column)} frozen` : `${titleOf(column)} unfrozen`);
+  };
+
   const onHeaderKeyDown = (event: KeyboardEvent, column: GridColumn<TData>) => {
     if (!event.altKey || !isMovable(column)) return;
     const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
     if (step === 0) return;
-    const neighbour = visibleColumns[column.getIndex() + step];
-    if (!neighbour || neighbour.getIsPinned()) return;
     event.preventDefault();
-    moveColumn(grid, column, neighbour.id, setAnnouncement);
+    moveByStep(column, step);
   };
 
   const onHandleKeyDown = (event: KeyboardEvent, column: GridColumn<TData>) => {
@@ -352,11 +425,14 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
         className="flex min-h-0 flex-1 flex-col overflow-auto"
       >
         {grid.getHeaderGroups().map((headerGroup) => (
+          // One sticky wrapper for both rows rather than stickying each on its own: the filter row's
+          // own `top` would have to equal the label row's rendered height, which this component does
+          // not otherwise need to know and would have to keep in sync with its own padding by hand.
+          <div key={headerGroup.id} className="sticky top-0 z-20 flex-none border-b border-line bg-panel2">
           <div
-            key={headerGroup.id}
             role="row"
             style={track}
-            className="sticky top-0 z-20 grid flex-none items-center gap-3 border-b border-line bg-panel2 py-2.5"
+            className="grid items-center gap-3 py-2.5"
           >
             {headerGroup.headers.map((header, index) => {
               const column = header.column;
@@ -387,8 +463,9 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                   aria-keyshortcuts={movable ? "Alt+ArrowLeft Alt+ArrowRight" : undefined}
                   // The sort button is the tab stop where there is one; without it the cell is.
                   tabIndex={movable && !sortable ? 0 : undefined}
+                  style={pinned === "start" ? { insetInlineStart: pinnedOffsets[column.id] ?? 0 } : undefined}
                   className={cn(
-                    "relative min-w-0",
+                    "group/header relative min-w-0",
                     movable && "cursor-grab",
                     // The gutter travels with the pinned cell; padding on the row would scroll out from under it.
                     pinned === "start" && `${PINNED_START} z-10 self-stretch bg-panel2`,
@@ -398,24 +475,37 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                   {/* The slot rides the first column, which in every caller is the pinned one, so
                       the boxes stay on screen when the row scrolls away from its own name. */}
                   <LeadingSlot lead={index === 0 && headerLead}>
-                    {sortable ? (
-                      <button
-                        type="button"
-                        // A drag that crossed the threshold is a move, and must not also sort.
-                        onClick={(event) => {
-                          if (draggedRef.current) {
-                            draggedRef.current = false;
-                            return;
-                          }
-                          column.getToggleSortingHandler()?.(event);
-                        }}
-                        className="block w-full text-left transition hover:opacity-80"
-                      >
-                        {label}
-                      </button>
-                    ) : (
-                      label
-                    )}
+                    <span className="flex min-w-0 items-center gap-1">
+                      <span className="min-w-0 flex-1">
+                        {sortable ? (
+                          <button
+                            type="button"
+                            // A drag that crossed the threshold is a move, and must not also sort.
+                            onClick={(event) => {
+                              if (draggedRef.current) {
+                                draggedRef.current = false;
+                                return;
+                              }
+                              column.getToggleSortingHandler()?.(event);
+                            }}
+                            className="block w-full text-left transition hover:opacity-80"
+                          >
+                            {label}
+                          </button>
+                        ) : (
+                          label
+                        )}
+                      </span>
+                      <HeaderMenu
+                        column={column}
+                        visibleColumns={visibleColumns}
+                        frozen={layout.pinnedIds.includes(column.id)}
+                        filter={columnFilters?.[column.id]}
+                        onMove={moveByStep}
+                        onFreeze={setFrozen}
+                        onEditColumn={onEditColumn}
+                      />
+                    </span>
                   </LeadingSlot>
 
                   <span
@@ -445,6 +535,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                 </div>
               );
             })}
+          </div>
           </div>
         ))}
 
@@ -501,6 +592,11 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                     <div
                       key={cell.id}
                       role="cell"
+                      style={
+                        pinned === "start"
+                          ? { insetInlineStart: pinnedOffsets[cell.column.id] ?? 0 }
+                          : undefined
+                      }
                       className={cn(
                         "min-w-0",
                         // The row paints the hover tint and the pinned cell covers it, so it has to repaint it.
@@ -609,6 +705,180 @@ function floorOf<TData extends RowData>(column: GridColumn<TData>): number {
 function titleOf<TData extends RowData>(column: GridColumn<TData>): string {
   const header = column.columnDef.header;
   return typeof header === "string" && header.length > 0 ? header : column.id;
+}
+
+/**
+ * The menu every column header opens on click: sort, move, freeze, filter, and — for a mandate's own
+ * column — edit. Standardised rather than scattered across per-column affordances, so a reader learns
+ * the one place every column's behaviour lives instead of a different gesture per column.
+ *
+ * <p>Hidden entirely when it would offer nothing: a column that cannot sort, move, freeze, filter or
+ * (being built in) be edited has no menu to open, not an empty one.
+ */
+function HeaderMenu<TData extends RowData>({
+  column,
+  visibleColumns,
+  frozen,
+  filter,
+  onMove,
+  onFreeze,
+  onEditColumn,
+}: {
+  column: GridColumn<TData>;
+  visibleColumns: readonly GridColumn<TData>[];
+  /** Whether this is the one column, beyond the grid's own always-pinned one, that a user froze. */
+  frozen: boolean;
+  /** This column's own text filter, if the caller offers one — narrowed here rather than in a row of
+   *  its own under the header labels, so a filtered column reads like a sorted or frozen one: a state
+   *  set from the same menu, not a second control competing for the same strip of space. */
+  filter?: DataGridColumnFilter;
+  onMove: (column: GridColumn<TData>, step: 1 | -1) => void;
+  onFreeze: (column: GridColumn<TData>, freeze: boolean) => void;
+  onEditColumn?: (columnId: string) => void;
+}) {
+  const sortable = column.getCanSort();
+  const pinned = column.getIsPinned();
+  // The grid's own pinned column (Company, always first) didn't get that way from this menu and
+  // cannot be moved or unfrozen from it either — only a column a user froze can be undone here.
+  const structurallyPinned = pinned === "start" && !frozen;
+  const index = column.getIndex();
+  const leftNeighbour = visibleColumns[index - 1];
+  const rightNeighbour = visibleColumns[index + 1];
+  const canMoveLeft = !pinned && !!leftNeighbour && !leftNeighbour.getIsPinned();
+  const canMoveRight = !pinned && !!rightNeighbour && !rightNeighbour.getIsPinned();
+  const editable = !!onEditColumn && column.id.startsWith("custom:");
+  const filtered = !!filter?.value;
+
+  if (!sortable && !canMoveLeft && !canMoveRight && structurallyPinned && !editable && !filter) {
+    return null;
+  }
+
+  return (
+    <Popover
+      label={`${titleOf(column)} column menu`}
+      align="left"
+      width={190}
+      trigger={() => <Icon d={filtered ? ICONS.filter : ICONS.chevronDown} size={12} />}
+      triggerClassName={cn(
+        "grid size-5 shrink-0 place-items-center rounded-[4px] transition hover:bg-panel2",
+        "aria-expanded:opacity-100 focus-visible:opacity-100",
+        filtered
+          ? "text-sky opacity-100"
+          : "text-text3 opacity-0 hover:text-text group-hover/header:opacity-100",
+      )}
+    >
+      {(close) => (
+        <div className="flex flex-col">
+          {filter && (
+            <>
+              <div className="px-2.5 py-1.5">
+                <label className="mb-1 block font-sans text-[11px] font-medium text-text3">
+                  Filter by
+                </label>
+                <input
+                  type="text"
+                  value={filter.value}
+                  onChange={(event) => filter.onChange(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") close();
+                  }}
+                  placeholder={filter.placeholder}
+                  aria-label={filter["aria-label"]}
+                  className="h-7 w-full min-w-0 rounded-[4px] border border-line bg-panel px-2 font-sans text-[12px] text-text outline-none placeholder:text-text3 focus:border-sky"
+                />
+                <button
+                  type="button"
+                  onClick={close}
+                  className="mt-1.5 w-full rounded-[6px] bg-amber-btn px-2.5 py-1.5 font-sans text-[12px] font-semibold text-on-amber transition hover:brightness-105"
+                >
+                  Apply
+                </button>
+              </div>
+              {(sortable || canMoveLeft || canMoveRight || !structurallyPinned || editable) && (
+                <div className="my-1 border-t border-line-soft" />
+              )}
+            </>
+          )}
+          {sortable && (
+            <MenuItem
+              icon={ICONS.arrowUp}
+              label="Sort ascending"
+              onClick={() => {
+                column.toggleSorting(false);
+                close();
+              }}
+            />
+          )}
+          {sortable && (
+            <MenuItem
+              icon={ICONS.arrowDown}
+              label="Sort descending"
+              onClick={() => {
+                column.toggleSorting(true);
+                close();
+              }}
+            />
+          )}
+          {canMoveLeft && (
+            <MenuItem
+              icon={ICONS.arrowLeft}
+              label="Move left"
+              onClick={() => {
+                onMove(column, -1);
+                close();
+              }}
+            />
+          )}
+          {canMoveRight && (
+            <MenuItem
+              icon={ICONS.arrowRight}
+              label="Move right"
+              onClick={() => {
+                onMove(column, 1);
+                close();
+              }}
+            />
+          )}
+          {!structurallyPinned && (
+            <MenuItem
+              icon={frozen ? ICONS.unlock : ICONS.lock}
+              label={frozen ? "Unfreeze column" : "Freeze column"}
+              onClick={() => {
+                onFreeze(column, !frozen);
+                close();
+              }}
+            />
+          )}
+          {editable && (
+            <>
+              <div className="my-1 border-t border-line-soft" />
+              <MenuItem
+                icon={ICONS.pencil}
+                label="Edit field"
+                onClick={() => {
+                  onEditColumn?.(column.id);
+                  close();
+                }}
+              />
+            </>
+          )}
+        </div>
+      )}
+    </Popover>
+  );
+}
+
+function MenuItem({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left font-sans text-[13px] text-text2 transition hover:bg-panel2 hover:text-text"
+    >
+      <Icon d={icon} size={14} className="text-text3" />
+      {label}
+    </button>
+  );
 }
 
 function columnById<TData extends RowData>(

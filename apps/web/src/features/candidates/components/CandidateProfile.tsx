@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Select, TextArea, useToast } from "../../../components/ui";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
@@ -8,6 +8,7 @@ import { DrawerCloseButton } from "../../../components/ui/Drawer";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate, formatNumber } from "../../../lib/format";
 import { toBrowsableUrl } from "../../../lib/url";
+import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import * as candidatesApi from "../api/candidatesApi";
@@ -20,6 +21,7 @@ import {
 } from "../lib/candidateVocabulary";
 import { careerSummary } from "../lib/careerTimeline";
 import { packageOf } from "../lib/compensation";
+import { useChangeCandidateStatus } from "../lib/useChangeCandidateStatus";
 import { useProfileSections, type ProfileSection } from "../lib/useProfileSections";
 import { CandidateAvatar } from "./CandidateAvatar";
 import {
@@ -77,7 +79,6 @@ export function CandidateProfile({
   /** Absent for a reader who may not write. */
   onRemove?: (candidate: Candidate) => void;
 }) {
-  const toast = useToast();
   const sections = useProfileSections();
   const body = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<EditableSection | null>(null);
@@ -90,15 +91,7 @@ export function CandidateProfile({
     onSaved(saved);
   };
 
-  const changeStatus = useMutation({
-    mutationFn: (status: CandidateStatus) =>
-      candidatesApi.changeCandidateStatus(projectId, candidate.id, status),
-    onSuccess: (saved) => {
-      onSaved(saved);
-      toast(`${saved.fullName} is now ${candidateStatusStyle(saved.status).label.toLowerCase()}`);
-    },
-    onError: (error) => toast(messageFor(error)),
-  });
+  const changeStatus = useChangeCandidateStatus(projectId, onSaved);
 
   const startEditing = (section: EditableSection) => {
     setEditing(section);
@@ -160,7 +153,12 @@ export function CandidateProfile({
                   value={candidate.status}
                   aria-label="Status"
                   disabled={changeStatus.isPending}
-                  onChange={(event) => changeStatus.mutate(event.target.value as CandidateStatus)}
+                  onChange={(event) =>
+                    changeStatus.mutate({
+                      candidateId: candidate.id,
+                      status: event.target.value as CandidateStatus,
+                    })
+                  }
                   className="w-auto px-2 py-1 text-[12px]"
                 >
                   {CANDIDATE_STATUSES.map((status) => (
@@ -498,12 +496,7 @@ function NoteSection({
     onError: (error) => toast(messageFor(error)),
   });
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && dirty) {
-      event.preventDefault();
-      saving.mutate(note);
-    }
-  };
+  const handleKeyDown = useSubmitShortcut(() => dirty && saving.mutate(note));
 
   return (
     <CollapsibleSection

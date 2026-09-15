@@ -72,6 +72,12 @@ public class TriageCompanyService {
 
     private static final Sort NEWEST_FIRST = Sort.by(Sort.Direction.DESC, "createdAt");
 
+    /**
+     * The one sort token deliberately kept outside {@link TriageCompanySortField}'s allowlist — see
+     * {@link #findOrderedByExecutiveStatus} and the repository methods it calls.
+     */
+    private static final String EXECUTIVE_STATUS_SORT_TOKEN = "executiveStatus";
+
     private final TriageCompanyRepository triaged;
     private final TriageCompanyWriter writer;
     private final ProjectRepository projects;
@@ -116,16 +122,58 @@ public class TriageCompanyService {
         TriageCompanyStatus status = resolveStatus(criteria.status());
         requireProject(projectId, workspaceId);
 
-        PageRequest pageRequest = PageRequest.of(page, size, resolveSort(criteria));
-        String nameQuery = criteria.nameQuery() == null ? "" : criteria.nameQuery().trim();
-        Page<TriageCompany> found = nameQuery.isEmpty()
-                ? triaged.findByProjectIdAndStatus(projectId, status, pageRequest)
-                : triaged.findByProjectIdAndStatusAndCompanyNameContainingIgnoreCase(
-                        projectId, status, nameQuery, pageRequest);
+        String companyName = blankToNull(criteria.nameQuery());
+        String executiveName = blankToNull(criteria.executiveQuery());
+        Page<TriageCompany> found = EXECUTIVE_STATUS_SORT_TOKEN.equals(criteria.sort())
+                ? findOrderedByExecutiveStatus(projectId, status, companyName, executiveName,
+                        resolveDirection(criteria.direction()), PageRequest.of(page, size))
+                : findWithFilters(projectId, status, companyName, executiveName,
+                        PageRequest.of(page, size, resolveSort(criteria)));
 
         return new TriageCompaniesResponse(
                 found.getContent().stream().map(TriageCompanyService::toDto).toList(),
                 found.getTotalElements(), page, size, countsFor(projectId));
+    }
+
+    /**
+     * The ordinary path: the server's own ORDER BY, over whichever of the grid's two header filters —
+     * company name, executive name, neither, or both — the caller supplied.
+     */
+    private Page<TriageCompany> findWithFilters(UUID projectId, TriageCompanyStatus status,
+                                                String companyName, String executiveName,
+                                                PageRequest pageRequest) {
+        if (executiveName != null) {
+            return triaged.findByProjectIdAndStatusAndFilters(
+                    projectId, status, companyName, executiveName, pageRequest);
+        }
+        return companyName == null
+                ? triaged.findByProjectIdAndStatus(projectId, status, pageRequest)
+                : triaged.findByProjectIdAndStatusAndCompanyNameContainingIgnoreCase(
+                        projectId, status, companyName, pageRequest);
+    }
+
+    /**
+     * The one sort {@link #resolveSort} cannot express — see
+     * {@link TriageCompanyRepository#findByProjectIdAndStatusOrderByExecutiveStatusRankAsc}. No
+     * {@code Sort} on the {@code Pageable}: the ordering is baked into the query itself.
+     */
+    private Page<TriageCompany> findOrderedByExecutiveStatus(UUID projectId, TriageCompanyStatus status,
+                                                              String companyName, String executiveName,
+                                                              SortDirection direction, PageRequest pageRequest) {
+        return direction == SortDirection.ASC
+                ? triaged.findByProjectIdAndStatusOrderByExecutiveStatusRankAsc(
+                        projectId, status.name(), companyName, executiveName, pageRequest)
+                : triaged.findByProjectIdAndStatusOrderByExecutiveStatusRankDesc(
+                        projectId, status.name(), companyName, executiveName, pageRequest);
+    }
+
+    /** Null means "no opinion" to the query below; a caller's blank string means the same thing. */
+    private static String blankToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     /**
@@ -150,13 +198,17 @@ public class TriageCompanyService {
     /**
      * One of this mandate's own company rows — the seam {@code candidate} maps an executive through.
      * It adds that the company belongs to <i>that</i> project, so a candidate cannot be filed against
-     * another mandate's company by id.
+     * another mandate's company by id, and it clears {@code noExecutiveFound} as part of that
+     * resolution: an executive being mapped here is exactly the event that disproves the flag, so
+     * "nobody here fits" cannot outlive it. Runs inside the candidate write this backs — a validation
+     * failure afterward (a duplicate name, a held profile) rolls the clear back with everything else.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public TriageCompanyResponse requireCompanyOfProject(UUID projectId, UUID triageCompanyId) {
-        return triaged.findByIdAndProjectId(triageCompanyId, projectId)
-                .map(TriageCompanyService::toDto)
+        TriageCompany company = triaged.findByIdAndProjectId(triageCompanyId, projectId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        company.setNoExecutiveFound(false);
+        return toDto(company);
     }
 
     /**
@@ -499,11 +551,23 @@ public class TriageCompanyService {
         if (request.note() != null) {
             company.annotate(request.note());
         }
+        if (request.noExecutiveFound() != null) {
+            company.setNoExecutiveFound(request.noExecutiveFound());
+        }
 
-        audit.event(ProjectEventType.TRIAGE_COMPANY_MOVED)
+        // The event type is the pre-existing one regardless of which fields moved: this endpoint has
+        // always answered a note-only edit the same way. The detail flags make that legible rather than
+        // renaming the event, so a note edit or a flag toggle does not read as a stage change.
+        var event = audit.event(ProjectEventType.TRIAGE_COMPANY_MOVED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
-                .detail("triageCompanyId", triageCompanyId.toString())
-                .record();
+                .detail("triageCompanyId", triageCompanyId.toString());
+        if (request.status() != null) {
+            event = event.detail("status", request.status());
+        }
+        if (request.noExecutiveFound() != null) {
+            event = event.detail("noExecutiveFound", String.valueOf(request.noExecutiveFound()));
+        }
+        event.record();
         return toDto(company);
     }
 
@@ -705,6 +769,7 @@ public class TriageCompanyService {
     private static TriageCompanyResponse toDto(TriageCompany company) {
         return new TriageCompanyResponse(company.getId(), company.getApolloAccountId(),
                 company.getSource().value(), company.getStatus().value(), company.getNote(),
+                company.isNoExecutiveFound(),
                 company.getCompanyName(), company.getIndustry(), company.getCompanyCountry(),
                 company.getCompanyCity(), company.getNumEmployees(), company.getAnnualRevenue(),
                 company.getWebsite(), company.getCompanyLinkedinUrl(), company.getFoundedYear(),

@@ -17,11 +17,14 @@ describe("remembered column layout", () => {
   it("keeps the whole layout under one key per grid, not per project", () => {
     const { result } = renderHook(() => useGridLayout("strategy", COLUMNS));
 
-    act(() => result.current[1]({ order: ["name", "employees"], widths: { revenue: 200 } }));
+    act(() =>
+      result.current[1]({ order: ["name", "employees"], widths: { revenue: 200 }, pinnedIds: [] }),
+    );
 
     expect(JSON.parse(localStorage.getItem(KEY) ?? "{}")).toEqual({
       order: ["name", "employees"],
       widths: { revenue: 200 },
+      pinnedIds: [],
     });
   });
 
@@ -85,7 +88,7 @@ describe("remembered column layout", () => {
 
     const { result } = renderHook(() => useGridLayout("strategy", COLUMNS));
 
-    expect(result.current[0]).toEqual({ order: [], widths: {} });
+    expect(result.current[0]).toEqual({ order: [], widths: {}, pinnedIds: [] });
   });
 
   it("ignores a width that is not a finite number", () => {
@@ -97,5 +100,24 @@ describe("remembered column layout", () => {
     const { result } = renderHook(() => useGridLayout("strategy", COLUMNS));
 
     expect(result.current[0].widths).toEqual({ employees: 150 });
+  });
+
+  it("reads back a stored pinned column", () => {
+    localStorage.setItem(KEY, JSON.stringify({ order: [], widths: {}, pinnedIds: ["revenue"] }));
+
+    const { result } = renderHook(() => useGridLayout("strategy", COLUMNS));
+
+    expect(result.current[0].pinnedIds).toEqual(["revenue"]);
+  });
+
+  it("drops a pinned id for a column the grid no longer declares", () => {
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({ order: [], widths: {}, pinnedIds: ["revenue", "gone"] }),
+    );
+
+    const { result } = renderHook(() => useGridLayout("strategy", COLUMNS));
+
+    expect(result.current[0].pinnedIds).toEqual(["revenue"]);
   });
 });

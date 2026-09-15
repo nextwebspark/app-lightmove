@@ -29,6 +29,7 @@ vi.mock("../../candidates/api/candidatesApi", async (importOriginal) => ({
   createCandidate: vi.fn(),
   updateCandidate: vi.fn(),
   deleteCandidate: vi.fn(),
+  changeCandidateStatus: vi.fn(),
 }));
 vi.mock("../../customcolumns/api/customColumnsApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
@@ -146,6 +147,7 @@ const acwa: TriageCompany = {
   source: "strategy",
   status: "inUniverse",
   note: null,
+  noExecutiveFound: false,
   companyName: "ACWA Power",
   industry: "oil & energy",
   companyCountry: "Saudi Arabia",
@@ -364,6 +366,70 @@ describe("TriageStagePage", () => {
     expect(screen.queryByRole("button", { name: /^Decline: ACWA Power/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Back to universe: ACWA Power/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Shortlist: ACWA Power/i })).toBeInTheDocument();
+  });
+
+  it("marks a company as no executive found from the grid, replacing the empty slot", async () => {
+    vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, noExecutiveFound: true });
+    renderStage();
+
+    await screen.findByText("ACWA Power");
+    await userEvent.click(screen.getByRole("button", { name: /^No executive found$/i }));
+
+    await waitFor(() =>
+      expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", {
+        noExecutiveFound: true,
+      }),
+    );
+  });
+
+  it("shows a flagged company's muted label instead of the empty slot, still opening the add form", async () => {
+    vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
+      pageOf({ companies: [{ ...acwa, noExecutiveFound: true }] }),
+    );
+    vi.mocked(candidatesApi.createCandidate).mockResolvedValue({ ...yasmin, id: "c3" });
+    renderStage();
+
+    await screen.findByText("ACWA Power");
+    expect(screen.queryByRole("button", { name: /\+ Add executive/i })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^No executive found$/i }));
+    expect(await screen.findByRole("dialog", { name: /Add executive/i })).toBeInTheDocument();
+  });
+
+  it("edits a company's note inline from the grid, the same write the panel makes", async () => {
+    vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, note: "Called, promising" });
+    renderStage();
+
+    await screen.findByText("ACWA Power");
+    const grid = screen.getByRole("table", { name: /In universe companies/i });
+    await userEvent.click(within(grid).getByTitle(/click to edit/i));
+    const input = within(grid).getByRole("textbox", { name: "Note for ACWA Power" });
+    await userEvent.type(input, "Called, promising");
+    await userEvent.tab();
+
+    await waitFor(() =>
+      expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", {
+        note: "Called, promising",
+      }),
+    );
+  });
+
+  it("changes a candidate's status inline from the grid's own Status column", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin]),
+    );
+    vi.mocked(candidatesApi.changeCandidateStatus).mockResolvedValue({
+      ...yasmin,
+      status: "interested",
+    });
+    renderStage();
+
+    await screen.findByText("Yasmin El-Sayed");
+    await userEvent.selectOptions(screen.getByLabelText(/Status for Yasmin El-Sayed/i), "interested");
+
+    await waitFor(() =>
+      expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "c1", "interested"),
+    );
   });
 
   it("confirms a removal, and says the company itself is not deleted", async () => {
@@ -1118,9 +1184,11 @@ describe("TriageStagePage — full screen", () => {
     renderStage();
     await userEvent.click(await screen.findByRole("button", { name: "Full screen" }));
 
-    expect(screen.getByRole("textbox", { name: /Search companies/i })).toBeInTheDocument();
-    expect(within(await screen.findByRole("table", { name: /In universe companies/i }))
-      .getByText("ACWA Power")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add company" })).toBeInTheDocument();
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+    await userEvent.click(within(grid).getByRole("button", { name: "Company column menu" }));
+    expect(within(grid).getByRole("textbox", { name: "Filter by company name" })).toBeInTheDocument();
+    expect(within(grid).getByText("ACWA Power")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Full screen" })).toHaveAttribute("aria-pressed", "true");
   });
 

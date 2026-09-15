@@ -34,8 +34,19 @@ export const TRIAGE_KEY = (
   page: number,
   size: number,
   query: string,
+  executiveQuery: string,
   sort: GridSort<TriageSortField>,
-) => [...TRIAGE_KEY_PREFIX(projectId), status, page, size, query, sort.field, sort.direction] as const;
+) =>
+  [
+    ...TRIAGE_KEY_PREFIX(projectId),
+    status,
+    page,
+    size,
+    query,
+    executiveQuery,
+    sort.field,
+    sort.direction,
+  ] as const;
 
 export function getTriageCompanies(
   projectId: string,
@@ -43,6 +54,8 @@ export function getTriageCompanies(
   page: number,
   size: number,
   query: string,
+  /** The Executive column's own header filter — independent of `query`, which is the Company column's. */
+  executiveQuery: string,
   sort: GridSort<TriageSortField>,
   signal?: AbortSignal,
 ): Promise<TriageCompaniesPage> {
@@ -53,9 +66,10 @@ export function getTriageCompanies(
     sort: sort.field,
     direction: sort.direction,
   });
-  // Omitted rather than sent empty: the server reads a blank `q` as no search, and leaving it out
+  // Omitted rather than sent empty: the server reads a blank filter as no search, and leaving it out
   // keeps the two states from being one request apart in the network log.
   if (query) params.set("q", query);
+  if (executiveQuery) params.set("executiveQuery", executiveQuery);
   return request<TriageCompaniesPage>(`/projects/${projectId}/triage?${params}`, { signal });
 }
 
@@ -77,6 +91,7 @@ export function getTriageCounts(projectId: string, signal?: AbortSignal): Promis
     0,
     1,
     "",
+    "",
     { field: "added", direction: "desc" },
     signal,
   ).then((page) => page.counts);
@@ -85,7 +100,7 @@ export function getTriageCounts(projectId: string, signal?: AbortSignal): Promis
 export function updateTriageCompany(
   projectId: string,
   triageCompanyId: string,
-  changes: { status?: TriageCompanyStatus; note?: string },
+  changes: { status?: TriageCompanyStatus; note?: string; noExecutiveFound?: boolean },
 ): Promise<TriageCompany> {
   return request<TriageCompany>(`/projects/${projectId}/triage/${triageCompanyId}`, {
     method: "PATCH",

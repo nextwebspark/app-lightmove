@@ -1,14 +1,15 @@
 import type { ColumnVisibilityState, OnChangeFn } from "@tanstack/react-table";
 import { useMemo } from "react";
-import { DataGrid } from "../../../components/ui/DataGrid";
+import { DataGrid, type DataGridColumnFilter } from "../../../components/ui/DataGrid";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
 import type { GridLayout } from "../../../lib/useGridLayout";
 import type { GridSort } from "../../../lib/useGridSort";
-import type { Candidate } from "../../candidates/api/types";
+import type { Candidate, CandidateStatus } from "../../candidates/api/types";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
 import {
   createTriageCompanyColumns,
+  customColumnId,
   TRIAGE_COLUMN_PINNING,
   triageTableFeatures,
 } from "../lib/triageCompanyColumns";
@@ -42,11 +43,16 @@ export function TriageCompanyTable({
   onMove,
   onDelete,
   onAddExecutive,
+  onMarkNoExecutiveFound,
+  onSaveNote,
+  onChangeCandidateStatus,
   onEditCandidate,
   onRemoveCandidate,
   onOpenCompany,
   busyId,
   canWrite,
+  onEditColumn,
+  columnFilters,
 }: {
   rows: TriageCompanyRow[];
   label: string;
@@ -65,11 +71,21 @@ export function TriageCompanyTable({
   onMove: (company: TriageCompany, status: TriageCompanyStatus) => void;
   onDelete: (company: TriageCompany) => void;
   onAddExecutive: (company: TriageCompany) => void;
+  /** Flags a company as researched-and-nobody-suitable, from its "+ Add executive" cell. */
+  onMarkNoExecutiveFound: (company: TriageCompany) => void;
+  /** Saves the grid's own inline-edited Note cell — the same write the Companies panel makes. */
+  onSaveNote: (company: TriageCompany, note: string) => Promise<unknown>;
+  /** Changes a mapped executive's status inline, from the grid's own Status column. */
+  onChangeCandidateStatus: (candidate: Candidate, status: CandidateStatus) => void;
   onEditCandidate: (candidate: Candidate) => void;
   onRemoveCandidate: (candidate: Candidate) => void;
   onOpenCompany: (company: TriageCompany) => void;
   busyId: string | null;
   canWrite: boolean;
+  /** Opens a mandate's own column for rename, from its header menu — the real `CustomColumn` id. */
+  onEditColumn?: (customColumnId: string) => void;
+  /** The grid's own Company and Executive header filters, keyed by their built-in column ids. */
+  columnFilters?: Record<string, DataGridColumnFilter>;
 }) {
   // Rebuilt only when the project's column set changes: a fresh array every render would rebuild
   // every column def and lose the grid's own per-column state with it.
@@ -92,6 +108,9 @@ export function TriageCompanyTable({
       onMove,
       onDelete,
       onAddExecutive,
+      onMarkNoExecutiveFound,
+      onSaveNote,
+      onChangeCandidateStatus,
       onEditCandidate,
       onRemoveCandidate,
       onOpenCompany,
@@ -110,6 +129,14 @@ export function TriageCompanyTable({
       error={error}
       errorMessage="That list could not be loaded. Refresh, or check you still have access to this mandate."
       emptyMessage={emptyMessage}
+      columnFilters={columnFilters}
+      onEditColumn={
+        onEditColumn &&
+        ((gridColumnId: string) => {
+          const column = customColumns.find((entry) => customColumnId(entry) === gridColumnId);
+          if (column) onEditColumn(column.id);
+        })
+      }
     />
   );
 }

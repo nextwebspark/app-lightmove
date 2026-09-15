@@ -992,9 +992,11 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     renderPage();
 
     // Scoped to the table: "Revenue" also names a filter accordion, and the two must not be one
-    // control by accident.
+    // control by accident. Anchored so it does not also match the header's own column-menu button,
+    // whose accessible name is "Revenue column menu".
     const table = await screen.findByRole("table", { name: "Companies" });
-    await userEvent.click(within(table).getByRole("button", { name: /Revenue/ }));
+    const sortButton = () => within(table).getByRole("button", { name: /^Revenue\s?[↑↓]?$/ });
+    await userEvent.click(sortButton());
 
     // The table holds one page of tens of thousands. Sorting that page client-side would reorder it
     // while claiming to have ordered the result, so a header click has to become a new query.
@@ -1005,7 +1007,7 @@ describe("StrategyPage — the filter sidebar and its results", () => {
       }),
     );
 
-    await userEvent.click(within(table).getByRole("button", { name: /Revenue/ }));
+    await userEvent.click(sortButton());
 
     await waitFor(() =>
       expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![4]).toEqual({
@@ -1021,8 +1023,11 @@ describe("StrategyPage — the filter sidebar and its results", () => {
 
     // Notes is short_description, which the sort allowlist deliberately omits — alphabetising a
     // description answers no question. A header that looked clickable and did nothing would be worse.
+    // Its column menu (move, freeze) is unaffected — this checks only that there is no sort toggle.
     expect(within(table).getByText("Notes")).toBeInTheDocument();
-    expect(within(table).queryByRole("button", { name: /Notes/ })).not.toBeInTheDocument();
+    expect(
+      within(table).queryByRole("button", { name: /^Notes\s?[↑↓]?$/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("hides a column on request and remembers it for this mandate", async () => {
