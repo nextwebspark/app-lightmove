@@ -1,4 +1,4 @@
-# Uncava Capture
+# UNCAVA Capture
 
 A Chrome extension that reads whatever the page you are looking at is about — a company or a person —
 and writes it into a mandate. A company lands in its triage as **in universe** or **shortlisted**; a
@@ -63,6 +63,11 @@ production build has to say where it points:
 ```bash
 LM_WORKSPACE_ORIGIN=https://beta.uncava.com npm run build
 ```
+
+`uncava-capture-beta.zip` is that build, zipped without its source maps, for loading unpacked. It keeps
+`key` on purpose — deploys run with `EXTENSION_ID=dev`, so beta's CORS and pairing page accept only the
+pinned id, and `build:release` (which strips `key`) would produce an extension beta refuses. Rebuild it
+after the build above with `cd dist && zip -qr ../uncava-capture-beta.zip . -x '.*' '*.map'`.
 
 To capture a company that resolves against the Apollo universe you need the universe locally:
 `npm run dev:db:apollo` once, from the repo root.
@@ -248,6 +253,9 @@ because with `openPanelOnActionClick` a disabled panel makes the toolbar click d
 which reads as a broken extension rather than one that is not for this page. A tab with no URL yet is
 unavailable, not skipped. This adds no permission and guards nothing — `host_permissions` already made
 every other site unreadable; it is what the toolbar says about that.
+`offscreen` — a hidden page that watches Chrome's light/dark setting, which the service worker cannot
+read, so the toolbar icon is black on a light toolbar and white on a dark one. It reads no site and
+holds nothing.
 `sidePanel` — the capture surface is a side panel, not a popup, so it stays open while you read.
 `host_permissions` — the workspace origin, plus `*://*.linkedin.com/*`: the one site the plugin
 reads, standing so the panel keeps working as you move between profiles without a grant prompt per

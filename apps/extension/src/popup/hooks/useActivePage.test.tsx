@@ -122,7 +122,7 @@ describe("following the page the panel is looking at", () => {
     chrome.answer((request) =>
       request.kind === "activePageKey"
         ? { ok: true, value: { pageKey: "offsite", sourceUrl: "https://example.com/" } }
-        : { ok: false, code: "LINKEDIN_ONLY", message: "Uncava Capture reads LinkedIn only, for now." },
+        : { ok: false, code: "LINKEDIN_ONLY", message: "UNCAVA Capture reads LinkedIn only, for now." },
     );
 
     const { result } = renderHook(() => useActivePage(), { wrapper });

@@ -28,7 +28,7 @@ const { version: packageVersion } = packageJson as { version: string };
 export function buildManifest(workspaceOrigin: string) {
   return {
     manifest_version: 3,
-    name: "Uncava Capture",
+    name: "UNCAVA",
     version: packageVersion,
     description: "Capture a company or an executive from the page you are on into an Uncava mandate.",
     key: PINNED_PUBLIC_KEY,
@@ -46,6 +46,9 @@ export function buildManifest(workspaceOrigin: string) {
       // outlives the toolbar gesture, and without this the URL reads as undefined on every tab the
       // gesture did not cover, so the read is refused before it can even ask.
       "tabs",
+      // Hosts the page that watches the browser's light/dark setting, which a service worker cannot
+      // read, so the toolbar icon can switch between black and white ink. See toolbarIcon.ts.
+      "offscreen",
     ],
 
     // The workspace, and LinkedIn — the one site this plugin reads, standing so the panel keeps
@@ -55,13 +58,12 @@ export function buildManifest(workspaceOrigin: string) {
     host_permissions: [`${workspaceOrigin}/*`, "*://*.linkedin.com/*"],
 
     // No default_popup: the click opens the side panel instead, wired in the service worker.
+    // Black ink until the worker hears the browser is dark. See toolbarIcon.ts.
     action: {
-      default_title: "Uncava Capture",
+      default_title: "UNCAVA Capture",
       default_icon: {
-        16: "icons/icon-16.png",
-        32: "icons/icon-32.png",
-        48: "icons/icon-48.png",
-        128: "icons/icon-128.png",
+        16: "icons/uncava-app-icon-light-16.png",
+        32: "icons/uncava-app-icon-light-32.png",
       },
     },
 
@@ -71,10 +73,10 @@ export function buildManifest(workspaceOrigin: string) {
     // The worker names the path on every per-tab enable instead. See panelAvailability.ts.
 
     icons: {
-      16: "icons/icon-16.png",
-      32: "icons/icon-32.png",
-      48: "icons/icon-48.png",
-      128: "icons/icon-128.png",
+      16: "icons/uncava-app-icon-light-16.png",
+      32: "icons/uncava-app-icon-light-32.png",
+      48: "icons/uncava-app-icon-light-48.png",
+      128: "icons/uncava-app-icon-light-128.png",
     },
 
     background: {
@@ -92,7 +94,7 @@ export function buildManifest(workspaceOrigin: string) {
     commands: {
       _execute_action: {
         suggested_key: { default: "Alt+Shift+L" },
-        description: "Open Uncava Capture",
+        description: "Open UNCAVA Capture",
       },
     },
   } as const;
