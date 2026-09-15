@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Button, Card, Field, FormError, Input, Logo } from "../../../components/ui";
+import { AuthLogo, Button, Card, Field, FormError, Input } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { ThemeToggle } from "../../theme/ThemeToggle";
 import { useAuth } from "../AuthProvider";
@@ -86,7 +86,7 @@ export function LoginPage() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-4 sm:p-6">
       <ThemeToggle className="fixed right-4 top-4 z-50" />
-      <Logo />
+      <AuthLogo />
 
       <Card className="w-[400px] max-w-[94vw] [animation-delay:60ms]">
         <h1 className="text-[19px] font-semibold leading-tight">Sign in</h1>

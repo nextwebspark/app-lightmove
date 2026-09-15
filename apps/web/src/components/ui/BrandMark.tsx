@@ -2,8 +2,8 @@ import { cn } from "../../lib/cn";
 
 /**
  * The Uncava mark — a rhombus over a hexagon — on a rounded tile. Drawn in `currentColor` over the
- * text token so it inverts with the theme; the same geometry as `public/favicon.svg`, cropped
- * tighter than the icon so it still reads at 22px.
+ * text token so it inverts with the theme. Only the signed-out screens that have not moved to
+ * `AuthLogo` still draw it.
  */
 export function BrandMark({ size = 30, className }: { size?: number; className?: string }) {
   return (

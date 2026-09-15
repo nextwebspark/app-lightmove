@@ -212,6 +212,25 @@ export function Logo() {
   );
 }
 
+/** The app icon without its tile, so it sits on whatever ground is behind it; `className` sets the height. */
+export function AppIcon({ className }: { className?: string }) {
+  return (
+    <>
+      <img src="/brand/uncava-app-icon-light.svg" alt="" className={cn("w-auto shrink-0 dark:hidden", className)} />
+      <img src="/brand/uncava-app-icon-dark.svg" alt="" className={cn("hidden w-auto shrink-0 dark:block", className)} />
+    </>
+  );
+}
+
+export function AuthLogo() {
+  return (
+    <div className="flex animate-fade-up items-center gap-3.5">
+      <AppIcon className="h-14" />
+      <span className="text-[19px] font-medium uppercase tracking-[0.32em] text-text">Uncava</span>
+    </div>
+  );
+}
+
 /**
  * An error that belongs to the form as a whole rather than to one field — a wrong password, a locked
  * account, a rate limit.

@@ -33,7 +33,8 @@ export type ExtensionRequest =
   | { kind: "removeTriageCompany"; projectId: string; triageCompanyId: string }
   | { kind: "removeCandidate"; projectId: string; candidateId: string }
   | { kind: "readSettings" }
-  | { kind: "writeSettings"; settings: Partial<CaptureSettings> };
+  | { kind: "writeSettings"; settings: Partial<CaptureSettings> }
+  | { kind: "colorSchemeChanged"; isDarkScheme: boolean };
 
 /** What went wrong, in the popup's own vocabulary. `code` is the API's when the API is what failed. */
 export interface ExtensionFailure {
@@ -83,6 +84,7 @@ export interface ExtensionReplies {
   removeCandidate: null;
   readSettings: CaptureSettings;
   writeSettings: CaptureSettings;
+  colorSchemeChanged: null;
 }
 
 /**
