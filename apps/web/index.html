@@ -20,30 +20,31 @@
       reject a relative og:image outright. __PUBLIC_BASE_URL__ is the origin, substituted at build time
       (vite.config.ts) from the same variable the deploy uses.
 
-      A card is cached by URL for days (WhatsApp and LinkedIn most stubbornly), so redrawing
-      og-image.png leaves the old picture in circulation — give a new drawing a new filename.
+      A card is cached by URL for days (WhatsApp and LinkedIn most stubbornly), so redrawing the image
+      in place leaves the old picture in circulation — the filename carries a version, and a redrawing
+      takes the next one (og-image.png shipped in v0.3.0; -v2 is the mark the app wears now).
     -->
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Uncava" />
+    <meta property="og:site_name" content="UNCAVA" />
     <meta property="og:url" content="__PUBLIC_BASE_URL__/" />
-    <meta property="og:title" content="Uncava — executive search and talent mapping" />
+    <meta property="og:title" content="UNCAVA — executive search and talent mapping" />
     <meta
       property="og:description"
       content="Run search mandates in one workspace — map the market, triage companies, and build out the executives behind them."
     />
-    <meta property="og:image" content="__PUBLIC_BASE_URL__/og-image.png" />
+    <meta property="og:image" content="__PUBLIC_BASE_URL__/og-image-v2.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Uncava — executive search, mapped." />
+    <meta property="og:image:alt" content="UNCAVA — executive search, mapped." />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Uncava — executive search and talent mapping" />
+    <meta name="twitter:title" content="UNCAVA — executive search and talent mapping" />
     <meta
       name="twitter:description"
       content="Run search mandates in one workspace — map the market, triage companies, and build out the executives behind them."
     />
-    <meta name="twitter:image" content="__PUBLIC_BASE_URL__/og-image.png" />
+    <meta name="twitter:image" content="__PUBLIC_BASE_URL__/og-image-v2.png" />
   </head>
   <body>
     <div id="root"></div>
