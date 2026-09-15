@@ -71,4 +71,19 @@ describe("InlineEditCell", () => {
 
     expect(onSave).not.toHaveBeenCalled();
   });
+
+  it("stays open on the unsaved draft when the save rejects", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockRejectedValue(new Error("network error"));
+    render(<InlineEditCell value="Old note" editable onSave={onSave} />);
+
+    await user.click(screen.getByText("Old note"));
+    const input = screen.getByRole("textbox");
+    await user.clear(input);
+    await user.type(input, "New note");
+    await user.tab();
+
+    expect(onSave).toHaveBeenCalledWith("New note");
+    expect(await screen.findByDisplayValue("New note")).toBeInTheDocument();
+  });
 });

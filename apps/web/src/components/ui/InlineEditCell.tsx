@@ -39,6 +39,10 @@ export function InlineEditCell({
     setSaving(true);
     onSave(next)
       .then(() => setEditing(false))
+      .catch(() => {
+        // Left open on the unsaved draft, as the prop's own doc comment promises — the caller's
+        // mutation already surfaced the error toast.
+      })
       .finally(() => setSaving(false));
   };
 
