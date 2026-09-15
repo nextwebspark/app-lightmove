@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
-import { Avatar, BrandMark } from "../ui";
+import { AppIcon, Avatar } from "../ui";
 import { Icon, ICONS } from "./Icon";
 
 /**
@@ -136,7 +136,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
             : "flex items-center gap-2.5 rounded-lg py-[5px] pl-1.5 pr-2.5 hover:bg-panel2"
         }
       >
-        <BrandMark size={26} />
+        <AppIcon className="h-[30px]" />
         {!compact && (
           <span className="text-[14px] font-medium uppercase tracking-[0.3em] text-text">Uncava</span>
         )}

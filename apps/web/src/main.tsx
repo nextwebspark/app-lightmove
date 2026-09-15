@@ -6,10 +6,12 @@ import { AppRoutes } from "./app/routes";
 import { ToastProvider } from "./components/ui";
 import { AuthProvider } from "./features/auth/AuthProvider";
 import { applyStoredTheme } from "./features/theme/useTheme";
+import { redrawFaviconOnColorSchemeChange } from "./lib/favicon";
 import "./styles/global.css";
 
 // Before the first paint, so a dark-mode user is not flashed a white login screen on the way in.
 applyStoredTheme();
+redrawFaviconOnColorSchemeChange();
 
 const queryClient = new QueryClient({
   defaultOptions: {
