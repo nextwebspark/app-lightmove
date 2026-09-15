@@ -160,6 +160,14 @@ export function CompanyDrawer({
                   Add executive
                 </Button>
               )}
+              {canWrite && company.noExecutiveFound && (
+                <span
+                  title="Researched — nobody suitable found. Adding an executive here clears this."
+                  className="font-mono text-[11px] uppercase tracking-[0.04em] text-text3"
+                >
+                  No executive found
+                </span>
+              )}
               {canWrite && !company.noExecutiveFound && (
                 <Button
                   type="button"

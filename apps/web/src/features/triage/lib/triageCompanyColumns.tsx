@@ -307,6 +307,7 @@ const BUILT_IN_COLUMNS = helper.columns([
             </button>
           );
         }
+        const busy = meta.busyId === company.id;
         return (
           <span className="flex min-w-0 items-center gap-2">
             <button
@@ -320,7 +321,8 @@ const BUILT_IN_COLUMNS = helper.columns([
               type="button"
               onClick={() => meta.onMarkNoExecutiveFound(company)}
               title="Mark this company as researched, with nobody suitable found"
-              className="rounded-[4px] font-mono text-[10.5px] text-text3 transition hover:text-text hover:underline"
+              disabled={busy}
+              className="rounded-[4px] font-mono text-[10.5px] text-text3 transition hover:text-text hover:underline disabled:opacity-40 disabled:hover:no-underline"
             >
               No executive found
             </button>
@@ -350,14 +352,16 @@ const BUILT_IN_COLUMNS = helper.columns([
       if (!candidate) return <DataGridCell value={null} />;
 
       if (meta?.canWrite) {
+        const busy = meta.busyId === candidate.id;
         return (
           <Select
             value={candidate.status}
             aria-label={`Status for ${candidate.fullName}`}
+            disabled={busy}
             onChange={(event) =>
               meta.onChangeCandidateStatus(candidate, event.target.value as CandidateStatus)
             }
-            className="h-7 w-auto px-1.5 py-0 text-[11px]"
+            className="h-7 w-auto px-1.5 py-0 text-[11px] disabled:opacity-40"
           >
             {CANDIDATE_STATUSES.map((status) => (
               <option key={status.value} value={status.value}>

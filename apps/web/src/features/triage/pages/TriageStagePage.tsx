@@ -423,6 +423,7 @@ function TriageStage() {
       toast(`${company.companyName}: marked no executive found`);
     },
     onError: (error) => toast(messageFor(error)),
+    onSettled: () => setBusyId(null),
   });
 
   const saveNote = useSaveCompanyNote(project.id, refreshEveryStage);
@@ -521,11 +522,18 @@ function TriageStage() {
               company: { triageCompanyId: company.id, companyName: company.companyName },
             })
           }
-          onMarkNoExecutiveFound={(company) => markNoExecutiveFound.mutate(company)}
+          onMarkNoExecutiveFound={(company) => {
+            setBusyId(company.id);
+            markNoExecutiveFound.mutate(company);
+          }}
           onSaveNote={(company, note) => saveNote.mutateAsync({ company, note })}
-          onChangeCandidateStatus={(candidate, status) =>
-            changeCandidateStatus.mutate({ candidateId: candidate.id, status })
-          }
+          onChangeCandidateStatus={(candidate, status) => {
+            setBusyId(candidate.id);
+            changeCandidateStatus.mutate(
+              { candidateId: candidate.id, status },
+              { onSettled: () => setBusyId(null) },
+            );
+          }}
           onEditCandidate={(candidate) => setProfile({ candidate, company: null })}
           onRemoveCandidate={setPendingCandidateRemoval}
           onOpenCompany={(company) => setOpenCompany({ company })}
@@ -576,7 +584,10 @@ function TriageStage() {
             company: { triageCompanyId: company.id, companyName: company.companyName },
           });
         }}
-        onMarkNoExecutiveFound={(company) => markNoExecutiveFound.mutate(company)}
+        onMarkNoExecutiveFound={(company) => {
+          setBusyId(company.id);
+          markNoExecutiveFound.mutate(company);
+        }}
       />
 
       <CandidateDrawer
