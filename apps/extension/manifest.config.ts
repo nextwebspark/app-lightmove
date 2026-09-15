@@ -60,7 +60,7 @@ export function buildManifest(workspaceOrigin: string) {
     // No default_popup: the click opens the side panel instead, wired in the service worker.
     // Black ink until the worker hears the browser is dark. See toolbarIcon.ts.
     action: {
-      default_title: "Uncava Capture",
+      default_title: "UNCAVA Capture",
       default_icon: {
         16: "icons/uncava-app-icon-light-16.png",
         32: "icons/uncava-app-icon-light-32.png",
@@ -94,7 +94,7 @@ export function buildManifest(workspaceOrigin: string) {
     commands: {
       _execute_action: {
         suggested_key: { default: "Alt+Shift+L" },
-        description: "Open Uncava Capture",
+        description: "Open UNCAVA Capture",
       },
     },
   } as const;

@@ -1,4 +1,4 @@
-# Uncava Capture
+# UNCAVA Capture
 
 A Chrome extension that reads whatever the page you are looking at is about — a company or a person —
 and writes it into a mandate. A company lands in its triage as **in universe** or **shortlisted**; a

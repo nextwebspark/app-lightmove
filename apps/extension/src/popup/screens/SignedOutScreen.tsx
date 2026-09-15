@@ -31,7 +31,7 @@ export function SignedOutScreen({ onConnected }: SignedOutScreenProps) {
 
       <div className="flex flex-1 flex-col items-center justify-center px-3.5 text-center">
         <BrandMark className="h-14" />
-        <h1 className="mt-4 text-[15px] font-semibold">Connect to Uncava</h1>
+        <h1 className="mt-4 text-[15px] font-semibold">Connect to UNCAVA</h1>
         <p className="mt-2 max-w-[280px] text-[12.5px] leading-[1.6] text-text2">
           Open your workspace to link this extension to your account. You will not need to sign in
           again here.

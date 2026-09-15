@@ -187,7 +187,7 @@ async function handle(message: ExtensionRequest): Promise<unknown> {
       // running against the older contract. Without this the switch falls through to `undefined` and
       // the caller reads `{ ok: true, value: undefined }` — a successful empty reply, rendering a blank
       // project list rather than reporting anything.
-      throw new Error(`This version of Uncava Capture cannot handle "${(message as { kind: string }).kind}".`);
+      throw new Error(`This version of UNCAVA Capture cannot handle "${(message as { kind: string }).kind}".`);
   }
 }
 

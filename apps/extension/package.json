@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Uncava Capture — the Chrome extension that writes a company or a person from the open page into a mandate",
+  "description": "UNCAVA Capture — the Chrome extension that writes a company or a person from the open page into a mandate",
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "dev": "npm run clean && npm run build:parts && (vite build --watch --mode development & npm run watch:parts)",
