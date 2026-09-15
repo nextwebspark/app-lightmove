@@ -1,18 +1,19 @@
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn";
 
-/** The Uncava mark that opens the popup's header — the same geometry as the extension icons. */
-export function BrandTile({ className }: { className?: string }) {
+/** The Uncava app icon without its tile, drawn in the text token — the same mark as the SPA's top bar. */
+export function BrandMark({ className }: { className?: string }) {
   return (
-    <span
-      className={cn("grid h-[22px] w-[22px] shrink-0 place-items-center rounded-[5px] bg-text text-panel", className)}
+    <svg
+      viewBox="-36 -51 72 104"
+      className={cn("h-6 w-auto shrink-0 text-text", className)}
+      fill="none"
+      stroke="currentColor"
       aria-hidden
     >
-      <svg viewBox="86 86 340 340" width={22} height={22} fill="currentColor" stroke="currentColor">
-        <path d="M256 131 332 174 256 216 180 174Z" strokeWidth="11" strokeLinejoin="round" />
-        <path d="M256 241 332 285V336L256 380 180 336V285Z" fill="none" strokeWidth="11" strokeLinejoin="round" />
-      </svg>
-    </span>
+      <path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" strokeWidth="2.6" strokeLinejoin="round" />
+      <path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none" />
+    </svg>
   );
 }
 
