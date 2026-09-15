@@ -8,6 +8,8 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /**
  * A mandate's triaged companies. Every finder carries the project id — the universe is mandate
@@ -28,6 +30,15 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
     long countByProjectIdAndStatus(UUID projectId, TriageCompanyStatus status);
 
     Optional<TriageCompany> findByProjectIdAndApolloAccountId(UUID projectId, String apolloAccountId);
+
+    /**
+     * Every id this project has already taken out of the market, at any stage — what
+     * {@code TriagedCompanyLookupAdapter} answers {@code strategy}'s search with, so a triaged company
+     * stops reappearing in later searches. Excludes mandate-supplied rows, which never had one.
+     */
+    @Query("select t.apolloAccountId from TriageCompany t "
+            + "where t.projectId = :projectId and t.apolloAccountId is not null")
+    List<String> findApolloAccountIdsByProjectId(@Param("projectId") UUID projectId);
 
     /**
      * The duplicate guard behind a capture, wider than the partial unique index V34 adds: that index
