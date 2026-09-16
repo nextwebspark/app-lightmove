@@ -1,6 +1,7 @@
 package app.lightmove.api.report.model;
 
 import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
@@ -29,6 +30,11 @@ public record ExecutiveRow(CandidateResponse executive, TriageCompanyResponse co
 
     public CandidateStatus status() {
         return CandidateStatus.fromValue(executive.status());
+    }
+
+    /** Null while nobody recorded one, which the chapter reports rather than guesses. */
+    public Gender gender() {
+        return Gender.fromValue(executive.gender());
     }
 
     public Instant mappedAt() {

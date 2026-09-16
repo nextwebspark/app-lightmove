@@ -1,4 +1,4 @@
-import type { NationalityRow, ReportDiversity, SeniorityLevel } from "../api/types";
+import type { GenderLevelRow, NationalityRow, ReportDiversity, SeniorityLevel } from "../api/types";
 import { percent } from "./figures";
 
 export const ALL_NATIONALITIES_FILTER = "All nationalities";
@@ -85,4 +85,75 @@ export function nationalityFilterOptions(diversity: ReportDiversity): string[] {
 
 export function levelFilterOptions(diversity: ReportDiversity): string[] {
   return [ALL_LEVELS_FILTER, ...diversity.levels];
+}
+
+export interface GenderLevel {
+  level: SeniorityLevel;
+  female: number;
+  male: number;
+  other: number;
+  /** Everyone at this level with a gender on file — the denominator `femalePct` uses. */
+  recorded: number;
+  femalePct: number;
+}
+
+export interface GenderStats {
+  levels: GenderLevel[];
+  female: number;
+  male: number;
+  other: number;
+  /** Everyone with a gender on file, across every level. Zero means the chapter has nothing to report. */
+  recorded: number;
+  unrecorded: number;
+  femalePct: number;
+  /** Null until at least one level has somebody recorded — there is no thinnest level of nothing. */
+  thinnest: GenderLevel | null;
+  /** The tallest bar the pyramid must draw, so both wings scale to headcount rather than to share. */
+  widest: number;
+}
+
+/**
+ * The gender split of the pool, over the rows that carry one.
+ *
+ * <p>Every share here divides by `recorded`, never by the level's headcount: a level where two people
+ * of nine have a gender on file is 50% female of the two, and calling that 11% would report the
+ * silence as men. `unrecorded` is what the screen shows beside it so the reader can weigh the figure.
+ */
+export function genderStats(diversity: ReportDiversity): GenderStats {
+  const levels = diversity.genderByLevel.map(toGenderLevel);
+  const female = sum(levels, (l) => l.female);
+  const male = sum(levels, (l) => l.male);
+  const other = sum(levels, (l) => l.other);
+  const recorded = female + male + other;
+  const measured = levels.filter((level) => level.recorded > 0);
+  return {
+    levels,
+    female,
+    male,
+    other,
+    recorded,
+    unrecorded: diversity.genderUnrecorded,
+    femalePct: percent(female, recorded),
+    thinnest: measured.reduce<GenderLevel | null>(
+      (thinnest, level) => (thinnest === null || level.femalePct < thinnest.femalePct ? level : thinnest),
+      null,
+    ),
+    widest: Math.max(...levels.flatMap((level) => [level.female, level.male]), 1),
+  };
+}
+
+function toGenderLevel(row: GenderLevelRow): GenderLevel {
+  const recorded = row.female + row.male + row.other;
+  return {
+    level: row.level,
+    female: row.female,
+    male: row.male,
+    other: row.other,
+    recorded,
+    femalePct: percent(row.female, recorded),
+  };
+}
+
+function sum<T>(rows: T[], of: (row: T) => number): number {
+  return rows.reduce((total, row) => total + of(row), 0);
 }

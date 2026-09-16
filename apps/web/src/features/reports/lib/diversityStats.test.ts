@@ -6,6 +6,7 @@ import {
   diversityStats,
   feasibility,
   GCC_NATIONALS_FILTER,
+  genderStats,
   nationalityFilterOptions,
 } from "./diversityStats";
 
@@ -63,5 +64,58 @@ describe("feasibility", () => {
 
     expect(fit.qualifying).toBe(0);
     expect(fit.scope).toBe(5);
+  });
+});
+
+/** Gender, counted only where it was recorded — the shares must never divide by the headcount. */
+describe("genderStats", () => {
+  const stats = genderStats(SAMPLE_REPORT.diversity);
+
+  it("divides every share by the executives actually recorded, not by the headcount", () => {
+    // 114 of the 116 mapped executives have a gender on file; 37 of those 114 are women.
+    expect(stats.recorded).toBe(114);
+    expect(stats.unrecorded).toBe(2);
+    expect(stats.female).toBe(37);
+    expect(stats.femalePct).toBe(32);
+
+    const cSuite = stats.levels.find((level) => level.level === "C-Suite");
+    // 50 recorded at C-Suite, not the level's 51: the one nobody recorded is not counted as a man.
+    expect(cSuite).toMatchObject({ female: 14, male: 36, recorded: 50, femalePct: 28 });
+  });
+
+  it("names the thinnest level by share, ignoring levels nobody has recorded", () => {
+    expect(stats.thinnest?.level).toBe("Board");
+    expect(stats.thinnest?.femalePct).toBe(20);
+    // N-3 has nobody at all, so it is not the thinnest at 0%.
+    expect(stats.levels.find((level) => level.level === "N-3")?.recorded).toBe(0);
+  });
+
+  it("scales the pyramid to the widest wing so bars carry headcount, not share", () => {
+    expect(stats.widest).toBe(36);
+  });
+
+  it("counts a third gender without putting it in either wing", () => {
+    const n1 = stats.levels.find((level) => level.level === "N-1");
+
+    expect(n1).toMatchObject({ female: 13, male: 24, other: 1, recorded: 38 });
+    expect(stats.other).toBe(1);
+    expect(stats.female + stats.male + stats.other).toBe(stats.recorded);
+  });
+
+  it("reports a mandate nobody has recorded as unmeasured rather than as all-male", () => {
+    const untouched = genderStats({
+      ...SAMPLE_REPORT.diversity,
+      genderByLevel: SAMPLE_REPORT.diversity.genderByLevel.map((row) => ({
+        ...row,
+        female: 0,
+        male: 0,
+        other: 0,
+      })),
+      genderUnrecorded: 116,
+    });
+
+    expect(untouched.recorded).toBe(0);
+    expect(untouched.thinnest).toBeNull();
+    expect(untouched.femalePct).toBe(0);
   });
 });

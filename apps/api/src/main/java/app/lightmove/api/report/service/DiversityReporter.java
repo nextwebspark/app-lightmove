@@ -1,9 +1,11 @@
 package app.lightmove.api.report.service;
 
+import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.ReportSettings;
 import app.lightmove.api.report.dto.DiversityDto;
+import app.lightmove.api.report.dto.GenderLevelRowDto;
 import app.lightmove.api.report.dto.LevelCountDto;
 import app.lightmove.api.report.dto.NationalityRowDto;
 import app.lightmove.api.report.model.ExecutiveRow;
@@ -18,6 +20,9 @@ import org.springframework.stereotype.Component;
  * Chapter four. Nationality is counted under one spelling per group, by seniority, with the tail
  * folded into "Other" past the cap and the Gulf nationals totalled — the figure a localisation
  * quota is measured against.
+ *
+ * <p>Gender is counted the same way and only where a researcher recorded it. Nothing here reads a
+ * name, so a mandate that has recorded none is reported as unmeasured rather than as all-male.
  */
 @Component
 class DiversityReporter {
@@ -52,7 +57,33 @@ class DiversityReporter {
         }
 
         long gccNationals = nationals.stream().filter(national -> NationalityCatalog.isGcc(national.demonym())).count();
-        return new DiversityDto(MarketShapeReporter.levelTokens(), rows, unknown, gccNationals);
+        return new DiversityDto(MarketShapeReporter.levelTokens(), rows, unknown, gccNationals,
+                genderByLevel(sources.executives()), genderUnrecorded(sources.executives()));
+    }
+
+    /**
+     * The gender split of each level, over the rows that carry one. A level nobody recorded answers
+     * three zeros rather than being left out, so the chapter can say it is unmeasured.
+     */
+    private static List<GenderLevelRowDto> genderByLevel(List<ExecutiveRow> executives) {
+        return Arrays.stream(Seniority.values())
+                .map(level -> {
+                    List<ExecutiveRow> here = executives.stream()
+                            .filter(row -> row.seniority() == level)
+                            .toList();
+                    return new GenderLevelRowDto(level.value(), count(here, Gender.FEMALE),
+                            count(here, Gender.MALE), count(here, Gender.OTHER));
+                })
+                .toList();
+    }
+
+    private static int count(List<ExecutiveRow> executives, Gender gender) {
+        return (int) executives.stream().filter(row -> row.gender() == gender).count();
+    }
+
+    /** Everyone nobody recorded a gender for — counted apart from {@code OTHER}, which somebody did. */
+    private static int genderUnrecorded(List<ExecutiveRow> executives) {
+        return (int) executives.stream().filter(row -> row.gender() == null).count();
     }
 
     private static NationalityRowDto row(String label, boolean gcc, List<NationalExecutive> nationals,

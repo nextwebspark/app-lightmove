@@ -5,6 +5,7 @@ import type { Disclosure, ReportRemuneration } from "../api/types";
 import { CompensationStrip } from "../components/CompensationStrip";
 import { DisclosureDrawer } from "../components/DisclosureDrawer";
 import { KpiTile, KpiTileRow } from "../components/KpiTiles";
+import { LockedBenchmarkCard } from "../components/LockedBenchmarkCard";
 import { ChartLegend, ReportCard } from "../components/ReportCard";
 import { Figure, ReportSection } from "../components/ReportSection";
 import {
@@ -205,6 +206,12 @@ export function RemunerationSection({ remuneration }: { remuneration: ReportRemu
           </KpiTileRow>
         )}
       </ReportCard>
+
+      <LockedBenchmarkCard>
+        <b className="text-text">Cross-mandate compensation benchmark — not built.</b> The percentile
+        above ranks our band against the executives <i>this</i> mandate has spoken to, not against the
+        market. Aggregating verified packages across mandates is a later piece of work.
+      </LockedBenchmarkCard>
 
       <DisclosureDrawer disclosure={selected} remuneration={remuneration} onClose={() => setSelected(null)} />
     </ReportSection>

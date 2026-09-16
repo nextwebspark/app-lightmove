@@ -82,7 +82,7 @@ describe("ReportsPage", () => {
     expect(within(rail).getByText("Mapping progress")).toBeInTheDocument();
     expect(within(rail).getByText("Shape of the market")).toBeInTheDocument();
     expect(within(rail).getByText("Remuneration")).toBeInTheDocument();
-    expect(within(rail).getByText("Nationality & localisation")).toBeInTheDocument();
+    expect(within(rail).getByText("Diversity & DEI")).toBeInTheDocument();
     // Findings are computed from the report, not typed: the ceiling's rank and the slip both come
     // out of the disclosures and the cumulative coverage respectively.
     expect(screen.getAllByText("38th percentile").length).toBeGreaterThan(0);
@@ -155,5 +155,66 @@ describe("ReportsPage", () => {
 
     expect(screen.getByText(/of the 51 executives mapped in that scope/)).toBeInTheDocument();
     expect(screen.getByText("a GCC national")).toBeInTheDocument();
+  });
+
+  it("draws the gender pipeline from the recorded rows, never from the headcount", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
+
+    renderPage();
+
+    // 37 women of the 114 with a gender on file, and the thinnest level named rather than averaged away.
+    expect(await screen.findByText("32% of the recorded pool")).toBeInTheDocument();
+    expect(screen.getByText("Board (20%)")).toBeInTheDocument();
+    expect(screen.getByText(/114 recorded · aggregate only/)).toBeInTheDocument();
+  });
+
+  it("says gender is unmeasured rather than drawing a pool of one gender", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue({
+      ...SAMPLE_REPORT,
+      diversity: {
+        ...SAMPLE_REPORT.diversity,
+        genderByLevel: SAMPLE_REPORT.diversity.genderByLevel.map((row) => ({
+          ...row,
+          female: 0,
+          male: 0,
+          other: 0,
+        })),
+        genderUnrecorded: 116,
+      },
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("Nobody on this mandate has a gender recorded.")).toBeInTheDocument();
+    expect(screen.queryByText(/of the recorded pool/)).not.toBeInTheDocument();
+  });
+
+  it("marks the relevance mix as illustrative so three tidy bands are not read as a finding", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
+
+    renderPage();
+
+    expect(await screen.findByText("Relevance mix")).toBeInTheDocument();
+    expect(screen.getByText(/These bands are not derived from your rows/)).toBeInTheDocument();
+  });
+
+  it("names the cross-mandate benchmarks it does not have rather than leaving a silent gap", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
+
+    renderPage();
+
+    expect(await screen.findByText(/Cross-mandate compensation benchmark/)).toBeInTheDocument();
+    expect(screen.getByText(/Cross-mandate diversity benchmark/)).toBeInTheDocument();
+  });
+
+  it("falls back to the hub bars alone where no map is configured", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
+
+    renderPage();
+    await screen.findByText("Where talent sits");
+
+    // The config read is unmocked and fails in jsdom, which is the no-token case: bars, no map.
+    expect(screen.getByTitle(/38 executives in Dubai/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Talent hubs on a map")).not.toBeInTheDocument();
   });
 });

@@ -56,7 +56,10 @@ class ReportIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.market.sectors").isEmpty())
                 .andExpect(jsonPath("$.remuneration.fixedBand").doesNotExist())
                 .andExpect(jsonPath("$.remuneration.disclosures").isEmpty())
-                .andExpect(jsonPath("$.diversity.nationalities").isEmpty());
+                .andExpect(jsonPath("$.diversity.nationalities").isEmpty())
+                .andExpect(jsonPath("$.diversity.genderUnrecorded").value(0))
+                .andExpect(jsonPath("$.diversity.genderByLevel[4].level").value("N-3"))
+                .andExpect(jsonPath("$.diversity.genderByLevel[0].female").value(0));
     }
 
     @Test
@@ -70,12 +73,12 @@ class ReportIntegrationTest extends FlowTestSupport {
         candidate(f.admin, f.projectId, """
                 {"triageCompanyId":"%s","fullName":"Yasmin El-Sayed","title":"CFO","seniority":"C-Suite",
                  "status":"interested","locationCity":"Riyadh","locationCountry":"KSA",
-                 "nationality":"saudi arabian",
+                 "nationality":"saudi arabian","gender":"female",
                  "compensation":{"currency":"USD","baseSalary":300000,"allowances":20000,"bonus":50000}}"""
                 .formatted(almarai));
         candidate(f.admin, f.projectId, """
                 {"triageCompanyId":"%s","fullName":"Omar Haddad","title":"Finance Director","seniority":"N-1",
-                 "locationCity":"Dubai","locationCountry":"UAE","nationality":"Egypt",
+                 "locationCity":"Dubai","locationCountry":"UAE","nationality":"Egypt","gender":"male",
                  "compensation":{"currency":"AED","baseSalary":400000}}"""
                 .formatted(almarai));
         candidate(f.admin, f.projectId, """
@@ -143,6 +146,11 @@ class ReportIntegrationTest extends FlowTestSupport {
         assertThat(nationality(diversity, "Emirati").get("unclassified").asInt()).isEqualTo(1);
         assertThat(diversity.get("gccNationals").asInt()).isEqualTo(2);
         assertThat(diversity.get("unknownNationality").asInt()).isZero();
+        // Two of the three recorded a gender; the third is unrecorded and is not counted as a man.
+        assertThat(level(diversity, "C-Suite").get("female").asInt()).isEqualTo(1);
+        assertThat(level(diversity, "C-Suite").get("male").asInt()).isZero();
+        assertThat(level(diversity, "N-1").get("male").asInt()).isEqualTo(1);
+        assertThat(diversity.get("genderUnrecorded").asInt()).isEqualTo(1);
     }
 
     // ── fixture ──────────────────────────────────────────────────────────────
@@ -158,6 +166,15 @@ class ReportIntegrationTest extends FlowTestSupport {
             }
         }
         throw new AssertionError("No cell for " + sector + " × " + level);
+    }
+
+    private static JsonNode level(JsonNode diversity, String label) {
+        for (JsonNode row : diversity.get("genderByLevel")) {
+            if (row.get("level").asText().equals(label)) {
+                return row;
+            }
+        }
+        throw new AssertionError("No gender row for " + label);
     }
 
     private static JsonNode nationality(JsonNode diversity, String label) {

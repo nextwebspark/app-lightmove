@@ -23,7 +23,7 @@ const NAV_ITEMS: ReportNavItem[] = [
   { key: "progress", ordinal: "01", label: "Mapping progress" },
   { key: "market", ordinal: "02", label: "Shape of the market" },
   { key: "comp", ordinal: "03", label: "Remuneration" },
-  { key: "dei", ordinal: "04", label: "Nationality & localisation" },
+  { key: "dei", ordinal: "04", label: "Diversity & DEI" },
 ];
 
 /** The Reports tab: loads the mandate's report, then renders it. */

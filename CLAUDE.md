@@ -51,9 +51,17 @@ unpaged, capped read (`GET /projects/{id}/talent-map`), with `…/talent-map/loc
 same map as points alone for the poll that waits on places rather than on people. The **Reports**
 tab is the mandate's talent mapping report (`GET /projects/{id}/report`): four chapters — mapping
 progress, shape of the market, remuneration, diversity — aggregated live by `report` from the same
-rows, so nothing is stored and nothing goes stale. It states only what the rows carry: nationality
-but never gender, a candidate's status but no pipeline outcome, and a package in another currency is
-counted rather than converted. The standalone
+rows, so nothing is stored and nothing goes stale. It states only what the rows carry: a candidate's
+status but no pipeline outcome, and a package in another currency is counted rather than converted.
+**Gender (V51) is recorded on a candidate and never inferred from a name** — the chapter divides by
+the executives who have one on file, not by the headcount, so a mandate nobody has recorded reads as
+unmeasured rather than as a pool of one gender. Two things the chapters name but cannot yet derive
+say so on the page rather than leaving a hole: the **relevance mix** is an illustrative placeholder
+(V30 dropped `app_lm_strategy_sector.kind`, which held exactly `DIRECT | ADJACENT | INFERRED`), and
+the two **cross-mandate benchmarks** are marked not built, with no fabricated progress count. The
+market chapter's hubs carry a point from `geocoding` — asked only for the handful of cities it names
+— so it draws a small map beside the bars where a Mapbox token is configured, and the bars alone
+where none is. The standalone
 Candidates screen, and the pipeline and outreach tables, don't exist yet. The **Position**
 screen is the mandate's brief, edited as a six-step wizard (details, mandate context, reporting,
 compensation, assessment, review) that autosaves one step at a time. It opens drafted rather than
@@ -193,6 +201,9 @@ the definitions are rows and the values are a document. `field_key` is slugged o
 rewritten — every stored value points at it — while `label` is the header a user renames.
 V47 adds `'CSV'` to the triage company's `source` CHECK, the spelling V36 had already reserved on the
 candidate side.
+V51 adds `app_lm_project_candidate.gender` (`FEMALE | MALE | OTHER`), nullable with no default:
+NULL is "nobody recorded it" and is deliberately not a fourth value, because "not recorded" and
+"recorded as other" are different facts and the report counts them apart.
 V48 gives `app_lm_client` the two snapshot columns V15 left out — `hq_city` and `logo_url` — and
 backfills them for existing Apollo-backed rows by their stored provenance id, so a client renders with
 its own mark rather than an initials tile.
