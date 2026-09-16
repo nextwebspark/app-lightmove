@@ -360,17 +360,23 @@ variable names the address.
 ### Link previews
 
 Pasting a link to the app into WhatsApp, Slack, LinkedIn, iMessage or X draws a card: the title, one
-sentence, and `apps/web/public/og-image.png` (1200×630, the mark and wordmark on the dark ground). The
+sentence, and `apps/web/public/og-image-v2.png` (1200×630, the mark and wordmark on the dark ground). The
 Open Graph and Twitter tags that say so are in `apps/web/index.html` — **not** set by React, because
 none of these crawlers runs the bundle; they read the shell Spring returns and stop. Their URLs must be
 absolute, so `vite.config.ts` substitutes `__PUBLIC_BASE_URL__` at build time from the same
 `PUBLIC_BASE_URL` the deploy uses, falling back to the mapped domain.
 
 Every one of them caches a card by URL, for days, and LinkedIn and WhatsApp most stubbornly of all.
-Redrawing `og-image.png` in place therefore leaves the old picture in circulation — **ship a new drawing
-under a new filename** and point the tags at it. LinkedIn's [Post Inspector][li] and Facebook's
-[Sharing Debugger][fb] re-fetch on demand, which is the only way to see a change before the cache
-expires.
+Redrawing the image in place therefore leaves the old picture in circulation, so **the filename carries a
+version**: `og-image.png` shipped in v0.3.0 wearing the mark the app has since replaced, and the redrawing
+went out as `og-image-v2.png` rather than over the top of it. A next one takes `-v3`. LinkedIn's
+[Post Inspector][li] and Facebook's [Sharing Debugger][fb] re-fetch on demand, which is the only way to
+see a change before the cache expires.
+
+The card is a rendering, not a drawing by hand: an HTML page laid out in the app's own tokens, screenshot
+at 1200×630 with headless Chromium. Redraw it that way — the composition is the auth screen's lockup
+(`AppIcon` and the wordmark) over the dark ground, and matching it by hand in an image editor is how the
+two drift apart.
 
 [li]: https://www.linkedin.com/post-inspector/
 [fb]: https://developers.facebook.com/tools/debug/
