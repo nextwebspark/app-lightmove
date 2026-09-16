@@ -2,7 +2,7 @@ import { SIDE_PANEL_PATH } from "../buildTargets";
 import { isLinkedInPageUrl } from "../content/pageReader/linkedInUrls";
 
 /**
- * Where LightMove Capture offers itself at all.
+ * Where UNCAVA Capture offers itself at all.
  *
  * The panel is hidden and the toolbar icon greyed on every tab that is not LinkedIn, rather than
  * opening to explain that it reads LinkedIn only. Chrome hides a disabled panel on tab switch and
@@ -21,8 +21,8 @@ export interface PanelAvailabilityDeps {
   setActionTitle: (details: { tabId: number; title: string }) => Promise<void>;
 }
 
-const AVAILABLE_TITLE = "LightMove Capture";
-const UNAVAILABLE_TITLE = "LightMove Capture — open a LinkedIn profile or company page";
+const AVAILABLE_TITLE = "UNCAVA Capture";
+const UNAVAILABLE_TITLE = "UNCAVA Capture — open a LinkedIn profile or company page";
 
 /**
  * Applies the rule to one tab.

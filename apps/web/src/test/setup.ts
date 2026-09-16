@@ -15,6 +15,14 @@ window.matchMedia = (query: string): MediaQueryList =>
     dispatchEvent: () => false,
   }) as unknown as MediaQueryList;
 
+/** jsdom has no layout engine, so React Flow's own ResizeObserver usage needs a stand-in to mount at all. */
+class NoopResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+window.ResizeObserver = NoopResizeObserver as unknown as typeof ResizeObserver;
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();

@@ -69,6 +69,7 @@ export default defineConfig(({ mode }) => {
     rollupOptions: {
       input: {
         popup: resolve(import.meta.dirname, "popup.html"),
+        colorScheme: resolve(import.meta.dirname, "color-scheme.html"),
         background: resolve(import.meta.dirname, "src/background/serviceWorker.ts"),
       },
       output: {

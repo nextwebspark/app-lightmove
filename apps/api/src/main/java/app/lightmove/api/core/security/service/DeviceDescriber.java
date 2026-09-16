@@ -33,7 +33,7 @@ public class DeviceDescriber {
             new BrowserMarker("Safari", "Safari"));
 
     /** The extension's fetches carry the host browser's User-Agent, so only the client tells them apart. */
-    private static final String EXTENSION_LABEL = "LightMove Capture (browser extension)";
+    private static final String EXTENSION_LABEL = "Uncava Capture (browser extension)";
 
     private static final List<PlatformMarker> PLATFORMS = List.of(
             new PlatformMarker("iPhone", "iPhone", DeviceKind.MOBILE),

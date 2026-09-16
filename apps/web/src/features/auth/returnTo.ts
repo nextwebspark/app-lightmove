@@ -1,7 +1,7 @@
 /**
  * Where sign-in should land, when the user was already headed somewhere.
  *
- * The extension is what made this load-bearing: its "Open LightMove" button opens `/extension/connect`,
+ * The extension is what made this load-bearing: its "Open Uncava" button opens `/extension/connect`,
  * and a consultant who is signed out lands on the login page, signs in, arrives at the projects list —
  * and the extension is still not paired, with the tab that would have paired it gone.
  */

@@ -25,11 +25,11 @@ RUNTIME_SA="lightmove-api@${PROJECT}.iam.gserviceaccount.com"
 # lm_app today. Becomes lm_migrate once ops/cloudsql/create-migrate-role.sh has been applied.
 MIGRATE_USER="${DB_MIGRATE_USER:-lm_app}"
 
-# Defaults to resend + the verified lightmove.ai sender, so a plain run sends real mail. Requires the
+# Defaults to resend + the verified uncava.com sender, so a plain run sends real mail. Requires the
 # lightmove-resend-api-key secret to have a value (preflight below fails fast if it does not). Override
 # EMAIL_PROVIDER=log for a dry-run environment that should not send.
 EMAIL_PROVIDER="${EMAIL_PROVIDER:-resend}"
-EMAIL_FROM="${EMAIL_FROM:-noreply@lightmove.ai}"
+EMAIL_FROM="${EMAIL_FROM:-noreply@uncava.com}"
 GOOGLE_OAUTH_CLIENT_ID="${GOOGLE_OAUTH_CLIENT_ID:-}"
 
 # ⚠ Verification off. Every signup is treated as though the address had been proved.
@@ -182,10 +182,11 @@ trap - EXIT
 # ── Deploy ────────────────────────────────────────────────────────────────────
 say "Deploy to Cloud Run"
 
-# WEB_BASE_URL is the service's own URL, which does not exist until the service does. First run therefore
-# boots on a placeholder and is corrected below; every run after that already knows it.
-KNOWN_URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" \
-    --format='value(status.url)' 2>/dev/null || true)"
+# WEB_BASE_URL is the origin users open: PUBLIC_BASE_URL when a custom domain is mapped (README,
+# "Custom domain"), else the service's own URL — which does not exist until the service does, so a
+# first run boots on a placeholder and is corrected below.
+KNOWN_URL="${PUBLIC_BASE_URL:-$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" \
+    --format='value(status.url)' 2>/dev/null || true)}"
 BASE_URL="${KNOWN_URL:-http://localhost:8080}"
 
 # Google sign-in is wired only when it is actually configured. Spring validates every declared
@@ -243,17 +244,24 @@ fi
 # ── Prove it serves ───────────────────────────────────────────────────────────
 # `gcloud run deploy` returning 0 means the revision started, not that it works. These assert the
 # properties this whole arrangement exists to preserve.
+# With a custom domain the service's own URL redirects every page to it, so the page checks run
+# against the public origin — against status.url they read an empty 302 (v0.3.0).
+PUBLIC_URL="${PUBLIC_BASE_URL:-$URL}"
+PUBLIC_URL="${PUBLIC_URL%/}"
 say "Smoke test"
-curl -fsS --retry 5 --retry-delay 3 "$URL/actuator/health" >/dev/null && echo "  ✓ healthy"
-curl -fsS "$URL/" | grep -q '<div id="root">' && echo "  ✓ the SPA is in the image and served at /"
-[ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/auth/verify?token=x")" = "200" ] && echo "  ✓ history fallback (the URL in every verification email)"
-[ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/actuator/prometheus")" = "401" ] && echo "  ✓ metrics are not public"
-[ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/v1/onboarding/workspaces")" = "401" ] && echo "  ✓ the API is still shut"
+curl -fsS --retry 5 --retry-delay 3 "$PUBLIC_URL/actuator/health" >/dev/null && echo "  ✓ healthy"
+curl -fsS "$PUBLIC_URL/" | grep -q '<div id="root">' && echo "  ✓ the SPA is in the image and served at /"
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_URL/auth/verify?token=x")" = "200" ] && echo "  ✓ history fallback (the URL in every verification email)"
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_URL/actuator/prometheus")" = "401" ] && echo "  ✓ metrics are not public"
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_URL/api/v1/onboarding/workspaces")" = "401" ] && echo "  ✓ the API is still shut"
+if [ "$PUBLIC_URL" != "$URL" ]; then
+    [ "$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/")" = "$PUBLIC_URL/" ] && echo "  ✓ ${URL} sends pages to ${PUBLIC_URL}"
+fi
 
 cat <<EOF
 
 ────────────────────────────────────────────────────────────────────────────────
-  ${URL}
+  ${PUBLIC_URL}
 
   Email is '${EMAIL_PROVIDER}'. $([ "$EMAIL_PROVIDER" = "log" ] && echo "Verification links go to Cloud Logging, not a mailbox:" || echo "Sending for real.")
 $([ "$EMAIL_PROVIDER" = "log" ] && echo "

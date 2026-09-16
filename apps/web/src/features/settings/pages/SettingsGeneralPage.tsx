@@ -71,7 +71,7 @@ export function SettingsGeneralPage() {
           </Field>
           <Field label="Workspace URL">
             <div className="rounded-lg border border-line-soft bg-panel px-3 py-[9px] font-mono text-[13px] font-medium text-text2">
-              lightmove.app/w/{workspace.slug}
+              {window.location.host}/w/{workspace.slug}
             </div>
           </Field>
           <Field label="Default region">

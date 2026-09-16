@@ -227,16 +227,24 @@ lightmove:
     # injection-phrases:
     #   - ignore previous instructions
     rate-limit:
-      # The import's column mapping is metered against shortlist-requests-per-minute, on a meter of
-      # its own: one deliberate click either way, but a large import must not eat the shortlist.
+      # Every meter but shortlist and embed (the import's column mapping, each extraction step) shares
+      # default-requests-per-minute: one deliberate click either way, but each still its own budget so
+      # none of them can eat another's calls.
+      #
+      # "Read the whole document" fans out all five extraction meters at once, so one click spends a
+      # fifth of this budget per section and the shared 10/min is two full one-click reads per user
+      # per minute. Deliberate, not an oversight: no evidence 10/min is wrong, and a dedicated
+      # position-extract setting can be split out later if it ever needs to move independently of the
+      # other meters riding on this default.
       enabled: ${LLM_RATE_LIMIT_ENABLED:true}
       shortlist-requests-per-minute: ${LLM_SHORTLIST_REQUESTS_PER_MINUTE:10}
       embed-requests-per-minute: ${LLM_EMBED_REQUESTS_PER_MINUTE:20}
+      default-requests-per-minute: ${LLM_DEFAULT_REQUESTS_PER_MINUTE:10}
 
   email:
     provider: ${EMAIL_PROVIDER:resend}
-    from-name: LightMove
-    from-address: ${EMAIL_FROM:noreply@lightmove.ai}
+    from-name: Uncava
+    from-address: ${EMAIL_FROM:noreply@uncava.com}
     resend:
       api-key: ${RESEND_API_KEY:}
     validation:
@@ -335,6 +343,21 @@ lightmove:
         - application/msword
         - application/vnd.openxmlformats-officedocument.wordprocessingml.document
         - text/plain
+    extraction:
+      # ON. Reading the attached document into step-one proposals is billed model time behind
+      # PROJECT_EDIT, degrading to a heuristic reading with no Vertex credentials at all — off leaves
+      # the upload/download path untouched and turns "Read from document" off alone.
+      enabled: ${POSITION_EXTRACTION_ENABLED:true}
+      # Refused whole rather than read in part — bounds the model's per-call cost and a decompression
+      # bomb alike. Applied to the extracted *text*, not the upload's byte size — a small,
+      # well-compressed file can still decompress into far more text than this.
+      max-characters: ${POSITION_EXTRACTION_MAX_CHARACTERS:40000}
+      max-pages: ${POSITION_EXTRACTION_MAX_PAGES:60}
+      # ON. The document's client identity and contact details are not the model's business — see
+      # PositionDocumentRedactor. Turn off only knowingly, the same trade send-sample-values makes for
+      # spreadsheet imports.
+      redact-known-company-names: ${POSITION_EXTRACTION_REDACT_CLIENT_NAME:true}
+      redact-contact-details: ${POSITION_EXTRACTION_REDACT_CONTACT_DETAILS:true}
 
   custom-column:
     # The ceiling on the extra columns one mandate may add to its Companies grid, counted across the

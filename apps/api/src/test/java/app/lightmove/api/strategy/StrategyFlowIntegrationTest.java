@@ -329,6 +329,30 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a company already triaged at any stage stops reappearing in later searches")
+    void triagedCompanyExcludedFromLaterSearches() throws Exception {
+        String admin = adminOf("Strategy Triaged Firm");
+        String projectId = project(admin);
+        universe.company("a1", "ACWA Power").industry("oil & energy").employees(10).insert();
+        universe.company("a2", "Masdar").industry("oil & energy").employees(10).insert();
+        universe.company("a3", "Energy Two").industry("oil & energy").employees(10).insert();
+        mvc.perform(post(triageUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountId":"a2","status":"declined"}"""))
+                .andExpect(status().isCreated());
+
+        // Declined is still triaged — the exclusion is unconditional across all three stages, not
+        // just "in universe" — so the search this comes from re-runs to two, not three.
+        mvc.perform(get(companiesUrl(projectId)).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.totalCount").value(2))
+                .andExpect(jsonPath("$.companies.length()").value(2))
+                .andExpect(jsonPath("$.companies[*].companyName")
+                        .value(containsInAnyOrder("ACWA Power", "Energy Two")));
+    }
+
+    @Test
     @DisplayName("the off-limits list stores a server-resolved snapshot, not the client's words")
     void offLimitsStoresAResolvedSnapshot() throws Exception {
         String admin = adminOf("Strategy Snapshot List Firm");
@@ -577,6 +601,10 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
 
     private static String companiesUrl(String projectId) {
         return strategyUrl(projectId) + "/companies";
+    }
+
+    private static String triageUrl(String projectId) {
+        return "/api/v1/projects/" + projectId + "/triage";
     }
 
     private String adminOf(String workspaceName) throws Exception {

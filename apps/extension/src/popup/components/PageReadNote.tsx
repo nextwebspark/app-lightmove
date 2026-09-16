@@ -29,7 +29,7 @@ export function PageReadNote({
           onClick={() => void chrome.tabs.create({ url })}
           className="mt-2 rounded-md bg-amber-btn px-2.5 py-1.5 text-[11.5px] font-semibold text-on-amber"
         >
-          Open LightMove
+          Open Uncava
         </button>
       </div>
     );

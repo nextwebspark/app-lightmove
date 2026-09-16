@@ -29,7 +29,9 @@ import org.springframework.web.multipart.MultipartFile;
  * is WORK_VIEW, so a client representative may see and open the document their mandate was briefed
  * from, while attaching or removing one is PROJECT_EDIT.
  *
- * <p>Uploading stores the file and nothing more: no field on the Position screen is filled in from it.
+ * <p>Uploading and downloading move bytes only. Reading the document for its content is a separate,
+ * explicit act — {@link app.lightmove.api.position.controller.PositionExtractionController}, gated
+ * PROJECT_EDIT because it costs money, not WORK_VIEW like the download below.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/position/document")

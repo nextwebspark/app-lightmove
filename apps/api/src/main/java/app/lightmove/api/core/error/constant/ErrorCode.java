@@ -45,7 +45,7 @@ public enum ErrorCode {
 
     /** A consumer provider (gmail, outlook…). The domain must name a company — it is the organisation. */
     EMAIL_NOT_WORK_ADDRESS(HttpStatus.BAD_REQUEST,
-            "Please sign up with your work email. LightMove is for search firms, and your email domain identifies your organization"),
+            "Please sign up with your work email. Uncava is for search firms, and your email domain identifies your organization"),
 
     /** The user already has an active workspace. One at a time. */
     ALREADY_IN_WORKSPACE(HttpStatus.CONFLICT, "You already belong to a workspace"),
@@ -198,6 +198,15 @@ public enum ErrorCode {
      */
     CUSTOM_COLUMN_LIMIT_REACHED(HttpStatus.CONFLICT,
             "This mandate has as many custom columns as it can hold"),
+
+    /**
+     * A position description that could not be read as text — encrypted, no text layer, a legacy
+     * {@code .doc}, or a format nobody recognises. Distinct from {@link #IMPORT_FILE_UNREADABLE}:
+     * that is a table that will not parse as rows, this is a document that will not parse as prose,
+     * and the fixes read differently to a person.
+     */
+    POSITION_DOCUMENT_UNREADABLE(HttpStatus.BAD_REQUEST,
+            "That document could not be read. Save it as .docx or PDF, with a text layer, and try again."),
 
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 

@@ -22,6 +22,7 @@ import {
 import { DEFAULT_CAPTURE_SETTINGS, type CaptureSettings } from "../domain/captureSettings";
 import type { ExtensionFailure, ExtensionRequest } from "./extensionMessages";
 import { CONNECT_RETURN_TAB_KEY, LAST_PROJECT_KEY, LAST_READ_KEY, SETTINGS_KEY } from "./storageKeys";
+import { applyToolbarIcon, watchColorScheme, type ToolbarIconDeps } from "./toolbarIcon";
 import {
   currentAccessToken,
   pairedUser,
@@ -89,6 +90,14 @@ void disableGlobalPanel(panelAvailabilityDeps).then(() =>
   applyPanelAvailabilityToAllTabs(panelAvailabilityDeps),
 );
 
+const toolbarIconDeps: ToolbarIconDeps = {
+  hasOffscreenDocument: () => chrome.offscreen.hasDocument(),
+  createOffscreenDocument: (parameters) => chrome.offscreen.createDocument(parameters),
+  setIcon: (details) => chrome.action.setIcon(details),
+};
+
+void watchColorScheme(toolbarIconDeps);
+
 chrome.runtime.onMessage.addListener((message: ExtensionRequest, _sender, respond) => {
   // Answering asynchronously requires returning true synchronously, so the work is started here and
   // the channel held open. Returning the promise itself does not work in Chrome.
@@ -105,7 +114,7 @@ chrome.runtime.onMessage.addListener((message: ExtensionRequest, _sender, respon
  */
 chrome.runtime.onMessageExternal.addListener((message: WorkspaceMessage, sender, respond) => {
   if (!isWorkspaceSender(sender)) {
-    respond({ ok: false, code: "SENDER_REFUSED", message: "Not the LightMove workspace." });
+    respond({ ok: false, code: "SENDER_REFUSED", message: "Not the Uncava workspace." });
     return false;
   }
   // Answered before a token exists, so the page can find out whether this extension is installed
@@ -170,12 +179,15 @@ async function handle(message: ExtensionRequest): Promise<unknown> {
       return storedSettings();
     case "writeSettings":
       return writeSettings(message.settings);
+    case "colorSchemeChanged":
+      await applyToolbarIcon(toolbarIconDeps, message.isDarkScheme);
+      return null;
     default:
       // Reachable in one real state: an extension update restarts the worker while an open popup keeps
       // running against the older contract. Without this the switch falls through to `undefined` and
       // the caller reads `{ ok: true, value: undefined }` — a successful empty reply, rendering a blank
       // project list rather than reporting anything.
-      throw new Error(`This version of LightMove Capture cannot handle "${(message as { kind: string }).kind}".`);
+      throw new Error(`This version of UNCAVA Capture cannot handle "${(message as { kind: string }).kind}".`);
   }
 }
 

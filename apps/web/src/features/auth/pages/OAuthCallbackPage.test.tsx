@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../AuthProvider";
 import { OAuthCallbackPage } from "./OAuthCallbackPage";
 import * as authApi from "../api/authApi";
-import { setAccessToken } from "../../../lib/apiClient";
+import { restoreSession, setAccessToken } from "../../../lib/apiClient";
 
 vi.mock("../api/authApi");
 
@@ -75,6 +75,15 @@ describe("OAuthCallbackPage", () => {
     expect(window.location.hash).toBe("");
   });
 
+  it("restores the session as any page does when it is not a popup", async () => {
+    window.location.hash = "#token=tok-123";
+    vi.mocked(authApi.me).mockResolvedValue(user);
+
+    renderPage();
+
+    await waitFor(() => expect(restoreSession).toHaveBeenCalled());
+  });
+
   it("goes back to login with a code when the fragment carries no token", async () => {
     renderPage();
 
@@ -142,6 +151,20 @@ describe("OAuthCallbackPage", () => {
       expect(navigate).not.toHaveBeenCalled();
       expect(postMessage.mock.calls[0][0]).not.toHaveProperty("outcome.token");
       expect(window.location.hash).toBe("");
+
+      vi.unstubAllGlobals();
+    });
+
+    it("leaves the session restore to the opener, so the two never refresh at once", async () => {
+      openAsPopup();
+      window.location.hash = "#token=tok-123";
+      vi.stubGlobal("opener", { postMessage: vi.fn() });
+      const close = vi.spyOn(window, "close").mockImplementation(() => {});
+
+      renderPage();
+
+      await waitFor(() => expect(close).toHaveBeenCalled());
+      expect(restoreSession).not.toHaveBeenCalled();
 
       vi.unstubAllGlobals();
     });

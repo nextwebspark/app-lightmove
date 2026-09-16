@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { forWire, identify, moveRow, toggle } from "./competencyRows";
+import { competencyFrom, forWire, identify, moveRow, toggle } from "./competencyRows";
 
 const rows = () =>
   identify([
@@ -46,6 +46,40 @@ describe("moveRow", () => {
     const before = rows();
     expect(moveRow(before, before[1].id, before[1].id)).toBe(before);
     expect(moveRow(before, "gone", before[0].id)).toBe(before);
+  });
+});
+
+describe("competencyFrom", () => {
+  it("reads a name-only value with a default weight", () => {
+    expect(competencyFrom("Financial Modelling")).toEqual({
+      name: "Financial Modelling",
+      weight: 0,
+      description: null,
+    });
+  });
+
+  it("reads a packed name and weight", () => {
+    expect(competencyFrom("Financial Reporting & Controls — 25")).toEqual({
+      name: "Financial Reporting & Controls",
+      weight: 25,
+      description: null,
+    });
+  });
+
+  it("reads a packed name, weight and description", () => {
+    expect(competencyFrom("Financial Modelling — 0 — Builds and stress-tests the model")).toEqual({
+      name: "Financial Modelling",
+      weight: 0,
+      description: "Builds and stress-tests the model",
+    });
+  });
+
+  it("keeps a description that itself contains the separator, joining what split apart", () => {
+    expect(competencyFrom("Modelling — 10 — Builds a model — then stress-tests it")).toEqual({
+      name: "Modelling",
+      weight: 10,
+      description: "Builds a model — then stress-tests it",
+    });
   });
 });
 

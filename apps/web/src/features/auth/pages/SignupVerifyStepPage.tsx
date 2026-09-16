@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Card, Logo } from "../../../components/ui";
+import { AuthLogo, Button, Card } from "../../../components/ui";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
@@ -64,7 +64,7 @@ export function SignupVerifyStepPage() {
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-4 sm:p-6">
-      <Logo />
+      <AuthLogo />
       <Stepper steps={SIGNUP_STEPS} current={2} />
 
       <Card className="w-[420px] max-w-[94vw] text-center [animation-delay:80ms]">
