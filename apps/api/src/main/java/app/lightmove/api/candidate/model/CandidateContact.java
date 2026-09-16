@@ -110,16 +110,15 @@ public class CandidateContact {
     /**
      * What an edit in the drawer does to a row it matched by key: the spelling, the kind and the
      * verified flag are taken as stated. A verified flag a person sets is recorded as theirs; one
-     * a provider set stays the provider's while it is left on. Respelling a provider's row makes it
-     * the person's — they are now asserting the value, not the provider.
+     * a provider set stays the provider's while it is left on. Respelling a row makes it the
+     * editor's, whichever door put it there — a corrected value is theirs, not the spreadsheet's or
+     * the provider's.
      */
     public void describedBy(ContactEntry entry, ContactSource door, Instant at) {
         if (!value.equals(entry.value().trim())) {
             value = entry.value().trim();
-            if (!isSuppliedByAPerson()) {
-                source = door;
-                foundAt = at;
-            }
+            source = door;
+            foundAt = at;
         }
         kind = entry.kind();
         if (entry.verified() && !verified) {

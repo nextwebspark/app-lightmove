@@ -166,6 +166,23 @@ class CandidateContactLedgerTest {
     }
 
     @Test
+    @DisplayName("respelling an imported or captured value makes it the person's too")
+    void respellingAnyDoorsValueMakesItThePersons() {
+        Candidate imported = typedBy(CandidateSource.CSV, null, "+971500000001");
+        Candidate captured = typedBy(CandidateSource.EXTENSION, "Person@Them.Example");
+
+        imported.replaceContacts(ContactChannel.PHONE,
+                List.of(new ContactEntry("+971 50 000 0001", null, false)), ContactSource.MANUAL);
+        captured.replaceContacts(ContactChannel.EMAIL,
+                List.of(new ContactEntry("person@them.example", null, false)), ContactSource.MANUAL);
+
+        assertThat(imported.phoneContacts().getFirst().getValue()).isEqualTo("+971 50 000 0001");
+        assertThat(imported.phoneContacts().getFirst().getSource()).isEqualTo(ContactSource.MANUAL);
+        assertThat(captured.emailContacts().getFirst().getValue()).isEqualTo("person@them.example");
+        assertThat(captured.emailContacts().getFirst().getSource()).isEqualTo(ContactSource.MANUAL);
+    }
+
+    @Test
     @DisplayName("a lookup that found nothing still records that it ran")
     void aMissIsRemembered() {
         Candidate candidate = captured();

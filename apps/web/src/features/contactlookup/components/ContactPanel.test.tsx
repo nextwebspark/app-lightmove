@@ -382,6 +382,26 @@ describe("ContactPanel", () => {
       );
     });
 
+    it("hands the saved contacts up when the link write fails after them", async () => {
+      const onSaved = vi.fn();
+      const onDone = vi.fn();
+      vi.mocked(candidatesApi.replaceContacts).mockResolvedValue(held);
+      vi.mocked(candidatesApi.updateCandidate).mockRejectedValue(
+        new ApiRequestError({ code: "VALIDATION_FAILED", detail: "no", status: 400, correlationId: "x" }),
+      );
+      renderPanel(held, { editing: true, onSaved, onDone, onCancel: () => {} });
+
+      const link = screen.getByRole("textbox", { name: "LinkedIn" });
+      await userEvent.clear(link);
+      await userEvent.type(link, "linkedin.com/in/new");
+      await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+      await waitFor(() => expect(onSaved).toHaveBeenCalledWith(held));
+      expect(await screen.findByRole("alert")).toBeInTheDocument();
+      expect(onDone).not.toHaveBeenCalled();
+      expect(screen.getByRole("textbox", { name: "LinkedIn" })).toBeInTheDocument();
+    });
+
     it("locks the LinkedIn line for a person the plugin captured", () => {
       renderPanel({ ...held, source: "extension" }, { editing: true, onDone: () => {}, onCancel: () => {} });
 

@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -17,8 +19,9 @@ import tools.jackson.databind.JsonNode;
  *
  * <p>What must hold: the save makes each channel hold exactly what was listed, a value's door is
  * kept unless the person respells it, a duplicate in one save is refused rather than silently
- * merged, someone who may only read the mandate may not write, and a profile URL the plugin captured
- * cannot be retyped through the profile's own PUT.
+ * merged, someone who may only read the mandate may not write, a profile URL the plugin captured
+ * cannot be retyped through the profile's own PUT, and the profile's own writes are held to the same
+ * cap and duplicate rule as the section's.
  */
 @IntegrationTest
 class CandidateContactsIntegrationTest extends FlowTestSupport {
@@ -64,6 +67,39 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"emails":[{"value":"one@them.example"},{"value":"ONE@them.example"}],
                                  "phones":[]}"""))
+                .andExpect(status().isBadRequest())
+                .andReturn()))
+                .isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
+    @DisplayName("the profile's own save is held to the same ten per channel")
+    void theProfileSaveIsHeldToTheCap() throws Exception {
+        String projectId = mandate("Profile Cap Firm");
+        String candidateId = executive(projectId, """
+                {"fullName":"Sample Person","emails":[%s]}""".formatted(tenAddresses()));
+
+        assertThat(codeOf(mvc.perform(put(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Sample Person","email":"eleventh@them.example"}"""))
+                .andExpect(status().isConflict())
+                .andReturn()))
+                .isEqualTo("CONTACT_LIMIT_REACHED");
+    }
+
+    @Test
+    @DisplayName("an address listed twice in the Add form is refused like the section's save")
+    void aDuplicateInTheAddFormIsRefused() throws Exception {
+        String projectId = mandate("Add Form Duplicate Firm");
+
+        assertThat(codeOf(mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Sample Person",
+                                 "emails":[{"value":"one@them.example"},{"value":"ONE@them.example"}]}"""))
                 .andExpect(status().isBadRequest())
                 .andReturn()))
                 .isEqualTo("VALIDATION_FAILED");
@@ -184,6 +220,12 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
                         .content(content))
                 .andExpect(expected)
                 .andReturn());
+    }
+
+    private static String tenAddresses() {
+        return IntStream.rangeClosed(1, 10)
+                .mapToObj(n -> "{\"value\":\"person" + n + "@them.example\"}")
+                .collect(Collectors.joining(","));
     }
 
     private static String contactsUrl(String projectId, String candidateId) {

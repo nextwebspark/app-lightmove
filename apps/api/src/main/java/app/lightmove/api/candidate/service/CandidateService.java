@@ -264,6 +264,7 @@ public class CandidateService {
 
         candidate.remapTo(request.triageCompanyId());
         candidate.describe(details, door);
+        refuseOverfullChannels(candidate);
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
 
@@ -356,34 +357,43 @@ public class CandidateService {
         }
     }
 
-    /** The Add form's list plus the one value a cell or a capture supplies, as ledger entries. */
+    /**
+     * The Add form's list plus the one value a cell or a capture supplies, as ledger entries. A cell
+     * whose value keys to nothing — a dash where a number should be — is skipped rather than refused,
+     * as it always was: a spreadsheet says "unknown" a dozen ways.
+     */
     private static List<ContactEntry> entriesOf(ContactChannel channel, List<ContactEntryDto> listed,
                                                 String single) {
         List<ContactEntry> entries = new ArrayList<>();
         if (listed != null) {
             listed.forEach(entry -> entries.add(entryOf(channel, entry)));
         }
-        if (single != null && !single.isBlank()) {
+        if (single != null && !CandidateContact.keyOf(channel, single).isEmpty()) {
             entries.add(ContactEntry.of(single));
         }
-        return entries;
+        return distinct(channel, entries);
     }
 
-    /**
-     * Two spellings of one address or number in the same save is a slip, and letting the second win
-     * silently would hide it; ten of either is a paste error.
-     */
     private static List<ContactEntry> distinctEntries(ContactChannel channel, List<ContactEntryDto> listed) {
         if (listed == null) {
             return List.of();
         }
-        if (listed.size() > MAX_CONTACTS_PER_CHANNEL) {
+        List<ContactEntry> entries = new ArrayList<>();
+        listed.forEach(entry -> entries.add(entryOf(channel, entry)));
+        return distinct(channel, entries);
+    }
+
+    /**
+     * Two spellings of one address or number in the same save is a slip, and letting the second win
+     * silently would hide it; ten of either is a paste error. Every write path passes through here,
+     * so the rule does not depend on which endpoint a client chose.
+     */
+    private static List<ContactEntry> distinct(ContactChannel channel, List<ContactEntry> entries) {
+        if (entries.size() > MAX_CONTACTS_PER_CHANNEL) {
             throw ApiException.of(ErrorCode.CONTACT_LIMIT_REACHED);
         }
         Set<String> keys = new HashSet<>();
-        List<ContactEntry> entries = new ArrayList<>();
-        for (ContactEntryDto listedEntry : listed) {
-            ContactEntry entry = entryOf(channel, listedEntry);
+        for (ContactEntry entry : entries) {
             String key = CandidateContact.keyOf(channel, entry.value());
             if (key.isEmpty()) {
                 throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
@@ -393,9 +403,16 @@ public class CandidateService {
                 throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                         "The same " + channel.value() + " is listed twice");
             }
-            entries.add(entry);
         }
         return entries;
+    }
+
+    /** A profile write adds to the ledger and removes nothing, so the cap is checked on what it holds after. */
+    private static void refuseOverfullChannels(Candidate candidate) {
+        if (candidate.emailContacts().size() > MAX_CONTACTS_PER_CHANNEL
+                || candidate.phoneContacts().size() > MAX_CONTACTS_PER_CHANNEL) {
+            throw ApiException.of(ErrorCode.CONTACT_LIMIT_REACHED);
+        }
     }
 
     private static ContactEntry entryOf(ContactChannel channel, ContactEntryDto listed) {

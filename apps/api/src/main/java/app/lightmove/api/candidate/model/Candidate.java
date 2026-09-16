@@ -239,8 +239,8 @@ public class Candidate extends BaseEntity {
 
     /**
      * The Contact section's save: the channel now holds exactly these. A row matched by key takes
-     * the entry and keeps its source; a new key is the writer's; a key no longer listed is gone,
-     * whoever put it there — the person looking at the profile has decided.
+     * the entry and keeps its source unless respelled; a new key is the writer's; a key no longer
+     * listed is gone, whoever put it there — the person looking at the profile has decided.
      */
     public void replaceContacts(ContactChannel channel, List<ContactEntry> entries, ContactSource door) {
         Instant now = Instant.now();

@@ -38,7 +38,8 @@ Contact section draws one row per channel, whatever door a value came through, a
 the same rows editable in place — add, remove, retag work/personal, mark verified (recorded as
 "Verified by researcher", beside ContactOut's own "Verified"; neither is printed on the row, and no
 "via ContactOut" caption is — who did what is the audit trail's) — saved as one list through
-`PUT …/candidates/{id}/contacts`; a profile PUT adds what it supplies and never removes a contact.
+`PUT …/candidates/{id}/contacts`; a profile PUT adds what it supplies, never removes a contact, and is
+held to the same ten per channel.
 No primary flag anywhere: the grid's Email and Phone columns list them all. A person the plugin
 captured keeps their LinkedIn URL locked (`CANDIDATE_PROFILE_URL_LOCKED`): it is the page they were
 read off and everything keys on it. `lightmove.enrichment.contactout` sits **beside**

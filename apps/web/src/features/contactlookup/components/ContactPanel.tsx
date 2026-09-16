@@ -60,6 +60,7 @@ export function ContactPanel({
       <ContactSectionEditor
         projectId={projectId}
         candidate={candidate}
+        onSaved={onSaved}
         onDone={(saved) => {
           onSaved(saved);
           onDone?.(saved);
@@ -195,11 +196,14 @@ function ContactReadView({
 function ContactSectionEditor({
   projectId,
   candidate,
+  onSaved,
   onDone,
   onCancel,
 }: {
   projectId: string;
   candidate: Candidate;
+  /** The contacts landed but the section stays open: the link write after them failed. */
+  onSaved: (saved: Candidate) => void;
   onDone: (saved: Candidate) => void;
   onCancel: () => void;
 }) {
@@ -221,10 +225,17 @@ function ContactSectionEditor({
       if (linkLocked || link === (candidate.linkedinUrl ?? undefined)) {
         return withContacts;
       }
-      return candidatesApi.updateCandidate(projectId, candidate.id, {
-        ...replayOf(withContacts),
-        linkedinUrl: link,
-      });
+      try {
+        return await candidatesApi.updateCandidate(projectId, candidate.id, {
+          ...replayOf(withContacts),
+          linkedinUrl: link,
+        });
+      } catch (error) {
+        // The contacts are saved even though the link is not: hand them up so the drawer shows what
+        // the server now holds, and leave the link's error on its field.
+        onSaved(withContacts);
+        throw error;
+      }
     },
     onSuccess: (saved) => {
       toast("Contact saved");
