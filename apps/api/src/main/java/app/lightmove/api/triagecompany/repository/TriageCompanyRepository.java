@@ -2,6 +2,8 @@ package app.lightmove.api.triagecompany.repository;
 
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.model.TriageCompany;
+import app.lightmove.api.triagecompany.model.TriageCompanyCount;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,6 +30,16 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
     Optional<TriageCompany> findByIdAndProjectId(UUID id, UUID projectId);
 
     long countByProjectIdAndStatus(UUID projectId, TriageCompanyStatus status);
+
+    /**
+     * The same count for many mandates at once, so the projects list stays one query rather than one
+     * per row. Grouped, so a mandate holding nothing is missing from the result rather than zero.
+     */
+    @Query("select new app.lightmove.api.triagecompany.model.TriageCompanyCount(c.projectId, count(c)) "
+            + "from TriageCompany c where c.projectId in :projectIds and c.status <> :excludedStatus "
+            + "group by c.projectId")
+    List<TriageCompanyCount> countByProjectIdInExcludingStatus(Collection<UUID> projectIds,
+                                                               TriageCompanyStatus excludedStatus);
 
     Optional<TriageCompany> findByProjectIdAndApolloAccountId(UUID projectId, String apolloAccountId);
 

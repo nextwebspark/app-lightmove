@@ -252,6 +252,80 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.health").value("OFF"));
     }
 
+    @Test
+    @DisplayName("the list reports each mandate's own universe and its mapped executives")
+    void pipelineCountsAreLive() throws Exception {
+        String admin = adminOf("Pipeline Firm");
+        String mapped = createProject(admin, createClient(admin, "Agthia Group"), "Group CFO");
+        String untouched = createProject(admin, createClient(admin, "Al Rabie"), "CHRO");
+
+        String kept = captureCompany(admin, mapped, "ACWA Power");
+        captureCompany(admin, mapped, "Emaar Properties");
+        String rejected = captureCompany(admin, mapped, "Gulf Trader");
+        decline(admin, mapped, rejected);
+        mapExecutive(admin, mapped, kept, "Yasmin El-Sayed", null);
+        mapExecutive(admin, mapped, null, "Omar Farouk", null);
+        // Left the running, so counted no more than the declined company is.
+        mapExecutive(admin, mapped, kept, "Hana Aziz", "offLimits");
+
+        JsonNode projects = body(mvc.perform(get("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        // Two of three companies and two of three executives: what a mandate ruled out has left the
+        // pipeline both numbers state.
+        assertThat(countsOf(projects, mapped)).containsExactly(2L, 2L);
+        assertThat(countsOf(projects, untouched)).containsExactly(0L, 0L);
+    }
+
+    /** The {@code companies} and {@code candidates} one mandate reports, in that order. */
+    private static long[] countsOf(JsonNode projects, String projectId) {
+        for (JsonNode project : projects) {
+            if (project.get("id").asText().equals(projectId)) {
+                return new long[] {project.get("companies").asLong(), project.get("candidates").asLong()};
+            }
+        }
+        throw new AssertionError(projectId + " is not in the list: " + projects);
+    }
+
+    /** A company in the mandate's universe without going near Apollo — the capture door does. */
+    private String captureCompany(String token, String projectId, String companyName) throws Exception {
+        return body(mvc.perform(post("/api/v1/projects/" + projectId + "/triage/capture")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"%s"}""".formatted(companyName)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
+    private void decline(String token, String projectId, String triageCompanyId) throws Exception {
+        mvc.perform(patch("/api/v1/projects/" + projectId + "/triage/" + triageCompanyId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"status":"declined"}"""))
+                .andExpect(status().isOk());
+    }
+
+    /**
+     * An executive at one of the mandate's companies, or — with a null company — at none of them.
+     * A null status leaves the default alone.
+     */
+    private void mapExecutive(String token, String projectId, String triageCompanyId, String fullName,
+                              String status) throws Exception {
+        String companyClause = triageCompanyId == null ? ""
+                : "\"triageCompanyId\":\"%s\",".formatted(triageCompanyId);
+        String statusClause = status == null ? "" : ",\"status\":\"%s\"".formatted(status);
+        mvc.perform(post("/api/v1/projects/" + projectId + "/candidates")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{%s\"fullName\":\"%s\"%s}"
+                                .formatted(companyClause, fullName, statusClause)))
+                .andExpect(status().isCreated());
+    }
+
     private void seat(String leadToken, String projectId, String memberId, String role)
             throws Exception {
         mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberId)
