@@ -38,7 +38,9 @@ import org.springframework.stereotype.Service;
  * <p>The guard against paying twice for one row is the timestamp {@code candidate} stamps, checked
  * here and again inside the write. Two presses genuinely in flight at once can still both reach the
  * provider — the browser disables the button, and the per-user budget caps what that could cost — but
- * nothing short of holding a row lock across the vendor call would close it, and that is worse.
+ * nothing short of holding a row lock across the vendor call would close it, and that is worse. The
+ * loser of that race is answered with what the winner wrote, outcome included, so the two halves of
+ * one response always agree.
  */
 @Service
 @Slf4j
@@ -70,10 +72,11 @@ public class ContactLookupService {
             return answered(alreadyAsked(state.contacts().emails().isEmpty()), state.candidate(),
                     ContactChannel.EMAIL, false, userId, workspaceId, projectId, candidateId, httpRequest);
         }
+        requireBudget(ContactChannel.EMAIL, userId);
         FoundEmails found = ask(() -> finder.findEmails(state.linkedinUrl()));
         CandidateResponse candidate = candidates.applyFoundEmails(projectId, candidateId, found);
-        return answered(found.emails().isEmpty() ? ContactLookupOutcome.NONE : ContactLookupOutcome.FOUND,
-                candidate, ContactChannel.EMAIL, true, userId, workspaceId, projectId, candidateId, httpRequest);
+        return answered(outcomeOf(candidate.contacts().emails().isEmpty()), candidate,
+                ContactChannel.EMAIL, true, userId, workspaceId, projectId, candidateId, httpRequest);
     }
 
     public ContactLookupResponse findPhone(UUID userId, UUID workspaceId, UUID projectId,
@@ -83,10 +86,11 @@ public class ContactLookupService {
             return answered(alreadyAsked(state.contacts().phones().isEmpty()), state.candidate(),
                     ContactChannel.PHONE, false, userId, workspaceId, projectId, candidateId, httpRequest);
         }
+        requireBudget(ContactChannel.PHONE, userId);
         FoundPhones found = ask(() -> finder.findPhones(state.linkedinUrl()));
         CandidateResponse candidate = candidates.applyFoundPhones(projectId, candidateId, found);
-        return answered(found.phones().isEmpty() ? ContactLookupOutcome.NONE : ContactLookupOutcome.FOUND,
-                candidate, ContactChannel.PHONE, true, userId, workspaceId, projectId, candidateId, httpRequest);
+        return answered(outcomeOf(candidate.contacts().phones().isEmpty()), candidate,
+                ContactChannel.PHONE, true, userId, workspaceId, projectId, candidateId, httpRequest);
     }
 
     private CandidateContactState begin(ContactChannel channel, UUID userId, UUID workspaceId,
@@ -94,7 +98,6 @@ public class ContactLookupService {
         if (!finder.isOffered()) {
             throw ApiException.of(ErrorCode.CONTACT_LOOKUP_UNAVAILABLE);
         }
-        requireBudget(channel, userId);
         CandidateContactState state = candidates.contactStateOf(workspaceId, projectId, candidateId);
         if (LinkedInUrls.profileSlugOrNull(state.linkedinUrl()) == null) {
             throw ApiException.of(ErrorCode.CONTACT_LOOKUP_NO_PROFILE);
@@ -106,6 +109,10 @@ public class ContactLookupService {
      * Caps how often one person may spend credits, per channel so a run on one does not starve the
      * other. The stored guard stops one row being billed twice; this stops one caller scripting the
      * endpoint down a whole grid.
+     *
+     * <p>Taken immediately before the vendor call, never earlier: a press refused for want of a
+     * profile, or answered off the row, costs nothing, and spending budget on those would let a grid
+     * of profile-less executives exhaust the meter without a credit being spent anywhere.
      */
     private void requireBudget(ContactChannel channel, UUID userId) {
         boolean isWithinBudget = limiter.tryAcquire(
@@ -118,6 +125,15 @@ public class ContactLookupService {
 
     private static ContactLookupOutcome alreadyAsked(boolean foundNothing) {
         return foundNothing ? ContactLookupOutcome.NONE : ContactLookupOutcome.HELD;
+    }
+
+    /**
+     * Read from the row the write answered with rather than from this caller's own vendor answer, so
+     * the outcome cannot contradict the candidate beside it: when two presses race, the loser's write
+     * is dropped and the row it is handed back is the winner's.
+     */
+    private static ContactLookupOutcome outcomeOf(boolean foundNothing) {
+        return foundNothing ? ContactLookupOutcome.NONE : ContactLookupOutcome.FOUND;
     }
 
     private <T> T ask(Supplier<T> call) {

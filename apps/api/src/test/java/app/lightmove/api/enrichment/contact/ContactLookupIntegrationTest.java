@@ -8,13 +8,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingContactFinder;
+import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.model.CandidateEmail;
 import app.lightmove.api.candidate.model.FoundEmails;
 import app.lightmove.api.candidate.model.FoundPhones;
+import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,6 +45,7 @@ class ContactLookupIntegrationTest extends FlowTestSupport {
             new FoundPhones("contactout", List.of("+12065550100", "651-555-0142"));
 
     @Autowired private RecordingContactFinder finder;
+    @Autowired private CandidateService candidates;
 
     private String adminToken;
 
@@ -141,6 +145,50 @@ class ContactLookupIntegrationTest extends FlowTestSupport {
                 .andReturn()))
                 .isEqualTo("CONTACT_LOOKUP_NO_PROFILE");
         assertThat(finder.askedUrls()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("refusals do not eat the budget that guards what a lookup costs")
+    void refusalsDoNotEatTheBudget() throws Exception {
+        String projectId = mandate("Unspent Budget Firm");
+        String urlless = body(mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Urlless Person"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        finder.answerEmailsWith(EMAILS);
+
+        // Comfortably past lookups-per-user-per-minute, and not one of them can spend a credit.
+        for (int refusal = 0; refusal < 25; refusal++) {
+            mvc.perform(post(lookupUrl(projectId, urlless, "email"))
+                            .header("Authorization", "Bearer " + adminToken))
+                    .andExpect(status().isConflict());
+        }
+
+        String researchable = executive(projectId, "Sample Person", "sample-profile");
+        assertThat(lookup(projectId, researchable, "email", status().isOk()).get("outcome").asText())
+                .isEqualTo("found");
+    }
+
+    @Test
+    @DisplayName("a write that loses the race is answered with what the winner stored")
+    void theLoserOfARaceIsAnsweredWithTheWinnersRow() throws Exception {
+        String projectId = mandate("Raced Write Firm");
+        String candidateId = executive(projectId, "Sample Person", "sample-profile");
+
+        // Both presses pass the guard before either writes, so both reach here with their own answer.
+        candidates.applyFoundEmails(UUID.fromString(projectId), UUID.fromString(candidateId), EMAILS);
+        CandidateResponse loser = candidates.applyFoundEmails(UUID.fromString(projectId),
+                UUID.fromString(candidateId),
+                new FoundEmails("contactout",
+                        List.of(new CandidateEmail("later@retailco.example", CandidateEmail.WORK, null))));
+
+        // The second write is dropped, and the row it answers with is the first's — which is what the
+        // endpoint now reads its outcome from, so the two halves of one response cannot disagree.
+        assertThat(loser.email()).isEqualTo("sample.person@holdings.example");
+        assertThat(loser.contacts().emails()).hasSize(3);
     }
 
     @Test
