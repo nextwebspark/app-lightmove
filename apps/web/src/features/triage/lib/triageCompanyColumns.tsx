@@ -9,6 +9,7 @@ import {
   type ColumnVisibilityState,
 } from "@tanstack/react-table";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { NetworkMark } from "../../../components/ui/NetworkMark";
 import { CompanyLink } from "../../../components/ui/CompanyLink";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import {
@@ -233,15 +234,17 @@ const BUILT_IN_COLUMNS = helper.columns([
         <span className="flex justify-start gap-1">
           <CompanyLink
             url={company.website}
-            icon={ICONS.globe}
+            icon={<Icon d={ICONS.globe} size={13} />}
             label="website"
             companyName={company.companyName}
+            reserve
           />
           <CompanyLink
             url={company.companyLinkedinUrl}
-            icon={ICONS.linkedin}
+            icon={<NetworkMark network="linkedin" size={14} />}
             label="LinkedIn"
             companyName={company.companyName}
+            reserve
           />
         </span>
       );
@@ -304,6 +307,22 @@ const BUILT_IN_COLUMNS = helper.columns([
     enableSorting: false,
     meta: { share: 14, min: 130 },
     cell: (info) => <DataGridCell value={info.getValue()} />,
+  }),
+
+  helper.accessor((row) => row.candidate?.contacts.emails.map((entry) => entry.address) ?? [], {
+    id: "executiveEmails",
+    header: "Email",
+    enableSorting: false,
+    meta: { share: 12, min: 170 },
+    cell: (info) => <ContactListCell values={info.getValue()} />,
+  }),
+
+  helper.accessor((row) => row.candidate?.contacts.phones.map((entry) => entry.number) ?? [], {
+    id: "executivePhones",
+    header: "Phone",
+    enableSorting: false,
+    meta: { share: 10, min: 150 },
+    cell: (info) => <ContactListCell values={info.getValue()} />,
   }),
 
   helper.accessor((row) => row.candidate?.status ?? null, {
