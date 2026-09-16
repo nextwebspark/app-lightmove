@@ -1,5 +1,6 @@
 package app.lightmove.api.enrichment.candidate.service;
 
+import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateEducationEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
@@ -13,7 +14,6 @@ import app.lightmove.api.core.resilience.service.VendorCallGuard;
 import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.core.resilience.service.VendorRetryPredicate;
-import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -32,9 +32,6 @@ import org.springframework.web.client.RestClient;
 @Slf4j
 public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
 
-    /** A live scrape takes seconds — but never a request thread. */
-    public static final Duration READ_TIMEOUT = Duration.ofSeconds(60);
-
     private static final String VENDOR = "harvestapi";
 
     private final RestClient client;
@@ -47,7 +44,7 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
         this.guard = guard;
         this.photos = photos;
         this.client = clientFactory.create(VendorClientSpec.header(VENDOR, config.baseUrl(),
-                "X-API-Key", config.apiKey(), READ_TIMEOUT, config.requestsPerSecond()),
+                "X-API-Key", config.apiKey(), config.readTimeout(), config.requestsPerSecond()),
                 builder, rateLimiter);
     }
 
@@ -91,7 +88,7 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
                 enriched.employerLinkedinUrl(), enriched.employerLogoUrl(), enriched.locationCity(),
                 enriched.locationCountry(), enriched.career(), enriched.education(),
                 enriched.skills(), enriched.languages(),
-                photos.fetchOrNull(photoUrl));
+                photos.fetchOrNull(photoUrl), EnrichmentVendor.HARVESTAPI);
     }
 
     static EnrichedProfile toEnrichedProfile(HarvestApiProfile profile) {
@@ -115,7 +112,8 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
                         : profile.skills().stream().map(HarvestApiSkill::name).toList(),
                 profile.languages() == null ? List.of()
                         : profile.languages().stream().map(HarvestApiLanguage::name).toList(),
-                null);
+                null,
+                EnrichmentVendor.HARVESTAPI);
     }
 
     private static HarvestApiExperience currentPositionOf(HarvestApiProfile profile) {
