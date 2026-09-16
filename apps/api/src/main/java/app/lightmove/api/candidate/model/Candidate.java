@@ -200,7 +200,37 @@ public class Candidate extends BaseEntity {
                 profile.languages().isEmpty() ? enriched.languages() : profile.languages(),
                 enriched.education(),
                 enriched.skills(),
-                Instant.now().toString());
+                Instant.now().toString(),
+                // Research can land after a contact lookup has already run — rebuilding the profile
+                // without this drops contacts that were paid for.
+                profile.contacts());
+    }
+
+    /**
+     * Records what a contact lookup found, promoting one address onto the row where the researcher
+     * left it blank — vendor data never outranks a researcher, as in {@link #enrich}.
+     *
+     * <p>The timestamp is stamped even when nothing was found. That is what makes a miss free: the
+     * channel reads as asked, and the next press answers from the row instead of buying the same
+     * "nothing on record" again.
+     */
+    public void recordFoundEmails(FoundEmails found) {
+        CandidateEmail primary = found.primary();
+        if (email == null && primary != null) {
+            email = primary.address();
+        }
+        this.profile = profile.withContacts(profile.contacts()
+                .withEmails(found.emails(), found.source(), Instant.now().toString()));
+    }
+
+    /** The phone half of {@link #recordFoundEmails}, under the same two rules. */
+    public void recordFoundPhones(FoundPhones found) {
+        String primary = found.primary();
+        if (phone == null && primary != null) {
+            phone = primary;
+        }
+        this.profile = profile.withContacts(profile.contacts()
+                .withPhones(found.phones(), found.source(), Instant.now().toString()));
     }
 
     /**
