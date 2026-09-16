@@ -51,59 +51,59 @@ export function CoverageChart({ progress, projection }: { progress: ReportProgre
           x2={W - PAD_RIGHT}
           y1={PAD_TOP + f * PLOT_H}
           y2={PAD_TOP + f * PLOT_H}
-          className={f === 0 || f === 1 ? "stroke-line" : "stroke-line-soft"}
+          className={f === 0 || f === 1 ? "stroke-u-grid-axis" : "stroke-u-grid-line"}
           strokeWidth={1}
         />
       ))}
       {[0, half, progress.targetCompanies].map((v) => (
-        <text key={v} x={PAD_LEFT - 10} y={y(v) + 3} textAnchor="end" className="fill-text3 font-mono text-[10.5px]">
+        <text key={v} x={PAD_LEFT - 10} y={y(v) + 3} textAnchor="end" className="fill-u-text3 font-u-num text-[10.5px]">
           {v}
         </text>
       ))}
-      <text x={PAD_LEFT} y={PAD_TOP - 8} className="fill-text3 font-mono text-[10px] font-semibold tracking-[0.06em]">
+      <text x={PAD_LEFT} y={PAD_TOP - 8} className="fill-u-text3 font-u-num text-[10px] font-semibold tracking-[0.06em]">
         FULL COVERAGE · {progress.targetCompanies}
       </text>
 
       {targetX !== null && projectedX !== null && projectedX > targetX && (
-        <rect x={targetX} y={PAD_TOP} width={projectedX - targetX} height={PLOT_H} className="fill-red" opacity={0.06} />
+        <rect x={targetX} y={PAD_TOP} width={projectedX - targetX} height={PLOT_H} className="fill-u-offlimits" opacity={0.06} />
       )}
       {targetX !== null && progress.targetDate && (
         <>
-          <line x1={targetX} x2={targetX} y1={PAD_TOP} y2={H - PAD_BOTTOM} className="stroke-text3" strokeWidth={1} strokeDasharray="3 3" />
-          <text x={targetX} y={PAD_TOP - 10} textAnchor="middle" className="fill-text3 font-mono text-[10px] font-semibold tracking-[0.06em]">
+          <line x1={targetX} x2={targetX} y1={PAD_TOP} y2={H - PAD_BOTTOM} className="stroke-u-text3" strokeWidth={1} strokeDasharray="3 3" />
+          <text x={targetX} y={PAD_TOP - 10} textAnchor="middle" className="fill-u-text3 font-u-num text-[10px] font-semibold tracking-[0.06em]">
             TARGET · {formatShortDate(progress.targetDate).toUpperCase()}
           </text>
         </>
       )}
 
-      <polygon points={areaPoints} className="fill-sky" opacity={0.08} />
-      <polyline points={actualPoints} fill="none" className="stroke-sky" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+      <polygon points={areaPoints} className="fill-u-chart-1" opacity={0.08} />
+      <polyline points={actualPoints} fill="none" className="stroke-u-chart-1" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
       {projectedX !== null && projection.projectedDate && (
         <>
           <polyline
             points={`${point(projection.lastWeek, cum[projection.lastWeek])} ${point(projection.projectedWeek, progress.targetCompanies)}`}
             fill="none"
-            className="stroke-red"
+            className="stroke-u-offlimits"
             strokeWidth={2}
             strokeDasharray="6 4"
             strokeLinecap="round"
           />
-          <circle cx={projectedX} cy={y(progress.targetCompanies)} r={4.5} className="fill-red stroke-panel2" strokeWidth={2} />
-          <text x={projectedX} y={PAD_TOP - 10} textAnchor="end" className="fill-red font-mono text-[10px] font-semibold tracking-[0.06em]">
+          <circle cx={projectedX} cy={y(progress.targetCompanies)} r={4.5} className="fill-u-offlimits stroke-panel2" strokeWidth={2} />
+          <text x={projectedX} y={PAD_TOP - 10} textAnchor="end" className="fill-u-offlimits font-u-num text-[10px] font-semibold tracking-[0.06em]">
             PROJECTED · {formatShortDate(projection.projectedDate).toUpperCase()}
           </text>
         </>
       )}
 
-      <circle cx={todayX} cy={todayY} r={6} className="animate-pulse-ring stroke-sky" fill="none" strokeWidth={2} />
-      <circle cx={todayX} cy={todayY} r={6} className="fill-sky stroke-panel2" strokeWidth={2} />
-      <text x={todayX} y={H - PAD_BOTTOM + 18} textAnchor="middle" className="fill-text text-[10.5px] font-semibold">
+      <circle cx={todayX} cy={todayY} r={6} className="animate-pulse-ring stroke-u-chart-1" fill="none" strokeWidth={2} />
+      <circle cx={todayX} cy={todayY} r={6} className="fill-u-chart-1 stroke-panel2" strokeWidth={2} />
+      <text x={todayX} y={H - PAD_BOTTOM + 18} textAnchor="middle" className="fill-u-text text-[10.5px] font-semibold">
         today
       </text>
-      <text x={todayX} y={H - PAD_BOTTOM + 30} textAnchor="middle" className="fill-text3 font-mono text-[9.5px]">
+      <text x={todayX} y={H - PAD_BOTTOM + 30} textAnchor="middle" className="fill-u-text3 font-u-num text-[9.5px]">
         {formatShortDate(progress.asOf)}
       </text>
-      <text x={PAD_LEFT} y={H - PAD_BOTTOM + 18} className="fill-text3 font-mono text-[10.5px]">
+      <text x={PAD_LEFT} y={H - PAD_BOTTOM + 18} className="fill-u-text3 font-u-num text-[10.5px]">
         {formatShortDate(progress.kickoff)}
       </text>
     </svg>

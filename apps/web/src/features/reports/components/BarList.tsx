@@ -22,14 +22,14 @@ export function BarList({ rows, onSelect }: { rows: BarRow[]; onSelect?: (row: B
         const width = largest === 0 ? 0 : Math.max(Math.round((row.count / largest) * 100), 2);
         const content = (
           <>
-            <span className="w-[92px] flex-none truncate text-left text-xs text-text2 sm:w-[110px]">{row.label}</span>
-            <span className="h-2 flex-1 overflow-hidden rounded-[4px] bg-line-soft">
+            <span className="w-[92px] flex-none truncate text-left text-xs text-u-text2 sm:w-[110px]">{row.label}</span>
+            <span className="h-2 flex-1 overflow-hidden rounded-[4px] bg-u-border">
               <span
-                className={cn("block h-2 rounded-e-[4px]", row.fillClass ?? "bg-sky")}
+                className={cn("block h-2 rounded-e-[4px]", row.fillClass ?? "bg-u-chart-1")}
                 style={{ width: `${width}%` }}
               />
             </span>
-            <span className="w-9 flex-none text-right font-mono text-[11.5px] text-text2">{row.count}</span>
+            <span className="w-9 flex-none text-right font-u-num text-[11.5px] text-u-text2">{row.count}</span>
           </>
         );
         return onSelect ? (
@@ -38,7 +38,7 @@ export function BarList({ rows, onSelect }: { rows: BarRow[]; onSelect?: (row: B
             type="button"
             title={row.title}
             onClick={() => onSelect(row)}
-            className="flex w-full items-center gap-3 rounded-md px-1 py-[5px] transition hover:bg-panel"
+            className="flex w-full items-center gap-3 rounded-md px-1 py-[5px] transition hover:bg-u-surface"
           >
             {content}
           </button>

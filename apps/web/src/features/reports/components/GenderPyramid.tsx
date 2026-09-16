@@ -17,7 +17,7 @@ export function GenderPyramid({ stats }: { stats: GenderStats }) {
         <div key={level.level}>
           <div className="mb-1.5 flex items-baseline justify-between gap-3">
             <span className="text-[11.5px] font-semibold">{level.level}</span>
-            <span className="font-mono text-[10.5px] text-text3">
+            <span className="font-u-num text-[10.5px] text-u-text3">
               {level.recorded === 0
                 ? "none recorded"
                 : `${level.femalePct}% female · ${level.recorded} recorded${level.other > 0 ? ` · ${level.other} other` : ""}`}
@@ -25,19 +25,19 @@ export function GenderPyramid({ stats }: { stats: GenderStats }) {
           </div>
           <div className="flex items-center gap-2">
             <span className="flex flex-1 items-center justify-end gap-2">
-              <span className="font-mono text-[11px] font-semibold text-text2">{level.female}</span>
+              <span className="font-u-num text-[11px] font-semibold text-u-text2">{level.female}</span>
               <span
-                className="h-4 rounded-l-[4px] bg-sky"
+                className="h-4 rounded-l-[4px] bg-u-chart-1"
                 style={{ width: `${(level.female / stats.widest) * 100}%` }}
               />
             </span>
-            <span aria-hidden className="h-[22px] w-px flex-none bg-text3" />
+            <span aria-hidden className="h-[22px] w-px flex-none bg-u-text3" />
             <span className="flex flex-1 items-center gap-2">
               <span
-                className="h-4 rounded-r-[4px] bg-line"
+                className="h-4 rounded-r-[4px] bg-u-sunken"
                 style={{ width: `${(level.male / stats.widest) * 100}%` }}
               />
-              <span className="font-mono text-[11px] font-semibold text-text2">{level.male}</span>
+              <span className="font-u-num text-[11px] font-semibold text-u-text2">{level.male}</span>
             </span>
           </div>
         </div>

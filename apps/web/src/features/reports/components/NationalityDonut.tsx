@@ -14,8 +14,9 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
  * segment rounds to nothing.
  *
  * <p><b>Colour carries the GCC distinction</b>, which is the question this chapter exists to answer:
- * Gulf nationalities take amber, everything else greyscale. The legend still names and counts every
- * group, so the reading never rests on colour alone.
+ * Gulf nationalities take the accent, everything else the neutral surface. Not the warning colour —
+ * a nationality is a fact about the pool, never a problem with it. The legend still names and counts
+ * every group, so the reading never rests on colour alone.
  */
 export function NationalityDonut({
   rows,
@@ -53,7 +54,7 @@ export function NationalityDonut({
               r={RADIUS}
               fill="none"
               strokeWidth={THICKNESS}
-              className={row.gcc ? "stroke-amber" : "stroke-line"}
+              className={row.gcc ? "stroke-u-accent" : "stroke-u-sunken"}
               strokeDasharray={`${dash} ${CIRCUMFERENCE - dash}`}
               strokeDashoffset={offset}
             />
@@ -65,7 +66,7 @@ export function NationalityDonut({
               x={SIZE / 2}
               y={SIZE / 2 - 3}
               textAnchor="middle"
-              className="fill-text text-[25px] font-extrabold"
+              className="fill-u-text text-[25px] font-extrabold"
             >
               {percent(largest.total, total)}%
             </text>
@@ -73,7 +74,7 @@ export function NationalityDonut({
               x={SIZE / 2}
               y={SIZE / 2 + 16}
               textAnchor="middle"
-              className="fill-text3 font-mono text-[9px] font-semibold uppercase tracking-[0.05em]"
+              className="fill-u-text3 text-[9px] font-semibold uppercase tracking-[0.05em]"
             >
               {largest.nationality}
             </text>
@@ -85,10 +86,10 @@ export function NationalityDonut({
           <div key={row.nationality} className="flex items-center gap-2.5 text-[12.5px]">
             <span
               aria-hidden
-              className={`size-[11px] flex-none rounded-[3px] ${row.gcc ? "bg-amber" : "bg-line"}`}
+              className={`size-[11px] flex-none rounded-[3px] ${row.gcc ? "bg-u-accent" : "bg-u-sunken"}`}
             />
-            <span className="flex-1 text-text2">{row.nationality}</span>
-            <span className="font-mono font-semibold">{row.total}</span>
+            <span className="flex-1 text-u-text2">{row.nationality}</span>
+            <span className="font-u-num font-medium">{row.total}</span>
           </div>
         ))}
       </div>

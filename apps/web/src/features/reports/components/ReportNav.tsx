@@ -41,7 +41,7 @@ export function ReportNav({ items, footer }: { items: ReportNavItem[]; footer?: 
 
   return (
     <nav className="sticky top-0 hidden w-[200px] flex-none pt-0.5 lg:block" aria-label="On this page">
-      <div className="px-2.5 pb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-text3">
+      <div className="px-2.5 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3">
         On this page
       </div>
       {items.map((item) => {
@@ -53,13 +53,13 @@ export function ReportNav({ items, footer }: { items: ReportNavItem[]; footer?: 
             aria-current={isActive ? "true" : undefined}
             className={cn(
               "flex w-full items-baseline gap-[9px] rounded-[7px] px-2.5 py-[7px] text-left text-[12.5px] font-medium transition",
-              isActive ? "bg-panel2 text-text" : "text-text2 hover:bg-panel2 hover:text-text",
+              isActive ? "bg-u-raised text-u-text" : "text-u-text2 hover:bg-u-raised hover:text-u-text",
             )}
           >
             <b
               className={cn(
-                "flex-none font-mono text-[10px] font-semibold tracking-[0.04em]",
-                isActive ? "text-sky" : "text-text3",
+                "flex-none font-u-num text-[10px] font-semibold tracking-[0.04em]",
+                isActive ? "text-u-accent" : "text-u-text3",
               )}
             >
               {item.ordinal}
@@ -70,8 +70,8 @@ export function ReportNav({ items, footer }: { items: ReportNavItem[]; footer?: 
       })}
       {footer && (
         <>
-          <div className="mx-2.5 my-3 h-px bg-line-soft" />
-          <div className="px-2.5 font-mono text-[11px] leading-[1.6] text-text3">{footer}</div>
+          <div className="mx-2.5 my-3 h-px bg-u-border" />
+          <div className="px-2.5 font-u-num text-[11px] leading-[1.6] text-u-text3">{footer}</div>
         </>
       )}
     </nav>

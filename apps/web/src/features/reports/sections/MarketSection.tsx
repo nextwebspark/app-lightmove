@@ -51,7 +51,9 @@ export function MarketSection({
       id="market"
       ordinal="02"
       eyebrow="Shape of the market"
-      heading={
+      question="Where does the universe actually sit?"
+      findingLabel="Across the mapped market"
+      finding={
         stats.deepest ? (
           <>
             <Figure>{stats.deepest.sector} leads</Figure> the universe, deepest at {stats.deepest.level}; Board-level
@@ -62,22 +64,17 @@ export function MarketSection({
           <>No executive has both a sector and a seniority on file yet, so the matrix has nothing to place.</>
         )
       }
-      lede={
-        <>
-          {stats.placed} executives placed against {universeCount} companies
-          {unplaced > 0 ? ` — ${unplaced} more sit outside the matrix, with no universe company or no seniority on file` : ""}
-          . Hatched cells have no executive yet. Select any cell to open the slice.
-        </>
-      }
+      lede="Sector against seniority, then the countries the talent sits in — where the map is deep, and where it is still empty."
     >
       <KpiTileRow>
         <KpiTile
+          tone="accent"
           label="Deepest pocket"
           value={stats.deepest?.count ?? "—"}
           sub={stats.deepest ? `${stats.deepest.sector} · ${stats.deepest.level}` : "nothing placed yet"}
         />
         <KpiTile label="Empty pockets" value={stats.emptyCells} unit={`/ ${stats.totalCells}`} sub="sector × seniority pairs" />
-        <KpiTile label="Board-level total" value={stats.boardTotal} valueClass={stats.boardTotal === 0 ? "text-red" : undefined} sub={`across all ${market.sectors.length} sectors`} />
+        <KpiTile tone={stats.boardTotal === 0 ? "alarm" : "plain"} label="Board-level total" value={stats.boardTotal} sub={`across all ${market.sectors.length} sectors`} />
         <KpiTile label="Outside the matrix" value={unplaced} sub={`${market.withoutSector} without a sector · ${market.withoutSeniority} without a level`} />
       </KpiTileRow>
 
@@ -85,7 +82,7 @@ export function MarketSection({
         {market.sectors.length > 0 ? (
           <SectorSeniorityHeatmap sectors={market.sectors} rows={stats.rows} onSelect={handleCell} />
         ) : (
-          <div className="py-[30px] text-center text-[12.5px] text-text3">No executive is mapped at a universe company yet.</div>
+          <div className="py-[30px] text-center text-[12.5px] text-u-text3">No executive is mapped at a universe company yet.</div>
         )}
       </ReportCard>
 
@@ -93,7 +90,7 @@ export function MarketSection({
         title="Where talent sits"
         caption={`executives by country · ${stats.located} located${market.unlocated > 0 ? ` · ${market.unlocated} with no country on file` : ""} · click a country for detail`}
         action={
-          <Link to={`/projects/${projectId}/companies/universe`} className="inline-flex items-center gap-1.5 text-xs font-medium text-sky hover:underline">
+          <Link to={`/projects/${projectId}/companies/universe`} className="inline-flex items-center gap-1.5 text-xs font-medium text-u-accent hover:underline">
             Open on the map
             <Icon d={ICONS.arrowRight} size={13} />
           </Link>
@@ -125,7 +122,7 @@ export function MarketSection({
               key: h.country,
               label: h.country,
               count: h.count,
-              fillClass: i < TOP_HUBS ? "bg-sky" : "bg-text3",
+              fillClass: i < TOP_HUBS ? "bg-u-chart-1" : "bg-u-text3",
               title: `${h.count} executives in ${h.country} · click for detail`,
             }))}
             onSelect={(row) => setHub(market.hubs.find((h) => h.country === row.key) ?? null)}
@@ -140,7 +137,7 @@ export function MarketSection({
               key: b.label,
               label: b.label,
               count: b.count,
-              fillClass: i === 0 ? "bg-sky" : "bg-text3",
+              fillClass: i === 0 ? "bg-u-chart-1" : "bg-u-text3",
             }))}
           />
         </div>

@@ -74,6 +74,13 @@ export default function HubGlobe({
     mapRef.current = map;
 
     map.on("style.load", () => {
+      // Mapbox paint takes literal colours, not CSS variables, so the tokens are resolved here.
+      // This handler re-runs on every theme swap, which is exactly when they need re-reading.
+      const token = (name: string) =>
+        getComputedStyle(document.body).getPropertyValue(name).trim();
+      const accent = token("--color-u-accent");
+      const ink = token("--color-u-text");
+
       map.addSource(SOURCE, {
         type: "geojson",
         data: collectionOf(latest.current.hubs, latest.current.selectedCountry),
@@ -84,10 +91,10 @@ export default function HubGlobe({
         source: SOURCE,
         paint: {
           "circle-radius": ["get", "radius"],
-          "circle-color": "#2563eb",
+          "circle-color": accent,
           "circle-opacity": 0.28,
           "circle-stroke-width": ["case", ["get", "selected"], 2.5, 1.2],
-          "circle-stroke-color": "#2563eb",
+          "circle-stroke-color": accent,
         },
       });
       map.addLayer({
@@ -100,7 +107,7 @@ export default function HubGlobe({
           "text-allow-overlap": true,
         },
         paint: {
-          "text-color": document.body.classList.contains("dark") ? "#f8fafc" : "#111113",
+          "text-color": ink,
         },
       });
       setStyleReady((tick) => tick + 1);

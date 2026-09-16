@@ -7,7 +7,7 @@ import { DailyMomentumChart, WeeklyMomentumChart } from "../components/MomentumC
 import { ChartLegend, ReportCard } from "../components/ReportCard";
 import { Figure, ReportSection } from "../components/ReportSection";
 import { formatShortDate, percent } from "../lib/figures";
-import { type Projection, type ProjectionBasis, projectCoverage, weeklyPace } from "../lib/projection";
+import { type Projection, type ProjectionBasis, projectCoverage, type WeeklyPace, weeklyPace } from "../lib/projection";
 
 type MomentumView = "weeks" | "days";
 
@@ -35,18 +35,15 @@ export function ProgressSection({ progress }: { progress: ReportProgress }) {
       id="progress"
       ordinal="01"
       eyebrow="Mapping progress"
-      heading={<ProgressFinding projection={projection} target={target} />}
-      lede={
-        <>
-          New executives per week have gone from ~{Math.round(pace.firstMonth)} in the first month to ~
-          {Math.round(pace.recent)} recently. Company coverage is moving at {projection.pace.toFixed(1)} a week
-          {projection.targetPace !== null ? ` against the ${projection.targetPace.toFixed(1)} a week the plan needed` : ""}. A
-          cumulative view alone would still look healthy — this is why a slowdown gets caught here.
-        </>
-      }
+      question="Are we going to hit the deadline?"
+      lede="Coverage against the scoped universe, weekly research momentum, and a completion date projected from actual recent pace — not the original plan."
+      findingLabel="At the current pace"
+      findingTone={isBehind || projection.daysLate !== null && projection.daysLate > 0 ? "alarm" : "info"}
+      finding={<ProgressFinding projection={projection} pace={pace} target={target} />}
     >
       <KpiTileRow>
         <KpiTile
+          tone="accent"
           label="Companies mapped"
           value={covered}
           unit={`/ ${progress.targetCompanies}`}
@@ -54,17 +51,17 @@ export function ProgressSection({ progress }: { progress: ReportProgress }) {
         />
         <KpiTile label="Executives identified" value={pace.total} sub={`across ${progress.weekly.length} weeks`} />
         <KpiTile
+          tone={isBehind ? "alarm" : "plain"}
           label="Recent pace"
           value={projection.pace.toFixed(1)}
           unit="/ wk"
-          valueClass={isBehind ? "text-red" : undefined}
           sub={projection.targetPace !== null ? `vs ${projection.targetPace.toFixed(1)} / wk needed` : "no target date set"}
         />
         <KpiTile
+          tone={(progress.daysSinceLastCompany ?? 0) >= 5 ? "alarm" : "plain"}
           label="Since last new company"
           value={progress.daysSinceLastCompany ?? "—"}
           unit={progress.daysSinceLastCompany === null ? undefined : "days"}
-          valueClass={(progress.daysSinceLastCompany ?? 0) >= 5 ? "text-red" : undefined}
           sub={progress.daysSinceLastCompany === null ? "no company mapped yet" : "gap since the last first executive"}
         />
       </KpiTileRow>
@@ -91,9 +88,9 @@ export function ProgressSection({ progress }: { progress: ReportProgress }) {
       >
         <ChartLegend
           items={[
-            { label: "Actual", swatchClass: "bg-sky", shape: "line" },
-            { label: "Projected", swatchClass: "bg-red", shape: "dashed" },
-            { label: "Target", swatchClass: "bg-line", shape: "line" },
+            { label: "Actual", swatchClass: "bg-u-chart-1", shape: "line" },
+            { label: "Projected", swatchClass: "bg-u-offlimits", shape: "dashed" },
+            { label: "Target", swatchClass: "bg-u-sunken", shape: "line" },
           ]}
         />
         <CoverageChart progress={progress} projection={projection} />
@@ -121,8 +118,8 @@ export function ProgressSection({ progress }: { progress: ReportProgress }) {
           <>
             <ChartLegend
               items={[
-                { label: "At or above average", swatchClass: "bg-sky" },
-                { label: `Below average (${Math.round(pace.average)} / wk)`, swatchClass: "bg-amber" },
+                { label: "At or above average", swatchClass: "bg-u-chart-1" },
+                { label: `Below average (${Math.round(pace.average)} / wk)`, swatchClass: "bg-u-signal" },
               ]}
             />
             <WeeklyMomentumChart progress={progress} average={pace.average} />
@@ -131,8 +128,8 @@ export function ProgressSection({ progress }: { progress: ReportProgress }) {
           <>
             <ChartLegend
               items={[
-                { label: "Daily count", swatchClass: "bg-line" },
-                { label: "7-day rolling average", swatchClass: "bg-sky", shape: "line" },
+                { label: "Daily count", swatchClass: "bg-u-sunken" },
+                { label: "7-day rolling average", swatchClass: "bg-u-chart-1", shape: "line" },
               ]}
             />
             <DailyMomentumChart progress={progress} />
@@ -143,13 +140,34 @@ export function ProgressSection({ progress }: { progress: ReportProgress }) {
   );
 }
 
-function ProgressFinding({ projection, target }: { projection: Projection; target: string | null }) {
+function ProgressFinding({
+  projection,
+  pace,
+  target,
+}: {
+  projection: Projection;
+  pace: WeeklyPace;
+  target: string | null;
+}) {
+  const momentum =
+    pace.firstMonth > 0 ? (
+      <>
+        Weekly pace has gone from <Figure>~{Math.round(pace.firstMonth)}/week</Figure> in the first month to{" "}
+        <Figure>~{Math.round(pace.recent)}/week</Figure> recently.{" "}
+      </>
+    ) : null;
+
   if (projection.remaining === 0) {
-    return <>Every company of the universe has at least one executive mapped — coverage is complete.</>;
+    return (
+      <>
+        {momentum}Every company of the universe has at least one executive mapped — coverage is complete.
+      </>
+    );
   }
   if (projection.projectedDate === null) {
     return (
       <>
+        {momentum}
         <Figure>{projection.remaining} companies</Figure> still have no executive, and no company gained a first one in the
         last three weeks — there is no pace to project from.
       </>
@@ -158,7 +176,8 @@ function ProgressFinding({ projection, target }: { projection: Projection; targe
   if (target === null || projection.daysLate === null) {
     return (
       <>
-        At the current pace the remaining <Figure>{projection.remaining} companies</Figure> clear on{" "}
+        {momentum}At <Figure>{projection.pace.toFixed(1)} companies/week</Figure>, the remaining{" "}
+        <Figure>{projection.remaining} companies</Figure> clear on{" "}
         <Figure>{formatShortDate(projection.projectedDate)}</Figure>. No target date is set on the mandate.
       </>
     );
@@ -166,7 +185,14 @@ function ProgressFinding({ projection, target }: { projection: Projection; targe
   if (projection.daysLate > 0) {
     return (
       <>
-        At the current pace the remaining <Figure>{projection.remaining} companies</Figure> clear on{" "}
+        {momentum}At <Figure>{projection.pace.toFixed(1)} companies/week</Figure>
+        {projection.targetPace !== null ? (
+          <>
+            {" "}
+            against the <Figure>{projection.targetPace.toFixed(1)}/week</Figure> originally needed
+          </>
+        ) : null}
+        , the remaining <Figure>{projection.remaining} companies</Figure> won't clear until{" "}
         <Figure>{formatShortDate(projection.projectedDate)}</Figure> — <Figure>{projection.daysLate} days</Figure> behind the{" "}
         {target} target.
       </>
@@ -174,7 +200,8 @@ function ProgressFinding({ projection, target }: { projection: Projection; targe
   }
   return (
     <>
-      At the current pace the remaining <Figure>{projection.remaining} companies</Figure> clear on{" "}
+      {momentum}At <Figure>{projection.pace.toFixed(1)} companies/week</Figure>, the remaining{" "}
+      <Figure>{projection.remaining} companies</Figure> clear on{" "}
       <Figure>{formatShortDate(projection.projectedDate)}</Figure>, inside the {target} target.
     </>
   );

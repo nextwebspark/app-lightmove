@@ -1,7 +1,8 @@
 @import "./tokens.css";
 
-/* Geist (with Inter as fallback), as specified by every mockup's <helmet>. */
-@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&display=swap");
+/* Geist (with Inter as fallback), as every mockup's <helmet> specifies. JetBrains Mono rides along
+   for the Reports chapters, which set numerals in it — see `--font-u-num` in tokens.css. */
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 
 html,
 body,

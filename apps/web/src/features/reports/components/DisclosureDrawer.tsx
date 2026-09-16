@@ -52,9 +52,9 @@ export function DisclosureDrawer({
           </DrawerSection>
           <DrawerSection title="Current placement">
             {rows.map(([label, value]) => (
-              <div key={label} className="flex justify-between gap-3 border-b border-line-soft py-[7px] text-[12.5px] text-text2 last:border-b-0">
+              <div key={label} className="flex justify-between gap-3 border-b border-u-border py-[7px] text-[12.5px] text-u-text2 last:border-b-0">
                 <span>{label}</span>
-                <b className="text-right font-semibold text-text">{value}</b>
+                <b className="text-right font-semibold text-u-text">{value}</b>
               </div>
             ))}
           </DrawerSection>

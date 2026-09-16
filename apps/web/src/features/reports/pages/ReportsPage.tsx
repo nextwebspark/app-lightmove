@@ -64,18 +64,18 @@ function ReportBody({ project, report }: { project: Project; report: Report }) {
       />
 
       <div className="min-w-0 max-w-[900px] flex-1 basis-[300px]">
-        <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-text3">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3">
           Talent mapping report
         </div>
         <h1 className="mt-2.5 text-[28px] font-bold leading-[1.15] tracking-[-0.02em]">
           {project.positionTitle} — {project.clientName}
         </h1>
-        <div className="mt-2 font-mono text-xs text-text3">
+        <div className="mt-2 font-u-num text-xs text-u-text3">
           {report.head.universeCount}-company universe · {report.head.executivesMapped} executives mapped
           {target ? ` · target ${formatDate(target)}` : " · no target date"} · confidential
         </div>
 
-        <div className="my-[22px] h-px bg-line" />
+        <div className="my-[22px] h-px bg-u-sunken" />
 
         <div className="flex flex-col gap-[34px]">
           <ProgressSection progress={report.progress} />
@@ -84,7 +84,7 @@ function ReportBody({ project, report }: { project: Project; report: Report }) {
           <DiversitySection diversity={report.diversity} />
         </div>
 
-        <div className="mt-[34px] border-t border-line pt-[18px] font-mono text-[11px] leading-[1.6] text-text3">
+        <div className="mt-[34px] border-t border-u-border-strong pt-[18px] font-u-num text-[11px] leading-[1.6] text-u-text3">
           Generated {formatDate(report.progress.asOf)} · every figure is aggregated from the mandate's rows at read time ·
           prepared for {project.clientName}, confidential
         </div>

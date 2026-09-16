@@ -22,17 +22,17 @@ export function ReportCard({
   className?: string;
 }) {
   return (
-    <div className={cn("mt-3.5 rounded-[10px] border border-line-soft bg-panel2 px-[18px] py-4", className)}>
+    <div className={cn("mt-3.5 rounded-[10px] border border-u-border bg-u-raised px-[18px] py-4", className)}>
       <div className="flex flex-wrap items-start justify-between gap-3.5">
         <div>
           <div className="text-[13.5px] font-semibold">{title}</div>
-          {caption && <div className="mt-[3px] font-mono text-[11px] text-text3">{caption}</div>}
+          {caption && <div className="mt-[3px] font-u-num text-[11px] text-u-text3">{caption}</div>}
         </div>
         {action && <div className="flex flex-wrap items-center gap-2">{action}</div>}
       </div>
       {children}
       {note && (
-        <div className="mt-3.5 border-t border-line pt-3 text-xs leading-[1.6] text-text2 [&_b]:font-semibold [&_b]:text-text">
+        <div className="mt-3.5 border-t border-u-border-strong pt-3 text-xs leading-[1.6] text-u-text2 [&_b]:font-semibold [&_b]:text-u-text">
           {note}
         </div>
       )}
@@ -52,7 +52,7 @@ export function ChartLegend({ items, className }: { items: LegendItem[]; classNa
   return (
     <div className={cn("mt-3 flex flex-wrap gap-4", className)}>
       {items.map((item) => (
-        <span key={item.label} className="inline-flex items-center gap-1.5 text-[11px] text-text2">
+        <span key={item.label} className="inline-flex items-center gap-1.5 text-[11px] text-u-text2">
           <i
             aria-hidden
             className={cn(

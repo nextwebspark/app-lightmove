@@ -23,7 +23,7 @@ import {
 import { percent } from "../lib/figures";
 import { useCountUp } from "../lib/useCountUp";
 
-const SELECT_CLASS = "w-auto bg-panel py-[7px] text-[12.5px] font-medium";
+const SELECT_CLASS = "w-auto bg-u-surface py-[7px] text-[12.5px] font-medium";
 
 /** 04 — who is in the mapped pool, by nationality and by gender where one was recorded. */
 export function DiversitySection({ diversity }: { diversity: ReportDiversity }) {
@@ -47,7 +47,9 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
       id="dei"
       ordinal="04"
       eyebrow="Diversity & DEI"
-      heading={
+      question="What does the mapped talent pool actually look like?"
+      findingLabel="At these settings"
+      finding={
         <>
           {gender.thinnest && (
             <>
@@ -77,14 +79,11 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
           )}
         </>
       }
-      lede={
-        gender.recorded === 0
-          ? "Nationality is shown in full because it is public, objective data with real regulatory weight in the GCC (Nitaqat, Emiratisation). Gender is counted only where a researcher recorded it, and nobody has recorded one on this mandate yet — nothing here infers it from a name."
-          : `Nationality is shown in full because it is public, objective data with real regulatory weight in the GCC (Nitaqat, Emiratisation). Gender is counted from the ${gender.recorded} executives who have one on file${gender.unrecorded > 0 ? `, with ${gender.unrecorded} not recorded` : ""} — never inferred from a name.`
-      }
+      lede="Nationality is shown in full because it is public, objective data with real regulatory weight in the GCC (Nitaqat, Emiratisation). Gender is counted only where a researcher recorded it, and never inferred from a name."
     >
       <KpiTileRow>
         <KpiTile
+          tone="accent"
           label="Female · overall"
           value={gender.recorded === 0 ? "—" : gender.femalePct}
           unit={gender.recorded === 0 ? undefined : "%"}
@@ -94,7 +93,7 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
           label={gender.thinnest ? `Female · ${gender.thinnest.level}` : "Female · thinnest level"}
           value={gender.thinnest ? gender.thinnest.femalePct : "—"}
           unit={gender.thinnest ? "%" : undefined}
-          valueClass={gender.thinnest && gender.thinnest.femalePct < gender.femalePct ? "text-red" : undefined}
+          tone={gender.thinnest && gender.thinnest.femalePct < gender.femalePct ? "alarm" : "plain"}
           sub={gender.thinnest ? `the thinnest level · ${gender.thinnest.recorded} recorded` : "nothing recorded yet"}
         />
         <KpiTile
@@ -139,22 +138,22 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
       >
         <KpiTileRow className="mt-3.5 [grid-template-columns:1fr_1fr]">
           <KpiTile
-            className="bg-panel"
+            className="bg-u-surface"
             label="Qualifying executives"
             value={Math.round(qualifying)}
             unit={`/ ${fit.scope}`}
-            valueClass="text-sky"
+            valueClass="text-u-accent"
             sub={`${nationality} · ${level === ALL_LEVELS_FILTER ? "all levels" : level}`}
           />
           <KpiTile
-            className="bg-panel"
+            className="bg-u-surface"
             label="Share of this scope"
             value={Math.round(share)}
             unit="%"
             sub={`of ${level === ALL_LEVELS_FILTER ? "everyone with a level on file" : `${level} executives`}`}
           />
         </KpiTileRow>
-        <div className="mb-2.5 mt-[18px] font-mono text-[11px] text-text3">
+        <div className="mb-2.5 mt-[18px] font-u-num text-[11px] text-u-text3">
           {nationality} — where they sit by level · one square per executive
         </div>
         <NationalityDots feasibility={fit} />
@@ -162,7 +161,7 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
 
       <ReportCard
         title="Nationality mix"
-        caption={`n = ${stats.total} with a nationality on file · GCC nationals in amber`}
+        caption={`n = ${stats.total} with a nationality on file · GCC nationals in the accent`}
         note={
           <>
             GCC nationals are {diversity.gccNationals} of {stats.total} ({stats.gccPct}%) — the figure a localisation
@@ -174,8 +173,8 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
         <StackedBar
           className="mt-4"
           segments={[
-            { label: "GCC nationals", count: diversity.gccNationals, fillClass: "bg-amber" },
-            { label: "Expatriate", count: stats.total - diversity.gccNationals, fillClass: "bg-line" },
+            { label: "GCC nationals", count: diversity.gccNationals, fillClass: "bg-u-accent" },
+            { label: "Expatriate", count: stats.total - diversity.gccNationals, fillClass: "bg-u-sunken" },
           ]}
         />
         <div className="mt-4">
@@ -184,7 +183,7 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
               key: row.nationality,
               label: row.nationality,
               count: row.total,
-              fillClass: row.gcc ? "bg-amber" : "bg-text3",
+              fillClass: row.gcc ? "bg-u-accent" : "bg-u-sunken",
             }))}
           />
         </div>
@@ -217,15 +216,15 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
         }
       >
         {gender.recorded === 0 ? (
-          <div className="py-[30px] text-center text-[12.5px] text-text3">
+          <div className="py-[30px] text-center text-[12.5px] text-u-text3">
             Nobody on this mandate has a gender recorded.
           </div>
         ) : (
           <>
             <ChartLegend
               items={[
-                { label: "Female", swatchClass: "bg-sky" },
-                { label: "Male", swatchClass: "bg-line" },
+                { label: "Female", swatchClass: "bg-u-chart-1" },
+                { label: "Male", swatchClass: "bg-u-sunken" },
               ]}
             />
             <GenderPyramid stats={gender} />
@@ -234,7 +233,7 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
       </ReportCard>
 
       <LockedBenchmarkCard>
-        <b className="text-text">Cross-mandate diversity benchmark — not built.</b> Every figure
+        <b className="text-u-text">Cross-mandate diversity benchmark — not built.</b> Every figure
         above is this mandate's own pool, so nothing here says whether that mix is normal for the
         sector and seniority. Comparing across mandates is a later piece of work.
       </LockedBenchmarkCard>

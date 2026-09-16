@@ -10,13 +10,13 @@ import { formatCompactMoney } from "../lib/figures";
  * more, red a closed door — the same reading the grid's Status pill gives, on a mark rather than text.
  */
 export const STATUS_FILL: Record<CandidateStatus, string> = {
-  identified: "bg-text3",
-  contacted: "bg-sky",
-  engaged: "bg-sky",
-  interested: "bg-green",
-  notInterested: "bg-line",
-  offLimits: "bg-red",
-  outOfScope: "bg-amber",
+  identified: "bg-u-text3",
+  contacted: "bg-u-chart-1",
+  engaged: "bg-u-chart-1",
+  interested: "bg-u-direct",
+  notInterested: "bg-u-sunken",
+  offLimits: "bg-u-offlimits",
+  outOfScope: "bg-u-signal",
 };
 
 /**
@@ -43,33 +43,33 @@ export function CompensationStrip({
     <div className="relative mx-2.5 mt-4 h-[150px]" role="group" aria-label="Disclosed compensation">
       {band && (
         <>
-          <div className="absolute bottom-11 top-[26px] rounded-md bg-sky opacity-[0.08]" style={{ left: at(band.low), width: bandWidth }} />
+          <div className="absolute bottom-11 top-[26px] rounded-md bg-u-chart-1 opacity-[0.08]" style={{ left: at(band.low), width: bandWidth }} />
           <div className="absolute bottom-11 top-[26px] rounded-md border border-dashed border-sky opacity-50" style={{ left: at(band.low), width: bandWidth }} />
           <div
-            className="absolute top-1.5 text-center font-mono text-[9.5px] font-semibold tracking-[0.08em] text-sky"
+            className="absolute top-1.5 text-center font-u-num text-[9.5px] font-semibold tracking-[0.08em] text-u-accent"
             style={{ left: at(band.low), width: bandWidth }}
           >
             OUR OFFERED BAND
           </div>
           {[band.low, band.high].map((edge) => (
             <div key={edge} className="absolute bottom-[26px] -translate-x-1/2 text-center" style={{ left: at(edge) }}>
-              <div className="mx-auto h-1.5 w-px bg-sky opacity-60" />
-              <div className="mt-0.5 whitespace-nowrap font-mono text-[10px] font-semibold text-sky">
+              <div className="mx-auto h-1.5 w-px bg-u-chart-1 opacity-60" />
+              <div className="mt-0.5 whitespace-nowrap font-u-num text-[10px] font-semibold text-u-accent">
                 {formatCompactMoney(currency, edge)}
               </div>
             </div>
           ))}
         </>
       )}
-      <div className="absolute right-0 top-1.5 font-mono text-[9.5px] text-text3">{unit}</div>
-      <div className="absolute inset-x-0 top-1/2 h-px bg-line" />
+      <div className="absolute right-0 top-1.5 font-u-num text-[9.5px] text-u-text3">{unit}</div>
+      <div className="absolute inset-x-0 top-1/2 h-px bg-u-sunken" />
 
       {stats.disclosures.length > 0 && (
         <>
           <div className="absolute bottom-3.5 top-[22px] border-l-[1.5px] border-dashed border-amber" style={{ left: at(stats.median) }} />
-          <div className="absolute top-4 -ml-[4.5px] size-[9px] rounded-full border-2 border-panel2 bg-amber" style={{ left: at(stats.median) }} />
+          <div className="absolute top-4 -ml-[4.5px] size-[9px] rounded-full border-2 border-panel2 bg-u-signal" style={{ left: at(stats.median) }} />
           <div
-            className="absolute bottom-0 -translate-x-1/2 whitespace-nowrap font-mono text-[9.5px] font-semibold tracking-[0.03em] text-amber"
+            className="absolute bottom-0 -translate-x-1/2 whitespace-nowrap font-u-num text-[9.5px] font-semibold tracking-[0.03em] text-u-signal"
             style={{ left: at(stats.median) }}
           >
             MEDIAN {formatCompactMoney(currency, stats.median)}

@@ -22,9 +22,9 @@ export interface RelevanceBand {
 
 /** Shares, not counts: applied to a real universe size so the card at least scales with the mandate. */
 const ILLUSTRATIVE_SHARES: RelevanceBand[] = [
-  { label: "Direct", share: 0.43, fillClass: "bg-sky" },
-  { label: "Adjacent", share: 0.38, fillClass: "bg-amber" },
-  { label: "AI inferred", share: 0.19, fillClass: "bg-text3" },
+  { label: "Direct", share: 0.43, fillClass: "bg-u-direct" },
+  { label: "Adjacent", share: 0.38, fillClass: "bg-u-adjacent" },
+  { label: "AI inferred", share: 0.19, fillClass: "bg-u-inferred" },
 ];
 
 export interface RelevanceMix {

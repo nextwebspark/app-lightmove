@@ -34,10 +34,10 @@ export function StackedBar({
       </div>
       <div className="mt-[9px] flex flex-wrap gap-4">
         {segments.map((s) => (
-          <span key={s.label} className="inline-flex items-center gap-1.5 text-[11px] text-text2">
+          <span key={s.label} className="inline-flex items-center gap-1.5 text-[11px] text-u-text2">
             <i aria-hidden className={cn("inline-block size-[9px] rounded-[2px]", s.fillClass)} />
             {s.label}
-            <b className="font-mono text-[11px] font-semibold text-text">{s.count}</b>
+            <b className="font-u-num text-[11px] font-semibold text-u-text">{s.count}</b>
           </span>
         ))}
       </div>

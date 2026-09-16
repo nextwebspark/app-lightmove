@@ -13,10 +13,10 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
  */
 export function LockedBenchmarkCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mt-3.5 rounded-[10px] border border-dashed border-line bg-panel2 px-[18px] py-4">
+    <div className="mt-3.5 rounded-[10px] border border-dashed border-u-border-strong bg-u-raised px-[18px] py-4">
       <div className="flex items-center gap-2.5">
-        <Icon d={ICONS.lock} size={15} className="flex-none text-text3" />
-        <div className="text-[12.5px] text-text2">{children}</div>
+        <Icon d={ICONS.lock} size={15} className="flex-none text-u-text3" />
+        <div className="text-[12.5px] text-u-text2">{children}</div>
       </div>
     </div>
   );

@@ -19,14 +19,14 @@ export function WeeklyMomentumChart({ progress, average }: { progress: ReportPro
             className="flex h-full flex-1 flex-col items-center justify-end gap-1.5"
             title={`${week.identified} executives in the week ending ${formatShortDate(week.weekEnding)}`}
           >
-            <span className="font-mono text-[12.5px] font-semibold">{week.identified}</span>
+            <span className="font-u-num text-[12.5px] font-semibold">{week.identified}</span>
             <div className="flex h-full w-full items-end justify-center">
               <div
-                className={cn("w-full max-w-6 rounded-t-[4px]", isBelow ? "bg-amber" : "bg-sky")}
+                className={cn("w-full max-w-6 rounded-t-[4px]", isBelow ? "bg-u-signal" : "bg-u-chart-1")}
                 style={{ height: `${Math.max((week.identified / max) * 100, 4)}%` }}
               />
             </div>
-            <span className="font-mono text-[10px] text-text3">{formatShortDate(week.weekEnding)}</span>
+            <span className="font-u-num text-[10px] text-u-text3">{formatShortDate(week.weekEnding)}</span>
           </div>
         );
       })}
@@ -57,7 +57,7 @@ export function DailyMomentumChart({ progress }: { progress: ReportProgress }) {
           {series.map((n, i) => (
             <div
               key={i}
-              className="flex-1 rounded-t-[2px] bg-line"
+              className="flex-1 rounded-t-[2px] bg-u-sunken"
               style={{ height: `${Math.max((n / yMax) * 100, 1)}%` }}
               title={`${n} on day ${i + 1}`}
             />
@@ -67,7 +67,7 @@ export function DailyMomentumChart({ progress }: { progress: ReportProgress }) {
           <polyline
             points={linePoints}
             fill="none"
-            className="stroke-sky"
+            className="stroke-u-chart-1"
             strokeWidth={2}
             strokeLinejoin="round"
             strokeLinecap="round"
@@ -75,7 +75,7 @@ export function DailyMomentumChart({ progress }: { progress: ReportProgress }) {
           />
         </svg>
       </div>
-      <div className="mt-1.5 flex justify-between font-mono text-[10px] text-text3">
+      <div className="mt-1.5 flex justify-between font-u-num text-[10px] text-u-text3">
         {progress.weekly.map((week) => (
           <span key={week.weekEnding}>{formatShortDate(week.weekEnding)}</span>
         ))}

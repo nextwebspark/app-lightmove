@@ -4,7 +4,7 @@ import { percent } from "../lib/figures";
 import { DrawerBulletRow, DrawerLink, ReportDrawer } from "./ReportDrawer";
 import { StackedBar } from "./StackedBar";
 
-const DEPTH_FILL = ["bg-sky", "bg-amber", "bg-text3", "bg-line", "bg-line-soft"];
+const DEPTH_FILL = ["bg-u-chart-1", "bg-u-signal", "bg-u-text3", "bg-u-sunken", "bg-u-border"];
 
 /** One country opened: how much of the map sits there, how senior it is, and who employs it. */
 export function HubDrawer({

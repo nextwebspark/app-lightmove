@@ -31,7 +31,7 @@ export function HubMapPanel({
   }
 
   return (
-    <div className="h-[280px] overflow-hidden rounded-[10px] border border-line-soft">
+    <div className="h-[280px] overflow-hidden rounded-[10px] border border-u-border">
       <Suspense fallback={<Skeleton className="size-full" />}>
         <HubGlobe
           accessToken={accessToken}

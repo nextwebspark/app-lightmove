@@ -24,7 +24,7 @@ const MEASURE_OPTIONS = [
   { value: "fixed" as const, label: "Fixed" },
 ];
 
-const SELECT_CLASS = "w-auto bg-panel py-[7px] text-[12.5px] font-medium";
+const SELECT_CLASS = "w-auto bg-u-surface py-[7px] text-[12.5px] font-medium";
 
 /** 03 — are we underpaying, against what the market has actually disclosed rather than an estimate? */
 export function RemunerationSection({ remuneration }: { remuneration: ReportRemuneration }) {
@@ -50,7 +50,9 @@ export function RemunerationSection({ remuneration }: { remuneration: ReportRemu
       id="comp"
       ordinal="03"
       eyebrow="Remuneration"
-      heading={
+      question="Are we underpaying — against real evidence, not an estimate?"
+      findingLabel="At these settings"
+      finding={
         stats.band === null ? (
           <>
             The brief states <Figure>no salary band</Figure> yet, so {remuneration.disclosures.length} disclosed packages are
@@ -70,27 +72,21 @@ export function RemunerationSection({ remuneration }: { remuneration: ReportRemu
           </>
         )
       }
-      lede={
-        stats.isReliable && hasBand
-          ? `Every point is a named executive whose package is on file — evidence, not an estimate. ${
-              measure === "fixed"
-                ? "On fixed pay alone the band may look more competitive — see Total package for the fuller picture."
-                : "This is the clearest lever available to widen the pool."
-            }`
-          : "Points are shown for reference. Widen the filters, or state the band in the position brief, for a read that carries weight."
-      }
+      lede="Every point is a named executive whose package is on file — evidence from this mandate's own conversations, not a market survey."
     >
       <KpiTileRow>
         <KpiTile
+          tone="accent"
           label="Disclosed packages"
           value={total}
           sub={scope ? scope.replace(/[()]/g, "") : `in ${currency}${remuneration.otherCurrency > 0 ? ` · ${remuneration.otherCurrency} in other currencies not shown` : ""}`}
         />
         <KpiTile label="Median disclosed" value={total ? money(stats.median) : "—"} sub={`${measureLabel} / yr`} />
         <KpiTile
+          tone={stats.ceilingPercentile !== null && stats.ceilingPercentile < 50 ? "alarm" : "plain"}
           label="Percentile of our ceiling"
           value={stats.ceilingPercentile === null ? "—" : ordinal(stats.ceilingPercentile)}
-          valueClass={stats.ceilingPercentile === null ? "text-text3" : stats.ceilingPercentile < 50 ? "text-red" : undefined}
+          valueClass={stats.ceilingPercentile === null ? "text-u-text3" : undefined}
           sub={
             !hasBand
               ? "no band in the brief"
@@ -102,10 +98,10 @@ export function RemunerationSection({ remuneration }: { remuneration: ReportRemu
           }
         />
         <KpiTile
+          tone={stats.aboveBand > 0 ? "alarm" : "plain"}
           label="Priced above our band"
           value={hasBand ? stats.aboveBand : "—"}
           unit={hasBand ? `/ ${total}` : undefined}
-          valueClass={stats.aboveBand > 0 ? "text-red" : undefined}
           sub={hasBand ? `${percent(stats.aboveBand, total)}% of disclosed packages` : "no band in the brief"}
         />
       </KpiTileRow>
@@ -144,19 +140,19 @@ export function RemunerationSection({ remuneration }: { remuneration: ReportRemu
       >
         <ChartLegend
           items={[
-            { label: "Identified", swatchClass: "bg-text3", shape: "dot" },
-            { label: "In conversation", swatchClass: "bg-sky", shape: "dot" },
-            { label: "Interested", swatchClass: "bg-green", shape: "dot" },
-            { label: "Not interested", swatchClass: "bg-line", shape: "dot" },
-            { label: "Off-limits", swatchClass: "bg-red", shape: "dot" },
-            { label: "Out of scope", swatchClass: "bg-amber", shape: "dot" },
-            { label: "Median", swatchClass: "bg-amber", shape: "dashed" },
+            { label: "Identified", swatchClass: "bg-u-text3", shape: "dot" },
+            { label: "In conversation", swatchClass: "bg-u-chart-1", shape: "dot" },
+            { label: "Interested", swatchClass: "bg-u-direct", shape: "dot" },
+            { label: "Not interested", swatchClass: "bg-u-sunken", shape: "dot" },
+            { label: "Off-limits", swatchClass: "bg-u-offlimits", shape: "dot" },
+            { label: "Out of scope", swatchClass: "bg-u-signal", shape: "dot" },
+            { label: "Median", swatchClass: "bg-u-signal", shape: "dashed" },
           ]}
         />
         {total > 0 ? (
           <CompensationStrip stats={stats} currency={currency} onSelect={setSelected} />
         ) : (
-          <div className="py-[30px] text-center text-[12.5px] text-text3">No disclosed packages in this slice.</div>
+          <div className="py-[30px] text-center text-[12.5px] text-u-text3">No disclosed packages in this slice.</div>
         )}
       </ReportCard>
 
@@ -192,13 +188,13 @@ export function RemunerationSection({ remuneration }: { remuneration: ReportRemu
         {gap && gap.isReliable && (
           <KpiTileRow className="mt-3.5 [grid-template-columns:1fr_1fr]">
             <KpiTile
-              className="bg-panel"
+              className="bg-u-surface"
               label={`${gap.largestNationality} nationals · median`}
               value={money(gap.largestMedian)}
               sub={`n = ${gap.largestCount} disclosures`}
             />
             <KpiTile
-              className="bg-panel"
+              className="bg-u-surface"
               label="All other nationalities · median"
               value={money(gap.restMedian)}
               sub={`n = ${gap.restCount} disclosures`}
@@ -208,7 +204,7 @@ export function RemunerationSection({ remuneration }: { remuneration: ReportRemu
       </ReportCard>
 
       <LockedBenchmarkCard>
-        <b className="text-text">Cross-mandate compensation benchmark — not built.</b> The percentile
+        <b className="text-u-text">Cross-mandate compensation benchmark — not built.</b> The percentile
         above ranks our band against the executives <i>this</i> mandate has spoken to, not against the
         market. Aggregating verified packages across mandates is a later piece of work.
       </LockedBenchmarkCard>

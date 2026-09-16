@@ -53,21 +53,21 @@ export function MarketSliceDrawer({
                 <StackedBar
                   height="h-3.5"
                   segments={[
-                    { label: "Interested", count: interest.interested, fillClass: "bg-green" },
-                    { label: "Not yet", count: interest.passive, fillClass: "bg-line" },
-                    { label: "Closed", count: interest.closed, fillClass: "bg-red" },
+                    { label: "Interested", count: interest.interested, fillClass: "bg-u-direct" },
+                    { label: "Not yet", count: interest.passive, fillClass: "bg-u-sunken" },
+                    { label: "Closed", count: interest.closed, fillClass: "bg-u-offlimits" },
                   ]}
                 />
               </DrawerSection>
               <DrawerSection title="Executives in this slice">
                 {executives.map((e) => (
-                  <div key={e.id} className="flex items-center gap-[11px] border-b border-line-soft py-2 last:border-b-0">
-                    <span className="grid size-7 flex-none place-items-center rounded-full border border-line bg-panel2 font-mono text-[10px] font-semibold text-text2">
+                  <div key={e.id} className="flex items-center gap-[11px] border-b border-u-border py-2 last:border-b-0">
+                    <span className="grid size-7 flex-none place-items-center rounded-full border border-u-border-strong bg-u-raised font-u-num text-[10px] font-semibold text-u-text2">
                       {initials(e.fullName)}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-[12.5px] font-semibold">{e.fullName}</span>
-                      <span className="mt-px block font-mono text-[10.5px] text-text3">
+                      <span className="mt-px block font-u-num text-[10.5px] text-u-text3">
                         {e.company ?? "No employer on file"} · {level}
                       </span>
                     </span>

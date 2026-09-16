@@ -12,15 +12,15 @@ export function NationalityDots({ feasibility }: { feasibility: Feasibility }) {
       {feasibility.byLevel.map((row) => (
         <div key={row.level}>
           <div className="mb-1.5 flex justify-between">
-            <span className="text-[11.5px] font-semibold text-text2">{row.level}</span>
-            <span className="font-mono text-[11px] font-semibold">{row.count}</span>
+            <span className="text-[11.5px] font-semibold text-u-text2">{row.level}</span>
+            <span className="font-u-num text-[11px] font-semibold">{row.count}</span>
           </div>
           <div className="flex min-h-[11px] flex-wrap gap-1" aria-label={`${row.count} at ${row.level}`}>
             {row.count === 0 ? (
-              <span className="text-[10.5px] italic text-text3">none mapped</span>
+              <span className="text-[10.5px] italic text-u-text3">none mapped</span>
             ) : (
               Array.from({ length: row.count }, (_, i) => (
-                <span key={i} className={cn("size-[11px] rounded-[3px]", row.isInScope ? "bg-sky" : "bg-line")} />
+                <span key={i} className={cn("size-[11px] rounded-[3px]", row.isInScope ? "bg-u-chart-1" : "bg-u-sunken")} />
               ))
             )}
           </div>
