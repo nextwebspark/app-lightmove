@@ -40,5 +40,7 @@ public record CandidateResponse(
         Map<String, String> customFields,
         Instant addedAt,
         /** When enrichment last filled this profile in; null while research is pending or off. */
-        String enrichedAt
+        String enrichedAt,
+        /** What a contact lookup found, and when each channel was last asked. */
+        CandidateContactsDto contacts
 ) {}

@@ -5,6 +5,8 @@ import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.dto.CandidateCareerEntryDto;
 import app.lightmove.api.candidate.dto.CandidateCompensationDto;
+import app.lightmove.api.candidate.dto.CandidateContactsDto;
+import app.lightmove.api.candidate.dto.CandidateEmailDto;
 import app.lightmove.api.candidate.dto.CandidateEducationEntryDto;
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.CandidateResponse;
@@ -15,10 +17,14 @@ import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateCapturedEvent;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateCompensation;
+import app.lightmove.api.candidate.model.CandidateContactState;
+import app.lightmove.api.candidate.model.CandidateContacts;
 import app.lightmove.api.candidate.model.CandidateDetails;
 import app.lightmove.api.candidate.model.CandidatePhoto;
 import app.lightmove.api.candidate.model.CandidateProfile;
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.candidate.model.FoundEmails;
+import app.lightmove.api.candidate.model.FoundPhones;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.repository.CandidatePhotoRepository;
 import app.lightmove.api.candidate.repository.CandidateRepository;
@@ -284,6 +290,50 @@ public class CandidateService {
     }
 
     /**
+     * What a contact lookup needs before it decides whether to spend a credit, in one read.
+     */
+    @Transactional(readOnly = true)
+    public CandidateContactState contactStateOf(UUID workspaceId, UUID projectId, UUID candidateId) {
+        requireProject(projectId, workspaceId);
+        Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        return new CandidateContactState(candidate.getLinkedinUrl(), candidate.getProfile().contacts(),
+                toDto(candidate));
+    }
+
+    /**
+     * The short transactional tail of an email lookup, {@code applyResearch}'s shape without its
+     * {@code REQUIRES_NEW}: this is called from a request thread with no transaction bound.
+     *
+     * <p>The guard is re-checked here rather than only before the vendor call, so two presses racing
+     * each other leave the first answer standing instead of a second write of the same values.
+     */
+    @Transactional
+    public CandidateResponse applyFoundEmails(UUID projectId, UUID candidateId, FoundEmails found) {
+        Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        if (candidate.getProfile().contacts().hasAskedForEmails()) {
+            return toDto(candidate);
+        }
+        candidate.recordFoundEmails(found);
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+        return toDto(candidate);
+    }
+
+    /** The phone half of {@link #applyFoundEmails}. */
+    @Transactional
+    public CandidateResponse applyFoundPhones(UUID projectId, UUID candidateId, FoundPhones found) {
+        Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        if (candidate.getProfile().contacts().hasAskedForPhones()) {
+            return toDto(candidate);
+        }
+        candidate.recordFoundPhones(found);
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+        return toDto(candidate);
+    }
+
+    /**
      * An unmapped candidate whose research names an employer gets that company filed into the
      * mandate's universe and is mapped to it. Skipped when the mandate already maps someone of the
      * same name at that company: V36's partial unique index would refuse the row, and a constraint
@@ -466,7 +516,7 @@ public class CandidateService {
                 : request.career().stream()
                         .map(entry -> new CandidateCareerEntry(entry.company(), entry.title(), entry.period()))
                         .toList();
-        return new CandidateProfile(career, request.languages(), null, null, null);
+        return new CandidateProfile(career, request.languages(), null, null, null, null);
     }
 
     /**
@@ -552,6 +602,16 @@ public class CandidateService {
                 candidate.getSourceUrl(),
                 candidate.getCustomFields().asMap(),
                 candidate.getCreatedAt(),
-                candidate.getProfile().enrichedAt());
+                candidate.getProfile().enrichedAt(),
+                contactsOf(candidate.getProfile().contacts()));
+    }
+
+    private static CandidateContactsDto contactsOf(CandidateContacts contacts) {
+        return new CandidateContactsDto(
+                contacts.emails().stream()
+                        .map(email -> new CandidateEmailDto(email.address(), email.kind(), email.status()))
+                        .toList(),
+                contacts.phones(), contacts.emailsLookedUpAt(), contacts.phonesLookedUpAt(),
+                contacts.source());
     }
 }
