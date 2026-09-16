@@ -279,6 +279,14 @@ lightmove:
     harvestapi:
       api-key: ${HARVESTAPI_API_KEY:}
 
+    # The candidate drawer's Find email / Find phone buttons, answered by ContactOut. Deliberately not
+    # selected by `provider` above: contact lookup is a separate account with a separate bill, and
+    # turning profile research off must not take the buttons with it. Left empty they are not offered.
+    # Each press spends one credit of that channel's monthly pool; a profile nobody has on record is
+    # free, and a value already held is never asked for twice.
+    contactout:
+      api-key: ${CONTACTOUT_API_KEY:}
+
   # How a paid third-party API is called: timeouts, retry and outbound pacing, shared by every vendor
   # adapter. These are spelled out rather than left to the record's @DefaultValue because @Retryable
   # resolves them as ${...} placeholders against the environment, which never sees a binding default.
