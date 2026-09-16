@@ -3,6 +3,7 @@ package app.lightmove.api.candidate.model;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.customcolumn.model.CustomFieldValues;
 import jakarta.persistence.Column;
@@ -124,6 +125,11 @@ public class Candidate extends BaseEntity {
     @Column(name = "source", nullable = false, length = 16, updatable = false)
     private CandidateSource source;
 
+    /** Which provider's research filled this in. Null until research lands, and for a row nobody researched. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "enriched_by", length = 16)
+    private EnrichmentVendor enrichedBy;
+
     /** The profile page the plugin read this from. Null for every other source. */
     @Column(name = "source_url", updatable = false)
     private String sourceUrl;
@@ -195,6 +201,7 @@ public class Candidate extends BaseEntity {
         if (triageCompanyId == null && companyName == null) {
             companyName = enriched.employerName();
         }
+        this.enrichedBy = enriched.vendor();
         this.profile = new CandidateProfile(
                 profile.career().isEmpty() ? enriched.career() : profile.career(),
                 profile.languages().isEmpty() ? enriched.languages() : profile.languages(),

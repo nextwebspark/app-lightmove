@@ -2,12 +2,16 @@ package app.lightmove.api.candidate.model;
 
 import static app.lightmove.api.core.text.service.SuppliedText.blankToNull;
 
+import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.common.location.service.Countries;
 import java.util.List;
 
 /**
  * What research on a live profile came back with — the provider's answer already translated into this
- * feature's own vocabulary, so {@link Candidate#enrich} never learns which vendor answered.
+ * feature's own vocabulary, plus the {@code vendor} that gave it. Nothing branches on that vendor; it
+ * is carried so the row can record who answered, which is what makes the dataset's share of the work
+ * measurable. It also means the fallback needs no plumbing of its own — whichever provider answered,
+ * the answer says so itself.
  *
  * <p>{@code title} is the person's <i>current position</i>, never the profile headline — a headline
  * is a self-marketing sentence ("11+ years of… | MSc | SAFe"), not a job title. The employer triplet
@@ -20,7 +24,7 @@ public record EnrichedProfile(String title, String about, String employerName,
                               List<CandidateCareerEntry> career,
                               List<CandidateEducationEntry> education,
                               List<String> skills, List<String> languages,
-                              EnrichedPhoto photo) {
+                              EnrichedPhoto photo, EnrichmentVendor vendor) {
 
     public EnrichedProfile {
         title = blankToNull(title);
