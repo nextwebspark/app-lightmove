@@ -332,8 +332,8 @@ public class CandidateService {
         Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
 
-        List<ContactEntry> emails = distinctEntries(ContactChannel.EMAIL, request.emails());
-        List<ContactEntry> phones = distinctEntries(ContactChannel.PHONE, request.phones());
+        List<ContactEntry> emails = entriesOf(ContactChannel.EMAIL, request.emails(), null);
+        List<ContactEntry> phones = entriesOf(ContactChannel.PHONE, request.phones(), null);
         candidate.replaceContacts(ContactChannel.EMAIL, emails, ContactSource.MANUAL);
         candidate.replaceContacts(ContactChannel.PHONE, phones, ContactSource.MANUAL);
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
@@ -358,9 +358,11 @@ public class CandidateService {
     }
 
     /**
-     * The Add form's list plus the one value a cell or a capture supplies, as ledger entries. A cell
-     * whose value keys to nothing — a dash where a number should be — is skipped rather than refused,
-     * as it always was: a spreadsheet says "unknown" a dozen ways.
+     * What a write lists for one channel, plus the one value a cell or a capture supplies, as ledger
+     * entries — the Contact section's save and the profile's own both come through here, so the rules
+     * below cannot differ by endpoint. A single value that keys to nothing — a dash where a number
+     * should be — is skipped rather than refused, as it always was: a spreadsheet says "unknown" a
+     * dozen ways.
      */
     private static List<ContactEntry> entriesOf(ContactChannel channel, List<ContactEntryDto> listed,
                                                 String single) {
@@ -374,19 +376,9 @@ public class CandidateService {
         return distinct(channel, entries);
     }
 
-    private static List<ContactEntry> distinctEntries(ContactChannel channel, List<ContactEntryDto> listed) {
-        if (listed == null) {
-            return List.of();
-        }
-        List<ContactEntry> entries = new ArrayList<>();
-        listed.forEach(entry -> entries.add(entryOf(channel, entry)));
-        return distinct(channel, entries);
-    }
-
     /**
      * Two spellings of one address or number in the same save is a slip, and letting the second win
-     * silently would hide it; ten of either is a paste error. Every write path passes through here,
-     * so the rule does not depend on which endpoint a client chose.
+     * silently would hide it; ten of either is a paste error.
      */
     private static List<ContactEntry> distinct(ContactChannel channel, List<ContactEntry> entries) {
         if (entries.size() > MAX_CONTACTS_PER_CHANNEL) {

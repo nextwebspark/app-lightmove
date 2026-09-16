@@ -18,8 +18,4 @@ public record FoundPhones(String source, List<String> phones) {
     public static FoundPhones none(String source) {
         return new FoundPhones(source, List.of());
     }
-
-    public String primary() {
-        return phones.isEmpty() ? null : phones.getFirst();
-    }
 }

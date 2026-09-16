@@ -147,11 +147,13 @@ public class Candidate extends BaseEntity {
     /**
      * Every email and phone known for this person, whatever door it came through — V54's ledger.
      * A bag the aggregate rewrites from its own methods, the way a position owns its lists; nothing
-     * outside this class adds a row.
+     * outside this class adds a row. Batched at 500 rather than the usual 50 because the talent map
+     * reads every mapped person in one unpaged pass, up to {@code talentmap.max-candidates}, and
+     * every one of them is answered with its contacts.
      */
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "app_lm_candidate_contact", joinColumns = @JoinColumn(name = "candidate_id"))
-    @BatchSize(size = 50)
+    @BatchSize(size = 500)
     private List<CandidateContact> contacts = new ArrayList<>();
 
     /**

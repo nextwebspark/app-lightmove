@@ -30,10 +30,6 @@ public record CandidateEmail(String address, String kind, String status) {
         status = blankToNull(status);
     }
 
-    public boolean isWork() {
-        return WORK.equals(kind);
-    }
-
     public boolean isVerified() {
         return VERIFIED.equalsIgnoreCase(status);
     }
