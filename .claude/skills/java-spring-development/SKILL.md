@@ -298,8 +298,9 @@ method plus the records it returns — never another feature's internals:
 
 - `triagecompany`'s `TriageCompanyService` calls `strategy`'s `ApolloCompanyQueryService` to resolve
   a company snapshot at write time, and `StrategyService.scopeOf` to resolve the saved filter behind
-  "Add all to Universe". The one exception to "never the reverse": the Strategy search excludes a
-  project's already-triaged companies, so they stop reappearing once filed. That's bridged through
+  "Add all to Universe". Reads that must run the reverse way are the exception below: the Strategy
+  search excludes a project's already-triaged companies, so they stop reappearing once filed. That's
+  bridged through
   `TriagedCompanyLookup` — an interface `strategy` declares and `triagecompany` implements
   (`TriagedCompanyLookupAdapter`) — so the compile-time dependency stays one-way; only a bean
   satisfying the interface crosses back.
@@ -327,6 +328,15 @@ method plus the records it returns — never another feature's internals:
   rather than handing a `Project` across.
 - `project`'s `ClientService` calls `ApolloCompanyQueryService` to resolve the company a new client
   record names.
+- The projects list's two pipeline numbers run the same inversion as `TriagedCompanyLookup` above, and
+  it is the shape to copy whenever a feature needs a read from one that already depends on it:
+  `project` declares `ProjectCompanyCounter` and `ProjectCandidateCounter` in its own `service/`, and
+  `triagecompany` and `candidate` implement them (`ProjectCompanyCounterAdapter`,
+  `ProjectCandidateCounterAdapter` — package-private, like the lookup's). Declared this way round
+  because both of those features already read `ProjectRepository`, so a call out of `project` would
+  close the loop; only a bean satisfying the interface crosses back, and the project package never
+  learns that either table exists. Each is one grouped count over the ids being assembled, so the list
+  stays one query rather than one per row.
 
 A further seam is sanctioned for client representatives: `project`'s `ClientRepresentativeService`
 calls `workspace`'s `InvitationService.onboardClientRepresentative` to grant membership (a representative
