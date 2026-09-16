@@ -9,9 +9,10 @@
 -- aggregate: how much of our enrichment came from where. That is a GROUP BY, not a field read back
 -- with one profile.
 --
--- Nullable with no default, for V51's reason: NULL is "nobody researched this, or it was researched
--- before this column existed", which is a different fact from either vendor and must not be
--- backfilled into one of them.
+-- Nullable with no default, and deliberately not a third value meaning "unknown": NULL is "nobody
+-- researched this, or it was researched before this column existed", which is a different fact from
+-- either vendor. Backfilling it into one of them would invent provenance nobody recorded, and the
+-- counts this column exists to produce would be wrong from the first query.
 --
 -- Deliberately not added to app_lm_project_triage_company: company enrichment has exactly one
 -- possible provider today, so recording it there would state nothing.

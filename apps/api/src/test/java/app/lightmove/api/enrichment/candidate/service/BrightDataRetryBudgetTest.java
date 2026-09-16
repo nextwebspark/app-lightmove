@@ -8,6 +8,7 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -58,6 +59,11 @@ class BrightDataRetryBudgetTest {
     @BeforeEach
     void resetTheCount() {
         REQUESTS.set(0);
+    }
+
+    @AfterAll
+    static void stopTheStubVendor() {
+        VENDOR.stop(0);
     }
 
     @Test
