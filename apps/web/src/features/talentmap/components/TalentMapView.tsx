@@ -7,18 +7,21 @@ import { cn } from "../../../lib/cn";
 import type { Candidate } from "../../candidates/api/types";
 import type { TriageCompany } from "../../triage/api/types";
 import type { TalentMapPage } from "../api/types";
-import { countOf, toFeatureCollection } from "../lib/talentMapFeatures";
+import { boundsOf, countOf, toFeatureCollection, type MapBounds } from "../lib/talentMapFeatures";
 import {
   buildTree,
+  countryAt,
   filterTree,
   nodesOf,
   pathTo,
+  rowIdsIn,
   UNLOCATED_KEY,
   type TreeCompany,
   type TreeExecutive,
 } from "../lib/talentMapTree";
 import type { TalentMapPreferences } from "../lib/useTalentMapPreferences";
 import { TalentMapPopup } from "./TalentMapPopup";
+import { TalentMapProfileCard } from "./TalentMapProfileCard";
 import { TalentMapTree } from "./TalentMapTree";
 
 /**
@@ -66,6 +69,7 @@ export function TalentMapView({
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [unsupported, setUnsupported] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [flyTo, setFlyTo] = useState<MapBounds | null>(null);
 
   const tree = useMemo(() => (page ? buildTree(page) : null), [page]);
   const visible = useMemo(() => (tree ? filterTree(tree, query) : null), [tree, query]);
@@ -111,6 +115,28 @@ export function TalentMapView({
       if (path.company) next.add(path.company);
       return next;
     });
+  };
+
+  /**
+   * A country the reader picked — its row in the panel, or its ground on the globe: the branch opens
+   * and the camera moves into the box its rows fit in, so what was a dot on a continent becomes the
+   * companies and people actually there. The selection goes with it; the reader is looking at a
+   * place now, not at a row.
+   */
+  const focusCountry = (key: string) => {
+    const country = visible?.countries.find((candidate) => candidate.key === key);
+    if (!country) return;
+    setExpanded((current) => new Set(current).add(key));
+    const ids = rowIdsIn(country);
+    const bounds = boundsOf(features.features.filter((feature) => ids.has(feature.id)));
+    if (!bounds) return;
+    setSelectedId(null);
+    setFlyTo(bounds);
+  };
+
+  const focusCountryAt = (code: string | null, name: string | null) => {
+    const country = visible ? countryAt(visible, code, name) : null;
+    if (country) focusCountry(country.key);
   };
 
   const toggle = (key: string) =>
@@ -195,6 +221,7 @@ export function TalentMapView({
                   projectId={projectId}
                   expanded={expanded}
                   onToggle={toggle}
+                  onFocusCountry={focusCountry}
                   selectedId={selectedId}
                   hoveredId={hoveredId}
                   onSelect={select}
@@ -244,7 +271,9 @@ export function TalentMapView({
               selectedId={selectedId}
               hoveredId={hoveredId}
               showExecutives={preferences.showExecutives}
+              flyTo={flyTo}
               onSelect={select}
+              onSelectCountry={focusCountryAt}
               onHover={setHoveredId}
               onToggleExecutives={() =>
                 onPreferences({ showExecutives: !preferences.showExecutives })
@@ -263,6 +292,20 @@ export function TalentMapView({
                       node.kind === "company" ? () => onAddExecutive(node.company) : undefined
                     }
                     onClose={() => setSelectedId(null)}
+                  />
+                );
+              }}
+              renderProfile={(id) => {
+                const node = nodesById.get(id);
+                if (!node || node.kind !== "executive") return null;
+                return (
+                  <TalentMapProfileCard
+                    node={node}
+                    projectId={projectId}
+                    selected={selectedId === node.id}
+                    hovered={hoveredId === node.id}
+                    onSelect={() => select(node.id)}
+                    onHover={(hovering) => setHoveredId(hovering ? node.id : null)}
                   />
                 );
               }}
