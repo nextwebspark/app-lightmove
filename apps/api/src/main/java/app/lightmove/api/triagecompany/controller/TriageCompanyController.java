@@ -14,6 +14,7 @@ import app.lightmove.api.triagecompany.dto.UpdateTriageCompanyRequest;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -50,12 +51,13 @@ public class TriageCompanyController {
                                                         @RequestParam(required = false) String status,
                                                         @RequestParam(required = false) String q,
                                                         @RequestParam(required = false) String executiveQuery,
+                                                        @RequestParam(required = false) List<String> executiveStatuses,
                                                         @RequestParam(required = false) String sort,
                                                         @RequestParam(required = false) String direction,
                                                         @RequestParam(required = false) Integer page,
                                                         @RequestParam(required = false) Integer size) {
-        TriageCompanyListCriteria criteria =
-                new TriageCompanyListCriteria(status, q, executiveQuery, sort, direction, page, size);
+        TriageCompanyListCriteria criteria = new TriageCompanyListCriteria(
+                status, q, executiveQuery, executiveStatuses, sort, direction, page, size);
         return ResponseEntity.ok(triage.list(principal.requireWorkspaceId(), projectId, criteria));
     }
 

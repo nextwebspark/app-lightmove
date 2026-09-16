@@ -20,6 +20,7 @@ import {
   type CandidateCompanyContext,
 } from "../../candidates/components/CandidateDrawer";
 import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandidateDialog";
+import { CANDIDATE_STATUSES } from "../../candidates/lib/candidateVocabulary";
 import { useChangeCandidateStatus } from "../../candidates/lib/useChangeCandidateStatus";
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import type { CustomColumn } from "../../customcolumns/api/types";
@@ -115,6 +116,8 @@ function TriageStage() {
   /** The Executive column's own header filter — independent of the Company one above it. */
   const [executiveQuery, setExecutiveQuery] = useState("");
   const [debouncedExecutiveQuery, setDebouncedExecutiveQuery] = useState("");
+  /** The Status column's own header filter — a closed checkbox set, applied with no debounce. */
+  const [executiveStatuses, setExecutiveStatuses] = useState<string[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [openCompany, setOpenCompany] = useState<OpenCompany | null>(null);
   const [pendingRemoval, setPendingRemoval] = useState<TriageCompany | null>(null);
@@ -193,7 +196,11 @@ function TriageStage() {
 
   // Any change to what is being asked returns to the first page. Staying on page 4 of a search that
   // now matches two companies shows an empty grid over a non-empty result.
-  useEffect(() => setPage(0), [debouncedQuery, debouncedExecutiveQuery, sort]);
+  useEffect(
+    () => setPage(0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [debouncedQuery, debouncedExecutiveQuery, executiveStatuses.join(","), sort],
+  );
 
   /**
    * Every write invalidates the whole prefix rather than this stage's key. A move changes two stages
@@ -274,6 +281,7 @@ function TriageStage() {
       pageSize,
       debouncedQuery,
       debouncedExecutiveQuery,
+      executiveStatuses,
       sort,
     ),
     queryFn: ({ signal }) =>
@@ -284,6 +292,7 @@ function TriageStage() {
         pageSize,
         debouncedQuery,
         debouncedExecutiveQuery,
+        executiveStatuses,
         sort,
         signal,
       ),
@@ -337,6 +346,7 @@ function TriageStage() {
       stage.status === "inUniverse" &&
       !debouncedQuery &&
       !debouncedExecutiveQuery &&
+      executiveStatuses.length === 0 &&
       page === lastPage,
     refetchInterval: researchPoll,
   });
@@ -539,7 +549,7 @@ function TriageStage() {
           loading={companies.isFetching}
           error={companies.isError}
           emptyMessage={
-            debouncedQuery || debouncedExecutiveQuery
+            debouncedQuery || debouncedExecutiveQuery || executiveStatuses.length > 0
               ? "No companies match that search."
               : stage.emptyMessage
           }
@@ -555,6 +565,16 @@ function TriageStage() {
               onChange: setExecutiveQuery,
               placeholder: "Filter by executive name…",
               "aria-label": "Filter by executive name",
+            },
+            executiveStatus: {
+              kind: "check",
+              options: CANDIDATE_STATUSES.map((status) => ({
+                value: status.value,
+                label: status.label,
+              })),
+              selected: executiveStatuses,
+              onChange: setExecutiveStatuses,
+              "aria-label": "Filter by status",
             },
           }}
           onEditColumn={(customColumnId) => {

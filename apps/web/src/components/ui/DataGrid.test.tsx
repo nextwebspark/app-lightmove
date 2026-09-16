@@ -353,3 +353,69 @@ describe("DataGrid header menu — Filter by", () => {
     expect(screen.queryByRole("textbox", { name: "Filter by sector" })).not.toBeInTheDocument();
   });
 });
+
+describe("DataGrid header menu — a checkbox filter", () => {
+  const SECTOR_OPTIONS = [
+    { value: "energy", label: "Energy" },
+    { value: "tech", label: "Technology" },
+  ];
+
+  it("renders a checkbox per option instead of a text box, ticked by the selected set", async () => {
+    const onChange = vi.fn();
+    render(
+      <Harness
+        columnFilters={{
+          sector: { kind: "check", options: SECTOR_OPTIONS, selected: ["energy"], onChange, "aria-label": "Filter by sector" },
+        }}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+
+    expect(screen.queryByRole("textbox", { name: "Filter by sector" })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Energy" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Technology" })).not.toBeChecked();
+  });
+
+  it("adds and removes from the selected set as boxes are ticked, without closing the menu", async () => {
+    const onChange = vi.fn();
+    render(
+      <Harness
+        columnFilters={{
+          sector: { kind: "check", options: SECTOR_OPTIONS, selected: ["energy"], onChange, "aria-label": "Filter by sector" },
+        }}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Technology" }));
+    expect(onChange).toHaveBeenCalledWith(["energy", "tech"]);
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Energy" }));
+    expect(onChange).toHaveBeenCalledWith([]);
+
+    // A tick is not an Apply: the menu, and the checkboxes inside it, are still open.
+    expect(screen.getByRole("checkbox", { name: "Technology" })).toBeInTheDocument();
+  });
+
+  it("tints the menu trigger, the sorted column's own idiom, only once something is ticked", async () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <Harness
+        columnFilters={{
+          sector: { kind: "check", options: SECTOR_OPTIONS, selected: [], onChange, "aria-label": "Filter by sector" },
+        }}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Sector column menu" })).not.toHaveClass("text-sky");
+
+    rerender(
+      <Harness
+        columnFilters={{
+          sector: { kind: "check", options: SECTOR_OPTIONS, selected: ["energy"], onChange, "aria-label": "Filter by sector" },
+        }}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Sector column menu" })).toHaveClass("text-sky");
+  });
+});

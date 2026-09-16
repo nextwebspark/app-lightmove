@@ -1124,6 +1124,50 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.companies[2].companyName").value("Nobody Mapped"));
     }
 
+    @Test
+    @DisplayName("the Status column's checkbox filter narrows to a ticked executive status, independently of the other two")
+    void listFiltersByExecutiveStatuses() throws Exception {
+        String admin = adminOf("Universe Executive Status Filter Firm");
+        String projectId = project(admin);
+        seedUniverse(UUID.fromString(projectId), actorId(),
+                List.of(row("a1", "Furthest Along", 100), row("a2", "Just Identified", 200),
+                        row("a3", "Nobody Mapped", 300)));
+        mapExecutive(admin, projectId, idOfCompanyNamed(projectId, "Furthest Along"),
+                "Interested Exec", "interested");
+        mapExecutive(admin, projectId, idOfCompanyNamed(projectId, "Just Identified"),
+                "Identified Exec", "identified");
+
+        mvc.perform(get(triageUrl(projectId)).param("executiveStatuses", "interested")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(1))
+                .andExpect(jsonPath("$.companies[0].companyName").value("Furthest Along"));
+
+        // More than one ticked box is an OR over the set, not a second AND.
+        mvc.perform(get(triageUrl(projectId))
+                        .param("executiveStatuses", "interested", "identified")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.totalCount").value(2));
+
+        // Narrows independently of the company-name filter, exactly as the executive-name one does.
+        mvc.perform(get(triageUrl(projectId)).param("q", "furthest")
+                        .param("executiveStatuses", "identified")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.totalCount").value(0));
+
+        // And it still applies under the executive-status rank ordering, not just the ordinary sort.
+        mvc.perform(get(triageUrl(projectId)).param("sort", "executiveStatus").param("direction", "asc")
+                        .param("executiveStatuses", "interested", "identified")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.totalCount").value(2))
+                .andExpect(jsonPath("$.companies[0].companyName").value("Just Identified"))
+                .andExpect(jsonPath("$.companies[1].companyName").value("Furthest Along"));
+
+        mvc.perform(get(triageUrl(projectId)).param("executiveStatuses", "not-a-real-status")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
+    }
+
     private String idOfCompanyNamed(String projectId, String companyName) {
         return db.queryForObject(
                 "SELECT id FROM app_lm_project_triage_company WHERE project_id = ? AND company_name = ?",

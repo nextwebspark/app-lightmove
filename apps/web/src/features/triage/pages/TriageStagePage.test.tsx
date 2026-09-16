@@ -330,6 +330,23 @@ describe("TriageStagePage", () => {
     expect(vi.mocked(triageApi.getTriageCompanies).mock.calls[0][1]).toBe("shortlisted");
   });
 
+  it("the Status column's checkbox filter ticks into the server read, not a free-text box", async () => {
+    renderStage();
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+
+    await userEvent.click(within(grid).getByRole("button", { name: "Status column menu" }));
+    expect(screen.queryByRole("textbox", { name: "Filter by status" })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Interested" })).not.toBeChecked();
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Interested" }));
+
+    await waitFor(() =>
+      expect(vi.mocked(triageApi.getTriageCompanies).mock.calls.at(-1)?.[6]).toEqual(["interested"]),
+    );
+    // Still open: a tick narrows the read without closing the menu the way Apply does for text.
+    expect(screen.getByRole("checkbox", { name: "Interested" })).toBeChecked();
+  });
+
   it("renders the companies in the shared grid", async () => {
     renderStage();
 
@@ -1187,7 +1204,9 @@ describe("TriageStagePage — full screen", () => {
     expect(screen.getByRole("button", { name: "Add company" })).toBeInTheDocument();
     const grid = await screen.findByRole("table", { name: /In universe companies/i });
     await userEvent.click(within(grid).getByRole("button", { name: "Company column menu" }));
-    expect(within(grid).getByRole("textbox", { name: "Filter by company name" })).toBeInTheDocument();
+    // Portalled to the body rather than nested in the grid, so it cannot be clipped by the table's own
+    // scroll box — see Popover's own doc comment.
+    expect(screen.getByRole("textbox", { name: "Filter by company name" })).toBeInTheDocument();
     expect(within(grid).getByText("ACWA Power")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Full screen" })).toHaveAttribute("aria-pressed", "true");
   });

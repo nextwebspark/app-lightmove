@@ -57,6 +57,39 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
             Pageable pageable);
 
     /**
+     * {@link #findByProjectIdAndStatusAndFilters} narrowed further to companies with at least one
+     * mapped executive whose status is one of the ticked ones — the Status column's own header
+     * filter, a closed checkbox set rather than free text. Its own method rather than a third optional
+     * parameter on that query: the caller only ever reaches this one with a non-empty
+     * {@code executiveStatuses}, so the {@code in} clause needs no null-guard the way the two text
+     * filters do, and stays a plain {@code exists} for the same reason theirs are — a company is kept
+     * by *any* executive matching, not by one who happens to match every filter at once.
+     *
+     * <p>{@code cast(c.status as string)}: Hibernate infers a bind parameter's expected type from what
+     * it is compared with, and a plain {@code c.status in :executiveStatuses} demands a
+     * {@code List<CandidateStatus>} — which would mean importing {@code candidate}'s own enum into
+     * this module, the reverse dependency neither side is meant to carry. The cast compares stored
+     * text to stored text instead, the same escape {@code cast(:companyName as string)} above uses for
+     * its own type ambiguity.
+     */
+    @Query("select t from TriageCompany t "
+            + "where t.projectId = :projectId and t.status = :status "
+            + "and (:companyName is null or lower(t.companyName) like lower("
+            + "  concat('%', cast(:companyName as string), '%'))) "
+            + "and (:executiveName is null or exists ("
+            + "  select 1 from Candidate c where c.triageCompanyId = t.id "
+            + "  and lower(c.fullName) like lower(concat('%', cast(:executiveName as string), '%'))"
+            + ")) "
+            + "and exists ("
+            + "  select 1 from Candidate c where c.triageCompanyId = t.id "
+            + "  and cast(c.status as string) in :executiveStatuses"
+            + ")")
+    Page<TriageCompany> findByProjectIdAndStatusAndFiltersAndExecutiveStatuses(
+            @Param("projectId") UUID projectId, @Param("status") TriageCompanyStatus status,
+            @Param("companyName") String companyName, @Param("executiveName") String executiveName,
+            @Param("executiveStatuses") List<String> executiveStatuses, Pageable pageable);
+
+    /**
      * Ranks a page by its executives' status rather than by any property of the company itself, which
      * {@link app.lightmove.api.triagecompany.constant.TriageCompanySortField}'s flat JPA-property
      * contract cannot express — this is a parallel path, not an extension of it, selected by
@@ -131,6 +164,83 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
             @Param("projectId") UUID projectId, @Param("status") String status,
             @Param("companyName") String companyName, @Param("executiveName") String executiveName,
             Pageable pageable);
+
+    /**
+     * {@link #findByProjectIdAndStatusOrderByExecutiveStatusRankAsc} narrowed by the Status column's
+     * own checkbox filter — its own method for the reason
+     * {@link #findByProjectIdAndStatusAndFiltersAndExecutiveStatuses} is: the caller only reaches this
+     * one with a non-empty {@code executiveStatuses}, so the {@code in} needs no null-guard.
+     */
+    @Query(
+            value = "select t.* from app_lm_project_triage_company t "
+                    + "left join app_lm_project_candidate c on c.triage_company_id = t.id "
+                    + "where t.project_id = :projectId and t.status = :status "
+                    + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
+                    + "and (:executiveName is null or exists ("
+                    + "  select 1 from app_lm_project_candidate x where x.triage_company_id = t.id "
+                    + "  and lower(x.full_name) like lower(concat('%', :executiveName, '%'))"
+                    + ")) "
+                    + "and exists ("
+                    + "  select 1 from app_lm_project_candidate y where y.triage_company_id = t.id "
+                    + "  and y.status in (:executiveStatuses)"
+                    + ") "
+                    + "group by t.id "
+                    + "order by min(case c.status "
+                    + "  when 'IDENTIFIED' then 0 when 'CONTACTED' then 1 when 'ENGAGED' then 2 "
+                    + "  when 'INTERESTED' then 3 when 'NOT_INTERESTED' then 4 when 'OFF_LIMITS' then 5 "
+                    + "  when 'OUT_OF_SCOPE' then 6 else null end) asc nulls last, t.created_at desc",
+            countQuery = "select count(*) from app_lm_project_triage_company t "
+                    + "where t.project_id = :projectId and t.status = :status "
+                    + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
+                    + "and (:executiveName is null or exists ("
+                    + "  select 1 from app_lm_project_candidate x where x.triage_company_id = t.id "
+                    + "  and lower(x.full_name) like lower(concat('%', :executiveName, '%'))"
+                    + ")) "
+                    + "and exists ("
+                    + "  select 1 from app_lm_project_candidate y where y.triage_company_id = t.id "
+                    + "  and y.status in (:executiveStatuses)"
+                    + ")",
+            nativeQuery = true)
+    Page<TriageCompany> findByProjectIdAndStatusOrderByExecutiveStatusRankAscAndExecutiveStatuses(
+            @Param("projectId") UUID projectId, @Param("status") String status,
+            @Param("companyName") String companyName, @Param("executiveName") String executiveName,
+            @Param("executiveStatuses") List<String> executiveStatuses, Pageable pageable);
+
+    /** The descending twin of {@link #findByProjectIdAndStatusOrderByExecutiveStatusRankAscAndExecutiveStatuses}. */
+    @Query(
+            value = "select t.* from app_lm_project_triage_company t "
+                    + "left join app_lm_project_candidate c on c.triage_company_id = t.id "
+                    + "where t.project_id = :projectId and t.status = :status "
+                    + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
+                    + "and (:executiveName is null or exists ("
+                    + "  select 1 from app_lm_project_candidate x where x.triage_company_id = t.id "
+                    + "  and lower(x.full_name) like lower(concat('%', :executiveName, '%'))"
+                    + ")) "
+                    + "and exists ("
+                    + "  select 1 from app_lm_project_candidate y where y.triage_company_id = t.id "
+                    + "  and y.status in (:executiveStatuses)"
+                    + ") "
+                    + "group by t.id "
+                    + "order by min(case c.status "
+                    + "  when 'IDENTIFIED' then 0 when 'CONTACTED' then 1 when 'ENGAGED' then 2 "
+                    + "  when 'INTERESTED' then 3 when 'NOT_INTERESTED' then 4 when 'OFF_LIMITS' then 5 "
+                    + "  when 'OUT_OF_SCOPE' then 6 else null end) desc nulls last, t.created_at desc",
+            countQuery = "select count(*) from app_lm_project_triage_company t "
+                    + "where t.project_id = :projectId and t.status = :status "
+                    + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
+                    + "and (:executiveName is null or exists ("
+                    + "  select 1 from app_lm_project_candidate x where x.triage_company_id = t.id "
+                    + "  and lower(x.full_name) like lower(concat('%', :executiveName, '%'))"
+                    + ")) "
+                    + "and exists ("
+                    + "  select 1 from app_lm_project_candidate y where y.triage_company_id = t.id "
+                    + "  and y.status in (:executiveStatuses)"
+                    + ")",
+            nativeQuery = true)
+    Page<TriageCompany> findByProjectIdAndStatusOrderByExecutiveStatusRankDescAndExecutiveStatuses(
+            @Param("projectId") UUID projectId, @Param("status") String status,
+            @Param("companyName") String companyName, @Param("executiveName") String executiveName,
+            @Param("executiveStatuses") List<String> executiveStatuses, Pageable pageable);
 
     Optional<TriageCompany> findByIdAndProjectId(UUID id, UUID projectId);
 

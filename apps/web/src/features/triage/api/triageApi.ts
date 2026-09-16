@@ -35,6 +35,8 @@ export const TRIAGE_KEY = (
   size: number,
   query: string,
   executiveQuery: string,
+  /** The Status column's own header filter — independent of the two text ones above it. */
+  executiveStatuses: string[],
   sort: GridSort<TriageSortField>,
 ) =>
   [
@@ -44,6 +46,8 @@ export const TRIAGE_KEY = (
     size,
     query,
     executiveQuery,
+    // Sorted: the same ticked set in a different click order must not read as a different cache entry.
+    [...executiveStatuses].sort(),
     sort.field,
     sort.direction,
   ] as const;
@@ -56,6 +60,8 @@ export function getTriageCompanies(
   query: string,
   /** The Executive column's own header filter — independent of `query`, which is the Company column's. */
   executiveQuery: string,
+  /** The Status column's own header filter — a closed checkbox set, ORed together server-side. */
+  executiveStatuses: string[],
   sort: GridSort<TriageSortField>,
   signal?: AbortSignal,
 ): Promise<TriageCompaniesPage> {
@@ -70,6 +76,9 @@ export function getTriageCompanies(
   // keeps the two states from being one request apart in the network log.
   if (query) params.set("q", query);
   if (executiveQuery) params.set("executiveQuery", executiveQuery);
+  // Repeated rather than joined: the server binds `executiveStatuses` as a list, and joining with a
+  // separator would need one no ticked status could ever contain.
+  for (const status of executiveStatuses) params.append("executiveStatuses", status);
   return request<TriageCompaniesPage>(`/projects/${projectId}/triage?${params}`, { signal });
 }
 
@@ -92,6 +101,7 @@ export function getTriageCounts(projectId: string, signal?: AbortSignal): Promis
     1,
     "",
     "",
+    [],
     { field: "added", direction: "desc" },
     signal,
   ).then((page) => page.counts);

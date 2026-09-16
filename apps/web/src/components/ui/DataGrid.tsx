@@ -23,6 +23,7 @@ import {
 } from "react";
 import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
+import { FilterCheckRow } from "./FilterCheckRow";
 import { Popover } from "./Popover";
 import { TruncatedText } from "./TruncatedText";
 import { DEFAULT_COLUMN_MIN, type GridLayout } from "../../lib/useGridLayout";
@@ -38,12 +39,29 @@ export interface DataGridColumnLayout {
 }
 
 /** One column's own text filter, offered as a "Filter by" section of that column's header menu. */
-export interface DataGridColumnFilter {
+export interface DataGridTextFilter {
+  kind?: "text";
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   "aria-label": string;
 }
+
+/**
+ * One column's own multi-select filter — a fixed set of values ticked from a checkbox list rather
+ * than typed, for a column (Status) whose values are a closed vocabulary a free-text box would make a
+ * reader guess the spelling of.
+ */
+export interface DataGridCheckFilter {
+  kind: "check";
+  options: { value: string; label: string }[];
+  selected: string[];
+  onChange: (selected: string[]) => void;
+  "aria-label": string;
+}
+
+/** A column's own header-menu filter, keyed by column id — free text, or a closed set of checkboxes. */
+export type DataGridColumnFilter = DataGridTextFilter | DataGridCheckFilter;
 
 /**
  * The four features every grid on this component registers. Spread into each grid's own
@@ -194,8 +212,9 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
    */
   onEditColumn?: (columnId: string) => void;
   /**
-   * A text filter offered from a column's own header menu — "type a few letters" narrowing, keyed by
-   * column id. A column with no entry gets no "Filter by" section on its menu.
+   * A filter offered from a column's own header menu, keyed by column id — free text ("type a few
+   * letters" narrowing) or a closed checkbox set for a column whose values are a fixed vocabulary. A
+   * column with no entry gets no "Filter by" section on its menu.
    */
   columnFilters?: Record<string, DataGridColumnFilter>;
 }) {
@@ -728,9 +747,10 @@ function HeaderMenu<TData extends RowData>({
   visibleColumns: readonly GridColumn<TData>[];
   /** Whether this is the one column, beyond the grid's own always-pinned one, that a user froze. */
   frozen: boolean;
-  /** This column's own text filter, if the caller offers one — narrowed here rather than in a row of
-   *  its own under the header labels, so a filtered column reads like a sorted or frozen one: a state
-   *  set from the same menu, not a second control competing for the same strip of space. */
+  /** This column's own filter, if the caller offers one — text or a closed checkbox set — narrowed
+   *  here rather than in a row of its own under the header labels, so a filtered column reads like a
+   *  sorted or frozen one: a state set from the same menu, not a second control competing for the
+   *  same strip of space. */
   filter?: DataGridColumnFilter;
   onMove: (column: GridColumn<TData>, step: 1 | -1) => void;
   onFreeze: (column: GridColumn<TData>, freeze: boolean) => void;
@@ -747,7 +767,7 @@ function HeaderMenu<TData extends RowData>({
   const canMoveLeft = !pinned && !!leftNeighbour && !leftNeighbour.getIsPinned();
   const canMoveRight = !pinned && !!rightNeighbour && !rightNeighbour.getIsPinned();
   const editable = !!onEditColumn && column.id.startsWith("custom:");
-  const filtered = !!filter?.value;
+  const filtered = filter?.kind === "check" ? filter.selected.length > 0 : !!filter?.value;
 
   if (!sortable && !canMoveLeft && !canMoveRight && structurallyPinned && !editable && !filter) {
     return null;
@@ -775,23 +795,47 @@ function HeaderMenu<TData extends RowData>({
                 <label className="mb-1 block font-sans text-[11px] font-medium text-text3">
                   Filter by
                 </label>
-                <input
-                  type="text"
-                  value={filter.value}
-                  onChange={(event) => filter.onChange(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") close();
-                  }}
-                  placeholder={filter.placeholder}
-                  aria-label={filter["aria-label"]}
-                  className="h-7 w-full min-w-0 rounded-[4px] border border-line bg-panel px-2 font-sans text-[12px] text-text outline-none placeholder:text-text3 focus:border-sky"
-                />
+                {filter.kind === "check" ? (
+                  <div
+                    role="group"
+                    aria-label={filter["aria-label"]}
+                    className="flex max-h-[220px] flex-col gap-0.5 overflow-y-auto"
+                  >
+                    {filter.options.map((option) => (
+                      <FilterCheckRow
+                        key={option.value}
+                        label={option.label}
+                        size="sm"
+                        checked={filter.selected.includes(option.value)}
+                        onToggle={() =>
+                          filter.onChange(
+                            filter.selected.includes(option.value)
+                              ? filter.selected.filter((value) => value !== option.value)
+                              : [...filter.selected, option.value],
+                          )
+                        }
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={filter.value}
+                    onChange={(event) => filter.onChange(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") close();
+                    }}
+                    placeholder={filter.placeholder}
+                    aria-label={filter["aria-label"]}
+                    className="h-7 w-full min-w-0 rounded-[4px] border border-line bg-panel px-2 font-sans text-[12px] text-text outline-none placeholder:text-text3 focus:border-sky"
+                  />
+                )}
                 <button
                   type="button"
                   onClick={close}
                   className="mt-1.5 w-full rounded-[6px] bg-amber-btn px-2.5 py-1.5 font-sans text-[12px] font-semibold text-on-amber transition hover:brightness-105"
                 >
-                  Apply
+                  {filter.kind === "check" ? "Done" : "Apply"}
                 </button>
               </div>
               {(sortable || canMoveLeft || canMoveRight || !structurallyPinned || editable) && (

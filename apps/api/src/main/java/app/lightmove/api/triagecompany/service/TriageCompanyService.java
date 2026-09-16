@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -77,6 +78,22 @@ public class TriageCompanyService {
      * {@link #findOrderedByExecutiveStatus} and the repository methods it calls.
      */
     private static final String EXECUTIVE_STATUS_SORT_TOKEN = "executiveStatus";
+
+    /**
+     * The Status column filter's wire tokens, mapped to the enum names {@code app_lm_project_candidate}
+     * stores them under. Duplicated here rather than reusing {@code candidate}'s own
+     * {@code CandidateStatus} enum — the same reason the rank query below embeds its own {@code CASE}
+     * literals instead of importing it: {@code triagecompany} does not depend on {@code candidate}, by
+     * the rule {@code candidate} itself states from the other side.
+     */
+    private static final Map<String, String> EXECUTIVE_STATUS_TOKENS = Map.of(
+            "identified", "IDENTIFIED",
+            "contacted", "CONTACTED",
+            "engaged", "ENGAGED",
+            "interested", "INTERESTED",
+            "notInterested", "NOT_INTERESTED",
+            "offLimits", "OFF_LIMITS",
+            "outOfScope", "OUT_OF_SCOPE");
 
     private final TriageCompanyRepository triaged;
     private final TriageCompanyWriter writer;
@@ -124,10 +141,11 @@ public class TriageCompanyService {
 
         String companyName = blankToNull(criteria.nameQuery());
         String executiveName = blankToNull(criteria.executiveQuery());
+        List<String> executiveStatuses = resolveExecutiveStatuses(criteria.executiveStatuses());
         Page<TriageCompany> found = EXECUTIVE_STATUS_SORT_TOKEN.equals(criteria.sort())
                 ? findOrderedByExecutiveStatus(projectId, status, companyName, executiveName,
-                        resolveDirection(criteria.direction()), PageRequest.of(page, size))
-                : findWithFilters(projectId, status, companyName, executiveName,
+                        executiveStatuses, resolveDirection(criteria.direction()), PageRequest.of(page, size))
+                : findWithFilters(projectId, status, companyName, executiveName, executiveStatuses,
                         PageRequest.of(page, size, resolveSort(criteria)));
 
         return new TriageCompaniesResponse(
@@ -136,12 +154,17 @@ public class TriageCompanyService {
     }
 
     /**
-     * The ordinary path: the server's own ORDER BY, over whichever of the grid's two header filters —
-     * company name, executive name, neither, or both — the caller supplied.
+     * The ordinary path: the server's own ORDER BY, over whichever of the grid's three header filters —
+     * company name, executive name, executive status, any combination or none — the caller supplied.
      */
     private Page<TriageCompany> findWithFilters(UUID projectId, TriageCompanyStatus status,
                                                 String companyName, String executiveName,
+                                                List<String> executiveStatuses,
                                                 PageRequest pageRequest) {
+        if (!executiveStatuses.isEmpty()) {
+            return triaged.findByProjectIdAndStatusAndFiltersAndExecutiveStatuses(
+                    projectId, status, companyName, executiveName, executiveStatuses, pageRequest);
+        }
         if (executiveName != null) {
             return triaged.findByProjectIdAndStatusAndFilters(
                     projectId, status, companyName, executiveName, pageRequest);
@@ -159,12 +182,40 @@ public class TriageCompanyService {
      */
     private Page<TriageCompany> findOrderedByExecutiveStatus(UUID projectId, TriageCompanyStatus status,
                                                               String companyName, String executiveName,
+                                                              List<String> executiveStatuses,
                                                               SortDirection direction, PageRequest pageRequest) {
-        return direction == SortDirection.ASC
+        boolean asc = direction == SortDirection.ASC;
+        if (!executiveStatuses.isEmpty()) {
+            return asc
+                    ? triaged.findByProjectIdAndStatusOrderByExecutiveStatusRankAscAndExecutiveStatuses(
+                            projectId, status.name(), companyName, executiveName, executiveStatuses, pageRequest)
+                    : triaged.findByProjectIdAndStatusOrderByExecutiveStatusRankDescAndExecutiveStatuses(
+                            projectId, status.name(), companyName, executiveName, executiveStatuses, pageRequest);
+        }
+        return asc
                 ? triaged.findByProjectIdAndStatusOrderByExecutiveStatusRankAsc(
                         projectId, status.name(), companyName, executiveName, pageRequest)
                 : triaged.findByProjectIdAndStatusOrderByExecutiveStatusRankDesc(
                         projectId, status.name(), companyName, executiveName, pageRequest);
+    }
+
+    /**
+     * Validates and translates the Status column's checkbox filter — a caller-supplied wire token the
+     * client did not invent is a 400, exactly as {@link #resolveStatus} treats an unknown stage. An
+     * absent or empty list resolves to empty, which {@link #findWithFilters} and
+     * {@link #findOrderedByExecutiveStatus} both read as "no opinion" rather than "match nothing".
+     */
+    private static List<String> resolveExecutiveStatuses(List<String> tokens) {
+        if (tokens == null || tokens.isEmpty()) {
+            return List.of();
+        }
+        return tokens.stream().map(token -> {
+            String resolved = EXECUTIVE_STATUS_TOKENS.get(token);
+            if (resolved == null) {
+                throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown executive status: " + token);
+            }
+            return resolved;
+        }).collect(Collectors.toList());
     }
 
     /** Null means "no opinion" to the query below; a caller's blank string means the same thing. */
