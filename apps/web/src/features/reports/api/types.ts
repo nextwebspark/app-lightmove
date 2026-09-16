@@ -61,6 +61,13 @@ export interface LevelCount {
   count: number;
 }
 
+/** Where a hub sits. `cityPrecision` false means only the country could be placed — a whole market as one dot. */
+export interface MapPoint {
+  latitude: number;
+  longitude: number;
+  cityPrecision: boolean;
+}
+
 export interface TalentHub {
   city: string;
   country: string | null;
@@ -68,6 +75,15 @@ export interface TalentHub {
   depth: LevelCount[];
   employers: string[];
   interested: number;
+  /** Counts, not shares, and each against its own denominator — divide by what the server states. */
+  gccNationals: number;
+  female: number;
+  /** The denominator for `female`: how many of this hub's executives have a gender on file at all. */
+  recordedGender: number;
+  /** The middle disclosed package here, in the report's currency, or null where nobody disclosed one. */
+  medianPackage: number | null;
+  /** Null until the geocoder has placed the city. */
+  point: MapPoint | null;
 }
 
 export interface Breakdown {
@@ -125,11 +141,25 @@ export interface NationalityRow {
   total: number;
 }
 
+/**
+ * One level's gender split, counted only from rows carrying one. The three add to the level's
+ * *recorded* population, never to the level itself — everyone else is in `genderUnrecorded`.
+ */
+export interface GenderLevelRow {
+  level: SeniorityLevel;
+  female: number;
+  male: number;
+  other: number;
+}
+
 export interface ReportDiversity {
   levels: SeniorityLevel[];
   nationalities: NationalityRow[];
   unknownNationality: number;
   gccNationals: number;
+  genderByLevel: GenderLevelRow[];
+  /** Executives with no gender on file. Never folded into `other`, which somebody did record. */
+  genderUnrecorded: number;
 }
 
 export interface Report {

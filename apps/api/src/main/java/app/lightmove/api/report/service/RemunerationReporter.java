@@ -38,10 +38,10 @@ class RemunerationReporter {
         int otherCurrency = 0;
         for (ExecutiveRow row : sources.executives()) {
             CandidateResponse executive = row.executive();
-            if (executive.compensation().baseSalary() == null) {
+            if (!Packages.isDisclosed(executive.compensation())) {
                 continue;
             }
-            if (!isInCurrency(executive.compensation(), brief.currency())) {
+            if (!Packages.isInCurrency(executive.compensation(), brief.currency())) {
                 otherCurrency++;
                 continue;
             }
@@ -85,22 +85,12 @@ class RemunerationReporter {
         return bonus.setScale(0, RoundingMode.HALF_UP).longValueExact();
     }
 
-    /** A package recorded without a currency is taken to be in the brief's: the drawer offers no other default. */
-    private static boolean isInCurrency(CandidateCompensationDto compensation, String currency) {
-        return compensation.currency() == null || compensation.currency().equalsIgnoreCase(currency);
-    }
-
     private static DisclosureDto disclosure(ExecutiveRow row) {
         CandidateResponse executive = row.executive();
         CandidateCompensationDto compensation = executive.compensation();
-        long fixed = compensation.baseSalary() + orZero(compensation.allowances());
-        long totalPackage = fixed + orZero(compensation.bonus()) + orZero(compensation.longTermIncentive());
         return new DisclosureDto(executive.id(), executive.fullName(), row.employerName(), executive.title(),
                 Countries.nameOf(executive.locationCountry()), NationalityCatalog.demonymOf(executive.nationality()),
-                executive.status(), fixed, totalPackage, executive.note());
-    }
-
-    private static long orZero(Long figure) {
-        return figure == null ? 0 : figure;
+                executive.status(), Packages.fixedOf(compensation), Packages.totalOf(compensation),
+                executive.note());
     }
 }

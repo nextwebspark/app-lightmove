@@ -1,5 +1,5 @@
 import type { CandidateStatus } from "../../candidates/api/types";
-import type { Disclosure, LevelCount, Report, SeniorityLevel } from "../api/types";
+import type { Disclosure, LevelCount, Report, SeniorityLevel, TalentHub } from "../api/types";
 
 /**
  * A report as the server would answer it for a GCC food & beverage CFO search: 42 companies, 116
@@ -36,6 +36,34 @@ function levels(board: number, cSuite: number, n1: number, n2: number): LevelCou
     { level: "N-2", count: n2 },
     { level: "N-3", count: 0 },
   ];
+}
+
+function hub(
+  city: string,
+  country: string,
+  count: number,
+  depth: LevelCount[],
+  employers: string[],
+  interested: number,
+  gccNationals: number,
+  female: number,
+  recordedGender: number,
+  medianPackage: number | null,
+  point: [number, number] | null,
+): TalentHub {
+  return {
+    city,
+    country,
+    count,
+    depth,
+    employers,
+    interested,
+    gccNationals,
+    female,
+    recordedGender,
+    medianPackage,
+    point: point === null ? null : { latitude: point[0], longitude: point[1], cityPrecision: true },
+  };
 }
 
 function disclosure(
@@ -106,13 +134,14 @@ export const SAMPLE_REPORT: Report = {
       { sector: "F&B", level: "C-Suite", companies: ["Savola Group", "Halwani Bros"], executives: [] },
     ],
     hubs: [
-      { city: "Dubai", country: "United Arab Emirates", count: 38, depth: levels(1, 17, 13, 7), employers: ["Unilever Gulf", "PepsiCo AMEA"], interested: 14 },
-      { city: "Riyadh", country: "Saudi Arabia", count: 32, depth: levels(2, 15, 11, 4), employers: ["Almarai", "NADEC"], interested: 13 },
-      { city: "Jeddah", country: "Saudi Arabia", count: 14, depth: levels(0, 6, 5, 3), employers: ["Savola Foods", "Halwani Bros"], interested: 5 },
-      { city: "Abu Dhabi", country: "United Arab Emirates", count: 10, depth: levels(1, 5, 3, 1), employers: ["Agthia Group", "IFFCO"], interested: 3 },
-      { city: "Kuwait City", country: "Kuwait", count: 8, depth: levels(1, 4, 2, 1), employers: ["Americana"], interested: 3 },
-      { city: "Sharjah", country: "United Arab Emirates", count: 6, depth: levels(0, 3, 2, 1), employers: ["Pinehill Arabia"], interested: 2 },
-      { city: "Cairo", country: "Egypt", count: 5, depth: levels(0, 1, 2, 2), employers: ["Juhayna"], interested: 2 },
+      hub("Dubai", "United Arab Emirates", 38, levels(1, 17, 13, 7), ["Unilever Gulf", "PepsiCo AMEA"], 14, 4, 10, 37, 1_205_000, [25.2048, 55.2708]),
+      hub("Riyadh", "Saudi Arabia", 32, levels(2, 15, 11, 4), ["Almarai", "NADEC"], 13, 19, 9, 31, 980_000, [24.7136, 46.6753]),
+      hub("Jeddah", "Saudi Arabia", 14, levels(0, 6, 5, 3), ["Savola Foods", "Halwani Bros"], 5, 8, 4, 14, 845_000, [21.4858, 39.1925]),
+      hub("Abu Dhabi", "United Arab Emirates", 10, levels(1, 5, 3, 1), ["Agthia Group", "IFFCO"], 3, 2, 3, 10, 910_000, [24.4539, 54.3773]),
+      hub("Kuwait City", "Kuwait", 8, levels(1, 4, 2, 1), ["Americana"], 3, 3, 2, 8, 1_100_000, [29.3759, 47.9774]),
+      hub("Sharjah", "United Arab Emirates", 6, levels(0, 3, 2, 1), ["Pinehill Arabia"], 2, 1, 2, 6, 720_000, [25.3463, 55.4209]),
+      // No point: the geocoder has not placed it yet, so the map draws six pins and the bars all seven.
+      hub("Cairo", "Egypt", 5, levels(0, 1, 2, 2), ["Juhayna"], 2, 0, 3, 5, null, null),
     ],
     elsewhere: 3,
     unlocated: 0,
@@ -164,5 +193,16 @@ export const SAMPLE_REPORT: Report = {
     ],
     unknownNationality: 0,
     gccNationals: 49,
+    // Female per level matches the nationality rows' level totals: 5 / 51 / 38 / 22, with two
+    // executives nobody has recorded a gender for, so the "recorded" denominator is visibly not
+    // the headcount.
+    genderByLevel: [
+      { level: "Board", female: 1, male: 4, other: 0 },
+      { level: "C-Suite", female: 14, male: 36, other: 0 },
+      { level: "N-1", female: 13, male: 24, other: 1 },
+      { level: "N-2", female: 9, male: 12, other: 0 },
+      { level: "N-3", female: 0, male: 0, other: 0 },
+    ],
+    genderUnrecorded: 2,
   },
 };

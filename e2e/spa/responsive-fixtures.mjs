@@ -219,9 +219,9 @@ const REPORT = {
       },
     ],
     hubs: [
-      { city: "Abu Dhabi", country: "United Arab Emirates", count: 18, depth: levelCounts(1, 8, 6, 3), employers: ["ADNOC Distribution", "Masdar"], interested: 6 },
-      { city: "Dubai", country: "United Arab Emirates", count: 14, depth: levelCounts(0, 6, 5, 3), employers: ["DP World"], interested: 4 },
-      { city: "Riyadh", country: "Saudi Arabia", count: 7, depth: levelCounts(0, 4, 3, 0), employers: ["ACWA Power"], interested: 2 },
+      { city: "Abu Dhabi", country: "United Arab Emirates", count: 18, depth: levelCounts(1, 8, 6, 3), employers: ["ADNOC Distribution", "Masdar"], interested: 6, gccNationals: 5, female: 6, recordedGender: 18, medianPackage: 2050000, point: { latitude: 24.4539, longitude: 54.3773, cityPrecision: true } },
+      { city: "Dubai", country: "United Arab Emirates", count: 14, depth: levelCounts(0, 6, 5, 3), employers: ["DP World"], interested: 4, gccNationals: 3, female: 4, recordedGender: 13, medianPackage: 2400000, point: { latitude: 25.2048, longitude: 55.2708, cityPrecision: true } },
+      { city: "Riyadh", country: "Saudi Arabia", count: 7, depth: levelCounts(0, 4, 3, 0), employers: ["ACWA Power"], interested: 2, gccNationals: 4, female: 2, recordedGender: 7, medianPackage: 1850000, point: { latitude: 24.7136, longitude: 46.6753, cityPrecision: true } },
     ],
     elsewhere: 2,
     unlocated: 0,
@@ -256,6 +256,14 @@ const REPORT = {
     ],
     unknownNationality: 2,
     gccNationals: 19,
+    genderByLevel: [
+      { level: "Board", female: 0, male: 1, other: 0 },
+      { level: "C-Suite", female: 5, male: 13, other: 0 },
+      { level: "N-1", female: 4, male: 9, other: 1 },
+      { level: "N-2", female: 3, male: 3, other: 0 },
+      { level: "N-3", female: 0, male: 0, other: 0 },
+    ],
+    genderUnrecorded: 2,
   },
 };
 

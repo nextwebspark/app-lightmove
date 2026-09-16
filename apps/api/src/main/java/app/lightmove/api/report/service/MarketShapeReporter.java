@@ -1,14 +1,20 @@
 package app.lightmove.api.report.service;
 
 import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.ReportSettings;
+import app.lightmove.api.geocoding.constant.GeoPrecision;
+import app.lightmove.api.geocoding.model.GeoPoint;
+import app.lightmove.api.geocoding.model.PlaceKey;
+import app.lightmove.api.geocoding.service.GeocodingService;
 import app.lightmove.api.report.dto.BreakdownDto;
 import app.lightmove.api.report.dto.LevelCountDto;
 import app.lightmove.api.report.dto.MarketCellDto;
 import app.lightmove.api.report.dto.MarketShapeDto;
+import app.lightmove.api.report.dto.MapPointDto;
 import app.lightmove.api.report.dto.MarketSliceDto;
 import app.lightmove.api.report.dto.SliceExecutiveDto;
 import app.lightmove.api.report.dto.TalentHubDto;
@@ -19,9 +25,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
@@ -38,9 +46,11 @@ class MarketShapeReporter {
     private static final int EMPLOYERS_PER_HUB = 3;
 
     private final ReportSettings caps;
+    private final GeocodingService geocoding;
 
-    MarketShapeReporter(LightMoveProperties properties) {
+    MarketShapeReporter(LightMoveProperties properties, GeocodingService geocoding) {
         this.caps = properties.report();
+        this.geocoding = geocoding;
     }
 
     MarketShapeDto report(ReportSources sources) {
@@ -66,7 +76,7 @@ class MarketShapeReporter {
             }
         }
 
-        Hubs hubs = hubs(executives);
+        Hubs hubs = hubs(executives, sources.compensation().currency());
         return new MarketShapeDto(sectors, levelTokens(), cells,
                 (int) executives.stream().filter(row -> row.sector().isEmpty()).count(),
                 (int) executives.stream().filter(row -> row.seniority() == null).count(),
@@ -98,7 +108,7 @@ class MarketShapeReporter {
         return new MarketSliceDto(sector, level.value(), employersOf(inCell, Integer.MAX_VALUE), listed);
     }
 
-    private Hubs hubs(List<ExecutiveRow> executives) {
+    private Hubs hubs(List<ExecutiveRow> executives, String currency) {
         Map<HubKey, List<ExecutiveRow>> byHub = new LinkedHashMap<>();
         int unlocated = 0;
         for (ExecutiveRow row : executives) {
@@ -113,23 +123,62 @@ class MarketShapeReporter {
                 .sorted(Comparator.comparingInt((Map.Entry<HubKey, List<ExecutiveRow>> entry) -> entry.getValue().size())
                         .reversed())
                 .toList();
-        List<TalentHubDto> leading = ranked.stream()
-                .limit(caps.maxHubs())
-                .map(entry -> hub(entry.getKey(), entry.getValue()))
+        List<Map.Entry<HubKey, List<ExecutiveRow>>> top = ranked.stream().limit(caps.maxHubs()).toList();
+        Map<PlaceKey, GeoPoint> points = pointsFor(top);
+        List<TalentHubDto> leading = top.stream()
+                .map(entry -> hub(entry.getKey(), entry.getValue(), currency, points))
                 .toList();
         int elsewhere = ranked.stream().skip(caps.maxHubs()).mapToInt(entry -> entry.getValue().size()).sum();
         return new Hubs(leading, elsewhere, unlocated);
     }
 
-    private static TalentHubDto hub(HubKey key, List<ExecutiveRow> here) {
+    /**
+     * Points for the hubs the chapter names, and only those: the cache answers most of them for
+     * nothing, and a mandate whose cities nobody has resolved yet draws the bars without the map
+     * rather than spending this read's whole vendor budget on it.
+     */
+    private Map<PlaceKey, GeoPoint> pointsFor(List<Map.Entry<HubKey, List<ExecutiveRow>>> hubs) {
+        Set<PlaceKey> places = hubs.stream()
+                .map(entry -> PlaceKey.of(entry.getKey().city(), entry.getKey().country()))
+                .flatMap(Optional::stream)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        return places.isEmpty() ? Map.of() : geocoding.resolve(places).points();
+    }
+
+    private static TalentHubDto hub(HubKey key, List<ExecutiveRow> here, String currency,
+                                    Map<PlaceKey, GeoPoint> points) {
         List<LevelCountDto> depth = Arrays.stream(Seniority.values())
                 .map(level -> new LevelCountDto(level.value(),
                         (int) here.stream().filter(row -> row.seniority() == level).count()))
                 .filter(count -> count.count() > 0)
                 .toList();
         int interested = (int) here.stream().filter(row -> row.status() == CandidateStatus.INTERESTED).count();
+        int gccNationals = (int) here.stream()
+                .filter(row -> NationalityCatalog.isGcc(NationalityCatalog.demonymOf(row.executive().nationality())))
+                .count();
+        int female = (int) here.stream().filter(row -> row.gender() == Gender.FEMALE).count();
+        int recordedGender = (int) here.stream().filter(row -> row.gender() != null).count();
         return new TalentHubDto(key.city(), key.country(), here.size(), depth,
-                employersOf(here, EMPLOYERS_PER_HUB), interested);
+                employersOf(here, EMPLOYERS_PER_HUB), interested, gccNationals, female, recordedGender,
+                medianPackageOf(here, currency), pointOf(key, points));
+    }
+
+    /** The middle disclosed package here, in the brief's currency. Another currency is left out, never converted. */
+    private static Long medianPackageOf(List<ExecutiveRow> here, String currency) {
+        return Packages.medianOf(here.stream()
+                .map(row -> row.executive().compensation())
+                .filter(Packages::isDisclosed)
+                .filter(compensation -> Packages.isInCurrency(compensation, currency))
+                .map(Packages::totalOf)
+                .toList());
+    }
+
+    private static MapPointDto pointOf(HubKey key, Map<PlaceKey, GeoPoint> points) {
+        return PlaceKey.of(key.city(), key.country())
+                .map(points::get)
+                .map(point -> new MapPointDto(point.latitude(), point.longitude(),
+                        point.precision() == GeoPrecision.CITY))
+                .orElse(null);
     }
 
     private static List<String> employersOf(List<ExecutiveRow> rows, int limit) {

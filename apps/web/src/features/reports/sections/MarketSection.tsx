@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
@@ -9,6 +10,9 @@ import { MarketSliceDrawer, type SliceSelection } from "../components/MarketSlic
 import { ReportCard } from "../components/ReportCard";
 import { Figure, ReportSection } from "../components/ReportSection";
 import { SectorSeniorityHeatmap } from "../components/SectorSeniorityHeatmap";
+import * as talentMapApi from "../../talentmap/api/talentMapApi";
+import { HubMapPanel } from "../components/HubMapPanel";
+import { RelevanceMixCard } from "../components/RelevanceMixCard";
 import { marketStats, TOP_HUBS } from "../lib/marketStats";
 
 /** 02 — where does the universe actually sit? Sector by seniority, then by hub. */
@@ -25,6 +29,14 @@ export function MarketSection({
   const [slice, setSlice] = useState<SliceSelection | null>(null);
   const [hub, setHub] = useState<TalentHub | null>(null);
   const unplaced = market.withoutSector + market.withoutSeniority;
+  // Whether this deployment offers a map at all. Cached for the session: it is deployment config,
+  // not mandate data, and it cannot change while the reader is on the page.
+  const mapConfig = useQuery({
+    queryKey: talentMapApi.TALENT_MAP_CONFIG_KEY,
+    queryFn: ({ signal }) => talentMapApi.getTalentMapConfig(signal),
+    staleTime: Infinity,
+  });
+  const mapToken = mapConfig.data?.enabled ? mapConfig.data.publicToken : null;
 
   const handleCell = (sector: string, level: SeniorityLevel) =>
     setSlice({
@@ -99,7 +111,15 @@ export function MarketSection({
           )
         }
       >
-        <div className="mt-2.5">
+        <div className="mt-2.5 grid items-center gap-5 lg:grid-cols-[1.2fr_1fr]">
+          {mapToken && (
+            <HubMapPanel
+              hubs={market.hubs}
+              accessToken={mapToken}
+              selectedCity={hub?.city ?? null}
+              onSelect={(city) => setHub(market.hubs.find((h) => h.city === city) ?? null)}
+            />
+          )}
           <BarList
             rows={market.hubs.map((h, i) => ({
               key: hubKey(h),
@@ -125,6 +145,8 @@ export function MarketSection({
           />
         </div>
       </ReportCard>
+
+      <RelevanceMixCard universeCount={universeCount} />
 
       <MarketSliceDrawer selection={slice} projectId={projectId} onClose={() => setSlice(null)} />
       <HubDrawer hub={hub} located={stats.located} projectId={projectId} onClose={() => setHub(null)} />
