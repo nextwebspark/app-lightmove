@@ -101,4 +101,10 @@ export const ICONS = {
   fullscreenExit: "M20 10h-6V4M4 14h6v6M14 10l7-7M3 21l7-7",
   /** An arrow into a tray — writing what is on screen onto something already saved. */
   recapture: "M12 3v10m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2",
+  /** An envelope — the Contact section's email channel. */
+  mail: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm18 2-10 7L2 6",
+  /** Two overlapping sheets — copy a value to the clipboard. */
+  copy: "M9 9h11a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V10a1 1 0 0 1 1-1ZM5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1",
+  /** A box with an arrow leaving it — opens somewhere else. */
+  externalLink: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3",
 } as const;

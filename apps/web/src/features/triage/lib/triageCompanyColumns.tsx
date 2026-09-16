@@ -469,7 +469,28 @@ export const DEFAULT_TRIAGE_COLUMN_VISIBILITY: ColumnVisibilityState = {
   founded: false,
   description: false,
   source: false,
+  executiveEmails: false,
+  executivePhones: false,
 };
+
+/**
+ * Every value the person holds, in a row one line tall: the first in the cell, the rest as a
+ * count, and all of them in the tooltip. A cell that grew a line per address would make the grid
+ * a different height on every row.
+ */
+function ContactListCell({ values }: { values: string[] }) {
+  if (values.length === 0) return <DataGridCell value={null} />;
+  return (
+    <span className="flex min-w-0 items-center gap-1.5" title={values.join("\n")}>
+      <TruncatedText value={values[0]} className="font-sans text-[13px] text-text2" />
+      {values.length > 1 && (
+        <span className="flex-none rounded-[4px] bg-panel2 px-1.5 py-px font-mono text-[9.5px] font-semibold text-text3">
+          +{values.length - 1}
+        </span>
+      )}
+    </span>
+  );
+}
 
 /**
  * A scrolled row without its name is a line of anonymous figures, so the name travels with it. v9

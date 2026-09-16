@@ -170,8 +170,6 @@ const yasmin: Candidate = {
   title: "VP Finance",
   seniority: "N-1",
   status: "engaged",
-  email: null,
-  phone: null,
   linkedinUrl: null,
   locationCountry: null,
   locationCity: null,

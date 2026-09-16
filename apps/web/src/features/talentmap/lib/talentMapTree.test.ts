@@ -35,8 +35,6 @@ const person = (overrides: Partial<Candidate>): Candidate => ({
   title: "VP Finance",
   seniority: "N-1",
   status: "engaged",
-  email: null,
-  phone: null,
   linkedinUrl: null,
   locationCountry: null,
   locationCity: null,

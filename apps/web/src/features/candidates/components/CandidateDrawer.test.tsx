@@ -33,8 +33,6 @@ const yasmin: Candidate = {
   title: "VP Finance",
   seniority: "N-1",
   status: "interested",
-  email: "yasmin@example.com",
-  phone: null,
   linkedinUrl: null,
   locationCountry: "UAE",
   locationCity: "Dubai",
@@ -59,7 +57,22 @@ const yasmin: Candidate = {
   customFields: {},
   addedAt: "2026-08-02T09:00:00Z",
   enrichedAt: null,
-  contacts: { emails: [], phones: [], emailsLookedUpAt: null, phonesLookedUpAt: null, source: null },
+  contacts: {
+    emails: [
+      {
+        address: "yasmin@example.com",
+        kind: null,
+        verified: false,
+        status: null,
+        source: "manual",
+        foundAt: "2026-08-02T09:00:00Z",
+      },
+    ],
+    phones: [],
+    emailsLookedUpAt: null,
+    phonesLookedUpAt: null,
+    source: null,
+  },
 };
 
 const renderDrawer = (
@@ -434,8 +447,11 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
-    // Folded sections are hidden from the accessibility tree; `hidden` looks inside them too.
-    expect(screen.queryByRole("link", { hidden: true })).not.toBeInTheDocument();
+    // Folded sections are hidden from the accessibility tree; `hidden` looks inside them too. The
+    // mailto: link on the address is the only link the panel may draw.
+    expect(
+      screen.getAllByRole("link", { hidden: true }).map((link) => link.getAttribute("href")),
+    ).toEqual(["mailto:yasmin@example.com"]);
     expect(screen.queryByText("javascript:alert(1)")).not.toBeInTheDocument();
   });
 
@@ -541,33 +557,36 @@ describe("CandidateDrawer", () => {
       expect(screen.queryByRole("button", { name: /Find phone/i })).not.toBeInTheDocument();
     });
 
-    it("fills the phone tile from what the lookup answered", async () => {
+    it("fills the phone row from what the lookup answered", async () => {
       vi.mocked(contactLookupApi.findPhone).mockResolvedValue({
         outcome: "found",
         candidate: withContacts({
-          phones: ["+12065550100"],
+          phones: [{ number: "+12065550100", kind: null, verified: false, status: null, source: "contactout", foundAt: "2026-09-16T09:00:00Z" }],
           phonesLookedUpAt: "2026-09-16T09:00:00Z",
           source: "contactout",
         }),
       });
-      renderDrawer({ candidate: { ...yasmin, phone: null }, company: null }, LiveDrawer);
+      renderDrawer({ candidate: { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin" }, company: null }, LiveDrawer);
 
       await userEvent.click(await screen.findByRole("button", { name: /Find phone/i }));
 
       await waitFor(() => expect(contactLookupApi.findPhone).toHaveBeenCalledWith("p1", "c1"));
-      expect(await screen.findByText(/Found via contactout/i)).toBeInTheDocument();
+      expect(await screen.findByRole("link", { name: "+12065550100" })).toHaveAttribute("href", "tel:+12065550100");
     });
 
     it("does not offer a second purchase on a channel the provider had nothing for", async () => {
       renderDrawer({
-        candidate: withContacts({ emailsLookedUpAt: "2026-09-16T09:00:00Z", source: "contactout" }),
+        candidate: {
+          ...withContacts({ emails: [], emailsLookedUpAt: "2026-09-16T09:00:00Z", source: "contactout" }),
+          linkedinUrl: "https://linkedin.com/in/yasmin",
+        },
         company: null,
       });
 
       expect(await screen.findByText(/No email on record/i)).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /Find email/i })).not.toBeInTheDocument();
       // The other channel is untouched by that: they bill separately.
-      expect(screen.getByRole("button", { name: /Find phone/i })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: /Find phone/i })).toBeInTheDocument();
     });
 
     it("says so when the account is out of credits, and leaves the button pressable", async () => {
@@ -579,7 +598,11 @@ describe("CandidateDrawer", () => {
           correlationId: "x",
         }),
       );
-      renderDrawer({ candidate: yasmin, company: null });
+      renderDrawer({
+        candidate: { ...yasmin, contacts: { ...yasmin.contacts, emails: [] },
+          linkedinUrl: "https://linkedin.com/in/yasmin" },
+        company: null,
+      });
 
       await userEvent.click(await screen.findByRole("button", { name: /Find email/i }));
 

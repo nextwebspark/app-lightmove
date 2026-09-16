@@ -50,6 +50,8 @@ export type ApiErrorCode =
   | "CONTACT_LOOKUP_NO_CREDITS"
   | "CONTACT_LOOKUP_FAILED"
   | "CONTACT_LOOKUP_NO_PROFILE"
+  | "CONTACT_LIMIT_REACHED"
+  | "CANDIDATE_PROFILE_URL_LOCKED"
   | "WORKSPACE_NAME_MISMATCH"
   | "CONFLICT"
   | "RATE_LIMITED"
@@ -94,6 +96,9 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CONTACT_LOOKUP_NO_CREDITS: "No contact lookup credits left this period.",
   CONTACT_LOOKUP_FAILED: "Contact lookup didn't answer. Try again in a moment.",
   CONTACT_LOOKUP_NO_PROFILE: "Add this person's LinkedIn profile URL first.",
+  CONTACT_LIMIT_REACHED: "A profile holds ten email addresses and ten phone numbers at most.",
+  CANDIDATE_PROFILE_URL_LOCKED:
+    "This profile was captured from LinkedIn, so its URL is not editable.",
 };
 
 /**
