@@ -29,6 +29,7 @@ const yasmin: Candidate = {
   locationCountry: "UAE",
   locationCity: "Dubai",
   nationality: "Egyptian",
+  gender: "female",
   yearsExperience: 18,
   summary: null,
   note: null,

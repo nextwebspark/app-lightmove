@@ -65,6 +65,10 @@ public record SaveCandidateRequest(
         @Size(max = 100)
         String nationality,
 
+        /** A {@code Gender} wire token. Omitted means nobody recorded it, which is not "other". */
+        @Size(max = 16)
+        String gender,
+
         @PositiveOrZero(message = "Years of experience cannot be negative")
         @Max(value = 70, message = "That figure looks like a typo")
         Integer yearsExperience,

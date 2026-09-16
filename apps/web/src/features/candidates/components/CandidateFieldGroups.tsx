@@ -17,7 +17,7 @@ import { CURRENCIES } from "../../../lib/currencies";
 import { formatNumber } from "../../../lib/format";
 import { amountTyped } from "../lib/compensation";
 import type { CandidateForm } from "../lib/candidateForm";
-import { CANDIDATE_SENIORITIES, CANDIDATE_STATUSES } from "../lib/candidateVocabulary";
+import { CANDIDATE_GENDERS, CANDIDATE_SENIORITIES, CANDIDATE_STATUSES } from "../lib/candidateVocabulary";
 import { PackageTotal } from "./CompensationSummary";
 
 /**
@@ -344,6 +344,22 @@ export function BackgroundFields({ register, errors }: FieldGroupProps) {
         </Field>
         <Field label="Years of experience" error={errors.yearsExperience?.message}>
           <Input {...register("yearsExperience")} inputMode="numeric" placeholder="18" />
+        </Field>
+      </div>
+      <div className="grid gap-x-4 sm:grid-cols-2">
+        <Field
+          label="Gender"
+          hint="Only where it is known — the diversity report counts it and never guesses it from a name."
+          error={errors.gender?.message}
+        >
+          <Select {...register("gender")}>
+            <option value="">Not recorded</option>
+            {CANDIDATE_GENDERS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
         </Field>
       </div>
       <Field label="Languages" hint="Comma separated." error={errors.languages?.message}>

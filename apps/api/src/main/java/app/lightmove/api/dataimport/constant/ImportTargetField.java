@@ -74,6 +74,8 @@ public enum ImportTargetField {
             List.of("candidate city", "person city", "current city", "based city", "residence")),
     CANDIDATE_NATIONALITY(CustomColumnTarget.CANDIDATE, "candidateNationality", "Nationality",
             List.of("nationality", "passport", "citizenship", "national")),
+    CANDIDATE_GENDER(CustomColumnTarget.CANDIDATE, "candidateGender", "Gender",
+            List.of("gender", "sex", "m/f", "male/female", "gender identity")),
     CANDIDATE_YEARS_EXPERIENCE(CustomColumnTarget.CANDIDATE, "candidateYearsExperience", "Experience",
             List.of("years experience", "experience", "yrs experience", "years of experience",
                     "total experience", "exp")),
