@@ -15,7 +15,7 @@ import { HubMapPanel } from "../components/HubMapPanel";
 import { RelevanceMixCard } from "../components/RelevanceMixCard";
 import { marketStats, TOP_HUBS } from "../lib/marketStats";
 
-/** 02 — where does the universe actually sit? Sector by seniority, then by hub. */
+/** 02 — where does the universe actually sit? Sector by seniority, then by country. */
 export function MarketSection({
   market,
   universeCount,
@@ -91,7 +91,7 @@ export function MarketSection({
 
       <ReportCard
         title="Where talent sits"
-        caption={`executives by hub · ${stats.located} located${market.unlocated > 0 ? ` · ${market.unlocated} with no city on file` : ""} · click a hub for detail`}
+        caption={`executives by country · ${stats.located} located${market.unlocated > 0 ? ` · ${market.unlocated} with no country on file` : ""} · click a country for detail`}
         action={
           <Link to={`/projects/${projectId}/companies/universe`} className="inline-flex items-center gap-1.5 text-xs font-medium text-sky hover:underline">
             Open on the map
@@ -101,13 +101,13 @@ export function MarketSection({
         note={
           market.hubs.length > 0 ? (
             <>
-              <b>{stats.topHubsPct}%</b> of located talent sits in {Math.min(TOP_HUBS, market.hubs.length)} hubs —{" "}
-              {stats.topHubs.join(", ")}. Efficient to work, but thin coverage outside the core hubs is a blind spot worth
-              closing.
+              <b>{stats.topHubsPct}%</b> of located talent sits in {Math.min(TOP_HUBS, market.hubs.length)} countries —{" "}
+              {stats.topHubs.join(", ")}. Efficient to work, but thin coverage outside the core markets is a blind spot
+              worth closing.
               {market.elsewhere > 0 ? ` ${market.elsewhere} more sit in places past this list.` : ""}
             </>
           ) : (
-            "Nobody has a city on file yet."
+            "Nobody has a country on file yet."
           )
         }
       >
@@ -116,19 +116,19 @@ export function MarketSection({
             <HubMapPanel
               hubs={market.hubs}
               accessToken={mapToken}
-              selectedCity={hub?.city ?? null}
-              onSelect={(city) => setHub(market.hubs.find((h) => h.city === city) ?? null)}
+              selectedCountry={hub?.country ?? null}
+              onSelect={(country) => setHub(market.hubs.find((h) => h.country === country) ?? null)}
             />
           )}
           <BarList
             rows={market.hubs.map((h, i) => ({
-              key: hubKey(h),
-              label: h.city,
+              key: h.country,
+              label: h.country,
               count: h.count,
               fillClass: i < TOP_HUBS ? "bg-sky" : "bg-text3",
-              title: `${h.count} executives in ${h.city} · click for detail`,
+              title: `${h.count} executives in ${h.country} · click for detail`,
             }))}
-            onSelect={(row) => setHub(market.hubs.find((h) => hubKey(h) === row.key) ?? null)}
+            onSelect={(row) => setHub(market.hubs.find((h) => h.country === row.key) ?? null)}
           />
         </div>
       </ReportCard>
@@ -153,5 +153,3 @@ export function MarketSection({
     </ReportSection>
   );
 }
-
-const hubKey = (hub: TalentHub) => `${hub.city}|${hub.country ?? ""}`;

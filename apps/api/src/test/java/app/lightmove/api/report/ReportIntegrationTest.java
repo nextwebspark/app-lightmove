@@ -119,11 +119,14 @@ class ReportIntegrationTest extends FlowTestSupport {
         assertThat(market.get("slices")).hasSize(2);
         assertThat(market.at("/slices/0/companies/0").asText()).isEqualTo("Almarai");
         assertThat(market.at("/slices/0/executives/0/fullName").asText()).isEqualTo("Yasmin El-Sayed");
-        assertThat(market.get("hubs")).hasSize(2);
-        assertThat(market.at("/hubs/0/city").asText()).isEqualTo("Riyadh");
+        // A hub is a country, so the executive with a country and no city is a market of their own
+        // rather than unlocated — which is the whole reason the grouping is not by city.
+        assertThat(market.get("hubs")).hasSize(3);
         assertThat(market.at("/hubs/0/country").asText()).isEqualTo("Saudi Arabia");
         assertThat(market.at("/hubs/0/interested").asInt()).isEqualTo(1);
-        assertThat(market.get("unlocated").asInt()).isEqualTo(1);
+        assertThat(market.at("/hubs/2/country").asText()).isEqualTo("Oman");
+        assertThat(market.at("/hubs/2/count").asInt()).isEqualTo(1);
+        assertThat(market.get("unlocated").asInt()).isZero();
         assertThat(market.get("companiesBySector")).hasSize(3);
 
         // Remuneration: the monthly band annualised and widened; the AED package counted, not converted.

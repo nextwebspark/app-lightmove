@@ -61,16 +61,15 @@ export interface LevelCount {
   count: number;
 }
 
-/** Where a hub sits. `cityPrecision` false means only the country could be placed — a whole market as one dot. */
+/** Where a hub sits — always a country centroid, marking the market rather than an address. */
 export interface MapPoint {
   latitude: number;
   longitude: number;
-  cityPrecision: boolean;
 }
 
+/** One country the mapped talent sits in. Not a city: most rows carry a country and nothing finer. */
 export interface TalentHub {
-  city: string;
-  country: string | null;
+  country: string;
   count: number;
   depth: LevelCount[];
   employers: string[];
@@ -82,7 +81,7 @@ export interface TalentHub {
   recordedGender: number;
   /** The middle disclosed package here, in the report's currency, or null where nobody disclosed one. */
   medianPackage: number | null;
-  /** Null until the geocoder has placed the city. */
+  /** Null until the geocoder has placed the country. */
   point: MapPoint | null;
 }
 

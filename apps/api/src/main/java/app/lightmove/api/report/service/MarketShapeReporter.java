@@ -6,7 +6,6 @@ import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.ReportSettings;
-import app.lightmove.api.geocoding.constant.GeoPrecision;
 import app.lightmove.api.geocoding.model.GeoPoint;
 import app.lightmove.api.geocoding.model.PlaceKey;
 import app.lightmove.api.geocoding.service.GeocodingService;
@@ -35,9 +34,11 @@ import org.springframework.stereotype.Component;
 
 /**
  * Chapter two. Sector comes from the universe company an executive is mapped at, seniority from the
- * executive; the matrix crosses the two. A hub is a city: executives group by their own city, the
- * same reading the map and the grid's Location column give, and one with no city on file is
- * unlocated whatever country it names.
+ * executive; the matrix crosses the two.
+ *
+ * <p><b>A hub is a country.</b> It was a city until it turned out most researched rows carry a
+ * country and no city — grouping by city dropped those rows onto "unlocated" and reported a market
+ * as empty when it was merely imprecise. Country is the axis nearly every row can actually answer.
  */
 @Component
 class MarketShapeReporter {
@@ -109,21 +110,21 @@ class MarketShapeReporter {
     }
 
     private Hubs hubs(List<ExecutiveRow> executives, String currency) {
-        Map<HubKey, List<ExecutiveRow>> byHub = new LinkedHashMap<>();
+        Map<String, List<ExecutiveRow>> byCountry = new LinkedHashMap<>();
         int unlocated = 0;
         for (ExecutiveRow row : executives) {
-            Optional<HubKey> hub = HubKey.of(row);
-            if (hub.isEmpty()) {
+            String country = Countries.nameOf(row.executive().locationCountry());
+            if (country == null || country.isBlank()) {
                 unlocated++;
                 continue;
             }
-            byHub.computeIfAbsent(hub.get(), ignored -> new ArrayList<>()).add(row);
+            byCountry.computeIfAbsent(country, ignored -> new ArrayList<>()).add(row);
         }
-        List<Map.Entry<HubKey, List<ExecutiveRow>>> ranked = byHub.entrySet().stream()
-                .sorted(Comparator.comparingInt((Map.Entry<HubKey, List<ExecutiveRow>> entry) -> entry.getValue().size())
+        List<Map.Entry<String, List<ExecutiveRow>>> ranked = byCountry.entrySet().stream()
+                .sorted(Comparator.comparingInt((Map.Entry<String, List<ExecutiveRow>> entry) -> entry.getValue().size())
                         .reversed())
                 .toList();
-        List<Map.Entry<HubKey, List<ExecutiveRow>>> top = ranked.stream().limit(caps.maxHubs()).toList();
+        List<Map.Entry<String, List<ExecutiveRow>>> top = ranked.stream().limit(caps.maxHubs()).toList();
         Map<PlaceKey, GeoPoint> points = pointsFor(top);
         List<TalentHubDto> leading = top.stream()
                 .map(entry -> hub(entry.getKey(), entry.getValue(), currency, points))
@@ -133,19 +134,19 @@ class MarketShapeReporter {
     }
 
     /**
-     * Points for the hubs the chapter names, and only those: the cache answers most of them for
-     * nothing, and a mandate whose cities nobody has resolved yet draws the bars without the map
+     * Points for the countries the chapter names, and only those: the cache answers most of them for
+     * nothing, and a mandate whose places nobody has resolved yet draws the bars without the map
      * rather than spending this read's whole vendor budget on it.
      */
-    private Map<PlaceKey, GeoPoint> pointsFor(List<Map.Entry<HubKey, List<ExecutiveRow>>> hubs) {
+    private Map<PlaceKey, GeoPoint> pointsFor(List<Map.Entry<String, List<ExecutiveRow>>> hubs) {
         Set<PlaceKey> places = hubs.stream()
-                .map(entry -> PlaceKey.of(entry.getKey().city(), entry.getKey().country()))
+                .map(entry -> PlaceKey.of(null, entry.getKey()))
                 .flatMap(Optional::stream)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         return places.isEmpty() ? Map.of() : geocoding.resolve(places).points();
     }
 
-    private static TalentHubDto hub(HubKey key, List<ExecutiveRow> here, String currency,
+    private static TalentHubDto hub(String country, List<ExecutiveRow> here, String currency,
                                     Map<PlaceKey, GeoPoint> points) {
         List<LevelCountDto> depth = Arrays.stream(Seniority.values())
                 .map(level -> new LevelCountDto(level.value(),
@@ -158,9 +159,9 @@ class MarketShapeReporter {
                 .count();
         int female = (int) here.stream().filter(row -> row.gender() == Gender.FEMALE).count();
         int recordedGender = (int) here.stream().filter(row -> row.gender() != null).count();
-        return new TalentHubDto(key.city(), key.country(), here.size(), depth,
+        return new TalentHubDto(country, here.size(), depth,
                 employersOf(here, EMPLOYERS_PER_HUB), interested, gccNationals, female, recordedGender,
-                medianPackageOf(here, currency), pointOf(key, points));
+                medianPackageOf(here, currency), pointOf(country, points));
     }
 
     /** The middle disclosed package here, in the brief's currency. Another currency is left out, never converted. */
@@ -173,11 +174,10 @@ class MarketShapeReporter {
                 .toList());
     }
 
-    private static MapPointDto pointOf(HubKey key, Map<PlaceKey, GeoPoint> points) {
-        return PlaceKey.of(key.city(), key.country())
+    private static MapPointDto pointOf(String country, Map<PlaceKey, GeoPoint> points) {
+        return PlaceKey.of(null, country)
                 .map(points::get)
-                .map(point -> new MapPointDto(point.latitude(), point.longitude(),
-                        point.precision() == GeoPrecision.CITY))
+                .map(point -> new MapPointDto(point.latitude(), point.longitude()))
                 .orElse(null);
     }
 
@@ -209,23 +209,4 @@ class MarketShapeReporter {
 
     private record Hubs(List<TalentHubDto> leading, int elsewhere, int unlocated) {}
 
-    /**
-     * A city as the report groups by it, in the catalog's spelling, with its country so that two
-     * cities of one name stay two hubs.
-     */
-    private record HubKey(String city, String country) {
-
-        static Optional<HubKey> of(ExecutiveRow row) {
-            String city = Countries.cityOf(row.executive().locationCity());
-            if (isBlank(city)) {
-                return Optional.empty();
-            }
-            String country = Countries.nameOf(row.executive().locationCountry());
-            return Optional.of(new HubKey(city, isBlank(country) ? null : country));
-        }
-
-        private static boolean isBlank(String value) {
-            return value == null || value.isBlank();
-        }
-    }
 }

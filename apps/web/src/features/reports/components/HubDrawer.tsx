@@ -6,7 +6,7 @@ import { StackedBar } from "./StackedBar";
 
 const DEPTH_FILL = ["bg-sky", "bg-amber", "bg-text3", "bg-line", "bg-line-soft"];
 
-/** One hub opened: how much of the map sits there, how senior it is, and who employs it. */
+/** One country opened: how much of the map sits there, how senior it is, and who employs it. */
 export function HubDrawer({
   hub,
   located,
@@ -24,8 +24,8 @@ export function HubDrawer({
     <ReportDrawer
       open={hub !== null}
       onClose={onClose}
-      eyebrow="Hub"
-      title={hub ? (hub.country ? `${hub.city} · ${hub.country}` : hub.city) : ""}
+      eyebrow="Market"
+      title={hub?.country ?? ""}
       subtitle={hub ? `${hub.count} executives · ${share}% of located talent` : ""}
     >
       {hub && (
@@ -51,7 +51,7 @@ export function HubDrawer({
             </DrawerSection>
           )}
           <DrawerSection title="Open">
-            <DrawerLink to={`/projects/${projectId}/companies/universe`}>Open {hub.city} on the map</DrawerLink>
+            <DrawerLink to={`/projects/${projectId}/companies/universe`}>Open {hub.country} on the map</DrawerLink>
           </DrawerSection>
         </>
       )}

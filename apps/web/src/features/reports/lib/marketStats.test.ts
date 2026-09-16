@@ -20,10 +20,10 @@ describe("marketStats", () => {
     expect(stats.rows[0].cells[1].count).toBe(0);
   });
 
-  it("names the hubs that hold most of the located talent", () => {
+  it("names the countries that hold most of the located talent", () => {
     expect(stats.located).toBe(116);
-    expect(stats.topHubs).toEqual(["Dubai", "Riyadh", "Jeddah"]);
-    expect(stats.topHubsPct).toBe(72);
+    expect(stats.topHubs).toEqual(["United Arab Emirates", "Saudi Arabia", "Kuwait"]);
+    expect(stats.topHubsPct).toBe(93);
   });
 
   it("has nothing to place on an empty matrix", () => {

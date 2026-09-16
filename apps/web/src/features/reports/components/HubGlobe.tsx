@@ -11,7 +11,7 @@ const MAX_FIT_ZOOM = 6;
 const SINGLE_HUB_ZOOM = 4;
 
 /**
- * The market chapter's hub map: one circle per city, its area scaled to the executives there.
+ * The market chapter's hub map: one circle per country, its area scaled to the executives there.
  *
  * <p><b>Its own component, not the Companies screen's globe.</b> That one is built around a mandate's
  * companies and people — globe projection, a fixed Gulf centre, navigation controls, an executives
@@ -24,15 +24,15 @@ const SINGLE_HUB_ZOOM = 4;
 export default function HubGlobe({
   accessToken,
   hubs,
-  selectedCity,
+  selectedCountry,
   onSelect,
   onUnsupported,
 }: {
   accessToken: string;
   /** Only hubs the geocoder has placed; the caller filters. */
   hubs: TalentHub[];
-  selectedCity: string | null;
-  onSelect: (city: string) => void;
+  selectedCountry: string | null;
+  onSelect: (country: string) => void;
   /** No WebGL: the caller drops back to the bar list alone. */
   onUnsupported: () => void;
 }) {
@@ -44,9 +44,9 @@ export default function HubGlobe({
   // The style-load handler fires again on every theme swap, so it must read the present rather than
   // the render that created the map. A layout effect, never a write during render: a render can be
   // discarded or run twice, and this has to hold what was committed.
-  const latest = useRef({ hubs, selectedCity, onSelect });
+  const latest = useRef({ hubs, selectedCountry, onSelect });
   useLayoutEffect(() => {
-    latest.current = { hubs, selectedCity, onSelect };
+    latest.current = { hubs, selectedCountry, onSelect };
   });
 
   useEffect(() => {
@@ -76,7 +76,7 @@ export default function HubGlobe({
     map.on("style.load", () => {
       map.addSource(SOURCE, {
         type: "geojson",
-        data: collectionOf(latest.current.hubs, latest.current.selectedCity),
+        data: collectionOf(latest.current.hubs, latest.current.selectedCountry),
       });
       map.addLayer({
         id: `${SOURCE}-circle`,
@@ -107,8 +107,8 @@ export default function HubGlobe({
     });
 
     map.on("click", `${SOURCE}-circle`, (event) => {
-      const city = event.features?.[0]?.properties?.city;
-      if (city) latest.current.onSelect(String(city));
+      const country = event.features?.[0]?.properties?.country;
+      if (country) latest.current.onSelect(String(country));
     });
     map.on("mouseenter", `${SOURCE}-circle`, () => {
       map.getCanvas().style.cursor = "pointer";
@@ -129,8 +129,8 @@ export default function HubGlobe({
 
   useEffect(() => {
     const source = mapRef.current?.getSource(SOURCE) as mapboxgl.GeoJSONSource | undefined;
-    source?.setData(collectionOf(hubs, selectedCity));
-  }, [hubs, selectedCity, styleReady]);
+    source?.setData(collectionOf(hubs, selectedCountry));
+  }, [hubs, selectedCountry, styleReady]);
 
   // Fit once the points are up. A lone hub has no bounds to fit, so it is centred at a zoom that
   // still shows the country around it rather than the maximum the fit would pick.
@@ -148,12 +148,12 @@ export default function HubGlobe({
     map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: MAX_FIT_ZOOM, duration: 0 });
   }, [hubs, styleReady]);
 
-  return <div ref={containerRef} className="size-full" aria-label="Talent hubs on a map" />;
+  return <div ref={containerRef} className="size-full" aria-label="Talent by country on a map" />;
 }
 
 const pointOf = (hub: TalentHub): [number, number] => [hub.point!.longitude, hub.point!.latitude];
 
-function collectionOf(hubs: TalentHub[], selectedCity: string | null): GeoJSON.FeatureCollection {
+function collectionOf(hubs: TalentHub[], selectedCountry: string | null): GeoJSON.FeatureCollection {
   const largest = Math.max(...hubs.map((hub) => hub.count), 1);
   return {
     type: "FeatureCollection",
@@ -161,11 +161,11 @@ function collectionOf(hubs: TalentHub[], selectedCity: string | null): GeoJSON.F
       type: "Feature",
       geometry: { type: "Point", coordinates: pointOf(hub) },
       properties: {
-        city: hub.city,
+        country: hub.country,
         count: String(hub.count),
         // Area, not radius, tracks the headcount — see the component doc.
         radius: 9 + Math.sqrt(hub.count / largest) * 19,
-        selected: hub.city === selectedCity,
+        selected: hub.country === selectedCountry,
       },
     })),
   };

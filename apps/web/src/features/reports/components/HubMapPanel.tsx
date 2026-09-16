@@ -6,22 +6,22 @@ import type { TalentHub } from "../api/types";
 const HubGlobe = lazy(() => import("./HubGlobe"));
 
 /**
- * The hub map beside the hub bars, drawn only where this deployment can draw one.
+ * The country map beside the country bars, drawn only where this deployment can draw one.
  *
  * <p>Three ways it declines, and all of them fall back to the bars alone rather than to a hole: no
- * Mapbox token configured, no hub the geocoder has placed yet, or a browser with no WebGL. The bars
- * are the chapter's actual claim; the map is how it reads faster.
+ * Mapbox token configured, no country the geocoder has placed yet, or a browser with no WebGL. The
+ * bars are the chapter's actual claim; the map is how it reads faster.
  */
 export function HubMapPanel({
   hubs,
   accessToken,
-  selectedCity,
+  selectedCountry,
   onSelect,
 }: {
   hubs: TalentHub[];
   accessToken: string;
-  selectedCity: string | null;
-  onSelect: (city: string) => void;
+  selectedCountry: string | null;
+  onSelect: (country: string) => void;
 }) {
   const [unsupported, setUnsupported] = useState(false);
   const placed = hubs.filter((hub) => hub.point !== null);
@@ -36,7 +36,7 @@ export function HubMapPanel({
         <HubGlobe
           accessToken={accessToken}
           hubs={placed}
-          selectedCity={selectedCity}
+          selectedCountry={selectedCountry}
           onSelect={onSelect}
           onUnsupported={() => setUnsupported(true)}
         />

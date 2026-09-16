@@ -39,7 +39,6 @@ function levels(board: number, cSuite: number, n1: number, n2: number): LevelCou
 }
 
 function hub(
-  city: string,
   country: string,
   count: number,
   depth: LevelCount[],
@@ -52,7 +51,6 @@ function hub(
   point: [number, number] | null,
 ): TalentHub {
   return {
-    city,
     country,
     count,
     depth,
@@ -62,7 +60,7 @@ function hub(
     female,
     recordedGender,
     medianPackage,
-    point: point === null ? null : { latitude: point[0], longitude: point[1], cityPrecision: true },
+    point: point === null ? null : { latitude: point[0], longitude: point[1] },
   };
 }
 
@@ -134,14 +132,11 @@ export const SAMPLE_REPORT: Report = {
       { sector: "F&B", level: "C-Suite", companies: ["Savola Group", "Halwani Bros"], executives: [] },
     ],
     hubs: [
-      hub("Dubai", "United Arab Emirates", 38, levels(1, 17, 13, 7), ["Unilever Gulf", "PepsiCo AMEA"], 14, 4, 10, 37, 1_205_000, [25.2048, 55.2708]),
-      hub("Riyadh", "Saudi Arabia", 32, levels(2, 15, 11, 4), ["Almarai", "NADEC"], 13, 19, 9, 31, 980_000, [24.7136, 46.6753]),
-      hub("Jeddah", "Saudi Arabia", 14, levels(0, 6, 5, 3), ["Savola Foods", "Halwani Bros"], 5, 8, 4, 14, 845_000, [21.4858, 39.1925]),
-      hub("Abu Dhabi", "United Arab Emirates", 10, levels(1, 5, 3, 1), ["Agthia Group", "IFFCO"], 3, 2, 3, 10, 910_000, [24.4539, 54.3773]),
-      hub("Kuwait City", "Kuwait", 8, levels(1, 4, 2, 1), ["Americana"], 3, 3, 2, 8, 1_100_000, [29.3759, 47.9774]),
-      hub("Sharjah", "United Arab Emirates", 6, levels(0, 3, 2, 1), ["Pinehill Arabia"], 2, 1, 2, 6, 720_000, [25.3463, 55.4209]),
-      // No point: the geocoder has not placed it yet, so the map draws six pins and the bars all seven.
-      hub("Cairo", "Egypt", 5, levels(0, 1, 2, 2), ["Juhayna"], 2, 0, 3, 5, null, null),
+      hub("United Arab Emirates", 54, levels(2, 25, 18, 9), ["Unilever Gulf", "PepsiCo AMEA", "Agthia Group"], 19, 7, 15, 53, 1_150_000, [23.4241, 53.8478]),
+      hub("Saudi Arabia", 46, levels(2, 21, 16, 7), ["Almarai", "NADEC", "Savola Foods"], 18, 27, 13, 45, 920_000, [23.8859, 45.0792]),
+      hub("Kuwait", 8, levels(1, 4, 2, 1), ["Americana"], 3, 3, 2, 8, 1_100_000, [29.3117, 47.4818]),
+      // No point: the geocoder has not placed it yet, so the map draws three pins and the bars all four.
+      hub("Egypt", 5, levels(0, 1, 2, 2), ["Juhayna"], 2, 0, 3, 5, null, null),
     ],
     elsewhere: 3,
     unlocated: 0,

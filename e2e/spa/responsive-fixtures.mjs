@@ -219,9 +219,8 @@ const REPORT = {
       },
     ],
     hubs: [
-      { city: "Abu Dhabi", country: "United Arab Emirates", count: 18, depth: levelCounts(1, 8, 6, 3), employers: ["ADNOC Distribution", "Masdar"], interested: 6, gccNationals: 5, female: 6, recordedGender: 18, medianPackage: 2050000, point: { latitude: 24.4539, longitude: 54.3773, cityPrecision: true } },
-      { city: "Dubai", country: "United Arab Emirates", count: 14, depth: levelCounts(0, 6, 5, 3), employers: ["DP World"], interested: 4, gccNationals: 3, female: 4, recordedGender: 13, medianPackage: 2400000, point: { latitude: 25.2048, longitude: 55.2708, cityPrecision: true } },
-      { city: "Riyadh", country: "Saudi Arabia", count: 7, depth: levelCounts(0, 4, 3, 0), employers: ["ACWA Power"], interested: 2, gccNationals: 4, female: 2, recordedGender: 7, medianPackage: 1850000, point: { latitude: 24.7136, longitude: 46.6753, cityPrecision: true } },
+      { country: "United Arab Emirates", count: 32, depth: levelCounts(1, 14, 11, 6), employers: ["ADNOC Distribution", "Masdar", "DP World"], interested: 10, gccNationals: 8, female: 10, recordedGender: 31, medianPackage: 2200000, point: { latitude: 23.4241, longitude: 53.8478 } },
+      { country: "Saudi Arabia", count: 7, depth: levelCounts(0, 4, 3, 0), employers: ["ACWA Power"], interested: 2, gccNationals: 4, female: 2, recordedGender: 7, medianPackage: 1850000, point: { latitude: 23.8859, longitude: 45.0792 } },
     ],
     elsewhere: 2,
     unlocated: 0,

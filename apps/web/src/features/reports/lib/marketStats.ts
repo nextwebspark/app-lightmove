@@ -52,7 +52,7 @@ export function marketStats(market: ReportMarket): MarketStats {
       topHubs.reduce((sum, hub) => sum + hub.count, 0),
       located,
     ),
-    topHubs: topHubs.map((hub) => hub.city),
+    topHubs: topHubs.map((hub) => hub.country),
   };
 }
 

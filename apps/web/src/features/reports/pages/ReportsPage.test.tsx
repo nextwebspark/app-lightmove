@@ -207,14 +207,14 @@ describe("ReportsPage", () => {
     expect(screen.getByText(/Cross-mandate diversity benchmark/)).toBeInTheDocument();
   });
 
-  it("falls back to the hub bars alone where no map is configured", async () => {
+  it("falls back to the country bars alone where no map is configured", async () => {
     vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
 
     renderPage();
     await screen.findByText("Where talent sits");
 
     // The config read is unmocked and fails in jsdom, which is the no-token case: bars, no map.
-    expect(screen.getByTitle(/38 executives in Dubai/)).toBeInTheDocument();
-    expect(screen.queryByLabelText("Talent hubs on a map")).not.toBeInTheDocument();
+    expect(screen.getByTitle(/54 executives in United Arab Emirates/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Talent by country on a map")).not.toBeInTheDocument();
   });
 });
