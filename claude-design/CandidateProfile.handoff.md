@@ -97,6 +97,29 @@ Not editable here: **Status** (the live select in the header — its own write, 
 five minutes cannot undo a pill flicked since), **Education** and **Skills** (enrichment's alone —
 no screen writes them, so an empty section would nag about something nobody here can supply).
 
+## Contact, specifically — a deliberate departure from this doc
+
+The anatomy above gives Contact a pencil and nothing else. It now also carries **Find email** and
+**Find phone**, which look the person's contacts up through ContactOut and fill the tiles in place.
+This is a departure from the position the rest of this doc takes — that enrichment has no trigger on
+any screen — and it is deliberate: a phone number is the one fact a researcher cannot supply from
+what they already know, and a lookup that costs money has to be somebody's decision rather than a
+thing that happens on capture.
+
+What the section shows, beyond the tiles:
+- **A verification pill** on an address the provider vouched for, because "verified" is the
+  difference between writing to someone and guessing at their address.
+- **Secondary addresses and numbers** under the primary. The promoted one is the verified work
+  address, else any work address, else a personal one; the rest stay visible rather than discarded.
+- **`Found via <provider> · <date>`** under the section, so a figure on the screen is attributable.
+- **A spent channel that found nothing reads `No email on record · checked 16 Sep`, with no button.**
+  Not a disabled button and not an enabled one: the provider charges the same to say "nothing" a
+  second time, so the answer is shown instead of re-sold.
+
+The buttons render only where a ContactOut account is configured (`GET /contact-lookup/config`), and
+only for someone who may write — a client representative reads the mandate and does not spend its
+credits.
+
 ## Compensation, specifically
 - **Currency is a pick, not a text field**: the GCC six then USD, GBP, EUR (`lib/currencies.ts`).
   A code stored before the picker existed, or by an import, stays offered as an option — a select

@@ -28,6 +28,14 @@ that sits the **people half**: an executive mapped for a mandate, optionally aga
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
 with three of them is three lines and one with none keeps its "Add executive" slot. An executive is also
 captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`).
+An executive's drawer also **finds their contacts**: two buttons in the Contact section ask ContactOut
+for an email or a phone, one channel per press because the two bill from separate pools. What comes
+back lands on the `profile` jsonb with a timestamp per channel, and that timestamp is the whole point —
+a value already held, or a miss already recorded, is answered off the row and never bought twice.
+The primary address promoted onto the row is the verified work one, else any work one, else a personal
+one, and it never overwrites what a researcher typed. `lightmove.enrichment.contactout` sits **beside**
+`…enrichment.provider` and is never selected by it: contact lookup is its own account with its own bill,
+so `provider: off` leaves the buttons working, and an unconfigured deployment simply does not offer them.
 The **spreadsheet import** is that fourth door and carries both halves at once: a CSV or Excel file
 whose rows are people at companies, mapped column-by-column onto our fields, then confirmed by a
 person before anything is written. **The model is asked only where a header is in doubt** — a sheet
