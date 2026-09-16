@@ -5,8 +5,10 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * How many executives each mandate has mapped — the number the projects list and its drawer report as
- * "Candidates".
+ * How many executives each mandate still has in play — the number the projects list and its drawer
+ * report as "Candidates". Those who have left the running are left out, matching what
+ * {@link ProjectCompanyCounter} does with declined companies: the two sit side by side under one
+ * "Pipeline" heading.
  *
  * <p>Declared here and implemented in {@code candidate} for the reason given on
  * {@link ProjectCompanyCounter}: the people side already reads the project, and the project must not

@@ -1,5 +1,6 @@
 package app.lightmove.api.candidate.repository;
 
+import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateCount;
 import java.util.Collection;
@@ -42,11 +43,13 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
     /**
      * The projects list's "Candidates" number, for every mandate on the page at once so the list stays
      * one query rather than one per row. Grouped, so a mandate with nobody mapped is missing from the
-     * result rather than zero.
+     * result rather than zero. Which statuses the caller leaves out is the caller's policy.
      */
     @Query("select new app.lightmove.api.candidate.model.CandidateCount(c.projectId, count(c)) "
-            + "from Candidate c where c.projectId in :projectIds group by c.projectId")
-    List<CandidateCount> countByProjectIdIn(Collection<UUID> projectIds);
+            + "from Candidate c where c.projectId in :projectIds "
+            + "and c.status not in :excludedStatuses group by c.projectId")
+    List<CandidateCount> countByProjectIdInExcludingStatuses(Collection<UUID> projectIds,
+                                                             Collection<CandidateStatus> excludedStatuses);
 
     boolean existsByIdAndProjectId(UUID id, UUID projectId);
 

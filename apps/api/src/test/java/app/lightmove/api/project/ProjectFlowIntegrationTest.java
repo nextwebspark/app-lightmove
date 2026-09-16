@@ -263,15 +263,18 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
         captureCompany(admin, mapped, "Emaar Properties");
         String rejected = captureCompany(admin, mapped, "Gulf Trader");
         decline(admin, mapped, rejected);
-        mapExecutive(admin, mapped, kept, "Yasmin El-Sayed");
-        mapExecutive(admin, mapped, null, "Omar Farouk");
+        mapExecutive(admin, mapped, kept, "Yasmin El-Sayed", null);
+        mapExecutive(admin, mapped, null, "Omar Farouk", null);
+        // Left the running, so counted no more than the declined company is.
+        mapExecutive(admin, mapped, kept, "Hana Aziz", "offLimits");
 
         JsonNode projects = body(mvc.perform(get("/api/v1/projects")
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andReturn());
 
-        // Two of the three companies: a declined one has left the universe the number states.
+        // Two of three companies and two of three executives: what a mandate ruled out has left the
+        // pipeline both numbers state.
         assertThat(countsOf(projects, mapped)).containsExactly(2L, 2L);
         assertThat(countsOf(projects, untouched)).containsExactly(0L, 0L);
     }
@@ -306,15 +309,20 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
     }
 
-    /** An executive at one of the mandate's companies, or — with a null company — at none of them. */
-    private void mapExecutive(String token, String projectId, String triageCompanyId, String fullName)
-            throws Exception {
+    /**
+     * An executive at one of the mandate's companies, or — with a null company — at none of them.
+     * A null status leaves the default alone.
+     */
+    private void mapExecutive(String token, String projectId, String triageCompanyId, String fullName,
+                              String status) throws Exception {
         String companyClause = triageCompanyId == null ? ""
                 : "\"triageCompanyId\":\"%s\",".formatted(triageCompanyId);
+        String statusClause = status == null ? "" : ",\"status\":\"%s\"".formatted(status);
         mvc.perform(post("/api/v1/projects/" + projectId + "/candidates")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{%s\"fullName\":\"%s\"}".formatted(companyClause, fullName)))
+                        .content("{%s\"fullName\":\"%s\"%s}"
+                                .formatted(companyClause, fullName, statusClause)))
                 .andExpect(status().isCreated());
     }
 
