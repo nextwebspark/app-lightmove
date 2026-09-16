@@ -45,13 +45,22 @@ public record SaveCandidateRequest(
         @Size(max = 200)
         String employerName,
 
+        /** One address, as the plugin's capture and a spreadsheet cell supply it. Joins the ledger. */
         @JsonDeserialize(converter = EmailAddressNormaliser.class)
         @Email(message = "That doesn't look like a valid email")
         @Size(max = 320)
         String email,
 
+        /** One number, likewise. */
         @Size(max = 50)
         String phone,
+
+        /** Every address, as the Add form supplies them — each with the kind the person gave it. */
+        @Size(max = 10, message = "Ten email addresses is the most a profile holds")
+        List<@Valid ContactEntryDto> emails,
+
+        @Size(max = 10, message = "Ten phone numbers is the most a profile holds")
+        List<@Valid ContactEntryDto> phones,
 
         @Size(max = 500)
         String linkedinUrl,

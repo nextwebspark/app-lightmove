@@ -1,5 +1,7 @@
 package app.lightmove.api.enrichment.contact.service;
 
+import app.lightmove.api.candidate.constant.ContactChannel;
+import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.CandidateEmail;
 import app.lightmove.api.candidate.model.FoundEmails;
 import app.lightmove.api.candidate.model.FoundPhones;
@@ -148,7 +150,7 @@ public class ContactOutContactFinder implements ContactFinder {
             }
             // Providers mix E.164, national and dashed forms, so two spellings of one number would
             // otherwise both be kept. The digits are the identity; the spelling is what we store.
-            if (seen.add(number.replaceAll("\\D", ""))) {
+            if (seen.add(CandidateContact.keyOf(ContactChannel.PHONE, number))) {
                 found.add(number.trim());
             }
         }

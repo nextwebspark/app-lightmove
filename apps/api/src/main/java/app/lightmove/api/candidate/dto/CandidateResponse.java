@@ -20,8 +20,6 @@ public record CandidateResponse(
         String title,
         String seniority,
         String status,
-        String email,
-        String phone,
         String linkedinUrl,
         String locationCountry,
         String locationCity,
@@ -41,6 +39,6 @@ public record CandidateResponse(
         Instant addedAt,
         /** When enrichment last filled this profile in; null while research is pending or off. */
         String enrichedAt,
-        /** What a contact lookup found, and when each channel was last asked. */
+        /** Every email and phone the mandate knows for them, and when each channel was last looked up. */
         CandidateContactsDto contacts
 ) {}

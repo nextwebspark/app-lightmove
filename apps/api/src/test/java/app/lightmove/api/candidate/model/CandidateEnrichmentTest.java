@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import java.util.List;
 import java.util.UUID;
@@ -62,7 +63,7 @@ class CandidateEnrichmentTest {
                 CandidateCompensation.unknown(),
                 new CandidateProfile(
                         List.of(new CandidateCareerEntry("The Firm They Told Us", "CFO", "2019 –")),
-                        List.of("French"), null, null, null, null),
+                        List.of("French"), null, null, null),
                 null);
         Candidate candidate = captured(typed);
 
@@ -101,7 +102,7 @@ class CandidateEnrichmentTest {
 
         candidate.describe(details("Sample Person", "CFO", null, null,
                 List.of(new CandidateCareerEntry("Corrected Employer", "CFO", "2020 –")),
-                List.of("English")));
+                List.of("English")), ContactSource.MANUAL);
 
         assertThat(candidate.getProfile().career().getFirst().company()).isEqualTo("Corrected Employer");
         assertThat(candidate.getProfile().languages()).containsExactly("English");
@@ -135,6 +136,6 @@ class CandidateEnrichmentTest {
         return new CandidateDetails(fullName, title, null, CandidateStatus.IDENTIFIED, employerName,
                 null, null, "https://www.linkedin.com/in/sample-profile", null, null, null, null,
                 summary, null, CandidateCompensation.unknown(),
-                new CandidateProfile(career, languages, null, null, null, null), null);
+                new CandidateProfile(career, languages, null, null, null), null);
     }
 }

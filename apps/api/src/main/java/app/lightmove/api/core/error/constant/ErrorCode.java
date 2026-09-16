@@ -234,6 +234,17 @@ public enum ErrorCode {
     CONTACT_LOOKUP_NO_PROFILE(HttpStatus.CONFLICT,
             "Add this person's LinkedIn profile URL first"),
 
+    /** Ten addresses or ten numbers is more than any one person needs; past that it is a paste error. */
+    CONTACT_LIMIT_REACHED(HttpStatus.CONFLICT,
+            "A profile holds ten email addresses and ten phone numbers at most"),
+
+    /**
+     * The row was captured off a LinkedIn profile page by the plugin, so its URL is the page it came
+     * from and the key research and contact lookup both hang off. Retyping it can only break that.
+     */
+    CANDIDATE_PROFILE_URL_LOCKED(HttpStatus.CONFLICT,
+            "This profile was captured from LinkedIn; its URL is not editable"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

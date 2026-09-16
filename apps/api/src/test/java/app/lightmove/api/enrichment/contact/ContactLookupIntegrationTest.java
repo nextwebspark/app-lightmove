@@ -3,6 +3,7 @@ package app.lightmove.api.enrichment.contact;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FlowTestSupport;
@@ -65,10 +66,16 @@ class ContactLookupIntegrationTest extends FlowTestSupport {
 
         assertThat(answer.get("outcome").asText()).isEqualTo("found");
         JsonNode candidate = answer.get("candidate");
-        assertThat(candidate.get("email").asText()).isEqualTo("sample.person@holdings.example");
-        assertThat(candidate.get("contacts").get("emails")).hasSize(3);
-        assertThat(candidate.get("contacts").get("emails").get(1).get("status").asText())
-                .isEqualTo("Verified");
+        JsonNode emails = candidate.get("contacts").get("emails");
+        assertThat(emails).hasSize(3);
+        // Work before personal, in the order the provider listed them — the order the drawer shows.
+        assertThat(emails.get(0).get("address").asText()).isEqualTo("s.person@retailco.example");
+        assertThat(emails.get(1).get("address").asText()).isEqualTo("sample.person@holdings.example");
+        assertThat(emails.get(1).get("verified").asBoolean()).isTrue();
+        assertThat(emails.get(1).get("status").asText()).isEqualTo("Verified");
+        assertThat(emails.get(1).get("kind").asText()).isEqualTo("work");
+        assertThat(emails.get(1).get("source").asText()).isEqualTo("contactout");
+        assertThat(emails.get(2).get("kind").asText()).isEqualTo("personal");
         assertThat(candidate.get("contacts").get("source").asText()).isEqualTo("contactout");
         assertThat(candidate.get("contacts").get("emailsLookedUpAt").isNull()).isFalse();
         assertThat(candidate.get("contacts").get("phonesLookedUpAt").isNull()).isTrue();
@@ -85,8 +92,7 @@ class ContactLookupIntegrationTest extends FlowTestSupport {
         JsonNode second = lookup(projectId, candidateId, "email", status().isOk());
 
         assertThat(second.get("outcome").asText()).isEqualTo("held");
-        assertThat(second.get("candidate").get("email").asText())
-                .isEqualTo("sample.person@holdings.example");
+        assertThat(second.get("candidate").get("contacts").get("emails")).hasSize(3);
         assertThat(finder.askedUrls()).hasSize(1);
     }
 
@@ -123,8 +129,7 @@ class ContactLookupIntegrationTest extends FlowTestSupport {
         JsonNode afterTopUp = lookup(projectId, candidateId, "email", status().isOk());
 
         assertThat(afterTopUp.get("outcome").asText()).isEqualTo("found");
-        assertThat(afterTopUp.get("candidate").get("email").asText())
-                .isEqualTo("sample.person@holdings.example");
+        assertThat(afterTopUp.get("candidate").get("contacts").get("emails")).hasSize(3);
     }
 
     @Test
@@ -187,8 +192,8 @@ class ContactLookupIntegrationTest extends FlowTestSupport {
 
         // The second write is dropped, and the row it answers with is the first's — which is what the
         // endpoint now reads its outcome from, so the two halves of one response cannot disagree.
-        assertThat(loser.email()).isEqualTo("sample.person@holdings.example");
         assertThat(loser.contacts().emails()).hasSize(3);
+        assertThat(loser.contacts().emails()).noneMatch(email -> email.address().equals("later@retailco.example"));
     }
 
     @Test
@@ -202,10 +207,76 @@ class ContactLookupIntegrationTest extends FlowTestSupport {
 
         assertThat(answer.get("outcome").asText()).isEqualTo("found");
         JsonNode contacts = answer.get("candidate").get("contacts");
-        assertThat(answer.get("candidate").get("phone").asText()).isEqualTo("+12065550100");
         assertThat(contacts.get("phones")).hasSize(2);
+        assertThat(contacts.get("phones").get(0).get("number").asText()).isEqualTo("+12065550100");
+        assertThat(contacts.get("phones").get(0).get("source").asText()).isEqualTo("contactout");
         assertThat(contacts.get("emailsLookedUpAt").isNull()).isTrue();
-        assertThat(answer.get("candidate").get("email").isNull()).isTrue();
+        assertThat(contacts.get("emails")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a value typed by a person is not the provider's answer: the miss is still a miss")
+    void aTypedAddressDoesNotHideAMiss() throws Exception {
+        String projectId = mandate("Typed Then Asked Firm");
+        String candidateId = body(mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Sample Person","email":"typed@them.example",
+                                 "linkedinUrl":"https://www.linkedin.com/in/sample-profile"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+
+        JsonNode answer = lookup(projectId, candidateId, "email", status().isOk());
+
+        assertThat(answer.get("outcome").asText()).isEqualTo("none");
+        JsonNode emails = answer.get("candidate").get("contacts").get("emails");
+        assertThat(emails).hasSize(1);
+        assertThat(emails.get(0).get("source").asText()).isEqualTo("manual");
+    }
+
+    @Test
+    @DisplayName("every door leaves its value in the ledger under its own name")
+    void everyDoorLeavesALedgerRow() throws Exception {
+        String projectId = mandate("Every Door Firm");
+
+        JsonNode typed = body(mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Typed Person","email":"typed@them.example","phone":"+971 50 000 0001"}"""))
+                .andExpect(status().isCreated())
+                .andReturn());
+        JsonNode captured = body(mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Captured Person","email":"captured@them.example","source":"extension",
+                                 "linkedinUrl":"https://www.linkedin.com/in/captured-person"}"""))
+                .andExpect(status().isCreated())
+                .andReturn());
+
+        assertThat(typed.get("contacts").get("emails").get(0).get("source").asText()).isEqualTo("manual");
+        assertThat(typed.get("contacts").get("phones").get(0).get("source").asText()).isEqualTo("manual");
+        assertThat(typed.get("contacts").get("emails").get(0).get("kind").isNull()).isTrue();
+        assertThat(captured.get("contacts").get("emails").get(0).get("source").asText()).isEqualTo("extension");
+
+        // A value a later write supplies joins the ledger as a person's, beside what was captured;
+        // only the Contact section's own save takes one away.
+        JsonNode corrected = body(mvc.perform(put(candidatesUrl(projectId) + "/" + captured.get("id").asText())
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Captured Person","email":"corrected@them.example","source":"extension",
+                                 "linkedinUrl":"https://www.linkedin.com/in/captured-person"}"""))
+                .andExpect(status().isOk())
+                .andReturn());
+        JsonNode emails = corrected.get("contacts").get("emails");
+        assertThat(emails).hasSize(2);
+        assertThat(emails.get(0).get("address").asText()).isEqualTo("captured@them.example");
+        assertThat(emails.get(0).get("source").asText()).isEqualTo("extension");
+        assertThat(emails.get(1).get("address").asText()).isEqualTo("corrected@them.example");
+        assertThat(emails.get(1).get("source").asText()).isEqualTo("manual");
     }
 
     @Test

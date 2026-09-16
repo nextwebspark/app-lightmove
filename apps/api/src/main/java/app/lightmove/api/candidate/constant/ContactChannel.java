@@ -1,6 +1,9 @@
-package app.lightmove.api.enrichment.contact.constant;
+package app.lightmove.api.candidate.constant;
 
-/** Which contact a lookup is after. The two bill from separate pools and are asked for separately. */
+/**
+ * Which contact a value is — and which a lookup is after, since the two bill from separate pools and
+ * are asked for separately. Stored by name, matching V54's CHECK.
+ */
 public enum ContactChannel {
 
     EMAIL("email"),

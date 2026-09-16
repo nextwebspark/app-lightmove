@@ -1,5 +1,8 @@
 package app.lightmove.api.enrichment.contact.service;
 
+import app.lightmove.api.candidate.constant.ContactChannel;
+import app.lightmove.api.candidate.dto.CandidateEmailDto;
+import app.lightmove.api.candidate.dto.CandidatePhoneDto;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.model.CandidateContactState;
 import app.lightmove.api.candidate.model.FoundEmails;
@@ -14,7 +17,6 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimiter;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.text.service.LinkedInUrls;
-import app.lightmove.api.enrichment.contact.constant.ContactChannel;
 import app.lightmove.api.enrichment.contact.constant.ContactLookupOutcome;
 import app.lightmove.api.enrichment.contact.dto.ContactLookupConfigResponse;
 import app.lightmove.api.enrichment.contact.dto.ContactLookupResponse;
@@ -22,6 +24,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -68,28 +71,32 @@ public class ContactLookupService {
     public ContactLookupResponse findEmail(UUID userId, UUID workspaceId, UUID projectId,
                                            UUID candidateId, HttpServletRequest httpRequest) {
         CandidateContactState state = begin(ContactChannel.EMAIL, userId, workspaceId, projectId, candidateId);
-        if (state.contacts().hasAskedForEmails()) {
-            return answered(alreadyAsked(state.contacts().emails().isEmpty()), state.candidate(),
+        if (state.emailsAsked()) {
+            return answered(alreadyAsked(!state.hasFoundEmails()), state.candidate(),
                     ContactChannel.EMAIL, false, userId, workspaceId, projectId, candidateId, httpRequest);
         }
         requireBudget(ContactChannel.EMAIL, userId);
         FoundEmails found = ask(() -> finder.findEmails(state.linkedinUrl()));
         CandidateResponse candidate = candidates.applyFoundEmails(projectId, candidateId, found);
-        return answered(outcomeOf(candidate.contacts().emails().isEmpty()), candidate,
+        boolean foundNothing = foundNothing(
+                candidate.contacts().emails().stream().map(CandidateEmailDto::source), found.source());
+        return answered(outcomeOf(foundNothing), candidate,
                 ContactChannel.EMAIL, true, userId, workspaceId, projectId, candidateId, httpRequest);
     }
 
     public ContactLookupResponse findPhone(UUID userId, UUID workspaceId, UUID projectId,
                                            UUID candidateId, HttpServletRequest httpRequest) {
         CandidateContactState state = begin(ContactChannel.PHONE, userId, workspaceId, projectId, candidateId);
-        if (state.contacts().hasAskedForPhones()) {
-            return answered(alreadyAsked(state.contacts().phones().isEmpty()), state.candidate(),
+        if (state.phonesAsked()) {
+            return answered(alreadyAsked(!state.hasFoundPhones()), state.candidate(),
                     ContactChannel.PHONE, false, userId, workspaceId, projectId, candidateId, httpRequest);
         }
         requireBudget(ContactChannel.PHONE, userId);
         FoundPhones found = ask(() -> finder.findPhones(state.linkedinUrl()));
         CandidateResponse candidate = candidates.applyFoundPhones(projectId, candidateId, found);
-        return answered(outcomeOf(candidate.contacts().phones().isEmpty()), candidate,
+        boolean foundNothing = foundNothing(
+                candidate.contacts().phones().stream().map(CandidatePhoneDto::source), found.source());
+        return answered(outcomeOf(foundNothing), candidate,
                 ContactChannel.PHONE, true, userId, workspaceId, projectId, candidateId, httpRequest);
     }
 
@@ -134,6 +141,11 @@ public class ContactLookupService {
      */
     private static ContactLookupOutcome outcomeOf(boolean foundNothing) {
         return foundNothing ? ContactLookupOutcome.NONE : ContactLookupOutcome.FOUND;
+    }
+
+    /** Nothing on record means no row from this provider: what a person typed is not the provider's answer. */
+    private static boolean foundNothing(Stream<String> sources, String provider) {
+        return sources.noneMatch(source -> source.equalsIgnoreCase(provider));
     }
 
     private <T> T ask(Supplier<T> call) {

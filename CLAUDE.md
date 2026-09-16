@@ -29,11 +29,19 @@ companies, added by hand from the Companies grid — where a row is a *person at
 with three of them is three lines and one with none keeps its "Add executive" slot. An executive is also
 captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`).
 An executive's drawer also **finds their contacts**: two buttons in the Contact section ask ContactOut
-for an email or a phone, one channel per press because the two bill from separate pools. What comes
-back lands on the `profile` jsonb with a timestamp per channel, and that timestamp is the whole point —
-a value already held, or a miss already recorded, is answered off the row and never bought twice.
-The primary address promoted onto the row is the verified work one, else any work one, else a personal
-one, and it never overwrites what a researcher typed. `lightmove.enrichment.contactout` sits **beside**
+for an email or a phone, one channel per press because the two bill from separate pools. Every email
+and phone the mandate knows is a row of `app_lm_candidate_contact` (V54, the only store since V55
+dropped the row's `email`/`phone` columns) with the door it came through — typed, imported, captured,
+or found — and a lookup stamps a timestamp per channel on the candidate, which is the whole point: a
+value already held, or a miss already recorded, is answered off the row and never bought twice. The
+Contact section draws one row per channel, whatever door a value came through, and its pencil turns
+the same rows editable in place — add, remove, retag work/personal, mark verified (recorded as
+"Verified by researcher", beside ContactOut's own "Verified"; neither is printed on the row, and no
+"via ContactOut" caption is — who did what is the audit trail's) — saved as one list through
+`PUT …/candidates/{id}/contacts`; a profile PUT adds what it supplies and never removes a contact.
+No primary flag anywhere: the grid's Email and Phone columns list them all. A person the plugin
+captured keeps their LinkedIn URL locked (`CANDIDATE_PROFILE_URL_LOCKED`): it is the page they were
+read off and everything keys on it. `lightmove.enrichment.contactout` sits **beside**
 `…enrichment.provider` and is never selected by it: contact lookup is its own account with its own bill,
 so `provider: off` leaves the buttons working, and an unconfigured deployment simply does not offer them.
 The **spreadsheet import** is that fourth door and carries both halves at once: a CSV or Excel file
@@ -218,6 +226,14 @@ tenant-scoped** — a centroid is not client data and carries no PII — and nev
 re-asked after `lightmove.mapbox.cache-ttl` unless the account holds Mapbox's permanent-geocoding
 entitlement (`permanent-geocoding: true`), because their terms forbid storing a temporary result
 indefinitely.
+`app_lm_candidate_contact` (V54) is every email and phone known for an executive, one row each, with
+`source` naming the door (`MANUAL` / `CSV` / `EXTENSION` / `CONTACTOUT`) and `kind` / `verified` only
+ever what the provider said. V39's owned-list idiom: `Candidate` rewrites it from its own methods, and
+its identity is `value_key` (lower-cased address, digits of a number) because providers spell one
+number three ways. A miss is not a row — it is `emails_looked_up_at` / `phones_looked_up_at` on the
+candidate with nothing from the provider beside it. V54 moved the old `profile.contacts` jsonb into
+the table and V55 dropped the row's `email` and `phone` columns: the ledger is the only store, the
+importer matches a person on any address they hold, and the grid lists them all.
 `app_lm_position_template` (V42) is the role-template library — the identity a picker lists as columns,
 the drafted brief as one `jsonb` body (V30's idiom, not V39's child tables: a template is a
 heterogeneous document read and written whole), and the match keywords as a child table because they
