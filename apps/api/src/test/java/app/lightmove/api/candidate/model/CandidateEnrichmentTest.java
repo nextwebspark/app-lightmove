@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -21,7 +22,8 @@ class CandidateEnrichmentTest {
             "Dubai", "United Arab Emirates",
             List.of(new CandidateCareerEntry("Al Rawabi Dairy", "Group CFO", "2021 – Present")),
             List.of(new CandidateEducationEntry("AUC", "MBA, Finance", "2010 - 2012")),
-            List.of("Financial Planning"), List.of("English", "Arabic"), null);
+            List.of("Financial Planning"), List.of("English", "Arabic"), null,
+            EnrichmentVendor.BRIGHTDATA);
 
     @Test
     @DisplayName("research fills in what nobody typed")
@@ -40,6 +42,15 @@ class CandidateEnrichmentTest {
         assertThat(candidate.getProfile().education()).hasSize(1);
         assertThat(candidate.getProfile().skills()).containsExactly("Financial Planning");
         assertThat(candidate.getProfile().enrichedAt()).isNotNull();
+        assertThat(candidate.getEnrichedBy()).isEqualTo(EnrichmentVendor.BRIGHTDATA);
+    }
+
+    @Test
+    @DisplayName("an unresearched candidate names no provider")
+    void anUnresearchedCandidateNamesNoProvider() {
+        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+
+        assertThat(candidate.getEnrichedBy()).isNull();
     }
 
     @Test

@@ -1,5 +1,6 @@
 package app.lightmove.api.enrichment.candidate.service;
 
+import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateEducationEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
@@ -14,7 +15,6 @@ import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.core.resilience.service.VendorRetryPredicate;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.enrichment.common.service.BrightDataSearch;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -26,10 +26,11 @@ import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.annotation.JsonNaming;
 
 /**
- * Answers from the record Bright Data's LinkedIn people dataset already holds — a sub-second indexed
- * lookup, not a scrape. The search filter keys on {@code linkedin_id} (the {@code /in/} slug):
- * filtering on the {@code url} field matches nothing, because that field is analyzed — verified
- * against the live API before this was written.
+ * Answers from the record Bright Data's LinkedIn people dataset already holds — an indexed lookup,
+ * not a scrape, though how fast is the vendor's to decide and has moved from ~0.7s to tens of
+ * seconds. The search filter keys on {@code linkedin_id} (the {@code /in/} slug): filtering on the
+ * {@code url} field matches nothing, because that field is analyzed — verified against the live API
+ * before this was written.
  *
  * <p>Dataset records vary in completeness: some carry {@code ***}-masked strings where LinkedIn hid
  * the section from the logged-out crawl. Masked values map to null here, and a record whose whole
@@ -37,9 +38,6 @@ import tools.jackson.databind.annotation.JsonNaming;
  */
 @Slf4j
 public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
-
-    /** The search is ~0.7s; anything holding a worker thread longer than this has failed. */
-    public static final Duration READ_TIMEOUT = Duration.ofSeconds(15);
 
     private static final String VENDOR = "brightdata";
 
@@ -55,13 +53,13 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
         this.photos = photos;
         this.datasetId = config.datasetId();
         this.client = clientFactory.create(VendorClientSpec.bearer(VENDOR, config.baseUrl(),
-                config.apiKey(), READ_TIMEOUT, config.requestsPerSecond()), builder, rateLimiter);
+                config.apiKey(), config.readTimeout(), config.requestsPerSecond()), builder, rateLimiter);
     }
 
     @Override
     @Retryable(
             predicate = VendorRetryPredicate.class,
-            maxRetriesString = "${lightmove.resilience.max-retries}",
+            maxRetriesString = "${lightmove.enrichment.brightdata.max-retries}",
             delayString = "${lightmove.resilience.retry-delay}",
             jitterString = "${lightmove.resilience.retry-jitter}",
             multiplierString = "${lightmove.resilience.retry-multiplier}",
@@ -91,7 +89,7 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
                 enriched.employerName(), enriched.employerLinkedinUrl(), enriched.employerLogoUrl(),
                 enriched.locationCity(), enriched.locationCountry(), enriched.career(),
                 enriched.education(), enriched.skills(), enriched.languages(),
-                photos.fetchOrNull(avatar)));
+                photos.fetchOrNull(avatar), EnrichmentVendor.BRIGHTDATA));
     }
 
     static EnrichedProfile toEnrichedProfile(BrightDataPerson person) {
@@ -107,7 +105,8 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
                 educationOf(person.education()),
                 namesOf(person.skills()),
                 namesOf(person.languages()),
-                null);
+                null,
+                EnrichmentVendor.BRIGHTDATA);
     }
 
     /**

@@ -9,6 +9,7 @@ import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingProfileEnricher;
+import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateEducationEntry;
 import app.lightmove.api.candidate.model.EnrichedPhoto;
@@ -43,7 +44,7 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
             List.of(new CandidateCareerEntry("Al Rawabi Dairy", "Group CFO", "2021 – Present")),
             List.of(new CandidateEducationEntry("AUC", "MBA, Finance", "2010 - 2012")),
             List.of("Financial Planning"), List.of("English", "Arabic"),
-            new EnrichedPhoto(PHOTO_BYTES, "image/jpeg"));
+            new EnrichedPhoto(PHOTO_BYTES, "image/jpeg"), EnrichmentVendor.BRIGHTDATA);
 
     @Autowired private RecordingProfileEnricher enricher;
     @Autowired JdbcTemplate db;
@@ -113,6 +114,11 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         assertThat(researched.get("education").get(0).get("degree").asText()).isEqualTo("MBA, Finance");
         assertThat(researched.get("skills").get(0).asText()).isEqualTo("Financial Planning");
         assertThat(researched.get("enrichedAt").isNull()).isFalse();
+
+        // Which provider answered is recorded, so the dataset's share of the work is countable.
+        assertThat(db.queryForObject(
+                "select enriched_by from app_lm_project_candidate where id = ?::uuid",
+                String.class, candidateId)).isEqualTo("BRIGHTDATA");
 
         // The employer went into the universe — logo and all — and the person is mapped at it.
         assertThat(researched.get("companyName").asText()).isEqualTo("Al Rawabi Dairy");
@@ -209,7 +215,7 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         String projectId = mandate("Employerless Research Firm");
         enricher.answerWith(new EnrichedProfile("Advisor", null, null, null, null, null, null,
                 List.of(new CandidateCareerEntry("Somewhere", "Advisor", "2020 –")),
-                null, null, null, null));
+                null, null, null, null, EnrichmentVendor.HARVESTAPI));
 
         String candidateId = capture(projectId, "Sample Person", "sample-profile");
 
