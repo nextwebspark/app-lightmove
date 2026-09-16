@@ -192,6 +192,7 @@ const yasmin: Candidate = {
   customFields: {},
   addedAt: "2026-08-02T09:00:00Z",
   enrichedAt: null,
+  contacts: { emails: [], phones: [], emailsLookedUpAt: null, phonesLookedUpAt: null, source: null },
 };
 
 /** An executive whose employer is not in the mandate's universe. */

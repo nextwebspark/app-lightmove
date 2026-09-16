@@ -57,6 +57,7 @@ const person = (overrides: Partial<Candidate>): Candidate => ({
   customFields: {},
   addedAt: "2026-08-02T09:00:00Z",
   enrichedAt: null,
+  contacts: { emails: [], phones: [], emailsLookedUpAt: null, phonesLookedUpAt: null, source: null },
   ...overrides,
 });
 

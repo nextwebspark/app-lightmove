@@ -8,6 +8,9 @@ import { DrawerCloseButton } from "../../../components/ui/Drawer";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate, formatNumber } from "../../../lib/format";
 import { toBrowsableUrl } from "../../../lib/url";
+import { useQuery } from "@tanstack/react-query";
+import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
+import { ContactPanel } from "../../contactlookup/components/ContactPanel";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import * as candidatesApi from "../api/candidatesApi";
@@ -79,6 +82,15 @@ export function CandidateProfile({
 }) {
   const toast = useToast();
   const sections = useProfileSections();
+  /**
+   * Whether this deployment looks contacts up. A deployment fact, not a row one, so it is read once
+   * and kept — and a refused or failed read means no buttons rather than buttons that cannot work.
+   */
+  const lookupConfig = useQuery({
+    queryKey: contactLookupApi.CONTACT_LOOKUP_CONFIG_KEY,
+    queryFn: ({ signal }) => contactLookupApi.getContactLookupConfig(signal),
+    staleTime: Infinity,
+  });
   const body = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<EditableSection | null>(null);
 
@@ -378,7 +390,13 @@ export function CandidateProfile({
               {(form) => <ContactFields register={form.register} errors={form.formState.errors} />}
             </SectionEditor>
           ) : (
-            <ContactTiles candidate={candidate} />
+            <ContactPanel
+              projectId={projectId}
+              candidate={candidate}
+              canWrite={canWrite}
+              lookupOffered={lookupConfig.data?.enabled === true}
+              onSaved={onSaved}
+            />
           )}
         </CollapsibleSection>
 
@@ -585,37 +603,6 @@ function ColumnsEditor({
     >
       <CustomFieldsFieldset columns={columns} values={values} onChange={setValues} heading={false} />
     </ProfileSectionForm>
-  );
-}
-
-function ContactTiles({ candidate }: { candidate: Candidate }) {
-  const profileUrl = toBrowsableUrl(candidate.linkedinUrl);
-  return (
-    <DetailGrid>
-      <DetailTile label="Email" value={candidate.email} />
-      <DetailTile label="Phone" value={candidate.phone} />
-      {/* Through `toBrowsableUrl` rather than straight into the href. Every write is already gated
-          by SuppliedText, but trusting that from the render side makes this tile the one place a
-          value stored before the gate — or posted by the browser plugin, whose CandidateSource is
-          already in the schema — could reach a browser as something it should not follow.
-          `lib/url.ts` states the rule; the grids and the company panel already keep it. */}
-      <DetailTile
-        label="LinkedIn"
-        full
-        value={
-          profileUrl ? (
-            <a
-              href={profileUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="text-sky hover:underline"
-            >
-              {profileUrl}
-            </a>
-          ) : null
-        }
-      />
-    </DetailGrid>
   );
 }
 

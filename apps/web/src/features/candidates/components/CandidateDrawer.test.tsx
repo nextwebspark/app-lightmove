@@ -4,6 +4,8 @@ import { useState } from "react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
+import { ApiRequestError } from "../../../lib/apiClient";
+import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import * as candidatesApi from "../api/candidatesApi";
 import type { Candidate } from "../api/types";
 import { CandidateDrawer } from "./CandidateDrawer";
@@ -13,6 +15,14 @@ vi.mock("../api/candidatesApi", async (importOriginal) => ({
   createCandidate: vi.fn(),
   updateCandidate: vi.fn(),
   changeCandidateStatus: vi.fn(),
+}));
+
+vi.mock("../../contactlookup/api/contactLookupApi", async (importOriginal) => ({
+  // Keys are real; only the calls are mocked.
+  ...(await importOriginal<typeof contactLookupApi>()),
+  getContactLookupConfig: vi.fn(),
+  findEmail: vi.fn(),
+  findPhone: vi.fn(),
 }));
 
 const yasmin: Candidate = {
@@ -49,6 +59,7 @@ const yasmin: Candidate = {
   customFields: {},
   addedAt: "2026-08-02T09:00:00Z",
   enrichedAt: null,
+  contacts: { emails: [], phones: [], emailsLookedUpAt: null, phonesLookedUpAt: null, source: null },
 };
 
 const renderDrawer = (
@@ -491,5 +502,89 @@ describe("CandidateDrawer", () => {
     await userEvent.click(screen.getByRole("button", { name: /^Cancel$/i }));
     expect(screen.queryByLabelText(/Profile summary/i)).not.toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The Contact section's two Find buttons. What matters: they exist only where a provider is
+   * configured, and a channel already asked offers no second purchase.
+   */
+  describe("contact lookup", () => {
+    const withContacts = (contacts: Partial<Candidate["contacts"]>): Candidate => ({
+      ...yasmin,
+      contacts: { ...yasmin.contacts, ...contacts },
+    });
+
+    beforeEach(() => {
+      // The fold is remembered per viewer and Contact starts closed, so open it before rendering.
+      localStorage.setItem(
+        "lm.candidate-profile.sections",
+        JSON.stringify({
+          summary: true,
+          experience: true,
+          education: false,
+          compensation: true,
+          background: false,
+          contact: true,
+          columns: false,
+          note: false,
+        }),
+      );
+      vi.mocked(contactLookupApi.getContactLookupConfig).mockResolvedValue({ enabled: true });
+    });
+
+    it("offers no buttons where the deployment has no contact provider", async () => {
+      vi.mocked(contactLookupApi.getContactLookupConfig).mockResolvedValue({ enabled: false });
+      renderDrawer({ candidate: yasmin, company: null });
+
+      expect(await screen.findByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Find email/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Find phone/i })).not.toBeInTheDocument();
+    });
+
+    it("fills the phone tile from what the lookup answered", async () => {
+      vi.mocked(contactLookupApi.findPhone).mockResolvedValue({
+        outcome: "found",
+        candidate: withContacts({
+          phones: ["+12065550100"],
+          phonesLookedUpAt: "2026-09-16T09:00:00Z",
+          source: "contactout",
+        }),
+      });
+      renderDrawer({ candidate: { ...yasmin, phone: null }, company: null }, LiveDrawer);
+
+      await userEvent.click(await screen.findByRole("button", { name: /Find phone/i }));
+
+      await waitFor(() => expect(contactLookupApi.findPhone).toHaveBeenCalledWith("p1", "c1"));
+      expect(await screen.findByText(/Found via contactout/i)).toBeInTheDocument();
+    });
+
+    it("does not offer a second purchase on a channel the provider had nothing for", async () => {
+      renderDrawer({
+        candidate: withContacts({ emailsLookedUpAt: "2026-09-16T09:00:00Z", source: "contactout" }),
+        company: null,
+      });
+
+      expect(await screen.findByText(/No email on record/i)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Find email/i })).not.toBeInTheDocument();
+      // The other channel is untouched by that: they bill separately.
+      expect(screen.getByRole("button", { name: /Find phone/i })).toBeInTheDocument();
+    });
+
+    it("says so when the account is out of credits, and leaves the button pressable", async () => {
+      vi.mocked(contactLookupApi.findEmail).mockRejectedValue(
+        new ApiRequestError({
+          code: "CONTACT_LOOKUP_NO_CREDITS",
+          detail: "no credits",
+          status: 409,
+          correlationId: "x",
+        }),
+      );
+      renderDrawer({ candidate: yasmin, company: null });
+
+      await userEvent.click(await screen.findByRole("button", { name: /Find email/i }));
+
+      expect(await screen.findByText(/No contact lookup credits left/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Find email/i })).toBeEnabled();
+    });
   });
 });

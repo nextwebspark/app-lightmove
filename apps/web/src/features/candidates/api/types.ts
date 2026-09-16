@@ -91,6 +91,29 @@ export interface Candidate {
   addedAt: string;
   /** When enrichment last filled this profile in; null while research is pending or off. */
   enrichedAt: string | null;
+  contacts: CandidateContacts;
+}
+
+/** One address a contact lookup found. `kind` is null where the provider did not say which it was. */
+export interface CandidateEmail {
+  address: string;
+  kind: "work" | "personal" | null;
+  status: string | null;
+}
+
+/**
+ * What a contact lookup found, and when each channel was last asked.
+ *
+ * <p>The timestamps decide what the Contact section offers, not the lists: null means the button is
+ * still worth pressing, and a timestamp with an empty list means the provider had nothing and asking
+ * again would only buy the same answer.
+ */
+export interface CandidateContacts {
+  emails: CandidateEmail[];
+  phones: string[];
+  emailsLookedUpAt: string | null;
+  phonesLookedUpAt: string | null;
+  source: string | null;
 }
 
 export interface CandidatesPage {

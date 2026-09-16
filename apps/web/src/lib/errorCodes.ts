@@ -46,6 +46,10 @@ export type ApiErrorCode =
   | "CUSTOM_COLUMN_NAME_TAKEN"
   | "CUSTOM_COLUMN_LIMIT_REACHED"
   | "POSITION_DOCUMENT_UNREADABLE"
+  | "CONTACT_LOOKUP_UNAVAILABLE"
+  | "CONTACT_LOOKUP_NO_CREDITS"
+  | "CONTACT_LOOKUP_FAILED"
+  | "CONTACT_LOOKUP_NO_PROFILE"
   | "WORKSPACE_NAME_MISMATCH"
   | "CONFLICT"
   | "RATE_LIMITED"
@@ -84,6 +88,12 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CUSTOM_COLUMN_NAME_TAKEN: "This mandate already has a column with that name — map onto it instead.",
   TRIAGE_COMPANY_NOT_EDITABLE:
     "This company came from the market export, so its details are not yours to edit.",
+  CONTACT_LOOKUP_UNAVAILABLE: "Contact lookup is not set up on this deployment.",
+  // Distinct from a failure on purpose: nothing was written, so the same button works once the
+  // account is topped up.
+  CONTACT_LOOKUP_NO_CREDITS: "No contact lookup credits left this period.",
+  CONTACT_LOOKUP_FAILED: "Contact lookup didn't answer. Try again in a moment.",
+  CONTACT_LOOKUP_NO_PROFILE: "Add this person's LinkedIn profile URL first.",
 };
 
 /**
