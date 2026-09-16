@@ -85,8 +85,8 @@ describe("ReportsPage", () => {
     expect(within(rail).getByText("Diversity & DEI")).toBeInTheDocument();
     // Findings are computed from the report, not typed: the ceiling's rank and the slip both come
     // out of the disclosures and the cumulative coverage respectively.
-    expect(screen.getAllByText("38th percentile").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("36 days").length).toBeGreaterThan(0);
+    expect(screen.getByText("38th percentile")).toBeInTheDocument();
+    expect(screen.getByText("36 days")).toBeInTheDocument();
     expect(screen.getByText("6 nationalities")).toBeInTheDocument();
   });
 
@@ -95,7 +95,7 @@ describe("ReportsPage", () => {
     const user = userEvent.setup();
 
     renderPage();
-    await screen.findAllByText("36 days");
+    await screen.findByText("36 days");
 
     await user.click(screen.getByRole("radio", { name: "Full-mandate avg" }));
 
