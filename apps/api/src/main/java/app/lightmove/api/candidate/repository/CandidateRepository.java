@@ -70,10 +70,15 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
 
     /**
      * How an import recognises someone it has already mapped. Email first: it identifies a person
-     * rather than describing them, and survives two exports spelling the name differently. A list
-     * rather than {@code Optional} because nothing stops two rows carrying one address.
+     * rather than describing them, and survives two exports spelling the name differently. Any of
+     * the addresses the ledger holds for them counts, matched on the key the ledger dedupes by. A
+     * list rather than {@code Optional} because nothing stops two rows carrying one address.
      */
-    List<Candidate> findByProjectIdAndEmailIgnoreCase(UUID projectId, String email);
+    @Query("""
+            select distinct c from Candidate c join c.contacts k
+            where c.projectId = :projectId and k.channel = 'EMAIL' and k.valueKey = :emailKey
+            """)
+    List<Candidate> findByProjectIdAndEmailKey(UUID projectId, String emailKey);
 
     List<Candidate> findByProjectIdAndTriageCompanyIdIsNullAndFullNameIgnoreCase(
             UUID projectId, String fullName);

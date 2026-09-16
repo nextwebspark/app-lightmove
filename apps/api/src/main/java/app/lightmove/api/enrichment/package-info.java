@@ -1,7 +1,10 @@
 /**
  * <b>Enrichment — researching what the plugin could only point at.</b> A capture arrives with a name
- * and a LinkedIn URL; this package calls the vendor off the request thread and after the commit.
- * Split by subject ({@code candidate} / {@code company} / {@code common}), then by type.
+ * and a LinkedIn URL; this package calls the vendor for what it could not carry. Split by subject
+ * ({@code candidate} / {@code company} / {@code contact} / {@code common}), then by type.
+ *
+ * <p>Research runs after the commit and off the request thread. {@code contact} is the other shape —
+ * somebody presses a button and waits — and its own package doc says why it answers inline.
  *
  * <p><b>It never writes.</b> The answer goes back through one public method on the owning feature —
  * {@code CandidateService.applyResearch}, {@code TriageCompanyService.applyEnrichment} — which opens

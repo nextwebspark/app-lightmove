@@ -1,11 +1,13 @@
-import { Icon, ICONS } from "../layout/Icon";
+import type { ReactNode } from "react";
 import { toBrowsableUrl } from "../../lib/url";
 import { GRID_ICON_BUTTON } from "./DataGrid";
+import { Icon, ICONS } from "../layout/Icon";
+import { NetworkMark } from "./NetworkMark";
 
 /**
- * One icon link out to a company's presence somewhere — its site, LinkedIn, X. Renders nothing when
- * there is no URL, so a Links cell collapses to the handful a company actually publishes rather than
- * showing four icons of which three are dead.
+ * One icon link out to a company's presence somewhere — its site, LinkedIn, X. A dead icon is never
+ * drawn: without a URL it renders nothing, or with `reserve` an empty slot the size of the button,
+ * so a grid's Links cells keep every network in its own column whichever ones a row publishes.
  *
  * <p>The company name is taken separately from the URL because it is only ever the accessible label:
  * four identical "open link" buttons in a row tell a screen-reader user nothing about which company
@@ -21,14 +23,18 @@ export function CompanyLink({
   icon,
   label,
   companyName,
+  reserve = false,
 }: {
   url: string | null;
-  icon: string;
+  /** The glyph itself: a stroke {@link Icon} for a site, a network's own mark for a network. */
+  icon: ReactNode;
   label: string;
   companyName: string;
+  /** Hold the button's space when there is no URL, so the icons beside it stay in their columns. */
+  reserve?: boolean;
 }) {
   const href = toBrowsableUrl(url);
-  if (!href) return null;
+  if (!href) return reserve ? <span aria-hidden className="size-9 flex-none lg:size-6" /> : null;
   return (
     <a
       href={href}
@@ -38,7 +44,7 @@ export function CompanyLink({
       aria-label={`${companyName} on ${label}`}
       className={GRID_ICON_BUTTON}
     >
-      <Icon d={icon} size={13} />
+      {icon}
     </a>
   );
 }
@@ -63,8 +69,18 @@ export function CompanyLinks({
   if (!toBrowsableUrl(website) && !toBrowsableUrl(linkedinUrl)) return null;
   return (
     <span className="flex flex-none items-center">
-      <CompanyLink url={website} icon={ICONS.globe} label="website" companyName={companyName} />
-      <CompanyLink url={linkedinUrl} icon={ICONS.linkedin} label="LinkedIn" companyName={companyName} />
+      <CompanyLink
+        url={website}
+        icon={<Icon d={ICONS.globe} size={13} />}
+        label="website"
+        companyName={companyName}
+      />
+      <CompanyLink
+        url={linkedinUrl}
+        icon={<NetworkMark network="linkedin" size={14} />}
+        label="LinkedIn"
+        companyName={companyName}
+      />
     </span>
   );
 }

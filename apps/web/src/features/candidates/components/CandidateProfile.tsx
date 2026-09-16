@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Icon, ICONS } from "../../../components/layout/Icon";
+import { NetworkMark } from "../../../components/ui/NetworkMark";
 import { Button, Select, TextArea, useToast } from "../../../components/ui";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { DetailGrid, DetailPill, DetailTile } from "../../../components/ui/DetailList";
@@ -8,6 +8,9 @@ import { DrawerCloseButton } from "../../../components/ui/Drawer";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate, formatNumber } from "../../../lib/format";
 import { toBrowsableUrl } from "../../../lib/url";
+import { useQuery } from "@tanstack/react-query";
+import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
+import { ContactPanel } from "../../contactlookup/components/ContactPanel";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import * as candidatesApi from "../api/candidatesApi";
@@ -26,7 +29,6 @@ import {
   BackgroundFields,
   CareerFields,
   CompensationFields,
-  ContactFields,
   IdentityFields,
   SummaryFields,
 } from "./CandidateFieldGroups";
@@ -79,6 +81,15 @@ export function CandidateProfile({
 }) {
   const toast = useToast();
   const sections = useProfileSections();
+  /**
+   * Whether this deployment looks contacts up. A deployment fact, not a row one, so it is read once
+   * and kept — and a refused or failed read means no buttons rather than buttons that cannot work.
+   */
+  const lookupConfig = useQuery({
+    queryKey: contactLookupApi.CONTACT_LOOKUP_CONFIG_KEY,
+    queryFn: ({ signal }) => contactLookupApi.getContactLookupConfig(signal),
+    staleTime: Infinity,
+  });
   const body = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<EditableSection | null>(null);
 
@@ -363,23 +374,23 @@ export function CandidateProfile({
         <CollapsibleSection
           {...foldProps("contact")}
           title="Contact"
-          summary={joinFacts([candidate.email, candidate.phone])}
+          summary={joinFacts([
+            candidate.contacts.emails[0]?.address,
+            candidate.contacts.phones[0]?.number,
+            candidate.contacts.emails.some((entry) => entry.verified) ? "verified" : null,
+          ])}
           action={pencil("contact", "contact")}
         >
-          {editing === "contact" ? (
-            <SectionEditor
-              section="contact"
-              candidate={candidate}
-              save={replace}
-              doneMessage="Contact saved"
-              onDone={finish}
-              onCancel={() => setEditing(null)}
-            >
-              {(form) => <ContactFields register={form.register} errors={form.formState.errors} />}
-            </SectionEditor>
-          ) : (
-            <ContactTiles candidate={candidate} />
-          )}
+          <ContactPanel
+            projectId={projectId}
+            candidate={candidate}
+            canWrite={canWrite}
+            lookupOffered={lookupConfig.data?.enabled === true}
+            onSaved={onSaved}
+            editing={editing === "contact"}
+            onDone={finish}
+            onCancel={() => setEditing(null)}
+          />
         </CollapsibleSection>
 
         {visibleColumns.length > 0 && (
@@ -588,38 +599,7 @@ function ColumnsEditor({
   );
 }
 
-function ContactTiles({ candidate }: { candidate: Candidate }) {
-  const profileUrl = toBrowsableUrl(candidate.linkedinUrl);
-  return (
-    <DetailGrid>
-      <DetailTile label="Email" value={candidate.email} />
-      <DetailTile label="Phone" value={candidate.phone} />
-      {/* Through `toBrowsableUrl` rather than straight into the href. Every write is already gated
-          by SuppliedText, but trusting that from the render side makes this tile the one place a
-          value stored before the gate — or posted by the browser plugin, whose CandidateSource is
-          already in the schema — could reach a browser as something it should not follow.
-          `lib/url.ts` states the rule; the grids and the company panel already keep it. */}
-      <DetailTile
-        label="LinkedIn"
-        full
-        value={
-          profileUrl ? (
-            <a
-              href={profileUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="text-sky hover:underline"
-            >
-              {profileUrl}
-            </a>
-          ) : null
-        }
-      />
-    </DetailGrid>
-  );
-}
-
-/** The LinkedIn glyph beside the name, through the same guard as the Contact tile's text link. */
+/** LinkedIn's own mark beside the name, through the same guard as the Contact row's link. */
 function HeaderProfileLink({ linkedinUrl }: { linkedinUrl: string | null }) {
   const profileUrl = toBrowsableUrl(linkedinUrl);
   if (!profileUrl) return null;
@@ -629,9 +609,9 @@ function HeaderProfileLink({ linkedinUrl }: { linkedinUrl: string | null }) {
       target="_blank"
       rel="noreferrer noopener"
       aria-label="LinkedIn profile"
-      className="flex-none text-text3 transition hover:text-sky"
+      className="flex flex-none items-center opacity-80 transition hover:opacity-100"
     >
-      <Icon d={ICONS.linkedin} size={14} />
+      <NetworkMark network="linkedin" size={16} />
     </a>
   );
 }

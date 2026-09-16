@@ -1,0 +1,18 @@
+{
+  "status_code": 200,
+  "profile": {
+    "url": "https://www.linkedin.com/in/sample-profile",
+    "email": [],
+    "work_email": [],
+    "personal_email": [],
+    "work_email_status": [],
+    "phone": [
+      "+12065550100",
+      "651-555-0142",
+      "650 555 0177",
+      "6505550177",
+      "16585550163"
+    ],
+    "github": []
+  }
+}

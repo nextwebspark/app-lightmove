@@ -13,7 +13,8 @@ import { CompanyLink } from "../../../components/ui/CompanyLink";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { DataGridCell, type DataGridColumnLayout } from "../../../components/ui/DataGrid";
 import { TruncatedText } from "../../../components/ui/TruncatedText";
-import { ICONS } from "../../../components/layout/Icon";
+import { Icon, ICONS } from "../../../components/layout/Icon";
+import { NetworkMark } from "../../../components/ui/NetworkMark";
 import { formatMoney, joined } from "../../../lib/format";
 import type { CompanyResult, CompanySortField } from "../api/types";
 
@@ -65,25 +66,27 @@ export const companyColumns = helper.columns([
     id: "links",
     header: "Links",
     enableSorting: false,
-    meta: { share: 0, min: 84 },
+    meta: { share: 0, min: 112 },
     cell: (info) => {
       const company = info.row.original;
       return (
         <span className="flex justify-start gap-1">
-          <CompanyLink url={company.website} icon={ICONS.globe} label="website" companyName={company.companyName} />
+          <CompanyLink url={company.website} icon={<Icon d={ICONS.globe} size={13} />} label="website" companyName={company.companyName} reserve />
           <CompanyLink
             url={company.companyLinkedinUrl}
-            icon={ICONS.linkedin}
+            icon={<NetworkMark network="linkedin" size={14} />}
             label="LinkedIn"
             companyName={company.companyName}
+            reserve
           />
           <CompanyLink
             url={company.facebookUrl}
-            icon={ICONS.facebook}
+            icon={<NetworkMark network="facebook" size={14} />}
             label="Facebook"
             companyName={company.companyName}
+            reserve
           />
-          <CompanyLink url={company.twitterUrl} icon={ICONS.x} label="X" companyName={company.companyName} />
+          <CompanyLink url={company.twitterUrl} icon={<NetworkMark network="x" size={14} />} label="X" companyName={company.companyName} reserve />
         </span>
       );
     },

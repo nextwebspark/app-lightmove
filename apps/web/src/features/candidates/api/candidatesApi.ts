@@ -4,6 +4,7 @@ import type {
   CandidatesPage,
   CandidateStatus,
   SaveCandidatePayload,
+  SaveContactsPayload,
 } from "./types";
 
 /**
@@ -76,6 +77,21 @@ export function updateCandidate(
   return request<Candidate>(`/projects/${projectId}/candidates/${candidateId}`, {
     method: "PUT",
     body: candidate,
+  });
+}
+
+/**
+ * The Contact section's save. Its own write rather than a field of `updateCandidate`, because it
+ * replaces a list and the profile's other sections must not be able to touch it by replaying.
+ */
+export function replaceContacts(
+  projectId: string,
+  candidateId: string,
+  contacts: SaveContactsPayload,
+): Promise<Candidate> {
+  return request<Candidate>(`/projects/${projectId}/candidates/${candidateId}/contacts`, {
+    method: "PUT",
+    body: contacts,
   });
 }
 

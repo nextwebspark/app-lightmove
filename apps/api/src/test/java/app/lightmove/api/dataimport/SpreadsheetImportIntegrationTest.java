@@ -148,6 +148,11 @@ class SpreadsheetImportIntegrationTest extends FlowTestSupport {
         // V36's whole point: a researcher meets people at companies the universe does not carry.
         assertThat(people.get("candidates").get(0).get("triageCompanyId").isNull()).isTrue();
         assertThat(people.get("candidates").get(0).get("source").asText()).isEqualTo("csv");
+        // The address the file carried is in the ledger under the file's own door.
+        JsonNode emails = people.get("candidates").get(0).get("contacts").get("emails");
+        assertThat(emails).hasSize(1);
+        assertThat(emails.get(0).get("address").asText()).isEqualTo("layla@acwa.example");
+        assertThat(emails.get(0).get("source").asText()).isEqualTo("csv");
     }
 
     @Test

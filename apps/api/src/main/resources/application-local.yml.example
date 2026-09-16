@@ -99,6 +99,13 @@ lightmove:
   #     api-key: CHANGEME
   #   harvestapi:
   #     api-key: CHANGEME
+  #
+  # `contactout` sits beside `provider` rather than under it: the drawer's Find email / Find phone
+  # buttons are a separate account with their own bill, so `provider: off` leaves them working and
+  # a key here alone is enough. Left empty they are simply not offered, so an unfilled copy of this
+  # file still runs. Each press spends one credit of that channel's monthly pool.
+  #   contactout:
+  #     api-key: CHANGEME
 
   # The Companies screen's map view. Paste your account's **Default public token** — the one already
   # listed at account.mapbox.com → Tokens — and nothing else: it both draws the globe and geocodes,

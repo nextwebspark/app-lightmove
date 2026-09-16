@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toBrowsableUrl } from "./url";
+import { toBrowsableUrl, toReadableUrl } from "./url";
 
 /**
  * The client half of a rule the server also enforces, so the cases below are the ones
@@ -32,5 +32,13 @@ describe("toBrowsableUrl", () => {
     expect(toBrowsableUrl(null)).toBeNull();
     expect(toBrowsableUrl(undefined)).toBeNull();
     expect(toBrowsableUrl("   ")).toBeNull();
+  });
+});
+
+describe("toReadableUrl", () => {
+  it("prints the address without its scheme, www and trailing slash", () => {
+    expect(toReadableUrl("https://www.linkedin.com/in/hakanalac/")).toBe("linkedin.com/in/hakanalac");
+    expect(toReadableUrl("http://acme.com")).toBe("acme.com");
+    expect(toReadableUrl("https://linkedin.com/in/a-b-1234/")).toBe("linkedin.com/in/a-b-1234");
   });
 });
