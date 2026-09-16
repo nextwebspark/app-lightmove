@@ -1,0 +1,24 @@
+{
+  "status_code": 200,
+  "profile": {
+    "url": "https://www.linkedin.com/in/sample-profile",
+    "email": [
+      "sample.person@gmail.com",
+      "s.person@retailco.example",
+      "sample.person@holdings.example",
+      "listed.only@elsewhere.example"
+    ],
+    "work_email": [
+      "s.person@retailco.example",
+      "sample.person@holdings.example"
+    ],
+    "personal_email": [
+      "sample.person@gmail.com"
+    ],
+    "work_email_status": {
+      "sample.person@holdings.example": "Verified"
+    },
+    "phone": [],
+    "github": []
+  }
+}
