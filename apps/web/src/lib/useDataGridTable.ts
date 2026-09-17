@@ -99,12 +99,23 @@ export function useDataGridTable<
     [sort],
   );
 
+  // `pinning` is the grid's own always-pinned column (its id column); `layout.pinnedIds` is what a
+  // user froze on top of that, from the header menu. Merged rather than handed over separately so
+  // TanStack's pinning API — `column.pin("start")` / `column.pin(false)` — has one state to read and
+  // write, the same way `columnOrder` below is `layout.order` and nothing else.
+  const columnPinning = useMemo<ColumnPinningState>(() => {
+    const basePinned = pinning.start ?? [];
+    return {
+      start: [...basePinned, ...layout.pinnedIds.filter((id) => !basePinned.includes(id))],
+      end: pinning.end ?? [],
+    };
+  }, [pinning, layout.pinnedIds]);
+
   const options = {
     features,
     columns,
     data: data.length > 0 ? data : (NO_ROWS as readonly TData[]),
     getRowId,
-    initialState: { columnPinning: pinning },
     manualSorting: pagination === undefined,
     enableMultiSort: false,
     enableSortingRemoval: false,
@@ -114,6 +125,7 @@ export function useDataGridTable<
     state: {
       sorting,
       columnOrder: layout.order,
+      columnPinning,
       ...(columnVisibility && { columnVisibility }),
       ...(pagination && { pagination }),
       ...(rowSelection && { rowSelection }),

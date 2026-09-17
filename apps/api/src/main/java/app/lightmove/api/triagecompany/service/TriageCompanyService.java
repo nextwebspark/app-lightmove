@@ -38,15 +38,19 @@ import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -72,6 +76,32 @@ public class TriageCompanyService {
 
     private static final Sort NEWEST_FIRST = Sort.by(Sort.Direction.DESC, "createdAt");
 
+    /**
+     * The one sort token deliberately kept outside {@link TriageCompanySortField}'s allowlist — see
+     * {@link #findOrderedByExecutiveStatus} and the repository methods it calls.
+     */
+    private static final String EXECUTIVE_STATUS_SORT_TOKEN = "executiveStatus";
+
+    /**
+     * The Status column filter's wire tokens, mapped to the enum names {@code app_lm_project_candidate}
+     * stores them under. Duplicated here rather than reusing {@code candidate}'s own
+     * {@code CandidateStatus} enum — the same reason the rank query below embeds its own {@code CASE}
+     * literals instead of importing it: {@code triagecompany} does not depend on {@code candidate}, by
+     * the rule {@code candidate} itself states from the other side. The same spelling is mirrored again
+     * in {@code CandidateRepository}'s ranking {@code CASE} and in
+     * {@code MappedExecutiveLookupAdapter#triageCompanyIdsWithExecutiveStatusIn} — a rename should grep
+     * for all three; {@code CandidateRepositoryStatusOrderTest} guards the one of those three that would
+     * otherwise degrade silently.
+     */
+    private static final Map<String, String> EXECUTIVE_STATUS_TOKENS = Map.of(
+            "identified", "IDENTIFIED",
+            "contacted", "CONTACTED",
+            "engaged", "ENGAGED",
+            "interested", "INTERESTED",
+            "notInterested", "NOT_INTERESTED",
+            "offLimits", "OFF_LIMITS",
+            "outOfScope", "OUT_OF_SCOPE");
+
     private final TriageCompanyRepository triaged;
     private final TriageCompanyWriter writer;
     private final ProjectRepository projects;
@@ -82,12 +112,14 @@ public class TriageCompanyService {
     private final ApplicationEventPublisher events;
     private final ProjectStreamPublisher stream;
     private final CompanyListSettings listConfig;
+    private final MappedExecutiveLookup executives;
 
     public TriageCompanyService(TriageCompanyRepository triaged, TriageCompanyWriter writer,
                                 ProjectRepository projects, StrategyService strategy,
                                 CustomColumnService customColumns, AuditService audit,
                                 ApolloCompanyQueryService market, ApplicationEventPublisher events,
-                                ProjectStreamPublisher stream, LightMoveProperties properties) {
+                                ProjectStreamPublisher stream, LightMoveProperties properties,
+                                MappedExecutiveLookup executives) {
         this.triaged = triaged;
         this.writer = writer;
         this.projects = projects;
@@ -98,6 +130,7 @@ public class TriageCompanyService {
         this.events = events;
         this.stream = stream;
         this.listConfig = properties.company().list();
+        this.executives = executives;
     }
 
     /** One stage, with all three counts: the stage switcher is always visible, so a badge cannot lag. */
@@ -116,16 +149,122 @@ public class TriageCompanyService {
         TriageCompanyStatus status = resolveStatus(criteria.status());
         requireProject(projectId, workspaceId);
 
-        PageRequest pageRequest = PageRequest.of(page, size, resolveSort(criteria));
-        String nameQuery = criteria.nameQuery() == null ? "" : criteria.nameQuery().trim();
-        Page<TriageCompany> found = nameQuery.isEmpty()
-                ? triaged.findByProjectIdAndStatus(projectId, status, pageRequest)
-                : triaged.findByProjectIdAndStatusAndCompanyNameContainingIgnoreCase(
-                        projectId, status, nameQuery, pageRequest);
+        String companyName = blankToNull(criteria.nameQuery());
+        String executiveName = blankToNull(criteria.executiveQuery());
+        List<String> executiveStatuses = resolveExecutiveStatuses(criteria.executiveStatuses());
+        Page<TriageCompany> found = EXECUTIVE_STATUS_SORT_TOKEN.equals(criteria.sort())
+                ? findOrderedByExecutiveStatus(projectId, status, companyName, executiveName,
+                        executiveStatuses, resolveDirection(criteria.direction()), PageRequest.of(page, size))
+                : findWithFilters(projectId, status, companyName, executiveName, executiveStatuses,
+                        PageRequest.of(page, size, resolveSort(criteria)));
 
         return new TriageCompaniesResponse(
                 found.getContent().stream().map(TriageCompanyService::toDto).toList(),
                 found.getTotalElements(), page, size, countsFor(projectId));
+    }
+
+    /**
+     * The ordinary path: the server's own ORDER BY, over whichever of the grid's three header filters —
+     * company name, executive name, executive status, any combination or none — the caller supplied.
+     * The executive-based two are resolved to a company id set through {@link #executives} before this
+     * ever reaches the repository, which is why {@code triagecompany}'s own queries need nothing more
+     * than that set and the plain company-name filter they already had.
+     */
+    private Page<TriageCompany> findWithFilters(UUID projectId, TriageCompanyStatus status,
+                                                String companyName, String executiveName,
+                                                List<String> executiveStatuses,
+                                                PageRequest pageRequest) {
+        if (executiveName == null && executiveStatuses.isEmpty()) {
+            return companyName == null
+                    ? triaged.findByProjectIdAndStatus(projectId, status, pageRequest)
+                    : triaged.findByProjectIdAndStatusAndCompanyNameContainingIgnoreCase(
+                            projectId, status, companyName, pageRequest);
+        }
+        Set<UUID> matchingIds = matchingExecutiveIds(projectId, executiveName, executiveStatuses);
+        if (matchingIds.isEmpty()) {
+            return Page.empty(pageRequest);
+        }
+        return triaged.findByProjectIdAndStatusAndIdInAndCompanyNameFilter(
+                projectId, status, matchingIds, companyName, pageRequest);
+    }
+
+    /**
+     * Companies with a mapped executive answering the Executive-name filter, the Status checkbox
+     * filter, or — when both are supplied — their intersection: a company is kept only by an executive
+     * satisfying both at once is not what two independent header filters mean, so each is resolved on
+     * its own and the two sets are narrowed together rather than asking either lookup to know about
+     * the other.
+     */
+    private Set<UUID> matchingExecutiveIds(UUID projectId, String executiveName, List<String> executiveStatuses) {
+        Set<UUID> byName = executiveName == null
+                ? null : executives.triageCompanyIdsMatchingExecutiveName(projectId, executiveName);
+        Set<UUID> byStatus = executiveStatuses.isEmpty()
+                ? null : executives.triageCompanyIdsWithExecutiveStatusIn(projectId, executiveStatuses);
+        if (byName == null) {
+            return byStatus;
+        }
+        if (byStatus == null) {
+            return byName;
+        }
+        Set<UUID> intersection = new HashSet<>(byName);
+        intersection.retainAll(byStatus);
+        return intersection;
+    }
+
+    /**
+     * The one sort {@link #resolveSort} cannot express — see {@link MappedExecutiveLookup}. No
+     * {@code Sort} on the {@code Pageable}: the ordering is baked into the query {@link #executives}
+     * runs on the other side of the boundary, which is also why this asks for ids and re-fetches the
+     * rows rather than asking {@code triaged} to rank its own page — that data lives in {@code candidate}.
+     */
+    private Page<TriageCompany> findOrderedByExecutiveStatus(UUID projectId, TriageCompanyStatus status,
+                                                              String companyName, String executiveName,
+                                                              List<String> executiveStatuses,
+                                                              SortDirection direction, PageRequest pageRequest) {
+        Page<UUID> ranked = executives.triageCompanyIdsRankedByExecutiveStatus(projectId, status,
+                companyName, executiveName, executiveStatuses, direction == SortDirection.ASC, pageRequest);
+        if (ranked.isEmpty()) {
+            return new PageImpl<>(List.of(), pageRequest, ranked.getTotalElements());
+        }
+        Map<UUID, TriageCompany> byId = triaged.findAllById(ranked.getContent()).stream()
+                .collect(Collectors.toMap(TriageCompany::getId, company -> company));
+        // A ranked id can vanish between the two reads — another request deleted or moved it out of
+        // this stage after the rank query saw it and before this one did. Dropped rather than left as
+        // a null `toDto` would throw on: a row that no longer qualifies is exactly what a stale read
+        // should leave out, not a 500 for whoever happened to page at the wrong moment.
+        List<TriageCompany> ordered = ranked.getContent().stream()
+                .map(byId::get)
+                .filter(Objects::nonNull)
+                .toList();
+        return new PageImpl<>(ordered, pageRequest, ranked.getTotalElements());
+    }
+
+    /**
+     * Validates and translates the Status column's checkbox filter — a caller-supplied wire token the
+     * client did not invent is a 400, exactly as {@link #resolveStatus} treats an unknown stage. An
+     * absent or empty list resolves to empty, which {@link #findWithFilters} and
+     * {@link #findOrderedByExecutiveStatus} both read as "no opinion" rather than "match nothing".
+     */
+    private static List<String> resolveExecutiveStatuses(List<String> tokens) {
+        if (tokens == null || tokens.isEmpty()) {
+            return List.of();
+        }
+        return tokens.stream().map(token -> {
+            String resolved = EXECUTIVE_STATUS_TOKENS.get(token);
+            if (resolved == null) {
+                throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown executive status: " + token);
+            }
+            return resolved;
+        }).collect(Collectors.toList());
+    }
+
+    /** Null means "no opinion" to the query below; a caller's blank string means the same thing. */
+    private static String blankToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     /**
@@ -150,13 +289,21 @@ public class TriageCompanyService {
     /**
      * One of this mandate's own company rows — the seam {@code candidate} maps an executive through.
      * It adds that the company belongs to <i>that</i> project, so a candidate cannot be filed against
-     * another mandate's company by id.
+     * another mandate's company by id. {@code newMapping} clears {@code noExecutiveFound} as part of
+     * that resolution when true: an executive being newly mapped here is exactly the event that
+     * disproves the flag, but an unrelated edit of someone already mapped to this company (a title, a
+     * status) merely names it again and must not silently revive a company the mandate already ruled
+     * out. Runs inside the candidate write this backs — a validation failure afterward (a duplicate
+     * name, a held profile) rolls the clear back with everything else.
      */
-    @Transactional(readOnly = true)
-    public TriageCompanyResponse requireCompanyOfProject(UUID projectId, UUID triageCompanyId) {
-        return triaged.findByIdAndProjectId(triageCompanyId, projectId)
-                .map(TriageCompanyService::toDto)
+    @Transactional
+    public TriageCompanyResponse requireCompanyOfProject(UUID projectId, UUID triageCompanyId, boolean newMapping) {
+        TriageCompany company = triaged.findByIdAndProjectId(triageCompanyId, projectId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        if (newMapping) {
+            company.unflagNoExecutiveFound();
+        }
+        return toDto(company);
     }
 
     /**
@@ -281,12 +428,19 @@ public class TriageCompanyService {
      * The research door: the enrichment worker files a captured executive's employer into the
      * universe. Unlike {@link #capture}, a name already held answers with the existing row rather
      * than a refusal. No audit event of its own — this row is a consequence of the capture.
+     *
+     * <p>Clears {@code noExecutiveFound} the same way {@link #requireCompanyOfProject} does: this is
+     * {@code candidate}'s other public seam into a company, and the row it hands back is about to be
+     * mapped to the executive whose research triggered this call — an already-held company the mandate
+     * had flagged "nobody fits" must not keep saying so once research proves otherwise. A newly created
+     * row is unaffected either way, since it starts unflagged.
      */
     @Transactional
     public TriageCompanyResponse captureFromResearch(UUID projectId, UUID addedBy,
                                                      CapturedCompanyDetails details) {
         ResolvedCapture resolved = resolveCapture(projectId, addedBy, details,
                 TriageCompanySource.EXTENSION, TriageCompanyStatus.IN_UNIVERSE);
+        resolved.company().unflagNoExecutiveFound();
         if (resolved.created()) {
             announceForResearch(resolved.company(), projectId);
         }
@@ -499,11 +653,27 @@ public class TriageCompanyService {
         if (request.note() != null) {
             company.annotate(request.note());
         }
+        if (request.noExecutiveFound() != null) {
+            if (request.noExecutiveFound()) {
+                company.flagNoExecutiveFound();
+            } else {
+                company.unflagNoExecutiveFound();
+            }
+        }
 
-        audit.event(ProjectEventType.TRIAGE_COMPANY_MOVED)
+        // The event type is the pre-existing one regardless of which fields moved: this endpoint has
+        // always answered a note-only edit the same way. The detail flags make that legible rather than
+        // renaming the event, so a note edit or a flag toggle does not read as a stage change.
+        var event = audit.event(ProjectEventType.TRIAGE_COMPANY_MOVED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
-                .detail("triageCompanyId", triageCompanyId.toString())
-                .record();
+                .detail("triageCompanyId", triageCompanyId.toString());
+        if (request.status() != null) {
+            event = event.detail("status", request.status());
+        }
+        if (request.noExecutiveFound() != null) {
+            event = event.detail("noExecutiveFound", String.valueOf(request.noExecutiveFound()));
+        }
+        event.record();
         return toDto(company);
     }
 
@@ -705,6 +875,7 @@ public class TriageCompanyService {
     private static TriageCompanyResponse toDto(TriageCompany company) {
         return new TriageCompanyResponse(company.getId(), company.getApolloAccountId(),
                 company.getSource().value(), company.getStatus().value(), company.getNote(),
+                company.isNoExecutiveFound(),
                 company.getCompanyName(), company.getIndustry(), company.getCompanyCountry(),
                 company.getCompanyCity(), company.getNumEmployees(), company.getAnnualRevenue(),
                 company.getWebsite(), company.getCompanyLinkedinUrl(), company.getFoundedYear(),

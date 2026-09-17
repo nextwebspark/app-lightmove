@@ -14,12 +14,14 @@ import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import { useGridSort, type GridSort } from "../../../lib/useGridSort";
 import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
-import type { Candidate, CandidatesPage } from "../../candidates/api/types";
+import type { Candidate, CandidatesPage, CandidateStatus } from "../../candidates/api/types";
 import {
   CandidateDrawer,
   type CandidateCompanyContext,
 } from "../../candidates/components/CandidateDrawer";
 import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandidateDialog";
+import { CANDIDATE_STATUSES } from "../../candidates/lib/candidateVocabulary";
+import { useChangeCandidateStatus } from "../../candidates/lib/useChangeCandidateStatus";
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import { canExecuteProjectWork } from "../../projects/lib/access";
@@ -43,6 +45,7 @@ import {
 import { awaitingResearch, toTriageRows } from "../lib/triageRows";
 import { stageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
 import { useProjectStream, type ProjectStreamKind } from "../lib/useProjectStream";
+import { useSaveCompanyNote } from "../lib/useSaveCompanyNote";
 
 /**
  * The grid's built-in columns for the layout hook. A mandate's own custom columns are deliberately
@@ -91,9 +94,11 @@ export function TriageStagePage() {
   if (!stage) {
     return <Navigate to={`/projects/${project.id}/companies/${TRIAGE_STAGES[0].slug}`} replace />;
   }
-  // Keyed on the stage so switching pages resets the search box and the page number with it, rather
-  // than carrying "page 4 of the universe" into a shortlist that has one page.
-  return <TriageStage key={stage.slug} />;
+  // Keyed on the project too, not just the stage: the outlet context updates in place on a project
+  // switch (react-router does not remount a route element just because a param changed), so without
+  // this a mandate switch while staying on the same stage tab would carry the previous mandate's
+  // search box, page number and seen-executive-statuses filter options into the new one.
+  return <TriageStage key={`${project.id}:${stage.slug}`} />;
 }
 
 function TriageStage() {
@@ -110,13 +115,35 @@ function TriageStage() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [busyId, setBusyId] = useState<string | null>(null);
+  /** The Executive column's own header filter — independent of the Company one above it. */
+  const [executiveQuery, setExecutiveQuery] = useState("");
+  const [debouncedExecutiveQuery, setDebouncedExecutiveQuery] = useState("");
+  /** The Status column's own header filter — a closed checkbox set, applied with no debounce. */
+  const [executiveStatuses, setExecutiveStatuses] = useState<string[]>([]);
+  /**
+   * Every row id with a write in flight — a company's move or no-executive-found flag, or a
+   * candidate's status change — so each row's own buttons disable independently. A single shared id
+   * here would let one row's mutation settling re-enable a different row still mid-flight, since the
+   * second write's start would already have overwritten the first row's id.
+   */
+  const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(() => new Set());
+  const markBusy = (id: string) =>
+    setBusyIds((current) => (current.has(id) ? current : new Set(current).add(id)));
+  const clearBusy = (id: string) =>
+    setBusyIds((current) => {
+      if (!current.has(id)) return current;
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
   const [openCompany, setOpenCompany] = useState<OpenCompany | null>(null);
   const [pendingRemoval, setPendingRemoval] = useState<TriageCompany | null>(null);
   const [profile, setProfile] = useState<OpenProfile | null>(null);
   const [pendingCandidateRemoval, setPendingCandidateRemoval] = useState<Candidate | null>(null);
   const [importing, setImporting] = useState(false);
   const [managingColumns, setManagingColumns] = useState(false);
+  /** Set when "Edit field" is opened from a header menu, so the dialog lands already renaming it. */
+  const [editColumnId, setEditColumnId] = useState<string | null>(null);
   const [sort, setSort] = useGridSort("companies", project.id, TRIAGE_SORT_FIELDS, DEFAULT_SORT);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [mapPreferences, setMapPreferences] = useTalentMapPreferences(project.id);
@@ -180,9 +207,18 @@ function TriageStage() {
     return () => clearTimeout(timer);
   }, [query]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedExecutiveQuery(executiveQuery), 300);
+    return () => clearTimeout(timer);
+  }, [executiveQuery]);
+
   // Any change to what is being asked returns to the first page. Staying on page 4 of a search that
   // now matches two companies shows an empty grid over a non-empty result.
-  useEffect(() => setPage(0), [debouncedQuery, sort]);
+  useEffect(
+    () => setPage(0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [debouncedQuery, debouncedExecutiveQuery, executiveStatuses.join(","), sort],
+  );
 
   /**
    * Every write invalidates the whole prefix rather than this stage's key. A move changes two stages
@@ -256,7 +292,16 @@ function TriageStage() {
   };
 
   const companies = useQuery({
-    queryKey: triageApi.TRIAGE_KEY(project.id, stage.status, page, pageSize, debouncedQuery, sort),
+    queryKey: triageApi.TRIAGE_KEY(
+      project.id,
+      stage.status,
+      page,
+      pageSize,
+      debouncedQuery,
+      debouncedExecutiveQuery,
+      executiveStatuses,
+      sort,
+    ),
     queryFn: ({ signal }) =>
       triageApi.getTriageCompanies(
         project.id,
@@ -264,6 +309,8 @@ function TriageStage() {
         page,
         pageSize,
         debouncedQuery,
+        debouncedExecutiveQuery,
+        executiveStatuses,
         sort,
         signal,
       ),
@@ -312,7 +359,13 @@ function TriageStage() {
     queryKey: candidatesApi.CANDIDATES_KEY(project.id, { unmapped: true }),
     queryFn: ({ signal }) =>
       candidatesApi.getCandidates(project.id, { unmapped: true }, signal),
-    enabled: view === "table" && stage.status === "inUniverse" && !debouncedQuery && page === lastPage,
+    enabled:
+      view === "table" &&
+      stage.status === "inUniverse" &&
+      !debouncedQuery &&
+      !debouncedExecutiveQuery &&
+      executiveStatuses.length === 0 &&
+      page === lastPage,
     refetchInterval: researchPoll,
   });
 
@@ -320,6 +373,34 @@ function TriageStage() {
     ...(mappedPeople.data?.candidates ?? []),
     ...(unmappedPeople.data?.candidates ?? []),
   ];
+
+  /**
+   * Which Status values the Status column's header menu offers — only the ones actually borne by an
+   * executive the mandate has mapped, so a mandate with just Identified and Contacted people never
+   * sees the other five sitting there unusable. Learned only from an unfiltered read (the component
+   * remounts fresh per project and stage, so the first page is always one): once the status filter
+   * itself narrows what loads, that narrower set must not overwrite the true one the checkboxes
+   * describe.
+   */
+  const [seenExecutiveStatuses, setSeenExecutiveStatuses] = useState<Set<CandidateStatus>>(
+    () => new Set(),
+  );
+  useEffect(() => {
+    if (executiveStatuses.length > 0 || visiblePeople.current.length === 0) return;
+    setSeenExecutiveStatuses((current) => {
+      const next = new Set(current);
+      for (const candidate of visiblePeople.current) next.add(candidate.status);
+      return next.size === current.size ? current : next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mappedPeople.data, unmappedPeople.data, executiveStatuses.length]);
+  const executiveStatusOptions = useMemo(
+    () =>
+      CANDIDATE_STATUSES.filter((status) => seenExecutiveStatuses.has(status.value)).map(
+        (status) => ({ value: status.value, label: status.label }),
+      ),
+    [seenExecutiveStatuses],
+  );
 
   /** The whole stage as points, read once when the globe opens and again when the mandate changes. */
   const talentMap = useQuery({
@@ -357,15 +438,20 @@ function TriageStage() {
     );
   }, [polledLocations, queryClient, project.id, stage.status]);
 
-  const rows = useMemo(
-    () =>
-      toTriageRows(
-        companies.data?.companies ?? [],
-        mappedPeople.data?.candidates ?? [],
-        unmappedPeople.data?.candidates ?? [],
-      ),
-    [companies.data, mappedPeople.data, unmappedPeople.data],
-  );
+  const rows = useMemo(() => {
+    // The server's Status filter is company-level (EXISTS: does this company have a matching
+    // executive at all), so a page can carry a company for one matching person among several. The
+    // grid's own rows are people, not companies, so a ticked status also narrows which of a kept
+    // company's executives get a line — otherwise ticking "Contacted" would still show its "Engaged"
+    // colleague on the row beneath.
+    const people =
+      executiveStatuses.length === 0
+        ? (mappedPeople.data?.candidates ?? [])
+        : (mappedPeople.data?.candidates ?? []).filter((candidate) =>
+            executiveStatuses.includes(candidate.status),
+          );
+    return toTriageRows(companies.data?.companies ?? [], people, unmappedPeople.data?.candidates ?? []);
+  }, [companies.data, mappedPeople.data, unmappedPeople.data, executiveStatuses]);
 
   /**
    * What the two people reads could not fit. Both are capped by the server, and a mapping that ran
@@ -388,7 +474,7 @@ function TriageStage() {
       toast(`${company.companyName} moved to ${MOVE_LABELS[status]}`);
     },
     onError: (error) => toast(messageFor(error)),
-    onSettled: () => setBusyId(null),
+    onSettled: (_data, _error, { company }) => clearBusy(company.id),
   });
 
   const remove = useMutation({
@@ -399,7 +485,7 @@ function TriageStage() {
       toast(`${company.companyName} removed from this mandate`);
     },
     onError: (error) => toast(messageFor(error)),
-    onSettled: () => setBusyId(null),
+    onSettled: (_data, _error, company) => clearBusy(company.id),
   });
 
   const removeCandidate = useMutation({
@@ -413,6 +499,20 @@ function TriageStage() {
     },
     onError: (error) => toast(messageFor(error)),
   });
+
+  const markNoExecutiveFound = useMutation({
+    mutationFn: (company: TriageCompany) =>
+      triageApi.updateTriageCompany(project.id, company.id, { noExecutiveFound: true }),
+    onSuccess: (_result, company) => {
+      refreshEveryStage();
+      toast(`${company.companyName}: marked no executive found`);
+    },
+    onError: (error) => toast(messageFor(error)),
+    onSettled: (_data, _error, company) => clearBusy(company.id),
+  });
+
+  const saveNote = useSaveCompanyNote(project.id, refreshEveryStage);
+  const changeCandidateStatus = useChangeCandidateStatus(project.id, refreshPeople);
 
   // A page that outlives its rows — the last company on page 3 was moved away — would otherwise sit
   // on an empty grid with no way back but the pager.
@@ -454,7 +554,11 @@ function TriageStage() {
         open={managingColumns}
         projectId={project.id}
         columns={customColumns}
-        onClose={() => setManagingColumns(false)}
+        initialRenameId={editColumnId ?? undefined}
+        onClose={() => {
+          setManagingColumns(false);
+          setEditColumnId(null);
+        }}
       />
 
       {view === "map" ? (
@@ -495,9 +599,40 @@ function TriageStage() {
           onLayoutChange={setLayout}
           loading={companies.isFetching}
           error={companies.isError}
-          emptyMessage={debouncedQuery ? "No companies match that search." : stage.emptyMessage}
+          emptyMessage={
+            debouncedQuery || debouncedExecutiveQuery || executiveStatuses.length > 0
+              ? "No companies match that search."
+              : stage.emptyMessage
+          }
+          columnFilters={{
+            name: {
+              value: query,
+              onChange: setQuery,
+              "aria-label": "Filter by company name",
+            },
+            executive: {
+              value: executiveQuery,
+              onChange: setExecutiveQuery,
+              "aria-label": "Filter by executive name",
+            },
+            ...(executiveStatusOptions.length > 1
+              ? {
+                  executiveStatus: {
+                    kind: "check" as const,
+                    options: executiveStatusOptions,
+                    selected: executiveStatuses,
+                    onChange: setExecutiveStatuses,
+                    "aria-label": "Filter by status",
+                  },
+                }
+              : {}),
+          }}
+          onEditColumn={(customColumnId) => {
+            setEditColumnId(customColumnId);
+            setManagingColumns(true);
+          }}
           onMove={(company, status) => {
-            setBusyId(company.id);
+            markBusy(company.id);
             move.mutate({ company, status });
           }}
           onDelete={setPendingRemoval}
@@ -507,10 +642,22 @@ function TriageStage() {
               company: { triageCompanyId: company.id, companyName: company.companyName },
             })
           }
+          onMarkNoExecutiveFound={(company) => {
+            markBusy(company.id);
+            markNoExecutiveFound.mutate(company);
+          }}
+          onSaveNote={(company, note) => saveNote.mutateAsync({ company, note })}
+          onChangeCandidateStatus={(candidate, status) => {
+            markBusy(candidate.id);
+            changeCandidateStatus.mutate(
+              { candidateId: candidate.id, status },
+              { onSettled: () => clearBusy(candidate.id) },
+            );
+          }}
           onEditCandidate={(candidate) => setProfile({ candidate, company: null })}
           onRemoveCandidate={setPendingCandidateRemoval}
           onOpenCompany={(company) => setOpenCompany({ company })}
-          busyId={busyId}
+          busyIds={busyIds}
           canWrite={canWrite}
         />
 
@@ -541,7 +688,7 @@ function TriageStage() {
         onClose={() => setOpenCompany(null)}
         onSaved={refreshEverything}
         onMove={(company, status) => {
-          setBusyId(company.id);
+          markBusy(company.id);
           setOpenCompany(null);
           move.mutate({ company, status });
         }}
@@ -557,6 +704,11 @@ function TriageStage() {
             company: { triageCompanyId: company.id, companyName: company.companyName },
           });
         }}
+        onMarkNoExecutiveFound={(company) => {
+          markBusy(company.id);
+          markNoExecutiveFound.mutate(company);
+        }}
+        markingNoExecutiveFound={!!openCompany?.company && busyIds.has(openCompany.company.id)}
       />
 
       <CandidateDrawer
@@ -581,7 +733,7 @@ function TriageStage() {
         removing={remove.isPending}
         onCancel={() => setPendingRemoval(null)}
         onConfirm={(company) => {
-          setBusyId(company.id);
+          markBusy(company.id);
           remove.mutate(company);
         }}
       />

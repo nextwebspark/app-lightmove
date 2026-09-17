@@ -36,6 +36,9 @@ export const ICONS = {
   expand: "m13 17 5-5-5-5M6 17l5-5-5-5",
   plus: "M12 5v14M5 12h14",
   arrowRight: "M5 12h14M13 6l6 6-6 6",
+  arrowLeft: "M19 12H5M12 19l-7-7 7-7",
+  arrowUp: "M12 19V5M5 12l7-7 7 7",
+  arrowDown: "M12 5v14M19 12l-7 7-7-7",
   /** A check inside a circle — the Position wizard's "this field now holds something" affordance. */
   checkCircle: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M8.5 12.2l2.3 2.3 4.7-4.7",
   uploadCloud: "M12 13v8m0-8-3 3m3-3 3 3M20 16.7A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9",
@@ -58,6 +61,8 @@ export const ICONS = {
   search: "M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm10 18-4.3-4.3",
   /** A search that found nobody — the report's empty market slice. */
   searchX: "M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm10 18-4.3-4.3M13.5 8.5l-5 5M8.5 8.5l5 5",
+  /** A funnel — a column's header menu has narrowed the grid by this one. */
+  filter: "M22 3H2l8 9.46V19l4 2v-8.54L22 3Z",
   globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.5 9h17M3.5 15h17M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z",
   // Stroked like every other glyph here rather than the filled brand mark, which would be the only
   // filled icon in the app and would need its own component to hold it.

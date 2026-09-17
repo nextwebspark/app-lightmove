@@ -1,10 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { Button, FormError, useToast } from "../../../components/ui";
 import { DrawerCloseButton } from "../../../components/ui/Drawer";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
+import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import * as candidatesApi from "../api/candidatesApi";
@@ -71,6 +72,8 @@ export function AddCandidateForm({
     defaultValues: { ...EMPTY_FORM, employerName: company?.companyName ?? "" },
   });
   const { register, formState } = form;
+  const formEl = useRef<HTMLFormElement>(null);
+  const handleSubmitShortcut = useSubmitShortcut(() => formEl.current?.requestSubmit());
 
   const save = useMutation({
     mutationFn: (parsed: ParsedCandidateForm) =>
@@ -105,10 +108,12 @@ export function AddCandidateForm({
 
       <FormProvider {...form}>
       <form
+        ref={formEl}
         onSubmit={form.handleSubmit((parsed) => {
           setSubmitError(null);
           save.mutate(parsed);
         })}
+        onKeyDown={handleSubmitShortcut}
         noValidate
         className="flex min-h-0 flex-1 flex-col"
       >

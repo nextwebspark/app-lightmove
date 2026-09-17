@@ -18,6 +18,7 @@ public record TriageCompanyResponse(
         String source,
         String status,
         String note,
+        boolean noExecutiveFound,
         String companyName,
         String industry,
         String companyCountry,

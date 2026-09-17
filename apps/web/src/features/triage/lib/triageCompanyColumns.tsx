@@ -17,15 +17,17 @@ import {
   GRID_ICON_BUTTON,
   type DataGridColumnLayout,
 } from "../../../components/ui/DataGrid";
+import { InlineEditCell } from "../../../components/ui/InlineEditCell";
+import { Select } from "../../../components/ui";
 import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { cn } from "../../../lib/cn";
 import { formatInstantDate, formatMoney } from "../../../lib/format";
-import type { Candidate } from "../../candidates/api/types";
+import type { Candidate, CandidateStatus } from "../../candidates/api/types";
 import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
-import { candidateStatusStyle } from "../../candidates/lib/candidateVocabulary";
+import { candidateStatusStyle, CANDIDATE_STATUSES } from "../../candidates/lib/candidateVocabulary";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
-import { MOVES, SOURCE_STYLES } from "./triageVocabulary";
+import { MOVES, removeTooltip, SOURCE_STYLES } from "./triageVocabulary";
 import type { TriageCompanyRow } from "./triageRows";
 
 /**
@@ -55,14 +57,21 @@ interface TriageTableMeta {
   onDelete: (company: TriageCompany) => void;
   /** Opens the drawer to map someone new at this company. */
   onAddExecutive: (company: TriageCompany) => void;
+  /** Flags a company as researched-and-nobody-suitable, from its own "+ Add executive" cell. */
+  onMarkNoExecutiveFound: (company: TriageCompany) => void;
+  /** Saves the grid's own inline-edited Note cell. */
+  onSaveNote: (company: TriageCompany, note: string) => Promise<unknown>;
+  /** Changes a mapped executive's status from the grid's own Status column. */
+  onChangeCandidateStatus: (candidate: Candidate, status: CandidateStatus) => void;
   /** Opens the drawer on an executive already mapped. */
   onEditCandidate: (candidate: Candidate) => void;
   /** Asks to remove an executive — the one action a row with no company in the universe offers. */
   onRemoveCandidate: (candidate: Candidate) => void;
   /** Opens the company's own panel — read-only, whatever the reader is allowed to do to it. */
   onOpenCompany: (company: TriageCompany) => void;
-  /** The row with a write in flight, so its actions can be disabled without freezing the grid. */
-  busyId: string | null;
+  /** Every row id with a write in flight, so each can be disabled independently without freezing
+   *  the grid or letting one row's mutation settling re-enable a different row still in flight. */
+  busyIds: ReadonlySet<string>;
   /** False for a client representative, who reads these grids but moves nothing. */
   canWrite: boolean;
 }
@@ -95,8 +104,10 @@ const PILL =
  *
  * <p><b>A row is a person at a company, not a company.</b> Executive, Title and Status are the mandate's
  * mapping of who sits there, and a company with three of them is three lines with the company
- * repeated. None of the three sorts: they are not in the server's allowlist, and could not be — the
- * grid is paged by company, so ordering by a person would order a page rather than a result.
+ * repeated. Executive and Title do not sort: neither is in the server's allowlist, and could not be —
+ * the grid is paged by company, so ordering by a person's own field would order a page rather than a
+ * result. Status is the one exception — the server ranks a *company* by the best status among its own
+ * executives, which is a question about the page's companies after all, just answered by a join.
  *
  * <p>Two columns Strategy has are deliberately absent: `Fit`, which has no score to show, and the
  * Facebook and X links, which the snapshot does not carry. One is added — `Source`, last in the order
@@ -171,7 +182,7 @@ const BUILT_IN_COLUMNS = helper.columns([
           <span className="flex justify-start gap-1.5">
             <button
               type="button"
-              title={`Remove ${candidate.fullName} from this mandate`}
+              title={`Remove ${candidate.fullName} from this mandate — not remembered; use "Out of scope" to keep a record`}
               aria-label={`Remove ${candidate.fullName} from this mandate`}
               onClick={() => meta.onRemoveCandidate(candidate)}
               className={cn(GRID_ICON_BUTTON, "hover:text-red")}
@@ -182,7 +193,7 @@ const BUILT_IN_COLUMNS = helper.columns([
         );
       }
       const { company } = row;
-      const busy = meta.busyId === company.id;
+      const busy = meta.busyIds.has(company.id);
       return (
         <span className="flex justify-start gap-1.5">
           <button
@@ -198,7 +209,7 @@ const BUILT_IN_COLUMNS = helper.columns([
             <button
               key={move.status}
               type="button"
-              title={move.label}
+              title={move.tooltip ?? move.label}
               aria-label={`${move.label}: ${company.companyName}`}
               disabled={busy}
               onClick={() => meta.onMove(company, move.status)}
@@ -209,7 +220,7 @@ const BUILT_IN_COLUMNS = helper.columns([
           ))}
           <button
             type="button"
-            title={`Remove ${company.companyName} from this mandate`}
+            title={removeTooltip(company.companyName)}
             aria-label={`Remove ${company.companyName} from this mandate`}
             disabled={busy}
             onClick={() => meta.onDelete(company)}
@@ -287,14 +298,41 @@ const BUILT_IN_COLUMNS = helper.columns([
       // A company with nobody mapped is the most useful thing this grid shows, so the empty cell is
       // the invitation rather than a dash.
       if (company && meta?.canWrite) {
+        // Flagged: the mandate already looked and found nobody. Still opens the same form — one
+        // action per cell — so the flag has nothing separate to unset; it clears itself the moment
+        // an executive is actually saved against this company.
+        if (company.noExecutiveFound) {
+          return (
+            <button
+              type="button"
+              onClick={() => meta.onAddExecutive(company)}
+              title="Researched — nobody suitable found. Click to search again."
+              className="rounded-[4px] font-sans text-[13px] text-text3 transition hover:underline"
+            >
+              No executive found
+            </button>
+          );
+        }
+        const busy = meta.busyIds.has(company.id);
         return (
-          <button
-            type="button"
-            onClick={() => meta.onAddExecutive(company)}
-            className="rounded-[4px] font-sans text-[13px] text-amber transition hover:underline"
-          >
-            + Add executive
-          </button>
+          <span className="flex min-w-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => meta.onAddExecutive(company)}
+              className="rounded-[4px] font-sans text-[13px] text-amber transition hover:underline"
+            >
+              + Add executive
+            </button>
+            <button
+              type="button"
+              onClick={() => meta.onMarkNoExecutiveFound(company)}
+              title="Mark this company as researched, with nobody suitable found"
+              disabled={busy}
+              className="rounded-[4px] font-mono text-[10.5px] text-text3 transition hover:text-text hover:underline disabled:opacity-40 disabled:hover:no-underline"
+            >
+              No executive found
+            </button>
+          </span>
         );
       }
       return <DataGridCell value={null} />;
@@ -328,12 +366,36 @@ const BUILT_IN_COLUMNS = helper.columns([
   helper.accessor((row) => row.candidate?.status ?? null, {
     id: "executiveStatus",
     header: "Status",
-    enableSorting: false,
+    // The one exception to the "person-level fields don't sort" rule below: the server ranks a page
+    // by each company's best-status executive rather than trying to order people directly, over a
+    // query built for exactly this column — see `TriageCompanyRepository`'s executive-status methods.
     meta: { share: 0, min: 104 },
     cell: (info) => {
-      const status = info.getValue();
-      if (!status) return <DataGridCell value={null} />;
-      const { label, className } = candidateStatusStyle(status);
+      const { candidate } = info.row.original;
+      const meta = info.table.options.meta;
+      if (!candidate) return <DataGridCell value={null} />;
+
+      if (meta?.canWrite) {
+        const busy = meta.busyIds.has(candidate.id);
+        return (
+          <Select
+            value={candidate.status}
+            aria-label={`Status for ${candidate.fullName}`}
+            disabled={busy}
+            onChange={(event) =>
+              meta.onChangeCandidateStatus(candidate, event.target.value as CandidateStatus)
+            }
+            className="h-7 w-auto px-1.5 py-0 text-[11px] disabled:opacity-40"
+          >
+            {CANDIDATE_STATUSES.map((status) => (
+              <option key={status.value} value={status.value}>
+                {status.label}
+              </option>
+            ))}
+          </Select>
+        );
+      }
+      const { label, className } = candidateStatusStyle(candidate.status);
       return <span className={`${PILL} ${className}`}>{label}</span>;
     },
   }),
@@ -372,7 +434,20 @@ const BUILT_IN_COLUMNS = helper.columns([
     // Not in the server's sort allowlist: alphabetising a remark answers no question.
     enableSorting: false,
     meta: { share: 16, min: 120 },
-    cell: (info) => <DataGridCell value={info.getValue()} muted />,
+    cell: (info) => {
+      const { company } = info.row.original;
+      const meta = info.table.options.meta;
+      if (!company || !meta?.canWrite) return <DataGridCell value={info.getValue()} muted />;
+      return (
+        <InlineEditCell
+          value={info.getValue()}
+          editable
+          onSave={(next) => meta.onSaveNote(company, next)}
+          placeholder="Your own remark…"
+          aria-label={`Note for ${company.companyName}`}
+        />
+      );
+    },
   }),
 
   helper.accessor((row) => row.company?.foundedYear ?? null, {
@@ -530,4 +605,5 @@ export const TRIAGE_SORT_FIELDS = [
   "revenue",
   "founded",
   "added",
+  "executiveStatus",
 ] as const satisfies readonly TriageSortField[];
