@@ -447,7 +447,16 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
           // One sticky wrapper for both rows rather than stickying each on its own: the filter row's
           // own `top` would have to equal the label row's rendered height, which this component does
           // not otherwise need to know and would have to keep in sync with its own padding by hand.
-          <div key={headerGroup.id} className="sticky top-0 z-20 flex-none border-b border-line bg-panel2">
+          <div
+            key={headerGroup.id}
+            // `minWidth` matches the row below it: without it this wrapper stretches only to the
+            // viewport's width while the grid of columns inside it can render wider, and the grey
+            // background — painted here, not on the grid itself — stopped short of the columns
+            // that spilled past that edge, squaring off partway across the header instead of
+            // reaching the last column.
+            style={{ minWidth: "var(--dg-min)" } as CSSProperties}
+            className="sticky top-0 z-20 flex-none border-b border-line bg-panel2"
+          >
           <div
             role="row"
             style={track}
@@ -830,13 +839,6 @@ function HeaderMenu<TData extends RowData>({
                     className="h-7 w-full min-w-0 rounded-[4px] border border-line bg-panel px-2 font-sans text-[12px] text-text outline-none placeholder:text-text3 focus:border-sky"
                   />
                 )}
-                <button
-                  type="button"
-                  onClick={close}
-                  className="mt-1.5 w-full rounded-[6px] bg-amber-btn px-2.5 py-1.5 font-sans text-[12px] font-semibold text-on-amber transition hover:brightness-105"
-                >
-                  {filter.kind === "check" ? "Done" : "Apply"}
-                </button>
               </div>
               {(sortable || canMoveLeft || canMoveRight || !structurallyPinned || editable) && (
                 <div className="my-1 border-t border-line-soft" />

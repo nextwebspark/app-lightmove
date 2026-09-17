@@ -336,20 +336,15 @@ describe("DataGrid header menu — Filter by", () => {
     expect(onChange.mock.calls).toEqual([["E"], ["n"], ["e"]]);
   });
 
-  it("closes on Apply, and on Enter, without touching the already-applied value", async () => {
+  it("closes on Enter, without touching the already-applied value", async () => {
     const onChange = vi.fn();
     render(<Harness columnFilters={{ sector: { value: "Energy", onChange, "aria-label": "Filter by sector" } }} />);
-
-    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
-    await userEvent.click(screen.getByRole("button", { name: "Apply" }));
-
-    expect(onChange).not.toHaveBeenCalled();
-    expect(screen.queryByRole("textbox", { name: "Filter by sector" })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
     screen.getByRole("textbox", { name: "Filter by sector" }).focus();
     await userEvent.keyboard("{Enter}");
 
+    expect(onChange).not.toHaveBeenCalled();
     expect(screen.queryByRole("textbox", { name: "Filter by sector" })).not.toBeInTheDocument();
   });
 });

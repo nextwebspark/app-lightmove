@@ -330,13 +330,21 @@ describe("TriageStagePage", () => {
     expect(vi.mocked(triageApi.getTriageCompanies).mock.calls[0][1]).toBe("shortlisted");
   });
 
-  it("the Status column's checkbox filter ticks into the server read, not a free-text box", async () => {
+  it("the Status column's checkbox filter offers only the statuses on the grid, and ticks into the server read", async () => {
+    // Yasmin is Engaged; a second mapped exec is Interested — the closed vocabulary has seven values,
+    // only two of which this mandate's own people actually carry.
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin, { ...yasmin, id: "c2", status: "interested" }]),
+    );
     renderStage();
     const grid = await screen.findByRole("table", { name: /In universe companies/i });
 
     await userEvent.click(within(grid).getByRole("button", { name: "Status column menu" }));
     expect(screen.queryByRole("textbox", { name: "Filter by status" })).not.toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "Interested" })).not.toBeChecked();
+    expect(await screen.findByRole("checkbox", { name: "Interested" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Engaged" })).not.toBeChecked();
+    // Identified is in the vocabulary but not on this grid, so it gets no checkbox to sit unusable.
+    expect(screen.queryByRole("checkbox", { name: "Identified" })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("checkbox", { name: "Interested" }));
 
@@ -345,6 +353,19 @@ describe("TriageStagePage", () => {
     );
     // Still open: a tick narrows the read without closing the menu the way Apply does for text.
     expect(screen.getByRole("checkbox", { name: "Interested" })).toBeChecked();
+  });
+
+  it("offers no Status checkbox at all when the grid holds at most one status", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin]),
+    );
+    renderStage();
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+    await screen.findByText("Yasmin El-Sayed");
+
+    await userEvent.click(within(grid).getByRole("button", { name: "Status column menu" }));
+    expect(screen.queryByText("Filter by")).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   });
 
   it("renders the companies in the shared grid", async () => {

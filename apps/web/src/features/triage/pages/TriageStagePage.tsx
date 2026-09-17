@@ -14,7 +14,7 @@ import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import { useGridSort, type GridSort } from "../../../lib/useGridSort";
 import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
-import type { Candidate, CandidatesPage } from "../../candidates/api/types";
+import type { Candidate, CandidatesPage, CandidateStatus } from "../../candidates/api/types";
 import {
   CandidateDrawer,
   type CandidateCompanyContext,
@@ -356,6 +356,33 @@ function TriageStage() {
     ...(unmappedPeople.data?.candidates ?? []),
   ];
 
+  /**
+   * Which Status values the Status column's header menu offers — only the ones actually borne by an
+   * executive the mandate has mapped, so a mandate with just Identified and Contacted people never
+   * sees the other five sitting there unusable. Learned only from an unfiltered read (the component
+   * remounts fresh per stage, so the first page is always one): once the status filter itself narrows
+   * what loads, that narrower set must not overwrite the true one the checkboxes describe.
+   */
+  const [seenExecutiveStatuses, setSeenExecutiveStatuses] = useState<Set<CandidateStatus>>(
+    () => new Set(),
+  );
+  useEffect(() => {
+    if (executiveStatuses.length > 0 || visiblePeople.current.length === 0) return;
+    setSeenExecutiveStatuses((current) => {
+      const next = new Set(current);
+      for (const candidate of visiblePeople.current) next.add(candidate.status);
+      return next.size === current.size ? current : next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mappedPeople.data, unmappedPeople.data, executiveStatuses.length]);
+  const executiveStatusOptions = useMemo(
+    () =>
+      CANDIDATE_STATUSES.filter((status) => seenExecutiveStatuses.has(status.value)).map(
+        (status) => ({ value: status.value, label: status.label }),
+      ),
+    [seenExecutiveStatuses],
+  );
+
   /** The whole stage as points, read once when the globe opens and again when the mandate changes. */
   const talentMap = useQuery({
     queryKey: talentMapApi.TALENT_MAP_KEY(project.id, stage.status),
@@ -557,25 +584,24 @@ function TriageStage() {
             name: {
               value: query,
               onChange: setQuery,
-              placeholder: "Filter by company name…",
               "aria-label": "Filter by company name",
             },
             executive: {
               value: executiveQuery,
               onChange: setExecutiveQuery,
-              placeholder: "Filter by executive name…",
               "aria-label": "Filter by executive name",
             },
-            executiveStatus: {
-              kind: "check",
-              options: CANDIDATE_STATUSES.map((status) => ({
-                value: status.value,
-                label: status.label,
-              })),
-              selected: executiveStatuses,
-              onChange: setExecutiveStatuses,
-              "aria-label": "Filter by status",
-            },
+            ...(executiveStatusOptions.length > 1
+              ? {
+                  executiveStatus: {
+                    kind: "check" as const,
+                    options: executiveStatusOptions,
+                    selected: executiveStatuses,
+                    onChange: setExecutiveStatuses,
+                    "aria-label": "Filter by status",
+                  },
+                }
+              : {}),
           }}
           onEditColumn={(customColumnId) => {
             setEditColumnId(customColumnId);
