@@ -197,7 +197,7 @@ public class ApolloCompanyQueryService {
                     .toList();
             groups.add(new SectorGroup(groupName, counted));
         });
-        return groups;
+        return List.copyOf(groups);
     }
 
     /**

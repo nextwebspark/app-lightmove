@@ -340,6 +340,12 @@ lightmove:
       keyword-min-query-length: ${COMPANY_KEYWORD_MIN_QUERY_LENGTH:2}
       # How many companies a keyword must reach before it is offered.
       keyword-min-companies: ${COMPANY_KEYWORD_MIN_COMPANIES:10}
+    facets:
+      # How long the filter sidebar's counts may describe the load before last. They are the shape of
+      # the universe — identical for every workspace, changed only when the pipeline reloads — so this
+      # is the same trade V33 makes for the keyword vocabulary. The browser's max-age is derived from
+      # this one value, so the two cannot drift. Zero switches both off.
+      cache-ttl: ${COMPANY_FACETS_CACHE_TTL:30m}
     list:
       # Rows per page when the request names no explicit size.
       default-page-size: ${COMPANY_LIST_DEFAULT_PAGE_SIZE:25}
