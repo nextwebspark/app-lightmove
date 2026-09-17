@@ -94,9 +94,11 @@ export function TriageStagePage() {
   if (!stage) {
     return <Navigate to={`/projects/${project.id}/companies/${TRIAGE_STAGES[0].slug}`} replace />;
   }
-  // Keyed on the stage so switching pages resets the search box and the page number with it, rather
-  // than carrying "page 4 of the universe" into a shortlist that has one page.
-  return <TriageStage key={stage.slug} />;
+  // Keyed on the project too, not just the stage: the outlet context updates in place on a project
+  // switch (react-router does not remount a route element just because a param changed), so without
+  // this a mandate switch while staying on the same stage tab would carry the previous mandate's
+  // search box, page number and seen-executive-statuses filter options into the new one.
+  return <TriageStage key={`${project.id}:${stage.slug}`} />;
 }
 
 function TriageStage() {
@@ -376,8 +378,9 @@ function TriageStage() {
    * Which Status values the Status column's header menu offers — only the ones actually borne by an
    * executive the mandate has mapped, so a mandate with just Identified and Contacted people never
    * sees the other five sitting there unusable. Learned only from an unfiltered read (the component
-   * remounts fresh per stage, so the first page is always one): once the status filter itself narrows
-   * what loads, that narrower set must not overwrite the true one the checkboxes describe.
+   * remounts fresh per project and stage, so the first page is always one): once the status filter
+   * itself narrows what loads, that narrower set must not overwrite the true one the checkboxes
+   * describe.
    */
   const [seenExecutiveStatuses, setSeenExecutiveStatuses] = useState<Set<CandidateStatus>>(
     () => new Set(),

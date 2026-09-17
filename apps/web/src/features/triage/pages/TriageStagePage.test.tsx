@@ -279,22 +279,23 @@ const mapPageOf = (): TalentMapPage => ({
 });
 
 /** The page reads the project from ProjectLayout's outlet — a bare shell stands in for the layout. */
-const renderStage = (slug = "universe") =>
-  render(
-    <MemoryRouter initialEntries={[`/projects/p1/companies/${slug}`]}>
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-        <AuthProvider>
-          <ToastProvider>
-            <Routes>
-              <Route element={<Outlet context={{ project }} />}>
-                <Route path="/projects/:projectId/companies/:stage" element={<TriageStagePage />} />
-              </Route>
-            </Routes>
-          </ToastProvider>
-        </AuthProvider>
-      </QueryClientProvider>
-    </MemoryRouter>,
-  );
+const stageTree = (slug: string, proj: Project) => (
+  <MemoryRouter initialEntries={[`/projects/${proj.id}/companies/${slug}`]}>
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <AuthProvider>
+        <ToastProvider>
+          <Routes>
+            <Route element={<Outlet context={{ project: proj }} />}>
+              <Route path="/projects/:projectId/companies/:stage" element={<TriageStagePage />} />
+            </Route>
+          </Routes>
+        </ToastProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  </MemoryRouter>
+);
+
+const renderStage = (slug = "universe", proj: Project = project) => render(stageTree(slug, proj));
 
 /**
  * The Companies section: three stages of a mandate's triaged universe, each its own page, rendered in
@@ -365,6 +366,36 @@ describe("TriageStagePage", () => {
     await userEvent.click(within(grid).getByRole("button", { name: "Status column menu" }));
     expect(screen.queryByText("Filter by")).not.toBeInTheDocument();
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+  });
+
+  it("forgets the previous mandate's Status options on a project switch, even without a stage change", async () => {
+    // The outlet's `project` can change without the :stage URL segment changing — a project switcher
+    // used while sitting on the same tab. seenExecutiveStatuses is local state; only remounting the
+    // page (keyed on project id, not just stage) can drop the previous mandate's leftover options.
+    // Two statuses per project: the filter withholds its checkboxes entirely below that (see the
+    // "at most one status" case above), so one alone couldn't tell a leftover option from a missing one.
+    const project2: Project = { ...project, id: "p2" };
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (projectId, scope) => {
+      if (scope.unmapped) return peopleOf([]);
+      return peopleOf(
+        projectId === "p2"
+          ? [{ ...yasmin, id: "c3", status: "identified" }, { ...yasmin, id: "c4", status: "contacted" }]
+          : [yasmin, { ...yasmin, id: "c2", status: "interested" }],
+      );
+    });
+
+    const { rerender } = renderStage("universe", project);
+    let grid = await screen.findByRole("table", { name: /In universe companies/i });
+    await userEvent.click(within(grid).getByRole("button", { name: "Status column menu" }));
+    expect(await screen.findByRole("checkbox", { name: "Engaged" })).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+
+    rerender(stageTree("universe", project2));
+    grid = await screen.findByRole("table", { name: /In universe companies/i });
+    await userEvent.click(within(grid).getByRole("button", { name: "Status column menu" }));
+    expect(await screen.findByRole("checkbox", { name: "Identified" })).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Engaged" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Interested" })).not.toBeInTheDocument();
   });
 
   it("renders the companies in the shared grid", async () => {
