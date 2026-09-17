@@ -12,7 +12,9 @@ import app.lightmove.api.IntegrationTest;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -22,6 +24,8 @@ import tools.jackson.databind.JsonNode;
  */
 @IntegrationTest
 class ReportIntegrationTest extends FlowTestSupport {
+
+    @Autowired JdbcTemplate db;
 
     @Test
     @DisplayName("reading the report follows the seat, exactly as reading the grid does")
@@ -38,6 +42,22 @@ class ReportIntegrationTest extends FlowTestSupport {
         seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
         mvc.perform(get(reportUrl(f.projectId)).header("Authorization", "Bearer " + login(f.saraEmail)))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("reading the report drafts no brief: a mandate without one reports no band and still has none")
+    void readingWritesNoBrief() throws Exception {
+        Fixture f = fixture("Report Read Only Firm");
+        UUID projectId = UUID.fromString(f.projectId);
+        db.update("DELETE FROM app_lm_position WHERE project_id = ?", projectId);
+
+        mvc.perform(get(reportUrl(f.projectId)).header("Authorization", "Bearer " + f.admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.remuneration.currency").value("USD"))
+                .andExpect(jsonPath("$.remuneration.fixedBand").doesNotExist());
+
+        assertThat(db.queryForObject("SELECT count(*) FROM app_lm_position WHERE project_id = ?",
+                Integer.class, projectId)).isZero();
     }
 
     @Test

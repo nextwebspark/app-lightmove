@@ -2,6 +2,7 @@ package app.lightmove.api.report.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -44,6 +45,16 @@ class NationalityCatalogTest {
         assertThat(NationalityCatalog.groupOf("south african")).isEqualTo("South African");
         assertThat(NationalityCatalog.groupOf("  ")).isNull();
         assertThat(NationalityCatalog.groupOf(null)).isNull();
+    }
+
+    @Test
+    @DisplayName("there are nine groups and no tenth: a kept spelling is a label, not a group")
+    void onlyTheNineAreGroups() {
+        assertThat(List.of("Saudi", "Emirati", "Qatari", "Kuwaiti", "Omani", "Bahraini",
+                "Western expat", "South Asian", "Arab expat, non-GCC")).allMatch(NationalityCatalog::isGroup);
+        assertThat(NationalityCatalog.isGroup(NationalityCatalog.groupOf("turkish"))).isFalse();
+        assertThat(NationalityCatalog.isGroup(NationalityCatalog.groupOf("Turkey"))).isFalse();
+        assertThat(NationalityCatalog.isGroup("Other")).isFalse();
     }
 
     @Test

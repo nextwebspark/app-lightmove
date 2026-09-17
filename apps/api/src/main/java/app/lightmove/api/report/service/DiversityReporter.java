@@ -50,9 +50,7 @@ class DiversityReporter {
 
         Tally<String> byNationality = new Tally<>();
         nationals.forEach(national -> byNationality.add(national.group()));
-        List<String> leading = byNationality.top(caps.maxNationalities()).stream()
-                .filter(group -> !ReportVocabulary.OTHER.equals(group))
-                .toList();
+        List<String> leading = namedGroups(byNationality);
         List<NationalityRowDto> rows = new ArrayList<>();
         for (String group : leading) {
             rows.add(row(group, NationalityCatalog.isGcc(group), nationals, group::equals));
@@ -65,6 +63,26 @@ class DiversityReporter {
         return new DiversityDto(ReportVocabulary.levelTokens(), rows, unknown, gccNationals,
                 genderByLevel(sources.executives()), genderWithoutLevel(sources.executives()),
                 genderUnrecorded(sources.executives()));
+    }
+
+    /**
+     * The groups that get a row of their own, in rank order. The nine always do — a localisation
+     * quota is read off them, so a small Gulf group is never the one folded to make room — and a
+     * spelling the catalog could not place takes a row only while the cap has room left.
+     */
+    private List<String> namedGroups(Tally<String> byNationality) {
+        List<String> ranked = byNationality.top(Integer.MAX_VALUE);
+        int room = caps.maxNationalities() - (int) ranked.stream().filter(NationalityCatalog::isGroup).count();
+        List<String> named = new ArrayList<>();
+        for (String label : ranked) {
+            if (NationalityCatalog.isGroup(label)) {
+                named.add(label);
+            } else if (room > 0 && !ReportVocabulary.OTHER.equals(label)) {
+                named.add(label);
+                room--;
+            }
+        }
+        return named;
     }
 
     /**

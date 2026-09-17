@@ -238,9 +238,6 @@ the definitions are rows and the values are a document. `field_key` is slugged o
 rewritten — every stored value points at it — while `label` is the header a user renames.
 V47 adds `'CSV'` to the triage company's `source` CHECK, the spelling V36 had already reserved on the
 candidate side.
-V56 adds `app_lm_project_candidate.gender` (`FEMALE | MALE | OTHER`), nullable with no default:
-NULL is "nobody recorded it" and is deliberately not a fourth value, because "not recorded" and
-"recorded as other" are different facts and the report counts them apart.
 V48 gives `app_lm_client` the two snapshot columns V15 left out — `hq_city` and `logo_url` — and
 backfills them for existing Apollo-backed rows by their stored provenance id, so a client renders with
 its own mark rather than an initials tile.
@@ -259,6 +256,9 @@ number three ways. A miss is not a row — it is `emails_looked_up_at` / `phones
 candidate with nothing from the provider beside it. V54 moved the old `profile.contacts` jsonb into
 the table and V55 dropped the row's `email` and `phone` columns: the ledger is the only store, the
 importer matches a person on any address they hold, and the grid lists them all.
+V56 adds `app_lm_project_candidate.gender` (`FEMALE | MALE | OTHER`), nullable with no default:
+NULL is "nobody recorded it" and is deliberately not a fourth value, because "not recorded" and
+"recorded as other" are different facts and the report counts them apart.
 `app_lm_position_template` (V42) is the role-template library — the identity a picker lists as columns,
 the drafted brief as one `jsonb` body (V30's idiom, not V39's child tables: a template is a
 heterogeneous document read and written whole), and the match keywords as a child table because they

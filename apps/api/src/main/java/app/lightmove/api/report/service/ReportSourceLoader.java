@@ -27,9 +27,9 @@ import org.springframework.stereotype.Component;
  * Gathers one read's inputs through the seams the package doc names. The mandate itself is resolved
  * by {@code (id, workspaceId)} first, so a foreign project is a 404 before any of its rows are read.
  *
- * <p>The brief is read through {@code PositionService.get}, which drafts one for a mandate that
- * predates the position tables — the same thing opening the Position tab does, so a report read
- * changes nothing that read would not.
+ * <p>The band is read through {@code PositionService.compensationOf}, never {@code get}: that one
+ * drafts and saves a brief for a mandate without one, and a client seat — read-only by definition —
+ * can open the report. A mandate with no brief simply reports no band.
  */
 @Component
 class ReportSourceLoader {
@@ -66,7 +66,7 @@ class ReportSourceLoader {
         List<ExecutiveRow> executives = pair(people, universe);
 
         return new ReportSources(project, universe, inUniverse.totalCount() + shortlisted.totalCount(),
-                executives, people.totalCount(), positions.get(workspaceId, projectId).compensation());
+                executives, people.totalCount(), positions.compensationOf(workspaceId, projectId));
     }
 
     /**

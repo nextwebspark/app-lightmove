@@ -70,7 +70,14 @@ class RemunerationReporter {
         return mode == BaseSalaryMode.MONTHLY ? figure * MONTHS_PER_YEAR : figure;
     }
 
-    /** The target bonus on one edge of the band, in the unit the brief quoted it: a share of base, or months of it. */
+    /**
+     * The target bonus on one edge of the band, in the unit the brief quoted it: a share of base, or
+     * months of it.
+     *
+     * <p>A share of <i>total fixed</i> is computed on base alone, because the brief states no allowance
+     * figure to add — its benefits are a list of named items, not a sum. The day the brief carries one,
+     * {@code PERCENT_OF_TOTAL_FIXED} needs its own arm here or it under-states the package.
+     */
     private static long bonusOn(long annualBase, CompensationDto brief) {
         BigDecimal value = brief.bonusValue();
         BonusBasis basis = brief.bonusBasis();

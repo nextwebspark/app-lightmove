@@ -41,6 +41,19 @@ class RemunerationReporterTest {
     }
 
     @Test
+    @DisplayName("a bonus quoted on total fixed is taken on base, the only fixed figure the brief states")
+    void percentOfTotalFixedIsTakenOnBase() {
+        CompensationDto onBase = brief(200_000L, 200_000L, BaseSalaryMode.ANNUAL,
+                BigDecimal.valueOf(25), BonusBasis.PERCENT_OF_BASE, null);
+        CompensationDto onTotalFixed = brief(200_000L, 200_000L, BaseSalaryMode.ANNUAL,
+                BigDecimal.valueOf(25), BonusBasis.PERCENT_OF_TOTAL_FIXED, null);
+
+        assertThat(RemunerationReporter.packageBandOf(onTotalFixed, RemunerationReporter.fixedBandOf(onTotalFixed)))
+                .isEqualTo(RemunerationReporter.packageBandOf(onBase, RemunerationReporter.fixedBandOf(onBase)))
+                .isEqualTo(new CompensationBandDto(250_000, 250_000));
+    }
+
+    @Test
     @DisplayName("a band with one edge is that edge twice, and a brief with none states no band")
     void partialAndAbsentBands() {
         assertThat(RemunerationReporter.fixedBandOf(brief(null, 90_000L, BaseSalaryMode.ANNUAL, null, null, null)))

@@ -329,7 +329,8 @@ method plus the records it returns — never another feature's internals:
   the third seam, taking bare city/country pairs — which company or person asked never reaches
   `geocoding` or the vendor.
 - `report` reads through the same two seams as `talentmap` (`listAllOfStage` for the universe and
-  the shortlist, `listAllOfProject` for every executive), `PositionService.get` for the brief's band,
+  the shortlist, `listAllOfProject` for every executive), `PositionService.compensationOf` for the brief's band
+  (never `get`, which drafts and saves a brief — a read-only client seat can open the report),
   and `project`'s repository for the mandate's dates. Every figure is aggregated at read time; there
   is no report table. It states what the rows carry and nothing more — no inferred gender, no
   pipeline outcome, no currency conversion — so a chapter never reports a guess as a finding.

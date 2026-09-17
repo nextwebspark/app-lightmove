@@ -6,13 +6,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.config.ReportSettings;
-import app.lightmove.api.position.dto.PositionResponse;
 import app.lightmove.api.position.service.PositionService;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ProjectRepository;
@@ -45,7 +45,6 @@ class ReportSourceLoaderTest {
         when(projects.findByIdAndWorkspaceId(PROJECT, WORKSPACE)).thenReturn(Optional.of(mock(Project.class)));
         when(candidates.listAllOfProject(eq(WORKSPACE), eq(PROJECT), anyInt()))
                 .thenReturn(new CandidatesResponse(List.of(), 0, 0, 0));
-        when(positions.get(WORKSPACE, PROJECT)).thenReturn(mock(PositionResponse.class));
     }
 
     @Test
@@ -73,6 +72,18 @@ class ReportSourceLoaderTest {
         assertThat(sources.universeTotal()).isEqualTo(13);
         assertThat(sources.isTruncated()).isTrue();
         verify(triage).listAllOfStage(WORKSPACE, PROJECT, TriageCompanyStatus.IN_UNIVERSE, 1);
+    }
+
+    @Test
+    @DisplayName("the band is read through the seam that never drafts a brief: a client seat can open the report")
+    void theBriefIsNeverDraftedByARead() {
+        stage(TriageCompanyStatus.SHORTLISTED, 10, companies(0), 0);
+        stage(TriageCompanyStatus.IN_UNIVERSE, 10, companies(0), 0);
+
+        loaderCappedAt(10).load(WORKSPACE, PROJECT);
+
+        verify(positions).compensationOf(WORKSPACE, PROJECT);
+        verify(positions, never()).get(WORKSPACE, PROJECT);
     }
 
     @Test

@@ -185,16 +185,17 @@ class MarketShapeReporter {
     private List<BreakdownDto> companiesBySector(List<TriageCompanyResponse> universe) {
         Tally<String> bySector = new Tally<>();
         universe.forEach(company -> bySector.add(company.industry() == null ? OTHER : company.industry()));
-        List<String> leading = bySector.top(caps.maxSectors());
-        Map<String, Integer> breakdown = new LinkedHashMap<>();
-        leading.forEach(sector -> breakdown.put(sector, bySector.of(sector)));
-        int tail = bySector.outside(leading);
-        if (tail > 0) {
-            breakdown.merge(OTHER, tail, Integer::sum);
-        }
-        return breakdown.entrySet().stream()
-                .map(sector -> new BreakdownDto(sector.getKey(), sector.getValue()))
+        List<String> named = bySector.top(caps.maxSectors()).stream()
+                .filter(sector -> !OTHER.equals(sector))
                 .toList();
+        List<BreakdownDto> breakdown = named.stream()
+                .map(sector -> new BreakdownDto(sector, bySector.of(sector)))
+                .collect(Collectors.toCollection(ArrayList::new));
+        int other = bySector.outside(named);
+        if (other > 0) {
+            breakdown.add(new BreakdownDto(OTHER, other));
+        }
+        return breakdown;
     }
 
     private record PlacedExecutive(ExecutiveRow row, String sector, Seniority level) {}

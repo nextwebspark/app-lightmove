@@ -25,6 +25,7 @@ final class NationalityCatalog {
 
     private static final Set<String> GCC_GROUPS =
             Set.of("Saudi", "Emirati", "Kuwaiti", "Qatari", "Omani", "Bahraini");
+    private static final Set<String> EXPAT_GROUPS = Set.of(WESTERN_EXPAT, SOUTH_ASIAN, ARAB_EXPAT);
 
     private static final Map<String, String> GROUP_BY_COUNTRY_CODE = new HashMap<>();
     private static final Map<String, String> GROUP_BY_SPELLING = new HashMap<>();
@@ -36,7 +37,6 @@ final class NationalityCatalog {
         countries("Qatari", "QA");
         countries("Omani", "OM");
         countries("Bahraini", "BH");
-        countries("Turkish", "TR");
         countries(ARAB_EXPAT, "EG", "LB", "JO", "SY", "IQ", "PS", "MA", "TN", "DZ", "SD", "YE", "LY");
         countries(SOUTH_ASIAN, "IN", "PK", "BD", "LK", "NP");
         countries(WESTERN_EXPAT, "GB", "IE", "US", "CA", "AU", "NZ", "FR", "DE", "NL", "IT", "ES", "CH", "BE",
@@ -48,7 +48,6 @@ final class NationalityCatalog {
         spellings("Qatari", "qatari");
         spellings("Omani", "omani");
         spellings("Bahraini", "bahraini");
-        spellings("Turkish", "turkish");
         spellings(ARAB_EXPAT, "arab expat, non-gcc", "arab expat non-gcc", "arab expat", "non-gcc arab",
                 "egyptian", "lebanese", "jordanian", "syrian", "iraqi", "palestinian", "moroccan", "tunisian",
                 "algerian", "sudanese", "yemeni", "libyan");
@@ -80,6 +79,11 @@ final class NationalityCatalog {
 
     static boolean isGcc(String group) {
         return group != null && GCC_GROUPS.contains(group);
+    }
+
+    /** One of the nine, as opposed to a spelling the catalog could not place and kept as written. */
+    static boolean isGroup(String label) {
+        return isGcc(label) || EXPAT_GROUPS.contains(label);
     }
 
     private static void countries(String group, String... codes) {
