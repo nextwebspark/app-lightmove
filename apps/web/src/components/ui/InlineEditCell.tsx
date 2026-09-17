@@ -33,7 +33,7 @@ export function InlineEditCell({
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const dirty = draft.trim() !== (value ?? "");
+  const dirty = draft.trim() !== (value ?? "").trim();
 
   const open = () => {
     if (!editable) return;
@@ -66,6 +66,7 @@ export function InlineEditCell({
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Escape") {
       event.preventDefault();
+      if (saving) return;
       cancel();
       return;
     }
