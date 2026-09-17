@@ -313,13 +313,17 @@ jobs:
           #
           # A Cloud Run label may not contain a dot, so v1.4.0 is stored as v1-4-0. Nothing reads it —
           # it is there so the console can say what is live without anyone mapping a SHA by hand.
+          #
+          # No --min-instances, deliberately. Minimum instances are a SERVICE-level setting owned by
+          # ops/gcp/schedule-warm-hours.sh (1 during Dubai hours, 0 overnight), and a deploy leaves that
+          # value alone. Passing the flag here sets the REVISION-level one instead, which would undo the
+          # schedule on every release and force a new revision for every change to it.
           gcloud run deploy "$SERVICE" \
             --image "$IMAGE" \
             --region "$REGION" \
             --update-labels "release=${VERSION//./-}" \
             --service-account "${{ vars.GCP_RUNTIME_SA }}" \
             --allow-unauthenticated \
-            --min-instances 0 \
             --max-instances 2 \
             --cpu 1 --memory 1Gi --cpu-boost \
             --concurrency 80 \

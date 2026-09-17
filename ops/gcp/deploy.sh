@@ -217,13 +217,17 @@ fi
 #
 # max-instances 2, NOT the default of 100: 2 × DB_POOL_MAX=5 = 10 connections, under the db-f1-micro's
 # ~25 — which the brightdata ETL and gth-api also draw on. Raise it and you take down the neighbours.
+#
+# No --min-instances, deliberately. Minimum instances are a SERVICE-level setting owned by
+# ops/gcp/schedule-warm-hours.sh (1 during Dubai hours, 0 overnight), and a deploy leaves that value
+# alone. Passing the flag here sets the REVISION-level one instead, which would undo the schedule on
+# every release and force a new revision for every change to it.
 gcloud run deploy "$SERVICE" \
     --project "$PROJECT" \
     --image "$IMAGE" \
     --region "$REGION" \
     --service-account "$RUNTIME_SA" \
     --allow-unauthenticated \
-    --min-instances 0 \
     --max-instances 2 \
     --cpu 1 --memory 1Gi --cpu-boost \
     --concurrency 80 \
