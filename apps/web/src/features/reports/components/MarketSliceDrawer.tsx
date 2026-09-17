@@ -28,6 +28,9 @@ export function MarketSliceDrawer({
   const companies = selection?.slice?.companies ?? [];
   const executives = selection?.slice?.executives ?? [];
   const interest = sliceInterest(executives);
+  // The server lists a capped number of a cell's executives but counts them all, so a big slice is
+  // said to be a sample rather than letting the bar and the roster pass for the whole of it.
+  const sampled = executives.length < count ? ` · first ${executives.length} of ${count}` : "";
 
   return (
     <ReportDrawer
@@ -48,7 +51,7 @@ export function MarketSliceDrawer({
         <>
           {executives.length > 0 && (
             <>
-              <DrawerSection label="Interest in this slice">
+              <DrawerSection label={`Interest in this slice${sampled}`}>
                 <StackedBar
                   segments={[
                     { label: "Interested", count: interest.interested, fillClass: "bg-u-direct" },
@@ -57,7 +60,7 @@ export function MarketSliceDrawer({
                   ]}
                 />
               </DrawerSection>
-              <DrawerSection label="Executives in this slice">
+              <DrawerSection label={`Executives in this slice${sampled}`}>
                 {executives.map((e) => (
                   <DrawerPersonRow key={e.id} name={e.fullName} detail={`${e.company ?? "No employer on file"} · ${level}`} status={e.status} />
                 ))}

@@ -156,6 +156,8 @@ describe("ReportsPage", () => {
     const drawer = screen.getByRole("dialog", { name: "FMCG · C-Suite" });
     expect(within(drawer).getByText("Sara Fadel")).toBeInTheDocument();
     expect(within(drawer).getByText("Almarai")).toBeInTheDocument();
+    // Sixteen in the cell, six listed: the roster and the bar over it are said to be a sample.
+    expect(within(drawer).getByText("Executives in this slice · first 6 of 16")).toBeInTheDocument();
 
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

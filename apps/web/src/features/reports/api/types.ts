@@ -85,6 +85,9 @@ export interface TalentHub {
   point: MapPoint | null;
 }
 
+/** A hub the geocoder has placed — the only kind a map can draw. */
+export type PlacedHub = TalentHub & { point: MapPoint };
+
 export interface Breakdown {
   label: string;
   count: number;

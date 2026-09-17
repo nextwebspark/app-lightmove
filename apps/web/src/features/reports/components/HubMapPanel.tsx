@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from "react";
-import type { TalentHub } from "../api/types";
+import type { PlacedHub, TalentHub } from "../api/types";
 
 // Lazy, so a report read by somebody who never scrolls to the map does not download a map library.
 const HubGlobe = lazy(() => import("./HubGlobe"));
@@ -23,7 +23,7 @@ export function HubMapPanel({
   onSelect: (country: string) => void;
 }) {
   const [unsupported, setUnsupported] = useState(false);
-  const placed = hubs.filter((hub) => hub.point !== null);
+  const placed = hubs.filter((hub): hub is PlacedHub => hub.point !== null);
 
   if (unsupported || placed.length === 0) {
     return null;

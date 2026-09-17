@@ -1,7 +1,7 @@
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { TalentHub } from "../api/types";
+import type { PlacedHub } from "../api/types";
 import { RAMP_BG, RAMP_GROUND_LABEL_FROM, rampStop } from "../lib/ramp";
 
 const SOURCE = "report-hubs";
@@ -38,8 +38,7 @@ export default function HubGlobe({
   onUnsupported,
 }: {
   accessToken: string;
-  /** Only hubs the geocoder has placed; the caller filters. */
-  hubs: TalentHub[];
+  hubs: PlacedHub[];
   selectedCountry: string | null;
   onSelect: (country: string) => void;
   /** No WebGL: the caller drops back to the bar list alone. */
@@ -55,9 +54,9 @@ export default function HubGlobe({
   // The style-load handler fires again on every theme swap, so it must read the present rather than
   // the render that created the map. A layout effect, never a write during render: a render can be
   // discarded or run twice, and this has to hold what was committed.
-  const latest = useRef({ hubs, selectedCountry, onSelect });
+  const latest = useRef({ hubs, selectedCountry, onSelect, onUnsupported });
   useLayoutEffect(() => {
-    latest.current = { hubs, selectedCountry, onSelect };
+    latest.current = { hubs, selectedCountry, onSelect, onUnsupported };
   });
 
   useEffect(() => {
@@ -83,7 +82,7 @@ export default function HubGlobe({
         attributionControl: true,
       });
     } catch {
-      onUnsupported();
+      latest.current.onUnsupported();
       return;
     }
     mapRef.current = map;
@@ -148,7 +147,7 @@ export default function HubGlobe({
       map.remove();
       mapRef.current = null;
     };
-  }, [accessToken, onUnsupported]);
+  }, [accessToken]);
 
   // Only on a real theme change. Called on mount as well, it raced the first load: where that had
   // already finished, the swap was applied as a diff against the same style, which drops the hub
@@ -185,9 +184,9 @@ export default function HubGlobe({
   return <div ref={containerRef} className="size-full" aria-label="Talent by country on a map" />;
 }
 
-const pointOf = (hub: TalentHub): [number, number] => [hub.point!.longitude, hub.point!.latitude];
+const pointOf = (hub: PlacedHub): [number, number] => [hub.point.longitude, hub.point.latitude];
 
-function collectionOf(hubs: TalentHub[], selectedCountry: string | null, palette: HubPalette): GeoJSON.FeatureCollection {
+function collectionOf(hubs: PlacedHub[], selectedCountry: string | null, palette: HubPalette): GeoJSON.FeatureCollection {
   const largest = Math.max(...hubs.map((hub) => hub.count), 1);
   return {
     type: "FeatureCollection",

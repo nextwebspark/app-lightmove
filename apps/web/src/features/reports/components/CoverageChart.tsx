@@ -38,7 +38,9 @@ export function CoverageChart({ progress, projection }: { progress: ReportProgre
   const fullY = y(progress.targetCompanies);
   const targetX = projection.targetWeek === null ? null : x(projection.targetWeek);
   const projectedX = hasProjection ? x(projection.projectedWeek) : null;
-  const half = Math.round(progress.targetCompanies / 2);
+  // A universe of zero or one has fewer than three distinct ticks; drawn once each, they neither
+  // overlap nor share a key.
+  const ticks = [...new Set([0, Math.round(progress.targetCompanies / 2), progress.targetCompanies])];
 
   return (
     <div className="overflow-x-auto">
@@ -59,7 +61,7 @@ export function CoverageChart({ progress, projection }: { progress: ReportProgre
             strokeWidth={1}
           />
         ))}
-        {[0, half, progress.targetCompanies].map((v) => (
+        {ticks.map((v) => (
           <text key={v} x={PAD_LEFT - 10} y={y(v) + 3} textAnchor="end" className="fill-u-text3 font-u-num text-[10.5px]">
             {v}
           </text>

@@ -28,11 +28,12 @@ export function useCountUp(target: number): number {
       if (startedAt === null) startedAt = now;
       const progress = Math.min((now - startedAt) / DURATION_MS, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplayed(from + (target - from) * eased);
+      // Recorded every frame, not on completion: a second filter change inside the window must ease
+      // from the number on screen, or the figure jumps back to where the interrupted run began.
+      fromRef.current = from + (target - from) * eased;
+      setDisplayed(fromRef.current);
       if (progress < 1) {
         frame = requestAnimationFrame(step);
-      } else {
-        fromRef.current = target;
       }
     };
     frame = requestAnimationFrame(step);
