@@ -331,8 +331,10 @@ method plus the records it returns — never another feature's internals:
 - `report` reads through the same two seams as `talentmap` (`listAllOfStage` for the universe and
   the shortlist, `listAllOfProject` for every executive), `PositionService.get` for the brief's band,
   and `project`'s repository for the mandate's dates. Every figure is aggregated at read time; there
-  is no report table. It states what the rows carry and nothing more — no gender, no pipeline
-  outcome, no currency conversion — so a chapter never reports a guess as a finding.
+  is no report table. It states what the rows carry and nothing more — no inferred gender, no
+  pipeline outcome, no currency conversion — so a chapter never reports a guess as a finding.
+  Nationality is the one thing it folds: `NationalityCatalog` counts a row's free-text value under
+  one of nine groups at read time and never rewrites what is stored.
 - `position`'s `PositionService` reads `project`'s repositories for the mandate a brief belongs to,
   the same way `CandidateService` does — a brief cannot be scoped, titled or dated without it — and
   `project`'s `ProjectService.create` seeds the new mandate's brief through one call taking primitives

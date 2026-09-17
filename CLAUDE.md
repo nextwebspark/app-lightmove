@@ -68,14 +68,21 @@ unpaged, capped read (`GET /projects/{id}/talent-map`), with `…/talent-map/loc
 same map as points alone for the poll that waits on places rather than on people. The **Reports**
 tab is the mandate's talent mapping report (`GET /projects/{id}/report`): four chapters — mapping
 progress, shape of the market, remuneration, diversity — aggregated live by `report` from the same
-rows, so nothing is stored and nothing goes stale. It states only what the rows carry: a candidate's
+rows, so nothing is stored and nothing goes stale. It reads one chapter at a time behind a numbered
+step rail, the chapter kept in the URL (`?chapter=`), and its mockups are `claude-design/report/`
+(light and dark) rather than a `*.dc.html` — the one screen drawn in the UNCAVA palette
+(`--color-u-*`), a deliberate seam until the rest follow. It states only what the rows carry: a candidate's
 status but no pipeline outcome, and a package in another currency is counted rather than converted.
-**Gender (V51) is recorded on a candidate and never inferred from a name** — the chapter divides by
+**Gender (V56) is recorded on a candidate and never inferred from a name** — the chapter divides by
 the executives who have one on file, not by the headcount, so a mandate nobody has recorded reads as
-unmeasured rather than as a pool of one gender. Two things the chapters name but cannot yet derive
-say so on the page rather than leaving a hole: the **relevance mix** is an illustrative placeholder
-(V30 dropped `app_lm_strategy_sector.kind`, which held exactly `DIRECT | ADJACENT | INFERRED`), and
-the two **cross-mandate benchmarks** are marked not built, with no fabricated progress count. The
+unmeasured rather than as a pool of one gender. **Nationality is counted in nine groups** — the Gulf six by name,
+and everyone else as Western expat, South Asian or Arab expat, non-GCC: the drawer offers exactly those
+nine and stores the label, while a spreadsheet's "Egyptian" is folded into its group by `report` at read
+time and never rewritten. The two **cross-mandate benchmarks** the chapters
+name but cannot yet derive say so on the page rather than leaving a hole: marked not built, with no
+fabricated progress count. The mockup's relevance mix is not drawn at all — nothing records how a
+company was reached (V30 dropped `app_lm_strategy_sector.kind`), and an illustrative bar on a
+client report was judged worse than none. The
 market chapter's hubs carry a point from `geocoding` — asked only for the handful of cities it names
 — so it draws a small map beside the bars where a Mapbox token is configured, and the bars alone
 where none is. The standalone
@@ -150,6 +157,7 @@ npm run dev                  # docker postgres (:55433) + api (:8080) + web (:51
 npm run dev:db:reset         # drop the local database; next boot re-runs every migration from V1
 npm run dev:db:psql          # psql shell in the local container
 npm run dev:db:apollo        # copy the Apollo company universe down from Cloud SQL into it
+npm run dev:db:seed-report   # demo companies + executives for the Reports tab, local database only
 npm run dev:cloud            # api + web against the SHARED Cloud SQL dev database
 npm test                     # all three suites: api, web, extension
 cd apps/api && ./mvnw test   # backend — needs Docker (Testcontainers)
@@ -230,7 +238,7 @@ the definitions are rows and the values are a document. `field_key` is slugged o
 rewritten — every stored value points at it — while `label` is the header a user renames.
 V47 adds `'CSV'` to the triage company's `source` CHECK, the spelling V36 had already reserved on the
 candidate side.
-V51 adds `app_lm_project_candidate.gender` (`FEMALE | MALE | OTHER`), nullable with no default:
+V56 adds `app_lm_project_candidate.gender` (`FEMALE | MALE | OTHER`), nullable with no default:
 NULL is "nobody recorded it" and is deliberately not a fourth value, because "not recorded" and
 "recorded as other" are different facts and the report counts them apart.
 V48 gives `app_lm_client` the two snapshot columns V15 left out — `hq_city` and `logo_url` — and
