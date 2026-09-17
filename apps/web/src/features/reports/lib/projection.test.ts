@@ -27,6 +27,16 @@ describe("projectCoverage", () => {
     expect(full.daysLate).toBe(24);
   });
 
+  it("reads an empty series as a kickoff week with nothing covered, never as NaN", () => {
+    const projection = projectCoverage({ ...progress, companiesCumulative: [] }, "recent");
+
+    expect(projection.coverage).toEqual([0]);
+    expect(projection.covered).toBe(0);
+    expect(projection.lastWeek).toBe(0);
+    expect(projection.remaining).toBe(42);
+    expect(projection.projectedDate).toBeNull();
+  });
+
   it("has no date to name at zero pace, and no slip without a target", () => {
     const stalled = projectCoverage({ ...progress, companiesCumulative: [0, 10, 10, 10, 10] }, "recent");
     expect(stalled.projectedDate).toBeNull();

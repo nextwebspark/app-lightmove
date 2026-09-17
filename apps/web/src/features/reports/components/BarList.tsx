@@ -10,10 +10,12 @@ export interface BarRow {
 /**
  * Horizontal bar rows: label, a bar on a sunken track scaled to the largest row, and the raw count.
  * Scaled to the leader rather than to the total, so a long tail of small rows is still readable, and
- * only the leader takes the accent. Rows become buttons when a caller wants a row to open something.
+ * only the leader takes the accent — the widest row, wherever it sits: a folded "Other" comes last
+ * and can still be the largest. Rows become buttons when a caller wants a row to open something.
  */
 export function BarList({ rows, onSelect }: { rows: BarRow[]; onSelect?: (row: BarRow) => void }) {
   const largest = rows.reduce((max, row) => Math.max(max, row.count), 0);
+  const leader = rows.findIndex((row) => row.count === largest);
   return (
     <div className="flex flex-col gap-2">
       {rows.map((row, index) => {
@@ -25,7 +27,7 @@ export function BarList({ rows, onSelect }: { rows: BarRow[]; onSelect?: (row: B
               <span
                 className={cn(
                   "block h-full rounded-[4px] transition-[width] duration-300",
-                  index === 0 ? "bg-u-accent" : "bg-u-border-strong",
+                  index === leader ? "bg-u-accent" : "bg-u-border-strong",
                 )}
                 style={{ width: `${width}%` }}
               />

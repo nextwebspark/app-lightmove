@@ -19,6 +19,10 @@ export interface Projection {
   daysLate: number | null;
   /** Week index of the latest data point. */
   lastWeek: number;
+  /** Companies covered by the end of each week, never empty: the series every reader draws from. */
+  coverage: number[];
+  /** Companies covered so far. */
+  covered: number;
 }
 
 /**
@@ -28,7 +32,9 @@ export interface Projection {
  * default and "full" is offered as the comparison.
  */
 export function projectCoverage(progress: ReportProgress, basis: ProjectionBasis): Projection {
-  const cum = progress.companiesCumulative;
+  // The server answers at least the kickoff week. An empty series is read as that week with nothing
+  // covered, here and once, so no figure or chart downstream indexes past the end into NaN.
+  const cum = progress.companiesCumulative.length > 0 ? progress.companiesCumulative : [0];
   const lastWeek = cum.length - 1;
   const pace = basis === "recent" ? recentPace(cum) : lastWeek === 0 ? 0 : cum[lastWeek] / lastWeek;
   const targetWeek = progress.targetDate === null ? null : daysBetween(progress.kickoff, progress.targetDate) / 7;
@@ -45,6 +51,8 @@ export function projectCoverage(progress: ReportProgress, basis: ProjectionBasis
     projectedDate: hasProjection ? addDays(progress.kickoff, Math.round(projectedWeek * 7)) : null,
     daysLate: hasProjection && targetWeek !== null ? Math.round((projectedWeek - targetWeek) * 7) : null,
     lastWeek,
+    coverage: cum,
+    covered: cum[lastWeek],
   };
 }
 

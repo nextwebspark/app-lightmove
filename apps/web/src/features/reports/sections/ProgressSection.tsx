@@ -27,7 +27,7 @@ export function ProgressSection({ eyebrow, progress }: { eyebrow: string; progre
   const [momentum, setMomentum] = useState<MomentumView>("weeks");
   const projection = projectCoverage(progress, basis);
   const pace = weeklyPace(progress);
-  const covered = progress.companiesCumulative[projection.lastWeek] ?? 0;
+  const covered = projection.covered;
   const target = progress.targetDate ? formatShortDate(progress.targetDate) : null;
 
   return (

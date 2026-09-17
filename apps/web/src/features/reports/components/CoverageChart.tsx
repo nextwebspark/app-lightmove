@@ -20,7 +20,7 @@ const LABEL = "text-[10px] font-semibold tracking-[0.04em]";
  * reads before any number does.
  */
 export function CoverageChart({ progress, projection }: { progress: ReportProgress; projection: Projection }) {
-  const cum = progress.companiesCumulative;
+  const cum = projection.coverage;
   const hasProjection = Number.isFinite(projection.projectedWeek) && projection.projectedDate !== null;
   const xMax = Math.max(
     projection.lastWeek + WEEKS_OF_HEADROOM,
