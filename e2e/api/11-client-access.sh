@@ -40,7 +40,7 @@ check C2.2 "and the CLIENT role" "CLIENT" \
   "$(sql "SELECT r.name FROM app_lm_invitation i JOIN app_lm_role r ON r.id = i.role_id
           WHERE i.email = '$CLIENT_EMAIL'")"
 check C2.3 "the portal invitation was the mail that went out" "true" \
-  "$(test "$(email_count "portal on LightMove")" -ge 1 && echo true || echo false)"
+  "$(test "$(email_count "portal on Uncava")" -ge 1 && echo true || echo false)"
 check C2.4 "the representative row is ACTIVE and bound to a user" "1" \
   "$(sql "SELECT count(*) FROM app_lm_client_representative
           WHERE lower(email) = '$CLIENT_EMAIL' AND status = 'ACTIVE' AND user_id IS NOT NULL")"

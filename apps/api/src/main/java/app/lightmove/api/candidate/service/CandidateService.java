@@ -1,27 +1,41 @@
 package app.lightmove.api.candidate.service;
 
-import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.candidate.constant.ContactChannel;
+import app.lightmove.api.candidate.constant.ContactKind;
+import app.lightmove.api.candidate.constant.ContactSource;
+import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.candidate.dto.CandidateCareerEntryDto;
 import app.lightmove.api.candidate.dto.CandidateCompensationDto;
+import app.lightmove.api.candidate.dto.CandidateContactsDto;
 import app.lightmove.api.candidate.dto.CandidateEducationEntryDto;
+import app.lightmove.api.candidate.dto.CandidateEmailDto;
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
+import app.lightmove.api.candidate.dto.CandidatePhoneDto;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
+import app.lightmove.api.candidate.dto.ContactEntryDto;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
+import app.lightmove.api.candidate.dto.UpdateCandidateContactsRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateCapturedEvent;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateCompensation;
+import app.lightmove.api.candidate.model.CandidateContact;
+import app.lightmove.api.candidate.model.CandidateContactState;
 import app.lightmove.api.candidate.model.CandidateDetails;
 import app.lightmove.api.candidate.model.CandidatePhoto;
 import app.lightmove.api.candidate.model.CandidateProfile;
+import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.candidate.model.FoundEmails;
+import app.lightmove.api.candidate.model.FoundPhones;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.repository.CandidatePhotoRepository;
 import app.lightmove.api.candidate.repository.CandidateRepository;
+import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CompanyListSettings;
@@ -38,9 +52,13 @@ import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -69,6 +87,8 @@ public class CandidateService {
      */
     private static final Sort FIRST_MAPPED_FIRST =
             Sort.by(Sort.Direction.ASC, "createdAt").and(Sort.by(Sort.Direction.ASC, "fullName"));
+
+    private static final int MAX_CONTACTS_PER_CHANNEL = 10;
 
     private final CandidateRepository candidates;
     private final CandidatePhotoRepository photos;
@@ -165,9 +185,10 @@ public class CandidateService {
     public Optional<CandidateResponse> findCandidateOfProject(UUID projectId, UUID triageCompanyId,
                                                               String email, String fullName) {
         if (email != null && !email.isBlank()) {
-            Optional<Candidate> byEmail =
-                    candidates.findByProjectIdAndEmailIgnoreCase(projectId, email.trim()).stream()
-                            .min(Comparator.comparing(Candidate::getCreatedAt));
+            Optional<Candidate> byEmail = candidates
+                    .findByProjectIdAndEmailKey(projectId, CandidateContact.keyOf(ContactChannel.EMAIL, email))
+                    .stream()
+                    .min(Comparator.comparing(Candidate::getCreatedAt));
             if (byEmail.isPresent()) {
                 return byEmail.map(CandidateService::toDto);
             }
@@ -219,6 +240,20 @@ public class CandidateService {
     @Transactional
     public CandidateResponse replace(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                                      SaveCandidateRequest request, HttpServletRequest httpRequest) {
+        return replace(userId, workspaceId, projectId, candidateId, request, ContactSource.MANUAL,
+                httpRequest);
+    }
+
+    /**
+     * {@code door} is the ledger's word for who is writing — the drawer is a person, the importer is
+     * a spreadsheet — and it is a parameter rather than read off {@code request.source()} because the
+     * drawer replays the row's own source on every edit, and a captured executive's address corrected
+     * by hand was typed, not captured.
+     */
+    @Transactional
+    public CandidateResponse replace(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
+                                     SaveCandidateRequest request, ContactSource door,
+                                     HttpServletRequest httpRequest) {
         requireProject(projectId, workspaceId);
         Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
@@ -226,9 +261,11 @@ public class CandidateService {
         CandidateDetails details = detailsOf(projectId, request);
         refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), candidateId);
         refuseHeldProfile(projectId, details.linkedinUrl(), candidateId);
+        refuseRetypedCapturedProfile(candidate, details.linkedinUrl());
 
         candidate.remapTo(request.triageCompanyId());
-        candidate.describe(details);
+        candidate.describe(details, door);
+        refuseOverfullChannels(candidate);
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
 
@@ -281,6 +318,162 @@ public class CandidateService {
             keepPhoto(candidateId, enriched);
             stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
         }, () -> log.info("Candidate {} was removed before its research landed", candidateId));
+    }
+
+    /**
+     * The Contact section's save: both channels replaced wholesale by what the person now lists.
+     * Every entry is a person's claim written through the drawer, so the door is always MANUAL —
+     * a row that came from a spreadsheet or the plugin keeps that source unless its spelling changes.
+     */
+    @Transactional
+    public CandidateResponse replaceContacts(UUID userId, UUID workspaceId, UUID projectId,
+                                             UUID candidateId, UpdateCandidateContactsRequest request,
+                                             HttpServletRequest httpRequest) {
+        requireProject(projectId, workspaceId);
+        Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+
+        List<ContactEntry> emails = distinctEntries(ContactChannel.EMAIL, request.emails());
+        List<ContactEntry> phones = distinctEntries(ContactChannel.PHONE, request.phones());
+        candidate.replaceContacts(ContactChannel.EMAIL, emails, ContactSource.MANUAL);
+        candidate.replaceContacts(ContactChannel.PHONE, phones, ContactSource.MANUAL);
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+
+        audit.event(ProjectEventType.CANDIDATE_UPDATED)
+                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                .detail("candidateId", candidateId.toString())
+                .detail("section", "contacts")
+                .record();
+        return toDto(candidate);
+    }
+
+    /**
+     * The plugin read this row's URL off the profile page it was on; research and contact lookup
+     * key on that slug, and a retyped one can only break them. A person's own row is theirs to fix.
+     */
+    private static void refuseRetypedCapturedProfile(Candidate candidate, String linkedinUrl) {
+        if (candidate.getSource() == CandidateSource.EXTENSION
+                && !Objects.equals(candidate.getLinkedinUrl(), linkedinUrl)) {
+            throw ApiException.of(ErrorCode.CANDIDATE_PROFILE_URL_LOCKED);
+        }
+    }
+
+    /**
+     * The Add form's list plus the one value a cell or a capture supplies, as ledger entries. A cell
+     * whose value keys to nothing — a dash where a number should be — is skipped rather than refused,
+     * as it always was: a spreadsheet says "unknown" a dozen ways.
+     */
+    private static List<ContactEntry> entriesOf(ContactChannel channel, List<ContactEntryDto> listed,
+                                                String single) {
+        List<ContactEntry> entries = new ArrayList<>();
+        if (listed != null) {
+            listed.forEach(entry -> entries.add(entryOf(channel, entry)));
+        }
+        if (single != null && !CandidateContact.keyOf(channel, single).isEmpty()) {
+            entries.add(ContactEntry.of(single));
+        }
+        return distinct(channel, entries);
+    }
+
+    private static List<ContactEntry> distinctEntries(ContactChannel channel, List<ContactEntryDto> listed) {
+        if (listed == null) {
+            return List.of();
+        }
+        List<ContactEntry> entries = new ArrayList<>();
+        listed.forEach(entry -> entries.add(entryOf(channel, entry)));
+        return distinct(channel, entries);
+    }
+
+    /**
+     * Two spellings of one address or number in the same save is a slip, and letting the second win
+     * silently would hide it; ten of either is a paste error. Every write path passes through here,
+     * so the rule does not depend on which endpoint a client chose.
+     */
+    private static List<ContactEntry> distinct(ContactChannel channel, List<ContactEntry> entries) {
+        if (entries.size() > MAX_CONTACTS_PER_CHANNEL) {
+            throw ApiException.of(ErrorCode.CONTACT_LIMIT_REACHED);
+        }
+        Set<String> keys = new HashSet<>();
+        for (ContactEntry entry : entries) {
+            String key = CandidateContact.keyOf(channel, entry.value());
+            if (key.isEmpty()) {
+                throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
+                        "That is not " + (channel == ContactChannel.EMAIL ? "an email" : "a phone number") + " anyone could use");
+            }
+            if (!keys.add(key)) {
+                throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
+                        "The same " + channel.value() + " is listed twice");
+            }
+        }
+        return entries;
+    }
+
+    /** A profile write adds to the ledger and removes nothing, so the cap is checked on what it holds after. */
+    private static void refuseOverfullChannels(Candidate candidate) {
+        if (candidate.emailContacts().size() > MAX_CONTACTS_PER_CHANNEL
+                || candidate.phoneContacts().size() > MAX_CONTACTS_PER_CHANNEL) {
+            throw ApiException.of(ErrorCode.CONTACT_LIMIT_REACHED);
+        }
+    }
+
+    private static ContactEntry entryOf(ContactChannel channel, ContactEntryDto listed) {
+        String value = listed.value() == null ? null : listed.value().trim();
+        if (channel == ContactChannel.EMAIL && value != null && !looksLikeAnEmail(value)) {
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "That doesn't look like a valid email");
+        }
+        return new ContactEntry(value, ContactKind.fromValue(listed.kind()), Boolean.TRUE.equals(listed.verified()));
+    }
+
+    private static boolean looksLikeAnEmail(String value) {
+        int at = value.indexOf('@');
+        return at > 0 && at < value.length() - 1 && value.indexOf('@', at + 1) < 0
+                && !value.contains(" ");
+    }
+
+    /**
+     * What a contact lookup needs before it decides whether to spend a credit, in one read.
+     */
+    @Transactional(readOnly = true)
+    public CandidateContactState contactStateOf(UUID workspaceId, UUID projectId, UUID candidateId) {
+        requireProject(projectId, workspaceId);
+        Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        return new CandidateContactState(candidate.getLinkedinUrl(),
+                candidate.hasAskedForEmails(), candidate.hasAskedForPhones(),
+                candidate.hasFoundEmails(), candidate.hasFoundPhones(),
+                toDto(candidate));
+    }
+
+    /**
+     * The short transactional tail of an email lookup, {@code applyResearch}'s shape without its
+     * {@code REQUIRES_NEW}: this is called from a request thread with no transaction bound.
+     *
+     * <p>The guard is re-checked here rather than only before the vendor call, so two presses racing
+     * each other leave the first answer standing instead of a second write of the same values.
+     */
+    @Transactional
+    public CandidateResponse applyFoundEmails(UUID projectId, UUID candidateId, FoundEmails found) {
+        Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        if (candidate.hasAskedForEmails()) {
+            return toDto(candidate);
+        }
+        candidate.recordFoundEmails(found);
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+        return toDto(candidate);
+    }
+
+    /** The phone half of {@link #applyFoundEmails}. */
+    @Transactional
+    public CandidateResponse applyFoundPhones(UUID projectId, UUID candidateId, FoundPhones found) {
+        Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        if (candidate.hasAskedForPhones()) {
+            return toDto(candidate);
+        }
+        candidate.recordFoundPhones(found);
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+        return toDto(candidate);
     }
 
     /**
@@ -389,9 +582,12 @@ public class CandidateService {
     private CandidateDetails detailsOf(UUID projectId, SaveCandidateRequest request) {
         CandidateDetails details = new CandidateDetails(
                 request.fullName(), request.title(), resolveSeniority(request.seniority()),
-                resolveStatus(request.status()), request.employerName(), request.email(),
-                request.phone(), request.linkedinUrl(), request.locationCountry(),
-                request.locationCity(), request.nationality(), request.yearsExperience(),
+                resolveStatus(request.status()), request.employerName(),
+                entriesOf(ContactChannel.EMAIL, request.emails(), request.email()),
+                entriesOf(ContactChannel.PHONE, request.phones(), request.phone()),
+                request.linkedinUrl(), request.locationCountry(),
+                request.locationCity(), request.nationality(), resolveGender(request.gender()),
+                request.yearsExperience(),
                 request.summary(), request.note(), compensationOf(request.compensation()),
                 profileOf(request), request.sourceUrl());
 
@@ -501,6 +697,18 @@ public class CandidateService {
         return seniority;
     }
 
+    /** Null when nobody recorded it. Absent is not {@code OTHER}, and the report counts them apart. */
+    private static Gender resolveGender(String token) {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        Gender gender = Gender.fromValue(token);
+        if (gender == null) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown gender: " + token);
+        }
+        return gender;
+    }
+
     private static CandidateSource resolveSource(String token) {
         if (token == null || token.isBlank()) {
             return CandidateSource.MANUAL;
@@ -527,12 +735,11 @@ public class CandidateService {
                 candidate.getTitle(),
                 candidate.getSeniorityLevel() == null ? null : candidate.getSeniorityLevel().value(),
                 candidate.getStatus().value(),
-                candidate.getEmail(),
-                candidate.getPhone(),
                 candidate.getLinkedinUrl(),
                 candidate.getLocationCountry(),
                 candidate.getLocationCity(),
                 candidate.getNationality(),
+                candidate.getGender() == null ? null : candidate.getGender().value(),
                 candidate.getYearsExperience(),
                 candidate.getSummary(),
                 candidate.getNote(),
@@ -552,6 +759,25 @@ public class CandidateService {
                 candidate.getSourceUrl(),
                 candidate.getCustomFields().asMap(),
                 candidate.getCreatedAt(),
-                candidate.getProfile().enrichedAt());
+                candidate.getProfile().enrichedAt(),
+                contactsOf(candidate));
+    }
+
+    private static CandidateContactsDto contactsOf(Candidate candidate) {
+        return new CandidateContactsDto(
+                candidate.emailContacts().stream()
+                        .map(contact -> new CandidateEmailDto(contact.getValue(),
+                                contact.getKind() == null ? null : contact.getKind().value(),
+                                contact.isVerified(), contact.getStatus(),
+                                contact.getSource().value(), contact.getFoundAt()))
+                        .toList(),
+                candidate.phoneContacts().stream()
+                        .map(contact -> new CandidatePhoneDto(contact.getValue(),
+                                contact.getKind() == null ? null : contact.getKind().value(),
+                                contact.isVerified(), contact.getStatus(),
+                                contact.getSource().value(), contact.getFoundAt()))
+                        .toList(),
+                candidate.getEmailsLookedUpAt(), candidate.getPhonesLookedUpAt(),
+                candidate.getContactsLookedUpVia());
     }
 }

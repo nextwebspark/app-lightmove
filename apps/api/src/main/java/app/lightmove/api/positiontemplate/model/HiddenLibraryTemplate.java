@@ -9,7 +9,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** A library template one workspace has taken out of its picker and its title matching (V52). */
+/** A library template one workspace has taken out of its picker and its title matching (V58). */
 @Entity
 @Table(name = "app_lm_position_template_hidden")
 @Getter

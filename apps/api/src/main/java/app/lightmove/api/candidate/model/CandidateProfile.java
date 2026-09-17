@@ -15,7 +15,8 @@ import java.util.List;
  * enriched profile unreadable.
  *
  * <p>Null-tolerant on the way in, and {@code @JsonIgnoreProperties} for {@code StrategyFilter}'s
- * reason: a profile must never become unreadable because a field was retired.
+ * reason: a profile must never become unreadable because a field was retired — which is also how a
+ * profile written before V54 moved contacts out of this document still reads.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record CandidateProfile(List<CandidateCareerEntry> career, List<String> languages,

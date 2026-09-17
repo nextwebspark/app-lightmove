@@ -11,10 +11,10 @@ import type { CompanyResult, CompanySort, CompanySortField } from "../api/types"
 import { COLUMN_PINNING, companyColumns, companyTableFeatures } from "../lib/companyColumns";
 
 /**
- * Strategy's half of the company grid: the market's columns and its one row action, over the shared
- * {@link DataGrid}. Everything about how the grid *looks* — the sticky header, the pinned Company
- * column, the scroll behaviour — lives there, so the Companies screens render identically without
- * either side owning a copy.
+ * Strategy's half of the company grid: the market's columns over the shared {@link DataGrid}.
+ * Everything about how the grid *looks* — the sticky header, the pinned Company column, the scroll
+ * behaviour — lives there, so the Companies screens render identically without either side owning a
+ * copy.
  *
  * <p>Every row carries a tick box in front of its name, and the header a select-all over the page —
  * both handed to {@link DataGrid} as its leading slot, so they ride the pinned column and stay on
@@ -36,8 +36,6 @@ export function CompanyResultsTable({
   onLayoutChange,
   loading,
   error,
-  onAddToUniverse,
-  addingIds,
   rowSelection,
   onRowSelectionChange,
   onOpenCompany,
@@ -51,9 +49,6 @@ export function CompanyResultsTable({
   onLayoutChange: (layout: GridLayout) => void;
   loading: boolean;
   error: boolean;
-  onAddToUniverse: (company: CompanyResult) => void;
-  /** Every company with an add still in flight, so one row's request cannot re-enable another's. */
-  addingIds: ReadonlySet<string>;
   /**
    * Which rows are ticked, keyed by company id. Held by the page rather than by this component,
    * because the bulk bar it floats over the grid acts on the selection and outlives any one page of
@@ -61,8 +56,8 @@ export function CompanyResultsTable({
    */
   rowSelection: RowSelectionState;
   onRowSelectionChange: OnChangeFn<RowSelectionState>;
-  /** Opens the market panel on a row. The tick box, the add button and the link icons keep their
-      own clicks — {@link DataGrid} excludes every nested control from the row's. */
+  /** Opens the market panel on a row. The tick box and the link icons keep their own clicks —
+      {@link DataGrid} excludes every nested control from the row's. */
   onOpenCompany: (company: CompanyResult) => void;
 }) {
   const table = useDataGridTable<typeof companyTableFeatures, CompanyResult, CompanySortField>({
@@ -79,7 +74,6 @@ export function CompanyResultsTable({
     onColumnVisibilityChange,
     layout,
     onLayoutChange,
-    meta: { onAddToUniverse, addingIds },
   });
 
   /*

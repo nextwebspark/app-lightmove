@@ -328,6 +328,59 @@ generated once, **on your machine, never in CI** — a pipeline that mints a sig
 logs one. Losing it signs everyone out (access tokens live 15 minutes, refresh tokens are in the database,
 so no data is lost); leaking it lets anyone mint a token for any user.
 
+### Custom domain
+
+The app is reached at `https://beta.uncava.com`; the service's own `run.app` URL redirects there
+(`CanonicalOriginRedirectFilter`). DNS is on Cloudflare with the proxy **off** — the grey cloud — so
+Google issues and renews the certificate; the orange cloud intercepts the validation request and the
+mapping never leaves *pending*. A Cloud Run domain mapping is free and the preview status is fine
+for a beta; the production domain goes behind a global external load balancer instead.
+
+```bash
+gcloud domains verify uncava.com          # once, in Search Console, as the account running gcloud
+gcloud beta run domain-mappings create --service lightmove --domain beta.uncava.com --region us-central1
+# Cloudflare: CNAME beta → ghs.googlehosted.com, DNS only. Then wait for the certificate:
+gcloud beta run domain-mappings describe --domain beta.uncava.com --region us-central1
+```
+
+Then set the `PUBLIC_BASE_URL` repository variable to `https://beta.uncava.com` and deploy: the deploy
+reads it instead of the service URL, so `WEB_BASE_URL`, the CORS allow-list, both OAuth redirect URIs
+and the bundle's link-preview tags (below) carry the domain. The identity providers have to hear about
+it too — Google's OAuth client needs
+`https://beta.uncava.com/login/oauth2/code/google` as an authorised redirect URI and LinkedIn's app
+the `linkedin` twin — and the next extension release is built with
+`LM_WORKSPACE_ORIGIN=https://beta.uncava.com`, which changes its host permission and so goes through
+Web Store review. Sessions do not survive the switch: the refresh cookie is host-only, so everyone
+signs in again on the new host. Old email links still land — the redirect keeps the query string.
+
+Transactional mail is sent as `noreply@uncava.com`, which means `uncava.com` verified in Resend: its
+DKIM and SPF records and a `_dmarc` TXT live in Cloudflare next to the CNAME, and the `EMAIL_FROM`
+variable names the address.
+
+### Link previews
+
+Pasting a link to the app into WhatsApp, Slack, LinkedIn, iMessage or X draws a card: the title, one
+sentence, and `apps/web/public/og-image-v2.png` (1200×630, the mark and wordmark on the dark ground). The
+Open Graph and Twitter tags that say so are in `apps/web/index.html` — **not** set by React, because
+none of these crawlers runs the bundle; they read the shell Spring returns and stop. Their URLs must be
+absolute, so `vite.config.ts` substitutes `__PUBLIC_BASE_URL__` at build time from the same
+`PUBLIC_BASE_URL` the deploy uses, falling back to the mapped domain.
+
+Every one of them caches a card by URL, for days, and LinkedIn and WhatsApp most stubbornly of all.
+Redrawing the image in place therefore leaves the old picture in circulation, so **the filename carries a
+version**: `og-image.png` shipped in v0.3.0 wearing the mark the app has since replaced, and the redrawing
+went out as `og-image-v2.png` rather than over the top of it. A next one takes `-v3`. LinkedIn's
+[Post Inspector][li] and Facebook's [Sharing Debugger][fb] re-fetch on demand, which is the only way to
+see a change before the cache expires.
+
+The card is a rendering, not a drawing by hand: an HTML page laid out in the app's own tokens, screenshot
+at 1200×630 with headless Chromium. Redraw it that way — the composition is the auth screen's lockup
+(`AppIcon` and the wordmark) over the dark ground, and matching it by hand in an image editor is how the
+two drift apart.
+
+[li]: https://www.linkedin.com/post-inspector/
+[fb]: https://developers.facebook.com/tools/debug/
+
 ### What ships, and what does not
 
 | | |

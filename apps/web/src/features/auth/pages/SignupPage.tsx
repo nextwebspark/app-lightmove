@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
-import { Button, Card, Field, FormError, Input, Logo } from "../../../components/ui";
+import { AuthLogo, Button, Card, Field, FormError, Input } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { EMAIL_FIELD_ERROR_CODES, type ApiErrorCode } from "../../../lib/errorCodes";
 import { ThemeToggle } from "../../theme/ThemeToggle";
@@ -45,7 +45,7 @@ export function SignupPage() {
       navigate("/signup/verify-email", { replace: true });
     } catch (error) {
       if (!(error instanceof ApiRequestError)) {
-        setFormError("Could not reach LightMove. Check your connection and try again.");
+        setFormError("Could not reach Uncava. Check your connection and try again.");
         return;
       }
 
@@ -75,7 +75,7 @@ export function SignupPage() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-4 sm:p-6">
       <ThemeToggle className="fixed right-4 top-4 z-50" />
-      <Logo />
+      <AuthLogo />
       <Stepper steps={SIGNUP_STEPS} current={1} />
 
       <Card className="w-[480px] max-w-[94vw] [animation-delay:80ms]">

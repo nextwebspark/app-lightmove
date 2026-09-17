@@ -7,8 +7,8 @@ import app.lightmove.api.core.config.EmailSettings;
 import app.lightmove.api.core.config.EmailValidationSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
-import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -134,7 +134,7 @@ class EmailAddressValidatorTest {
                 null,
                 null,
                 null,
-                null, null, null));
+                null, null, null, null));
     }
 
     private static EmailValidationSettings defaults() {

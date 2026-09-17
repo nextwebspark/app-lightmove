@@ -35,3 +35,14 @@ export function toBrowsableUrl(value: string | null | undefined): string | null 
     return null;
   }
 }
+
+/**
+ * A URL as a person reads it: no scheme, no `www.`, no trailing slash — `linkedin.com/in/hakanalac`
+ * rather than the address bar's spelling. The href stays the full URL; this is only what is printed.
+ */
+export function toReadableUrl(url: string): string {
+  return url
+    .replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .replace(/\/+$/, "");
+}

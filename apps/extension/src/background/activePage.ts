@@ -187,7 +187,7 @@ function isCapturableTab(tab: chrome.tabs.Tab): boolean {
 export class LinkedInOnlyError extends Error {
   constructor() {
     super(
-      "LightMove Capture reads LinkedIn only, for now. To add a person or a company by hand, open LightMove.",
+      "UNCAVA Capture reads LinkedIn only, for now. To add a person or a company by hand, open Uncava.",
     );
     this.name = "LinkedInOnlyError";
   }

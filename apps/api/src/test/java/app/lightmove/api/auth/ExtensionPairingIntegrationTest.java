@@ -10,11 +10,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import jakarta.servlet.http.Cookie;
-import tools.jackson.databind.JsonNode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
+import tools.jackson.databind.JsonNode;
 
 /**
  * Pairing the browser extension with an account.
@@ -212,7 +212,7 @@ class ExtensionPairingIntegrationTest extends FlowTestSupport {
         createWorkspace(verifiedUser("Alok Kumar", workspaceOwner), "Spoofed Label Firm");
 
         MvcResult signIn = mvc.perform(post("/api/v1/auth/login")
-                        .header("User-Agent", "LightMove Capture (browser extension)")
+                        .header("User-Agent", "Uncava Capture (browser extension)")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"email":"%s","password":"%s"}""".formatted(workspaceOwner, PASSWORD)))

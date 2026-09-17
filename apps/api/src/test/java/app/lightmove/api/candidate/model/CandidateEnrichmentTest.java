@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.candidate.constant.ContactSource;
+import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -21,7 +23,8 @@ class CandidateEnrichmentTest {
             "Dubai", "United Arab Emirates",
             List.of(new CandidateCareerEntry("Al Rawabi Dairy", "Group CFO", "2021 – Present")),
             List.of(new CandidateEducationEntry("AUC", "MBA, Finance", "2010 - 2012")),
-            List.of("Financial Planning"), List.of("English", "Arabic"), null);
+            List.of("Financial Planning"), List.of("English", "Arabic"), null,
+            EnrichmentVendor.BRIGHTDATA);
 
     @Test
     @DisplayName("research fills in what nobody typed")
@@ -40,6 +43,15 @@ class CandidateEnrichmentTest {
         assertThat(candidate.getProfile().education()).hasSize(1);
         assertThat(candidate.getProfile().skills()).containsExactly("Financial Planning");
         assertThat(candidate.getProfile().enrichedAt()).isNotNull();
+        assertThat(candidate.getEnrichedBy()).isEqualTo(EnrichmentVendor.BRIGHTDATA);
+    }
+
+    @Test
+    @DisplayName("an unresearched candidate names no provider")
+    void anUnresearchedCandidateNamesNoProvider() {
+        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+
+        assertThat(candidate.getEnrichedBy()).isNull();
     }
 
     @Test
@@ -47,7 +59,7 @@ class CandidateEnrichmentTest {
     void researchNeverOverwritesTheResearcher() {
         CandidateDetails typed = new CandidateDetails("Sample Person", "CFO, as we met them",
                 null, CandidateStatus.IDENTIFIED, "The Firm They Told Us", null,
-                null, null, "UAE", "Abu Dhabi", null, null, "Our own read of them.", null,
+                null, null, "UAE", "Abu Dhabi", null, null, null, "Our own read of them.", null,
                 CandidateCompensation.unknown(),
                 new CandidateProfile(
                         List.of(new CandidateCareerEntry("The Firm They Told Us", "CFO", "2019 –")),
@@ -90,7 +102,7 @@ class CandidateEnrichmentTest {
 
         candidate.describe(details("Sample Person", "CFO", null, null,
                 List.of(new CandidateCareerEntry("Corrected Employer", "CFO", "2020 –")),
-                List.of("English")));
+                List.of("English")), ContactSource.MANUAL);
 
         assertThat(candidate.getProfile().career().getFirst().company()).isEqualTo("Corrected Employer");
         assertThat(candidate.getProfile().languages()).containsExactly("English");
@@ -123,7 +135,7 @@ class CandidateEnrichmentTest {
                                             List<String> languages) {
         return new CandidateDetails(fullName, title, null, CandidateStatus.IDENTIFIED, employerName,
                 null, null, "https://www.linkedin.com/in/sample-profile", null, null, null, null,
-                summary, null, CandidateCompensation.unknown(),
+                null, summary, null, CandidateCompensation.unknown(),
                 new CandidateProfile(career, languages, null, null, null), null);
     }
 }

@@ -1,6 +1,6 @@
 /**
  * <b>Position template — the briefs a new mandate is drafted from.</b> The shared library (V42) a
- * platform super admin edits, each firm's own copies of it and templates of its own (V52), the picker a
+ * platform super admin edits, each firm's own copies of it and templates of its own (V58), the picker a
  * consultant chooses from, and the JSON file both tiers export and import.
  *
  * <p>A firm's template shadows the library's under the same {@code code}, so a library edit reaches

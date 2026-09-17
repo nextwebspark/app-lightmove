@@ -45,7 +45,7 @@ public enum ErrorCode {
 
     /** A consumer provider (gmail, outlook…). The domain must name a company — it is the organisation. */
     EMAIL_NOT_WORK_ADDRESS(HttpStatus.BAD_REQUEST,
-            "Please sign up with your work email. LightMove is for search firms, and your email domain identifies your organization"),
+            "Please sign up with your work email. Uncava is for search firms, and your email domain identifies your organization"),
 
     /** The user already has an active workspace. One at a time. */
     ALREADY_IN_WORKSPACE(HttpStatus.CONFLICT, "You already belong to a workspace"),
@@ -222,6 +222,43 @@ public enum ErrorCode {
      */
     POSITION_DOCUMENT_UNREADABLE(HttpStatus.BAD_REQUEST,
             "That document could not be read. Save it as .docx or PDF, with a text layer, and try again."),
+
+    /**
+     * No contact provider on this deployment, or the one configured refuses our key. Both are an
+     * operator's problem and neither is anything the person who pressed the button can act on, so
+     * they read the same to them.
+     */
+    CONTACT_LOOKUP_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
+            "Contact lookup is not available on this deployment"),
+
+    /**
+     * The account's credits for the period are spent. Deliberately not SERVICE_UNAVAILABLE, which
+     * reads as "try again shortly": a monthly quota will not refill shortly, and nothing was written,
+     * so the lookup is still there to run once it does.
+     */
+    CONTACT_LOOKUP_NO_CREDITS(HttpStatus.CONFLICT,
+            "Contact lookup has no credits left this period"),
+
+    /** The provider timed out, failed, or answered something unreadable — after the retries. */
+    CONTACT_LOOKUP_FAILED(HttpStatus.BAD_GATEWAY,
+            "Contact lookup did not answer. Try again in a moment"),
+
+    /**
+     * Nothing to look up: contacts are keyed on a LinkedIn profile. Refused before anything is spent.
+     */
+    CONTACT_LOOKUP_NO_PROFILE(HttpStatus.CONFLICT,
+            "Add this person's LinkedIn profile URL first"),
+
+    /** Ten addresses or ten numbers is more than any one person needs; past that it is a paste error. */
+    CONTACT_LIMIT_REACHED(HttpStatus.CONFLICT,
+            "A profile holds ten email addresses and ten phone numbers at most"),
+
+    /**
+     * The row was captured off a LinkedIn profile page by the plugin, so its URL is the page it came
+     * from and the key research and contact lookup both hang off. Retyping it can only break that.
+     */
+    CANDIDATE_PROFILE_URL_LOCKED(HttpStatus.CONFLICT,
+            "This profile was captured from LinkedIn; its URL is not editable"),
 
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 

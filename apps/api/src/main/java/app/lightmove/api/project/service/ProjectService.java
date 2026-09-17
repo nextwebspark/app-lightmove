@@ -14,13 +14,13 @@ import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.position.service.PositionService;
+import app.lightmove.api.project.constant.ClientRepStatus;
 import app.lightmove.api.project.constant.ProjectHealth;
 import app.lightmove.api.project.dto.AttachedRepresentativeResponse;
 import app.lightmove.api.project.dto.CreateProjectRequest;
 import app.lightmove.api.project.dto.ProjectResponse;
 import app.lightmove.api.project.dto.TeamMemberResponse;
 import app.lightmove.api.project.dto.UpdateProjectRequest;
-import app.lightmove.api.project.constant.ClientRepStatus;
 import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.model.PendingRepresentativeAttachment;
@@ -69,6 +69,8 @@ public class ProjectService {
     private final ClientRepresentativeRepository representatives;
     private final PendingRepresentativeAttachmentRepository pendingAttachments;
     private final PositionService positionService;
+    private final ProjectCompanyCounter companyCounter;
+    private final ProjectCandidateCounter candidateCounter;
     private final WorkspaceAccess access;
     private final RbacService rbac;
     private final UserRepository users;
@@ -450,7 +452,8 @@ public class ProjectService {
                                 Collectors.toSet())));
 
         return new Assembly(seatsByProject, memberById, userById, clientById,
-                repsByClientId, pendingRepIdsByProjectId, LocalDate.now());
+                repsByClientId, pendingRepIdsByProjectId, companyCounter.countByProject(ids),
+                candidateCounter.countByProject(ids), LocalDate.now());
     }
 
     private ProjectResponse toResponse(Project project, Assembly assembly) {
@@ -510,7 +513,10 @@ public class ProjectService {
                 client == null ? null : client.getLogoUrl(),
                 project.getPositionTitle(), project.getStage(),
                 ProjectHealth.derive(project.getStage(), project.getTargetDate(), assembly.today()),
-                project.getTargetDate(), team, attachedRepresentatives, 0, 0, project.getCreatedAt());
+                project.getTargetDate(), team, attachedRepresentatives,
+                assembly.companyCountByProject().getOrDefault(project.getId(), 0L),
+                assembly.candidateCountByProject().getOrDefault(project.getId(), 0L),
+                project.getCreatedAt());
     }
 
     private static <E extends Enum<E>> List<E> names(Set<Role> roles, Function<String, E> valueOf) {
@@ -527,6 +533,8 @@ public class ProjectService {
                             Map<UUID, Client> clientById,
                             Map<UUID, List<ClientRepresentative>> repsByClientId,
                             Map<UUID, Set<UUID>> pendingRepIdsByProjectId,
+                            Map<UUID, Long> companyCountByProject,
+                            Map<UUID, Long> candidateCountByProject,
                             LocalDate today) {
     }
 }

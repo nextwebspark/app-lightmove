@@ -1116,6 +1116,23 @@ describe("StrategyPage — picking companies out of the market in bulk", () => {
     expect(await screen.findByText("2 companies moved to Shortlisted")).toBeInTheDocument();
   });
 
+  it("refetches the grid once the bar's move succeeds, so a moved company stops showing", async () => {
+    // The search excludes a company the moment it is triaged, so a stale grid — the page the ticks
+    // were read from — must be told to ask again. Invalidating only the triage cache leaves this
+    // page's companies query untouched and the just-moved row sitting on screen.
+    vi.mocked(strategyApi.getCompanies)
+      .mockResolvedValueOnce(twoCompanies())
+      .mockResolvedValueOnce(pageOf({ companies: [secondCompany()], totalCount: 1 }));
+    renderPage();
+    await screen.findByText("ACWA Power");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select ACWA Power" }));
+    await userEvent.click(screen.getByRole("button", { name: "Shortlisted" }));
+
+    await waitFor(() => expect(screen.queryByText("ACWA Power")).not.toBeInTheDocument());
+    expect(strategyApi.getCompanies).toHaveBeenCalledTimes(2);
+  });
+
   it("declines a selection without first taking it into the universe", async () => {
     // The whole point of the bar: ruling forty companies out is one gesture, not forty adds and
     // forty moves.
@@ -1220,13 +1237,6 @@ describe("StrategyPage — picking companies out of the market in bulk", () => {
     expect(await screen.findByRole("region", { name: "2 companies selected" })).toBeInTheDocument();
   });
 
-  it("leaves the per-row Add button alone", async () => {
-    // One company is still one click. The bar is for the case the row action is bad at.
-    renderPage();
-    await screen.findByText("ACWA Power");
-
-    expect(screen.getByRole("button", { name: "Add ACWA Power to universe" })).toBeInTheDocument();
-  });
 });
 
 describe("StrategyPage — the market company panel", () => {
@@ -1255,16 +1265,6 @@ describe("StrategyPage — the market company panel", () => {
     expect(within(panel).getByText("3,000")).toBeInTheDocument();
   });
 
-  it("leaves the row's own controls to themselves", async () => {
-    renderPage();
-
-    await userEvent.click(await screen.findByRole("button", { name: "Add ACWA Power to universe" }));
-
-    // The button is inside the row, and a click that added a company must not also open a panel
-    // asking whether to add it.
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  });
-
   it("files the company at the stage the button names", async () => {
     renderPage();
     const panel = await openPanel();
@@ -1278,9 +1278,10 @@ describe("StrategyPage — the market company panel", () => {
   });
 
   it("says a company was left where it is rather than claiming the move", async () => {
-    // The market list carries companies the mandate already holds, and POST /triage returns such a
-    // row untouched. Reporting the stage that was asked for would have a mandate believing in a
-    // shortlist entry that does not exist.
+    // The search excludes an already-triaged company, but a race is still possible — another tab
+    // triages this row between the search rendering it and this panel's click — and POST /triage
+    // returns such a row untouched. Reporting the stage that was asked for would have a mandate
+    // believing in a shortlist entry that does not exist.
     vi.mocked(triageApi.addMarketCompany).mockResolvedValue(triagedAs("declined"));
     renderPage();
     const panel = await openPanel();
@@ -1289,32 +1290,6 @@ describe("StrategyPage — the market company panel", () => {
 
     expect(await screen.findByText(/already in this mandate, at Declined/i)).toBeInTheDocument();
     expect(screen.queryByText(/added to Shortlisted/i)).not.toBeInTheDocument();
-  });
-
-  it("keeps one company's add from re-enabling another's button", async () => {
-    // The "+" and the panel both fire the same mutation. A single pending id could only remember the
-    // latest, so a second add re-enabled the first row's button while its POST was still out and let
-    // the user file the same company twice.
-    const release: ((row: unknown) => void)[] = [];
-    vi.mocked(triageApi.addMarketCompany).mockImplementation(
-      () => new Promise((resolve) => release.push(resolve)) as never,
-    );
-    vi.mocked(strategyApi.getCompanies).mockResolvedValue(twoCompanies());
-    renderPage();
-
-    const addAcwa = await screen.findByRole("button", { name: "Add ACWA Power to universe" });
-    await userEvent.click(addAcwa);
-    await waitFor(() => expect(addAcwa).toBeDisabled());
-
-    await userEvent.click(screen.getByRole("button", { name: "Add Masdar to universe" }));
-    await waitFor(() => expect(release).toHaveLength(2));
-
-    // Both POSTs are still out, so neither button may come back.
-    expect(addAcwa).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Add Masdar to universe" })).toBeDisabled();
-
-    release.forEach((resolve) => resolve(triagedAs("inUniverse")));
-    await waitFor(() => expect(addAcwa).toBeEnabled());
   });
 
   it("shows each tag once, however the market spells it into both lists", async () => {

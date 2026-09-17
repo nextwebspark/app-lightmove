@@ -67,6 +67,13 @@ describe("ProjectDrawer", () => {
     expect(screen.getByText("Invite sent")).toBeInTheDocument();
   });
 
+  it("reports the mandate's universe and the executives mapped against it", () => {
+    renderDrawer();
+
+    expect(screen.getByText("Companies").closest("div")).toHaveTextContent("4");
+    expect(screen.getByText("Candidates").closest("div")).toHaveTextContent("2");
+  });
+
   it("shows the client's logo", () => {
     const { container } = renderDrawer();
 

@@ -10,9 +10,14 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * {@code harvestapi} scrapes live every time. Off by default for the reason the email provider
  * defaults are what they are: a fresh clone must run with zero vendor accounts, and every
  * enrichment call is billed.
+ *
+ * <p>{@code contactout} is <b>not</b> selected by {@code provider}. Contact lookup is a separate
+ * capability with its own key and its own bill, so {@code provider: off} must leave the drawer's
+ * Find email / Find phone buttons working.
  */
 public record EnrichmentSettings(
         @DefaultValue("off") String provider,
         BrightDataSettings brightdata,
-        HarvestApiSettings harvestapi
+        HarvestApiSettings harvestapi,
+        ContactOutSettings contactout
 ) {}

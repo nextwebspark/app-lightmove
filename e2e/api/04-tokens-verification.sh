@@ -79,15 +79,15 @@ check_code N17.3 "the superseded link no longer works" 400 TOKEN_INVALID
 post_json /auth/verify "$(jq -nc --arg t "$TOKEN_B3" '{token:$t}')"
 check_status N17.4 "only the newest link works" 200
 
-MAILS_BEFORE=$(email_count "Confirm your LightMove email")
+MAILS_BEFORE=$(email_count "Confirm your Uncava email")
 http POST /auth/verify/resend -H 'Content-Type: application/json' -d "$(jq -nc --arg e "$USER_B" '{email:$e}')"
 check_status N17.5 "resend for an ALREADY VERIFIED address still answers 202" 202
-check N17.6 "and sends nothing" "$MAILS_BEFORE" "$(email_count "Confirm your LightMove email")"
+check N17.6 "and sends nothing" "$MAILS_BEFORE" "$(email_count "Confirm your Uncava email")"
 
 http POST /auth/verify/resend -H 'Content-Type: application/json' \
   -d "$(jq -nc --arg e "lm-e2e-ghost-$(date +%s)@$MAIL_DOMAIN" '{email:$e}')"
 check_status N17.7 "resend for an unknown address answers 202 too" 202
-check N17.8 "and sends nothing — no enumeration" "$MAILS_BEFORE" "$(email_count "Confirm your LightMove email")"
+check N17.8 "and sends nothing — no enumeration" "$MAILS_BEFORE" "$(email_count "Confirm your Uncava email")"
 
 section "N18  purposes do not cross"
 

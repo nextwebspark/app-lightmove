@@ -218,6 +218,15 @@ export function takeHandshakeId(): string | null {
   return handshakeId || null;
 }
 
+/**
+ * Whether this document is a sign-in popup back from the provider, read without consuming the
+ * handshake. Only the callback path counts: the opener holds the same handshake for the whole attempt.
+ */
+export function isReturningSignInPopup(): boolean {
+  const handshakeId = readSessionValue(HANDSHAKE_STORAGE_KEY) ?? readCookie(HANDSHAKE_COOKIE);
+  return window.location.pathname === "/auth/callback" && Boolean(handshakeId);
+}
+
 /** Records an attempt in both carriers. See {@link HANDSHAKE_COOKIE} for why it takes two. */
 function rememberHandshake(handshakeId: string): void {
   writeSessionValue(HANDSHAKE_STORAGE_KEY, handshakeId);

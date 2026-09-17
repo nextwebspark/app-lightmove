@@ -30,7 +30,7 @@ import org.hibernate.type.SqlTypes;
  *
  * <p><b>Two owners, one table.</b> A null {@link #workspaceId} is a LightMove library template, edited
  * by a platform super admin; a non-null one belongs to that workspace alone. A workspace row sharing a
- * library row's {@link #code} is the firm's copy of it and shadows it in every read (V52).
+ * library row's {@link #code} is the firm's copy of it and shadows it in every read (V58).
  *
  * <p>The content is a jsonb document ({@link PositionTemplateBody}) read whole and never queried,
  * while the match keywords are a child table because they are the catalog's lookup key.

@@ -107,7 +107,7 @@ pure client to the mandates they're seated on), and shared reference data
 (`CompanyReferenceController`) rides `PROJECT_BROWSE`: existence isn't secret, content is.
 
 **A platform role sits above every tenant and inside none.** The role-template library (V42) is the
-first thing no workspace owns that someone still has to edit, so V51 added a third scope, `PLATFORM`,
+first thing no workspace owns that someone still has to edit, so V57 added a third scope, `PLATFORM`,
 with one role (`SUPER_ADMIN`) granting one action (`TEMPLATE_LIBRARY_MANAGE`). Four things about it are
 deliberate:
 

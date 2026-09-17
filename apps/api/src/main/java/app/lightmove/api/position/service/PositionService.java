@@ -5,6 +5,7 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.position.dto.CompensationDto;
 import app.lightmove.api.position.dto.PositionResponse;
 import app.lightmove.api.position.dto.PutCompensationRequest;
 import app.lightmove.api.position.dto.PutCompetenciesRequest;
@@ -59,6 +60,19 @@ public class PositionService {
     @Transactional
     public PositionResponse get(UUID workspaceId, UUID projectId) {
         return assembler.assemble(briefs.require(workspaceId, projectId));
+    }
+
+    /**
+     * What the brief pays, for a reader that must not write. {@link #get} drafts and saves a brief for
+     * a mandate that has none, and the report is open to a client seat, which is read-only by
+     * definition — so this answers the blank compensation an undrafted brief would start from
+     * and persists nothing.
+     */
+    @Transactional(readOnly = true)
+    public CompensationDto compensationOf(UUID workspaceId, UUID projectId) {
+        Position position = briefs.find(workspaceId, projectId)
+                .orElseGet(() -> Position.forProject(projectId, null));
+        return assembler.compensationOf(position);
     }
 
     @Transactional

@@ -67,12 +67,11 @@ const person = (overrides: Partial<Candidate>): Candidate => ({
   title: "VP Finance",
   seniority: "N-1",
   status: "engaged",
-  email: null,
-  phone: null,
   linkedinUrl: null,
   locationCountry: null,
   locationCity: null,
   nationality: null,
+  gender: null,
   yearsExperience: null,
   summary: null,
   note: null,
@@ -89,6 +88,7 @@ const person = (overrides: Partial<Candidate>): Candidate => ({
   customFields: {},
   addedAt: "2026-08-02T09:00:00Z",
   enrichedAt: null,
+  contacts: { emails: [], phones: [], emailsLookedUpAt: null, phonesLookedUpAt: null, source: null },
   ...overrides,
 });
 

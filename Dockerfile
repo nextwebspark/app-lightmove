@@ -14,6 +14,7 @@
 ARG APP_VERSION=dev
 ARG GIT_SHA=
 ARG EXTENSION_ID=
+ARG PUBLIC_BASE_URL=
 
 # ── 1. The SPA ────────────────────────────────────────────────────────────────
 FROM node:26-slim AS web
@@ -29,11 +30,14 @@ COPY apps/web ./apps/web
 
 # Build parameters, read by vite.config.ts through loadEnv and frozen into the bundle. EXTENSION_ID
 # decides the chrome-extension:// origin the pairing page looks for; without it the page falls back to
-# the development id and pairing reports "extension not detected" forever.
+# the development id and pairing reports "extension not detected" forever. PUBLIC_BASE_URL is the
+# origin the link-preview tags name, and falls back to the mapped domain.
 ARG APP_VERSION
 ARG EXTENSION_ID
+ARG PUBLIC_BASE_URL
 ENV APP_VERSION=$APP_VERSION
 ENV EXTENSION_ID=$EXTENSION_ID
+ENV PUBLIC_BASE_URL=$PUBLIC_BASE_URL
 
 # `tsc -b && vite build` — a type error fails the image, not just the editor.
 RUN npm run build --workspace=apps/web

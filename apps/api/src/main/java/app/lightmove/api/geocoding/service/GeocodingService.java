@@ -71,6 +71,12 @@ public class GeocodingService {
             held.point().ifPresent(point -> points.put(place, point));
         }
 
+        // Nothing is asked and nothing remembered: with geocoding off, "no point" is not a finding,
+        // and a stored miss would outlive the day someone configures a token by the cache's whole TTL.
+        if (!geocoder.isEnabled()) {
+            return new GeocodingResult(Map.copyOf(points), 0);
+        }
+
         int asked = 0;
         Instant deadline = Instant.now().plus(budget.geocodingDeadline());
         for (PlaceKey place : unresolved) {

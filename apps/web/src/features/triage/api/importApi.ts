@@ -15,7 +15,7 @@ import type { ImportPreview, ImportSummary, ProposedColumnMapping } from "./impo
  * a file built from it needs no assistant call, because every header in it is one we already know.
  */
 export async function saveTemplate(projectId: string): Promise<void> {
-  saveBlob(await requestBlob(`/projects/${projectId}/import/template`), "lightmove-import-template.csv");
+  saveBlob(await requestBlob(`/projects/${projectId}/import/template`), "uncava-import-template.csv");
 }
 
 /** Reads the file and answers with a mapping to confirm. Writes nothing. */

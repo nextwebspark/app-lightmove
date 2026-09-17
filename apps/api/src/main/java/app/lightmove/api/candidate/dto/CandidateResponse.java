@@ -20,12 +20,12 @@ public record CandidateResponse(
         String title,
         String seniority,
         String status,
-        String email,
-        String phone,
         String linkedinUrl,
         String locationCountry,
         String locationCity,
         String nationality,
+        /** A {@code Gender} wire token, or null where nobody recorded it — never inferred. */
+        String gender,
         Integer yearsExperience,
         String summary,
         String note,
@@ -40,5 +40,7 @@ public record CandidateResponse(
         Map<String, String> customFields,
         Instant addedAt,
         /** When enrichment last filled this profile in; null while research is pending or off. */
-        String enrichedAt
+        String enrichedAt,
+        /** Every email and phone the mandate knows for them, and when each channel was last looked up. */
+        CandidateContactsDto contacts
 ) {}

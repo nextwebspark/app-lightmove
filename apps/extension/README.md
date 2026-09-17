@@ -1,4 +1,4 @@
-# LightMove Capture
+# UNCAVA Capture
 
 A Chrome extension that reads whatever the page you are looking at is about — a company or a person —
 and writes it into a mandate. A company lands in its triage as **in universe** or **shortlisted**; a
@@ -57,12 +57,17 @@ the manifest and the bundle so they cannot disagree.
 | unset | production | a placeholder, with a warning — **not shippable** |
 | set | either | exactly what you set |
 
-There is no deployed LightMove domain yet, and the placeholder is deliberately not a real one. Until
-there is a domain, the Cloud Run URL the deploy prints is a perfectly good origin to build against:
+The deployed workspace is `https://beta.uncava.com`, and the placeholder is deliberately not it — a
+production build has to say where it points:
 
 ```bash
-LM_WORKSPACE_ORIGIN=https://lightmove-api-xxxx.run.app npm run build
+LM_WORKSPACE_ORIGIN=https://beta.uncava.com npm run build
 ```
+
+`uncava-capture-beta.zip` is that build, zipped without its source maps, for loading unpacked. It keeps
+`key` on purpose — deploys run with `EXTENSION_ID=dev`, so beta's CORS and pairing page accept only the
+pinned id, and `build:release` (which strips `key`) would produce an extension beta refuses. Rebuild it
+after the build above with `cd dist && zip -qr ../uncava-capture-beta.zip . -x '.*' '*.map'`.
 
 To capture a company that resolves against the Apollo universe you need the universe locally:
 `npm run dev:db:apollo` once, from the repo root.
@@ -73,7 +78,7 @@ The extension does not use the web app's session cookie, and deliberately: that 
 `SameSite=Strict`, host-only and scoped to `/api/v1/auth`, and letting another origin present it would
 mean removing every attribute that protects it. Instead:
 
-1. The popup's **Open LightMove** button opens `<workspace>/extension/connect`.
+1. The popup's **Open Uncava** button opens `<workspace>/extension/connect`.
 2. That page — where you are already signed in — asks the API for a refresh token of its own.
 3. It hands the token to this extension with `chrome.runtime.sendMessage(EXTENSION_ID, …)`, which the
    manifest permits through `externally_connectable` and the service worker accepts only from the
@@ -84,7 +89,7 @@ Step 3 is addressed, not broadcast, and that matters: `window.postMessage` would
 consultant has installed.
 
 The result is an ordinary refresh-token family with a shorter TTL, listed in **Settings → Active
-sessions** as *LightMove Capture* and revocable from there. Signing out of the extension leaves the
+sessions** as *Uncava Capture* and revocable from there. Signing out of the extension leaves the
 browser session alone, and vice versa.
 
 Pairing is a **one-time click, never a login**: on `/extension/connect` you are already signed into the
@@ -181,7 +186,7 @@ same name at a different page" recognisable at all — the signed-in layout decl
 on the layout consultants actually use it is the only evidence there is.
 
 **The plugin reads LinkedIn only.** On any other site the panel says so and offers an
-"Open LightMove" button to the selected mandate's Companies page (the projects list when none is
+"Open Uncava" button to the selected mandate's Companies page (the projects list when none is
 selected) — manual adds live in the app. A LinkedIn page that names nobody (the feed, search, jobs)
 asks for a profile or company page instead.
 
@@ -248,6 +253,9 @@ because with `openPanelOnActionClick` a disabled panel makes the toolbar click d
 which reads as a broken extension rather than one that is not for this page. A tab with no URL yet is
 unavailable, not skipped. This adds no permission and guards nothing — `host_permissions` already made
 every other site unreadable; it is what the toolbar says about that.
+`offscreen` — a hidden page that watches Chrome's light/dark setting, which the service worker cannot
+read, so the toolbar icon is black on a light toolbar and white on a dark one. It reads no site and
+holds nothing.
 `sidePanel` — the capture surface is a side panel, not a popup, so it stays open while you read.
 `host_permissions` — the workspace origin, plus `*://*.linkedin.com/*`: the one site the plugin
 reads, standing so the panel keeps working as you move between profiles without a grant prompt per

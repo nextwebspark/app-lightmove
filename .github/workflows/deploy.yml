@@ -102,6 +102,11 @@ jobs:
         env:
           VERSION: ${{ inputs.ref }}
           EXTENSION_ID: ${{ steps.extension.outputs.id }}
+          # The origin the bundle's link-preview tags name. Read straight from the variable rather than
+          # from the step below that resolves it, which runs after this one and can only answer with the
+          # run.app URL anyway — a preview should name the domain a person is given, so an unset variable
+          # leaves vite.config.ts to fall back to the mapped one.
+          PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
         run: |
           SHA="$(git rev-parse HEAD)"
           BASE="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/${AR_REPO}/${SERVICE}"
@@ -110,6 +115,7 @@ jobs:
             --build-arg APP_VERSION="${VERSION}" \
             --build-arg GIT_SHA="${SHA}" \
             --build-arg EXTENSION_ID="${EXTENSION_ID}" \
+            --build-arg PUBLIC_BASE_URL="${PUBLIC_BASE_URL}" \
             -t "${BASE}:${VERSION}" -t "${BASE}:${SHA}" .
           docker push "${BASE}:${VERSION}"
           docker push "${BASE}:${SHA}"
@@ -159,14 +165,18 @@ jobs:
             migrate
 
       # ── Deploy ───────────────────────────────────────────────────────────────
-      # WEB_BASE_URL has to be the service's own URL, which does not exist until the service does. On the
-      # very first deploy we therefore fall back to a placeholder and correct it below; on every deploy
-      # after that the URL is already known and this is a single revision.
-      - name: Resolve the service URL
+      # WEB_BASE_URL is the origin users open. With a custom domain mapped (see README, "Custom
+      # domain") the PUBLIC_BASE_URL variable names it and the service's own run.app URL is never
+      # exposed. Without it, it is the service's own URL — which does not exist until the service
+      # does, so the very first deploy falls back to a placeholder and is corrected below.
+      - name: Resolve the public origin
         id: url
         run: |
-          URL=$(gcloud run services describe "$SERVICE" --region "$REGION" \
-                  --format='value(status.url)' 2>/dev/null || true)
+          URL="${{ vars.PUBLIC_BASE_URL }}"
+          if [ -z "$URL" ]; then
+            URL=$(gcloud run services describe "$SERVICE" --region "$REGION" \
+                    --format='value(status.url)' 2>/dev/null || true)
+          fi
           echo "known=${URL}" >> "$GITHUB_OUTPUT"
           echo "url=${URL:-http://localhost:8080}" >> "$GITHUB_OUTPUT"
 
@@ -233,7 +243,7 @@ jobs:
           fi
 
           # Same for Resend: EMAIL_PROVIDER=resend without a key fails fast at startup, by design. The
-          # sending domain (lightmove.ai) is verified, so the provider defaults to `resend` and the
+          # sending domain (uncava.com) is verified, so the provider defaults to `resend` and the
           # lightmove-resend-api-key secret is mounted below — a deploy fails if that secret has no
           # version. Set the EMAIL_PROVIDER var to `log` for an environment that should not send.
           EMAIL_PROVIDER="${{ vars.EMAIL_PROVIDER || 'resend' }}"
@@ -284,6 +294,19 @@ jobs:
             fi
           fi
 
+          # The candidate drawer's Find email / Find phone buttons. Its own switch, deliberately NOT
+          # ENRICHMENT_PROVIDER above: contact lookup is a separate ContactOut account with a separate
+          # bill, so turning profile research off must leave the buttons working. Off unless
+          # CONTACTOUT_ENABLED=true for the reason the two blocks above are — gcloud refuses to name a
+          # secret that does not exist, and that failure is the whole deploy, not just the feature.
+          # Prerequisite:
+          #   gcloud secrets create lightmove-contactout-api-key --data-file=-
+          # Left unset the API logs that contact lookup is off and the buttons never render.
+          CONTACTOUT_SECRETS=""
+          if [ "${{ vars.CONTACTOUT_ENABLED }}" = "true" ]; then
+            CONTACTOUT_SECRETS=",CONTACTOUT_API_KEY=lightmove-contactout-api-key:latest"
+          fi
+
           # ^|^ separates on | rather than a comma, because WEB_CORS_ORIGINS and the OAuth scope are both
           # comma-lists. It must be a character no value contains — @ is wrong, because EMAIL_FROM is an email
           # address and gcloud would split it mid-way and reject the domain half as a malformed entry.
@@ -301,11 +324,12 @@ jobs:
             --cpu 1 --memory 1Gi --cpu-boost \
             --concurrency 80 \
             --timeout 60s \
-            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@lightmove.ai' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem${OAUTH_ENV}${ENRICHMENT_ENV}" \
-            --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}${MAPBOX_SECRETS}"
+            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@uncava.com' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem${OAUTH_ENV}${ENRICHMENT_ENV}" \
+            --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}${MAPBOX_SECRETS}${CONTACTOUT_SECRETS}"
 
-      # First deploy only: the service now has a URL, and it is not the placeholder we booted with.
-      # Verification emails and the OAuth redirect are built from WEB_BASE_URL, so this cannot be left.
+      # First deploy only, and only without a custom domain: the service now has a URL, and it is not
+      # the placeholder we booted with. Verification emails and the OAuth redirect are built from
+      # WEB_BASE_URL, so this cannot be left.
       - name: Correct WEB_BASE_URL on first deploy
         if: steps.url.outputs.known == ''
         env:
@@ -322,8 +346,13 @@ jobs:
       - name: Smoke test
         env:
           VERSION: ${{ inputs.ref }}
+          PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
         run: |
-          URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
+          # With a custom domain the service's own URL redirects every page to it, so a page check
+          # against status.url reads an empty 302 and fails a deploy that is serving fine (v0.3.0).
+          SERVICE_URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
+          URL="${PUBLIC_BASE_URL:-$SERVICE_URL}"
+          URL="${URL%/}"
 
           echo "health"
           curl -fsS --retry 5 --retry-delay 3 "$URL/actuator/health" > /dev/null
@@ -336,5 +365,10 @@ jobs:
 
           echo "the API is still shut to anonymous callers"
           [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/v1/onboarding/workspaces")" = "401" ]
+
+          if [ "$URL" != "$SERVICE_URL" ]; then
+            echo "the service's own URL sends pages to the public origin"
+            [ "$(curl -s -o /dev/null -w '%{redirect_url}' "$SERVICE_URL/")" = "$URL/" ]
+          fi
 
           echo "::notice::Deployed ${VERSION} ($(git rev-parse --short HEAD)) to ${URL}"

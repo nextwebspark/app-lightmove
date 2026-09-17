@@ -5,10 +5,87 @@ import { formatNumber } from "../../../lib/format";
 import { optionalNumber, optionalWebAddress } from "../../../lib/formFields";
 import type {
   Candidate,
+  CandidateEmail,
+  CandidatePhone,
   CandidateSeniority,
   CandidateStatus,
+  ContactEntryInput,
   SaveCandidatePayload,
 } from "../api/types";
+
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** What one email or phone line holds while it is being edited. `source` rides along, read-only. */
+export const contactEntrySchema = z.object({
+  value: z.string().trim().max(320),
+  kind: z.enum(["", "work", "personal"]),
+  verified: z.boolean(),
+  source: z.string().nullable(),
+});
+
+export type ContactEntryForm = z.input<typeof contactEntrySchema>;
+
+/** The identity two spellings of one contact share, as the server keys the ledger. */
+export function contactKeyOf(channel: "email" | "phone", value: string): string {
+  const trimmed = value.trim();
+  return channel === "phone" ? trimmed.replace(/\D/g, "") : trimmed.toLowerCase();
+}
+
+/**
+ * A channel's lines. Blank lines are allowed and dropped on save; a line that holds something must
+ * be an address (for email), and no two lines may be one contact spelled twice — the second is
+ * marked, because silently merging it would hide a slip.
+ */
+export function contactEntries(channel: "email" | "phone") {
+  return z
+    .array(contactEntrySchema)
+    .max(10, `Ten ${channel === "email" ? "email addresses" : "phone numbers"} is the most a profile holds`)
+    .superRefine((entries, context) => {
+      const seen = new Set<string>();
+      entries.forEach((entry, index) => {
+        const key = contactKeyOf(channel, entry.value);
+        if (!key) return;
+        if (channel === "email" && !EMAIL_SHAPE.test(entry.value.trim())) {
+          context.addIssue({
+            code: "custom",
+            path: [index, "value"],
+            message: "That doesn't look like a valid email",
+          });
+          return;
+        }
+        if (seen.has(key)) {
+          context.addIssue({
+            code: "custom",
+            path: [index, "value"],
+            message: `This ${channel} is already listed`,
+          });
+        }
+        seen.add(key);
+      });
+    });
+}
+
+/** A channel's lines as the request states them: blanks dropped, kind and verified as claimed. */
+export function contactInputsOf(entries: ContactEntryForm[]): ContactEntryInput[] {
+  return entries
+    .filter((entry) => entry.value.trim() !== "")
+    .map((entry) => ({
+      value: entry.value.trim(),
+      kind: entry.kind === "" ? null : entry.kind,
+      verified: entry.verified,
+    }));
+}
+
+export function contactLineOf(entry: CandidateEmail | CandidatePhone): ContactEntryForm {
+  return {
+    value: "address" in entry ? entry.address : entry.number,
+    kind: entry.kind ?? "",
+    verified: entry.verified,
+    source: entry.source,
+  };
+}
+
+export const EMPTY_CONTACT_LINE: ContactEntryForm = { value: "", kind: "", verified: false, source: null };
 
 /**
  * The executive profile as a form: one schema, cut into the sections the panel edits one at a time.
@@ -23,18 +100,14 @@ export const candidateSchema = z.object({
   seniority: z.string(),
   status: z.string(),
   employerName: z.string().trim().max(200),
-  email: z
-    .string()
-    .trim()
-    .max(320)
-    .refine((value) => value === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), {
-      message: "That doesn't look like a valid email",
-    }),
-  phone: z.string().trim().max(50),
+  emails: contactEntries("email"),
+  phones: contactEntries("phone"),
   linkedinUrl: optionalWebAddress("LinkedIn URL"),
   locationCountry: z.string().trim().max(100),
   locationCity: z.string().trim().max(100),
   nationality: z.string().trim().max(100),
+  // "" is "not recorded", which the report counts apart from "other" — see CandidateGender.
+  gender: z.enum(["", "female", "male", "other"]),
   yearsExperience: optionalNumber("Years of experience", 70),
   summary: z.string().trim().max(4000),
   note: z.string().trim().max(2000),
@@ -78,12 +151,13 @@ export const EMPTY_FORM: CandidateForm = {
   seniority: "",
   status: "identified",
   employerName: "",
-  email: "",
-  phone: "",
+  emails: [],
+  phones: [],
   linkedinUrl: "",
   locationCountry: "",
   locationCity: "",
   nationality: "",
+  gender: "",
   yearsExperience: "",
   summary: "",
   note: "",
@@ -115,8 +189,8 @@ export const SECTION_FIELDS = {
   summary: ["summary"],
   experience: ["career"],
   compensation: ["currency", "baseSalary", "bonus", "allowances", "longTermIncentive", "noticePeriod"],
-  background: ["nationality", "yearsExperience", "languages"],
-  contact: ["email", "phone", "linkedinUrl"],
+  background: ["nationality", "gender", "yearsExperience", "languages"],
+  contact: ["linkedinUrl"],
   note: ["note"],
 } as const satisfies Record<string, readonly (keyof CandidateForm)[]>;
 
@@ -154,12 +228,13 @@ export function formOf(candidate: Candidate): CandidateForm {
     seniority: candidate.seniority ?? "",
     status: candidate.status,
     employerName: candidate.companyName ?? "",
-    email: candidate.email ?? "",
-    phone: candidate.phone ?? "",
+    emails: candidate.contacts.emails.map(contactLineOf),
+    phones: candidate.contacts.phones.map(contactLineOf),
     linkedinUrl: candidate.linkedinUrl ?? "",
     locationCountry: candidate.locationCountry ?? "",
     locationCity: candidate.locationCity ?? "",
     nationality: candidate.nationality ?? "",
+    gender: candidate.gender ?? "",
     yearsExperience: candidate.yearsExperience?.toString() ?? "",
     summary: candidate.summary ?? "",
     note: candidate.note ?? "",
@@ -189,7 +264,8 @@ export function amountOf(amount: number | null): string {
  * panel is not editing has to be said again exactly as it is.
  *
  * <p>Custom columns are deliberately left out — omitted, the server leaves every one of them alone,
- * so a save of any other section cannot touch them.
+ * so a save of any other section cannot touch them. So are the contacts: the Contact section has
+ * its own write, and a profile PUT never removes a contact.
  */
 export function replayOf(candidate: Candidate): SaveCandidatePayload {
   return {
@@ -199,12 +275,11 @@ export function replayOf(candidate: Candidate): SaveCandidatePayload {
     seniority: candidate.seniority ?? undefined,
     status: candidate.status,
     employerName: candidate.triageCompanyId ? undefined : (candidate.companyName ?? undefined),
-    email: candidate.email ?? undefined,
-    phone: candidate.phone ?? undefined,
     linkedinUrl: candidate.linkedinUrl ?? undefined,
     locationCountry: candidate.locationCountry ?? undefined,
     locationCity: candidate.locationCity ?? undefined,
     nationality: candidate.nationality ?? undefined,
+    gender: candidate.gender ?? undefined,
     yearsExperience: candidate.yearsExperience ?? undefined,
     summary: candidate.summary ?? undefined,
     note: candidate.note ?? undefined,
@@ -258,6 +333,7 @@ const PATCHES: {
   }),
   background: (parsed) => ({
     nationality: parsed.nationality || undefined,
+    gender: parsed.gender || undefined,
     yearsExperience: parsed.yearsExperience,
     languages: parsed.languages
       .split(",")
@@ -265,8 +341,6 @@ const PATCHES: {
       .filter(Boolean),
   }),
   contact: (parsed) => ({
-    email: parsed.email || undefined,
-    phone: parsed.phone || undefined,
     linkedinUrl: parsed.linkedinUrl || undefined,
   }),
   note: (parsed) => ({ note: parsed.note || undefined }),
@@ -300,6 +374,29 @@ export function payloadOf(
     ...PATCHES.background(parsed, mapped),
     ...PATCHES.contact(parsed, mapped),
     ...PATCHES.note(parsed, mapped),
+    emails: contactInputsOf(parsed.emails),
+    phones: contactInputsOf(parsed.phones),
     fullName: parsed.fullName,
+  };
+}
+
+/**
+ * The Contact section on its own: the two channels and the profile link. Edited in place over the
+ * read view, saved through the contacts write (and the profile PUT only when the link changed).
+ */
+export const contactSectionSchema = z.object({
+  emails: contactEntries("email"),
+  phones: contactEntries("phone"),
+  linkedinUrl: optionalWebAddress("LinkedIn URL"),
+});
+
+export type ContactSectionForm = z.input<typeof contactSectionSchema>;
+export type ParsedContactSectionForm = z.output<typeof contactSectionSchema>;
+
+export function contactSectionOf(candidate: Candidate): ContactSectionForm {
+  return {
+    emails: candidate.contacts.emails.map(contactLineOf),
+    phones: candidate.contacts.phones.map(contactLineOf),
+    linkedinUrl: candidate.linkedinUrl ?? "",
   };
 }

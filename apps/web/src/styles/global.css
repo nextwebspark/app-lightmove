@@ -1,7 +1,8 @@
 @import "./tokens.css";
 
-/* Geist (with Inter as fallback), as specified by every mockup's <helmet>. */
-@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&display=swap");
+/* Geist (with Inter as fallback), as every mockup's <helmet> specifies. JetBrains Mono rides along
+   for the Reports chapters, which set numerals in it — see `--font-u-num` in tokens.css. */
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
 
 html,
 body,
@@ -65,6 +66,52 @@ body * {
 
 .animate-fade-up {
   animation: fade-up 0.5s ease both;
+}
+
+/* The report's "you are here" marker: a ring that swells out of the current point and fades. */
+@keyframes pulse-ring {
+  from {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  to {
+    transform: scale(3.1);
+    opacity: 0;
+  }
+}
+
+.animate-pulse-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pulse-ring 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* One square of the report's dot grid arriving, so a changed filter reads as cause and effect. */
+@keyframes dot-pop {
+  from {
+    transform: scale(0.3);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+.animate-dot-pop {
+  animation: dot-pop 0.28s ease both;
+}
+
+/* The report drawer sliding in from the edge it is anchored to. */
+@keyframes slide-in-end {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.animate-slide-in-end {
+  animation: slide-in-end 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 /* Respect the user's wishes. An animation is decoration; motion sickness is not. */

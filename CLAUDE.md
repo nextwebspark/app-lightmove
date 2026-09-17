@@ -28,6 +28,23 @@ that sits the **people half**: an executive mapped for a mandate, optionally aga
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
 with three of them is three lines and one with none keeps its "Add executive" slot. An executive is also
 captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`).
+An executive's drawer also **finds their contacts**: two buttons in the Contact section ask ContactOut
+for an email or a phone, one channel per press because the two bill from separate pools. Every email
+and phone the mandate knows is a row of `app_lm_candidate_contact` (V54, the only store since V55
+dropped the row's `email`/`phone` columns) with the door it came through — typed, imported, captured,
+or found — and a lookup stamps a timestamp per channel on the candidate, which is the whole point: a
+value already held, or a miss already recorded, is answered off the row and never bought twice. The
+Contact section draws one row per channel, whatever door a value came through, and its pencil turns
+the same rows editable in place — add, remove, retag work/personal, mark verified (recorded as
+"Verified by researcher", beside ContactOut's own "Verified"; neither is printed on the row, and no
+"via ContactOut" caption is — who did what is the audit trail's) — saved as one list through
+`PUT …/candidates/{id}/contacts`; a profile PUT adds what it supplies, never removes a contact, and is
+held to the same ten per channel.
+No primary flag anywhere: the grid's Email and Phone columns list them all. A person the plugin
+captured keeps their LinkedIn URL locked (`CANDIDATE_PROFILE_URL_LOCKED`): it is the page they were
+read off and everything keys on it. `lightmove.enrichment.contactout` sits **beside**
+`…enrichment.provider` and is never selected by it: contact lookup is its own account with its own bill,
+so `provider: off` leaves the buttons working, and an unconfigured deployment simply does not offer them.
 The **spreadsheet import** is that fourth door and carries both halves at once: a CSV or Excel file
 whose rows are people at companies, mapped column-by-column onto our fields, then confirmed by a
 person before anything is written. **The model is asked only where a header is in doubt** — a sheet
@@ -48,7 +65,27 @@ per executive and the same two drawers opened from a pin's popup or a panel row.
 coordinate, so `geocoding` resolves each distinct city + country once through Mapbox and keeps it in
 `app_lm_geocoded_place`; `talentmap` composes the stage's companies, people and points into one
 unpaged, capped read (`GET /projects/{id}/talent-map`), with `…/talent-map/locations` answering the
-same map as points alone for the poll that waits on places rather than on people. The standalone
+same map as points alone for the poll that waits on places rather than on people. The **Reports**
+tab is the mandate's talent mapping report (`GET /projects/{id}/report`): four chapters — mapping
+progress, shape of the market, remuneration, diversity — aggregated live by `report` from the same
+rows, so nothing is stored and nothing goes stale. It reads one chapter at a time behind a numbered
+step rail, the chapter kept in the URL (`?chapter=`), and its mockups are `claude-design/report/`
+(light and dark) rather than a `*.dc.html` — the one screen drawn in the UNCAVA palette
+(`--color-u-*`), a deliberate seam until the rest follow. It states only what the rows carry: a candidate's
+status but no pipeline outcome, and a package in another currency is counted rather than converted.
+**Gender (V56) is recorded on a candidate and never inferred from a name** — the chapter divides by
+the executives who have one on file, not by the headcount, so a mandate nobody has recorded reads as
+unmeasured rather than as a pool of one gender. **Nationality is counted in nine groups** — the Gulf six by name,
+and everyone else as Western expat, South Asian or Arab expat, non-GCC: the drawer offers exactly those
+nine and stores the label, while a spreadsheet's "Egyptian" is folded into its group by `report` at read
+time and never rewritten. The two **cross-mandate benchmarks** the chapters
+name but cannot yet derive say so on the page rather than leaving a hole: marked not built, with no
+fabricated progress count. The mockup's relevance mix is not drawn at all — nothing records how a
+company was reached (V30 dropped `app_lm_strategy_sector.kind`), and an illustrative bar on a
+client report was judged worse than none. The
+market chapter's hubs carry a point from `geocoding` — asked only for the handful of cities it names
+— so it draws a small map beside the bars where a Mapbox token is configured, and the bars alone
+where none is. The standalone
 Candidates screen, and the pipeline and outreach tables, don't exist yet. The **Position**
 screen is the mandate's brief, edited as a six-step wizard (details, mandate context, reporting,
 compensation, assessment, review) that autosaves one step at a time. It opens drafted rather than
@@ -57,7 +94,7 @@ generic fallback) lives in the database, matched against the mandate's role titl
 one's **Role title is a combobox**: free text — a mandate is titled "Group CFO – Energy Division" as
 often as it is titled "Chief Financial Officer" — that type-aheads the seventeen titles, and picking
 one takes that title and redrafts the brief from its template (`GET /position-templates` +
-`POST .../position/template`). Templates are edited in Settings (V51/V52; **Settings → Templates** for a
+`POST .../position/template`). Templates are edited in Settings (V57/V58; **Settings → Templates** for a
 firm's admin, **Settings → Template library** for a super admin): a LightMove **super admin** — a *platform* role granted only by
 `ops/cloudsql/grant-platform-role.sh`, reading no tenant's data — edits the shared library, and a
 workspace admin customises, hides, adds, exports and imports the firm's own. A firm's copy **shadows**
@@ -71,7 +108,14 @@ confidence, source snippet) reviewed and accepted one at a time through the same
 already have; nothing is written until a row is accepted, and a run with no Vertex credentials still
 proposes from the document's own headings, honestly labelled. `Position.dc.html`'s dropzone promises a
 **silent** auto-fill on drop — review-then-accept is a deliberate, correct deviation from that mockup,
-not a bug to fix later. Publishing stamps who
+not a bug to fix later. **The product is Uncava**: the mark is the rhombus over an isometric cube
+in `claude-design/logo` (`favicon.svg`, the extension's `BrandMark` and its icons are drawn from that
+geometry) and every user-facing string says Uncava, while the mockups still draw the
+amber "L" tile and the code, packages, persisted keys and JWT issuer keep the `lightmove` name — a
+deliberate split, not drift. It is served at `https://beta.uncava.com` (Cloud Run domain mapping,
+Cloudflare DNS with the proxy off; README, "Custom domain"), and a link to it pasted into a chat app
+draws a card from the Open Graph tags in `apps/web/index.html` over `public/og-image-v2.png` — static,
+because no crawler runs the bundle (README, "Link previews"). Publishing stamps who
 called the brief ready and **freezes nothing** (V38 retired the lock deliberately). Don't build ahead of
 the mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
 
@@ -79,7 +123,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport`, `geocoding`, `talentmap` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport`, `geocoding`, `talentmap`, `report` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -125,6 +169,7 @@ npm run dev                  # docker postgres (:55433) + api (:8080) + web (:51
 npm run dev:db:reset         # drop the local database; next boot re-runs every migration from V1
 npm run dev:db:psql          # psql shell in the local container
 npm run dev:db:apollo        # copy the Apollo company universe down from Cloud SQL into it
+npm run dev:db:seed-report   # demo companies + executives for the Reports tab, local database only
 npm run dev:cloud            # api + web against the SHARED Cloud SQL dev database
 npm test                     # all three suites: api, web, extension
 cd apps/api && ./mvnw test   # backend — needs Docker (Testcontainers)
@@ -216,15 +261,26 @@ tenant-scoped** — a centroid is not client data and carries no PII — and nev
 re-asked after `lightmove.mapbox.cache-ttl` unless the account holds Mapbox's permanent-geocoding
 entitlement (`permanent-geocoding: true`), because their terms forbid storing a temporary result
 indefinitely.
+`app_lm_candidate_contact` (V54) is every email and phone known for an executive, one row each, with
+`source` naming the door (`MANUAL` / `CSV` / `EXTENSION` / `CONTACTOUT`) and `kind` / `verified` only
+ever what the provider said. V39's owned-list idiom: `Candidate` rewrites it from its own methods, and
+its identity is `value_key` (lower-cased address, digits of a number) because providers spell one
+number three ways. A miss is not a row — it is `emails_looked_up_at` / `phones_looked_up_at` on the
+candidate with nothing from the provider beside it. V54 moved the old `profile.contacts` jsonb into
+the table and V55 dropped the row's `email` and `phone` columns: the ledger is the only store, the
+importer matches a person on any address they hold, and the grid lists them all.
+V56 adds `app_lm_project_candidate.gender` (`FEMALE | MALE | OTHER`), nullable with no default:
+NULL is "nobody recorded it" and is deliberately not a fourth value, because "not recorded" and
+"recorded as other" are different facts and the report counts them apart.
 `app_lm_position_template` (V42) is the role-template library — the identity a picker lists as columns,
 the drafted brief as one `jsonb` body (V30's idiom, not V39's child tables: a template is a
 heterogeneous document read and written whole), and the match keywords as a child table because they
 are the catalog's lookup key. `workspace_id` is nullable: NULL is the shared library, non-null is one
-firm's own. V52 makes both editable: a firm's row sharing a library row's `code` is its copy and
+firm's own. V58 makes both editable: a firm's row sharing a library row's `code` is its copy and
 shadows the library row in every read (`PositionTemplateRepository.findAllVisibleTo`), `customised_from`
 against the library's `revised_at` says the library moved on since, and `app_lm_position_template_hidden`
 takes a library template out of one firm's picker and title matching.
-V51 adds the `PLATFORM` role scope and `app_lm_user_platform_role` — written by
+V57 adds the `PLATFORM` role scope and `app_lm_user_platform_role` — written by
 `grant-platform-role.sh`, never by the application.
 `app_lm_position_document` holds the attached position description inline (`bytea`) — one small file per
 mandate, read back only by its own download endpoint. Everything else (roles, hardening, grants) →

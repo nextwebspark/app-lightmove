@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import {
   Controller,
   useFieldArray,
+  useFormContext,
   type Control,
   type FieldErrors,
   type FieldValues,
@@ -15,9 +16,15 @@ import { CountryField } from "../../../components/ui/CountryField";
 import { cn } from "../../../lib/cn";
 import { CURRENCIES } from "../../../lib/currencies";
 import { formatNumber } from "../../../lib/format";
+import { toReadableUrl } from "../../../lib/url";
 import { amountTyped } from "../lib/compensation";
-import type { CandidateForm } from "../lib/candidateForm";
-import { CANDIDATE_SENIORITIES, CANDIDATE_STATUSES } from "../lib/candidateVocabulary";
+import { EMPTY_CONTACT_LINE, type CandidateForm, type ContactEntryForm } from "../lib/candidateForm";
+import {
+  CANDIDATE_GENDERS,
+  CANDIDATE_NATIONALITIES,
+  CANDIDATE_SENIORITIES,
+  CANDIDATE_STATUSES,
+} from "../lib/candidateVocabulary";
 import { PackageTotal } from "./CompensationSummary";
 
 /**
@@ -331,7 +338,17 @@ function AmountField({
   );
 }
 
-export function BackgroundFields({ register, errors }: FieldGroupProps) {
+/**
+ * A nationality outside the nine groups — typed before the picker existed, or stated by an import —
+ * stays offered, for the reason a stored currency does: see {@link CompensationFields}.
+ */
+export function BackgroundFields({
+  register,
+  errors,
+  storedNationality,
+}: FieldGroupProps & { storedNationality?: string | null }) {
+  const offGroup =
+    storedNationality && !CANDIDATE_NATIONALITIES.includes(storedNationality) ? storedNationality : null;
   return (
     <>
       <div className="grid gap-x-4 sm:grid-cols-2">
@@ -340,10 +357,34 @@ export function BackgroundFields({ register, errors }: FieldGroupProps) {
           hint="Not the same fact as country — visa status and local credibility follow it."
           error={errors.nationality?.message}
         >
-          <Input {...register("nationality")} placeholder="Egyptian" />
+          <Select {...register("nationality")}>
+            <option value="">Not recorded</option>
+            {CANDIDATE_NATIONALITIES.map((group) => (
+              <option key={group} value={group}>
+                {group}
+              </option>
+            ))}
+            {offGroup && <option value={offGroup}>{offGroup} (as recorded)</option>}
+          </Select>
         </Field>
         <Field label="Years of experience" error={errors.yearsExperience?.message}>
           <Input {...register("yearsExperience")} inputMode="numeric" placeholder="18" />
+        </Field>
+      </div>
+      <div className="grid gap-x-4 sm:grid-cols-2">
+        <Field
+          label="Gender"
+          hint="Only where it is known — the diversity report counts it and never guesses it from a name."
+          error={errors.gender?.message}
+        >
+          <Select {...register("gender")}>
+            <option value="">Not recorded</option>
+            {CANDIDATE_GENDERS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
         </Field>
       </div>
       <Field label="Languages" hint="Comma separated." error={errors.languages?.message}>
@@ -353,32 +394,134 @@ export function BackgroundFields({ register, errors }: FieldGroupProps) {
   );
 }
 
-export function ContactFields({ register, errors }: FieldGroupProps) {
-  return (
-    <>
-      <div className="grid gap-x-4 sm:grid-cols-2">
-        <Field label="Email" error={errors.email?.message}>
-          <Input
-            {...register("email")}
-            inputMode="email"
-            placeholder="yasmin@example.com"
-            invalid={Boolean(errors.email)}
-          />
-        </Field>
-        <Field label="Phone" error={errors.phone?.message}>
-          <Input {...register("phone")} inputMode="tel" placeholder="+971 50 000 0000" />
-        </Field>
-      </div>
-      <Field label="LinkedIn" error={errors.linkedinUrl?.message}>
-        <Input
-          {...register("linkedinUrl")}
-          placeholder="linkedin.com/in/…"
-          invalid={Boolean(errors.linkedinUrl)}
-        />
+/**
+ * The profile link. Locked for a person the plugin captured: the URL is the page it read them off,
+ * and research and contact lookup both key on it, so retyping it can only break them. Reads the
+ * enclosing form through context, like the contact lines, because two differently shaped forms
+ * hold it.
+ */
+export function ContactFields({ lockedUrl = null }: { lockedUrl?: string | null }) {
+  const { register, formState } = useFormContext<{ linkedinUrl: string }>();
+  const errors = formState.errors;
+  if (lockedUrl) {
+    return (
+      <Field label="LinkedIn" hint="Captured from this profile page — not editable">
+        <div className="flex items-center gap-2 rounded-lg border border-line-soft bg-panel2 px-3 py-2 font-mono text-[13px] text-text2">
+          <Icon d={ICONS.lock} size={13} className="flex-none text-text3" />
+          <span className="min-w-0 truncate">{toReadableUrl(lockedUrl)}</span>
+        </div>
       </Field>
-    </>
+    );
+  }
+  return (
+    <Field label="LinkedIn" error={errors.linkedinUrl?.message}>
+      <Input
+        {...register("linkedinUrl")}
+        placeholder="linkedin.com/in/…"
+        invalid={Boolean(errors.linkedinUrl)}
+      />
+    </Field>
   );
 }
+
+/** Just the two channels: the form that holds them provides its context. */
+export interface ContactEntriesForm {
+  emails: ContactEntryForm[];
+  phones: ContactEntryForm[];
+}
+
+/**
+ * One channel's lines, editable: the value, its kind, whether the person vouches for it, and a
+ * remove. Shared by the Add form and the Contact section's edit mode, so adding a person by hand
+ * and correcting one later look identical. Reads the enclosing form through context, because the
+ * two forms that hold these lines have different shapes around them.
+ */
+export function ContactEntriesFields({ channel }: { channel: "email" | "phone" }) {
+  const { control, register, formState } = useFormContext<ContactEntriesForm>();
+  const name = channel === "email" ? "emails" : "phones";
+  const lines = useFieldArray({ control, name });
+  const errors = formState.errors[name];
+  const noun = channel === "email" ? "email" : "phone";
+  return (
+    <div>
+      <ul className="space-y-2">
+        {lines.fields.map((line, index) => (
+          <li key={line.id}>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                {...register(`${name}.${index}.value`)}
+                inputMode={channel === "email" ? "email" : "tel"}
+                placeholder={channel === "email" ? "name@company.com" : "+971 50 000 0000"}
+                aria-label={`${capitalised(noun)} ${index + 1}`}
+                invalid={Boolean(errors?.[index]?.value)}
+                className="min-w-[160px] flex-1"
+              />
+              <Select
+                {...register(`${name}.${index}.kind`)}
+                aria-label={`${capitalised(noun)} ${index + 1} kind`}
+                className="w-[112px] flex-none"
+              >
+                <option value="">—</option>
+                <option value="work">Work</option>
+                <option value="personal">Personal</option>
+              </Select>
+              <Controller
+                control={control}
+                name={`${name}.${index}.verified`}
+                render={({ field }) => (
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={field.value}
+                    aria-label={`${capitalised(noun)} ${index + 1} verified`}
+                    onClick={() => field.onChange(!field.value)}
+                    className={cn(
+                      "flex-none rounded-[5px] border px-[7px] py-[3px] font-mono text-[9.5px] font-bold uppercase tracking-[0.06em] transition",
+                      field.value
+                        ? "border-transparent bg-green-dim text-green"
+                        : "border-line text-text3 hover:border-text3 hover:text-text2",
+                    )}
+                  >
+                    Verified
+                  </button>
+                )}
+              />
+              <button
+                type="button"
+                onClick={() => lines.remove(index)}
+                aria-label={`Remove ${noun} ${index + 1}`}
+                className="flex-none rounded-md p-1.5 text-text3 transition hover:bg-panel2 hover:text-red"
+              >
+                <Icon d={ICONS.trash} size={14} />
+              </button>
+            </div>
+            {errors?.[index]?.value?.message && (
+              <span role="alert" className="mt-1 block font-mono text-[11px] text-red">
+                {errors[index]?.value?.message}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+      <button
+        type="button"
+        onClick={() => lines.append({ ...EMPTY_CONTACT_LINE })}
+        disabled={lines.fields.length >= 10}
+        className="mt-2 inline-flex items-center gap-1.5 rounded-[6px] border border-dashed border-line px-3 py-1.5 font-sans text-[12.5px] text-text2 transition hover:border-text3 hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Icon d={ICONS.plus} size={13} />
+        Add {noun}
+      </button>
+      {errors?.message && (
+        <span role="alert" className="mt-1.5 block font-mono text-[11px] text-red">
+          {errors.message}
+        </span>
+      )}
+    </div>
+  );
+}
+
+const capitalised = (word: string) => word.charAt(0).toUpperCase() + word.slice(1);
 
 export function NoteFields({ register, errors }: FieldGroupProps) {
   return (

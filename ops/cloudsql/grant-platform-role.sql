@@ -1,4 +1,4 @@
--- Grants or revokes a LightMove platform role (V51) for one existing account. Driven by
+-- Grants or revokes a LightMove platform role (V57) for one existing account. Driven by
 -- grant-platform-role.sh, which passes :email, :role (SUPER_ADMIN) and :mode ('grant' or 'revoke').
 --
 -- Deliberately not something the application can do: a platform role reaches every workspace's shared

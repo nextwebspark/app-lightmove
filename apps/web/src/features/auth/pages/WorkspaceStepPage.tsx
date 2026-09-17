@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
-import { Button, Card, Field, FormError, Input, Logo, Select } from "../../../components/ui";
+import { AuthLogo, Button, Card, Field, FormError, Input, Select } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
@@ -34,7 +34,7 @@ export function WorkspaceStepPage() {
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-4 sm:p-6">
-      <Logo />
+      <AuthLogo />
       <Stepper steps={SIGNUP_STEPS} current={3} />
 
       <Card className="w-[480px] max-w-[94vw] [animation-delay:80ms]">
@@ -104,7 +104,7 @@ function CreateWorkspace({
         >
           <Input
             autoFocus
-            placeholder="e.g. LightMove Search Partners"
+            placeholder="e.g. Uncava Search Partners"
             invalid={!!errors.name}
             {...register("name")}
           />

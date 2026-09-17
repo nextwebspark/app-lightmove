@@ -15,17 +15,17 @@ import app.lightmove.api.strategy.constant.RevenueBand;
 import app.lightmove.api.strategy.constant.SortDirection;
 import app.lightmove.api.strategy.dto.CompanyRefDto;
 import app.lightmove.api.strategy.dto.CompanyResultDto;
+import app.lightmove.api.strategy.dto.NumericRangeDto;
 import app.lightmove.api.strategy.dto.PutOffLimitsRequest;
 import app.lightmove.api.strategy.dto.PutStrategyFilterRequest;
 import app.lightmove.api.strategy.dto.StrategyCompaniesResponse;
-import app.lightmove.api.strategy.dto.NumericRangeDto;
 import app.lightmove.api.strategy.dto.StrategyFilterDto;
 import app.lightmove.api.strategy.dto.StrategyResponse;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.model.CompanyScope;
+import app.lightmove.api.strategy.model.NumericRange;
 import app.lightmove.api.strategy.model.Strategy;
 import app.lightmove.api.strategy.model.StrategyCompanyRef;
-import app.lightmove.api.strategy.model.NumericRange;
 import app.lightmove.api.strategy.model.StrategyFilter;
 import app.lightmove.api.strategy.repository.StrategyRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -65,17 +65,20 @@ public class StrategyService {
     private final StrategySearchService searches;
     private final AuditService audit;
     private final ApolloCompanyQueryService companies;
+    private final TriagedCompanyLookup triagedLookup;
     private final CompanyListSettings listConfig;
     private final CompanySearchSettings searchConfig;
 
     public StrategyService(StrategyRepository strategies, ProjectRepository projects,
                            StrategySearchService searches, AuditService audit,
-                           ApolloCompanyQueryService companies, LightMoveProperties properties) {
+                           ApolloCompanyQueryService companies, TriagedCompanyLookup triagedLookup,
+                           LightMoveProperties properties) {
         this.strategies = strategies;
         this.projects = projects;
         this.searches = searches;
         this.audit = audit;
         this.companies = companies;
+        this.triagedLookup = triagedLookup;
         this.listConfig = properties.company().list();
         this.searchConfig = properties.company().search();
     }
@@ -120,7 +123,12 @@ public class StrategyService {
         return toResponse(strategy, userId, workspaceId, projectId);
     }
 
-    /** One page of the universe as the mandate's filter narrows it. */
+    /**
+     * One page of the universe as the mandate's filter narrows it, minus whatever this project has
+     * already triaged — a company stops showing up here once it is filed at any stage, so this is the
+     * one caller of {@link StrategyScope}'s three-argument overload. {@link #scopeOf} keeps the wider
+     * scope for the callers that act on the filter in bulk.
+     */
     @Transactional(readOnly = true)
     public StrategyCompaniesResponse companies(UUID workspaceId, UUID projectId, String query,
                                                String sortToken, String directionToken,
@@ -140,7 +148,8 @@ public class StrategyService {
         requireProject(projectId, workspaceId);
         Strategy strategy = strategies.findByProjectId(projectId)
                 .orElseGet(() -> Strategy.forProject(projectId));
-        CompanyScope scope = StrategyScope.of(strategy, normaliseQuery(query));
+        CompanyScope scope = StrategyScope.of(strategy, normaliseQuery(query),
+                triagedLookup.accountIdsFor(projectId));
 
         List<CompanyRow> rows = companies.search(scope, sort, direction, page, size);
         return new StrategyCompaniesResponse(

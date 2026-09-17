@@ -35,6 +35,7 @@ RUNTIME_SECRETS=(
     lightmove-jwt-public-key
     lightmove-resend-api-key
     lightmove-google-oauth-client-secret
+    lightmove-contactout-api-key
 )
 # Read only by CI, never by the service. lm_migrate can create tables; the service must not be able to.
 CI_SECRETS=(lightmove-flyway-password)
@@ -135,7 +136,7 @@ for secret in "${RUNTIME_SECRETS[@]}"; do
         --member="serviceAccount:${RUNTIME_SA_EMAIL}" --role=roles/secretmanager.secretAccessor \
         --project="$PROJECT" --quiet >/dev/null
 done
-echo "  ✓ runtime SA can read its 5 secrets — and no others"
+echo "  ✓ runtime SA can read its ${#RUNTIME_SECRETS[@]} secrets — and no others"
 
 # The Flyway password is CI's, not the service's. Granting it to the runtime SA would put a role that can
 # ALTER TABLE inside the container, which is exactly what splitting the roles was for.
@@ -200,6 +201,7 @@ Done. Three things remain, and all three are deliberately manual.
 
      EMAIL_PROVIDER            'resend' once a sending domain is verified (default: 'log')
      EMAIL_FROM                noreply@<your-domain>
+     PUBLIC_BASE_URL           https://<custom domain>, once one is mapped (README, "Custom domain")
      GOOGLE_OAUTH_CLIENT_ID    enables the "Continue with Google" button
      TRUSTED_PROXY_COUNT       see the README — measure it, do not guess it (default: 0)
 

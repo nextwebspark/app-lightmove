@@ -24,6 +24,12 @@ export type CandidateStatus =
 /** The shared ladder's wire token — see lib/seniority.ts. This contract speaks the label. */
 export type CandidateSeniority = SeniorityToken;
 
+/**
+ * Gender as a researcher recorded it, for the report's diversity chapter. Never inferred from a
+ * name, and `null` — nobody recorded it — is a different fact from `other`, which somebody did.
+ */
+export type CandidateGender = "female" | "male" | "other";
+
 /** Which door a profile came through. Only `manual` is reachable today. */
 export type CandidateSource = "manual" | "csv" | "extension";
 
@@ -69,12 +75,11 @@ export interface Candidate {
   title: string | null;
   seniority: CandidateSeniority | null;
   status: CandidateStatus;
-  email: string | null;
-  phone: string | null;
   linkedinUrl: string | null;
   locationCountry: string | null;
   locationCity: string | null;
   nationality: string | null;
+  gender: CandidateGender | null;
   yearsExperience: number | null;
   summary: string | null;
   note: string | null;
@@ -91,6 +96,63 @@ export interface Candidate {
   addedAt: string;
   /** When enrichment last filled this profile in; null while research is pending or off. */
   enrichedAt: string | null;
+  contacts: CandidateContacts;
+}
+
+/** Which door one contact value came through — the row's three doors plus the lookup provider. */
+export type ContactSource = "manual" | "csv" | "extension" | "contactout";
+
+/**
+ * One address the mandate knows. `kind` and `verified` are only ever what the provider said — null
+ * and false for anything a person typed, and for an address the provider listed without saying.
+ */
+export interface CandidateEmail {
+  address: string;
+  kind: "work" | "personal" | null;
+  verified: boolean;
+  status: string | null;
+  source: ContactSource;
+  foundAt: string;
+}
+
+/** One number the mandate knows, spelled as it arrived. `kind` only where a person tagged it. */
+export interface CandidatePhone {
+  number: string;
+  kind: "work" | "personal" | null;
+  verified: boolean;
+  status: string | null;
+  source: ContactSource;
+  foundAt: string;
+}
+
+/** One email or phone as the Contact section or the Add form states it. */
+export interface ContactEntryInput {
+  value: string;
+  kind: "work" | "personal" | null;
+  verified: boolean;
+}
+
+/** The Contact section's save: both channels, replaced wholesale by what is listed. */
+export interface SaveContactsPayload {
+  emails: ContactEntryInput[];
+  phones: ContactEntryInput[];
+}
+
+/**
+ * Every email and phone known for the person, in the order the drawer lists them, and when each
+ * channel was last looked up.
+ *
+ * <p>The timestamps decide what the Contact section offers, not the lists: null means the button is
+ * still worth pressing, and a timestamp with no row from `source` means the provider had nothing and
+ * asking again would only buy the same answer.
+ */
+export interface CandidateContacts {
+  emails: CandidateEmail[];
+  phones: CandidatePhone[];
+  emailsLookedUpAt: string | null;
+  phonesLookedUpAt: string | null;
+  /** The provider that answered the lookups, for the "Found via" line. */
+  source: string | null;
 }
 
 export interface CandidatesPage {
@@ -112,12 +174,14 @@ export interface SaveCandidatePayload {
   status?: CandidateStatus;
   /** Ignored by the server when `triageCompanyId` names one of the mandate's companies. */
   employerName?: string;
-  email?: string;
-  phone?: string;
+  /** The Add form's contacts. A profile edit never sends them: the Contact section has its own write. */
+  emails?: ContactEntryInput[];
+  phones?: ContactEntryInput[];
   linkedinUrl?: string;
   locationCountry?: string;
   locationCity?: string;
   nationality?: string;
+  gender?: CandidateGender;
   yearsExperience?: number;
   summary?: string;
   note?: string;
