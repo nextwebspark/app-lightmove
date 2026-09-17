@@ -234,6 +234,30 @@ unverified address is an unproven claim. Click the link in the API console.
 **"Your session was ended for security reasons" after opening a second tab.** Refresh-token theft
 detection firing. Fixed — but if you see it, sign in again; the old family is revoked by design.
 
+**Flyway: "Detected resolved migration not applied to database: N".** A migration in the tree is
+numbered *below* one the database has already applied, and Flyway applies migrations in version order.
+It will not quietly skip it — it fails, which is the point: at boot the API refuses to start, and in the
+deploy pipeline the migrate step fails and the previous revision keeps serving. **Fix the number, never
+the setting.** `outOfOrder=true` would make this particular case pass and every future one land in
+whatever order the merges happened to fall — the check exists to stop a migration reading a schema its
+neighbours have not built yet. Renumber the file above everything already applied. CI does this
+comparison for you against `main` on every pull request and merge-queue entry.
+
+**A migration renumbered after it was applied.** Renumbering is only safe while nothing has *applied*
+the old number. A database that already ran it keeps a history row for a version that no longer exists
+on disk, and the next boot fails the other way — "Detected applied migration not resolved locally: N".
+Locally, `npm run dev:db:reset` is the whole answer. On the **shared** Cloud SQL dev database, drop the
+stale row instead — the column it added is already there and the renumbered file is written to tolerate
+that:
+
+```bash
+./ops/cloudsql/psql.sh -c "DELETE FROM flyway_schema_history WHERE version = '51';"
+```
+
+Never do this to production. Check first that the number really was never released: a release tag ships
+the migrations in that tag, so `git ls-tree <tag> apps/api/src/main/resources/db/migration/` is the
+honest record of what the deployed database has been asked to run.
+
 ## Reading the database (optional)
 
 This is the **Cloud SQL** database. For the local Docker one, `npm run dev:db:psql` needs no setup at
