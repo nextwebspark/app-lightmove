@@ -444,6 +444,7 @@ lightmove:
     max-sectors: ${REPORT_MAX_SECTORS:6}
     max-hubs: ${REPORT_MAX_HUBS:8}
     max-nationalities: ${REPORT_MAX_NATIONALITIES:9}
+    max-employers-per-hub: ${REPORT_MAX_EMPLOYERS_PER_HUB:3}
     max-executives-per-slice: ${REPORT_MAX_EXECUTIVES_PER_SLICE:12}
 
 # What /actuator/info reports. APP_VERSION is baked into the image by the Dockerfile's build arg, so

@@ -14,7 +14,9 @@ import app.lightmove.api.report.model.ReportSources;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /**
@@ -48,17 +50,19 @@ class DiversityReporter {
 
         Tally<String> byNationality = new Tally<>();
         nationals.forEach(national -> byNationality.add(national.group()));
-        List<String> leading = byNationality.top(caps.maxNationalities());
+        List<String> leading = byNationality.top(caps.maxNationalities()).stream()
+                .filter(group -> !ReportVocabulary.OTHER.equals(group))
+                .toList();
         List<NationalityRowDto> rows = new ArrayList<>();
         for (String group : leading) {
             rows.add(row(group, NationalityCatalog.isGcc(group), nationals, group::equals));
         }
         if (byNationality.outside(leading) > 0) {
-            rows.add(row(MarketShapeReporter.OTHER, false, nationals, group -> !leading.contains(group)));
+            rows.add(row(ReportVocabulary.OTHER, false, nationals, group -> !leading.contains(group)));
         }
 
         long gccNationals = nationals.stream().filter(national -> NationalityCatalog.isGcc(national.group())).count();
-        return new DiversityDto(MarketShapeReporter.levelTokens(), rows, unknown, gccNationals,
+        return new DiversityDto(ReportVocabulary.levelTokens(), rows, unknown, gccNationals,
                 genderByLevel(sources.executives()), genderWithoutLevel(sources.executives()),
                 genderUnrecorded(sources.executives()));
     }
@@ -68,15 +72,21 @@ class DiversityReporter {
      * three zeros rather than being left out, so the chapter can say it is unmeasured.
      */
     private static List<GenderLevelRowDto> genderByLevel(List<ExecutiveRow> executives) {
+        Map<Seniority, List<ExecutiveRow>> byLevel = byLevel(executives);
         return Arrays.stream(Seniority.values())
                 .map(level -> {
-                    List<ExecutiveRow> here = executives.stream()
-                            .filter(row -> row.seniority() == level)
-                            .toList();
+                    List<ExecutiveRow> here = byLevel.getOrDefault(level, List.of());
                     return new GenderLevelRowDto(level.value(), count(here, Gender.FEMALE),
                             count(here, Gender.MALE), count(here, Gender.OTHER));
                 })
                 .toList();
+    }
+
+    /** Everyone with a seniority on file, by level, in one pass. */
+    private static Map<Seniority, List<ExecutiveRow>> byLevel(List<ExecutiveRow> executives) {
+        return executives.stream()
+                .filter(row -> row.seniority() != null)
+                .collect(Collectors.groupingBy(ExecutiveRow::seniority));
     }
 
     /** Recorded genders on rows with no seniority, which no level's split can hold. */
@@ -101,12 +111,12 @@ class DiversityReporter {
                 .filter(national -> belongs.test(national.group()))
                 .map(NationalExecutive::row)
                 .toList();
-        List<LevelCountDto> byLevel = Arrays.stream(Seniority.values())
-                .map(level -> new LevelCountDto(level.value(),
-                        (int) members.stream().filter(row -> row.seniority() == level).count()))
+        Map<Seniority, List<ExecutiveRow>> membersByLevel = byLevel(members);
+        List<LevelCountDto> levels = Arrays.stream(Seniority.values())
+                .map(level -> new LevelCountDto(level.value(), membersByLevel.getOrDefault(level, List.of()).size()))
                 .toList();
-        int unclassified = (int) members.stream().filter(row -> row.seniority() == null).count();
-        return new NationalityRowDto(label, gcc, byLevel, unclassified, members.size());
+        int classified = levels.stream().mapToInt(LevelCountDto::count).sum();
+        return new NationalityRowDto(label, gcc, levels, members.size() - classified, members.size());
     }
 
     private record NationalExecutive(ExecutiveRow row, String group) {}

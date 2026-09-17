@@ -11,9 +11,9 @@ import app.lightmove.api.geocoding.model.PlaceKey;
 import app.lightmove.api.geocoding.service.GeocodingService;
 import app.lightmove.api.report.dto.BreakdownDto;
 import app.lightmove.api.report.dto.LevelCountDto;
+import app.lightmove.api.report.dto.MapPointDto;
 import app.lightmove.api.report.dto.MarketCellDto;
 import app.lightmove.api.report.dto.MarketShapeDto;
-import app.lightmove.api.report.dto.MapPointDto;
 import app.lightmove.api.report.dto.MarketSliceDto;
 import app.lightmove.api.report.dto.SliceExecutiveDto;
 import app.lightmove.api.report.dto.TalentHubDto;
@@ -22,7 +22,6 @@ import app.lightmove.api.report.model.ReportSources;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -43,8 +42,7 @@ import org.springframework.stereotype.Component;
 @Component
 class MarketShapeReporter {
 
-    static final String OTHER = "Other";
-    private static final int EMPLOYERS_PER_HUB = 3;
+    private static final String OTHER = ReportVocabulary.OTHER;
 
     private final ReportSettings caps;
     private final GeocodingService geocoding;
@@ -62,14 +60,14 @@ class MarketShapeReporter {
                 .map(row -> new PlacedExecutive(row, sectorLabel(row, sectors), row.seniority()))
                 .toList();
 
+        Map<String, Map<Seniority, List<ExecutiveRow>>> byCell = placed.stream()
+                .collect(Collectors.groupingBy(PlacedExecutive::sector, Collectors.groupingBy(PlacedExecutive::level,
+                        Collectors.mapping(PlacedExecutive::row, Collectors.toList()))));
         List<MarketCellDto> cells = new ArrayList<>();
         List<MarketSliceDto> slices = new ArrayList<>();
         for (String sector : sectors) {
             for (Seniority level : Seniority.values()) {
-                List<ExecutiveRow> inCell = placed.stream()
-                        .filter(candidate -> candidate.sector().equals(sector) && candidate.level() == level)
-                        .map(PlacedExecutive::row)
-                        .toList();
+                List<ExecutiveRow> inCell = byCell.getOrDefault(sector, Map.of()).getOrDefault(level, List.of());
                 cells.add(new MarketCellDto(sector, level.value(), inCell.size()));
                 if (!inCell.isEmpty()) {
                     slices.add(slice(sector, level, inCell));
@@ -78,7 +76,7 @@ class MarketShapeReporter {
         }
 
         Hubs hubs = hubs(executives, sources.compensation().currency());
-        return new MarketShapeDto(sectors, levelTokens(), cells,
+        return new MarketShapeDto(sectors, ReportVocabulary.levelTokens(), cells,
                 (int) executives.stream().filter(row -> row.sector().isEmpty()).count(),
                 (int) executives.stream().filter(row -> row.seniority() == null).count(),
                 slices, hubs.leading(), hubs.elsewhere(), hubs.unlocated(), companiesBySector(sources.universe()));
@@ -89,7 +87,7 @@ class MarketShapeReporter {
         Tally<String> bySector = new Tally<>();
         executives.forEach(row -> row.sector().ifPresent(bySector::add));
         List<String> leading = new ArrayList<>(bySector.top(caps.maxSectors()));
-        if (bySector.outside(leading) > 0) {
+        if (bySector.outside(leading) > 0 && !leading.contains(OTHER)) {
             leading.add(OTHER);
         }
         return leading;
@@ -111,6 +109,7 @@ class MarketShapeReporter {
 
     private Hubs hubs(List<ExecutiveRow> executives, String currency) {
         Map<String, List<ExecutiveRow>> byCountry = new LinkedHashMap<>();
+        Tally<String> headcount = new Tally<>();
         int unlocated = 0;
         for (ExecutiveRow row : executives) {
             String country = Countries.nameOf(row.executive().locationCountry());
@@ -119,18 +118,14 @@ class MarketShapeReporter {
                 continue;
             }
             byCountry.computeIfAbsent(country, ignored -> new ArrayList<>()).add(row);
+            headcount.add(country);
         }
-        List<Map.Entry<String, List<ExecutiveRow>>> ranked = byCountry.entrySet().stream()
-                .sorted(Comparator.comparingInt((Map.Entry<String, List<ExecutiveRow>> entry) -> entry.getValue().size())
-                        .reversed())
+        List<String> leading = headcount.top(caps.maxHubs());
+        Map<PlaceKey, GeoPoint> points = pointsFor(leading);
+        List<TalentHubDto> hubs = leading.stream()
+                .map(country -> hub(country, byCountry.get(country), currency, points))
                 .toList();
-        List<Map.Entry<String, List<ExecutiveRow>>> top = ranked.stream().limit(caps.maxHubs()).toList();
-        Map<PlaceKey, GeoPoint> points = pointsFor(top);
-        List<TalentHubDto> leading = top.stream()
-                .map(entry -> hub(entry.getKey(), entry.getValue(), currency, points))
-                .toList();
-        int elsewhere = ranked.stream().skip(caps.maxHubs()).mapToInt(entry -> entry.getValue().size()).sum();
-        return new Hubs(leading, elsewhere, unlocated);
+        return new Hubs(hubs, headcount.outside(leading), unlocated);
     }
 
     /**
@@ -138,16 +133,16 @@ class MarketShapeReporter {
      * nothing, and a mandate whose places nobody has resolved yet draws the bars without the map
      * rather than spending this read's whole vendor budget on it.
      */
-    private Map<PlaceKey, GeoPoint> pointsFor(List<Map.Entry<String, List<ExecutiveRow>>> hubs) {
-        Set<PlaceKey> places = hubs.stream()
-                .map(entry -> PlaceKey.of(null, entry.getKey()))
+    private Map<PlaceKey, GeoPoint> pointsFor(List<String> countries) {
+        Set<PlaceKey> places = countries.stream()
+                .map(country -> PlaceKey.of(null, country))
                 .flatMap(Optional::stream)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         return places.isEmpty() ? Map.of() : geocoding.resolve(places).points();
     }
 
-    private static TalentHubDto hub(String country, List<ExecutiveRow> here, String currency,
-                                    Map<PlaceKey, GeoPoint> points) {
+    private TalentHubDto hub(String country, List<ExecutiveRow> here, String currency,
+                             Map<PlaceKey, GeoPoint> points) {
         List<LevelCountDto> depth = Arrays.stream(Seniority.values())
                 .map(level -> new LevelCountDto(level.value(),
                         (int) here.stream().filter(row -> row.seniority() == level).count()))
@@ -160,7 +155,7 @@ class MarketShapeReporter {
         int female = (int) here.stream().filter(row -> row.gender() == Gender.FEMALE).count();
         int recordedGender = (int) here.stream().filter(row -> row.gender() != null).count();
         return new TalentHubDto(country, here.size(), depth,
-                employersOf(here, EMPLOYERS_PER_HUB), interested, gccNationals, female, recordedGender,
+                employersOf(here, caps.maxEmployersPerHub()), interested, gccNationals, female, recordedGender,
                 medianPackageOf(here, currency), pointOf(country, points));
     }
 
@@ -191,18 +186,15 @@ class MarketShapeReporter {
         Tally<String> bySector = new Tally<>();
         universe.forEach(company -> bySector.add(company.industry() == null ? OTHER : company.industry()));
         List<String> leading = bySector.top(caps.maxSectors());
-        List<BreakdownDto> breakdown = leading.stream()
-                .map(sector -> new BreakdownDto(sector, bySector.of(sector)))
-                .collect(Collectors.toCollection(ArrayList::new));
+        Map<String, Integer> breakdown = new LinkedHashMap<>();
+        leading.forEach(sector -> breakdown.put(sector, bySector.of(sector)));
         int tail = bySector.outside(leading);
         if (tail > 0) {
-            breakdown.add(new BreakdownDto(OTHER, tail));
+            breakdown.merge(OTHER, tail, Integer::sum);
         }
-        return breakdown;
-    }
-
-    static List<String> levelTokens() {
-        return Arrays.stream(Seniority.values()).map(Seniority::value).toList();
+        return breakdown.entrySet().stream()
+                .map(sector -> new BreakdownDto(sector.getKey(), sector.getValue()))
+                .toList();
     }
 
     private record PlacedExecutive(ExecutiveRow row, String sector, Seniority level) {}

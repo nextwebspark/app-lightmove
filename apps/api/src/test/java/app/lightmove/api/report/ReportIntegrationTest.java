@@ -108,8 +108,7 @@ class ReportIntegrationTest extends FlowTestSupport {
         assertThat(progress.get("daily")).hasSize(1);
         assertThat(progress.get("daysSinceLastCompany").asInt()).isZero();
 
-        // Market: sector comes from the company, so Lina has none; a hub is a city, so her country
-        // alone leaves her unlocated.
+        // Market: sector comes from the company, so Lina, mapped at none, has no sector.
         JsonNode market = report.get("market");
         assertThat(market.get("sectors")).hasSize(1);
         assertThat(market.at("/sectors/0").asText()).isEqualTo("food & beverages");

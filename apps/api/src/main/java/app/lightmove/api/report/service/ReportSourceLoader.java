@@ -53,9 +53,13 @@ class ReportSourceLoader {
         Project project = projects.findByIdAndWorkspaceId(projectId, workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
 
-        TriageCompaniesResponse inUniverse = stage(workspaceId, projectId, TriageCompanyStatus.IN_UNIVERSE);
-        TriageCompaniesResponse shortlisted = stage(workspaceId, projectId, TriageCompanyStatus.SHORTLISTED);
-        List<TriageCompanyResponse> universe = new ArrayList<>(inUniverse.companies());
+        TriageCompaniesResponse shortlisted = stage(workspaceId, projectId, TriageCompanyStatus.SHORTLISTED,
+                caps.maxCompanies());
+        int budgetLeft = caps.maxCompanies() - shortlisted.companies().size();
+        TriageCompaniesResponse inUniverse = stage(workspaceId, projectId, TriageCompanyStatus.IN_UNIVERSE,
+                Math.max(budgetLeft, 1));
+        List<TriageCompanyResponse> universe = new ArrayList<>(
+                inUniverse.companies().stream().limit(Math.max(budgetLeft, 0)).toList());
         universe.addAll(shortlisted.companies());
 
         CandidatesResponse people = candidates.listAllOfProject(workspaceId, projectId, caps.maxCandidates());
@@ -65,8 +69,13 @@ class ReportSourceLoader {
                 executives, people.totalCount(), positions.get(workspaceId, projectId).compensation());
     }
 
-    private TriageCompaniesResponse stage(UUID workspaceId, UUID projectId, TriageCompanyStatus status) {
-        return triage.listAllOfStage(workspaceId, projectId, status, caps.maxCompanies());
+    /**
+     * One cap for the whole universe, not one per stage. The shortlist is read first because it is
+     * the smaller and the more worked; the rest of the budget goes to the companies still in universe.
+     * A page cannot be empty, so a spent budget still reads one row — for the stage's total — and keeps none.
+     */
+    private TriageCompaniesResponse stage(UUID workspaceId, UUID projectId, TriageCompanyStatus status, int cap) {
+        return triage.listAllOfStage(workspaceId, projectId, status, cap);
     }
 
     private static List<ExecutiveRow> pair(CandidatesResponse people, List<TriageCompanyResponse> universe) {
