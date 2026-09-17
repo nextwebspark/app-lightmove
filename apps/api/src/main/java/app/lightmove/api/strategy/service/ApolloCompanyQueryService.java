@@ -201,23 +201,54 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * The Market Segments accordion. One query per segment rather than a GROUP BY, because segments
-     * <b>overlap</b> — a company can be B2B and SaaS at once — so the counts add up to more than the
-     * universe.
+     * The Market Segments accordion. One aggregate per segment rather than a GROUP BY, because
+     * segments <b>overlap</b> — a company can be B2B and SaaS at once — so the counts add up to more
+     * than the universe. {@code count(*) FILTER} keeps that; a {@code GROUP BY} would silently count
+     * each company once and quietly halve the accordion.
+     *
+     * <p>One scan for all eleven rather than a {@code count(*)} apiece: the eleven queries cost eleven
+     * round trips, which is what dominates from us-central1. The trade is that a {@code FILTER}
+     * aggregate cannot use {@code idx_lm_apollo_kw}, so this is one sequential scan where the loop was
+     * eleven index scans.
      */
     public List<FacetCount> marketSegmentFacets() {
-        List<FacetCount> facets = new ArrayList<>();
-        marketSegments.segments().forEach((segment, keywords) -> {
-            Map<String, Object> params = new LinkedHashMap<>();
-            String sql = """
-                    SELECT count(*)
-                    FROM app_lm_apollo_companies
-                    WHERE keywords && %s
-                    """.formatted(arrayLiteral(keywords, "segKw", params));
-            long count = bind(jdbc.sql(sql), params).query(Long.class).single();
-            facets.add(new FacetCount(segment, segment, count));
-        });
-        return facets;
+        Map<String, List<String>> segments = marketSegments.segments();
+        if (segments.isEmpty()) {
+            // A SELECT with no columns is a syntax error, not an empty result.
+            return List.of();
+        }
+        Map<String, Object> params = new LinkedHashMap<>();
+        List<String> aggregates = new ArrayList<>(segments.size());
+        int segmentIndex = 0;
+        for (List<String> keywords : segments.values()) {
+            // A prefix per segment: the eleven now share one parameter map, where a query apiece could
+            // reuse "segKw" without colliding.
+            aggregates.add("count(*) FILTER (WHERE keywords && %s)"
+                    .formatted(arrayLiteral(keywords, "seg" + segmentIndex++ + "Kw", params)));
+        }
+        String sql = """
+                SELECT %s
+                FROM app_lm_apollo_companies
+                """.formatted(String.join(",\n       ", aggregates));
+
+        // Read positionally rather than by alias: the counts come back in the order the aggregates
+        // were appended, which is the order segments.keySet() walks below, so the two cannot drift.
+        List<Long> counts = bind(jdbc.sql(sql), params)
+                .query((ResultSet rs, int rowNumber) -> {
+                    List<Long> row = new ArrayList<>(segments.size());
+                    for (int column = 1; column <= segments.size(); column++) {
+                        row.add(rs.getLong(column));
+                    }
+                    return row;
+                })
+                .single();
+
+        List<FacetCount> facets = new ArrayList<>(segments.size());
+        int column = 0;
+        for (String segment : segments.keySet()) {
+            facets.add(new FacetCount(segment, segment, counts.get(column++)));
+        }
+        return List.copyOf(facets);
     }
 
     /**
