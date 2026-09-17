@@ -1,8 +1,8 @@
 package app.lightmove.api.dataimport.service;
 
+import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
-import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;

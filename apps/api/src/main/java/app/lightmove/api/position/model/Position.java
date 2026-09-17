@@ -1,13 +1,13 @@
 package app.lightmove.api.position.model;
 
-import app.lightmove.api.core.persistence.model.BaseEntity;
-import app.lightmove.api.position.constant.BaseSalaryMode;
-import app.lightmove.api.position.constant.BonusBasis;
-import app.lightmove.api.position.constant.EmploymentType;
-import app.lightmove.api.position.constant.IncentiveType;
-import app.lightmove.api.position.constant.MandateReason;
-import app.lightmove.api.position.constant.NoticeUnit;
+import app.lightmove.api.common.constant.BaseSalaryMode;
+import app.lightmove.api.common.constant.BonusBasis;
+import app.lightmove.api.common.constant.EmploymentType;
+import app.lightmove.api.common.constant.IncentiveType;
+import app.lightmove.api.common.constant.NoticeUnit;
 import app.lightmove.api.common.constant.Seniority;
+import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.position.constant.MandateReason;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;

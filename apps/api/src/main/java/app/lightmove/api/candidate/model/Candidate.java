@@ -1,6 +1,5 @@
 package app.lightmove.api.candidate.model;
 
-import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.ContactChannel;
@@ -8,6 +7,7 @@ import app.lightmove.api.candidate.constant.ContactKind;
 import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.constant.Gender;
+import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.customcolumn.model.CustomFieldValues;
 import jakarta.persistence.CollectionTable;

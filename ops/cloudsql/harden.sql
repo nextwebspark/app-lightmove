@@ -73,6 +73,31 @@ BEGIN
     END IF;
 END $$;
 
+--    app_lm_user_platform_role (V57) says who is a LightMove super admin. grant-platform-role.sh writes
+--    it; the application only reads it. Same reasoning and the same ownership rule as the universe
+--    above: while lm_app owns the table, read-only is a claim and not a control, so reassign it where
+--    this role can and say so where it cannot. Run grant-platform-role.sh as its owner afterwards.
+DO $$
+DECLARE
+    current_owner text;
+BEGIN
+    IF to_regclass('public.app_lm_user_platform_role') IS NOT NULL THEN
+        SELECT pg_get_userbyid(relowner) INTO current_owner
+        FROM pg_class WHERE oid = 'public.app_lm_user_platform_role'::regclass;
+
+        IF current_owner <> 'postgres' THEN
+            IF pg_has_role(current_user, current_owner, 'USAGE') THEN
+                EXECUTE 'ALTER TABLE app_lm_user_platform_role OWNER TO postgres';
+            ELSE
+                RAISE NOTICE 'app_lm_user_platform_role is owned by % and this role cannot reassign it, so read-only is not yet enforced: until this file is re-run as postgres, lm_app as owner could still write the table.', current_owner;
+            END IF;
+        END IF;
+
+        EXECUTE 'REVOKE ALL    ON app_lm_user_platform_role FROM lm_app';
+        EXECUTE 'GRANT  SELECT ON app_lm_user_platform_role TO   lm_app';
+    END IF;
+END $$;
+
 -- 4. No CREATE on the public schema: the app reads and writes, migrations are what change shape.
 --    (Flyway needs this back during a deploy — see the note at the foot of this file.)
 REVOKE CREATE ON SCHEMA public FROM lm_app;

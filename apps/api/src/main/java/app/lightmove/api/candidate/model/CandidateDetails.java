@@ -3,9 +3,9 @@ package app.lightmove.api.candidate.model;
 import static app.lightmove.api.core.text.service.SuppliedText.blankToNull;
 import static app.lightmove.api.core.text.service.SuppliedText.browsableUrlOrNull;
 
-import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.Gender;
+import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.common.location.service.Countries;
 import java.util.List;
 

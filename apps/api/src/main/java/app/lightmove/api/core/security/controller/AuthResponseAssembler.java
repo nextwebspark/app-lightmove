@@ -4,6 +4,7 @@ import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.PendingInvitationSummary;
 import app.lightmove.api.core.security.dto.UserResponse;
 import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.rbac.PlatformAccess;
 import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.token.TokenPair;
@@ -31,6 +32,7 @@ public class AuthResponseAssembler {
 
     private final WorkspaceRepository workspaces;
     private final InvitationRepository invitations;
+    private final PlatformAccess platform;
 
     public AuthResponse assemble(TokenPair tokens, User user, WorkspaceMember membership) {
         return new AuthResponse(
@@ -52,7 +54,8 @@ public class AuthResponseAssembler {
                 user.getTimezone(),
                 user.getLocale(),
                 workspace,
-                workspace == null ? pendingInvitation(user) : null);
+                workspace == null ? pendingInvitation(user) : null,
+                platform.actionsOf(user.getId()));
     }
 
     /**

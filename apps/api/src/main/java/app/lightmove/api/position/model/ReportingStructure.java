@@ -1,6 +1,6 @@
 package app.lightmove.api.position.model;
 
-import app.lightmove.api.position.constant.NoticeUnit;
+import app.lightmove.api.common.constant.NoticeUnit;
 import java.util.List;
 
 /**

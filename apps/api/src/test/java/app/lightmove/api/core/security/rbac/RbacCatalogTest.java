@@ -28,6 +28,8 @@ class RbacCatalogTest {
                 .containsExactlyInAnyOrderElementsOf(names(WorkspaceRole.values()));
         assertThat(names(roles.findByScope(RoleScope.PROJECT), Role::getName))
                 .containsExactlyInAnyOrderElementsOf(names(ProjectRole.values()));
+        assertThat(names(roles.findByScope(RoleScope.PLATFORM), Role::getName))
+                .containsExactlyInAnyOrderElementsOf(names(PlatformRole.values()));
     }
 
     @Test
@@ -37,6 +39,8 @@ class RbacCatalogTest {
                 .containsExactlyInAnyOrderElementsOf(names(WorkspaceAction.values()));
         assertThat(names(actions.findByScope(RoleScope.PROJECT), Action::getName))
                 .containsExactlyInAnyOrderElementsOf(names(ProjectAction.values()));
+        assertThat(names(actions.findByScope(RoleScope.PLATFORM), Action::getName))
+                .containsExactlyInAnyOrderElementsOf(names(PlatformAction.values()));
     }
 
     @Test
@@ -61,13 +65,14 @@ class RbacCatalogTest {
     @Transactional(readOnly = true)
     void roleGrantsMatchTheSeededMap() {
         grantsAre(RoleScope.WORKSPACE, "ADMIN", "WORKSPACE_MANAGE", "MEMBER_MANAGE", "MEMBER_INVITE",
-                "PROJECT_CREATE", "PROJECT_BROWSE", "CLIENT_RECORD_MANAGE");
+                "PROJECT_CREATE", "PROJECT_BROWSE", "CLIENT_RECORD_MANAGE", "POSITION_TEMPLATE_MANAGE");
         grantsAre(RoleScope.WORKSPACE, "MEMBER", "PROJECT_CREATE", "PROJECT_BROWSE", "CLIENT_RECORD_MANAGE");
         grantsAre(RoleScope.WORKSPACE, "CLIENT");
         grantsAre(RoleScope.PROJECT, "LEAD", "PROJECT_EDIT", "TEAM_MANAGE", "WORK_VIEW", "WORK_EXECUTE",
                 "CLIENT_ACCESS_MANAGE");
         grantsAre(RoleScope.PROJECT, "RESEARCHER", "WORK_VIEW", "WORK_EXECUTE");
         grantsAre(RoleScope.PROJECT, "CLIENT", "WORK_VIEW");
+        grantsAre(RoleScope.PLATFORM, "SUPER_ADMIN", "TEMPLATE_LIBRARY_MANAGE");
     }
 
     private void grantsAre(RoleScope scope, String roleName, String... expectedActions) {

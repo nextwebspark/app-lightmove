@@ -1,6 +1,6 @@
 package app.lightmove.api.position.dto;
 
-import app.lightmove.api.position.constant.NoticeUnit;
+import app.lightmove.api.common.constant.NoticeUnit;
 import java.time.LocalDate;
 import java.util.List;
 

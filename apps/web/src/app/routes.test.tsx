@@ -8,6 +8,7 @@ import { AuthProvider } from "../features/auth/AuthProvider";
 import * as authApi from "../features/auth/api/authApi";
 import * as clientsApi from "../features/clients/api/clientsApi";
 import * as projectsApi from "../features/projects/api/projectsApi";
+import * as templateAdminApi from "../features/templates/api/templateAdminApi";
 import * as triageApi from "../features/triage/api/triageApi";
 import * as workspaceApi from "../features/workspace/api/workspaceApi";
 import { AppRoutes } from "./routes";
@@ -24,6 +25,10 @@ vi.mock("../features/clients/api/clientsApi", async (importOriginal) => ({
 vi.mock("../features/triage/api/triageApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../features/triage/api/triageApi")>()),
   getTriageCounts: vi.fn(),
+}));
+vi.mock("../features/templates/api/templateAdminApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../features/templates/api/templateAdminApi")>()),
+  listTemplates: vi.fn(),
 }));
 vi.mock("../features/workspace/api/workspaceApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../features/workspace/api/workspaceApi")>()),
@@ -48,6 +53,7 @@ const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[]) => ({
   hasPassword: true,
   timezone: "Asia/Dubai",
   locale: "en",
+  platformActions: [],
   pendingInvitation: null,
   workspace: {
     id: "w1",
@@ -70,6 +76,7 @@ const unverifiedUser = () => ({
   hasPassword: true,
   timezone: "Asia/Dubai",
   locale: "en",
+  platformActions: [],
   pendingInvitation: null,
   workspace: null,
 });
@@ -216,7 +223,7 @@ describe("routes — the settings gates", () => {
     ).toBeInTheDocument();
   });
 
-  it.each(["/settings/general", "/settings/members"])(
+  it.each(["/settings/general", "/settings/members", "/settings/templates"])(
     "bounces a non-admin who types %s",
     async (path) => {
       vi.mocked(authApi.me).mockResolvedValue(userWith(["MEMBER"]));
@@ -245,6 +252,39 @@ describe("routes — the settings gates", () => {
     renderAt("/settings/general");
 
     expect(await screen.findByText("Workspace identity and defaults")).toBeInTheDocument();
+  });
+});
+
+/**
+ * The template library is LightMove staff's, not any workspace's: being a workspace admin does not
+ * reach it, and a super admin reaches it whatever their workspace role.
+ */
+describe("routes — the platform gate", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(projectsApi.projects).mockResolvedValue([]);
+    vi.mocked(templateAdminApi.listTemplates).mockResolvedValue([]);
+  });
+
+  it("bounces a workspace admin who is not LightMove staff from the template library", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"]));
+
+    renderAt("/settings/template-library");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/"));
+  });
+
+  it("opens the template library to a super admin, and puts it in their settings rail", async () => {
+    vi.mocked(authApi.me).mockResolvedValue({
+      ...userWith(["MEMBER"]),
+      platformActions: ["TEMPLATE_LIBRARY_MANAGE" as const],
+    });
+
+    renderAt("/settings/template-library");
+
+    expect(await screen.findByRole("table", { name: "Templates" })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Template library" }).length).toBeGreaterThan(0);
   });
 });
 

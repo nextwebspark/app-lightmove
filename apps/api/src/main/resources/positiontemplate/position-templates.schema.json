@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lightmove.app/schemas/position-templates.v1.json",
+  "title": "LightMove role templates",
+  "description": "A file of role templates for LightMove's Templates import. A template drafts the position brief of every new executive-search mandate whose role title matches one of its keywords. It never states a mandate's role title, location, target date or salary band: those belong to each mandate.",
+  "type": "object",
+  "required": ["format", "formatVersion", "templates"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "format": { "const": "lightmove.position-templates" },
+    "formatVersion": { "const": 1 },
+    "exportedAt": { "type": "string" },
+    "templates": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/template" }
+    }
+  },
+  "$defs": {
+    "template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "discipline", "seniority", "body"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "maxLength": 64,
+          "description": "The template's stable identity. Leave it out and one is made from the title. Reuse an existing code to change that template rather than add another."
+        },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "discipline": {
+          "enum": ["EXECUTIVE", "FINANCE", "OPERATIONS", "TECHNOLOGY", "PEOPLE", "COMMERCIAL", "GOVERNANCE", "INVESTMENT"],
+          "description": "How the template picker groups it."
+        },
+        "seniority": {
+          "enum": ["BOARD", "C_SUITE", "N_MINUS_1", "N_MINUS_2", "N_MINUS_3"],
+          "description": "C_SUITE is the executive committee; N_MINUS_1 reports to it."
+        },
+        "summary": { "type": ["string", "null"], "maxLength": 300, "description": "One line shown under the title in the picker." },
+        "keywords": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "description": "Lower-case fragments. A new mandate whose role title contains any of them is drafted from this template, e.g. \"cfo\", \"finance director\"."
+        },
+        "body": { "$ref": "#/$defs/body" }
+      }
+    },
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "department": { "type": ["string", "null"], "maxLength": 160 },
+        "employmentType": { "enum": ["FULL_TIME_PERMANENT", "FIXED_TERM_CONTRACT", "PART_TIME", "INTERIM", "RETAINED_ADVISORY", null] },
+        "narrative": { "type": ["string", "null"], "maxLength": 4000, "description": "The ideal-profile paragraph a consultant starts the brief from." },
+        "responsibilities": { "type": "array", "maxItems": 20, "items": { "type": "string", "minLength": 1, "maxLength": 200 } },
+        "reportsTo": { "type": ["string", "null"], "maxLength": 160, "description": "The seat the role reports to; the root of the brief's org chart." },
+        "directReports": { "type": "array", "maxItems": 30, "items": { "type": "string", "minLength": 1, "maxLength": 160 }, "description": "Seat titles typically beneath the role." },
+        "strategicPriorities": { "type": "array", "maxItems": 20, "items": { "type": "string", "minLength": 1, "maxLength": 120 }, "description": "The priorities a consultant chooses from for this mandate." },
+        "noticeValue": { "type": ["integer", "null"], "minimum": 0, "maximum": 999 },
+        "noticeUnit": { "enum": ["DAYS", "WEEKS", "MONTHS", null] },
+        "currency": { "type": ["string", "null"], "pattern": "^[A-Z]{3}$", "description": "ISO 4217 code. Defaults to USD." },
+        "baseSalaryMode": { "enum": ["ANNUAL", "MONTHLY", null], "description": "The period a salary band is quoted over. Defaults to ANNUAL." },
+        "bonusValue": { "type": ["number", "null"], "minimum": 0, "maximum": 9999.99, "description": "The target bonus, read against bonusBasis. At most two decimal places." },
+        "bonusBasis": { "enum": ["PERCENT_OF_BASE", "PERCENT_OF_TOTAL_FIXED", "MONTHS_OF_BASE", null] },
+        "incentiveType": { "enum": ["LTIP_CASH", "RSU", "OPTIONS", "PHANTOM_EQUITY", null] },
+        "incentiveVesting": { "type": ["string", "null"], "maxLength": 200 },
+        "benefits": {
+          "type": "array",
+          "maxItems": 20,
+          "description": "Allowance lines only. The amount is each mandate's to fill in.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+              "frequency": { "enum": ["MONTHLY", "YEARLY", null] }
+            }
+          }
+        },
+        "criteria": {
+          "type": "array",
+          "maxItems": 30,
+          "description": "Screening criteria. REQUIRED narrows the field; PREFERRED breaks ties.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["text"],
+            "properties": {
+              "text": { "type": "string", "minLength": 1, "maxLength": 300 },
+              "mode": { "enum": ["REQUIRED", "PREFERRED", null] }
+            }
+          }
+        },
+        "competencies": {
+          "type": "array",
+          "maxItems": 20,
+          "description": "Two panels, TECHNICAL and BEHAVIOURAL, of at most ten competencies each. The weights within each panel that has any competencies must total exactly 100.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["panel", "name", "weight"],
+            "properties": {
+              "panel": { "enum": ["TECHNICAL", "BEHAVIOURAL"] },
+              "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+              "description": { "type": ["string", "null"], "maxLength": 300 },
+              "weight": { "type": "integer", "minimum": 0, "maximum": 100 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

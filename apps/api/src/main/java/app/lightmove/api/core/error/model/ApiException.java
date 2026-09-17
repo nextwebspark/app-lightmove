@@ -69,4 +69,10 @@ public class ApiException extends RuntimeException {
     public static ApiException withField(ErrorCode code, String field, String message) {
         return new ApiException(code, message, message, Map.of(field, message));
     }
+
+    /** Several inputs at once, for a rule set that reports everything wrong rather than the first. */
+    public static ApiException withFields(ErrorCode code, Map<String, String> fieldErrors) {
+        String summary = String.join("; ", fieldErrors.values());
+        return new ApiException(code, summary, code.defaultMessage(), Map.copyOf(fieldErrors));
+    }
 }
