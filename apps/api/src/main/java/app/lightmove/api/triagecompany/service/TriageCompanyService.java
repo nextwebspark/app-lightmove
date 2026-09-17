@@ -286,7 +286,7 @@ public class TriageCompanyService {
     public TriageCompanyResponse requireCompanyOfProject(UUID projectId, UUID triageCompanyId) {
         TriageCompany company = triaged.findByIdAndProjectId(triageCompanyId, projectId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-        company.setNoExecutiveFound(false);
+        company.unflagNoExecutiveFound();
         return toDto(company);
     }
 
@@ -412,12 +412,19 @@ public class TriageCompanyService {
      * The research door: the enrichment worker files a captured executive's employer into the
      * universe. Unlike {@link #capture}, a name already held answers with the existing row rather
      * than a refusal. No audit event of its own — this row is a consequence of the capture.
+     *
+     * <p>Clears {@code noExecutiveFound} the same way {@link #requireCompanyOfProject} does: this is
+     * {@code candidate}'s other public seam into a company, and the row it hands back is about to be
+     * mapped to the executive whose research triggered this call — an already-held company the mandate
+     * had flagged "nobody fits" must not keep saying so once research proves otherwise. A newly created
+     * row is unaffected either way, since it starts unflagged.
      */
     @Transactional
     public TriageCompanyResponse captureFromResearch(UUID projectId, UUID addedBy,
                                                      CapturedCompanyDetails details) {
         ResolvedCapture resolved = resolveCapture(projectId, addedBy, details,
                 TriageCompanySource.EXTENSION, TriageCompanyStatus.IN_UNIVERSE);
+        resolved.company().unflagNoExecutiveFound();
         if (resolved.created()) {
             announceForResearch(resolved.company(), projectId);
         }
@@ -631,7 +638,11 @@ public class TriageCompanyService {
             company.annotate(request.note());
         }
         if (request.noExecutiveFound() != null) {
-            company.setNoExecutiveFound(request.noExecutiveFound());
+            if (request.noExecutiveFound()) {
+                company.flagNoExecutiveFound();
+            } else {
+                company.unflagNoExecutiveFound();
+            }
         }
 
         // The event type is the pre-existing one regardless of which fields moved: this endpoint has
