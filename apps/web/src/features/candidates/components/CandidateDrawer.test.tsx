@@ -37,6 +37,7 @@ const yasmin: Candidate = {
   locationCountry: "UAE",
   locationCity: "Dubai",
   nationality: "Egyptian",
+  gender: "female",
   yearsExperience: 18,
   summary: null,
   note: null,
@@ -269,6 +270,55 @@ describe("CandidateDrawer", () => {
     expect(currency).toHaveValue("INR");
     expect(within(currency).getByRole("option", { name: "AED" })).toBeInTheDocument();
     expect(within(currency).getByRole("option", { name: "Not set" })).toBeInTheDocument();
+  });
+
+  it("records a gender only where one is picked, and reads an unrecorded one as nothing", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue({ ...yasmin, gender: "male" });
+    renderDrawer({ candidate: { ...yasmin, gender: null }, company: null });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit background/i }));
+    const gender = screen.getByLabelText(/^Gender/i);
+    // Not recorded is the absence of a value, never a fourth gender.
+    expect(gender).toHaveValue("");
+    expect(within(gender).getByRole("option", { name: "Not recorded" })).toBeInTheDocument();
+
+    await userEvent.selectOptions(gender, "Male");
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].gender).toBe("male");
+  });
+
+  it("offers nationality as the nine groups, and saves the one picked", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue({ ...yasmin, nationality: "Emirati" });
+    renderDrawer({ candidate: { ...yasmin, nationality: null }, company: null });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit background/i }));
+    const nationality = screen.getByLabelText(/^Nationality/i);
+    expect(nationality).toHaveValue("");
+    expect(within(nationality).getAllByRole("option")).toHaveLength(10);
+
+    await userEvent.selectOptions(nationality, "Emirati");
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].nationality).toBe("Emirati");
+  });
+
+  it("keeps a stored nationality the nine do not carry", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit background/i }));
+    const nationality = screen.getByLabelText(/^Nationality/i);
+    expect(nationality).toHaveValue("Egyptian");
+    expect(within(nationality).getByRole("option", { name: "Egyptian (as recorded)" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    // Saving the section without touching the field says the stored value again, not a blank.
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].nationality).toBe("Egyptian");
   });
 
   it("saves the note on its own, the moment it differs from what is stored", async () => {

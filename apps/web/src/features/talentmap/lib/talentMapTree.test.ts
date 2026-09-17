@@ -40,6 +40,7 @@ const person = (overrides: Partial<Candidate>): Candidate => ({
   locationCountry: null,
   locationCity: null,
   nationality: null,
+  gender: null,
   yearsExperience: null,
   summary: null,
   note: null,

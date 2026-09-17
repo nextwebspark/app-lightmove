@@ -110,6 +110,7 @@ const lead = {
   hasPassword: true,
   timezone: "Asia/Dubai",
   locale: "en",
+  platformActions: [],
   pendingInvitation: null,
   workspace: {
     id: "w1",
@@ -176,6 +177,7 @@ const yasmin: Candidate = {
   locationCountry: null,
   locationCity: null,
   nationality: null,
+  gender: null,
   yearsExperience: null,
   summary: null,
   note: null,

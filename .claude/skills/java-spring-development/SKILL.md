@@ -183,9 +183,9 @@ core/
     token/      RefreshToken, RefreshTokenRepository, TokenService, TokenPair,
                 RevokeReason, RefreshCookieFactory, Tokens                (flat concern pkg)
     rbac/       Role, Action, RoleRepository, ActionRepository, RoleScope,
-                WorkspaceRole, ProjectRole, WorkspaceAction, ProjectAction,
-                RbacService, WorkspaceAccess, ProjectAccess,
-                WorkspaceAuthorizer, ProjectAuthorizer                    (flat concern pkg)
+                WorkspaceRole, ProjectRole, PlatformRole, WorkspaceAction, ProjectAction,
+                PlatformAction, RbacService, WorkspaceAccess, ProjectAccess, PlatformAccess,
+                WorkspaceAuthorizer, ProjectAuthorizer, PlatformAuthorizer (flat concern pkg)
   email/       model/(EmailMessage)  service/(EmailSender, EmailAddressValidator, …)  config/
   audit/       constant/(AuditEventType, AuditOutcome)  model/(AuditEvent)  repository/  service/
   error/       constant/(ErrorCode)  model/(ApiException)  service/(Problems)
@@ -226,6 +226,12 @@ geocoding/                 # a city+country pair becomes a point, once — globa
 
 talentmap/                 # composes triagecompany + candidate + geocoding into one read; owns nothing
   dto/(TalentMapResponse, MapLocationDto, TalentMapConfigResponse)  service/(TalentMapService)  controller/
+
+report/                    # the mandate's talent mapping report — four chapters over one read; owns nothing
+  model/(ReportSources, ExecutiveRow, ReportCalendar)
+  dto/(ReportResponse + one record per chapter and per row of it)
+  service/(ReportService, ReportSourceLoader, MappingProgressReporter, MarketShapeReporter,
+           RemunerationReporter, DiversityReporter, NationalityCatalog, Tally)  controller/
 ```
 
 **`enrichment/` is the one feature with a subject split above the type split.** People and companies
@@ -322,10 +328,25 @@ method plus the records it returns — never another feature's internals:
   itself, so `triagecompany` still never learns that people exist. `GeocodingService.resolve` is
   the third seam, taking bare city/country pairs — which company or person asked never reaches
   `geocoding` or the vendor.
+- `report` reads through the same two seams as `talentmap` (`listAllOfStage` for the universe and
+  the shortlist, `listAllOfProject` for every executive), `PositionService.compensationOf` for the brief's band
+  (never `get`, which drafts and saves a brief — a read-only client seat can open the report),
+  and `project`'s repository for the mandate's dates. Every figure is aggregated at read time; there
+  is no report table. It states what the rows carry and nothing more — no inferred gender, no
+  pipeline outcome, no currency conversion — so a chapter never reports a guess as a finding.
+  Nationality is the one thing it folds: `NationalityCatalog` counts a row's free-text value under
+  one of nine groups at read time and never rewrites what is stored.
 - `position`'s `PositionService` reads `project`'s repositories for the mandate a brief belongs to,
   the same way `CandidateService` does — a brief cannot be scoped, titled or dated without it — and
   `project`'s `ProjectService.create` seeds the new mandate's brief through one call taking primitives
   rather than handing a `Project` across.
+- `position` reads `positiontemplate` through `PositionTemplateService.matching` (seeding a new
+  mandate), `require` (applying a picked template) and `suggestFor`/`matchingByTitle` (position
+  extraction proposing a template), and writes the result onto the brief in its own
+  `PositionTemplateApplier`. **`positiontemplate` never depends on `position`** — the admin-curated
+  library knows nothing about briefs — which is why the enums both speak (`EmploymentType`,
+  `BenefitFrequency`, `CompetencyPanel`, `CriterionMode`, …) live in `common/constant` beside
+  `Seniority` rather than in either feature.
 - `project`'s `ClientService` calls `ApolloCompanyQueryService` to resolve the company a new client
   record names.
 - The projects list's two pipeline numbers run the same inversion as `TriagedCompanyLookup` above, and

@@ -1,14 +1,15 @@
 package app.lightmove.api.position.service;
 
+import app.lightmove.api.common.constant.CompetencyPanel;
+import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
-import app.lightmove.api.position.constant.CompetencyPanel;
 import app.lightmove.api.position.dto.AssessmentDto;
 import app.lightmove.api.position.dto.BenefitDto;
 import app.lightmove.api.position.dto.CompensationDto;
 import app.lightmove.api.position.dto.CompetencyDto;
 import app.lightmove.api.position.dto.CriterionResponse;
-import app.lightmove.api.position.dto.OrgNodeDto;
 import app.lightmove.api.position.dto.MandateContextDto;
+import app.lightmove.api.position.dto.OrgNodeDto;
 import app.lightmove.api.position.dto.PositionDetailsDto;
 import app.lightmove.api.position.dto.PositionDocumentDto;
 import app.lightmove.api.position.dto.PositionResponse;
@@ -18,7 +19,6 @@ import app.lightmove.api.position.dto.StrategicPriorityDto;
 import app.lightmove.api.position.model.Position;
 import app.lightmove.api.position.model.PositionDocumentSummary;
 import app.lightmove.api.position.repository.PositionDocumentRepository;
-import app.lightmove.api.core.security.model.User;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -89,7 +89,7 @@ class PositionResponseAssembler {
                 position.getNoticeUnit());
     }
 
-    private CompensationDto compensationOf(Position position) {
+    CompensationDto compensationOf(Position position) {
         return new CompensationDto(
                 position.getCurrency(),
                 position.getSalaryMin(),

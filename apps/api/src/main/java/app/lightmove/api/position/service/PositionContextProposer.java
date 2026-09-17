@@ -1,8 +1,8 @@
 package app.lightmove.api.position.service;
 
 import app.lightmove.api.core.llm.model.BlockedAnswer;
-import app.lightmove.api.core.llm.model.Pseudonyms;
 import app.lightmove.api.core.llm.model.PromptGuardSpec;
+import app.lightmove.api.core.llm.model.Pseudonyms;
 import app.lightmove.api.core.llm.service.LlmCallPolicy;
 import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
@@ -12,10 +12,11 @@ import app.lightmove.api.position.constant.MandateReason;
 import app.lightmove.api.position.constant.ProposalConfidence;
 import app.lightmove.api.position.constant.ProposalOrigin;
 import app.lightmove.api.position.model.ExtractedField;
-import app.lightmove.api.position.model.ModelContextAnswer;
 import app.lightmove.api.position.model.ModelContextAnswer.ModelStrategicPriority;
-import app.lightmove.api.position.model.PositionTemplate;
+import app.lightmove.api.position.model.ModelContextAnswer;
 import app.lightmove.api.position.model.ProposedMandateContext;
+import app.lightmove.api.positiontemplate.model.PositionTemplate;
+import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -180,7 +181,7 @@ public class PositionContextProposer {
 
     /**
      * Proposes the matched template's own strategic priorities when the document named none at all —
-     * the only field {@link app.lightmove.api.position.model.PositionTemplateBody} carries for this
+     * the only field {@link app.lightmove.api.positiontemplate.model.PositionTemplateBody} carries for this
      * step. {@code mandateReason} and {@code businessDriver} have no template equivalent: they are
      * specific to why this client is running this search, not generic to a role shape, so a template
      * never backfills them. Never tops up a partial list — only fires when no priority was found at

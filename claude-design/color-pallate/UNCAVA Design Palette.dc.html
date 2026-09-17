@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Montserrat:wght@200;300&display=swap">
+<link rel="stylesheet" href="_ds/alac-partners-talent-map-design-system-a6bca9da-124e-4c98-8dc5-8ae3e7880828/colors_and_type.css">
+<link rel="stylesheet" href="_ds/alac-partners-talent-map-design-system-a6bca9da-124e-4c98-8dc5-8ae3e7880828/components/core/core.css">
+<link rel="stylesheet" href="_ds/alac-partners-talent-map-design-system-a6bca9da-124e-4c98-8dc5-8ae3e7880828/styles.css">
+<script src="_ds/alac-partners-talent-map-design-system-a6bca9da-124e-4c98-8dc5-8ae3e7880828/_ds_bundle.js"></script>
+<style>
+  html, body { margin:0; padding:0; background:#08090B; }
+  * { box-sizing:border-box; }
+  a { color:#8189F7; text-decoration:none; }
+  a:hover { color:#A3A9FA; text-decoration:underline; }
+  @keyframes u-live { 0%,100% { opacity:1 } 50% { opacity:.35 } }
+</style>
+</helmet>
+
+<div style="background:#08090B;min-height:100vh;font-family:Geist,'Helvetica Neue',sans-serif;color:#F4F6F8;padding:64px 40px 120px;-webkit-font-smoothing:antialiased">
+<div style="max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:80px">
+
+<!-- ── masthead ────────────────────────────────── -->
+<header style="display:flex;flex-direction:column;gap:32px">
+  <div style="display:flex;align-items:center;gap:14px">
+    <svg width="22" height="34" viewBox="-34 -52 68 106" role="img" aria-label="UNCAVA mark">
+      <path style="fill:none;stroke:#F4F6F8;stroke-width:3;stroke-linejoin:round" d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50"></path>
+      <path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#F4F6F8"></path>
+    </svg>
+    <span style="font:200 15px/1 Montserrat,sans-serif;letter-spacing:.38em;margin-right:-.38em;color:#F4F6F8">UNCAVA</span>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:20px;max-width:720px">
+    <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">Design palette · v1 · dark-first</div>
+    <h1 style="margin:0;font:600 40px/1.1 Geist,sans-serif;letter-spacing:-.025em;color:#F4F6F8;text-wrap:pretty">A quiet instrument panel with one indigo that earns attention.</h1>
+    <p style="margin:0;font:400 15px/1.65 Geist,sans-serif;color:#A6ADBB;text-wrap:pretty">UNCAVA is read for hours at a time by consultants scanning dense company and executive data. So the surface recedes: near-black grounds, hairline structure, no chrome that competes with a number. Colour is spent only where it carries meaning — an indigo for anything interactive, a copper for anything selected or linked, and five fixed status hues. Everything below is a token with a stated job. If a colour has no job, it is not in the palette.</p>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:10px">
+    <span style="font:500 11px/1 'JetBrains Mono',monospace;color:#A6ADBB;background:#15181D;border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:7px 12px">Geist · UI</span>
+    <span style="font:500 11px/1 'JetBrains Mono',monospace;color:#A6ADBB;background:#15181D;border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:7px 12px">JetBrains Mono · numerals</span>
+    <span style="font:500 11px/1 'JetBrains Mono',monospace;color:#A6ADBB;background:#15181D;border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:7px 12px">Montserrat 200 · wordmark only</span>
+    <span style="font:500 11px/1 'JetBrains Mono',monospace;color:#6E79F2;background:rgba(110,121,242,.12);border:1px solid rgba(110,121,242,.3);border-radius:999px;padding:7px 12px">Indigo #6E79F2</span>
+    <span style="font:500 11px/1 'JetBrains Mono',monospace;color:#D4855C;background:rgba(212,133,92,.12);border:1px solid rgba(212,133,92,.3);border-radius:999px;padding:7px 12px">Copper #D4855C</span>
+  </div>
+</header>
+
+<!-- ── 01 surfaces ─────────────────────────────── -->
+<section style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.1);padding-top:20px">
+    <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">01 · Surfaces</div>
+    <h2 style="margin:0;font:500 20px/1.3 Geist,sans-serif;letter-spacing:-.01em;color:#F4F6F8">Depth comes from four steps and a hairline, not from shadow</h2>
+    <p style="margin:0;font:400 13px/1.7 Geist,sans-serif;color:#A6ADBB;max-width:640px">On dark grounds a drop shadow reads as mud. Elevation is instead a step up the surface ladder plus a 1px border. Never skip a step — a popover on a card goes 0E1013 → 15181D, never straight to 1D2128.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden">
+      <div style="height:76px;background:#08090B"></div>
+      <div style="padding:14px 16px 16px;display:flex;flex-direction:column;gap:5px">
+        <div style="font:500 12px/1 Geist,sans-serif;color:#F4F6F8">Canvas</div>
+        <div style="font:500 11px/1 'JetBrains Mono',monospace;color:#7C8493">#08090B</div>
+        <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB;margin-top:3px">App background, map void, table gutter</div>
+      </div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden">
+      <div style="height:76px;background:#0E1013;border-bottom:1px solid rgba(255,255,255,.07)"></div>
+      <div style="padding:14px 16px 16px;display:flex;flex-direction:column;gap:5px">
+        <div style="font:500 12px/1 Geist,sans-serif;color:#F4F6F8">Surface</div>
+        <div style="font:500 11px/1 'JetBrains Mono',monospace;color:#7C8493">#0E1013</div>
+        <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB;margin-top:3px">Cards, panels, app bar, icon rail</div>
+      </div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden">
+      <div style="height:76px;background:#15181D"></div>
+      <div style="padding:14px 16px 16px;display:flex;flex-direction:column;gap:5px">
+        <div style="font:500 12px/1 Geist,sans-serif;color:#F4F6F8">Raised</div>
+        <div style="font:500 11px/1 'JetBrains Mono',monospace;color:#7C8493">#15181D</div>
+        <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB;margin-top:3px">Inputs, popovers, row hover, chips</div>
+      </div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden">
+      <div style="height:76px;background:#1D2128"></div>
+      <div style="padding:14px 16px 16px;display:flex;flex-direction:column;gap:5px">
+        <div style="font:500 12px/1 Geist,sans-serif;color:#F4F6F8">Sunken / pressed</div>
+        <div style="font:500 11px/1 'JetBrains Mono',monospace;color:#7C8493">#1D2128</div>
+        <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB;margin-top:3px">Selected row, pressed control, track</div>
+      </div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px">
+      <div style="width:44px;height:44px;border-radius:8px;background:#0E1013;border:1px solid rgba(255,255,255,.07);flex:none"></div>
+      <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+        <div style="font:500 12px/1 Geist,sans-serif;color:#F4F6F8">Border hairline</div>
+        <div style="font:500 11px/1.4 'JetBrains Mono',monospace;color:#7C8493">rgba(255,255,255,.07)</div>
+      </div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px">
+      <div style="width:44px;height:44px;border-radius:8px;background:#0E1013;border:1px solid rgba(255,255,255,.14);flex:none"></div>
+      <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+        <div style="font:500 12px/1 Geist,sans-serif;color:#F4F6F8">Border strong</div>
+        <div style="font:500 11px/1.4 'JetBrains Mono',monospace;color:#7C8493">rgba(255,255,255,.14)</div>
+      </div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px">
+      <div style="width:44px;height:44px;border-radius:8px;background:#040507;flex:none"></div>
+      <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+        <div style="font:500 12px/1 Geist,sans-serif;color:#F4F6F8">Modal scrim</div>
+        <div style="font:500 11px/1.4 'JetBrains Mono',monospace;color:#7C8493">#040507 @ 72%</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 02 ink ──────────────────────────────────── -->
+<section style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.1);padding-top:20px">
+    <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">02 · Ink</div>
+    <h2 style="margin:0;font:500 20px/1.3 Geist,sans-serif;letter-spacing:-.01em;color:#F4F6F8">Three text weights, all above 4.5:1</h2>
+    <p style="margin:0;font:400 13px/1.7 Geist,sans-serif;color:#A6ADBB;max-width:640px">Dense screens tempt you into a fourth, fainter grey for metadata. Don't — it fails contrast and it is exactly the text people squint at. Tertiary stops at #7C8493 (4.8:1) and is the floor.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px">
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+      <div style="font:500 22px/1.2 Geist,sans-serif;color:#F4F6F8">Primary</div>
+      <div style="display:flex;justify-content:space-between;gap:12px;font:500 11px/1 'JetBrains Mono',monospace;color:#7C8493"><span>#F4F6F8</span><span>17.1:1</span></div>
+      <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB;border-top:1px solid rgba(255,255,255,.07);padding-top:12px">Headings, values, names, active nav</div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+      <div style="font:500 22px/1.2 Geist,sans-serif;color:#A6ADBB">Secondary</div>
+      <div style="display:flex;justify-content:space-between;gap:12px;font:500 11px/1 'JetBrains Mono',monospace;color:#7C8493"><span>#A6ADBB</span><span>8.4:1</span></div>
+      <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB;border-top:1px solid rgba(255,255,255,.07);padding-top:12px">Body copy, descriptions, inactive nav</div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+      <div style="font:500 22px/1.2 Geist,sans-serif;color:#7C8493">Tertiary</div>
+      <div style="display:flex;justify-content:space-between;gap:12px;font:500 11px/1 'JetBrains Mono',monospace;color:#7C8493"><span>#7C8493</span><span>4.8:1</span></div>
+      <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB;border-top:1px solid rgba(255,255,255,.07);padding-top:12px">Eyebrows, axis labels, units, timestamps</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 03 accent ───────────────────────────────── -->
+<section style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.1);padding-top:20px">
+    <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">03 · Accents</div>
+    <h2 style="margin:0;font:500 20px/1.3 Geist,sans-serif;letter-spacing:-.01em;color:#F4F6F8">Indigo means you can act on it. Copper means it is selected.</h2>
+    <p style="margin:0;font:400 13px/1.7 Geist,sans-serif;color:#A6ADBB;max-width:640px">Indigo ships in two stops because one cannot do both jobs: the bright stop is for text, icons, strokes and chart lines on dark; the deep stop is the only one that may take a white label. Copper is the map's selection colour, the org-hierarchy connector, and the snap target — nothing else.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px">
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden">
+      <div style="height:92px;background:#6E79F2;display:flex;align-items:flex-end;padding:12px"><span style="font:500 11px/1 'JetBrains Mono',monospace;color:#08090B">5.4:1 on canvas</span></div>
+      <div style="padding:14px 16px 16px;display:flex;flex-direction:column;gap:5px">
+        <div style="font:500 12px/1 Geist,sans-serif;color:#F4F6F8">Indigo · bright</div>
+        <div style="font:500 11px/1 'JetBrains Mono',monospace;color:#7C8493">#6E79F2</div>
+        <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB;margin-top:3px">Links, icons, focus ring, series 1</div>
+      </div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden">
+      <div style="height:92px;background:#4A56D6;display:flex;align-items:flex-end;padding:12px"><span style="font:500 11px/1 'JetBrains Mono',monospace;color:#FFFFFF">5.9:1 with white</span></div>
+      <div style="padding:14px 16px 16px;display:flex;flex-direction:column;gap:5px">
+        <div style="font:500 12px/1 Geist,sans-serif;color:#F4F6F8">Indigo · solid</div>
+        <div style="font:500 11px/1 'JetBrains Mono',monospace;color:#7C8493">#4A56D6</div>
+        <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB;margin-top:3px">Filled primary buttons only</div>
+      </div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden">
+      <div style="height:92px;background:rgba(110,121,242,.14);border-bottom:1px solid rgba(110,121,242,.3)"></div>
+      <div style="padding:14px 16px 16px;display:flex;flex-direction:column;gap:5px">
+        <div style="font:500 12px/1 Geist,sans-serif;color:#F4F6F8">Indigo · tint</div>
+        <div style="font:500 11px/1 'JetBrains Mono',monospace;color:#7C8493">#6E79F2 @ 14%</div>
+        <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB;margin-top:3px">Selected metric card, area fill, chip</div>
+      </div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden">
+      <div style="height:92px;background:#D4855C;display:flex;align-items:flex-end;padding:12px"><span style="font:500 11px/1 'JetBrains Mono',monospace;color:#08090B">7.1:1 on canvas</span></div>
+      <div style="padding:14px 16px 16px;display:flex;flex-direction:column;gap:5px">
+        <div style="font:500 12px/1 Geist,sans-serif;color:#F4F6F8">Copper · signal</div>
+        <div style="font:500 11px/1 'JetBrains Mono',monospace;color:#7C8493">#D4855C</div>
+        <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB;margin-top:3px">Selection, connectors, snap, warning</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 04 status ───────────────────────────────── -->
+<section style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.1);padding-top:20px">
+    <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">04 · Status semantics</div>
+    <h2 style="margin:0;font:500 20px/1.3 Geist,sans-serif;letter-spacing:-.01em;color:#F4F6F8">Five fixed meanings, always tint plus saturated text</h2>
+    <p style="margin:0;font:400 13px/1.7 Geist,sans-serif;color:#A6ADBB;max-width:640px">Status never appears as a solid block — a saturated fill in a dense table pulls the eye away from the data it is annotating. Tint the ground to 12%, keep the text at full strength, and skip the border unless the chip sits on a raised surface.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px">
+      <span style="align-self:flex-start;font:500 11px/1 Geist,sans-serif;color:#3ECF8E;background:rgba(62,207,142,.12);border-radius:6px;padding:6px 10px">Direct</span>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <div style="font:500 11px/1 'JetBrains Mono',monospace;color:#7C8493">#3ECF8E</div>
+        <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB">Also: verified, interested, complete, positive delta</div>
+      </div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px">
+      <span style="align-self:flex-start;font:500 11px/1 Geist,sans-serif;color:#5AA9FF;background:rgba(90,169,255,.12);border-radius:6px;padding:6px 10px">Adjacent</span>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <div style="font:500 11px/1 'JetBrains Mono',monospace;color:#7C8493">#5AA9FF</div>
+        <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB">Also: informational, in progress, neutral note</div>
+      </div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px">
+      <span style="align-self:flex-start;font:500 11px/1 Geist,sans-serif;color:#B07CF5;background:rgba(176,124,245,.12);border-radius:6px;padding:6px 10px">AI inferred</span>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <div style="font:500 11px/1 'JetBrains Mono',monospace;color:#7C8493">#B07CF5</div>
+        <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB">Every machine-generated field, enrichment, thinking state</div>
+      </div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px">
+      <span style="align-self:flex-start;font:500 11px/1 Geist,sans-serif;color:#D4855C;background:rgba(212,133,92,.12);border-radius:6px;padding:6px 10px">Concentrated</span>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <div style="font:500 11px/1 'JetBrains Mono',monospace;color:#7C8493">#D4855C</div>
+        <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB">Warning, thin talent pool, stale data, needs review</div>
+      </div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px">
+      <span style="align-self:flex-start;font:500 11px/1 Geist,sans-serif;color:#F2626B;background:rgba(242,98,107,.12);border-radius:6px;padding:6px 10px">Off-limits</span>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <div style="font:500 11px/1 'JetBrains Mono',monospace;color:#7C8493">#F2626B</div>
+        <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB">Also: out of scope, destructive action, failure</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 05 data ramp ────────────────────────────── -->
+<section style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.1);padding-top:20px">
+    <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">05 · Chart colour</div>
+    <h2 style="margin:0;font:500 20px/1.3 Geist,sans-serif;letter-spacing:-.01em;color:#F4F6F8">Six categorical hues in a fixed order, one sequential ramp</h2>
+    <p style="margin:0;font:400 13px/1.7 Geist,sans-serif;color:#A6ADBB;max-width:640px">Always assign the categorical ramp in order, so series 1 is indigo on every chart in the product and a reader learns the legend once. Past six categories, stop colouring and group the tail into "Other" — a seven-slice pie is a table wearing a costume. Quantities of one thing (revenue band, bubble size, heat) use the sequential ramp instead.</p>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:16px">
+      <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">Categorical</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:52px;border-radius:8px;background:#6E79F2"></div><div style="font:500 11px/1.4 'JetBrains Mono',monospace;color:#A6ADBB">01 #6E79F2</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:52px;border-radius:8px;background:#3ECF8E"></div><div style="font:500 11px/1.4 'JetBrains Mono',monospace;color:#A6ADBB">02 #3ECF8E</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:52px;border-radius:8px;background:#D4855C"></div><div style="font:500 11px/1.4 'JetBrains Mono',monospace;color:#A6ADBB">03 #D4855C</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:52px;border-radius:8px;background:#B07CF5"></div><div style="font:500 11px/1.4 'JetBrains Mono',monospace;color:#A6ADBB">04 #B07CF5</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:52px;border-radius:8px;background:#4FC3D9"></div><div style="font:500 11px/1.4 'JetBrains Mono',monospace;color:#A6ADBB">05 #4FC3D9</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:52px;border-radius:8px;background:#F2626B"></div><div style="font:500 11px/1.4 'JetBrains Mono',monospace;color:#A6ADBB">06 #F2626B</div></div>
+      </div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:16px">
+      <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">Sequential · indigo</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px">
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:52px;border-radius:8px;background:#1E2440"></div><div style="font:500 11px/1.4 'JetBrains Mono',monospace;color:#A6ADBB">#1E2440</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:52px;border-radius:8px;background:#2E3878"></div><div style="font:500 11px/1.4 'JetBrains Mono',monospace;color:#A6ADBB">#2E3878</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:52px;border-radius:8px;background:#4A56D6"></div><div style="font:500 11px/1.4 'JetBrains Mono',monospace;color:#A6ADBB">#4A56D6</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:52px;border-radius:8px;background:#6E79F2"></div><div style="font:500 11px/1.4 'JetBrains Mono',monospace;color:#A6ADBB">#6E79F2</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:52px;border-radius:8px;background:#A3A9FA"></div><div style="font:500 11px/1.4 'JetBrains Mono',monospace;color:#A6ADBB">#A3A9FA</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 06 type ─────────────────────────────────── -->
+<section style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.1);padding-top:20px">
+    <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">06 · Type</div>
+    <h2 style="margin:0;font:500 20px/1.3 Geist,sans-serif;letter-spacing:-.01em;color:#F4F6F8">Geist for language, JetBrains Mono for anything a reader compares</h2>
+    <p style="margin:0;font:400 13px/1.7 Geist,sans-serif;color:#A6ADBB;max-width:640px">Every figure in a table, chart axis, KPI or currency band is set in JetBrains Mono so digits share a width and columns align without tabular hacks. Prose and labels are Geist. Montserrat 200 appears only in the wordmark — never as UI type.</p>
+  </div>
+  <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden">
+    <div style="padding:28px 24px;display:flex;flex-direction:column;gap:22px;border-bottom:1px solid rgba(255,255,255,.07)">
+      <div style="font:600 36px/1.15 Geist,sans-serif;letter-spacing:-.03em;color:#F4F6F8">Build your company universe</div>
+      <div style="font:500 20px/1.35 Geist,sans-serif;letter-spacing:-.01em;color:#F4F6F8">Confirm the universe before mapping</div>
+      <div style="font:400 14px/1.6 Geist,sans-serif;color:#A6ADBB;max-width:560px">Describe what you are looking for and the map assembles a candidate list you can accept or reject company by company.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:baseline">
+        <div style="font:500 28px/1 'JetBrains Mono',monospace;color:#F4F6F8;letter-spacing:-.02em">$1.24M</div>
+        <div style="font:400 13px/1 'JetBrains Mono',monospace;color:#A6ADBB">42 companies · 312 executives</div>
+        <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">Scale snapshot</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+      <div style="padding:16px 20px;border-right:1px solid rgba(255,255,255,.07);border-bottom:1px solid rgba(255,255,255,.07);display:flex;justify-content:space-between;gap:12px"><span style="font:500 12px/1.4 Geist,sans-serif;color:#F4F6F8">Display</span><span style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#7C8493">Geist 600 · 36 / 40 · −.03em</span></div>
+      <div style="padding:16px 20px;border-right:1px solid rgba(255,255,255,.07);border-bottom:1px solid rgba(255,255,255,.07);display:flex;justify-content:space-between;gap:12px"><span style="font:500 12px/1.4 Geist,sans-serif;color:#F4F6F8">Section title</span><span style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#7C8493">Geist 500 · 20 / 26 · −.01em</span></div>
+      <div style="padding:16px 20px;border-right:1px solid rgba(255,255,255,.07);border-bottom:1px solid rgba(255,255,255,.07);display:flex;justify-content:space-between;gap:12px"><span style="font:500 12px/1.4 Geist,sans-serif;color:#F4F6F8">Panel title</span><span style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#7C8493">Geist 500 · 16 / 22</span></div>
+      <div style="padding:16px 20px;border-right:1px solid rgba(255,255,255,.07);border-bottom:1px solid rgba(255,255,255,.07);display:flex;justify-content:space-between;gap:12px"><span style="font:500 12px/1.4 Geist,sans-serif;color:#F4F6F8">Body</span><span style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#7C8493">Geist 400 · 14 / 22</span></div>
+      <div style="padding:16px 20px;border-right:1px solid rgba(255,255,255,.07);border-bottom:1px solid rgba(255,255,255,.07);display:flex;justify-content:space-between;gap:12px"><span style="font:500 12px/1.4 Geist,sans-serif;color:#F4F6F8">Dense / table</span><span style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#7C8493">Geist 400 · 13 / 18</span></div>
+      <div style="padding:16px 20px;border-right:1px solid rgba(255,255,255,.07);border-bottom:1px solid rgba(255,255,255,.07);display:flex;justify-content:space-between;gap:12px"><span style="font:500 12px/1.4 Geist,sans-serif;color:#F4F6F8">Meta / axis</span><span style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#7C8493">Mono 400 · 11 / 16</span></div>
+      <div style="padding:16px 20px;border-right:1px solid rgba(255,255,255,.07);display:flex;justify-content:space-between;gap:12px"><span style="font:500 12px/1.4 Geist,sans-serif;color:#F4F6F8">Eyebrow</span><span style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#7C8493">Geist 600 · 10 · +.12em caps</span></div>
+      <div style="padding:16px 20px;display:flex;justify-content:space-between;gap:12px"><span style="font:500 12px/1.4 Geist,sans-serif;color:#F4F6F8">KPI figure</span><span style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#7C8493">Mono 500 · 28 · −.02em</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 07 geometry ─────────────────────────────── -->
+<section style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.1);padding-top:20px">
+    <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">07 · Geometry</div>
+    <h2 style="margin:0;font:500 20px/1.3 Geist,sans-serif;letter-spacing:-.01em;color:#F4F6F8">A 4px grid, five radii, three shadows</h2>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:18px">
+      <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">Radius</div>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:center"><div style="width:44px;height:44px;background:#1D2128;border:1px solid rgba(255,255,255,.1);border-radius:4px"></div><span style="font:400 11px/1 'JetBrains Mono',monospace;color:#7C8493">4</span></div>
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:center"><div style="width:44px;height:44px;background:#1D2128;border:1px solid rgba(255,255,255,.1);border-radius:6px"></div><span style="font:400 11px/1 'JetBrains Mono',monospace;color:#7C8493">6</span></div>
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:center"><div style="width:44px;height:44px;background:#1D2128;border:1px solid rgba(255,255,255,.1);border-radius:8px"></div><span style="font:400 11px/1 'JetBrains Mono',monospace;color:#7C8493">8</span></div>
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:center"><div style="width:44px;height:44px;background:#1D2128;border:1px solid rgba(255,255,255,.1);border-radius:12px"></div><span style="font:400 11px/1 'JetBrains Mono',monospace;color:#7C8493">12</span></div>
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:center"><div style="width:44px;height:44px;background:#1D2128;border:1px solid rgba(255,255,255,.1);border-radius:16px"></div><span style="font:400 11px/1 'JetBrains Mono',monospace;color:#7C8493">16</span></div>
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:center"><div style="width:44px;height:44px;background:#1D2128;border:1px solid rgba(255,255,255,.1);border-radius:999px"></div><span style="font:400 11px/1 'JetBrains Mono',monospace;color:#7C8493">full</span></div>
+      </div>
+      <div style="font:400 12px/1.6 Geist,sans-serif;color:#A6ADBB;border-top:1px solid rgba(255,255,255,.07);padding-top:14px">6 controls and inputs · 8 chips and icon tiles · 12 cards and charts · 16 modals · full for pills and avatars</div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:18px">
+      <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">Elevation</div>
+      <div style="display:flex;flex-wrap:wrap;gap:14px">
+        <div style="width:78px;height:54px;background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:8px;display:flex;align-items:center;justify-content:center;font:400 11px/1 'JetBrains Mono',monospace;color:#7C8493">flat</div>
+        <div style="width:78px;height:54px;background:#15181D;border:1px solid rgba(255,255,255,.08);border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font:400 11px/1 'JetBrains Mono',monospace;color:#7C8493">e1</div>
+        <div style="width:78px;height:54px;background:#15181D;border:1px solid rgba(255,255,255,.1);border-radius:8px;box-shadow:0 4px 14px -2px rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;font:400 11px/1 'JetBrains Mono',monospace;color:#7C8493">e2</div>
+        <div style="width:78px;height:54px;background:#1D2128;border:1px solid rgba(255,255,255,.12);border-radius:8px;box-shadow:0 18px 44px -10px rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;font:400 11px/1 'JetBrains Mono',monospace;color:#7C8493">e3</div>
+      </div>
+      <div style="font:400 12px/1.6 Geist,sans-serif;color:#A6ADBB;border-top:1px solid rgba(255,255,255,.07);padding-top:14px">flat cards and rows · e1 floating map controls · e2 popovers and dropdowns · e3 modals and a dragged satellite pill</div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:18px">
+      <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">Space · chrome</div>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        <div style="height:9px;width:4px;background:#4A56D6;border-radius:2px"></div>
+        <div style="height:9px;width:8px;background:#4A56D6;border-radius:2px"></div>
+        <div style="height:9px;width:12px;background:#4A56D6;border-radius:2px"></div>
+        <div style="height:9px;width:16px;background:#6E79F2;border-radius:2px"></div>
+        <div style="height:9px;width:24px;background:#6E79F2;border-radius:2px"></div>
+        <div style="height:9px;width:32px;background:#6E79F2;border-radius:2px"></div>
+        <div style="height:9px;width:48px;background:#A3A9FA;border-radius:2px"></div>
+      </div>
+      <div style="font:400 12px/1.6 Geist,sans-serif;color:#A6ADBB;border-top:1px solid rgba(255,255,255,.07);padding-top:14px">4 · 8 · 12 · 16 · 24 · 32 · 48. Chrome is fixed: 48px icon rail, 44px top bar, right panel 320–700px (384 default). Card padding 20, panel 16, dashboard 24.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 08 controls ─────────────────────────────── -->
+<section style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.1);padding-top:20px">
+    <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">08 · Controls</div>
+    <h2 style="margin:0;font:500 20px/1.3 Geist,sans-serif;letter-spacing:-.01em;color:#F4F6F8">One filled button per screen</h2>
+    <p style="margin:0;font:400 13px/1.7 Geist,sans-serif;color:#A6ADBB;max-width:640px">The indigo fill is the screen's single most important action — Confirm universe, Discover companies, Export. Everything else is outline or ghost. Hover lightens the surface rather than changing hue; focus is a 1px indigo ring, never a glow.</p>
+  </div>
+  <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:24px">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+      <button style="font:500 13px/1 Geist,sans-serif;color:#FFFFFF;background:#4A56D6;border:none;border-radius:6px;padding:10px 16px;cursor:pointer" style-hover="background:#5A66E6">Confirm universe</button>
+      <button style="font:500 13px/1 Geist,sans-serif;color:#F4F6F8;background:#1D2128;border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:10px 16px;cursor:pointer" style-hover="background:#252A33">Add company</button>
+      <button style="font:500 13px/1 Geist,sans-serif;color:#A6ADBB;background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:10px 16px;cursor:pointer" style-hover="color:#F4F6F8;background:#15181D">Export to Excel</button>
+      <button style="font:500 13px/1 Geist,sans-serif;color:#A6ADBB;background:transparent;border:none;border-radius:6px;padding:10px 12px;cursor:pointer" style-hover="color:#F4F6F8;background:#15181D">New search</button>
+      <button style="font:500 13px/1 Geist,sans-serif;color:#F2626B;background:rgba(242,98,107,.1);border:1px solid rgba(242,98,107,.28);border-radius:6px;padding:10px 16px;cursor:pointer" style-hover="background:rgba(242,98,107,.18)">Remove</button>
+      <button style="font:500 13px/1 Geist,sans-serif;color:#F4F6F8;background:#1D2128;border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:10px 16px;opacity:.5">Disabled</button>
+    </div>
+    <div style="height:1px;background:rgba(255,255,255,.07)"></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px">
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <label style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">Resting input</label>
+        <div style="background:#15181D;border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:11px 13px;font:400 13px/1 Geist,sans-serif;color:#7C8493">Top FMCG distributors in UAE</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <label style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">Focused</label>
+        <div style="background:#15181D;border:1px solid #6E79F2;box-shadow:0 0 0 1px rgba(110,121,242,.45);border-radius:6px;padding:11px 13px;font:400 13px/1 Geist,sans-serif;color:#F4F6F8">Leading PE firms in Saudi Arabia</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <label style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">Error</label>
+        <div style="background:#15181D;border:1px solid rgba(242,98,107,.6);border-radius:6px;padding:11px 13px;font:400 13px/1 Geist,sans-serif;color:#F4F6F8">—</div>
+      </div>
+    </div>
+    <div style="height:1px;background:rgba(255,255,255,.07)"></div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+      <span style="display:flex;align-items:center;gap:7px;font:500 11px/1 Geist,sans-serif;color:#A6ADBB;background:#15181D;border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:6px 12px">Consumer goods</span>
+      <span style="display:flex;align-items:center;gap:7px;font:500 11px/1 Geist,sans-serif;color:#A6ADBB;background:#15181D;border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:6px 12px">Distribution</span>
+      <span style="display:flex;align-items:center;gap:7px;font:500 11px/1 Geist,sans-serif;color:#6E79F2;background:rgba(110,121,242,.14);border:1px solid rgba(110,121,242,.32);border-radius:999px;padding:6px 12px">GCC · active filter</span>
+      <span style="display:flex;align-items:center;gap:7px;font:500 11px/1 Geist,sans-serif;color:#B07CF5;background:rgba(176,124,245,.12);border:1px solid rgba(176,124,245,.28);border-radius:999px;padding:6px 12px"><span style="width:5px;height:5px;border-radius:999px;background:#B07CF5;animation:u-live 1.6s ease-in-out infinite"></span>AI thinking</span>
+      <div style="display:flex;align-items:center;gap:9px;margin-left:6px">
+        <div style="width:26px;height:26px;border-radius:6px;background:rgba(110,121,242,.16);color:#6E79F2;display:flex;align-items:center;justify-content:center;font:600 10px/1 Geist,sans-serif">AD</div>
+        <div style="width:26px;height:26px;border-radius:999px;background:rgba(62,207,142,.16);color:#3ECF8E;display:flex;align-items:center;justify-content:center;font:600 10px/1 Geist,sans-serif">RK</div>
+        <span style="font:400 12px/1 Geist,sans-serif;color:#7C8493">square = company · circle = executive · mint = enriched</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 09 dashboard specimen ───────────────────── -->
+<section style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.1);padding-top:20px">
+    <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">09 · Applied</div>
+    <h2 style="margin:0;font:500 20px/1.3 Geist,sans-serif;letter-spacing:-.01em;color:#F4F6F8">The palette carrying a real dashboard</h2>
+    <p style="margin:0;font:400 13px/1.7 Geist,sans-serif;color:#A6ADBB;max-width:640px">Every value below is drawn from the tokens above and nothing else. Note how little colour there is: indigo on the one line you are meant to follow, status tints in the table, and grey for all structure.</p>
+  </div>
+
+  <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden">
+    <div style="height:44px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;padding:0 16px;gap:14px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px">
+        <svg width="13" height="20" viewBox="-34 -52 68 106" role="img" aria-label="UNCAVA">
+          <path style="fill:none;stroke:#F4F6F8;stroke-width:4;stroke-linejoin:round" d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50"></path>
+          <path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#F4F6F8"></path>
+        </svg>
+        <span style="font:200 11px/1 Montserrat,sans-serif;letter-spacing:.32em;margin-right:-.32em;color:#F4F6F8">UNCAVA</span>
+      </div>
+      <div style="width:1px;height:18px;background:rgba(255,255,255,.1)"></div>
+      <div style="display:flex;gap:16px;font:500 12px/1 Geist,sans-serif;color:#7C8493">
+        <span>Map</span><span>Table</span><span style="color:#F4F6F8">Dashboard</span>
+      </div>
+      <div style="flex:1;min-width:20px"></div>
+      <span style="font:400 11px/1 'JetBrains Mono',monospace;color:#7C8493">GCC · 42 companies</span>
+    </div>
+
+    <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
+      <!-- KPI row -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:12px">
+        <div style="background:#15181D;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">Mapping completion</div>
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font:500 26px/1 'JetBrains Mono',monospace;color:#F4F6F8;letter-spacing:-.02em">78</span>
+            <span style="font:400 13px/1 'JetBrains Mono',monospace;color:#7C8493">%</span>
+            <span style="font:500 11px/1 Geist,sans-serif;color:#3ECF8E;margin-left:auto">+18%</span>
+          </div>
+          <div style="height:4px;border-radius:999px;background:#1D2128;overflow:hidden"><div style="width:78%;height:100%;background:#6E79F2"></div></div>
+        </div>
+        <div style="background:#15181D;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">Executive universe</div>
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font:500 26px/1 'JetBrains Mono',monospace;color:#F4F6F8;letter-spacing:-.02em">312</span>
+            <span style="font:500 11px/1 Geist,sans-serif;color:#3ECF8E;margin-left:auto">+41</span>
+          </div>
+          <div style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#7C8493">7.4 per company</div>
+        </div>
+        <div style="background:#15181D;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">Median remuneration</div>
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font:500 26px/1 'JetBrains Mono',monospace;color:#F4F6F8;letter-spacing:-.02em">$1.24M</span>
+          </div>
+          <div style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#7C8493">Verified 2024 · n=96</div>
+        </div>
+        <div style="background:#15181D;border:1px solid rgba(110,121,242,.35);box-shadow:0 0 0 1px rgba(110,121,242,.2);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px">
+          <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#6E79F2">Availability · selected</div>
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font:500 26px/1 'JetBrains Mono',monospace;color:#F4F6F8;letter-spacing:-.02em">64</span>
+            <span style="font:400 13px/1 'JetBrains Mono',monospace;color:#7C8493">interested</span>
+          </div>
+          <div style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#7C8493">18 off-limits · 30 unknown</div>
+        </div>
+      </div>
+
+      <!-- charts -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px">
+        <div style="background:#15181D;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:16px;grid-column:span 2;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <div style="font:500 14px/1.3 Geist,sans-serif;color:#F4F6F8">Mapping progress</div>
+              <div style="font:400 11px/1 'JetBrains Mono',monospace;color:#7C8493">Last 12 weeks</div>
+            </div>
+            <div style="display:flex;gap:14px;font:400 11px/1 Geist,sans-serif;color:#A6ADBB">
+              <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:2px;background:#6E79F2"></span>Companies</span>
+              <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:2px;background:#4FC3D9"></span>Executives</span>
+            </div>
+          </div>
+          <svg viewBox="0 0 620 190" style="width:100%;height:auto;display:block" role="img" aria-label="Mapping progress over the last twelve weeks">
+            <line x1="30" y1="170" x2="612" y2="170" stroke="rgba(255,255,255,.1)" stroke-width="1"></line>
+            <line x1="30" y1="135" x2="612" y2="135" stroke="rgba(255,255,255,.055)" stroke-width="1"></line>
+            <line x1="30" y1="100" x2="612" y2="100" stroke="rgba(255,255,255,.055)" stroke-width="1"></line>
+            <line x1="30" y1="65" x2="612" y2="65" stroke="rgba(255,255,255,.055)" stroke-width="1"></line>
+            <line x1="30" y1="30" x2="612" y2="30" stroke="rgba(255,255,255,.055)" stroke-width="1"></line>
+            <text x="22" y="174" text-anchor="end" fill="#7C8493" font-family="JetBrains Mono, monospace" font-size="10">0</text>
+            <text x="22" y="104" text-anchor="end" fill="#7C8493" font-family="JetBrains Mono, monospace" font-size="10">50</text>
+            <text x="22" y="34" text-anchor="end" fill="#7C8493" font-family="JetBrains Mono, monospace" font-size="10">100</text>
+            <path d="M30 158.8 L81.8 150.4 L133.6 143.4 L185.5 132.2 L237.3 126.6 L289.1 114 L340.9 105.6 L392.7 98.6 L444.5 87.4 L496.4 77.6 L548.2 70.6 L600 60.8 L600 170 L30 170 Z" fill="rgba(110,121,242,.13)"></path>
+            <path d="M30 158.8 L81.8 150.4 L133.6 143.4 L185.5 132.2 L237.3 126.6 L289.1 114 L340.9 105.6 L392.7 98.6 L444.5 87.4 L496.4 77.6 L548.2 70.6 L600 60.8" fill="none" stroke="#6E79F2" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"></path>
+            <path d="M30 164.4 L81.8 160.2 L133.6 154.6 L185.5 149 L237.3 139.2 L289.1 133.6 L340.9 123.8 L392.7 118.2 L444.5 108.4 L496.4 101.4 L548.2 90.2 L600 81.8" fill="none" stroke="#4FC3D9" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"></path>
+            <circle cx="600" cy="60.8" r="3.2" fill="#6E79F2"></circle>
+            <circle cx="600" cy="81.8" r="3.2" fill="#4FC3D9"></circle>
+            <text x="30" y="187" fill="#7C8493" font-family="JetBrains Mono, monospace" font-size="10">W1</text>
+            <text x="600" y="187" text-anchor="end" fill="#7C8493" font-family="JetBrains Mono, monospace" font-size="10">W12</text>
+          </svg>
+        </div>
+
+        <div style="background:#15181D;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:18px;min-width:0">
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <div style="font:500 14px/1.3 Geist,sans-serif;color:#F4F6F8">Executives by level</div>
+            <div style="font:400 11px/1 'JetBrains Mono',monospace;color:#7C8493">290 assigned · 22 unassigned</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:13px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;justify-content:space-between;gap:10px;font:400 12px/1 Geist,sans-serif;color:#A6ADBB"><span>Board</span><span style="font-family:'JetBrains Mono',monospace;color:#F4F6F8">18</span></div>
+              <div style="height:7px;border-radius:3px;background:#1D2128;overflow:hidden"><div style="width:13%;height:100%;background:#6E79F2;border-radius:3px"></div></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;justify-content:space-between;gap:10px;font:400 12px/1 Geist,sans-serif;color:#A6ADBB"><span>C-suite</span><span style="font-family:'JetBrains Mono',monospace;color:#F4F6F8">42</span></div>
+              <div style="height:7px;border-radius:3px;background:#1D2128;overflow:hidden"><div style="width:31%;height:100%;background:#6E79F2;border-radius:3px"></div></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;justify-content:space-between;gap:10px;font:400 12px/1 Geist,sans-serif;color:#A6ADBB"><span>N-1</span><span style="font-family:'JetBrains Mono',monospace;color:#F4F6F8">96</span></div>
+              <div style="height:7px;border-radius:3px;background:#1D2128;overflow:hidden"><div style="width:72%;height:100%;background:#6E79F2;border-radius:3px"></div></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;justify-content:space-between;gap:10px;font:400 12px/1 Geist,sans-serif;color:#A6ADBB"><span>N-2</span><span style="font-family:'JetBrains Mono',monospace;color:#F4F6F8">134</span></div>
+              <div style="height:7px;border-radius:3px;background:#1D2128;overflow:hidden"><div style="width:100%;height:100%;background:#6E79F2;border-radius:3px"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#15181D;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:18px;min-width:0">
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <div style="font:500 14px/1.3 Geist,sans-serif;color:#F4F6F8">Relevance mix</div>
+            <div style="font:400 11px/1 'JetBrains Mono',monospace;color:#7C8493">42 companies</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+            <svg width="104" height="104" viewBox="0 0 104 104" role="img" aria-label="Relevance mix: 22 direct, 12 adjacent, 8 AI inferred">
+              <circle cx="52" cy="52" r="42" fill="none" stroke="#1D2128" stroke-width="11"></circle>
+              <circle cx="52" cy="52" r="42" fill="none" stroke="#3ECF8E" stroke-width="11" stroke-dasharray="138.2 125.7" stroke-dashoffset="0" transform="rotate(-90 52 52)" stroke-linecap="butt"></circle>
+              <circle cx="52" cy="52" r="42" fill="none" stroke="#5AA9FF" stroke-width="11" stroke-dasharray="75.4 188.5" stroke-dashoffset="-138.2" transform="rotate(-90 52 52)" stroke-linecap="butt"></circle>
+              <circle cx="52" cy="52" r="42" fill="none" stroke="#B07CF5" stroke-width="11" stroke-dasharray="50.3 213.6" stroke-dashoffset="-213.6" transform="rotate(-90 52 52)" stroke-linecap="butt"></circle>
+              <text x="52" y="50" text-anchor="middle" fill="#F4F6F8" font-family="JetBrains Mono, monospace" font-size="19" font-weight="500">42</text>
+              <text x="52" y="64" text-anchor="middle" fill="#7C8493" font-family="Geist, sans-serif" font-size="9" letter-spacing="1">TOTAL</text>
+            </svg>
+            <div style="display:flex;flex-direction:column;gap:9px;font:400 12px/1 Geist,sans-serif;color:#A6ADBB">
+              <span style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:2px;background:#3ECF8E"></span>Direct<span style="font-family:'JetBrains Mono',monospace;color:#F4F6F8;margin-left:4px">22</span></span>
+              <span style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:2px;background:#5AA9FF"></span>Adjacent<span style="font-family:'JetBrains Mono',monospace;color:#F4F6F8;margin-left:4px">12</span></span>
+              <span style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:2px;background:#B07CF5"></span>AI inferred<span style="font-family:'JetBrains Mono',monospace;color:#F4F6F8;margin-left:4px">8</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- table -->
+      <div style="background:#15181D;border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden">
+        <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:12px;padding:11px 16px;border-bottom:1px solid rgba(255,255,255,.07);font:600 10px/1 Geist,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#7C8493">
+          <span>Company</span><span>Relevance</span><span>Confidence</span><span style="text-align:right">Executives</span>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:12px;padding:13px 16px;border-bottom:1px solid rgba(255,255,255,.055);align-items:center" style-hover="background:#1D2128">
+          <span style="font:400 13px/1.3 Geist,sans-serif;color:#F4F6F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Al Nahdi Distribution</span>
+          <span><span style="font:500 11px/1 Geist,sans-serif;color:#3ECF8E;background:rgba(62,207,142,.12);border-radius:4px;padding:5px 8px">Direct</span></span>
+          <span style="font:400 12px/1 'JetBrains Mono',monospace;color:#A6ADBB">9/10</span>
+          <span style="font:400 12px/1 'JetBrains Mono',monospace;color:#F4F6F8;text-align:right">14</span>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:12px;padding:13px 16px;border-bottom:1px solid rgba(255,255,255,.055);align-items:center;background:#1D2128;box-shadow:inset 2px 0 0 #D4855C">
+          <span style="font:400 13px/1.3 Geist,sans-serif;color:#F4F6F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Gulf Consumer Holdings</span>
+          <span><span style="font:500 11px/1 Geist,sans-serif;color:#3ECF8E;background:rgba(62,207,142,.12);border-radius:4px;padding:5px 8px">Direct</span></span>
+          <span style="font:400 12px/1 'JetBrains Mono',monospace;color:#A6ADBB">8/10</span>
+          <span style="font:400 12px/1 'JetBrains Mono',monospace;color:#F4F6F8;text-align:right">11</span>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:12px;padding:13px 16px;border-bottom:1px solid rgba(255,255,255,.055);align-items:center" style-hover="background:#1D2128">
+          <span style="font:400 13px/1.3 Geist,sans-serif;color:#F4F6F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Levant Retail Group</span>
+          <span><span style="font:500 11px/1 Geist,sans-serif;color:#5AA9FF;background:rgba(90,169,255,.12);border-radius:4px;padding:5px 8px">Adjacent</span></span>
+          <span style="font:400 12px/1 'JetBrains Mono',monospace;color:#A6ADBB">7/10</span>
+          <span style="font:400 12px/1 'JetBrains Mono',monospace;color:#F4F6F8;text-align:right">8</span>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:12px;padding:13px 16px;align-items:center" style-hover="background:#1D2128">
+          <span style="font:400 13px/1.3 Geist,sans-serif;color:#F4F6F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Emaar Industrial Supply</span>
+          <span><span style="font:500 11px/1 Geist,sans-serif;color:#B07CF5;background:rgba(176,124,245,.12);border-radius:4px;padding:5px 8px">AI inferred</span></span>
+          <span style="font:400 12px/1 'JetBrains Mono',monospace;color:#A6ADBB">6/10</span>
+          <span style="font:400 12px/1 'JetBrains Mono',monospace;color:#F4F6F8;text-align:right">5</span>
+        </div>
+      </div>
+      <div style="font:400 11px/1.5 Geist,sans-serif;color:#7C8493">Selected row carries a 2px copper inset bar and the sunken surface — the same copper that marks the company on the map.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 10 chart rules ──────────────────────────── -->
+<section style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.1);padding-top:20px">
+    <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">10 · Chart rules</div>
+    <h2 style="margin:0;font:500 20px/1.3 Geist,sans-serif;letter-spacing:-.01em;color:#F4F6F8">Ink goes to data, not to furniture</h2>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px">
+    <div style="background:#0E1013;border:1px solid rgba(62,207,142,.22);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px">
+      <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#3ECF8E">Do</div>
+      <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:9px;font:400 13px/1.6 Geist,sans-serif;color:#A6ADBB">
+        <li>Baseline at rgba(255,255,255,.10); interior gridlines at .055 and horizontal only.</li>
+        <li>1.75px strokes, round joins, one terminal dot on the latest point.</li>
+        <li>Area fills at 13% of the series hue, flat — never a gradient to transparent.</li>
+        <li>Axis labels and every figure in JetBrains Mono 10–11px at #7C8493.</li>
+        <li>Bars start at zero, 7px tall, 3px radius, on a #1D2128 track so the remainder is legible.</li>
+        <li>Give the reader the number as well as the shape — value on the right of each bar.</li>
+      </ul>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(242,98,107,.22);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px">
+      <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#F2626B">Don't</div>
+      <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:9px;font:400 13px/1.6 Geist,sans-serif;color:#A6ADBB">
+        <li>No gradient fills, drop shadows or 3D on any series.</li>
+        <li>No more than two series on one axis, and never two axes on one chart.</li>
+        <li>No pie beyond three slices; no donut without the total in the hole.</li>
+        <li>No colour that is not in the ramp, and never reorder it per chart.</li>
+        <li>No copper in a chart — it is reserved for selection and would read as a filter.</li>
+        <li>No animated redraw on data refresh; fade the new value in over 180ms.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ── 11 motion ───────────────────────────────── -->
+<section style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.1);padding-top:20px">
+    <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">11 · Motion</div>
+    <h2 style="margin:0;font:500 20px/1.3 Geist,sans-serif;letter-spacing:-.01em;color:#F4F6F8">Fast, short, and only to explain a change</h2>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px">
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:7px">
+      <div style="font:500 13px/1.3 Geist,sans-serif;color:#F4F6F8">Hover · press</div>
+      <div style="font:400 11px/1.5 'JetBrains Mono',monospace;color:#6E79F2">120ms · ease-out</div>
+      <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB">Surface step only. No hue change, no scale.</div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:7px">
+      <div style="font:500 13px/1.3 Geist,sans-serif;color:#F4F6F8">Enter · fade up</div>
+      <div style="font:400 11px/1.5 'JetBrains Mono',monospace;color:#6E79F2">180ms · y 8px · stagger 40ms</div>
+      <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB">Cards, rows, streamed companies.</div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:7px">
+      <div style="font:500 13px/1.3 Geist,sans-serif;color:#F4F6F8">Panel · view swap</div>
+      <div style="font:400 11px/1.5 'JetBrains Mono',monospace;color:#6E79F2">240ms · cubic-bezier(.2,.8,.2,1)</div>
+      <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB">Right panel, map ↔ table ↔ dashboard.</div>
+    </div>
+    <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:7px">
+      <div style="font:500 13px/1.3 Geist,sans-serif;color:#F4F6F8">Satellite pill</div>
+      <div style="font:400 11px/1.5 'JetBrains Mono',monospace;color:#D4855C">cubic-bezier(.34,1.56,.64,1)</div>
+      <div style="font:400 12px/1.5 Geist,sans-serif;color:#A6ADBB">The only overshoot in the product. Copper glow on unlock.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 12 light mode ───────────────────────────── -->
+<section style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.1);padding-top:20px">
+    <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">12 · Light mode</div>
+    <h2 style="margin:0;font:500 20px/1.3 Geist,sans-serif;letter-spacing:-.01em;color:#F4F6F8">Same roles, deeper hues</h2>
+    <p style="margin:0;font:400 13px/1.7 Geist,sans-serif;color:#A6ADBB;max-width:640px">Light mode exists for print, exports and daylight offices. The bright indigo and mint that read well on near-black are too light on white, so each hue darkens while keeping its job. Elevation flips: on light, shadow does the work and the surface ladder flattens.</p>
+  </div>
+  <div style="background:#FFFFFF;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:22px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:10px">
+      <div style="display:flex;flex-direction:column;gap:7px"><div style="height:46px;border-radius:8px;background:#FFFFFF;border:1px solid rgba(3,7,18,.12)"></div><div style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#6B7382">#FFFFFF canvas</div></div>
+      <div style="display:flex;flex-direction:column;gap:7px"><div style="height:46px;border-radius:8px;background:#F7F8FA;border:1px solid rgba(3,7,18,.08)"></div><div style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#6B7382">#F7F8FA raised</div></div>
+      <div style="display:flex;flex-direction:column;gap:7px"><div style="height:46px;border-radius:8px;background:#ECEFF3"></div><div style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#6B7382">#ECEFF3 sunken</div></div>
+      <div style="display:flex;flex-direction:column;gap:7px"><div style="height:46px;border-radius:8px;background:#0B0D12"></div><div style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#6B7382">#0B0D12 text</div></div>
+      <div style="display:flex;flex-direction:column;gap:7px"><div style="height:46px;border-radius:8px;background:#4C5462"></div><div style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#6B7382">#4C5462 text 2</div></div>
+      <div style="display:flex;flex-direction:column;gap:7px"><div style="height:46px;border-radius:8px;background:#6B7382"></div><div style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#6B7382">#6B7382 text 3</div></div>
+    </div>
+    <div style="height:1px;background:rgba(3,7,18,.1)"></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:10px">
+      <div style="display:flex;flex-direction:column;gap:7px"><div style="height:46px;border-radius:8px;background:#4A56D6"></div><div style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#6B7382">#4A56D6 indigo</div></div>
+      <div style="display:flex;flex-direction:column;gap:7px"><div style="height:46px;border-radius:8px;background:#A8602F"></div><div style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#6B7382">#A8602F copper</div></div>
+      <div style="display:flex;flex-direction:column;gap:7px"><div style="height:46px;border-radius:8px;background:#0F9D6B"></div><div style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#6B7382">#0F9D6B direct</div></div>
+      <div style="display:flex;flex-direction:column;gap:7px"><div style="height:46px;border-radius:8px;background:#1F72D4"></div><div style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#6B7382">#1F72D4 adjacent</div></div>
+      <div style="display:flex;flex-direction:column;gap:7px"><div style="height:46px;border-radius:8px;background:#8244D6"></div><div style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#6B7382">#8244D6 inferred</div></div>
+      <div style="display:flex;flex-direction:column;gap:7px"><div style="height:46px;border-radius:8px;background:#D93A45"></div><div style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#6B7382">#D93A45 off-limits</div></div>
+    </div>
+    <div style="height:1px;background:rgba(3,7,18,.1)"></div>
+    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between">
+      <div style="background:#F7F8FA;border:1px solid rgba(3,7,18,.09);border-radius:12px;box-shadow:0 1px 2px rgba(3,7,18,.06);padding:16px 18px;display:flex;flex-direction:column;gap:10px;min-width:200px">
+        <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#6B7382">Mapping completion</div>
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span style="font:500 24px/1 'JetBrains Mono',monospace;color:#0B0D12;letter-spacing:-.02em">78</span>
+          <span style="font:400 12px/1 'JetBrains Mono',monospace;color:#6B7382">%</span>
+          <span style="font:500 11px/1 Geist,sans-serif;color:#0F9D6B;margin-left:auto">+18%</span>
+        </div>
+        <div style="height:4px;border-radius:999px;background:#ECEFF3;overflow:hidden"><div style="width:78%;height:100%;background:#4A56D6"></div></div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:9px">
+        <button style="font:500 13px/1 Geist,sans-serif;color:#FFFFFF;background:#4A56D6;border:none;border-radius:6px;padding:10px 16px;cursor:pointer">Confirm universe</button>
+        <button style="font:500 13px/1 Geist,sans-serif;color:#0B0D12;background:#FFFFFF;border:1px solid rgba(3,7,18,.14);border-radius:6px;padding:10px 16px;cursor:pointer">Add company</button>
+        <span style="align-self:center;font:500 11px/1 Geist,sans-serif;color:#0F9D6B;background:rgba(15,157,107,.1);border-radius:6px;padding:6px 10px">Direct</span>
+        <span style="align-self:center;font:500 11px/1 Geist,sans-serif;color:#8244D6;background:rgba(130,68,214,.1);border-radius:6px;padding:6px 10px">AI inferred</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 13 token map ────────────────────────────── -->
+<sc-if value="{{ showTokenMap }}" hint-placeholder-val="{{ true }}">
+<section style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(255,255,255,.1);padding-top:20px">
+    <div style="font:600 10px/1 Geist,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7C8493">13 · Handoff</div>
+    <h2 style="margin:0;font:500 20px/1.3 Geist,sans-serif;letter-spacing:-.01em;color:#F4F6F8">Drops onto the existing token contract</h2>
+    <p style="margin:0;font:400 13px/1.7 Geist,sans-serif;color:#A6ADBB;max-width:640px">The Talent Map app already themes through CSS custom properties, so this palette ships as an override rather than a rewrite. Set these and the product re-skins without touching component code.</p>
+  </div>
+  <div style="background:#0E1013;border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden">
+    <div style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1.2fr);gap:12px;padding:11px 18px;border-bottom:1px solid rgba(255,255,255,.07);font:600 10px/1 Geist,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#7C8493">
+      <span>App variable</span><span>Dark</span><span>Light</span>
+    </div>
+    <sc-for list="{{ tokenMap }}" as="row" hint-placeholder-count="9">
+      <div style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1.2fr);gap:12px;padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.055);font:400 12px/1.4 'JetBrains Mono',monospace;color:#A6ADBB">
+        <span style="color:#6E79F2;overflow:hidden;text-overflow:ellipsis">{{ row.name }}</span>
+        <span>{{ row.dark }}</span>
+        <span>{{ row.light }}</span>
+      </div>
+    </sc-for>
+    <div style="padding:16px 18px;font:400 12px/1.6 Geist,sans-serif;color:#7C8493">Mapbox styles stay dark-v11 / light-v11. Bubble fill becomes the sequential indigo ramp by revenue band; selection becomes copper #D4855C; hierarchy connectors stay copper dashed.</div>
+  </div>
+</section>
+</sc-if>
+
+<footer style="border-top:1px solid rgba(255,255,255,.1);padding-top:24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:baseline">
+  <span style="font:400 12px/1.5 Geist,sans-serif;color:#7C8493">UNCAVA design palette · v1 · dark-first · all pairings verified at 4.5:1 or better</span>
+  <span style="font:400 11px/1 'JetBrains Mono',monospace;color:#7C8493">Geist · JetBrains Mono · Montserrat 200</span>
+</footer>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showTokenMap&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Sections&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      showTokenMap: this.props.showTokenMap ?? true,
+      tokenMap: [
+        { name: "--background",  dark: "#08090B", light: "#FFFFFF" },
+        { name: "--card",        dark: "#0E1013", light: "#F7F8FA" },
+        { name: "--muted",       dark: "#15181D", light: "#ECEFF3" },
+        { name: "--accent",      dark: "#1D2128", light: "#E4E8EE" },
+        { name: "--foreground",  dark: "#F4F6F8", light: "#0B0D12" },
+        { name: "--muted-fg",    dark: "#A6ADBB", light: "#4C5462" },
+        { name: "--border",      dark: "#FFFFFF 7%", light: "#030712 9%" },
+        { name: "--primary",     dark: "#4A56D6", light: "#4A56D6" },
+        { name: "--ring",        dark: "#6E79F2", light: "#4A56D6" },
+        { name: "--signal",      dark: "#D4855C", light: "#A8602F" },
+        { name: "--chart-1..6",  dark: "indigo→coral", light: "darkened set" }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

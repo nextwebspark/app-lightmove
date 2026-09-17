@@ -5,6 +5,7 @@ import static app.lightmove.api.core.text.service.SuppliedText.browsableUrlOrNul
 
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.common.location.service.Countries;
 import java.util.List;
 
@@ -24,7 +25,8 @@ public record CandidateDetails(String fullName, String title, Seniority seniorit
                                CandidateStatus status, String employerName, List<ContactEntry> emails,
                                List<ContactEntry> phones,
                                String linkedinUrl, String locationCountry, String locationCity,
-                               String nationality, Integer yearsExperience, String summary, String note,
+                               String nationality, Gender gender, Integer yearsExperience,
+                               String summary, String note,
                                CandidateCompensation compensation, CandidateProfile profile,
                                String sourceUrl) {
 
@@ -50,8 +52,8 @@ public record CandidateDetails(String fullName, String title, Seniority seniorit
     /** The same details, with the employer the mandate's own company row already knows it by. */
     public CandidateDetails employedAt(String resolvedEmployerName) {
         return new CandidateDetails(fullName, title, seniority, status, resolvedEmployerName, emails,
-                phones, linkedinUrl, locationCountry, locationCity, nationality, yearsExperience,
-                summary, note, compensation, profile, sourceUrl);
+                phones, linkedinUrl, locationCountry, locationCity, nationality, gender,
+                yearsExperience, summary, note, compensation, profile, sourceUrl);
     }
 
     private static List<ContactEntry> supplied(List<ContactEntry> entries) {

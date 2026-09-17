@@ -32,7 +32,7 @@ class ContactOutContactFinderTest {
                 "listed.only@elsewhere.example");
         assertThat(emails.get(0).kind()).isEqualTo(CandidateEmail.WORK);
         assertThat(emails.get(0).status()).isNull();
-        assertThat(emails.get(1).isWork()).isTrue();
+        assertThat(emails.get(1).kind()).isEqualTo(CandidateEmail.WORK);
         assertThat(emails.get(1).isVerified()).isTrue();
         assertThat(emails.get(2).kind()).isEqualTo(CandidateEmail.PERSONAL);
     }

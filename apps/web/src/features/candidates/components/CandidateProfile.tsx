@@ -17,6 +17,7 @@ import * as candidatesApi from "../api/candidatesApi";
 import type { Candidate, CandidateStatus, SaveCandidatePayload } from "../api/types";
 import { patchOf, replayOf, type ProfileFormSection } from "../lib/candidateForm";
 import {
+  candidateGenderLabel,
   candidateStatusStyle,
   CANDIDATE_SOURCE_STYLES,
   CANDIDATE_STATUSES,
@@ -351,12 +352,19 @@ export function CandidateProfile({
               onDone={finish}
               onCancel={() => setEditing(null)}
             >
-              {(form) => <BackgroundFields register={form.register} errors={form.formState.errors} />}
+              {(form) => (
+                <BackgroundFields
+                  register={form.register}
+                  errors={form.formState.errors}
+                  storedNationality={candidate.nationality}
+                />
+              )}
             </SectionEditor>
           ) : (
             <>
               <DetailGrid>
                 <DetailTile label="Nationality" value={candidate.nationality} />
+                <DetailTile label="Gender" value={candidateGenderLabel(candidate.gender)} />
                 <DetailTile
                   label="Experience"
                   value={candidate.yearsExperience ? `${candidate.yearsExperience} years` : null}

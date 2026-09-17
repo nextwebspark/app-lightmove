@@ -20,4 +20,13 @@ public interface Geocoder {
 
     /** The country's own point — a centroid, and the fallback when the city could not be placed. */
     Optional<GeoPoint> country(String country);
+
+    /**
+     * False for the stand-in that runs with no vendor configured. Its silence is not an answer: a
+     * caller that stored it as a miss would keep every place unlocated for the cache's whole lifetime
+     * after a token is finally set.
+     */
+    default boolean isEnabled() {
+        return true;
+    }
 }

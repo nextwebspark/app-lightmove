@@ -1,8 +1,8 @@
 package app.lightmove.api.position.model;
 
-import app.lightmove.api.common.location.model.LocationLine;
-import app.lightmove.api.position.constant.EmploymentType;
+import app.lightmove.api.common.constant.EmploymentType;
 import app.lightmove.api.common.constant.Seniority;
+import app.lightmove.api.common.location.model.LocationLine;
 import java.util.List;
 
 /**

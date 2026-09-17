@@ -1,6 +1,8 @@
 package app.lightmove.api.core.security.dto;
 
+import app.lightmove.api.core.security.rbac.PlatformAction;
 import app.lightmove.api.workspace.dto.WorkspaceSummary;
+import java.util.List;
 import java.util.UUID;
 
 /** The current user, as {@code /auth/me} and every auth response return them. */
@@ -33,5 +35,8 @@ public record UserResponse(
          * so an invitee is routed to "join {workspace}" from any tab — the emailed token lives in one
          * tab's sessionStorage, but this survives everywhere the session does. Null once placed.
          */
-        PendingInvitationSummary pendingInvitation
+        PendingInvitationSummary pendingInvitation,
+
+        /** What the user may do outside any workspace — empty for everyone but LightMove staff. */
+        List<PlatformAction> platformActions
 ) {}

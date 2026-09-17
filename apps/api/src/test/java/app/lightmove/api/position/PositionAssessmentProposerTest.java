@@ -21,7 +21,7 @@ import app.lightmove.api.position.service.ExtractedFieldReader;
 import app.lightmove.api.position.service.PositionAssessmentProposer;
 import app.lightmove.api.position.service.PositionDocumentRedactor;
 import app.lightmove.api.position.service.PositionDocumentTextReader;
-import app.lightmove.api.position.service.PositionTemplateService;
+import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -415,7 +415,7 @@ class PositionAssessmentProposerTest extends FlowTestSupport {
         return new LlmBudgetGuard((key, limit, window) -> true,
                 new LightMoveProperties(null, null, null, null, null,
                         new LlmSettings(new LlmRateLimitSettings(true, 10, 20, 10), 20_000, 1, List.of()),
-                        null, null, null, null, null, null));
+                        null, null, null, null, null, null, null));
     }
 
     private static Optional<ExtractedField> fieldNamed(ProposedAssessment proposed, String key) {

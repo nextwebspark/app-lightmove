@@ -21,7 +21,7 @@ import app.lightmove.api.position.service.ExtractedFieldReader;
 import app.lightmove.api.position.service.PositionCompensationProposer;
 import app.lightmove.api.position.service.PositionDocumentRedactor;
 import app.lightmove.api.position.service.PositionDocumentTextReader;
-import app.lightmove.api.position.service.PositionTemplateService;
+import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -399,7 +399,7 @@ class PositionCompensationProposerTest extends FlowTestSupport {
         return new LlmBudgetGuard((key, limit, window) -> true,
                 new LightMoveProperties(null, null, null, null, null,
                         new LlmSettings(new LlmRateLimitSettings(true, 10, 20, 10), 20_000, 1, List.of()),
-                        null, null, null, null, null, null));
+                        null, null, null, null, null, null, null));
     }
 
     private static Optional<ExtractedField> fieldNamed(ProposedCompensation proposed, String key) {

@@ -41,6 +41,10 @@ const ROUTES = [
   { path: "/projects/proj-1/companies/shortlisted", name: "project-companies-shortlisted" },
   { path: "/projects/proj-1/companies/declined", name: "project-companies-declined" },
   { path: "/projects/proj-1/reports", name: "project-reports" },
+  // One chapter renders at a time, so each is its own sweep: the charts live past the first.
+  { path: "/projects/proj-1/reports?chapter=market", name: "project-reports-market" },
+  { path: "/projects/proj-1/reports?chapter=comp", name: "project-reports-remuneration" },
+  { path: "/projects/proj-1/reports?chapter=dei", name: "project-reports-diversity" },
   { path: "/projects/proj-1/team", name: "project-team" },
   // Not screens anyone links to: an unknown URL and an unreadable project id render the not-found
   // page at the address that was asked for, so "reaches the path" is itself the assertion.
@@ -123,7 +127,7 @@ try {
       check(`${route.name}/${viewport.name}`, `renders content (${rendered} chars)`, true, rendered > 40);
 
       const landed = new URL(page.url()).pathname;
-      if (!route.anonymous && landed !== route.path) {
+      if (!route.anonymous && landed !== new URL(route.path, WEB).pathname) {
         check(`${route.name}/${viewport.name}`, `reaches ${route.path}`, route.path, landed);
         continue;
       }

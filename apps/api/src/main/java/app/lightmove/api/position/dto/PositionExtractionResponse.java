@@ -1,5 +1,6 @@
 package app.lightmove.api.position.dto;
 
+import app.lightmove.api.positiontemplate.dto.PositionTemplateSummary;
 import java.util.List;
 
 /**

@@ -106,6 +106,8 @@ export const candidateSchema = z.object({
   locationCountry: z.string().trim().max(100),
   locationCity: z.string().trim().max(100),
   nationality: z.string().trim().max(100),
+  // "" is "not recorded", which the report counts apart from "other" — see CandidateGender.
+  gender: z.enum(["", "female", "male", "other"]),
   yearsExperience: optionalNumber("Years of experience", 70),
   summary: z.string().trim().max(4000),
   note: z.string().trim().max(2000),
@@ -155,6 +157,7 @@ export const EMPTY_FORM: CandidateForm = {
   locationCountry: "",
   locationCity: "",
   nationality: "",
+  gender: "",
   yearsExperience: "",
   summary: "",
   note: "",
@@ -186,7 +189,7 @@ export const SECTION_FIELDS = {
   summary: ["summary"],
   experience: ["career"],
   compensation: ["currency", "baseSalary", "bonus", "allowances", "longTermIncentive", "noticePeriod"],
-  background: ["nationality", "yearsExperience", "languages"],
+  background: ["nationality", "gender", "yearsExperience", "languages"],
   contact: ["linkedinUrl"],
   note: ["note"],
 } as const satisfies Record<string, readonly (keyof CandidateForm)[]>;
@@ -231,6 +234,7 @@ export function formOf(candidate: Candidate): CandidateForm {
     locationCountry: candidate.locationCountry ?? "",
     locationCity: candidate.locationCity ?? "",
     nationality: candidate.nationality ?? "",
+    gender: candidate.gender ?? "",
     yearsExperience: candidate.yearsExperience?.toString() ?? "",
     summary: candidate.summary ?? "",
     note: candidate.note ?? "",
@@ -275,6 +279,7 @@ export function replayOf(candidate: Candidate): SaveCandidatePayload {
     locationCountry: candidate.locationCountry ?? undefined,
     locationCity: candidate.locationCity ?? undefined,
     nationality: candidate.nationality ?? undefined,
+    gender: candidate.gender ?? undefined,
     yearsExperience: candidate.yearsExperience ?? undefined,
     summary: candidate.summary ?? undefined,
     note: candidate.note ?? undefined,
@@ -328,6 +333,7 @@ const PATCHES: {
   }),
   background: (parsed) => ({
     nationality: parsed.nationality || undefined,
+    gender: parsed.gender || undefined,
     yearsExperience: parsed.yearsExperience,
     languages: parsed.languages
       .split(",")
