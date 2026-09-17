@@ -355,7 +355,13 @@ export function CandidateProfile({
               onDone={finish}
               onCancel={() => setEditing(null)}
             >
-              {(form) => <BackgroundFields register={form.register} errors={form.formState.errors} />}
+              {(form) => (
+                <BackgroundFields
+                  register={form.register}
+                  errors={form.formState.errors}
+                  storedNationality={candidate.nationality}
+                />
+              )}
             </SectionEditor>
           ) : (
             <>

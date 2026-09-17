@@ -272,6 +272,38 @@ describe("CandidateDrawer", () => {
     expect(within(currency).getByRole("option", { name: "Not set" })).toBeInTheDocument();
   });
 
+  it("offers nationality as the nine groups, and saves the one picked", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue({ ...yasmin, nationality: "Emirati" });
+    renderDrawer({ candidate: { ...yasmin, nationality: null }, company: null });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit background/i }));
+    const nationality = screen.getByLabelText(/^Nationality/i);
+    expect(nationality).toHaveValue("");
+    expect(within(nationality).getAllByRole("option")).toHaveLength(10);
+
+    await userEvent.selectOptions(nationality, "Emirati");
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].nationality).toBe("Emirati");
+  });
+
+  it("keeps a stored nationality the nine do not carry", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit background/i }));
+    const nationality = screen.getByLabelText(/^Nationality/i);
+    expect(nationality).toHaveValue("Egyptian");
+    expect(within(nationality).getByRole("option", { name: "Egyptian (as recorded)" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    // Saving the section without touching the field says the stored value again, not a blank.
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].nationality).toBe("Egyptian");
+  });
+
   it("saves the note on its own, the moment it differs from what is stored", async () => {
     const onSaved = vi.fn();
     vi.mocked(candidatesApi.updateCandidate).mockResolvedValue({ ...yasmin, note: "Call in May" });

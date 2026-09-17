@@ -37,6 +37,23 @@ export function candidateStatusStyle(status: CandidateStatus) {
 export const CANDIDATE_SENIORITIES: CandidateSeniority[] = SENIORITY_TOKENS;
 
 /**
+ * The nine groups a mandate counts nationality in, in the order the firm lists them. The label is
+ * the stored value. A row may still hold something else — a spreadsheet states whatever it states —
+ * and the report folds that into one of these when it reads it.
+ */
+export const CANDIDATE_NATIONALITIES: string[] = [
+  "Western expat",
+  "South Asian",
+  "Arab expat, non-GCC",
+  "Saudi",
+  "Emirati",
+  "Qatari",
+  "Kuwaiti",
+  "Omani",
+  "Bahraini",
+];
+
+/**
  * Gender as it reads on screen. Absent is not a fourth value: a profile with nothing recorded shows
  * no gender at all rather than "Unknown", because the report counts those rows as unmeasured.
  */

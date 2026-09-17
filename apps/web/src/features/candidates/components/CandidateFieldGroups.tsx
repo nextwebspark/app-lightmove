@@ -19,7 +19,12 @@ import { formatNumber } from "../../../lib/format";
 import { toReadableUrl } from "../../../lib/url";
 import { amountTyped } from "../lib/compensation";
 import { EMPTY_CONTACT_LINE, type CandidateForm, type ContactEntryForm } from "../lib/candidateForm";
-import { CANDIDATE_GENDERS, CANDIDATE_SENIORITIES, CANDIDATE_STATUSES } from "../lib/candidateVocabulary";
+import {
+  CANDIDATE_GENDERS,
+  CANDIDATE_NATIONALITIES,
+  CANDIDATE_SENIORITIES,
+  CANDIDATE_STATUSES,
+} from "../lib/candidateVocabulary";
 import { PackageTotal } from "./CompensationSummary";
 
 /**
@@ -333,7 +338,17 @@ function AmountField({
   );
 }
 
-export function BackgroundFields({ register, errors }: FieldGroupProps) {
+/**
+ * A nationality outside the nine groups — typed before the picker existed, or stated by an import —
+ * stays offered, for the reason a stored currency does: see {@link CompensationFields}.
+ */
+export function BackgroundFields({
+  register,
+  errors,
+  storedNationality,
+}: FieldGroupProps & { storedNationality?: string | null }) {
+  const offGroup =
+    storedNationality && !CANDIDATE_NATIONALITIES.includes(storedNationality) ? storedNationality : null;
   return (
     <>
       <div className="grid gap-x-4 sm:grid-cols-2">
@@ -342,7 +357,15 @@ export function BackgroundFields({ register, errors }: FieldGroupProps) {
           hint="Not the same fact as country — visa status and local credibility follow it."
           error={errors.nationality?.message}
         >
-          <Input {...register("nationality")} placeholder="Egyptian" />
+          <Select {...register("nationality")}>
+            <option value="">Not recorded</option>
+            {CANDIDATE_NATIONALITIES.map((group) => (
+              <option key={group} value={group}>
+                {group}
+              </option>
+            ))}
+            {offGroup && <option value={offGroup}>{offGroup} (as recorded)</option>}
+          </Select>
         </Field>
         <Field label="Years of experience" error={errors.yearsExperience?.message}>
           <Input {...register("yearsExperience")} inputMode="numeric" placeholder="18" />
