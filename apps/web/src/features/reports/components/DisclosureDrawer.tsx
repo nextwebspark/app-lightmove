@@ -1,8 +1,6 @@
-import { DetailGrid, DetailTile, DrawerSection } from "../../../components/ui/DetailList";
-import { candidateStatusStyle } from "../../candidates/lib/candidateVocabulary";
 import type { CompensationBand, Disclosure, ReportRemuneration } from "../api/types";
 import { formatCompactMoney } from "../lib/figures";
-import { DrawerNote, ReportDrawer } from "./ReportDrawer";
+import { DrawerContext, DrawerKpi, DrawerKpis, DrawerRow, DrawerSection, ReportDrawer, StatusPill } from "./ReportDrawer";
 
 function againstBand(currency: string, value: number, band: CompensationBand | null): string {
   if (band === null) return "no band in the brief";
@@ -23,16 +21,6 @@ export function DisclosureDrawer({
 }) {
   const d = disclosure;
   const currency = remuneration.currency;
-  const rows = d
-    ? [
-        ["Company", d.company ?? "—"],
-        ["Title", d.title ?? "—"],
-        ["Country", d.country ?? "—"],
-        ["Nationality", d.nationality ?? "—"],
-        ["Vs. our package band", againstBand(currency, d.totalPackage, remuneration.packageBand)],
-        ["Vs. our fixed band", againstBand(currency, d.fixed, remuneration.fixedBand)],
-      ]
-    : [];
   return (
     <ReportDrawer
       open={d !== null}
@@ -43,26 +31,24 @@ export function DisclosureDrawer({
     >
       {d && (
         <>
-          <DrawerSection title="Disclosed">
-            <DetailGrid>
-              <DetailTile label="Total package" value={formatCompactMoney(currency, d.totalPackage)} />
-              <DetailTile label="Fixed" value={formatCompactMoney(currency, d.fixed)} />
-              <DetailTile label="Status" value={candidateStatusStyle(d.status).label} full />
-            </DetailGrid>
+          <DrawerSection>
+            <DrawerKpis columns={2}>
+              <DrawerKpi value={formatCompactMoney(currency, d.totalPackage)} label="Total package" />
+              <DrawerKpi value={formatCompactMoney(currency, d.fixed)} label="Total fixed" />
+            </DrawerKpis>
           </DrawerSection>
-          <DrawerSection title="Current placement">
-            {rows.map(([label, value]) => (
-              <div key={label} className="flex justify-between gap-3 border-b border-u-border py-[7px] text-[12.5px] text-u-text2 last:border-b-0">
-                <span>{label}</span>
-                <b className="text-right font-semibold text-u-text">{value}</b>
-              </div>
-            ))}
+          <DrawerSection label="Current placement">
+            <DrawerRow label="Status">
+              <StatusPill status={d.status} />
+            </DrawerRow>
+            <DrawerRow label="Company">{d.company ?? "—"}</DrawerRow>
+            <DrawerRow label="Title">{d.title ?? "—"}</DrawerRow>
+            <DrawerRow label="Country">{d.country ?? "—"}</DrawerRow>
+            <DrawerRow label="Nationality">{d.nationality ?? "—"}</DrawerRow>
+            <DrawerRow label="Vs. our package band">{againstBand(currency, d.totalPackage, remuneration.packageBand)}</DrawerRow>
+            <DrawerRow label="Vs. our fixed band">{againstBand(currency, d.fixed, remuneration.fixedBand)}</DrawerRow>
           </DrawerSection>
-          {d.note && (
-            <DrawerSection title="Note">
-              <DrawerNote label="From the research">{d.note}</DrawerNote>
-            </DrawerSection>
-          )}
+          {d.note && <DrawerContext label="Note">{d.note}</DrawerContext>}
         </>
       )}
     </ReportDrawer>

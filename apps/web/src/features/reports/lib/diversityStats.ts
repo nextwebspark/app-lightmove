@@ -102,8 +102,10 @@ export interface GenderStats {
   female: number;
   male: number;
   other: number;
-  /** Everyone with a gender on file, across every level. Zero means the chapter has nothing to report. */
+  /** Everyone with a gender on file, with or without a level. Zero means the chapter has nothing to report. */
   recorded: number;
+  /** Those of `recorded` with no seniority on file: in the overall share, on no bar of the pyramid. */
+  recordedWithoutLevel: number;
   unrecorded: number;
   femalePct: number;
   /** Null until at least one level has somebody recorded — there is no thinnest level of nothing. */
@@ -121,9 +123,10 @@ export interface GenderStats {
  */
 export function genderStats(diversity: ReportDiversity): GenderStats {
   const levels = diversity.genderByLevel.map(toGenderLevel);
-  const female = sum(levels, (l) => l.female);
-  const male = sum(levels, (l) => l.male);
-  const other = sum(levels, (l) => l.other);
+  const unplaced = diversity.genderWithoutLevel;
+  const female = sum(levels, (l) => l.female) + unplaced.female;
+  const male = sum(levels, (l) => l.male) + unplaced.male;
+  const other = sum(levels, (l) => l.other) + unplaced.other;
   const recorded = female + male + other;
   const measured = levels.filter((level) => level.recorded > 0);
   return {
@@ -132,6 +135,7 @@ export function genderStats(diversity: ReportDiversity): GenderStats {
     male,
     other,
     recorded,
+    recordedWithoutLevel: unplaced.female + unplaced.male + unplaced.other,
     unrecorded: diversity.genderUnrecorded,
     femalePct: percent(female, recorded),
     thinnest: measured.reduce<GenderLevel | null>(

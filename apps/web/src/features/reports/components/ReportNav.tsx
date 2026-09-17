@@ -1,79 +1,65 @@
-import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { cn } from "../../../lib/cn";
 
-export interface ReportNavItem {
+export interface ReportChapterLink {
   key: string;
-  ordinal: string;
   label: string;
 }
 
 /**
- * The report's "On this page" rail: jump links plus a scroll-spy that tracks which chapter the reader
- * is in. The observer watches only the top slice of the viewport (`-45% 0px` on the bottom) so the
- * active item changes when a heading reaches reading height, rather than when a tall chapter's
- * *bottom* finally clears — which would leave the rail a chapter behind for most of the scroll.
+ * The report's step rail: one numbered step per chapter, and where the figures came from. A column
+ * beside the chapter at `lg` and a strip above it below that, because the rail is the only way
+ * between chapters and cannot be hidden on a phone.
+ *
+ * <p>Steps are links, not buttons: the chapter lives in the URL, so a reader can send someone
+ * straight to Remuneration and the back button walks the chapters.
  *
  * <p>No Export or Share buttons: neither is built, and a button that cannot work is worse than no
  * button — the reader takes it as a capability the product has.
  */
-export function ReportNav({ items, footer }: { items: ReportNavItem[]; footer?: string }) {
-  const [activeKey, setActiveKey] = useState(items[0]?.key ?? "");
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        // Sorted by position, not taken in delivery order: entries arrive in an unspecified order and
-        // carry only the chapters whose intersection changed this tick, so scrolling fast past two
-        // would otherwise leave the rail on whichever the observer happened to list first.
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible.length > 0) setActiveKey(visible[0].target.id);
-      },
-      { rootMargin: "0px 0px -45% 0px", threshold: 0 },
-    );
-    items
-      .map((item) => document.getElementById(item.key))
-      .filter((element): element is HTMLElement => element !== null)
-      .forEach((section) => observer.observe(section));
-    return () => observer.disconnect();
-  }, [items]);
-
+export function ReportNav({
+  chapters,
+  activeKey,
+  footer,
+}: {
+  chapters: readonly ReportChapterLink[];
+  activeKey: string;
+  footer: ReactNode;
+}) {
   return (
-    <nav className="sticky top-0 hidden w-[200px] flex-none pt-0.5 lg:block" aria-label="On this page">
-      <div className="px-2.5 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3">
-        On this page
+    <aside className="flex-none border-b border-u-border lg:w-[258px] lg:border-b-0 lg:border-r">
+      <div className="px-4 py-3.5 lg:sticky lg:top-0 lg:px-[22px] lg:py-[30px]">
+        <nav aria-label="Report chapters" className="flex gap-0.5 overflow-x-auto lg:flex-col lg:overflow-visible">
+          {chapters.map((chapter, index) => {
+            const isActive = chapter.key === activeKey;
+            return (
+              <Link
+                key={chapter.key}
+                to={{ search: `?chapter=${chapter.key}` }}
+                aria-current={isActive ? "step" : undefined}
+                className={cn(
+                  "flex flex-none items-center gap-[11px] whitespace-nowrap rounded-[8px] px-2.5 py-2 transition",
+                  isActive ? "bg-u-accent-tint shadow-[inset_2px_0_0_var(--color-u-accent)]" : "hover:bg-u-raised",
+                )}
+              >
+                <span
+                  className={cn(
+                    "grid size-[22px] flex-none place-items-center rounded-full text-[11px] font-bold",
+                    isActive ? "bg-u-accent-solid text-white" : "border border-u-border-strong bg-u-raised text-u-text2",
+                  )}
+                >
+                  {index + 1}
+                </span>
+                <span className={cn("text-[13px]", isActive && "font-semibold")}>{chapter.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="mt-3 text-[11px] italic leading-[1.7] text-u-text3 lg:mt-7 lg:border-t lg:border-u-border lg:pt-5">
+          {footer}
+        </div>
       </div>
-      {items.map((item) => {
-        const isActive = item.key === activeKey;
-        return (
-          <a
-            key={item.key}
-            href={`#${item.key}`}
-            aria-current={isActive ? "true" : undefined}
-            className={cn(
-              "flex w-full items-baseline gap-[9px] rounded-[7px] px-2.5 py-[7px] text-left text-[12.5px] font-medium transition",
-              isActive ? "bg-u-raised text-u-text" : "text-u-text2 hover:bg-u-raised hover:text-u-text",
-            )}
-          >
-            <b
-              className={cn(
-                "flex-none font-u-num text-[10px] font-semibold tracking-[0.04em]",
-                isActive ? "text-u-accent" : "text-u-text3",
-              )}
-            >
-              {item.ordinal}
-            </b>
-            <span>{item.label}</span>
-          </a>
-        );
-      })}
-      {footer && (
-        <>
-          <div className="mx-2.5 my-3 h-px bg-u-border" />
-          <div className="px-2.5 font-u-num text-[11px] leading-[1.6] text-u-text3">{footer}</div>
-        </>
-      )}
-    </nav>
+    </aside>
   );
 }

@@ -1,6 +1,10 @@
 import { cn } from "../../../lib/cn";
 import type { SeniorityLevel } from "../api/types";
 import type { HeatRow } from "../lib/marketStats";
+import { RAMP_BG, RAMP_GROUND_LABEL_FROM } from "../lib/ramp";
+
+const HATCH =
+  "bg-[repeating-linear-gradient(135deg,var(--color-u-surface)_0_6px,var(--color-u-bg)_6px_12px)]";
 
 /**
  * Sector × seniority on UNCAVA's five-stop sequential ramp. An empty cell is hatched rather than
@@ -20,55 +24,55 @@ export function SectorSeniorityHeatmap({
   rows: HeatRow[];
   onSelect: (sector: string, level: SeniorityLevel) => void;
 }) {
-  const columns = { gridTemplateColumns: `92px repeat(${sectors.length}, minmax(0, 1fr))` };
+  const columns = { gridTemplateColumns: `96px repeat(${sectors.length}, minmax(0, 1fr))` };
   return (
     <div className="mt-3.5 overflow-x-auto">
-      <div className="min-w-[520px]">
-        <div className="mb-[5px] grid gap-[5px]" style={columns}>
-          <div />
-          {sectors.map((sector) => (
-            <div
-              key={sector}
-              className="self-end pb-0.5 text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3"
-            >
-              {sector}
-            </div>
-          ))}
-        </div>
-        {rows.map((row) => (
-          <div key={row.level} className="mb-[5px] grid gap-[5px]" style={columns}>
-            <div className="flex items-center text-xs font-medium text-u-text2">{row.level}</div>
-            {row.cells.map((cell) => {
-              const isEmpty = cell.count === 0;
-              return (
-                <button
-                  key={cell.sector}
-                  type="button"
-                  onClick={() => onSelect(cell.sector, cell.level)}
-                  aria-label={`${cell.sector} · ${cell.level}: ${cell.count} executives`}
-                  title={`${cell.sector} · ${cell.level} — ${isEmpty ? "no executive yet" : `${cell.count} executives`}`}
-                  className={cn(
-                    "grid h-[42px] place-items-center rounded-[8px] font-u-num text-sm font-medium transition hover:outline hover:outline-[1.5px] hover:outline-u-accent",
-                    isEmpty
-                      ? "border border-dashed border-u-border-strong bg-[repeating-linear-gradient(135deg,var(--color-u-surface)_0_6px,var(--color-u-raised)_6px_12px)] font-normal text-u-text3"
-                      : stopOf(cell.intensity) >= 4
-                        ? "text-u-bg hover:scale-[1.04]"
-                        : "text-u-text hover:scale-[1.04]",
-                  )}
-                  style={isEmpty ? undefined : { background: `var(--color-u-seq-${stopOf(cell.intensity)})` }}
-                >
-                  {isEmpty ? "·" : cell.count}
-                </button>
-              );
-            })}
+      <div className="grid min-w-[520px] gap-[5px]" style={columns}>
+        <div />
+        {sectors.map((sector) => (
+          <div
+            key={sector}
+            className="self-end break-words pb-1 text-center font-u-num text-[9.5px] font-bold capitalize leading-tight tracking-[0.04em] text-u-text3"
+          >
+            {sector}
           </div>
+        ))}
+        {rows.map((row) => (
+          <HeatmapRow key={row.level} row={row} onSelect={onSelect} />
         ))}
       </div>
     </div>
   );
 }
 
-/** Which of the ramp's five stops a cell lands on. Intensity is a share of the fullest pocket. */
-function stopOf(intensity: number): number {
-  return Math.min(5, Math.max(1, Math.ceil(intensity * 5)));
+function HeatmapRow({ row, onSelect }: { row: HeatRow; onSelect: (sector: string, level: SeniorityLevel) => void }) {
+  return (
+    <>
+      <div className="flex items-center text-[11px] font-semibold text-u-text2">{row.level}</div>
+      {row.cells.map((cell) => {
+        const isEmpty = cell.count === 0;
+        return (
+          <button
+            key={cell.sector}
+            type="button"
+            onClick={() => onSelect(cell.sector, cell.level)}
+            aria-label={`${cell.sector} · ${cell.level}: ${cell.count} executives`}
+            title={`${cell.sector} · ${cell.level} — ${isEmpty ? "no executive yet" : `${cell.count} executives`}`}
+            className={cn(
+              "grid h-11 place-items-center rounded-[7px] font-u-num text-[13px] transition-[transform,box-shadow] duration-100",
+              isEmpty
+                ? cn(HATCH, "border border-dashed border-u-border-strong font-normal text-u-text3 hover:shadow-[inset_0_0_0_2px_var(--color-u-border-strong)]")
+                : cn(
+                    "font-bold hover:scale-105 hover:shadow-[inset_0_0_0_2px_var(--color-u-accent)]",
+                    RAMP_BG[cell.stop],
+                    cell.stop >= RAMP_GROUND_LABEL_FROM ? "text-u-bg" : "text-u-text",
+                  ),
+            )}
+          >
+            {isEmpty ? "·" : cell.count}
+          </button>
+        );
+      })}
+    </>
+  );
 }

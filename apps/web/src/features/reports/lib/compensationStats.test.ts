@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SAMPLE_REPORT } from "../mock/sampleReport";
+import { SAMPLE_REPORT } from "../../../test/sampleReport";
 import {
   ALL_COUNTRIES,
   ALL_NATIONALITIES,

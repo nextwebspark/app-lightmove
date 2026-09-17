@@ -236,11 +236,11 @@ const REPORT = {
     fixedBand: { low: 1200000, high: 1800000 },
     packageBand: { low: 1500000, high: 2300000 },
     disclosures: [
-      { id: "e1", fullName: "Yasmin El-Sayed", company: "ADNOC Distribution", title: "CFO", country: "United Arab Emirates", nationality: "Egyptian", status: "interested", fixed: 1650000, totalPackage: 2100000, note: null },
-      { id: "e2", fullName: "Omar Haddad", company: "Masdar", title: "VP Finance", country: "United Arab Emirates", nationality: "Lebanese", status: "engaged", fixed: 1400000, totalPackage: 1900000, note: "Within band." },
+      { id: "e1", fullName: "Yasmin El-Sayed", company: "ADNOC Distribution", title: "CFO", country: "United Arab Emirates", nationality: "Arab expat, non-GCC", status: "interested", fixed: 1650000, totalPackage: 2100000, note: null },
+      { id: "e2", fullName: "Omar Haddad", company: "Masdar", title: "VP Finance", country: "United Arab Emirates", nationality: "Arab expat, non-GCC", status: "engaged", fixed: 1400000, totalPackage: 1900000, note: "Within band." },
       { id: "e3", fullName: "Lina Said", company: "DP World", title: "Group CFO", country: "United Arab Emirates", nationality: "Emirati", status: "notInterested", fixed: 2200000, totalPackage: 3100000, note: "Above band." },
       { id: "e4", fullName: "Faisal Al-Amri", company: "ACWA Power", title: "CFO", country: "Saudi Arabia", nationality: "Saudi", status: "identified", fixed: 1500000, totalPackage: 2000000, note: null },
-      { id: "e5", fullName: "Nour Khalil", company: "Masdar", title: "Finance Director", country: "United Arab Emirates", nationality: "Jordanian", status: "contacted", fixed: 1100000, totalPackage: 1400000, note: null },
+      { id: "e5", fullName: "Nour Khalil", company: "Masdar", title: "Finance Director", country: "United Arab Emirates", nationality: "Arab expat, non-GCC", status: "contacted", fixed: 1100000, totalPackage: 1400000, note: null },
     ],
     otherCurrency: 1,
   },
@@ -248,9 +248,9 @@ const REPORT = {
     levels: REPORT_LEVELS,
     nationalities: [
       { nationality: "Emirati", gcc: true, byLevel: levelCounts(1, 5, 4, 2), unclassified: 0, total: 12 },
-      { nationality: "Egyptian", gcc: false, byLevel: levelCounts(0, 4, 4, 2), unclassified: 0, total: 10 },
+      { nationality: "Arab expat, non-GCC", gcc: false, byLevel: levelCounts(0, 4, 4, 2), unclassified: 0, total: 10 },
       { nationality: "Saudi", gcc: true, byLevel: levelCounts(0, 4, 2, 1), unclassified: 0, total: 7 },
-      { nationality: "Lebanese", gcc: false, byLevel: levelCounts(0, 3, 2, 1), unclassified: 0, total: 6 },
+      { nationality: "South Asian", gcc: false, byLevel: levelCounts(0, 3, 2, 1), unclassified: 0, total: 6 },
       { nationality: "Other", gcc: false, byLevel: levelCounts(0, 2, 2, 0), unclassified: 0, total: 4 },
     ],
     unknownNationality: 2,
@@ -262,6 +262,7 @@ const REPORT = {
       { level: "N-2", female: 3, male: 3, other: 0 },
       { level: "N-3", female: 0, male: 0, other: 0 },
     ],
+    genderWithoutLevel: { female: 0, male: 0, other: 0 },
     genderUnrecorded: 2,
   },
 };
@@ -460,6 +461,16 @@ const WORKSPACE_DETAIL = {
 
 const ROUTES = [
   ["/companies/facets", FACETS],
+  [
+    "/countries",
+    {
+      countries: [
+        { code: "AE", name: "United Arab Emirates", spellings: ["uae"] },
+        { code: "SA", name: "Saudi Arabia", spellings: ["ksa"] },
+      ],
+      markets: ["United Arab Emirates", "Saudi Arabia"],
+    },
+  ],
   ["/companies/search", { companies: [] }],
   ["/auth/refresh", { accessToken: "stub-access-token", expiresIn: 900 }],
   ["/auth/me", USER],

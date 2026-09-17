@@ -1,4 +1,4 @@
-import { cn } from "../../../lib/cn";
+import { Legend } from "./Legend";
 
 export interface StackSegment {
   label: string;
@@ -7,20 +7,12 @@ export interface StackSegment {
   fillClass: string;
 }
 
-/** A part-to-whole bar with a 2px surface gap between segments and its legend carrying the counts. */
-export function StackedBar({
-  segments,
-  className,
-  height = "h-[18px]",
-}: {
-  segments: StackSegment[];
-  className?: string;
-  height?: string;
-}) {
+/** A part-to-whole bar, with its legend carrying the counts. */
+export function StackedBar({ segments }: { segments: StackSegment[] }) {
   const total = segments.reduce((sum, s) => sum + s.count, 0);
   return (
-    <div className={className}>
-      <div className={cn("flex w-full gap-0.5 overflow-hidden rounded-[4px]", height)}>
+    <div>
+      <div className="flex h-[22px] w-full gap-[1.5px] overflow-hidden rounded-[5px]">
         {segments
           .filter((s) => s.count > 0)
           .map((s) => (
@@ -32,15 +24,7 @@ export function StackedBar({
             />
           ))}
       </div>
-      <div className="mt-[9px] flex flex-wrap gap-4">
-        {segments.map((s) => (
-          <span key={s.label} className="inline-flex items-center gap-1.5 text-[11px] text-u-text2">
-            <i aria-hidden className={cn("inline-block size-[9px] rounded-[2px]", s.fillClass)} />
-            {s.label}
-            <b className="font-u-num text-[11px] font-semibold text-u-text">{s.count}</b>
-          </span>
-        ))}
-      </div>
+      <Legend className="mt-2.5" items={segments.map((s) => ({ label: s.label, swatchClass: s.fillClass, count: s.count }))} />
     </div>
   );
 }

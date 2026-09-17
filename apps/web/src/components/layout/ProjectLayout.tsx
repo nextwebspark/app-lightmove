@@ -27,8 +27,11 @@ const VIEWPORT_FILLING_TABS = ["/companies/", "/strategy"];
  * ten-column table side by side, and on a wide screen the cap left the table ending in mid-air with
  * the space it needed sitting empty beside it — the columns that got squeezed were the ones carrying
  * the data.
+ *
+ * <p>Reports is here for a different reason: it paints its own ground in the Uncava palette, and a
+ * gutter of the shell's panel colour around it would frame the report in the wrong theme.
  */
-const FULL_BLEED_TABS = ["/companies/", "/strategy"];
+const FULL_BLEED_TABS = ["/companies/", "/strategy", "/reports"];
 
 /**
  * The project workspace shell (Project.dc.html): breadcrumb topbar, the mandate sidebar — Position
@@ -124,7 +127,7 @@ export function ProjectLayout() {
       navHeader={<StagePill stage={project.stage} />}
       /* Wider than the mockups' 1160px on purpose — see WorkspaceLayout for the reasoning. */
       contentClassName={cn(
-        fullBleed ? "w-full" : "mx-auto max-w-[1440px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7",
+        fullBleed ? "flex min-h-full w-full flex-col" : "mx-auto max-w-[1440px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7",
         fillsViewport && "flex h-full flex-col",
       )}
     >

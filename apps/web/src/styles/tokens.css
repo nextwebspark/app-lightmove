@@ -71,6 +71,7 @@
   --color-u-sunken: #e4e8ee;
   --color-u-border: rgba(3, 7, 18, 0.09);
   --color-u-border-strong: rgba(3, 7, 18, 0.16);
+  --color-u-scrim: rgba(3, 7, 18, 0.4);
 
   --color-u-text: #0b0d12;
   --color-u-text2: #4c5462;
@@ -87,13 +88,11 @@
   --color-u-offlimits: #d93a45;
   --color-u-offlimits-tint: rgba(217, 58, 69, 0.1);
 
-  /* Named for the three relevance tiers the market chapter reports. */
+  /* Uncava's names, kept so the palette stays a lift: here they read as good news and as in progress. */
   --color-u-direct: #0f9d6b;
   --color-u-direct-tint: rgba(15, 157, 107, 0.1);
   --color-u-adjacent: #1f72d4;
   --color-u-adjacent-tint: rgba(31, 114, 212, 0.1);
-  --color-u-inferred: #8244d6;
-  --color-u-inferred-tint: rgba(130, 68, 214, 0.1);
 
   /* Categorical series. The first palette has none, which is why the charts improvised. */
   --color-u-chart-1: #4a56d6;
@@ -115,6 +114,10 @@
 
   /* Uncava keeps a real monospace for numerals, which `--font-mono` above no longer is. */
   --font-u-num: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Uncava's elevation ladder: e1 lifts a card off the page, e3 a panel off the screen. */
+  --shadow-u-e1: 0 1px 2px rgba(3, 7, 18, 0.06);
+  --shadow-u-e3: 0 18px 44px -10px rgba(3, 7, 18, 0.2);
 }
 
 /*
@@ -150,6 +153,7 @@
   --color-u-sunken: #1d2128;
   --color-u-border: rgba(255, 255, 255, 0.07);
   --color-u-border-strong: rgba(255, 255, 255, 0.14);
+  --color-u-scrim: rgba(4, 5, 7, 0.72);
 
   --color-u-text: #f4f6f8;
   --color-u-text2: #a6adbb;
@@ -169,8 +173,6 @@
   --color-u-direct-tint: rgba(62, 207, 142, 0.12);
   --color-u-adjacent: #5aa9ff;
   --color-u-adjacent-tint: rgba(90, 169, 255, 0.12);
-  --color-u-inferred: #b07cf5;
-  --color-u-inferred-tint: rgba(176, 124, 245, 0.12);
 
   --color-u-chart-1: #6e79f2;
   --color-u-chart-2: #3ecf8e;
@@ -187,4 +189,8 @@
 
   --color-u-grid-axis: rgba(255, 255, 255, 0.1);
   --color-u-grid-line: rgba(255, 255, 255, 0.055);
+
+  /* On a dark ground a card is lifted by its surface step and border, never by a shadow. */
+  --shadow-u-e1: 0 0 #0000;
+  --shadow-u-e3: 0 18px 44px -10px rgba(0, 0, 0, 0.8);
 }

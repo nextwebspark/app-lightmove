@@ -1,15 +1,14 @@
 import { useState } from "react";
-import { Select } from "../../../components/ui";
 import type { ReportDiversity } from "../api/types";
-import { BarList } from "../components/BarList";
+import { ChartEmpty } from "../components/ChartEmpty";
 import { GenderPyramid } from "../components/GenderPyramid";
 import { KpiTile, KpiTileRow } from "../components/KpiTiles";
 import { LockedBenchmarkCard } from "../components/LockedBenchmarkCard";
 import { NationalityDonut } from "../components/NationalityDonut";
 import { NationalityDots } from "../components/NationalityDots";
-import { ChartLegend, ReportCard } from "../components/ReportCard";
+import { ReportCard } from "../components/ReportCard";
 import { Figure, ReportSection } from "../components/ReportSection";
-import { StackedBar } from "../components/StackedBar";
+import { ReportSelect } from "../components/ReportSelect";
 import {
   ALL_LEVELS_FILTER,
   ALL_NATIONALITIES_FILTER,
@@ -21,12 +20,11 @@ import {
   nationalityFilterOptions,
 } from "../lib/diversityStats";
 import { percent } from "../lib/figures";
+import { memberOf } from "../lib/nationalityWording";
 import { useCountUp } from "../lib/useCountUp";
 
-const SELECT_CLASS = "w-auto bg-u-surface py-[7px] text-[12.5px] font-medium";
-
-/** 04 — who is in the mapped pool, by nationality and by gender where one was recorded. */
-export function DiversitySection({ diversity }: { diversity: ReportDiversity }) {
+/** Who is in the mapped pool, by nationality and by gender where one was recorded. */
+export function DiversitySection({ eyebrow, diversity }: { eyebrow: string; diversity: ReportDiversity }) {
   const [nationality, setNationality] = useState(ALL_NATIONALITIES_FILTER);
   const [level, setLevel] = useState(ALL_LEVELS_FILTER);
   const stats = diversityStats(diversity);
@@ -39,24 +37,28 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
       ? "a GCC national"
       : nationality === ALL_NATIONALITIES_FILTER
         ? "any nationality"
-        : `a ${nationality} national`;
+        : memberOf(nationality);
   const levelLabel = level === ALL_LEVELS_FILTER ? "any level" : level;
 
   return (
     <ReportSection
-      id="dei"
-      ordinal="04"
-      eyebrow="Diversity & DEI"
+      eyebrow={eyebrow}
       question="What does the mapped talent pool actually look like?"
       findingLabel="At these settings"
       finding={
         <>
-          {gender.thinnest && (
+          {gender.recorded > 0 && (
             <>
-              Women are <Figure>{gender.femalePct}% of the recorded pool</Figure> and thinnest at{" "}
-              <Figure>
-                {gender.thinnest.level} ({gender.thinnest.femalePct}%)
-              </Figure>
+              Women are <Figure>{gender.femalePct}% of the recorded pool</Figure>
+              {gender.thinnest && (
+                <>
+                  {" "}
+                  and thinnest at{" "}
+                  <Figure>
+                    {gender.thinnest.level} ({gender.thinnest.femalePct}%)
+                  </Figure>
+                </>
+              )}
               .{" "}
             </>
           )}
@@ -79,25 +81,37 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
           )}
         </>
       }
-      lede="Nationality is shown in full because it is public, objective data with real regulatory weight in the GCC (Nitaqat, Emiratisation). Gender is counted only where a researcher recorded it, and never inferred from a name."
+      lede={
+        <>
+          Gender is shown <b>aggregate-only</b> — counted where a researcher recorded it, never inferred from a name, and
+          no individual is identifiable. Nationality is shown in full because it is public, objective data with real
+          regulatory weight in the GCC (Nitaqat, Emiratisation).
+        </>
+      }
     >
       <KpiTileRow>
         <KpiTile
-          tone="accent"
-          label="Female · overall"
+          tone="lead"
+          label="Female, overall"
           value={gender.recorded === 0 ? "—" : gender.femalePct}
           unit={gender.recorded === 0 ? undefined : "%"}
           sub={gender.recorded === 0 ? "no gender recorded yet" : `${gender.female} of ${gender.recorded} recorded`}
         />
         <KpiTile
-          label={gender.thinnest ? `Female · ${gender.thinnest.level}` : "Female · thinnest level"}
+          label={gender.thinnest ? `Female — ${gender.thinnest.level}` : "Female — thinnest level"}
           value={gender.thinnest ? gender.thinnest.femalePct : "—"}
           unit={gender.thinnest ? "%" : undefined}
-          tone={gender.thinnest && gender.thinnest.femalePct < gender.femalePct ? "alarm" : "plain"}
-          sub={gender.thinnest ? `the thinnest level · ${gender.thinnest.recorded} recorded` : "nothing recorded yet"}
+          tone="alarm"
+          sub={
+            gender.thinnest
+              ? `the thinnest level · ${gender.thinnest.recorded} recorded`
+              : gender.recorded > 0
+                ? "nobody recorded has a level yet"
+                : "nothing recorded yet"
+          }
         />
         <KpiTile
-          label="Nationalities"
+          label="Nationalities represented"
           value={stats.nationalityCount}
           sub={
             stats.largest
@@ -105,28 +119,34 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
               : "none on file"
           }
         />
-        <KpiTile label="GCC nationals" value={stats.gccPct} unit="%" sub={`${diversity.gccNationals} of ${stats.total} with a nationality on file`} />
+        <KpiTile
+          tone="positive"
+          label="GCC nationals, overall"
+          value={stats.gccPct}
+          unit="%"
+          sub={`${diversity.gccNationals} of ${stats.total} with a nationality on file`}
+        />
       </KpiTileRow>
 
       <ReportCard
-        title="Nationality feasibility"
+        title="Nationality feasibility checker"
         caption="how many mapped executives qualify against a nationality requirement"
         action={
           <>
-            <Select aria-label="Nationality requirement" value={nationality} onChange={(e) => setNationality(e.target.value)} className={SELECT_CLASS}>
+            <ReportSelect aria-label="Nationality requirement" value={nationality} onChange={(e) => setNationality(e.target.value)}>
               {nationalityFilterOptions(diversity).map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
               ))}
-            </Select>
-            <Select aria-label="Seniority level" value={level} onChange={(e) => setLevel(e.target.value)} className={SELECT_CLASS}>
+            </ReportSelect>
+            <ReportSelect aria-label="Seniority level" value={level} onChange={(e) => setLevel(e.target.value)}>
               {levelFilterOptions(diversity).map((l) => (
                 <option key={l} value={l}>
                   {l}
                 </option>
               ))}
-            </Select>
+            </ReportSelect>
           </>
         }
         note={
@@ -136,24 +156,22 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
           </>
         }
       >
-        <KpiTileRow className="mt-3.5 [grid-template-columns:1fr_1fr]">
+        <KpiTileRow columns={2} className="mt-3.5">
           <KpiTile
-            className="bg-u-surface"
+            tone="lead"
             label="Qualifying executives"
             value={Math.round(qualifying)}
-            unit={`/ ${fit.scope}`}
-            valueClass="text-u-accent"
+            unit={`/${fit.scope}`}
             sub={`${nationality} · ${level === ALL_LEVELS_FILTER ? "all levels" : level}`}
           />
           <KpiTile
-            className="bg-u-surface"
             label="Share of this scope"
             value={Math.round(share)}
             unit="%"
             sub={`of ${level === ALL_LEVELS_FILTER ? "everyone with a level on file" : `${level} executives`}`}
           />
         </KpiTileRow>
-        <div className="mb-2.5 mt-[18px] font-u-num text-[11px] text-u-text3">
+        <div className="mb-3 mt-5 text-xs text-u-text3">
           {nationality} — where they sit by level · one square per executive
         </div>
         <NationalityDots feasibility={fit} />
@@ -161,7 +179,7 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
 
       <ReportCard
         title="Nationality mix"
-        caption={`n = ${stats.total} with a nationality on file · GCC nationals in the accent`}
+        caption={`full breakdown, n=${stats.total} with a nationality on file`}
         note={
           <>
             GCC nationals are {diversity.gccNationals} of {stats.total} ({stats.gccPct}%) — the figure a localisation
@@ -170,23 +188,6 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
         }
       >
         <NationalityDonut rows={diversity.nationalities} total={stats.total} largest={stats.largest} />
-        <StackedBar
-          className="mt-4"
-          segments={[
-            { label: "GCC nationals", count: diversity.gccNationals, fillClass: "bg-u-accent" },
-            { label: "Expatriate", count: stats.total - diversity.gccNationals, fillClass: "bg-u-sunken" },
-          ]}
-        />
-        <div className="mt-4">
-          <BarList
-            rows={diversity.nationalities.map((row) => ({
-              key: row.nationality,
-              label: row.nationality,
-              count: row.total,
-              fillClass: row.gcc ? "bg-u-accent" : "bg-u-sunken",
-            }))}
-          />
-        </div>
       </ReportCard>
 
       <ReportCard
@@ -211,29 +212,21 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
                 ? `, not by its headcount — ${gender.unrecorded} across the map have no gender on file`
                 : ""}
               .
+              {gender.recordedWithoutLevel > 0 &&
+                ` ${gender.recordedWithoutLevel} recorded on executives with no seniority level count toward the overall share and sit on no bar.`}
             </>
           )
         }
       >
         {gender.recorded === 0 ? (
-          <div className="py-[30px] text-center text-[12.5px] text-u-text3">
-            Nobody on this mandate has a gender recorded.
-          </div>
+          <ChartEmpty>Nobody on this mandate has a gender recorded.</ChartEmpty>
         ) : (
-          <>
-            <ChartLegend
-              items={[
-                { label: "Female", swatchClass: "bg-u-chart-1" },
-                { label: "Male", swatchClass: "bg-u-sunken" },
-              ]}
-            />
-            <GenderPyramid stats={gender} />
-          </>
+          <GenderPyramid stats={gender} />
         )}
       </ReportCard>
 
       <LockedBenchmarkCard>
-        <b className="text-u-text">Cross-mandate diversity benchmark — not built.</b> Every figure
+        <b>Cross-mandate diversity benchmark — not built.</b> Every figure
         above is this mandate's own pool, so nothing here says whether that mix is normal for the
         sector and seniority. Comparing across mandates is a later piece of work.
       </LockedBenchmarkCard>

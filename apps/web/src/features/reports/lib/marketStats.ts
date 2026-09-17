@@ -1,14 +1,15 @@
 import type { MarketCell, ReportMarket, SeniorityLevel, SliceExecutive } from "../api/types";
 import { percent } from "./figures";
+import { rampStop } from "./ramp";
 
 export interface HeatRow {
   level: SeniorityLevel;
-  cells: { sector: string; level: SeniorityLevel; count: number; intensity: number }[];
+  /** `stop` is the cell's place on the sequential ramp, 0–4. */
+  cells: { sector: string; level: SeniorityLevel; count: number; stop: number }[];
 }
 
 export interface MarketStats {
   rows: HeatRow[];
-  maxCell: number;
   emptyCells: number;
   totalCells: number;
   boardTotal: number;
@@ -24,24 +25,30 @@ export interface MarketStats {
 
 export const TOP_HUBS = 3;
 
+// Board to N-2 are always drawn, so an empty Board row reads as the gap it is. A rung below that
+// appears once the mandate has reached it, rather than as a standing row of hatching.
+const ALWAYS_DRAWN_LEVELS = 4;
+
 export function marketStats(market: ReportMarket): MarketStats {
   const countOf = (sector: string, level: SeniorityLevel) =>
     market.cells.find((c) => c.sector === sector && c.level === level)?.count ?? 0;
   const maxCell = Math.max(...market.cells.map((c) => c.count), 1);
-  const rows: HeatRow[] = market.levels.map((level) => ({
+  const levels = market.levels.filter(
+    (level, index) => index < ALWAYS_DRAWN_LEVELS || market.cells.some((c) => c.level === level && c.count > 0),
+  );
+  const rows: HeatRow[] = levels.map((level) => ({
     level,
     cells: market.sectors.map((sector) => {
       const count = countOf(sector, level);
-      return { sector, level, count, intensity: count / maxCell };
+      return { sector, level, count, stop: rampStop(count, maxCell) };
     }),
   }));
-  const totalCells = market.sectors.length * market.levels.length;
+  const totalCells = market.sectors.length * levels.length;
   const deepest = market.cells.reduce<MarketCell | null>((best, cell) => (cell.count > (best?.count ?? 0) ? cell : best), null);
   const located = market.hubs.reduce((sum, hub) => sum + hub.count, 0) + market.elsewhere;
   const topHubs = [...market.hubs].sort((a, b) => b.count - a.count).slice(0, TOP_HUBS);
   return {
     rows,
-    maxCell,
     emptyCells: totalCells - market.cells.filter((c) => c.count > 0).length,
     totalCells,
     boardTotal: market.cells.filter((c) => c.level === "Board").reduce((sum, c) => sum + c.count, 0),

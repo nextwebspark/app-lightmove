@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SAMPLE_REPORT } from "../mock/sampleReport";
+import { SAMPLE_REPORT } from "../../../test/sampleReport";
 import {
   ALL_LEVELS_FILTER,
   ALL_NATIONALITIES_FILTER,
@@ -20,7 +20,7 @@ describe("diversityStats", () => {
     expect(stats.nationalityCount).toBe(6);
     expect(stats.largest?.nationality).toBe("Saudi");
     expect(stats.largestPct).toBe(26);
-    expect(stats.gccPct).toBe(42);
+    expect(stats.gccPct).toBe(50);
   });
 
   it("offers every named group as a requirement, never the Other bucket", () => {
@@ -53,14 +53,14 @@ describe("feasibility", () => {
   it("narrows to GCC nationals at one level", () => {
     const fit = feasibility(diversity, stats, { nationality: GCC_NATIONALS_FILTER, level: "C-Suite" });
 
-    expect(fit.qualifying).toBe(23);
+    expect(fit.qualifying).toBe(27);
     expect(fit.scope).toBe(51);
     expect(fit.byLevel.find((l) => l.level === "C-Suite")?.isInScope).toBe(true);
     expect(fit.byLevel.find((l) => l.level === "Board")?.isInScope).toBe(false);
   });
 
-  it("says none when a nationality has nobody at a level", () => {
-    const fit = feasibility(diversity, stats, { nationality: "Indian", level: "Board" });
+  it("says none when a group has nobody at a level", () => {
+    const fit = feasibility(diversity, stats, { nationality: "South Asian", level: "Board" });
 
     expect(fit.qualifying).toBe(0);
     expect(fit.scope).toBe(5);
@@ -100,6 +100,19 @@ describe("genderStats", () => {
     expect(n1).toMatchObject({ female: 13, male: 24, other: 1, recorded: 38 });
     expect(stats.other).toBe(1);
     expect(stats.female + stats.male + stats.other).toBe(stats.recorded);
+  });
+
+  it("counts a gender recorded on an executive with no level in the overall share, on no bar", () => {
+    const withUnplaced = genderStats({
+      ...SAMPLE_REPORT.diversity,
+      genderWithoutLevel: { female: 3, male: 1, other: 0 },
+    });
+
+    expect(withUnplaced.recorded).toBe(stats.recorded + 4);
+    expect(withUnplaced.female).toBe(stats.female + 3);
+    expect(withUnplaced.recordedWithoutLevel).toBe(4);
+    expect(withUnplaced.levels).toEqual(stats.levels);
+    expect(withUnplaced.thinnest).toEqual(stats.thinnest);
   });
 
   it("reports a mandate nobody has recorded as unmeasured rather than as all-male", () => {

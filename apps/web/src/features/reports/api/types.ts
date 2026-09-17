@@ -151,12 +151,21 @@ export interface GenderLevelRow {
   other: number;
 }
 
+/** A gender split counted only from rows carrying one. */
+export interface GenderSplit {
+  female: number;
+  male: number;
+  other: number;
+}
+
 export interface ReportDiversity {
   levels: SeniorityLevel[];
   nationalities: NationalityRow[];
   unknownNationality: number;
   gccNationals: number;
   genderByLevel: GenderLevelRow[];
+  /** Recorded genders of executives with no seniority on file, which no level's split can hold. */
+  genderWithoutLevel: GenderSplit;
   /** Executives with no gender on file. Never folded into `other`, which somebody did record. */
   genderUnrecorded: number;
 }

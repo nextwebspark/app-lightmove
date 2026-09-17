@@ -19,7 +19,6 @@ export interface CompensationStats {
   band: CompensationBand | null;
   measure: CompensationMeasure;
   disclosures: Disclosure[];
-  values: number[];
   isReliable: boolean;
   /** Percentile rank of the band ceiling among the disclosures; null without a band or below the floor. */
   ceilingPercentile: number | null;
@@ -60,7 +59,6 @@ export function compensationStats(remuneration: ReportRemuneration, filter: Comp
     band,
     measure: filter.measure,
     disclosures,
-    values,
     isReliable,
     ceilingPercentile: band !== null && isReliable ? percentileOf(values, band.high) : null,
     aboveBand: disclosures.filter(isAbove).length,

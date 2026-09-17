@@ -4,7 +4,8 @@ import type { ReportProgress } from "../api/types";
 import { CoverageChart } from "../components/CoverageChart";
 import { KpiTile, KpiTileRow } from "../components/KpiTiles";
 import { DailyMomentumChart, WeeklyMomentumChart } from "../components/MomentumChart";
-import { ChartLegend, ReportCard } from "../components/ReportCard";
+import { Legend } from "../components/Legend";
+import { ReportCard } from "../components/ReportCard";
 import { Figure, ReportSection } from "../components/ReportSection";
 import { formatShortDate, percent } from "../lib/figures";
 import { type Projection, type ProjectionBasis, projectCoverage, type WeeklyPace, weeklyPace } from "../lib/projection";
@@ -20,48 +21,49 @@ const MOMENTUM_OPTIONS = [
   { value: "days" as const, label: "Days" },
 ];
 
-/** 01 — are we going to hit the deadline? Projected from actual recent pace, not the plan. */
-export function ProgressSection({ progress }: { progress: ReportProgress }) {
+/** Are we going to hit the deadline? Projected from actual recent pace, not the plan. */
+export function ProgressSection({ eyebrow, progress }: { eyebrow: string; progress: ReportProgress }) {
   const [basis, setBasis] = useState<ProjectionBasis>("recent");
   const [momentum, setMomentum] = useState<MomentumView>("weeks");
   const projection = projectCoverage(progress, basis);
   const pace = weeklyPace(progress);
   const covered = progress.companiesCumulative[projection.lastWeek];
   const target = progress.targetDate ? formatShortDate(progress.targetDate) : null;
-  const isBehind = projection.targetPace !== null && projection.pace < projection.targetPace;
 
   return (
     <ReportSection
-      id="progress"
-      ordinal="01"
-      eyebrow="Mapping progress"
+      eyebrow={eyebrow}
       question="Are we going to hit the deadline?"
-      lede="Coverage against the scoped universe, weekly research momentum, and a completion date projected from actual recent pace — not the original plan."
+      lede={
+        <>
+          Coverage against the scoped universe, weekly research momentum, and a completion date{" "}
+          <b>projected from actual recent pace</b> — not the original plan.
+        </>
+      }
       findingLabel="At the current pace"
-      findingTone={isBehind || projection.daysLate !== null && projection.daysLate > 0 ? "alarm" : "info"}
       finding={<ProgressFinding projection={projection} pace={pace} target={target} />}
     >
       <KpiTileRow>
         <KpiTile
-          tone="accent"
+          tone="lead"
           label="Companies mapped"
           value={covered}
-          unit={`/ ${progress.targetCompanies}`}
+          unit={`/${progress.targetCompanies}`}
           sub={`${percent(covered, progress.targetCompanies)}% of the scoped universe`}
         />
         <KpiTile label="Executives identified" value={pace.total} sub={`across ${progress.weekly.length} weeks`} />
         <KpiTile
-          tone={isBehind ? "alarm" : "plain"}
+          tone="alarm"
           label="Recent pace"
           value={projection.pace.toFixed(1)}
-          unit="/ wk"
-          sub={projection.targetPace !== null ? `vs ${projection.targetPace.toFixed(1)} / wk needed` : "no target date set"}
+          unit="/wk"
+          sub={projection.targetPace !== null ? `vs ${projection.targetPace.toFixed(1)}/wk needed` : "no target date set"}
         />
         <KpiTile
-          tone={(progress.daysSinceLastCompany ?? 0) >= 5 ? "alarm" : "plain"}
+          tone="alarm"
           label="Since last new company"
           value={progress.daysSinceLastCompany ?? "—"}
-          unit={progress.daysSinceLastCompany === null ? undefined : "days"}
+          unit={progress.daysSinceLastCompany === null ? undefined : "d"}
           sub={progress.daysSinceLastCompany === null ? "no company mapped yet" : "gap since the last first executive"}
         />
       </KpiTileRow>
@@ -69,28 +71,29 @@ export function ProgressSection({ progress }: { progress: ReportProgress }) {
       <ReportCard
         title="Coverage vs. target"
         caption={`cumulative companies mapped · ${formatShortDate(progress.kickoff)}${projection.projectedDate ? ` – projected ${formatShortDate(projection.projectedDate)}` : ""}`}
-        action={<SegmentedControl label="Projection basis" options={BASIS_OPTIONS} value={basis} onChange={setBasis} />}
+        action={<SegmentedControl variant="uncava" label="Projection basis" options={BASIS_OPTIONS} value={basis} onChange={setBasis} />}
         note={
           basis === "recent" ? (
             <>
-              Projected from the average pace of the <b>last 3 weeks</b> ({projection.pace.toFixed(1)} / wk). A slowdown
+              Projected from the average pace of the <b>last 3 weeks</b> ({projection.pace.toFixed(1)}/wk). A slowdown
               this recent would be masked by blending it with the faster early weeks — switch to “Full-mandate avg” to
               see how much difference that makes.
             </>
           ) : (
             <>
-              Projected from the <b>full-mandate average</b> ({projection.pace.toFixed(1)} / wk). This blends in the
+              Projected from the <b>full-mandate average</b> ({projection.pace.toFixed(1)}/wk). This blends in the
               early weeks and understates any recent slowdown. “Last 3 weeks” is the more honest basis for a live
               decision.
             </>
           )
         }
       >
-        <ChartLegend
+        <Legend
+          className="mb-1 mt-2.5"
           items={[
-            { label: "Actual", swatchClass: "bg-u-chart-1", shape: "line" },
+            { label: "Actual", swatchClass: "bg-u-accent", shape: "line" },
             { label: "Projected", swatchClass: "bg-u-offlimits", shape: "dashed" },
-            { label: "Target", swatchClass: "bg-u-sunken", shape: "line" },
+            { label: "Target", swatchClass: "bg-u-border-strong", shape: "line" },
           ]}
         />
         <CoverageChart progress={progress} projection={projection} />
@@ -99,7 +102,7 @@ export function ProgressSection({ progress }: { progress: ReportProgress }) {
       <ReportCard
         title="Recent momentum"
         caption={`executives identified ${momentum === "weeks" ? "per week" : "per day"} · not cumulative`}
-        action={<SegmentedControl label="Resolution" options={MOMENTUM_OPTIONS} value={momentum} onChange={setMomentum} />}
+        action={<SegmentedControl variant="uncava" label="Resolution" options={MOMENTUM_OPTIONS} value={momentum} onChange={setMomentum} />}
         note={
           momentum === "weeks" ? (
             <>
@@ -116,20 +119,22 @@ export function ProgressSection({ progress }: { progress: ReportProgress }) {
       >
         {momentum === "weeks" ? (
           <>
-            <ChartLegend
+            <Legend
+              className="mb-1 mt-2.5"
               items={[
-                { label: "At or above average", swatchClass: "bg-u-chart-1" },
-                { label: `Below average (${Math.round(pace.average)} / wk)`, swatchClass: "bg-u-signal" },
+                { label: "At or above average", swatchClass: "bg-u-direct", shape: "dot" },
+                { label: `Below average (${Math.round(pace.average)}/wk)`, swatchClass: "bg-u-offlimits", shape: "dot" },
               ]}
             />
             <WeeklyMomentumChart progress={progress} average={pace.average} />
           </>
         ) : (
           <>
-            <ChartLegend
+            <Legend
+              className="mb-1 mt-2.5"
               items={[
-                { label: "Daily count", swatchClass: "bg-u-sunken" },
-                { label: "7-day rolling average", swatchClass: "bg-u-chart-1", shape: "line" },
+                { label: "Daily count", swatchClass: "border border-u-border-strong bg-u-sunken", shape: "dot" },
+                { label: "7-day rolling average", swatchClass: "bg-u-accent", shape: "line" },
               ]}
             />
             <DailyMomentumChart progress={progress} />

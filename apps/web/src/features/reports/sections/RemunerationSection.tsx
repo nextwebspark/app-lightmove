@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { Select } from "../../../components/ui";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import type { Disclosure, ReportRemuneration } from "../api/types";
+import { ChartEmpty } from "../components/ChartEmpty";
 import { CompensationStrip } from "../components/CompensationStrip";
 import { DisclosureDrawer } from "../components/DisclosureDrawer";
 import { KpiTile, KpiTileRow } from "../components/KpiTiles";
+import { Legend } from "../components/Legend";
 import { LockedBenchmarkCard } from "../components/LockedBenchmarkCard";
-import { ChartLegend, ReportCard } from "../components/ReportCard";
+import { ReportCard } from "../components/ReportCard";
 import { Figure, ReportSection } from "../components/ReportSection";
+import { ReportSelect } from "../components/ReportSelect";
 import {
   ALL_COUNTRIES,
   ALL_NATIONALITIES,
@@ -18,16 +20,22 @@ import {
   nationalityGap,
 } from "../lib/compensationStats";
 import { formatCompactMoney, ordinal, percent } from "../lib/figures";
+import { memberOf, membersOf } from "../lib/nationalityWording";
+import { STATUS_TONES } from "../lib/statusTone";
 
 const MEASURE_OPTIONS = [
   { value: "package" as const, label: "Total package" },
-  { value: "fixed" as const, label: "Fixed" },
+  { value: "fixed" as const, label: "Total fixed" },
 ];
 
-const SELECT_CLASS = "w-auto bg-u-surface py-[7px] text-[12.5px] font-medium";
+const STATUS_LEGEND = Object.values(STATUS_TONES).map((tone) => ({
+  label: tone.label,
+  swatchClass: tone.swatch,
+  shape: "dot" as const,
+}));
 
-/** 03 — are we underpaying, against what the market has actually disclosed rather than an estimate? */
-export function RemunerationSection({ remuneration }: { remuneration: ReportRemuneration }) {
+/** Are we underpaying, against what the market has actually disclosed rather than an estimate? */
+export function RemunerationSection({ eyebrow, remuneration }: { eyebrow: string; remuneration: ReportRemuneration }) {
   const [measure, setMeasure] = useState<CompensationMeasure>("package");
   const [country, setCountry] = useState(ALL_COUNTRIES);
   const [nationality, setNationality] = useState(ALL_NATIONALITIES);
@@ -39,7 +47,7 @@ export function RemunerationSection({ remuneration }: { remuneration: ReportRemu
   const measureLabel = measure === "package" ? "total package" : "fixed pay";
   const scopeParts = [
     ...(country !== ALL_COUNTRIES ? [`in ${country}`] : []),
-    ...(nationality !== ALL_NATIONALITIES ? [`${nationality} nationals`] : []),
+    ...(nationality !== ALL_NATIONALITIES ? [membersOf(nationality)] : []),
   ];
   const scope = scopeParts.length ? ` (${scopeParts.join(", ")})` : "";
   const total = stats.disclosures.length;
@@ -47,9 +55,7 @@ export function RemunerationSection({ remuneration }: { remuneration: ReportRemu
 
   return (
     <ReportSection
-      id="comp"
-      ordinal="03"
-      eyebrow="Remuneration"
+      eyebrow={eyebrow}
       question="Are we underpaying — against real evidence, not an estimate?"
       findingLabel="At these settings"
       finding={
@@ -72,21 +78,25 @@ export function RemunerationSection({ remuneration }: { remuneration: ReportRemu
           </>
         )
       }
-      lede="Every point is a named executive whose package is on file — evidence from this mandate's own conversations, not a market survey."
+      lede={
+        <>
+          Every point below is a <b>named executive</b> whose package is on file — evidence from this mandate's own
+          conversations, not a market survey. Click one for the full picture.
+        </>
+      }
     >
       <KpiTileRow>
         <KpiTile
-          tone="accent"
+          tone="lead"
           label="Disclosed packages"
           value={total}
           sub={scope ? scope.replace(/[()]/g, "") : `in ${currency}${remuneration.otherCurrency > 0 ? ` · ${remuneration.otherCurrency} in other currencies not shown` : ""}`}
         />
         <KpiTile label="Median disclosed" value={total ? money(stats.median) : "—"} sub={`${measureLabel} / yr`} />
         <KpiTile
-          tone={stats.ceilingPercentile !== null && stats.ceilingPercentile < 50 ? "alarm" : "plain"}
+          tone="alarm"
           label="Percentile of our ceiling"
           value={stats.ceilingPercentile === null ? "—" : ordinal(stats.ceilingPercentile)}
-          valueClass={stats.ceilingPercentile === null ? "text-u-text3" : undefined}
           sub={
             !hasBand
               ? "no band in the brief"
@@ -98,10 +108,10 @@ export function RemunerationSection({ remuneration }: { remuneration: ReportRemu
           }
         />
         <KpiTile
-          tone={stats.aboveBand > 0 ? "alarm" : "plain"}
+          tone="alarm"
           label="Priced above our band"
           value={hasBand ? stats.aboveBand : "—"}
-          unit={hasBand ? `/ ${total}` : undefined}
+          unit={hasBand ? `/${total}` : undefined}
           sub={hasBand ? `${percent(stats.aboveBand, total)}% of disclosed packages` : "no band in the brief"}
         />
       </KpiTileRow>
@@ -111,21 +121,21 @@ export function RemunerationSection({ remuneration }: { remuneration: ReportRemu
         caption={`n = ${total} named executives${scope} · click a dot for detail`}
         action={
           <>
-            <SegmentedControl label="Compensation measure" options={MEASURE_OPTIONS} value={measure} onChange={setMeasure} />
-            <Select aria-label="Country" value={country} onChange={(e) => setCountry(e.target.value)} className={SELECT_CLASS}>
+            <SegmentedControl variant="uncava" label="Compensation measure" options={MEASURE_OPTIONS} value={measure} onChange={setMeasure} />
+            <ReportSelect aria-label="Country" value={country} onChange={(e) => setCountry(e.target.value)}>
               {countriesOf(remuneration).map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
               ))}
-            </Select>
-            <Select aria-label="Nationality" value={nationality} onChange={(e) => setNationality(e.target.value)} className={SELECT_CLASS}>
+            </ReportSelect>
+            <ReportSelect aria-label="Nationality" value={nationality} onChange={(e) => setNationality(e.target.value)}>
               {nationalitiesOf(remuneration).map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
               ))}
-            </Select>
+            </ReportSelect>
           </>
         }
         note={
@@ -138,21 +148,14 @@ export function RemunerationSection({ remuneration }: { remuneration: ReportRemu
                 : `Nobody in this slice${scope} has said no yet — too few data points to read into.`
         }
       >
-        <ChartLegend
-          items={[
-            { label: "Identified", swatchClass: "bg-u-text3", shape: "dot" },
-            { label: "In conversation", swatchClass: "bg-u-chart-1", shape: "dot" },
-            { label: "Interested", swatchClass: "bg-u-direct", shape: "dot" },
-            { label: "Not interested", swatchClass: "bg-u-sunken", shape: "dot" },
-            { label: "Off-limits", swatchClass: "bg-u-offlimits", shape: "dot" },
-            { label: "Out of scope", swatchClass: "bg-u-signal", shape: "dot" },
-            { label: "Median", swatchClass: "bg-u-signal", shape: "dashed" },
-          ]}
+        <Legend
+          className="mb-1 mt-3"
+          items={[...STATUS_LEGEND, { label: "Median", swatchClass: "bg-u-offlimits", shape: "dashed" }]}
         />
         {total > 0 ? (
           <CompensationStrip stats={stats} currency={currency} onSelect={setSelected} />
         ) : (
-          <div className="py-[30px] text-center text-[12.5px] text-u-text3">No disclosed packages in this slice.</div>
+          <ChartEmpty>No disclosed packages in this slice.</ChartEmpty>
         )}
       </ReportCard>
 
@@ -164,17 +167,17 @@ export function RemunerationSection({ remuneration }: { remuneration: ReportRemu
             <>
               {gap.higherSide === "rest" ? (
                 <>
-                  In this pool, <b>non-{gap.largestNationality} nationals command a {gap.gapPct}% premium</b> over{" "}
-                  {gap.largestNationality} nationals. Worth confirming at scale before pricing a {gap.largestNationality}
-                  -national requirement.
+                  In this pool, <b>non-{membersOf(gap.largestNationality)} command a {gap.gapPct}% premium</b> over{" "}
+                  {membersOf(gap.largestNationality)}. Worth confirming at scale before pricing a requirement for{" "}
+                  {memberOf(gap.largestNationality)}.
                 </>
               ) : (
                 <>
                   <b>
-                    {gap.largestNationality} nationals command a {gap.gapPct}% premium
+                    {membersOf(gap.largestNationality)} command a {gap.gapPct}% premium
                   </b>{" "}
                   over all other nationalities in this pool — worth pricing in explicitly if this mandate specifically
-                  needs a {gap.largestNationality} national.
+                  needs {memberOf(gap.largestNationality)}.
                 </>
               )}{" "}
               Two buckets only: single nationality groups are too thin to compare, and largest-vs-rest is the one split
@@ -186,16 +189,15 @@ export function RemunerationSection({ remuneration }: { remuneration: ReportRemu
         }
       >
         {gap && gap.isReliable && (
-          <KpiTileRow className="mt-3.5 [grid-template-columns:1fr_1fr]">
+          <KpiTileRow columns={2}>
             <KpiTile
-              className="bg-u-surface"
-              label={`${gap.largestNationality} nationals · median`}
+              tone="lead"
+              label={`${membersOf(gap.largestNationality)}, median`}
               value={money(gap.largestMedian)}
               sub={`n = ${gap.largestCount} disclosures`}
             />
             <KpiTile
-              className="bg-u-surface"
-              label="All other nationalities · median"
+              label="All other nationalities, median"
               value={money(gap.restMedian)}
               sub={`n = ${gap.restCount} disclosures`}
             />
@@ -204,7 +206,7 @@ export function RemunerationSection({ remuneration }: { remuneration: ReportRemu
       </ReportCard>
 
       <LockedBenchmarkCard>
-        <b className="text-u-text">Cross-mandate compensation benchmark — not built.</b> The percentile
+        <b>Cross-mandate compensation benchmark — not built.</b> The percentile
         above ranks our band against the executives <i>this</i> mandate has spoken to, not against the
         market. Aggregating verified packages across mandates is a later piece of work.
       </LockedBenchmarkCard>

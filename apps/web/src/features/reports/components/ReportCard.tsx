@@ -1,6 +1,20 @@
 import type { ReactNode } from "react";
 import { cn } from "../../../lib/cn";
 
+/** The surface every card of the report sits on. Dashed marks a card that names something not built. */
+export function ReportPanel({ dashed, children }: { dashed?: boolean; children: ReactNode }) {
+  return (
+    <div
+      className={cn(
+        "mt-4 rounded-[11px] border border-u-border bg-u-surface px-4 py-[18px] shadow-u-e1 sm:px-6 sm:py-[22px]",
+        dashed && "border-dashed",
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 /**
  * A chart's frame: title and caption on the left, the controls that scope it on the right, the chart
  * in the body, and an optional note under a hairline that says what the chart means rather than
@@ -12,60 +26,28 @@ export function ReportCard({
   action,
   note,
   children,
-  className,
 }: {
   title: string;
   caption?: ReactNode;
   action?: ReactNode;
   note?: ReactNode;
   children: ReactNode;
-  className?: string;
 }) {
   return (
-    <div className={cn("mt-3.5 rounded-[10px] border border-u-border bg-u-raised px-[18px] py-4", className)}>
-      <div className="flex flex-wrap items-start justify-between gap-3.5">
+    <ReportPanel>
+      <div className="mb-1 flex flex-wrap items-start justify-between gap-3.5">
         <div>
-          <div className="text-[13.5px] font-semibold">{title}</div>
-          {caption && <div className="mt-[3px] font-u-num text-[11px] text-u-text3">{caption}</div>}
+          <div className="text-[15px] font-bold">{title}</div>
+          {caption && <div className="mt-[3px] text-xs text-u-text3">{caption}</div>}
         </div>
-        {action && <div className="flex flex-wrap items-center gap-2">{action}</div>}
+        {action && <div className="flex flex-wrap items-center gap-2.5">{action}</div>}
       </div>
       {children}
       {note && (
-        <div className="mt-3.5 border-t border-u-border-strong pt-3 text-xs leading-[1.6] text-u-text2 [&_b]:font-semibold [&_b]:text-u-text">
+        <div className="mt-3.5 border-t border-dashed border-u-border-strong pt-[13px] text-xs italic leading-[1.65] text-u-text2 [&_b]:font-bold [&_b]:not-italic [&_b]:text-u-text">
           {note}
         </div>
       )}
-    </div>
-  );
-}
-
-export interface LegendItem {
-  label: string;
-  /** Token background class for the swatch. */
-  swatchClass: string;
-  shape?: "square" | "dot" | "line" | "dashed";
-}
-
-/** Always present for two or more series, so identity never rests on colour alone. */
-export function ChartLegend({ items, className }: { items: LegendItem[]; className?: string }) {
-  return (
-    <div className={cn("mt-3 flex flex-wrap gap-4", className)}>
-      {items.map((item) => (
-        <span key={item.label} className="inline-flex items-center gap-1.5 text-[11px] text-u-text2">
-          <i
-            aria-hidden
-            className={cn(
-              "inline-block flex-none",
-              item.shape === "line" || item.shape === "dashed" ? "h-0.5 w-3.5 rounded-[1px]" : "size-[9px]",
-              item.shape === "dot" ? "rounded-full" : "rounded-[2px]",
-              item.shape === "dashed" ? "[mask-image:repeating-linear-gradient(90deg,#000_0_4px,transparent_4px_7px)]" : "",
-              item.swatchClass,
-            )}
-          />
-          {item.label}
-        </span>
-      ))}
-    </div>
+    </ReportPanel>
   );
 }

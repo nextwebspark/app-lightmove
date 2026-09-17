@@ -1,9 +1,8 @@
-import { DetailPill, DrawerSection } from "../../../components/ui/DetailList";
-import { initials } from "../../../lib/format";
-import { candidateStatusStyle } from "../../candidates/lib/candidateVocabulary";
+import { ICONS } from "../../../components/layout/Icon";
 import type { MarketSlice, SeniorityLevel } from "../api/types";
 import { sliceInterest } from "../lib/marketStats";
-import { DrawerBulletRow, DrawerLink, DrawerNote, ReportDrawer } from "./ReportDrawer";
+import { DrawerContext, DrawerLink, DrawerListRow, DrawerPersonRow, DrawerSection, ReportDrawer } from "./ReportDrawer";
+import { ReportGap } from "./ReportGap";
 import { StackedBar } from "./StackedBar";
 
 export interface SliceSelection {
@@ -39,54 +38,40 @@ export function MarketSliceDrawer({
       subtitle={`${count} executive${count === 1 ? "" : "s"} mapped${companies.length ? ` · ${companies.length} companies` : ""}`}
     >
       {count === 0 ? (
-        <DrawerSection title="Gap">
-          <DrawerNote label="No executives identified in this slice yet">
+        <ReportGap icon={ICONS.searchX} title="No executives identified in this slice yet.">
+          <DrawerContext label="Context">
             {sector} · {level} is in scope but has not produced an executive. Worth a targeted pass on{" "}
             {sector.toLowerCase()} companies at this level before assuming the market is genuinely empty here.
-          </DrawerNote>
-        </DrawerSection>
+          </DrawerContext>
+        </ReportGap>
       ) : (
         <>
           {executives.length > 0 && (
             <>
-              <DrawerSection title="Where the mandate has got to">
+              <DrawerSection label="Interest in this slice">
                 <StackedBar
-                  height="h-3.5"
                   segments={[
                     { label: "Interested", count: interest.interested, fillClass: "bg-u-direct" },
-                    { label: "Not yet", count: interest.passive, fillClass: "bg-u-sunken" },
+                    { label: "Not yet", count: interest.passive, fillClass: "bg-u-border-strong" },
                     { label: "Closed", count: interest.closed, fillClass: "bg-u-offlimits" },
                   ]}
                 />
               </DrawerSection>
-              <DrawerSection title="Executives in this slice">
+              <DrawerSection label="Executives in this slice">
                 {executives.map((e) => (
-                  <div key={e.id} className="flex items-center gap-[11px] border-b border-u-border py-2 last:border-b-0">
-                    <span className="grid size-7 flex-none place-items-center rounded-full border border-u-border-strong bg-u-raised font-u-num text-[10px] font-semibold text-u-text2">
-                      {initials(e.fullName)}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[12.5px] font-semibold">{e.fullName}</span>
-                      <span className="mt-px block font-u-num text-[10.5px] text-u-text3">
-                        {e.company ?? "No employer on file"} · {level}
-                      </span>
-                    </span>
-                    <DetailPill label={candidateStatusStyle(e.status).label} className={candidateStatusStyle(e.status).className} />
-                  </div>
+                  <DrawerPersonRow key={e.id} name={e.fullName} detail={`${e.company ?? "No employer on file"} · ${level}`} status={e.status} />
                 ))}
               </DrawerSection>
             </>
           )}
           {companies.length > 0 && (
-            <DrawerSection title="Companies contributing">
+            <DrawerSection label="Companies contributing">
               {companies.map((c) => (
-                <DrawerBulletRow key={c}>{c}</DrawerBulletRow>
+                <DrawerListRow key={c}>{c}</DrawerListRow>
               ))}
             </DrawerSection>
           )}
-          <DrawerSection title="Open">
-            <DrawerLink to={`/projects/${projectId}/companies/universe`}>Open these {count} executives in the grid</DrawerLink>
-          </DrawerSection>
+          <DrawerLink to={`/projects/${projectId}/companies/universe`}>Open these {count} executives in the grid</DrawerLink>
         </>
       )}
     </ReportDrawer>

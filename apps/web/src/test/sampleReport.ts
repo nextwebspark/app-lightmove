@@ -1,5 +1,5 @@
-import type { CandidateStatus } from "../../candidates/api/types";
-import type { Disclosure, LevelCount, Report, SeniorityLevel, TalentHub } from "../api/types";
+import type { CandidateStatus } from "../features/candidates/api/types";
+import type { Disclosure, LevelCount, Report, SeniorityLevel, TalentHub } from "../features/reports/api/types";
 
 /**
  * A report as the server would answer it for a GCC food & beverage CFO search: 42 companies, 116
@@ -180,14 +180,14 @@ export const SAMPLE_REPORT: Report = {
     nationalities: [
       { nationality: "Saudi", gcc: true, byLevel: levels(2, 14, 9, 5), unclassified: 0, total: 30 },
       { nationality: "Emirati", gcc: true, byLevel: levels(1, 9, 6, 3), unclassified: 0, total: 19 },
-      { nationality: "Egyptian", gcc: false, byLevel: levels(1, 8, 6, 4), unclassified: 0, total: 19 },
-      { nationality: "Lebanese", gcc: false, byLevel: levels(1, 7, 5, 3), unclassified: 0, total: 16 },
-      { nationality: "Indian", gcc: false, byLevel: levels(0, 6, 5, 3), unclassified: 0, total: 14 },
-      { nationality: "British", gcc: false, byLevel: levels(0, 4, 3, 2), unclassified: 0, total: 9 },
+      { nationality: "Arab expat, non-GCC", gcc: false, byLevel: levels(1, 8, 6, 4), unclassified: 0, total: 19 },
+      { nationality: "Western expat", gcc: false, byLevel: levels(1, 7, 5, 3), unclassified: 0, total: 16 },
+      { nationality: "South Asian", gcc: false, byLevel: levels(0, 6, 5, 3), unclassified: 0, total: 14 },
+      { nationality: "Kuwaiti", gcc: true, byLevel: levels(0, 4, 3, 2), unclassified: 0, total: 9 },
       { nationality: "Other", gcc: false, byLevel: levels(0, 3, 4, 2), unclassified: 0, total: 9 },
     ],
     unknownNationality: 0,
-    gccNationals: 49,
+    gccNationals: 58,
     // Female per level matches the nationality rows' level totals: 5 / 51 / 38 / 22, with two
     // executives nobody has recorded a gender for, so the "recorded" denominator is visibly not
     // the headcount.
@@ -198,6 +198,7 @@ export const SAMPLE_REPORT: Report = {
       { level: "N-2", female: 9, male: 12, other: 0 },
       { level: "N-3", female: 0, male: 0, other: 0 },
     ],
+    genderWithoutLevel: { female: 0, male: 0, other: 0 },
     genderUnrecorded: 2,
   },
 };

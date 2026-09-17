@@ -1,5 +1,4 @@
 import { lazy, Suspense, useState } from "react";
-import { Skeleton } from "../../../components/ui";
 import type { TalentHub } from "../api/types";
 
 // Lazy, so a report read by somebody who never scrolls to the map does not download a map library.
@@ -31,8 +30,8 @@ export function HubMapPanel({
   }
 
   return (
-    <div className="h-[280px] overflow-hidden rounded-[10px] border border-u-border">
-      <Suspense fallback={<Skeleton className="size-full" />}>
+    <div className="aspect-[100/62] overflow-hidden rounded-[10px] bg-u-sunken">
+      <Suspense fallback={<div className="size-full animate-pulse bg-u-sunken" />}>
         <HubGlobe
           accessToken={accessToken}
           hubs={placed}
