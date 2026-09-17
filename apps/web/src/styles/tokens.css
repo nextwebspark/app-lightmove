@@ -48,6 +48,76 @@
 
   --shadow-panel: 0 8px 28px rgba(15, 23, 42, 0.1);
   --radius-panel: 14px;
+
+  /* ── UNCAVA (claude-design/color-pallate) ───────────────────────────────────
+   *
+   * A second palette, beside the first rather than replacing it. Only the Reports chapters read
+   * these; every other screen keeps the tokens above, so adopting Uncava app-wide later is a rename
+   * and not a rewrite. That does mean the Reports tab carries a different accent from the nav around
+   * it until that happens — a known, deliberate seam.
+   *
+   * THE LIGHT AND DARK SETS ARE SWAPPED RELATIVE TO THEIR SOURCE, AND THAT IS NOT A MISTAKE.
+   * Uncava is dark-first: its `:root` holds the DARK values and `[data-theme="light"]` the light
+   * ones. This app is light-first with a `.dark` override. So Uncava's `[data-theme="light"]` lands
+   * here in `@theme`, and its `:root` lands in `.dark` below. Copying it the other way round gives
+   * a palette that is inverted in both themes at once.
+   *
+   * Uncava also ships `uncava-tailwind.config.js`, which is a Tailwind v3 config. This app is v4 and
+   * has no config file: that file is a reference for the intended names, not something to wire in.
+   */
+  --color-u-bg: #ffffff;
+  --color-u-surface: #f7f8fa;
+  --color-u-raised: #eceff3;
+  --color-u-sunken: #e4e8ee;
+  --color-u-border: rgba(3, 7, 18, 0.09);
+  --color-u-border-strong: rgba(3, 7, 18, 0.16);
+  --color-u-scrim: rgba(3, 7, 18, 0.4);
+
+  --color-u-text: #0b0d12;
+  --color-u-text2: #4c5462;
+  --color-u-text3: #6b7382;
+
+  --color-u-accent: #4a56d6;
+  --color-u-accent-solid: #4a56d6;
+  --color-u-accent-tint: rgba(74, 86, 214, 0.09);
+  --color-u-accent-ring: rgba(74, 86, 214, 0.4);
+
+  /* Uncava's warning role. Named for what it does, not what it looks like. */
+  --color-u-signal: #a8602f;
+  --color-u-signal-tint: rgba(168, 96, 47, 0.1);
+  --color-u-offlimits: #d93a45;
+  --color-u-offlimits-tint: rgba(217, 58, 69, 0.1);
+
+  /* Uncava's names, kept so the palette stays a lift: here they read as good news and as in progress. */
+  --color-u-direct: #0f9d6b;
+  --color-u-direct-tint: rgba(15, 157, 107, 0.1);
+  --color-u-adjacent: #1f72d4;
+  --color-u-adjacent-tint: rgba(31, 114, 212, 0.1);
+
+  /* Categorical series. The first palette has none, which is why the charts improvised. */
+  --color-u-chart-1: #4a56d6;
+  --color-u-chart-2: #0f9d6b;
+  --color-u-chart-3: #a8602f;
+  --color-u-chart-4: #8244d6;
+  --color-u-chart-5: #1e8fa8;
+  --color-u-chart-6: #d93a45;
+
+  /* One sequential ramp, for a heatmap that must read as a single scale. */
+  --color-u-seq-1: #e4e8f6;
+  --color-u-seq-2: #b9c0ee;
+  --color-u-seq-3: #8189f7;
+  --color-u-seq-4: #4a56d6;
+  --color-u-seq-5: #2e3878;
+
+  --color-u-grid-axis: rgba(3, 7, 18, 0.14);
+  --color-u-grid-line: rgba(3, 7, 18, 0.07);
+
+  /* Uncava keeps a real monospace for numerals, which `--font-mono` above no longer is. */
+  --font-u-num: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Uncava's elevation ladder: e1 lifts a card off the page, e3 a panel off the screen. */
+  --shadow-u-e1: 0 1px 2px rgba(3, 7, 18, 0.06);
+  --shadow-u-e3: 0 18px 44px -10px rgba(3, 7, 18, 0.2);
 }
 
 /*
@@ -75,4 +145,52 @@
   --color-green-dim: rgba(52, 211, 153, 0.16);
 
   --shadow-panel: 0 8px 28px rgba(0, 0, 0, 0.5);
+
+  /* UNCAVA's own `:root` — its dark-first default. See the note above for why it lands here. */
+  --color-u-bg: #08090b;
+  --color-u-surface: #0e1013;
+  --color-u-raised: #15181d;
+  --color-u-sunken: #1d2128;
+  --color-u-border: rgba(255, 255, 255, 0.07);
+  --color-u-border-strong: rgba(255, 255, 255, 0.14);
+  --color-u-scrim: rgba(4, 5, 7, 0.72);
+
+  --color-u-text: #f4f6f8;
+  --color-u-text2: #a6adbb;
+  --color-u-text3: #7c8493;
+
+  --color-u-accent: #6e79f2;
+  --color-u-accent-solid: #4a56d6;
+  --color-u-accent-tint: rgba(110, 121, 242, 0.14);
+  --color-u-accent-ring: rgba(110, 121, 242, 0.45);
+
+  --color-u-signal: #d4855c;
+  --color-u-signal-tint: rgba(212, 133, 92, 0.12);
+  --color-u-offlimits: #f2626b;
+  --color-u-offlimits-tint: rgba(242, 98, 107, 0.12);
+
+  --color-u-direct: #3ecf8e;
+  --color-u-direct-tint: rgba(62, 207, 142, 0.12);
+  --color-u-adjacent: #5aa9ff;
+  --color-u-adjacent-tint: rgba(90, 169, 255, 0.12);
+
+  --color-u-chart-1: #6e79f2;
+  --color-u-chart-2: #3ecf8e;
+  --color-u-chart-3: #d4855c;
+  --color-u-chart-4: #b07cf5;
+  --color-u-chart-5: #4fc3d9;
+  --color-u-chart-6: #f2626b;
+
+  --color-u-seq-1: #1e2440;
+  --color-u-seq-2: #2e3878;
+  --color-u-seq-3: #4a56d6;
+  --color-u-seq-4: #6e79f2;
+  --color-u-seq-5: #a3a9fa;
+
+  --color-u-grid-axis: rgba(255, 255, 255, 0.1);
+  --color-u-grid-line: rgba(255, 255, 255, 0.055);
+
+  /* On a dark ground a card is lifted by its surface step and border, never by a shadow. */
+  --shadow-u-e1: 0 0 #0000;
+  --shadow-u-e3: 0 18px 44px -10px rgba(0, 0, 0, 0.8);
 }

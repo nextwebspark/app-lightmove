@@ -1,0 +1,1712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Talent Map · Mapping Progress</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Montserrat:wght@200&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+<script src="https://unpkg.com/lucide@0.383.0/dist/umd/lucide.js"></script>
+<style>
+:root {
+  /* type */
+  --u-font-ui: 'Geist', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --u-font-num: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --u-font-brand: 'Montserrat', sans-serif;
+
+  /* ── UNCAVA tokens · dark-first ── */
+  --u-bg: #08090B; --u-surface: #0E1013; --u-raised: #15181D; --u-sunken: #1D2128;
+  --u-border: rgba(255,255,255,.07); --u-border-strong: rgba(255,255,255,.14); --u-scrim: rgba(4,5,7,.72);
+  --u-e1: 0 1px 2px rgba(0,0,0,.5); --u-e2: 0 4px 14px -2px rgba(0,0,0,.65); --u-e3: 0 18px 44px -10px rgba(0,0,0,.8);
+  --u-text: #F4F6F8; --u-text-2: #A6ADBB; --u-text-3: #7C8493;
+  --u-accent: #6E79F2; --u-accent-hover: #8189F7; --u-accent-solid: #4A56D6; --u-accent-solid-hover: #5A66E6;
+  --u-accent-tint: rgba(110,121,242,.14); --u-accent-ring: rgba(110,121,242,.45);
+  --u-signal: #D4855C; --u-signal-tint: rgba(212,133,92,.12);
+  --u-direct: #3ECF8E; --u-direct-tint: rgba(62,207,142,.12);
+  --u-adjacent: #5AA9FF; --u-adjacent-tint: rgba(90,169,255,.12);
+  --u-inferred: #B07CF5; --u-inferred-tint: rgba(176,124,245,.12);
+  --u-offlimits: #F2626B; --u-offlimits-tint: rgba(242,98,107,.12);
+  --u-chart-1: #6E79F2; --u-chart-2: #3ECF8E; --u-chart-3: #D4855C;
+  --u-chart-4: #B07CF5; --u-chart-5: #4FC3D9; --u-chart-6: #F2626B;
+  --u-seq-1: #1E2440; --u-seq-2: #2E3878; --u-seq-3: #4A56D6; --u-seq-4: #6E79F2; --u-seq-5: #A3A9FA;
+  --u-grid-axis: rgba(255,255,255,.10); --u-grid-line: rgba(255,255,255,.055);
+
+  /* ── back-compat aliases, remapped to the correct UNCAVA role per usage ──
+     kept so the JSX below (which references these names throughout) doesn't
+     need a line-by-line rename; each alias points at the semantically correct
+     new token, not just a recolor of the old one. */
+  --paper: var(--u-bg); --surface: var(--u-surface); --border: var(--u-border); --border-2: var(--u-border-strong);
+  --ink: var(--u-text); --muted: var(--u-text-2); --faint: var(--u-text-3);
+}
+@keyframes pulseRing {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(3.1); opacity: 0; }
+}
+.pulse-ring { fill: none; stroke: var(--u-accent); stroke-width: 2.5; transform-box: fill-box; transform-origin: center;
+  animation: pulseRing 2.4s cubic-bezier(.4,0,.6,1) infinite; }
+.pulse-ring.delay { animation-delay: 1.2s; }
+.pulse-ring.rust { stroke: var(--u-offlimits); }
+.pulse-ring.sage { stroke: var(--u-direct); }
+@keyframes dotPop { from { transform: scale(0.3); } to { transform: scale(1); } }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--u-bg); }
+body { font-family: 'Geist', 'Helvetica Neue', Arial, sans-serif; color: var(--u-text); -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
+.serif { font-family: 'Geist', 'Helvetica Neue', Arial, sans-serif; } /* no serif in UNCAVA — Geist for all UI type */
+.mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+button { font-family: inherit; }
+
+.app { display: flex; min-height: 100vh; }
+
+/* ── sidebar ── */
+.sidebar { width: 258px; flex-shrink: 0; background: var(--u-bg); border-right: 1px solid var(--u-border); padding: 30px 22px; display: flex; flex-direction: column; }
+.brand { display: flex; align-items: baseline; gap: 6px; }
+.brand-name { font: 200 17px/1 'Montserrat', sans-serif; letter-spacing: .32em; margin-right: -.32em; color: var(--u-text); }
+.brand-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--u-accent); }
+.brand-sub { font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--u-text-3); margin-top: 5px; }
+.mandate-pill { display: inline-block; margin-top: 14px; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  background: var(--u-accent-tint); color: var(--u-accent); padding: 5px 10px; border-radius: 5px; }
+
+.nav { margin-top: 26px; display: flex; flex-direction: column; gap: 2px; }
+.nav-item { display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 8px; cursor: default; }
+.nav-item.active { background: var(--u-accent-tint); box-shadow: inset 2px 0 0 var(--u-accent); }
+.nav-badge { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 11px; font-weight: 700; }
+.nav-item.done .nav-badge { background: var(--u-raised); border: 1px solid var(--u-border-strong); color: var(--u-text-2); }
+.nav-item.active .nav-badge { background: var(--u-accent-solid); color: #fff; }
+.nav-item.todo .nav-badge { background: transparent; border: 1.5px solid var(--u-border-strong); color: var(--u-text-3); }
+.nav-label { font-size: 13px; color: var(--u-text); }
+.nav-item.active .nav-label { color: var(--u-text); font-weight: 600; }
+.nav-item.todo .nav-label { color: var(--u-text-3); }
+
+.sidebar-foot { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--u-border); font-size: 11px; color: var(--u-text-3); font-style: italic; line-height: 1.7; }
+
+/* ── main ── */
+.main { flex: 1; min-width: 0; }
+
+.content { max-width: 900px; padding: 34px 40px 100px; }
+
+.eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--u-text-3); }
+.h1 { font-size: 29px; font-weight: 700; letter-spacing: -.01em; margin: 10px 0 0; line-height: 1.25; color: var(--u-text); }
+.lead { font-size: 15.5px; color: var(--u-text-2); line-height: 1.7; margin-top: 14px; max-width: 680px; }
+.lead b { color: var(--u-text); font-weight: 600; }
+
+/* insight banner — elevation carries emphasis on dark, not a colored fill */
+.banner { background: var(--u-raised); border: 1px solid var(--u-border-strong); border-radius: 11px; padding: 20px 24px; margin-top: 26px; }
+.banner-l { font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--u-text-3); margin-bottom: 8px; }
+.banner-t { font-size: 15px; color: var(--u-text); line-height: 1.65; }
+.banner-t b { color: var(--u-accent); font-weight: 700; }
+
+/* KPI row */
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 22px; }
+.kpi-card { border-radius: 10px; padding: 16px 18px; border: 1px solid var(--u-border); background: var(--u-surface); }
+.kpi-card.navy { background: var(--u-raised); border-color: var(--u-border-strong); }
+.kpi-card.white { background: var(--u-surface); }
+.kpi-card.rust { background: var(--u-signal-tint); border-color: color-mix(in srgb, var(--u-signal) 30%, transparent); }
+.kpi-card.sage { background: var(--u-direct-tint); border-color: color-mix(in srgb, var(--u-direct) 30%, transparent); }
+.kpi-l { font-size: 9.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.kpi-card.navy .kpi-l { color: var(--u-text-3); }
+.kpi-card.white .kpi-l { color: var(--u-text-3); }
+.kpi-card.rust .kpi-l { color: var(--u-signal); }
+.kpi-card.sage .kpi-l { color: var(--u-direct); }
+.kpi-v { font-size: 27px; font-weight: 800; margin-top: 8px; letter-spacing: -.01em; font-family: var(--u-font-num); }
+.kpi-card.navy .kpi-v { color: var(--u-accent); }
+.kpi-card.white .kpi-v { color: var(--u-text); }
+.kpi-card.rust .kpi-v { color: var(--u-signal); }
+.kpi-card.sage .kpi-v { color: var(--u-direct); }
+.kpi-v-unit { font-size: 14px; font-weight: 600; opacity: .6; margin-left: 2px; }
+.kpi-sub { font-size: 11px; margin-top: 6px; line-height: 1.5; }
+.kpi-card.navy .kpi-sub { color: var(--u-text-2); }
+.kpi-card.white .kpi-sub { color: var(--u-text-2); }
+.kpi-card.rust .kpi-sub { color: color-mix(in srgb, var(--u-signal) 80%, var(--u-text-2)); }
+.kpi-card.sage .kpi-sub { color: color-mix(in srgb, var(--u-direct) 80%, var(--u-text-2)); }
+
+/* content cards */
+.card { background: var(--u-surface); border: 1px solid var(--u-border); border-radius: 11px; padding: 22px 24px; margin-top: 16px; }
+.card-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 4px; }
+.card-t { font-size: 15px; font-weight: 700; color: var(--u-text); }
+.card-fig { font-size: 12px; color: var(--u-text-3); margin-top: 3px; }
+.card-legend { display: flex; gap: 16px; flex-wrap: wrap; }
+.leg-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--u-text-2); }
+.leg-swatch { width: 15px; height: 2.5px; border-radius: 2px; flex-shrink: 0; }
+.leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* basis toggle — a segmented control's selected option is a legitimate small
+   button, so it's the one place besides the primary CTA that takes accent-solid */
+.toggle-group { display: inline-flex; background: var(--u-bg); border: 1px solid var(--u-border-strong); border-radius: 8px; padding: 3px; gap: 2px; }
+.toggle-opt { font-size: 11.5px; font-weight: 600; padding: 6px 12px; border-radius: 6px; color: var(--u-text-2); cursor: pointer; border: 0; background: transparent; }
+.toggle-opt.on { background: var(--u-accent-solid); color: #fff; }
+.country-select { font-family: inherit; font-size: 11.5px; font-weight: 600; color: var(--u-text); background: var(--u-surface);
+  border: 1px solid var(--u-border-strong); border-radius: 8px; padding: 7px 28px 7px 12px; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23A6ADBB' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat; background-position: right 10px center; }
+.country-select:hover { border-color: var(--u-accent); }
+
+.card-note { margin-top: 14px; padding-top: 13px; border-top: 1px dashed var(--u-border-strong); font-size: 12px; color: var(--u-text-2); line-height: 1.65; font-style: italic; }
+.card-note b { color: var(--u-text); font-style: normal; }
+
+/* velocity bars */
+.vel-chart { display: flex; align-items: flex-end; gap: 12px; height: 160px; margin-top: 20px; padding: 0 4px; }
+.vel-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 7px; }
+.vel-bar-wrap { width: 100%; height: 100%; display: flex; align-items: flex-end; }
+.vel-bar { width: 100%; border-radius: 5px 5px 3px 3px; }
+.vel-n { font-size: 13px; font-weight: 700; }
+.vel-wk { font-size: 10px; color: var(--u-text-3); }
+
+/* generic horizontal bar list — used by DEI (and reusable anywhere else a simple ranked list fits).
+   Bars sit on a sunken track per UNCAVA chart convention (bars start at zero on a sunken track). */
+.bars { display: flex; flex-direction: column; gap: 8px; }
+.bar-row { display: flex; align-items: center; gap: 12px; }
+.bar-l { width: 92px; font-size: 12px; color: var(--u-text-2); flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-track { flex: 1; height: 14px; background: var(--u-sunken); border-radius: 4px; overflow: hidden; }
+.bar-fill { display: block; height: 100%; background: var(--u-border-strong); border-radius: 4px; transition: width .3s; }
+.bar-fill.hot { background: var(--u-accent); }
+.bar-v { width: 34px; text-align: right; font-size: 11.5px; color: var(--u-text-2); flex-shrink: 0; font-family: var(--u-font-num); }
+
+/* nav clickable states */
+.nav-item.clickable { cursor: pointer; }
+.nav-item.clickable:hover { background: var(--u-raised); }
+.nav-item.active.clickable:hover { background: rgba(110,121,242,.22); }
+
+/* heatmap */
+.hm { display: grid; grid-template-columns: 96px repeat(6, 1fr); gap: 5px; }
+.hm-colh { font-size: 9.5px; font-weight: 700; letter-spacing: .04em; color: var(--u-text-3); text-align: center; align-self: end; padding-bottom: 4px; }
+.hm-rowh { font-size: 11px; color: var(--u-text-2); display: flex; align-items: center; font-weight: 600; }
+.hm-cell { border: 0; border-radius: 7px; height: 44px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; transition: transform .1s, box-shadow .1s; font-family: var(--u-font-num); }
+.hm-cell:hover { transform: scale(1.05); box-shadow: 0 0 0 2px var(--u-accent) inset; }
+.map-bub { transition: opacity .12s; transform-box: fill-box; transform-origin: center; }
+.map-bub:hover { opacity: 0.75; }
+.map-bub:hover circle { stroke-width: 1; stroke: var(--u-signal); }
+.hm-cell.empty { background: repeating-linear-gradient(135deg, var(--u-surface) 0 6px, var(--u-bg) 6px 12px);
+  border: 1px dashed var(--border-2); color: var(--faint); font-weight: 400; cursor: pointer; }
+.hm-cell.empty:hover { box-shadow: 0 0 0 2px var(--border-2) inset; transform: none; }
+
+/* stacked bar */
+.stack { display: flex; width: 100%; height: 26px; border-radius: 5px; overflow: hidden; gap: 1.5px; }
+.stack-seg { height: 100%; }
+.stack-legend { display: flex; gap: 16px; margin-top: 10px; flex-wrap: wrap; }
+.stack-leg { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--u-text-2); }
+.stack-leg-dot { width: 9px; height: 9px; border-radius: 2px; }
+.stack-leg b { color: var(--u-text); font-weight: 700; margin-left: 2px; font-family: var(--u-font-num); }
+
+/* drawer — sized to UNCAVA's right detail panel spec (320–700, 384 default) */
+.drawer-scrim { position: fixed; inset: 0; background: var(--u-scrim, rgba(4,5,7,.72)); opacity: 0; pointer-events: none;
+  transition: opacity .2s; z-index: 40; }
+.drawer-scrim.open { opacity: 1; pointer-events: auto; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 384px; max-width: 92vw; background: var(--u-surface);
+  border-left: 1px solid var(--u-border); box-shadow: var(--u-e3, -14px 0 34px rgba(0,0,0,.5)); transform: translateX(100%);
+  transition: transform .24s cubic-bezier(.2,.8,.2,1); z-index: 41; display: flex; flex-direction: column; }
+.drawer.open { transform: translateX(0); }
+.drawer-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 22px 24px; border-bottom: 1px solid var(--u-border); flex-shrink: 0; }
+.drawer-eyebrow { font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--u-text-3); }
+.drawer-title { font-size: 19px; font-weight: 700; margin-top: 5px; color: var(--u-text); }
+.drawer-sub { font-size: 12px; color: var(--u-text-3); margin-top: 3px; }
+.drawer-close { border: 1px solid var(--u-border-strong); background: var(--u-surface); border-radius: 7px; width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center; color: var(--u-text-2); cursor: pointer; flex-shrink: 0; }
+.drawer-close:hover { color: var(--u-text); background: var(--u-raised); }
+.drawer-b { padding: 22px 24px; overflow-y: auto; flex: 1; }
+.drawer-section { margin-bottom: 24px; }
+.drawer-section-l { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--u-text-3); margin-bottom: 10px; }
+.drawer-bar-track { height: 9px; background: var(--u-sunken); border-radius: 5px; overflow: hidden; }
+.drawer-bar-fill { height: 100%; background: var(--u-accent); border-radius: 5px; }
+.drawer-bar-note { font-size: 11px; color: var(--u-text-2); margin-top: 7px; }
+.drawer-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.drawer-kpi { border: 1px solid var(--u-border); border-radius: 9px; padding: 12px; background: var(--u-raised); }
+.drawer-kpi-v { font-size: 19px; font-weight: 800; color: var(--u-text); font-family: var(--u-font-num); }
+.drawer-kpi-l { font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--u-text-3); margin-top: 4px; }
+.drawer-exec-row { display: flex; align-items: center; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--u-border); }
+.drawer-exec-row:last-child { border-bottom: 0; }
+.drawer-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--u-raised); color: var(--u-text-2); display: flex;
+  align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; border: 1px solid var(--u-border-strong); }
+.drawer-exec-name { font-size: 12.5px; font-weight: 600; color: var(--u-text); }
+.drawer-exec-sub { font-size: 10.5px; color: var(--u-text-3); margin-top: 1px; }
+.status-pill { font-size: 9.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; }
+.status-pill.interested { background: var(--u-direct-tint); color: var(--u-direct); }
+.status-pill.passive { background: var(--u-sunken); color: var(--u-text-2); border: 1px solid var(--u-border-strong); }
+.status-pill.verified { background: var(--u-adjacent-tint); color: var(--u-adjacent); }
+.status-pill.offlimits { background: var(--u-offlimits-tint); color: var(--u-offlimits); }
+.drawer-context { background: var(--u-sunken); border-radius: 9px; padding: 14px 16px; }
+.drawer-context-l { font-size: 9.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--u-text-3); margin-bottom: 6px; }
+.drawer-context-t { font-size: 12px; color: var(--u-text-2); line-height: 1.6; }
+.drawer-link { display: inline-flex; align-items: center; gap: 7px; color: var(--u-signal); font-weight: 600; font-size: 13px; cursor: pointer; margin-top: 4px; }
+.drawer-link:hover { text-decoration: underline; }
+.drawer-gap { text-align: center; padding: 40px 10px; }
+.drawer-gap-ic { color: var(--faint); margin-bottom: 14px; }
+.drawer-gap-t { font-weight: 700; font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useRef, useEffect } = React;
+
+/* ─────────────────────────── mock data ───────────────────────────
+   Same mandate and figures as the earlier Mapping Progress mockup —
+   only the visual system changes here, not the underlying numbers.
+   Kickoff Jul 21, original target Sep 1 (6 weeks), data as of Sep 8. */
+
+const KICKOFF = 'Jul 21';
+const TARGET_DATE = 'Sep 1';
+const TARGET_COMPANIES = 42;
+const COMPANIES_CUM = [0, 5, 11, 17, 23, 27, 29, 31];
+
+const CANDIDATES_WEEKLY = [
+  { wk: 'W1', date: 'Jul 28', n: 19 },
+  { wk: 'W2', date: 'Aug 4', n: 24 },
+  { wk: 'W3', date: 'Aug 11', n: 21 },
+  { wk: 'W4', date: 'Aug 18', n: 23 },
+  { wk: 'W5', date: 'Aug 25', n: 14 },
+  { wk: 'W6', date: 'Sep 1', n: 9 },
+  { wk: 'W7', date: 'Sep 8', n: 6 },
+];
+
+// Daily breakdown of the same 7 weeks above — each week's 7 values sum to that
+// week's total exactly (verified separately), so toggling resolution never
+// changes the underlying story, only how finely it's shown. GCC weekend
+// (Fri–Sat) is near-zero every week by design, which is why daily view uses
+// a rolling average rather than flagging individual bars — a flat per-day
+// threshold would falsely flag every single weekend.
+const CANDIDATES_DAILY_BY_WEEK = [
+  [3, 4, 4, 3, 4, 0, 1],
+  [4, 5, 5, 4, 5, 0, 1],
+  [4, 4, 4, 4, 4, 0, 1],
+  [4, 5, 4, 5, 4, 0, 1],
+  [3, 3, 2, 3, 2, 0, 1],
+  [2, 2, 1, 2, 1, 0, 1],
+  [2, 1, 1, 1, 1, 0, 0],
+];
+const DAILY_START = new Date(2026, 6, 22); // Jul 22, 2026 — first full day after kickoff
+function dailySeries() {
+  const flat = CANDIDATES_DAILY_BY_WEEK.flat();
+  return flat.map((n, i) => {
+    const d = new Date(DAILY_START.getTime() + i * 86400000);
+    return { i, n, date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) };
+  });
+}
+const CANDIDATES_DAILY = dailySeries();
+
+const DAYS_SINCE_LAST_COMPANY = 6;
+
+/* ─────────────────────────── computed, not asserted ───────────────────────────
+   Two projection bases, switchable live — this is the point of showing both:
+   the full-mandate average quietly hides a recent slowdown by blending it
+   with faster early weeks, which is exactly the failure mode this section
+   exists to catch. */
+
+function dateFromIndex(idx) {
+  const totalDays = Math.round(idx * 7);
+  const start = new Date(2026, 6, 21); // Jul 21, 2026
+  const d = new Date(start.getTime() + totalDays * 86400000);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function useProjection(basis) {
+  return useMemo(() => {
+    const last = COMPANIES_CUM.length - 1;
+    let pace;
+    if (basis === 'recent') {
+      const deltas = [];
+      for (let i = last - 2; i <= last; i++) deltas.push(COMPANIES_CUM[i] - COMPANIES_CUM[i - 1]);
+      pace = deltas.reduce((a, b) => a + b, 0) / deltas.length;
+    } else {
+      pace = COMPANIES_CUM[last] / last; // full-mandate average
+    }
+    const targetPace = TARGET_COMPANIES / 6;
+    const remaining = TARGET_COMPANIES - COMPANIES_CUM[last];
+    const weeksToGo = remaining / pace;
+    const projectedIndex = last + weeksToGo;
+    const daysLate = Math.round((projectedIndex - 6) * 7);
+    return { last, pace, targetPace, remaining, weeksToGo, projectedIndex, daysLate, projectedDate: dateFromIndex(projectedIndex) };
+  }, [basis]);
+}
+
+function useVelocityStats() {
+  return useMemo(() => {
+    const vals = CANDIDATES_WEEKLY.map(w => w.n);
+    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const avgFirst = vals.slice(0, 4).reduce((a, b) => a + b, 0) / 4;
+    const avgRecent = vals.slice(4).reduce((a, b) => a + b, 0) / 3;
+    const total = vals.reduce((a, b) => a + b, 0);
+    return { avg, avgFirst, avgRecent, total };
+  }, []);
+}
+
+/* ─────────────────────────── primitives ─────────────────────────── */
+
+function Icon({ name, size = 15, color, style }) {
+  const key = name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+  const node = window.lucide?.icons?.[name] || window.lucide?.icons?.[key];
+  if (!node) return null;
+  const kids = (node[2] || []).map(([t, a], i) => React.createElement(t, { key: i, ...a }));
+  return React.createElement('svg', {
+    xmlns: 'http://www.w3.org/2000/svg', width: size, height: size, viewBox: '0 0 24 24',
+    fill: 'none', stroke: color || 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style,
+  }, kids);
+}
+
+/* ─────────────────────────── Chart 1 · Coverage vs. target ─────────────────────────── */
+
+function CoverageChart({ proj }) {
+  const W = 760, H = 280, padL = 40, padR = 20, padT = 30, padB = 36;
+  const xMax = Math.max(proj.projectedIndex + 0.6, 11);
+  const X = i => padL + (i / xMax) * (W - padL - padR);
+  const Y = v => padT + (1 - v / TARGET_COMPANIES) * (H - padT - padB);
+  const last = proj.last;
+  const todayX = X(last), todayY = Y(COMPANIES_CUM[last]);
+
+  const actualPts = COMPANIES_CUM.map((v, i) => `${X(i)},${Y(v)}`).join(' ');
+  const projPts = `${X(last)},${Y(COMPANIES_CUM[last])} ${X(proj.projectedIndex)},${Y(TARGET_COMPANIES)}`;
+  const areaPts = `${X(0)},${Y(0)} ` + COMPANIES_CUM.map((v, i) => `${X(i)},${Y(v)}`).join(' ') + ` ${X(last)},${Y(0)}`;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}>
+      {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (
+        <line key={i} x1={padL} y1={padT + f * (H - padT - padB)} x2={W - padR} y2={padT + f * (H - padT - padB)} stroke="var(--u-grid-line)" strokeWidth="1" />
+      ))}
+      {[0, 21, 42].map(v => (
+        <text key={v} x={padL - 10} y={Y(v) + 3} textAnchor="end" fontSize="10.5" fill="var(--faint)" fontFamily="JetBrains Mono, monospace">{v}</text>
+      ))}
+      {/* slippage band — between original target date and projected completion */}
+      <rect x={X(6)} y={padT} width={X(proj.projectedIndex) - X(6)} height={H - padT - padB} fill="var(--u-offlimits)" opacity="0.08" />
+      <line x1={padL} y1={Y(TARGET_COMPANIES)} x2={W - padR} y2={Y(TARGET_COMPANIES)} stroke="var(--border-2)" strokeWidth="1" strokeDasharray="3 3" />
+      <text x={padL} y={Y(TARGET_COMPANIES) - 8} textAnchor="start" fontSize="10" fontWeight="600" letterSpacing=".04em" fill="var(--faint)">FULL COVERAGE (42)</text>
+      <line x1={X(6)} y1={padT} x2={X(6)} y2={H - padB} stroke="var(--border-2)" strokeWidth="1" strokeDasharray="3 3" />
+      <text x={X(6)} y={padT - 10} textAnchor="middle" fontSize="10" fontWeight="600" letterSpacing=".04em" fill="var(--faint)">TARGET</text>
+      <text x={X(6)} y={padT - 10} dy="11" textAnchor="middle" fontSize="10" fill="var(--faint)">{TARGET_DATE}</text>
+
+      <polygon points={areaPts} fill="var(--u-accent)" opacity="0.13" />
+      <polyline points={actualPts} fill="none" stroke="var(--u-accent)" strokeWidth="1.75" strokeLinejoin="round" strokeLinecap="round" />
+      {COMPANIES_CUM.slice(0, last).map((v, i) => <circle key={i} cx={X(i)} cy={Y(v)} r="2.8" fill="var(--u-accent)" />)}
+
+      <polyline points={projPts} fill="none" stroke="var(--u-offlimits)" strokeWidth="1.75" strokeDasharray="6 4" strokeLinecap="round" />
+      <circle cx={X(proj.projectedIndex)} cy={Y(TARGET_COMPANIES)} r="4.5" fill="var(--u-offlimits)" />
+      <text x={X(proj.projectedIndex)} y={Y(TARGET_COMPANIES) - 20} textAnchor="end" fontSize="10" fontWeight="700" letterSpacing=".04em" fill="var(--u-offlimits)">PROJECTED</text>
+      <text x={X(proj.projectedIndex)} y={Y(TARGET_COMPANIES) - 20} dy="13" textAnchor="end" fontSize="13.5" fontWeight="700" fontFamily="JetBrains Mono, monospace" fill="var(--u-offlimits)">{proj.projectedDate}</text>
+
+      {/* today — pulsing marker, so the reader can find "where we are" at a glance */}
+      <circle className="pulse-ring" cx={todayX} cy={todayY} r="6" />
+      <circle className="pulse-ring delay" cx={todayX} cy={todayY} r="6" />
+      <circle cx={todayX} cy={todayY} r="6.5" fill="var(--u-accent)" stroke="var(--surface)" strokeWidth="2" />
+
+      <text x={todayX} y={H - padB + 18} textAnchor="middle" fontSize="10.5" fontWeight="700" fill="var(--ink)">today</text>
+      <text x={todayX} y={H - padB + 30} textAnchor="middle" fontSize="9.5" fill="var(--faint)">Sep 8</text>
+      <text x={X(0)} y={H - padB + 18} textAnchor="start" fontSize="10.5" fill="var(--faint)">{KICKOFF}</text>
+    </svg>
+  );
+}
+
+/* ─────────────────────────── Chart 2 · Recent momentum ─────────────────────────── */
+
+function VelocityChart({ stats }) {
+  const max = Math.max(...CANDIDATES_WEEKLY.map(w => w.n));
+  return (
+    <div className="vel-chart">
+      {CANDIDATES_WEEKLY.map(w => {
+        const flagged = w.n < stats.avg;
+        const h = Math.max((w.n / max) * 100, 5);
+        return (
+          <div className="vel-col" key={w.wk}>
+            <span className="vel-n mono" style={{ color: flagged ? 'var(--u-offlimits)' : 'var(--u-direct)' }}>{w.n}</span>
+            <div className="vel-bar-wrap">
+              <div className="vel-bar" style={{ height: h + '%', background: flagged ? 'var(--u-offlimits)' : 'var(--u-direct)' }} />
+            </div>
+            <span className="vel-wk mono">{w.date}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Expanding-then-trailing 7-day rolling average — uses whatever history is
+// available for the first 6 days, a true trailing 7-day window from day 7 on.
+function rollingAverage(series, window) {
+  return series.map((d, i) => {
+    const lo = Math.max(0, i - window + 1);
+    const slice = series.slice(lo, i + 1);
+    const avg = slice.reduce((a, b) => a + b.n, 0) / slice.length;
+    return avg;
+  });
+}
+
+function DailyMomentumChart() {
+  const series = CANDIDATES_DAILY;
+  const roll = useMemo(() => rollingAverage(series, 7), []);
+  const W = 760, H = 200, padL = 34, padR = 16, padT = 16, padB = 30;
+  const n = series.length;
+  const yMax = Math.max(...series.map(d => d.n)) + 1;
+  const X = i => padL + (i / (n - 1)) * (W - padL - padR);
+  const barW = ((W - padL - padR) / n) * 0.62;
+  const Y = v => padT + (1 - v / yMax) * (H - padT - padB);
+  const rollPts = roll.map((v, i) => `${X(i)},${Y(v)}`).join(' ');
+  // week-ending label positions, matching CANDIDATES_WEEKLY's 7 markers
+  const weekEndIdx = [6, 13, 20, 27, 34, 41, 48];
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+      {[0, 0.5, 1].map((f, i) => (
+        <line key={i} x1={padL} y1={padT + f * (H - padT - padB)} x2={W - padR} y2={padT + f * (H - padT - padB)} stroke="var(--u-grid-line)" strokeWidth="1" />
+      ))}
+      {[0, yMax].map(v => (
+        <text key={v} x={padL - 8} y={Y(v) + 3} textAnchor="end" fontSize="9.5" fill="var(--faint)" fontFamily="JetBrains Mono, monospace">{v}</text>
+      ))}
+      {series.map((d, i) => (
+        <rect key={i} x={X(i) - barW / 2} y={Y(d.n)} width={barW} height={Math.max(H - padB - Y(d.n), 1)} fill="var(--u-sunken)" rx="1.2" />
+      ))}
+      <polyline points={rollPts} fill="none" stroke="var(--u-accent)" strokeWidth="1.75" strokeLinejoin="round" strokeLinecap="round" />
+      {weekEndIdx.map(i => (
+        <text key={i} x={X(i)} y={H - padB + 16} textAnchor="middle" fontSize="9.5" fill="var(--faint)" fontFamily="JetBrains Mono, monospace">{series[i].date}</text>
+      ))}
+    </svg>
+  );
+}
+
+/* ─────────────────────────── Shape of the Market — data ───────────────────────────
+   Same mandate, same 42-company universe and 116 candidates already established
+   in Mapping Progress — the heatmap, sector bars, and relevance mix below all sum
+   to those exact figures (verified separately), not fresh unrelated numbers. */
+
+const SECT = ['FMCG', 'F&B', 'Retail', 'Agri', 'Food Svc', 'Other'];
+const LVL = ['Board', 'C-Suite', 'N-1', 'N-2'];
+const BUBBLES = [
+  { s: 0, l: 0, n: 3 }, { s: 3, l: 0, n: 2 },
+  { s: 0, l: 1, n: 16 }, { s: 1, l: 1, n: 12 }, { s: 2, l: 1, n: 8 }, { s: 3, l: 1, n: 7 }, { s: 4, l: 1, n: 5 }, { s: 5, l: 1, n: 3 },
+  { s: 0, l: 2, n: 13 }, { s: 1, l: 2, n: 8 }, { s: 2, l: 2, n: 6 }, { s: 3, l: 2, n: 5 }, { s: 4, l: 2, n: 4 }, { s: 5, l: 2, n: 2 },
+  { s: 0, l: 3, n: 11 }, { s: 1, l: 3, n: 6 }, { s: 2, l: 3, n: 5 },
+];
+const SECTORS_BARS = [['FMCG', 14], ['F&B', 9], ['Retail', 7], ['Agri', 6], ['Food Svc', 4], ['Other', 2]];
+// Geography — same relative hub positions as the original prototype's Gulf map, fresh
+// counts tied to this mandate's 116 candidates.
+const GEO_BARS = [
+  { city: 'Dubai', n: 38, x: 80, y: 52 },
+  { city: 'Riyadh', n: 32, x: 46, y: 44 },
+  { city: 'Jeddah', n: 14, x: 27, y: 56 },
+  { city: 'Abu Dhabi', n: 10, x: 66, y: 62 },
+  { city: 'Kuwait City', n: 8, x: 58, y: 21 },
+  { city: 'Sharjah', n: 6, x: 90, y: 36 },
+  { city: 'Cairo', n: 5, x: 11, y: 39 },
+  { city: 'Other', n: 3, x: 60, y: 44 },
+];
+// Per-city drill-in context. Seniority depth is computed from the universe-wide
+// C-Suite/N-1/N-2 ratio applied to each city's total (verified to sum exactly);
+// female%, open-to-move%, comp position and nationals% are illustrative — same
+// discipline as the Shape of the Market cell drawer's gap-view estimates.
+const CITY_CONTEXT = {
+  'Riyadh': { country: 'KSA', female: 30, openToMove: 41, compLabel: 'High', compPct: 82, nationals: 44,
+    depth: { 'C-Suite': 15, 'N-1': 11, 'N-2': 6 }, employers: ['Almarai', 'NADEC'],
+    note: 'Saudization (Nitaqat) tightens the supply of senior local-national leaders — expect a premium for Saudi nationals.' },
+  'Dubai': { country: 'UAE', female: 27, openToMove: 36, compLabel: 'High', compPct: 88, nationals: 9,
+    depth: { 'C-Suite': 17, 'N-1': 13, 'N-2': 8 }, employers: ['Unilever Gulf', 'PepsiCo AMEA'],
+    note: 'Deep, largely expatriate leadership pool; Emiratisation targets apply at UAE-national hiring for board and select roles.' },
+  'Jeddah': { country: 'KSA', female: 29, openToMove: 38, compLabel: 'Above average', compPct: 68, nationals: 40,
+    depth: { 'C-Suite': 6, 'N-1': 5, 'N-2': 3 }, employers: ['Savola Foods', 'Halwani Bros'],
+    note: 'Second-largest Saudi hub — same Nitaqat exposure as Riyadh, slightly thinner bench.' },
+  'Abu Dhabi': { country: 'UAE', female: 26, openToMove: 34, compLabel: 'High', compPct: 84, nationals: 11,
+    depth: { 'C-Suite': 5, 'N-1': 3, 'N-2': 2 }, employers: ['Agthia Group', 'IFFCO'],
+    note: 'Government-adjacent employers here often carry stricter Emiratisation quotas than Dubai private sector.' },
+  'Kuwait City': { country: 'Kuwait', female: 24, openToMove: 33, compLabel: 'Above average', compPct: 64, nationals: 22,
+    depth: { 'C-Suite': 4, 'N-1': 3, 'N-2': 1 }, employers: ['Americana'],
+    note: 'Kuwaitisation quotas are rising for senior roles — local-national hires carry a growing premium.' },
+  'Sharjah': { country: 'UAE', female: 25, openToMove: 31, compLabel: 'Above average', compPct: 70, nationals: 10,
+    depth: { 'C-Suite': 3, 'N-1': 2, 'N-2': 1 }, employers: ['Pinehill Arabia'],
+    note: 'Lower cost base than Dubai; increasingly used for regional back-office and manufacturing leadership.' },
+  'Cairo': { country: 'Egypt', female: 33, openToMove: 46, compLabel: 'Below average', compPct: 38, nationals: 71,
+    depth: { 'C-Suite': 2, 'N-1': 2, 'N-2': 1 }, employers: [],
+    note: 'No nationalization quota and lower comp benchmarks — often a feeder market rather than a destination market.' },
+};
+const RELEVANCE_MIX = [
+  { label: 'Direct', n: 18, color: 'var(--u-direct)' },
+  { label: 'Adjacent', n: 16, color: 'var(--u-adjacent)' },
+  { label: 'AI Inferred', n: 8, color: 'var(--u-inferred)' },
+];
+
+// Per-cell drill data — companies contributing, and a sample of executives.
+const CELL_COMPANIES = {
+  'FMCG|C-Suite': ['Almarai', 'Agthia Group', 'IFFCO', 'Pinehill Arabia'],
+  'FMCG|N-1': ['Almarai', 'Agthia Group', 'IFFCO'],
+  'FMCG|N-2': ['Almarai', 'Pinehill Arabia'],
+  'F&B|C-Suite': ['Savola Group', 'Halwani Bros'],
+  'Retail|C-Suite': ['Panda Retail', 'LuLu Group'],
+};
+const CELL_EXECS = {
+  'FMCG|C-Suite': [
+    { name: 'Rami Khoury', co: 'Almarai', status: 'passive' },
+    { name: 'Sara Fadel', co: 'Agthia Group', status: 'verified' },
+    { name: 'Hassan Noor', co: 'IFFCO', status: 'passive' },
+    { name: 'Tariq Bahar', co: 'Agthia Group', status: 'interested' },
+    { name: 'Khalid Mansour', co: 'Almarai', status: 'offlimits' },
+    { name: 'Yara Kassem', co: 'Pinehill Arabia', status: 'interested' },
+  ],
+};
+const STATUS_LABEL = { interested: 'Interested', passive: 'Passive', verified: 'Verified', offlimits: 'Off-limits' };
+const initials = n => n.split(' ').map(w => w[0]).slice(0, 2).join('');
+
+/* ─────────────────────────── Shape of the Market — chart components ─────────────────────────── */
+
+/* ─────────────────────────── Remuneration — data ───────────────────────────
+   Same mandate. Verified, named, clickable disclosures — a subset of the 116
+   candidates who disclosed compensation during engagement. Each candidate
+   disclosed BOTH total package and total fixed (base only), which is what
+   makes the Package/Fixed toggle honest rather than an estimate. Country is
+   the company's HQ market. All headline figures (percentile, median, above-
+   band count) are computed from this array, not typed by hand — verified
+   separately, including after every edit below, before this was rendered. */
+
+const COMP_BANDS = {
+  pkg: { ourLo: 780, ourHi: 1100, label: 'Total package', unit: 'total comp / yr' },
+  fixed: { ourLo: 560, ourHi: 720, label: 'Total fixed', unit: 'base salary / yr' },
+};
+const COMP_POINTS = [
+  { pkg: 620, fixed: 450, o: 'accepted', name: 'H. Al-Zahrani', co: 'Al Ain Farms', country: 'UAE', nationality: 'Saudi', title: 'VP Finance', note: 'Accepted — smaller-company budget, comp was not a constraint.' },
+  { pkg: 700, fixed: 500, o: 'accepted', name: 'R. Al-Otaibi', co: 'NADEC', country: 'Saudi Arabia', nationality: 'Saudi', title: 'Finance Director', note: 'Accepted within band.' },
+  { pkg: 780, fixed: 550, o: 'accepted', name: 'M. Al-Dossari', co: 'Savola Foods', country: 'Saudi Arabia', nationality: 'Saudi', title: 'CFO', note: 'Accepted at our floor.' },
+  { pkg: 850, fixed: 580, o: 'process', name: 'A. Al-Harbi', co: 'Agthia Group', country: 'UAE', nationality: 'Saudi', title: 'CFO', note: 'In process — within band, reference checks underway.' },
+  { pkg: 920, fixed: 625, o: 'process', name: 'F. Al-Shammari', co: 'IFFCO', country: 'UAE', nationality: 'Kuwaiti', title: 'CFO', note: 'In process — within band.' },
+  { pkg: 980, fixed: 685, o: 'process', name: 'N. Al-Ghamdi', co: 'Almarai', country: 'Saudi Arabia', nationality: 'Saudi', title: 'Regional CFO', note: 'In process — within band, second interview scheduled.' },
+  { pkg: 1100, fixed: 715, o: 'process', name: 'Y. Al-Subaie', co: 'Americana', country: 'Kuwait', nationality: 'Saudi', title: 'CFO', note: 'In process — right at our package ceiling.' },
+  { pkg: 1130, fixed: 770, o: 'declined', name: 'L. Al-Amri', co: 'Panda Retail', country: 'Saudi Arabia', nationality: 'Emirati', title: 'CFO', note: 'Declined — cited compensation as the primary reason.' },
+  { pkg: 1160, fixed: 675, o: 'declined', name: 'T. Al-Rashidi', co: 'Nestlé Middle East', country: 'UAE', nationality: 'Kuwaiti', title: 'CFO', note: 'Declined — priced above our package band, despite a fixed ask close to ours.' },
+  { pkg: 1190, fixed: 665, o: 'process', name: 'D. Al-Anzi', co: 'PepsiCo AMEA', country: 'UAE', nationality: 'Kuwaiti', title: 'Regional CFO', note: 'Still in process despite the package gap — fixed expectations are actually within reach.' },
+  { pkg: 1220, fixed: 670, o: 'declined', name: 'K. Al-Muhanna', co: 'Unilever Gulf', country: 'UAE', nationality: 'Kuwaiti', title: 'CFO', note: 'Declined — the gap is almost entirely in bonus/LTI, not base.' },
+  { pkg: 1250, fixed: 700, o: 'declined', name: 'W. Al-Balawi', co: 'Mondelez MENA', country: 'UAE', nationality: 'Saudi', title: 'CFO', note: 'Declined on total package.' },
+  { pkg: 1300, fixed: 780, o: 'withdrawn', name: 'B. Al-Otaibi', co: 'Coca-Cola MENA', country: 'Qatar', nationality: 'Saudi', title: 'Regional CFO', note: 'Withdrew — accepted a competing offer.' },
+  { pkg: 1340, fixed: 938, o: 'declined', name: 'Z. Al-Harthi', co: 'LuLu Group', country: 'UAE', nationality: 'Omani', title: 'Group CFO', note: 'Declined — significantly over budget on both measures.' },
+  { pkg: 1380, fixed: 800, o: 'declined', name: 'E. Al-Ghamdi', co: 'Bel Group MENA', country: 'Saudi Arabia', nationality: 'Saudi', title: 'Group CFO', note: 'Declined — outside a realistic range for this band.' },
+  { pkg: 1450, fixed: 798, o: 'withdrawn', name: 'P. Al-Rasheed', co: 'Kraft Heinz MENA', country: 'UAE', nationality: 'Emirati', title: 'Group CFO', note: 'Withdrew before interview — comp expectations disclosed upfront.' },
+];
+const COUNTRIES = ['All countries', 'Saudi Arabia', 'UAE', 'Kuwait', 'Qatar'];
+const NATIONALITIES_COMP = ['All nationalities', 'Saudi', 'Kuwaiti', 'Emirati', 'Omani'];
+const OUTCOME_COLOR = { accepted: 'var(--u-direct)', process: 'var(--u-adjacent)', declined: 'var(--u-offlimits)', withdrawn: 'var(--faint)' };
+const OUTCOME_LABEL = { accepted: 'Accepted', process: 'In process', declined: 'Declined', withdrawn: 'Withdrawn' };
+const MIN_N_FOR_PERCENTILE = 5; // below this, show the raw points but don't claim a percentile
+
+// Percentile rank of a value within a sorted numeric array — count-below method,
+// used so "Nth percentile" is computed, not asserted.
+function percentileOf(values, x) {
+  const below = values.filter(v => v < x).length;
+  return Math.round((below / values.length) * 100);
+}
+function medianOf(values) {
+  const s = values.slice().sort((a, b) => a - b);
+  const m = s.length / 2;
+  return s.length % 2 === 0 ? (s[m - 1] + s[m]) / 2 : s[Math.floor(m)];
+}
+
+function useCompStats(compType, country, nationality) {
+  return useMemo(() => {
+    const band = COMP_BANDS[compType];
+    let filtered = country === 'All countries' ? COMP_POINTS : COMP_POINTS.filter(p => p.country === country);
+    filtered = nationality === 'All nationalities' ? filtered : filtered.filter(p => p.nationality === nationality);
+    const values = filtered.map(p => p[compType]);
+    const reliable = filtered.length >= MIN_N_FOR_PERCENTILE;
+    const pct = reliable ? percentileOf(values, band.ourHi) : null;
+    const above = filtered.filter(p => p[compType] > band.ourHi).length;
+    const declined = filtered.filter(p => p.o === 'declined');
+    const declinedAbove = declined.filter(p => p[compType] > band.ourHi).length;
+    const median = values.length ? medianOf(values) : 0;
+    const dataMin = values.length ? Math.min(...values) : band.ourLo;
+    const dataMax = values.length ? Math.max(...values) : band.ourHi;
+    const axisLo = Math.floor((Math.min(dataMin, band.ourLo) - 60) / 50) * 50;
+    const axisHi = Math.ceil((Math.max(dataMax, band.ourHi) + 60) / 50) * 50;
+    return { band, filtered, values, reliable, pct, above, total: filtered.length, declinedTotal: declined.length, declinedAbove, median, axisLo, axisHi };
+  }, [compType, country, nationality]);
+}
+
+// Fixed comparison, independent of whatever the interactive filters above are set
+// to — the largest nationality group in this disclosed set vs. everyone else,
+// on total package. Two buckets only (not all 4 nationalities) because most
+// individual groups here are too thin (n=1-2) to say anything reliable; the
+// largest-vs-rest split is the one comparison both sides clear n≥5 on.
+function useNationalityGap() {
+  return useMemo(() => {
+    const counts = {};
+    COMP_POINTS.forEach(p => { counts[p.nationality] = (counts[p.nationality] || 0) + 1; });
+    const largestNat = Object.keys(counts).reduce((a, b) => (counts[b] > counts[a] ? b : a));
+    const largest = COMP_POINTS.filter(p => p.nationality === largestNat).map(p => p.pkg);
+    const rest = COMP_POINTS.filter(p => p.nationality !== largestNat).map(p => p.pkg);
+    const reliable = largest.length >= MIN_N_FOR_PERCENTILE && rest.length >= MIN_N_FOR_PERCENTILE;
+    const largestMedian = medianOf(largest), restMedian = medianOf(rest);
+    const higherSide = restMedian > largestMedian ? 'rest' : 'largest';
+    const gapPct = Math.round((Math.abs(restMedian - largestMedian) / Math.min(largestMedian, restMedian)) * 100);
+    return { largestNat, largestN: largest.length, restN: rest.length, largestMedian, restMedian, reliable, higherSide, gapPct };
+  }, []);
+}
+
+/* ─────────────────────────── Remuneration — chart + drawer content ─────────────────────────── */
+
+function RemunerationChart({ stats, compType, onDrill }) {
+  const { band, filtered, median, axisLo, axisHi } = stats;
+  const { ourLo, ourHi } = band;
+  const W = 760, H = 172, padL = 20, padR = 20, padT = 34, padB = 48;
+  const X = v => padL + ((v - axisLo) / (axisHi - axisLo)) * (W - padL - padR);
+  const midY = padT + (H - padT - padB) / 2;
+  const plotBottom = H - padB;
+  const row1Y = plotBottom + 18; // band-edge labels
+  const row2Y = plotBottom + 38; // median label — its own row, so it can never collide with row 1
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}>
+      <rect x={X(ourLo)} y={padT - 10} width={X(ourHi) - X(ourLo)} height={plotBottom - (padT - 10)} fill="var(--u-accent)" opacity="0.1" />
+      <rect x={X(ourLo)} y={padT - 10} width={X(ourHi) - X(ourLo)} height={plotBottom - (padT - 10)} fill="none" stroke="var(--u-accent)" strokeWidth="1" strokeDasharray="4 3" opacity="0.5" />
+      <text x={(X(ourLo) + X(ourHi)) / 2} y={padT - 16} textAnchor="middle" fontSize="10" fontWeight="700" letterSpacing=".04em" fill="var(--u-accent)">OUR OFFERED BAND</text>
+
+      {/* band edges, labeled — the two numbers that actually matter, not a generic axis */}
+      <line x1={X(ourLo)} y1={plotBottom} x2={X(ourLo)} y2={plotBottom + 6} stroke="var(--u-accent)" strokeWidth="1" strokeDasharray="2 2" opacity="0.7" />
+      <text x={X(ourLo)} y={row1Y} textAnchor="middle" fontSize="10" fontWeight="700" fill="var(--u-accent)" fontFamily="JetBrains Mono, monospace">${ourLo.toLocaleString()}K</text>
+      <line x1={X(ourHi)} y1={plotBottom} x2={X(ourHi)} y2={plotBottom + 6} stroke="var(--u-accent)" strokeWidth="1" strokeDasharray="2 2" opacity="0.7" />
+      <text x={X(ourHi)} y={row1Y} textAnchor="middle" fontSize="10" fontWeight="700" fill="var(--u-accent)" fontFamily="JetBrains Mono, monospace">${ourHi.toLocaleString()}K</text>
+
+      {filtered.length > 0 && (
+        <React.Fragment>
+          <line x1={X(median)} y1={padT - 4} x2={X(median)} y2={row2Y - 8} stroke="var(--u-offlimits)" strokeWidth="1.4" strokeDasharray="3 3" />
+          <circle className="pulse-ring rust" cx={X(median)} cy={padT - 4} r="5" />
+          <circle className="pulse-ring rust delay" cx={X(median)} cy={padT - 4} r="5" />
+          <circle cx={X(median)} cy={padT - 4} r="5" fill="var(--u-offlimits)" stroke="var(--surface)" strokeWidth="2" />
+          <text x={X(median)} y={row2Y} textAnchor="middle" fontSize="9.5" fontWeight="700" letterSpacing=".03em" fill="var(--u-offlimits)">MEDIAN ${Math.round(median).toLocaleString()}K</text>
+        </React.Fragment>
+      )}
+
+      <line x1={padL} y1={midY} x2={W - padR} y2={midY} stroke="var(--border-2)" strokeWidth="1" />
+      {filtered.map((p, i) => (
+        <circle key={i} cx={X(p[compType])} cy={midY} r="7" fill={OUTCOME_COLOR[p.o]} stroke="var(--surface)" strokeWidth="2"
+          style={{ cursor: 'pointer' }} onClick={() => onDrill({ kind: 'candidate', data: p })}>
+          <title>{`${p.name} · $${p[compType].toLocaleString()}K · ${OUTCOME_LABEL[p.o]}`}</title>
+        </circle>
+      ))}
+      <text x={W - padR} y={padT - 16} textAnchor="end" fontSize="9.5" fill="var(--faint)" fontFamily="JetBrains Mono, monospace">{stats.band.unit}</text>
+    </svg>
+  );
+}
+
+function CandidatePanelContent({ item }) {
+  const c = item.data;
+  const pkgBand = COMP_BANDS.pkg, fixedBand = COMP_BANDS.fixed;
+  const vsBand = (val, band) => val < band.ourLo ? `$${(band.ourLo - val).toLocaleString()}K below floor` : val > band.ourHi ? `$${(val - band.ourHi).toLocaleString()}K above ceiling` : 'within band';
+  return (
+    <React.Fragment>
+      <div className="drawer-section">
+        <div className="drawer-kpis">
+          <DrawerKPI v={`$${c.pkg.toLocaleString()}K`} l="Total package" />
+          <DrawerKPI v={`$${c.fixed.toLocaleString()}K`} l="Total fixed" />
+          <DrawerKPI v={OUTCOME_LABEL[c.o]} l="Status" />
+        </div>
+      </div>
+      <div className="drawer-section">
+        <div className="drawer-section-l">Current placement</div>
+        <div className="drawer-exec-row"><span style={{ fontSize: 12.5 }}>Company</span><b style={{ marginLeft: 'auto', fontSize: 12.5 }}>{c.co}</b></div>
+        <div className="drawer-exec-row"><span style={{ fontSize: 12.5 }}>Title</span><b style={{ marginLeft: 'auto', fontSize: 12.5 }}>{c.title}</b></div>
+        <div className="drawer-exec-row"><span style={{ fontSize: 12.5 }}>Country</span><b style={{ marginLeft: 'auto', fontSize: 12.5 }}>{c.country}</b></div>
+        <div className="drawer-exec-row"><span style={{ fontSize: 12.5 }}>Vs. our package band</span><b style={{ marginLeft: 'auto', fontSize: 12.5 }}>{vsBand(c.pkg, pkgBand)}</b></div>
+        <div className="drawer-exec-row" style={{ borderBottom: 0 }}><span style={{ fontSize: 12.5 }}>Vs. our fixed band</span><b style={{ marginLeft: 'auto', fontSize: 12.5 }}>{vsBand(c.fixed, fixedBand)}</b></div>
+      </div>
+      <div className="drawer-context">
+        <div className="drawer-context-l">Note</div>
+        <div className="drawer-context-t">{c.note}</div>
+      </div>
+    </React.Fragment>
+  );
+}
+
+
+function Heatmap({ onCell }) {
+  const matrix = LVL.map((_, li) => SECT.map((__, si) => (BUBBLES.find(x => x.l === li && x.s === si) || { n: 0 }).n));
+  const max = Math.max(...BUBBLES.map(b => b.n));
+  // Quantities of one thing (heat) use the sequential ramp, not the accent color —
+  // 5 discrete steps matching the palette's --u-seq-1..5 tokens.
+  const seqStep = t => Math.min(4, Math.floor(t * 5));
+  const seqColor = idx => `var(--u-seq-${idx + 1})`;
+  return (
+    <div className="hm">
+      <div />
+      {SECT.map(s => <div key={s} className="hm-colh mono">{s}</div>)}
+      {LVL.map((lv, li) => (
+        <React.Fragment key={lv}>
+          <div className="hm-rowh">{lv}</div>
+          {SECT.map((s, si) => {
+            const v = matrix[li][si]; const t = v / max;
+            const open = () => onCell({ kind: 'cell', sector: s, level: lv, n: v });
+            const idx = seqStep(t);
+            return v === 0
+              ? <button key={si} className="hm-cell empty" onClick={open}>·</button>
+              : <button key={si} className="hm-cell" onClick={open}
+                  style={{ background: seqColor(idx), color: idx >= 3 ? 'var(--u-bg)' : '#fff' }}>{v}</button>;
+          })}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+function RelevanceMix() {
+  const total = RELEVANCE_MIX.reduce((a, s) => a + s.n, 0);
+  return (
+    <div>
+      <div className="stack">
+        {RELEVANCE_MIX.map((s, i) => <div key={i} className="stack-seg" style={{ width: (s.n / total) * 100 + '%', background: s.color }} title={`${s.label} · ${s.n}`} />)}
+      </div>
+      <div className="stack-legend">
+        {RELEVANCE_MIX.map((s, i) => (
+          <span className="stack-leg" key={i}><span className="stack-leg-dot" style={{ background: s.color }} />{s.label}<b className="mono">{s.n}</b></span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────── Shape of the Market — drill-in drawer ─────────────────────────── */
+
+function DrawerKPI({ v, l }) { return <div className="drawer-kpi"><div className="drawer-kpi-v">{v}</div><div className="drawer-kpi-l">{l}</div></div>; }
+
+function CellPanelContent({ item }) {
+  const { sector, level, n } = item;
+  const key = sector + '|' + level;
+  const companies = CELL_COMPANIES[key] || [];
+  const execs = CELL_EXECS[key] || [];
+
+  if (n === 0) {
+    return (
+      <div className="drawer-gap">
+        <div className="drawer-gap-ic"><Icon name="SearchX" size={28} /></div>
+        <div className="drawer-gap-t">No executives identified in this slice yet.</div>
+        <div className="drawer-context" style={{ marginTop: 16, textAlign: 'left' }}>
+          <div className="drawer-context-l">Context</div>
+          <div className="drawer-context-t">{sector} · {level} is in scope but hasn't produced a candidate. Worth a targeted pass on {sector.toLowerCase()} companies at this level before assuming the market is genuinely empty here.</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Estimate remaining market size using the same heuristic as the original prototype.
+  const est = Math.round(n * 1.4) + 1;
+  const covPct = Math.min(Math.round((n / est) * 100), 100);
+  const remaining = Math.max(est - n, 0);
+  const seed = sector.length * 3 + level.length;
+  const compFit = 45 + (seed % 30), female = 22 + (seed % 22), gccNat = 20 + (seed % 25);
+  const interested = execs.filter(e => e.status === 'interested').length || Math.round(n * 0.3);
+  const offlimits = execs.filter(e => e.status === 'offlimits').length || (n > 8 ? 1 : 0);
+  const passive = Math.max(n - interested - offlimits, 0);
+
+  return (
+    <React.Fragment>
+      <div className="drawer-section">
+        <div className="drawer-section-l">Coverage of this pocket</div>
+        <div className="drawer-bar-track"><div className="drawer-bar-fill" style={{ width: covPct + '%' }} /></div>
+        <div className="drawer-bar-note">{covPct}% mapped · {n} / ~{est} · ~{remaining} likely still in market</div>
+      </div>
+      <div className="drawer-section">
+        <div className="drawer-kpis">
+          <DrawerKPI v={compFit + '%'} l="Comp-fit" />
+          <DrawerKPI v={female + '%'} l="Female" />
+          <DrawerKPI v={gccNat + '%'} l="GCC nat." />
+        </div>
+      </div>
+      <div className="drawer-section">
+        <div className="drawer-section-l">Interest in this slice</div>
+        <div className="stack" style={{ height: 22 }}>
+          <div className="stack-seg" style={{ width: (interested / n) * 100 + '%', background: 'var(--u-direct)' }} />
+          <div className="stack-seg" style={{ width: (passive / n) * 100 + '%', background: 'var(--border-2)' }} />
+          <div className="stack-seg" style={{ width: (offlimits / n) * 100 + '%', background: 'var(--u-offlimits)' }} />
+        </div>
+        <div className="stack-legend">
+          <span className="stack-leg"><span className="stack-leg-dot" style={{ background: 'var(--u-direct)' }} />Interested<b className="mono">{interested}</b></span>
+          <span className="stack-leg"><span className="stack-leg-dot" style={{ background: 'var(--border-2)' }} />Passive<b className="mono">{passive}</b></span>
+          <span className="stack-leg"><span className="stack-leg-dot" style={{ background: 'var(--u-offlimits)' }} />Off-limits<b className="mono">{offlimits}</b></span>
+        </div>
+      </div>
+      {execs.length > 0 && (
+        <div className="drawer-section">
+          <div className="drawer-section-l">Executives in this slice</div>
+          {execs.map((e, i) => (
+            <div className="drawer-exec-row" key={i}>
+              <span className="drawer-avatar">{initials(e.name)}</span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span className="drawer-exec-name">{e.name}</span>
+                <div className="drawer-exec-sub">{e.co} · {level}</div>
+              </span>
+              <span className={'status-pill ' + e.status}>{STATUS_LABEL[e.status]}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {companies.length > 0 && (
+        <div className="drawer-section">
+          <div className="drawer-section-l">Companies contributing</div>
+          {companies.map(c => (
+            <div className="drawer-exec-row" key={c}><span style={{ fontSize: 12.5, fontWeight: 600 }}>{c}</span></div>
+          ))}
+        </div>
+      )}
+      <div className="drawer-context">
+        <div className="drawer-context-l">Context</div>
+        <div className="drawer-context-t">{sector} {level} is {n >= 10 ? 'a core, well-covered pocket' : 'a thinner pocket than the FMCG core'}. Comp-competitive for {compFit}% of those mapped.</div>
+      </div>
+      <div className="drawer-link"><Icon name="ArrowRight" size={13} />Open these {n} executives in the table</div>
+    </React.Fragment>
+  );
+}
+
+function DrawerHeader({ item }) {
+  if (item.kind === 'candidate') {
+    const c = item.data;
+    return (
+      <div>
+        <div className="drawer-eyebrow">Verified disclosure</div>
+        <div className="drawer-title">{c.name}</div>
+        <div className="drawer-sub">{c.title} · {c.co}</div>
+      </div>
+    );
+  }
+  if (item.kind === 'city') {
+    const ctx = CITY_CONTEXT[item.city];
+    const share = Math.round((item.n / 116) * 100);
+    return (
+      <div>
+        <div className="drawer-eyebrow">Market</div>
+        <div className="drawer-title">{item.city} <span style={{ color: 'var(--faint)', fontWeight: 500 }}>· {ctx.country}</span></div>
+        <div className="drawer-sub">{item.n} executives · {share}% of mapped talent</div>
+      </div>
+    );
+  }
+  const companiesN = (CELL_COMPANIES[item.sector + '|' + item.level] || []).length;
+  return (
+    <div>
+      <div className="drawer-eyebrow">Market slice</div>
+      <div className="drawer-title">{item.sector} · {item.level}</div>
+      <div className="drawer-sub">{item.n} executive{item.n === 1 ? '' : 's'} mapped{companiesN ? ` · ${companiesN} companies` : ''}</div>
+    </div>
+  );
+}
+
+function CityPanelContent({ item }) {
+  const ctx = CITY_CONTEXT[item.city];
+  const share = Math.round((item.n / 116) * 100);
+  return (
+    <React.Fragment>
+      <div className="drawer-section">
+        <div className="drawer-kpis">
+          <DrawerKPI v={item.n} l="Execs" />
+          <DrawerKPI v={share + '%'} l="Share" />
+          <DrawerKPI v={ctx.female + '%'} l="Female" />
+          <DrawerKPI v={ctx.openToMove + '%'} l="Open to move" />
+        </div>
+      </div>
+      <div className="drawer-section">
+        <div className="drawer-section-l">Market position</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
+          <span style={{ width: 108, fontSize: 11.5, color: 'var(--muted)', flexShrink: 0 }}>Compensation</span>
+          <span style={{ position: 'relative', flex: 1, height: 8, background: 'var(--u-sunken)', borderRadius: 4 }}>
+            <span style={{ display: 'block', height: '100%', width: ctx.compPct + '%', background: 'var(--u-accent)', borderRadius: 4 }} />
+          </span>
+          <span className="mono" style={{ width: 84, textAlign: 'right', fontSize: 10.5, flexShrink: 0 }}>{ctx.compLabel}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ width: 108, fontSize: 11.5, color: 'var(--muted)', flexShrink: 0 }}>Local nationals</span>
+          <span style={{ flex: 1, height: 8, background: 'var(--u-sunken)', borderRadius: 4, overflow: 'hidden' }}>
+            <span style={{ display: 'block', height: '100%', width: ctx.nationals + '%', background: 'var(--border-2)', borderRadius: 4 }} />
+          </span>
+          <span className="mono" style={{ width: 84, textAlign: 'right', fontSize: 11, flexShrink: 0 }}>{ctx.nationals}%</span>
+        </div>
+      </div>
+      <div className="drawer-section">
+        <div className="drawer-section-l">Talent depth by level</div>
+        <div className="stack" style={{ height: 22 }}>
+          {Object.entries(ctx.depth).map(([lv, n], i) => (
+            <div key={lv} className="stack-seg" style={{ width: (n / item.n) * 100 + '%', background: i === 0 ? 'var(--u-accent)' : i === 1 ? 'var(--border-2)' : 'var(--faint)' }} />
+          ))}
+        </div>
+        <div className="stack-legend">
+          {Object.entries(ctx.depth).map(([lv, n]) => (
+            <span className="stack-leg" key={lv}>{lv}<b className="mono">{n}</b></span>
+          ))}
+        </div>
+      </div>
+      {ctx.employers.length > 0 && (
+        <div className="drawer-section">
+          <div className="drawer-section-l">Top employers mapped here</div>
+          {ctx.employers.map(c => <div className="drawer-exec-row" key={c}><span style={{ fontSize: 12.5, fontWeight: 600 }}>{c}</span></div>)}
+        </div>
+      )}
+      <div className="drawer-context">
+        <div className="drawer-context-l">Market note</div>
+        <div className="drawer-context-t">{ctx.note}</div>
+      </div>
+      <div className="drawer-link"><Icon name="ArrowRight" size={13} />Filter the map to {item.city}</div>
+    </React.Fragment>
+  );
+}
+
+function Drawer({ open, item, onClose }) {
+  const content = !item ? null
+    : item.kind === 'candidate' ? <CandidatePanelContent item={item} />
+    : item.kind === 'city' ? <CityPanelContent item={item} />
+    : <CellPanelContent item={item} />;
+  return (
+    <React.Fragment>
+      <div className={'drawer-scrim' + (open ? ' open' : '')} onClick={onClose} />
+      <aside className={'drawer' + (open ? ' open' : '')}>
+        <div className="drawer-h">
+          {item && <DrawerHeader item={item} />}
+          <div className="drawer-close" onClick={onClose}><Icon name="X" size={15} /></div>
+        </div>
+        <div className="drawer-b">{content}</div>
+      </aside>
+    </React.Fragment>
+  );
+}
+
+/* ─────────────────────────── screens ─────────────────────────── */
+
+function MappingProgressScreen() {
+  const [basis, setBasis] = useState('recent');
+  const [momentumView, setMomentumView] = useState('weeks');
+  const proj = useProjection(basis);
+  const vel = useVelocityStats();
+  const pct = Math.round((COMPANIES_CUM[proj.last] / TARGET_COMPANIES) * 100);
+
+  return (
+    <React.Fragment>
+      <div className="eyebrow">Screen 1 · Progress</div>
+      <h1 className="h1 serif">Are we going to hit the deadline?</h1>
+      <div className="lead">Coverage against the scoped universe, weekly research momentum, and a completion date <b>projected from actual recent pace</b> — not the original plan.</div>
+
+      <div className="banner">
+        <div className="banner-l">At the current pace</div>
+        <div className="banner-t">
+          Weekly pace has fallen from <b>~{Math.round(vel.avgFirst)}/week</b> in the first month to <b>~{Math.round(vel.avgRecent)}/week</b> recently.
+          At <b>{proj.pace.toFixed(1)} companies/week</b> against the <b>{proj.targetPace.toFixed(1)}/week</b> originally needed,
+          the remaining <b>{proj.remaining} companies</b> won't clear until <b>{proj.projectedDate}</b> — <b>{proj.daysLate} days</b> behind the {TARGET_DATE} target.
+        </div>
+      </div>
+
+      <div className="kpi-row">
+        <div className="kpi-card navy">
+          <div className="kpi-l">Companies mapped</div>
+          <div className="kpi-v">31<span className="kpi-v-unit">/42</span></div>
+          <div className="kpi-sub">{pct}% of scoped universe</div>
+        </div>
+        <div className="kpi-card white">
+          <div className="kpi-l">Candidates identified</div>
+          <div className="kpi-v">{vel.total}</div>
+          <div className="kpi-sub">across 7 weeks</div>
+        </div>
+        <div className="kpi-card rust">
+          <div className="kpi-l">Recent pace</div>
+          <div className="kpi-v">{proj.pace.toFixed(1)}<span className="kpi-v-unit">/wk</span></div>
+          <div className="kpi-sub">vs {proj.targetPace.toFixed(1)}/wk needed</div>
+        </div>
+        <div className="kpi-card rust">
+          <div className="kpi-l">Since last new company</div>
+          <div className="kpi-v">{DAYS_SINCE_LAST_COMPANY}<span className="kpi-v-unit">d</span></div>
+          <div className="kpi-sub">longest gap this mandate</div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-h">
+          <div>
+            <div className="card-t serif">Coverage vs. target</div>
+            <div className="card-fig">cumulative companies mapped · {KICKOFF} – projected {proj.projectedDate}</div>
+          </div>
+          <div className="toggle-group">
+            <button className={'toggle-opt' + (basis === 'recent' ? ' on' : '')} onClick={() => setBasis('recent')}>Last 3 weeks</button>
+            <button className={'toggle-opt' + (basis === 'full' ? ' on' : '')} onClick={() => setBasis('full')}>Full-mandate avg</button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 16, marginTop: 10, marginBottom: 4 }}>
+          <span className="leg-item"><span className="leg-swatch" style={{ background: 'var(--u-accent)' }} />Actual</span>
+          <span className="leg-item"><span className="leg-swatch" style={{ background: 'var(--u-offlimits)', backgroundImage: 'repeating-linear-gradient(90deg, var(--u-offlimits) 0 4px, transparent 4px 7px)' }} />Projected</span>
+          <span className="leg-item"><span className="leg-swatch" style={{ background: 'var(--border-2)' }} />Target</span>
+        </div>
+        <CoverageChart proj={proj} />
+        <div className="card-note">
+          {basis === 'recent'
+            ? <span>Using the average pace of the <b>last 3 weeks</b> ({proj.pace.toFixed(1)}/wk). A slowdown this recent would be masked by blending it with the faster early weeks — toggle to "Full-mandate avg" to see how much difference that makes.</span>
+            : <span>Using the <b>full-mandate average</b> pace ({proj.pace.toFixed(1)}/wk) — this blends in the faster early weeks and understates how much the last 3 weeks have actually slowed. "Last 3 weeks" is the more honest basis for a live decision.</span>}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-h">
+          <div>
+            <div className="card-t serif">Recent momentum</div>
+            <div className="card-fig">candidates identified {momentumView === 'weeks' ? 'per week' : 'per day'} — not cumulative</div>
+          </div>
+          <div className="toggle-group">
+            <button className={'toggle-opt' + (momentumView === 'weeks' ? ' on' : '')} onClick={() => setMomentumView('weeks')}>Weeks</button>
+            <button className={'toggle-opt' + (momentumView === 'days' ? ' on' : '')} onClick={() => setMomentumView('days')}>Days</button>
+          </div>
+        </div>
+        {momentumView === 'weeks' ? (
+          <div className="card-legend" style={{ marginTop: 10, marginBottom: 4 }}>
+            <span className="leg-item"><span className="leg-dot" style={{ background: 'var(--u-direct)' }} />At or above average</span>
+            <span className="leg-item"><span className="leg-dot" style={{ background: 'var(--u-offlimits)' }} />Below average ({Math.round(vel.avg)}/wk)</span>
+          </div>
+        ) : (
+          <div className="card-legend" style={{ marginTop: 10, marginBottom: 4 }}>
+            <span className="leg-item"><span className="leg-dot" style={{ background: 'var(--u-sunken)', border: '1px solid var(--border-2)' }} />Daily count</span>
+            <span className="leg-item"><span className="leg-swatch" style={{ background: 'var(--u-accent)' }} />7-day rolling average</span>
+          </div>
+        )}
+        {momentumView === 'weeks' ? <VelocityChart stats={vel} /> : <DailyMomentumChart />}
+        <div className="card-note">
+          {momentumView === 'weeks'
+            ? <span>A cumulative chart would still be climbing and look healthy right now. This view is why the slowdown was caught <b>before</b> it cost a missed company milestone.</span>
+            : <span>Daily counts are noisy on their own — the GCC weekend (Fri–Sat) shows near-zero every week by design, not as a signal. The <b>7-day rolling average</b> line is what actually shows the trend, and it's still visibly falling through late August.</span>}
+        </div>
+      </div>
+    </React.Fragment>
+  );
+}
+
+// Abstract Gulf-region shape — same coastline path as the original prototype's GulfMap,
+// restyled here. Not a real map; city positions are relative, not geographically precise.
+function TalentMap({ onCity }) {
+  const cities = GEO_BARS.filter(c => c.city !== 'Other');
+  const max = Math.max(...cities.map(c => c.n));
+  const seqStep = t => Math.min(4, Math.floor(t * 5));
+  return (
+    <div style={{ position: 'relative', width: '100%', paddingBottom: '62%', borderRadius: 10, overflow: 'hidden', background: 'var(--u-sunken)' }}>
+      <svg viewBox="0 0 100 70" preserveAspectRatio="xMidYMid meet" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+        <path d="M8,30 Q14,22 24,26 Q30,20 40,24 L46,20 Q52,26 50,34 Q58,30 64,34 Q72,28 82,32 Q90,36 86,46 Q80,58 68,58 Q58,64 48,58 Q38,64 30,56 Q18,58 12,48 Q6,40 8,30 Z"
+          fill="var(--border)" stroke="var(--border-2)" strokeWidth="0.4" />
+        {cities.map((c, i) => {
+          const d = 4.5 + Math.sqrt(c.n / max) * 10;
+          const idx = seqStep(c.n / max);
+          return (
+            <g key={c.city} className="map-bub" style={{ cursor: 'pointer' }}
+              onClick={() => onCity({ kind: 'city', city: c.city, n: c.n })}>
+              <circle cx={c.x} cy={c.y} r={d} fill={`var(--u-seq-${idx + 1})`} stroke="var(--u-accent)" strokeWidth="0.5" opacity="0.9" />
+              <text x={c.x} y={c.y + 1.4} textAnchor="middle" fontSize={d > 6 ? 4.2 : 3.4} fontWeight="700" fill={idx >= 3 ? 'var(--u-bg)' : '#fff'} fontFamily="JetBrains Mono, monospace">{c.n}</text>
+              <title>{`${c.city} · ${c.n} executives · click for detail`}</title>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+function ShapeOfMarketScreen({ onDrill }) {
+  const geoTotal = GEO_BARS.reduce((a, c) => a + c.n, 0);
+  const geoTop3 = GEO_BARS.slice(0, 3);
+  const geoTop3Pct = Math.round((geoTop3.reduce((a, c) => a + c.n, 0) / geoTotal) * 100);
+
+  return (
+    <React.Fragment>
+      <div className="eyebrow">Screen 2 · Market</div>
+      <h1 className="h1 serif">Where does the universe actually sit?</h1>
+      <div className="lead"><b>FMCG dominates</b> the universe and seniority is healthy at C-Suite and N-1 — but <b>Board is thin</b>, and three sectors have no Board-level candidate mapped at all.</div>
+
+      <div className="kpi-row">
+        <div className="kpi-card navy">
+          <div className="kpi-l">Deepest pocket</div>
+          <div className="kpi-v">16</div>
+          <div className="kpi-sub">FMCG · C-Suite</div>
+        </div>
+        <div className="kpi-card white">
+          <div className="kpi-l">Empty cells</div>
+          <div className="kpi-v">7<span className="kpi-v-unit">/24</span></div>
+          <div className="kpi-sub">sector × seniority pairs</div>
+        </div>
+        <div className="kpi-card rust">
+          <div className="kpi-l">Board-level total</div>
+          <div className="kpi-v">5</div>
+          <div className="kpi-sub">across all 6 sectors</div>
+        </div>
+        <div className="kpi-card sage">
+          <div className="kpi-l">Direct relevance</div>
+          <div className="kpi-v">18<span className="kpi-v-unit">/42</span></div>
+          <div className="kpi-sub">43% of the universe</div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-h">
+          <div>
+            <div className="card-t serif">Sector × seniority</div>
+            <div className="card-fig">116 candidates mapped · hatched = no candidate identified yet · click a cell for detail</div>
+          </div>
+        </div>
+        <Heatmap onCell={onDrill} />
+      </div>
+
+      <div className="card">
+        <div className="card-h">
+          <div>
+            <div className="card-t serif">Where talent sits</div>
+            <div className="card-fig">geographic concentration · {geoTotal} candidates mapped across {GEO_BARS.length} hubs</div>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 24, alignItems: 'center' }}>
+          <TalentMap onCity={onDrill} />
+          <div className="bars">
+            {GEO_BARS.map((c, i) => (
+              <div className="bar-row" key={c.city}>
+                <span className="bar-l">{c.city}</span>
+                <span className="bar-track"><span className={'bar-fill' + (i === 0 ? ' hot' : '')} style={{ width: Math.max((c.n / GEO_BARS[0].n) * 100, 3) + '%' }} /></span>
+                <span className="bar-v mono">{c.n}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="card-note">{geoTop3Pct}% of mapped talent sits in just three hubs — {geoTop3.map(c => c.city).join(', ')}. Efficient to work, but thin coverage outside the core hubs is a blind spot worth closing.</div>
+      </div>
+
+      <div className="card">
+        <div className="card-h">
+          <div>
+            <div className="card-t serif">Companies by sector</div>
+            <div className="card-fig">target universe, n=42</div>
+          </div>
+        </div>
+        <div className="vel-chart" style={{ height: 'auto', gap: 0, flexDirection: 'column', alignItems: 'stretch' }}>
+          {SECTORS_BARS.map(([label, val], i) => {
+            const max = Math.max(...SECTORS_BARS.map(d => d[1]));
+            return (
+              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 0' }}>
+                <span style={{ width: 92, fontSize: 12, color: 'var(--muted)', flexShrink: 0 }}>{label}</span>
+                <div style={{ flex: 1, height: 14, background: 'var(--u-sunken)', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{ width: (val / max) * 100 + '%', height: '100%', background: i === 0 ? 'var(--u-accent)' : 'var(--border-2)', borderRadius: 4 }} />
+                </div>
+                <span className="mono" style={{ width: 22, textAlign: 'right', fontSize: 11.5, color: 'var(--muted)', flexShrink: 0 }}>{val}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-h">
+          <div>
+            <div className="card-t serif">Relevance mix</div>
+            <div className="card-fig">how directly each mapped company competes for this mandate</div>
+          </div>
+        </div>
+        <RelevanceMix />
+        <div className="card-note">AI Inferred adjacencies carry the lowest confidence of the three relevance tiers shown here.</div>
+      </div>
+    </React.Fragment>
+  );
+}
+
+/* ─────────────────────────── Diversity & DEI — data ───────────────────────────
+   Same mandate, same 116-candidate universe already established (Board 5 /
+   C-Suite 51 / N-1 38 / N-2 22, matching Shape of the Market exactly). Gender
+   is aggregate-only by design — no individual is named or identifiable here.
+   Nationality is shown at full breakdown since it's a genuine GCC compliance
+   question (Nitaqat/Emiratisation-style requirements), not a sensitive one. */
+
+const LEVELS_DEI = ['Board', 'C-Suite', 'N-1', 'N-2'];
+const GENDER_BY_LEVEL = { Board: 1, 'C-Suite': 14, 'N-1': 13, 'N-2': 9 }; // female count per level
+const NAT_LEVEL_MATRIX = {
+  Saudi: { Board: 2, 'C-Suite': 14, 'N-1': 9, 'N-2': 5 },
+  Emirati: { Board: 1, 'C-Suite': 9, 'N-1': 6, 'N-2': 3 },
+  Egyptian: { Board: 1, 'C-Suite': 8, 'N-1': 6, 'N-2': 4 },
+  Lebanese: { Board: 1, 'C-Suite': 7, 'N-1': 5, 'N-2': 3 },
+  Indian: { Board: 0, 'C-Suite': 6, 'N-1': 5, 'N-2': 3 },
+  British: { Board: 0, 'C-Suite': 4, 'N-1': 3, 'N-2': 2 },
+  Other: { Board: 0, 'C-Suite': 3, 'N-1': 4, 'N-2': 2 },
+};
+const NATIONALITIES = Object.keys(NAT_LEVEL_MATRIX);
+const GCC_NATIONALITIES = ['Saudi', 'Emirati'];
+const NAT_FILTER_OPTIONS = ['GCC nationals', 'All nationalities', ...NATIONALITIES];
+const LEVEL_FILTER_OPTIONS = ['All levels', ...LEVELS_DEI];
+
+function useDEIStats(natFilter, levelFilter) {
+  return useMemo(() => {
+    const levelTotals = {};
+    LEVELS_DEI.forEach(l => { levelTotals[l] = NATIONALITIES.reduce((a, n) => a + NAT_LEVEL_MATRIX[n][l], 0); });
+    const universeTotal = Object.values(levelTotals).reduce((a, b) => a + b, 0);
+
+    const natTotals = {};
+    NATIONALITIES.forEach(n => { natTotals[n] = LEVELS_DEI.reduce((a, l) => a + NAT_LEVEL_MATRIX[n][l], 0); });
+
+    const gccTotal = GCC_NATIONALITIES.reduce((a, n) => a + natTotals[n], 0);
+    const femaleTotal = Object.values(GENDER_BY_LEVEL).reduce((a, b) => a + b, 0);
+
+    // Composition facts — what actually answers "what does the mix look like",
+    // without presuming any one nationality is the one a client cares about.
+    const nationalityCount = NATIONALITIES.filter(n => natTotals[n] > 0).length;
+    const largestNat = NATIONALITIES.reduce((a, b) => (natTotals[b] > natTotals[a] ? b : a));
+    const largestPct = Math.round((natTotals[largestNat] / universeTotal) * 100);
+
+    // The one gender pattern worth leading with — thins toward the top, the
+    // standard finding almost every DEI benchmark reports.
+    const femalePctByLevel = LEVELS_DEI.map(l => Math.round((GENDER_BY_LEVEL[l] / levelTotals[l]) * 100));
+    const thinLevel = LEVELS_DEI[femalePctByLevel.indexOf(Math.min(...femalePctByLevel))];
+    const thinPct = Math.min(...femalePctByLevel);
+
+    // Feasibility checker — resolves the selected nationality + level into a count.
+    const natKeys = natFilter === 'All nationalities' ? NATIONALITIES : natFilter === 'GCC nationals' ? GCC_NATIONALITIES : [natFilter];
+    const levelKeys = levelFilter === 'All levels' ? LEVELS_DEI : [levelFilter];
+    const qualifying = natKeys.reduce((a, n) => a + levelKeys.reduce((b, l) => b + NAT_LEVEL_MATRIX[n][l], 0), 0);
+    const denom = levelFilter === 'All levels' ? universeTotal : levelTotals[levelFilter];
+    const byLevelForNat = LEVELS_DEI.map(l => natKeys.reduce((a, n) => a + NAT_LEVEL_MATRIX[n][l], 0));
+
+    return {
+      levelTotals, universeTotal, natTotals, gccTotal, femaleTotal,
+      nationalityCount, largestNat, largestPct, thinLevel, thinPct,
+      qualifying, denom, byLevelForNat,
+    };
+  }, [natFilter, levelFilter]);
+}
+
+/* ─────────────────────────── Diversity & DEI — screen ─────────────────────────── */
+
+/* ─────────────────────────── Diversity & DEI — richer chart components ─────────────────────────── */
+
+// Population-pyramid style: bar LENGTH is scaled to actual headcount at that level (not
+// just %), which a flat percentage bar hides — Board's 20% female is 1 of only 5 people,
+// a very different statistical weight than N-2's 41% of 22, and this makes that visible.
+// Animates a number from its previous value to a new one whenever the target changes —
+// used so the feasibility checker's numbers visibly count up/down when a filter changes,
+// instead of snapping, which is what actually makes the interaction feel like cause-effect.
+function useCountUp(target, duration = 500) {
+  const [display, setDisplay] = useState(target);
+  const prevRef = useRef(target);
+  useEffect(() => {
+    const from = prevRef.current, to = target;
+    if (from === to) { setDisplay(to); return; }
+    let startTime = null, raf;
+    const step = ts => {
+      if (startTime === null) startTime = ts;
+      const progress = Math.min((ts - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(from + (to - from) * eased);
+      if (progress < 1) raf = requestAnimationFrame(step);
+      else prevRef.current = to;
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return display;
+}
+
+
+function GenderPyramid({ stats }) {
+  const W = 720, rowH = 58, padTop = 22;
+  const rows = LEVELS_DEI.map(l => {
+    const total = stats.levelTotals[l];
+    const female = GENDER_BY_LEVEL[l];
+    return { l, total, female, male: total - female, pct: Math.round((female / total) * 100) };
+  });
+  const H = padTop + rows.length * rowH + 6;
+  const centerX = W / 2;
+  const halfW = W / 2 - 80;
+  const maxVal = Math.max(...rows.flatMap(r => [r.female, r.male]));
+  const scale = v => (v / maxVal) * halfW;
+  const barH = 22;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+      <text x={centerX - 10} y={14} textAnchor="end" fontSize="10" fontWeight="700" letterSpacing=".06em" fill="var(--u-accent)">FEMALE</text>
+      <text x={centerX + 10} y={14} textAnchor="start" fontSize="10" fontWeight="700" letterSpacing=".06em" fill="var(--faint)">MALE</text>
+      <line x1={centerX} y1={20} x2={centerX} y2={H - 4} stroke="var(--border-2)" strokeWidth="1" strokeDasharray="2 3" />
+      {rows.map((r, i) => {
+        const rowTop = padTop + i * rowH;
+        const barY = rowTop + 16;
+        const fw = scale(r.female), mw = scale(r.male);
+        return (
+          <g key={r.l}>
+            <text x={centerX} y={rowTop + 10} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--ink)">{r.l}</text>
+            <rect x={centerX - fw} y={barY} width={fw} height={barH} rx="4" fill="var(--u-accent)" />
+            <rect x={centerX} y={barY} width={mw} height={barH} rx="4" fill="var(--border-2)" />
+            <text x={centerX - fw - 8} y={barY + barH / 2 + 4} textAnchor="end" fontSize="11" fontWeight="700" fill="var(--u-accent)">{r.female}</text>
+            <text x={centerX + mw + 8} y={barY + barH / 2 + 4} textAnchor="start" fontSize="11" fontWeight="700" fill="var(--muted)">{r.male}</text>
+            <text x={centerX} y={barY + barH + 14} textAnchor="middle" fontSize="9.5" fontWeight="600" fill="var(--u-accent)">{r.pct}% female</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+const NAT_COLOR = {
+  Saudi: 'var(--u-chart-1)', Emirati: 'var(--u-chart-2)', Egyptian: 'var(--u-chart-3)',
+  Lebanese: 'var(--u-chart-4)', Indian: 'var(--u-chart-5)', British: 'var(--u-chart-6)', Other: 'var(--faint)',
+};
+
+// Donut, built via the standard stroke-dasharray/dashoffset technique (no path-arc math
+// needed). GCC nationalities get the two bold colors; everything else is grayscale, so
+// color itself carries the GCC/non-GCC distinction this section exists to answer.
+function NationalityDonut({ stats }) {
+  const size = 200, r = 66, thickness = 28, cx = size / 2, cy = size / 2;
+  const circumference = 2 * Math.PI * r;
+  let cumulative = 0;
+  const segs = NATIONALITIES.map(n => {
+    const val = stats.natTotals[n];
+    const dash = (val / stats.universeTotal) * circumference;
+    const seg = { n, val, dash, offset: -cumulative };
+    cumulative += dash;
+    return seg;
+  });
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 30, flexWrap: 'wrap' }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
+        <g transform={`rotate(-90 ${cx} ${cy})`}>
+          {segs.map(s => (
+            <circle key={s.n} cx={cx} cy={cy} r={r} fill="none" stroke={NAT_COLOR[s.n]} strokeWidth={thickness}
+              strokeDasharray={`${s.dash} ${circumference - s.dash}`} strokeDashoffset={s.offset} />
+          ))}
+        </g>
+        <text x={cx} y={cy - 3} textAnchor="middle" fontSize="25" fontWeight="800" fill="var(--ink)">{stats.largestPct}%</text>
+        <text x={cx} y={cy + 16} textAnchor="middle" fontSize="9" fontWeight="700" letterSpacing=".05em" fill="var(--faint)">{stats.largestNat.toUpperCase()}</text>
+      </svg>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 190 }}>
+        {NATIONALITIES.map(n => (
+          <div key={n} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 12.5 }}>
+            <span style={{ width: 11, height: 11, borderRadius: 3, background: NAT_COLOR[n], flexShrink: 0 }} />
+            <span style={{ color: 'var(--muted)', flex: 1 }}>{n}</span>
+            <span className="mono" style={{ fontWeight: 700 }}>{stats.natTotals[n]}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Dot-grid / pictogram — one square per matching candidate, grouped by level. Countable
+// rather than abstract: "14 of 51 at C-Suite" becomes 14 visible squares, not a bar you
+// have to measure by eye. Callback to the original prototype's coverage-dots idea.
+function NatLevelDots({ byLevel, levels, activeLevel }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {levels.map((l, i) => {
+        const n = byLevel[i];
+        const hot = activeLevel === 'All levels' || activeLevel === l;
+        return (
+          <div key={l}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 7 }}>
+              <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>{l}</span>
+              <span className="mono" style={{ fontSize: 11, color: 'var(--ink)', fontWeight: 700 }}>{n}</span>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, minHeight: 14 }}>
+              {n === 0
+                ? <span style={{ fontSize: 10.5, color: 'var(--faint)', fontStyle: 'italic' }}>none mapped</span>
+                : Array.from({ length: n }).map((_, j) => (
+                    <span key={l + '-' + j + '-' + n} style={{ width: 11, height: 11, borderRadius: 3, background: hot ? 'var(--u-accent)' : 'var(--border-2)', opacity: hot ? 1 : 0.6, animation: `dotPop .28s ease ${Math.min(j * 12, 300)}ms both` }} />
+                  ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DEIScreen() {
+  const [natFilter, setNatFilter] = useState('All nationalities');
+  const [levelFilter, setLevelFilter] = useState('All levels');
+  const stats = useDEIStats(natFilter, levelFilter);
+  const femalePct = Math.round((stats.femaleTotal / stats.universeTotal) * 100);
+  const gccPct = Math.round((stats.gccTotal / stats.universeTotal) * 100);
+  const animQualifying = useCountUp(stats.qualifying);
+  const animShare = useCountUp(stats.denom ? Math.round((stats.qualifying / stats.denom) * 100) : 0);
+
+  return (
+    <React.Fragment>
+      <div className="eyebrow">Screen 4 · Diversity</div>
+      <h1 className="h1 serif">What does the mapped talent pool actually look like?</h1>
+      <div className="lead">Gender is shown <b>aggregate-only</b> — no individual is identifiable. Nationality is shown at full breakdown — it's public, objective data with real regulatory relevance in the GCC, not because any one nationality is the target.</div>
+
+      <div className="banner">
+        <div className="banner-l">At these settings</div>
+        <div className="banner-t">
+          Female representation thins from <b>{Math.round((GENDER_BY_LEVEL['N-2'] / stats.levelTotals['N-2']) * 100)}% at N-2</b> to just <b>{stats.thinPct}% at {stats.thinLevel}</b> —
+          the pipeline pattern almost every DEI benchmark expects to see. Nationality is more evenly spread: <b>{stats.nationalityCount} nationalities</b> are represented,
+          with <b>{stats.largestNat} the largest single group at {stats.largestPct}%</b> — no nationality holds a majority.
+        </div>
+      </div>
+
+      <div className="kpi-row">
+        <div className="kpi-card navy">
+          <div className="kpi-l">Female, overall</div>
+          <div className="kpi-v">{femalePct}<span className="kpi-v-unit">%</span></div>
+          <div className="kpi-sub">{stats.femaleTotal} of {stats.universeTotal} candidates</div>
+        </div>
+        <div className="kpi-card rust">
+          <div className="kpi-l">Female — {stats.thinLevel}</div>
+          <div className="kpi-v">{stats.thinPct}<span className="kpi-v-unit">%</span></div>
+          <div className="kpi-sub">the thinnest level</div>
+        </div>
+        <div className="kpi-card white">
+          <div className="kpi-l">Nationalities represented</div>
+          <div className="kpi-v">{stats.nationalityCount}</div>
+          <div className="kpi-sub">largest: {stats.largestNat} ({stats.largestPct}%)</div>
+        </div>
+        <div className="kpi-card sage">
+          <div className="kpi-l">GCC nationals, overall</div>
+          <div className="kpi-v">{gccPct}<span className="kpi-v-unit">%</span></div>
+          <div className="kpi-sub">{stats.gccTotal} of {stats.universeTotal} candidates</div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-h">
+          <div>
+            <div className="card-t serif">Nationality feasibility checker</div>
+            <div className="card-fig">how many mapped candidates actually qualify against a nationality requirement</div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <select className="country-select" value={natFilter} onChange={e => setNatFilter(e.target.value)}>
+              {NAT_FILTER_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+            <select className="country-select" value={levelFilter} onChange={e => setLevelFilter(e.target.value)}>
+              {LEVEL_FILTER_OPTIONS.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="kpi-row" style={{ marginTop: 14, gridTemplateColumns: '1fr 1fr' }}>
+          <div className="kpi-card navy">
+            <div className="kpi-l">Qualifying candidates</div>
+            <div className="kpi-v">{Math.round(animQualifying)}<span className="kpi-v-unit">/{stats.denom}</span></div>
+            <div className="kpi-sub">{natFilter}{levelFilter !== 'All levels' ? ` · ${levelFilter}` : ' · all levels'}</div>
+          </div>
+          <div className="kpi-card white">
+            <div className="kpi-l">Share of this scope</div>
+            <div className="kpi-v">{Math.round(animShare)}<span className="kpi-v-unit">%</span></div>
+            <div className="kpi-sub">of {levelFilter === 'All levels' ? 'the full universe' : `${levelFilter} candidates`}</div>
+          </div>
+        </div>
+        <div style={{ marginTop: 20 }}>
+          <div className="card-fig" style={{ marginBottom: 12 }}>{natFilter} — where they sit by level · one square per candidate</div>
+          <NatLevelDots byLevel={stats.byLevelForNat} levels={LEVELS_DEI} activeLevel={levelFilter} />
+        </div>
+        <div className="card-note">A client requiring "{natFilter === 'GCC nationals' ? 'a GCC national' : natFilter === 'All nationalities' ? 'any nationality' : `a ${natFilter} national`}" at {levelFilter === 'All levels' ? 'any level' : levelFilter} can realistically draw from <b>{stats.qualifying}</b> of the {stats.denom} candidates mapped in that scope.</div>
+      </div>
+
+      <div className="card">
+        <div className="card-h">
+          <div>
+            <div className="card-t serif">Nationality mix</div>
+            <div className="card-fig">full breakdown, n={stats.universeTotal}</div>
+          </div>
+        </div>
+        <NationalityDonut stats={stats} />
+        <div className="card-note">{stats.nationalityCount} nationalities represented, no single group a majority. GCC nationals (Saudi, Emirati combined) are {stats.gccTotal} of {stats.universeTotal} candidates ({gccPct}%) — a fact worth knowing, not the lens this view leads with.</div>
+      </div>
+
+      <div className="card">
+        <div className="card-h">
+          <div>
+            <div className="card-t serif">Gender through the seniority pipeline</div>
+            <div className="card-fig">{femalePct}% female overall · aggregate only, no individual identifiable</div>
+          </div>
+        </div>
+        <GenderPyramid stats={stats} />
+        <div className="card-note">Bar <b>length</b> is scaled to actual headcount, not just %, so a small level isn't drawn the same size as a big one — Board's 20% female is 1 person; N-2's 41% is 9.</div>
+      </div>
+
+      <div className="card" style={{ borderStyle: 'dashed' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Icon name="Lock" size={15} style={{ color: 'var(--faint)', flexShrink: 0 }} />
+          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+            <b style={{ color: 'var(--ink)' }}>Cross-mandate diversity benchmark — locked.</b> Needs 5 mandates in this sector × seniority to unlock an aggregate comparison. Currently 2 of 5.
+          </div>
+        </div>
+      </div>
+    </React.Fragment>
+  );
+}
+
+function RemunerationScreen({ onDrill }) {
+  const [compType, setCompType] = useState('pkg');
+  const [country, setCountry] = useState('All countries');
+  const [nationality, setNationality] = useState('All nationalities');
+  const stats = useCompStats(compType, country, nationality);
+  const gap = useNationalityGap();
+  const scopeParts = [];
+  if (country !== 'All countries') scopeParts.push(`in ${country}`);
+  if (nationality !== 'All nationalities') scopeParts.push(`${nationality} nationals`);
+  const scopeLabel = scopeParts.length ? ` (${scopeParts.join(', ')})` : '';
+
+  return (
+    <React.Fragment>
+      <div className="eyebrow">Screen 3 · Compensation</div>
+      <h1 className="h1 serif">Are we underpaying — against real evidence, not an estimate?</h1>
+      <div className="lead">Every point below is a <b>named candidate</b> who actually disclosed compensation during engagement. Click one for the full picture.</div>
+
+      <div className="banner">
+        <div className="banner-l">At these settings</div>
+        {stats.reliable ? (
+          <div className="banner-t">
+            Our offered ceiling (<b>${stats.band.ourHi.toLocaleString()}K {stats.band.label.toLowerCase()}</b>) sits at only the <b>{stats.pct}th percentile</b> of {stats.total} verified disclosures{scopeLabel} —
+            <b> {stats.above} of {stats.total}</b> candidates are priced above our band, and <b>{stats.declinedAbove} of {stats.declinedTotal}</b> declines
+            were priced above it too. {compType === 'fixed' ? 'On base salary alone this band looks far more competitive — see Total package for the fuller picture.' : 'This is the clearest lever available to widen the pool.'}
+          </div>
+        ) : (
+          <div className="banner-t">
+            Only <b>{stats.total} verified disclosure{stats.total === 1 ? '' : 's'}</b>{scopeLabel} — too few to compute a reliable percentile.
+            Points are shown below for reference only; switch back to "All countries" for a statistically meaningful read.
+          </div>
+        )}
+      </div>
+
+      <div className="kpi-row">
+        <div className="kpi-card navy">
+          <div className="kpi-l">Verified disclosures</div>
+          <div className="kpi-v">{stats.total}</div>
+          <div className="kpi-sub">{scopeLabel ? scopeLabel.replace(/[()]/g, '') : 'candidates who disclosed comp'}</div>
+        </div>
+        <div className="kpi-card white">
+          <div className="kpi-l">Median verified</div>
+          <div className="kpi-v">${Math.round(stats.median).toLocaleString()}<span className="kpi-v-unit">K</span></div>
+          <div className="kpi-sub">{stats.band.unit}</div>
+        </div>
+        <div className="kpi-card rust">
+          <div className="kpi-l">Percentile of our ceiling</div>
+          <div className="kpi-v">{stats.reliable ? stats.pct : '—'}<span className="kpi-v-unit">{stats.reliable ? 'th' : ''}</span></div>
+          <div className="kpi-sub">{stats.reliable ? 'most of the market pays more' : 'n too small to compute'}</div>
+        </div>
+        <div className="kpi-card rust">
+          <div className="kpi-l">Priced above our band</div>
+          <div className="kpi-v">{stats.above}<span className="kpi-v-unit">/{stats.total}</span></div>
+          <div className="kpi-sub">{stats.total ? Math.round((stats.above / stats.total) * 100) : 0}% of verified disclosures</div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-h">
+          <div>
+            <div className="card-t serif">Verified compensation</div>
+            <div className="card-fig">n={stats.total} named candidates{scopeLabel} · click a dot for detail</div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="toggle-group">
+              <button className={'toggle-opt' + (compType === 'pkg' ? ' on' : '')} onClick={() => setCompType('pkg')}>Total package</button>
+              <button className={'toggle-opt' + (compType === 'fixed' ? ' on' : '')} onClick={() => setCompType('fixed')}>Total fixed</button>
+            </div>
+            <select className="country-select" value={country} onChange={e => setCountry(e.target.value)}>
+              {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select className="country-select" value={nationality} onChange={e => setNationality(e.target.value)}>
+              {NATIONALITIES_COMP.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 16, marginTop: 12, marginBottom: 4, flexWrap: 'wrap' }}>
+          <span className="leg-item"><span className="leg-dot" style={{ background: 'var(--u-direct)' }} />Accepted</span>
+          <span className="leg-item"><span className="leg-dot" style={{ background: 'var(--u-adjacent)' }} />In process</span>
+          <span className="leg-item"><span className="leg-dot" style={{ background: 'var(--u-offlimits)' }} />Declined</span>
+          <span className="leg-item"><span className="leg-dot" style={{ background: 'var(--faint)' }} />Withdrawn</span>
+          <span className="leg-item"><span className="leg-swatch" style={{ background: 'var(--u-offlimits)', backgroundImage: 'repeating-linear-gradient(90deg, var(--u-offlimits) 0 3px, transparent 3px 5px)' }} />Median</span>
+        </div>
+        {stats.total > 0 ? <RemunerationChart stats={stats} compType={compType} onDrill={onDrill} /> : (
+          <div style={{ padding: '30px 0', textAlign: 'center', color: 'var(--faint)', fontSize: 12.5 }}>No verified disclosures for {country}.</div>
+        )}
+        <div className="card-note">
+          {stats.total > 0
+            ? (stats.declinedTotal > 0
+                ? <span>{stats.declinedAbove} of {stats.declinedTotal} declines were priced above our top-of-band{scopeLabel} — the offered range is likely capping otherwise-strong candidates.</span>
+                : <span>No declines in this slice{scopeLabel} yet — too few data points to read into.</span>)
+            : <span>Try "All countries" and "All nationalities" for a larger sample.</span>}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-h">
+          <div>
+            <div className="card-t serif">Pay by nationality</div>
+            <div className="card-fig">total package, all 16 disclosures — a fixed comparison, independent of the filters above</div>
+          </div>
+        </div>
+        {gap.reliable ? (
+          <React.Fragment>
+            <div className="kpi-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
+              <div className="kpi-card navy">
+                <div className="kpi-l">{gap.largestNat} nationals, median</div>
+                <div className="kpi-v">${Math.round(gap.largestMedian).toLocaleString()}<span className="kpi-v-unit">K</span></div>
+                <div className="kpi-sub">n={gap.largestN} disclosures</div>
+              </div>
+              <div className="kpi-card white">
+                <div className="kpi-l">All other nationalities, median</div>
+                <div className="kpi-v">${Math.round(gap.restMedian).toLocaleString()}<span className="kpi-v-unit">K</span></div>
+                <div className="kpi-sub">n={gap.restN} disclosures</div>
+              </div>
+            </div>
+            <div className="card-note">
+              {gap.higherSide === 'rest'
+                ? <span>In this pool, <b>non-{gap.largestNat} nationals command a {gap.gapPct}% premium</b> over {gap.largestNat} nationals — the opposite of what's often assumed in this market. Worth confirming whether that holds at scale before pricing a {gap.largestNat}-national requirement.</span>
+                : <span><b>{gap.largestNat} nationals command a {gap.gapPct}% premium</b> over all other nationalities in this pool — worth pricing in explicitly if this mandate specifically needs a {gap.largestNat} national.</span>}
+              {' '}Based on {gap.largestN + gap.restN} of 16 disclosures — real signal, not a market survey.
+            </div>
+          </React.Fragment>
+        ) : (
+          <div className="card-note">Too few disclosures per nationality group to compare reliably — shown for completeness, not as a finding.</div>
+        )}
+      </div>
+
+      <div className="card" style={{ borderStyle: 'dashed' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Icon name="Lock" size={15} style={{ color: 'var(--faint)', flexShrink: 0 }} />
+          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+            <b style={{ color: 'var(--ink)' }}>Cross-mandate compensation benchmark — locked.</b> Needs 5 mandates with verified comp data in this sector × seniority to unlock an aggregate view. Currently 2 of 5.
+          </div>
+        </div>
+      </div>
+    </React.Fragment>
+  );
+}
+
+/* ─────────────────────────── app shell ─────────────────────────── */
+
+const STEP_LIST = [
+  { n: 1, l: 'Mapping progress' },
+  { n: 2, l: 'Shape of the market' },
+  { n: 3, l: 'Remuneration' },
+  { n: 4, l: 'Diversity & DEI' },
+];
+const BUILT_STEPS = [1, 2, 3, 4]; // every listed step is built — grows as new sections are added
+
+function App() {
+  const [step, setStep] = useState(3);
+  const [drill, setDrill] = useState({ open: false, item: null });
+  const openDrill = item => setDrill({ open: true, item });
+  const closeDrill = () => setDrill(d => ({ ...d, open: false }));
+
+  return (
+    <div className="app">
+      <nav className="sidebar">
+        <div className="brand"><span className="brand-name">Talent Map</span><span className="brand-dot" /></div>
+        <div className="brand-sub">GCC Executive Search</div>
+        <span className="mandate-pill">Group CFO — GCC FMCG</span>
+
+        <div className="nav">
+          {STEP_LIST.map(s => {
+            const built = BUILT_STEPS.includes(s.n);
+            const state = s.n === step ? 'active' : built ? 'done' : 'todo';
+            return (
+              <div className={'nav-item ' + state + (built ? ' clickable' : '')} key={s.l} onClick={() => built && setStep(s.n)}>
+                <span className="nav-badge">{s.n}</span>
+                <span className="nav-label">{s.l}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="sidebar-foot">Talent mapping report. Synced from live search data. v1 · Draft for internal review.</div>
+      </nav>
+
+      <div className="main">
+        <div className="content">
+          {step === 1 && <MappingProgressScreen />}
+          {step === 2 && <ShapeOfMarketScreen onDrill={openDrill} />}
+          {step === 3 && <RemunerationScreen onDrill={openDrill} />}
+          {step === 4 && <DEIScreen />}
+        </div>
+      </div>
+
+      <Drawer open={drill.open} item={drill.item} onClose={closeDrill} />
+    </div>
+  );
+}
+
+lucide.createIcons();
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

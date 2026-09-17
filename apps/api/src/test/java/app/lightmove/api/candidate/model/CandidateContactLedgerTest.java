@@ -268,7 +268,7 @@ class CandidateContactLedgerTest {
         return new CandidateDetails("Sample Person", null, null, CandidateStatus.IDENTIFIED, null,
                 email == null ? List.of() : List.of(ContactEntry.of(email)),
                 phone == null ? List.of() : List.of(ContactEntry.of(phone)),
-                "https://www.linkedin.com/in/sample-profile", null, null, null, null,
+                "https://www.linkedin.com/in/sample-profile", null, null, null, null, null,
                 null, null, CandidateCompensation.unknown(),
                 new CandidateProfile(null, null, null, null, null), null);
     }

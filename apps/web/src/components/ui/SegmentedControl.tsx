@@ -7,6 +7,27 @@ export interface SegmentedOption<TValue extends string> {
   icon?: ReactNode;
 }
 
+/** `uncava` is the Reports palette, where the chosen option is a small solid-accent button. */
+export type SegmentedVariant = "default" | "uncava";
+
+const GROUP_CLASS: Record<SegmentedVariant, string> = {
+  default: "rounded-[6px] border-line bg-panel p-0.5",
+  uncava: "gap-0.5 rounded-[8px] border-u-border-strong bg-u-bg p-[3px]",
+};
+
+const OPTION_CLASS: Record<SegmentedVariant, { base: string; selected: string; idle: string }> = {
+  default: {
+    base: "rounded-[4px] px-2.5 py-1.5 text-[12.5px] font-medium",
+    selected: "bg-amber-dim text-text",
+    idle: "text-text3 hover:text-text",
+  },
+  uncava: {
+    base: "rounded-[6px] px-3 py-1.5 text-[11.5px] font-semibold",
+    selected: "bg-u-accent-solid text-white",
+    idle: "text-u-text2 hover:text-u-text",
+  },
+};
+
 /**
  * A row of mutually exclusive choices — Table | Map — as one control. A radio group to assistive
  * tech, because that is what it is: one value, several buttons, exactly one pressed.
@@ -20,6 +41,7 @@ export function SegmentedControl<TValue extends string>({
   options,
   value,
   onChange,
+  variant = "default",
   className,
 }: {
   /** Names the group for a screen reader; the buttons carry their own labels. */
@@ -27,6 +49,7 @@ export function SegmentedControl<TValue extends string>({
   options: readonly SegmentedOption<TValue>[];
   value: TValue;
   onChange: (value: TValue) => void;
+  variant?: SegmentedVariant;
   className?: string;
 }) {
   const groupRef = useRef<HTMLDivElement>(null);
@@ -49,10 +72,7 @@ export function SegmentedControl<TValue extends string>({
       role="radiogroup"
       aria-label={label}
       onKeyDown={step}
-      className={cn(
-        "inline-flex flex-none items-center rounded-[6px] border border-line bg-panel p-0.5",
-        className,
-      )}
+      className={cn("inline-flex flex-none items-center border", GROUP_CLASS[variant], className)}
     >
       {options.map((option) => {
         const selected = option.value === value;
@@ -65,8 +85,9 @@ export function SegmentedControl<TValue extends string>({
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(option.value)}
             className={cn(
-              "inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[4px] px-2.5 py-1.5 font-sans text-[12.5px] font-medium transition",
-              selected ? "bg-amber-dim text-text" : "text-text3 hover:text-text",
+              "inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap font-sans transition",
+              OPTION_CLASS[variant].base,
+              selected ? OPTION_CLASS[variant].selected : OPTION_CLASS[variant].idle,
             )}
           >
             {option.icon}

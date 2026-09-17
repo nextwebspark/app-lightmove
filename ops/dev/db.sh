@@ -239,7 +239,16 @@ case "${1:-up}" in
     shift
     exec docker exec -it "$PG_CONTAINER" psql -U lm_app -d lightmove "$@"
     ;;
+  seed-report)
+    # Demo data for the Reports tab. Reaches this container and nothing else: there is no code path
+    # from here to Cloud SQL, which is the point of keeping it out of the migrations.
+    require_docker
+    running || { say "$PG_CONTAINER is not running — run \`npm run dev:db\` first"; exit 1; }
+    say "seeding the report's demo data into ${2:-the mandate seeded before, else the newest}"
+    docker exec -i "$PG_CONTAINER" psql -U lm_app -d lightmove -q -v ON_ERROR_STOP=1 -v project="${2:-}" \
+      < "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/seed-report.sql"
+    ;;
   *)
-    say "usage: ops/dev/db.sh [up|down|reset|psql|apollo-pull|apollo-save|apollo-restore]"
+    say "usage: ops/dev/db.sh [up|down|reset|psql|seed-report [project-id]|apollo-pull|apollo-save|apollo-restore]"
     exit 1 ;;
 esac
