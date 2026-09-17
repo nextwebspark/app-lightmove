@@ -469,6 +469,41 @@ describe("TriageStagePage", () => {
     );
   });
 
+  it("keeps one row's busy state independent of another's, so a second row's write cannot re-enable it early", async () => {
+    const gulf = { ...acwa, id: "u2", apolloAccountId: "a2", companyName: "Gulf Industrial" };
+    vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
+      pageOf({ companies: [acwa, gulf], totalCount: 2, counts: { inUniverse: 2, shortlisted: 0, declined: 0 } }),
+    );
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [{ ...yasmin, triageCompanyId: "u2", companyName: "Gulf Industrial" }]),
+    );
+    // ACWA's own mutation is left hanging, so it is still in flight when Gulf's row writes and settles.
+    let resolveMarkNoExecutiveFound: ((value: TriageCompany) => void) | undefined;
+    vi.mocked(triageApi.updateTriageCompany).mockImplementation(
+      () => new Promise((resolve) => { resolveMarkNoExecutiveFound = resolve; }),
+    );
+    vi.mocked(candidatesApi.changeCandidateStatus).mockResolvedValue({ ...yasmin, status: "interested" });
+    renderStage();
+
+    await screen.findByText("ACWA Power");
+    await screen.findByText("Yasmin El-Sayed");
+    // Gulf has an executive mapped, so its own row shows Yasmin rather than the empty slot — ACWA is
+    // the only row offering this button, and its id (a company's) is what must stay marked busy.
+    const acwaMarkButton = screen.getByRole("button", { name: /^No executive found$/i });
+    await userEvent.click(acwaMarkButton);
+    expect(acwaMarkButton).toBeDisabled();
+
+    // A write on Gulf's own row — a different id — starts and fully settles while ACWA's is still
+    // pending. Before the fix this shared one busy id and overwrote ACWA's the moment Gulf's started.
+    await userEvent.selectOptions(screen.getByLabelText(/Status for Yasmin El-Sayed/i), "interested");
+    await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalled());
+
+    expect(acwaMarkButton).toBeDisabled();
+
+    resolveMarkNoExecutiveFound?.({ ...acwa, noExecutiveFound: true });
+    await waitFor(() => expect(acwaMarkButton).not.toBeDisabled());
+  });
+
   it("confirms a removal, and says the company itself is not deleted", async () => {
     vi.mocked(triageApi.deleteTriageCompany).mockResolvedValue(undefined);
     renderStage();

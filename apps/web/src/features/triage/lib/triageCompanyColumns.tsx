@@ -69,8 +69,9 @@ interface TriageTableMeta {
   onRemoveCandidate: (candidate: Candidate) => void;
   /** Opens the company's own panel — read-only, whatever the reader is allowed to do to it. */
   onOpenCompany: (company: TriageCompany) => void;
-  /** The row with a write in flight, so its actions can be disabled without freezing the grid. */
-  busyId: string | null;
+  /** Every row id with a write in flight, so each can be disabled independently without freezing
+   *  the grid or letting one row's mutation settling re-enable a different row still in flight. */
+  busyIds: ReadonlySet<string>;
   /** False for a client representative, who reads these grids but moves nothing. */
   canWrite: boolean;
 }
@@ -192,7 +193,7 @@ const BUILT_IN_COLUMNS = helper.columns([
         );
       }
       const { company } = row;
-      const busy = meta.busyId === company.id;
+      const busy = meta.busyIds.has(company.id);
       return (
         <span className="flex justify-start gap-1.5">
           <button
@@ -312,7 +313,7 @@ const BUILT_IN_COLUMNS = helper.columns([
             </button>
           );
         }
-        const busy = meta.busyId === company.id;
+        const busy = meta.busyIds.has(company.id);
         return (
           <span className="flex min-w-0 items-center gap-2">
             <button
@@ -375,7 +376,7 @@ const BUILT_IN_COLUMNS = helper.columns([
       if (!candidate) return <DataGridCell value={null} />;
 
       if (meta?.canWrite) {
-        const busy = meta.busyId === candidate.id;
+        const busy = meta.busyIds.has(candidate.id);
         return (
           <Select
             value={candidate.status}

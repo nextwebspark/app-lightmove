@@ -49,7 +49,7 @@ export function TriageCompanyTable({
   onEditCandidate,
   onRemoveCandidate,
   onOpenCompany,
-  busyId,
+  busyIds,
   canWrite,
   onEditColumn,
   columnFilters,
@@ -80,7 +80,7 @@ export function TriageCompanyTable({
   onEditCandidate: (candidate: Candidate) => void;
   onRemoveCandidate: (candidate: Candidate) => void;
   onOpenCompany: (company: TriageCompany) => void;
-  busyId: string | null;
+  busyIds: ReadonlySet<string>;
   canWrite: boolean;
   /** Opens a mandate's own column for rename, from its header menu — the real `CustomColumn` id. */
   onEditColumn?: (customColumnId: string) => void;
@@ -114,7 +114,7 @@ export function TriageCompanyTable({
       onEditCandidate,
       onRemoveCandidate,
       onOpenCompany,
-      busyId,
+      busyIds,
       canWrite,
     },
   });

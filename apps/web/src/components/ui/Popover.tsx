@@ -97,7 +97,7 @@ export function Popover({
               left:
                 align === "right"
                   ? Math.max(EDGE_GAP, anchor.right - width)
-                  : Math.min(anchor.left, window.innerWidth - width - EDGE_GAP),
+                  : Math.max(EDGE_GAP, Math.min(anchor.left, window.innerWidth - width - EDGE_GAP)),
               width,
               maxWidth: "calc(100vw - 24px)",
             }}

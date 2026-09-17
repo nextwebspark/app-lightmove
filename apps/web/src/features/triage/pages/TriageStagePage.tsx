@@ -118,7 +118,22 @@ function TriageStage() {
   const [debouncedExecutiveQuery, setDebouncedExecutiveQuery] = useState("");
   /** The Status column's own header filter — a closed checkbox set, applied with no debounce. */
   const [executiveStatuses, setExecutiveStatuses] = useState<string[]>([]);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  /**
+   * Every row id with a write in flight — a company's move or no-executive-found flag, or a
+   * candidate's status change — so each row's own buttons disable independently. A single shared id
+   * here would let one row's mutation settling re-enable a different row still mid-flight, since the
+   * second write's start would already have overwritten the first row's id.
+   */
+  const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(() => new Set());
+  const markBusy = (id: string) =>
+    setBusyIds((current) => (current.has(id) ? current : new Set(current).add(id)));
+  const clearBusy = (id: string) =>
+    setBusyIds((current) => {
+      if (!current.has(id)) return current;
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
   const [openCompany, setOpenCompany] = useState<OpenCompany | null>(null);
   const [pendingRemoval, setPendingRemoval] = useState<TriageCompany | null>(null);
   const [profile, setProfile] = useState<OpenProfile | null>(null);
@@ -451,7 +466,7 @@ function TriageStage() {
       toast(`${company.companyName} moved to ${MOVE_LABELS[status]}`);
     },
     onError: (error) => toast(messageFor(error)),
-    onSettled: () => setBusyId(null),
+    onSettled: (_data, _error, { company }) => clearBusy(company.id),
   });
 
   const remove = useMutation({
@@ -462,7 +477,7 @@ function TriageStage() {
       toast(`${company.companyName} removed from this mandate`);
     },
     onError: (error) => toast(messageFor(error)),
-    onSettled: () => setBusyId(null),
+    onSettled: (_data, _error, company) => clearBusy(company.id),
   });
 
   const removeCandidate = useMutation({
@@ -485,7 +500,7 @@ function TriageStage() {
       toast(`${company.companyName}: marked no executive found`);
     },
     onError: (error) => toast(messageFor(error)),
-    onSettled: () => setBusyId(null),
+    onSettled: (_data, _error, company) => clearBusy(company.id),
   });
 
   const saveNote = useSaveCompanyNote(project.id, refreshEveryStage);
@@ -609,7 +624,7 @@ function TriageStage() {
             setManagingColumns(true);
           }}
           onMove={(company, status) => {
-            setBusyId(company.id);
+            markBusy(company.id);
             move.mutate({ company, status });
           }}
           onDelete={setPendingRemoval}
@@ -620,21 +635,21 @@ function TriageStage() {
             })
           }
           onMarkNoExecutiveFound={(company) => {
-            setBusyId(company.id);
+            markBusy(company.id);
             markNoExecutiveFound.mutate(company);
           }}
           onSaveNote={(company, note) => saveNote.mutateAsync({ company, note })}
           onChangeCandidateStatus={(candidate, status) => {
-            setBusyId(candidate.id);
+            markBusy(candidate.id);
             changeCandidateStatus.mutate(
               { candidateId: candidate.id, status },
-              { onSettled: () => setBusyId(null) },
+              { onSettled: () => clearBusy(candidate.id) },
             );
           }}
           onEditCandidate={(candidate) => setProfile({ candidate, company: null })}
           onRemoveCandidate={setPendingCandidateRemoval}
           onOpenCompany={(company) => setOpenCompany({ company })}
-          busyId={busyId}
+          busyIds={busyIds}
           canWrite={canWrite}
         />
 
@@ -665,7 +680,7 @@ function TriageStage() {
         onClose={() => setOpenCompany(null)}
         onSaved={refreshEverything}
         onMove={(company, status) => {
-          setBusyId(company.id);
+          markBusy(company.id);
           setOpenCompany(null);
           move.mutate({ company, status });
         }}
@@ -682,7 +697,7 @@ function TriageStage() {
           });
         }}
         onMarkNoExecutiveFound={(company) => {
-          setBusyId(company.id);
+          markBusy(company.id);
           markNoExecutiveFound.mutate(company);
         }}
       />
@@ -709,7 +724,7 @@ function TriageStage() {
         removing={remove.isPending}
         onCancel={() => setPendingRemoval(null)}
         onConfirm={(company) => {
-          setBusyId(company.id);
+          markBusy(company.id);
           remove.mutate(company);
         }}
       />
