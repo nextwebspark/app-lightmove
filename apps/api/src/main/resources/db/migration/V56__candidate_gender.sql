@@ -7,7 +7,10 @@
 -- Nullable with no default, and NULL is not a fourth value. "Not recorded" and "recorded as other"
 -- are different facts about a person, and a chapter that folded one into the other would report a
 -- pool it had not measured. Every existing row is NULL, which is the truth about every one of them.
+--
+-- Written as V51 and renumbered before it merged: main reached V55 first, and Flyway refuses a
+-- version below the newest one applied. IF NOT EXISTS is for a dev database that ran it as V51.
 ALTER TABLE app_lm_project_candidate
-    ADD COLUMN gender varchar(16)
+    ADD COLUMN IF NOT EXISTS gender varchar(16)
         CONSTRAINT app_lm_project_candidate_gender_chk
             CHECK (gender IN ('FEMALE', 'MALE', 'OTHER'));
