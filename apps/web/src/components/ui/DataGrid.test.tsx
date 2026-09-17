@@ -44,6 +44,18 @@ const columns = helper.columns([
   }),
 ]);
 
+// A mandate's own column, the shape `customcolumn` renders as a grid column: id-prefixed so the
+// header menu's "Edit field" only ever offers itself on one of these, never a built-in.
+const columnsWithCustom = helper.columns([
+  ...columns,
+  helper.accessor("sector", {
+    id: "custom:ethnicity",
+    header: "Ethnicity",
+    enableSorting: false,
+    meta: { share: 11, min: 120 },
+  }),
+]);
+
 const DATA: Row[] = [{ name: "Aramco", sector: "Energy", revenue: "$1bn" }];
 
 const onSort = vi.fn();
@@ -51,14 +63,18 @@ const onSort = vi.fn();
 function Harness({
   onLayout,
   columnFilters,
+  columnDefs = columns,
+  onEditColumn,
 }: {
   onLayout?: (layout: GridLayout) => void;
   columnFilters?: Record<string, DataGridColumnFilter>;
+  columnDefs?: typeof columns | typeof columnsWithCustom;
+  onEditColumn?: (columnId: string) => void;
 }) {
   const [layout, setLayout] = useState<GridLayout>(EMPTY_GRID_LAYOUT);
   const table = useTable({
     features,
-    columns,
+    columns: columnDefs,
     data: DATA,
     getRowId: (row) => row.name,
     initialState: { columnPinning: { start: ["name"], end: [] } },
@@ -84,6 +100,7 @@ function Harness({
         onLayout?.(next);
       }}
       columnFilters={columnFilters}
+      onEditColumn={onEditColumn}
     />
   );
 }
@@ -412,5 +429,121 @@ describe("DataGrid header menu — a checkbox filter", () => {
       />,
     );
     expect(screen.getByRole("button", { name: "Sector column menu" })).toHaveClass("text-sky");
+  });
+});
+
+describe("DataGrid header menu — Sort, Move, Freeze, Edit field", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  const sortingOf = () => {
+    const updater = onSort.mock.calls.at(-1)?.[0];
+    return typeof updater === "function" ? updater([]) : updater;
+  };
+
+  it("sorts ascending from Sort ascending, and descending from Sort descending", async () => {
+    render(<Harness />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sort ascending" }));
+    expect(sortingOf()).toEqual([{ id: "sector", desc: false }]);
+    // Sort ascending is itself an Apply: the menu closes rather than staying open like a filter tick.
+    expect(screen.queryByRole("button", { name: "Sort descending" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sort descending" }));
+    expect(sortingOf()).toEqual([{ id: "sector", desc: true }]);
+  });
+
+  it("offers no Sort item on a column declared unsortable", async () => {
+    render(<Harness />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Revenue column menu" }));
+
+    expect(screen.queryByRole("button", { name: "Sort ascending" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sort descending" })).not.toBeInTheDocument();
+  });
+
+  it("moves a column left and right from the header menu, same as the Alt+Arrow shortcut", async () => {
+    render(<Harness />);
+    expect(headers()).toEqual(["Company", "Sector", "Revenue"]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    await userEvent.click(screen.getByRole("button", { name: "Move right" }));
+    expect(headers()).toEqual(["Company", "Revenue", "Sector"]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    await userEvent.click(screen.getByRole("button", { name: "Move left" }));
+    expect(headers()).toEqual(["Company", "Sector", "Revenue"]);
+  });
+
+  it("offers no Move left onto the pinned column's own place", async () => {
+    render(<Harness />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+
+    expect(screen.queryByRole("button", { name: "Move left" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Move right" })).toBeInTheDocument();
+  });
+
+  it("freezes and unfreezes a column from the header menu", async () => {
+    const onLayout = vi.fn();
+    render(<Harness onLayout={onLayout} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    await userEvent.click(screen.getByRole("button", { name: "Freeze column" }));
+    expect(onLayout).toHaveBeenLastCalledWith(expect.objectContaining({ pinnedIds: ["sector"] }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    expect(screen.getByRole("button", { name: "Unfreeze column" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Unfreeze column" }));
+    expect(onLayout).toHaveBeenLastCalledWith(expect.objectContaining({ pinnedIds: [] }));
+  });
+
+  it("caps freezing at one extra column, so freezing a second one replaces the first", async () => {
+    const onLayout = vi.fn();
+    render(<Harness onLayout={onLayout} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    await userEvent.click(screen.getByRole("button", { name: "Freeze column" }));
+    expect(onLayout).toHaveBeenLastCalledWith(expect.objectContaining({ pinnedIds: ["sector"] }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Revenue column menu" }));
+    await userEvent.click(screen.getByRole("button", { name: "Freeze column" }));
+    expect(onLayout).toHaveBeenLastCalledWith(expect.objectContaining({ pinnedIds: ["revenue"] }));
+
+    // Sector was bumped, not left frozen alongside Revenue.
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    expect(screen.getByRole("button", { name: "Freeze column" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Unfreeze column" })).not.toBeInTheDocument();
+  });
+
+  it("offers no Freeze on the grid's own always-pinned column", async () => {
+    render(<Harness />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Company column menu" }));
+
+    expect(screen.queryByRole("button", { name: "Freeze column" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Unfreeze column" })).not.toBeInTheDocument();
+  });
+
+  it("offers Edit field only on a mandate's own column, and calls back with its id", async () => {
+    const onEditColumn = vi.fn();
+    render(<Harness columnDefs={columnsWithCustom} onEditColumn={onEditColumn} />);
+
+    // A built-in column gets no Edit field, even though onEditColumn is wired up for the grid.
+    await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
+    expect(screen.queryByRole("button", { name: "Edit field" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Ethnicity column menu" }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit field" }));
+    expect(onEditColumn).toHaveBeenCalledWith("custom:ethnicity");
+  });
+
+  it("offers no Edit field on any column when the grid names no onEditColumn at all", async () => {
+    render(<Harness columnDefs={columnsWithCustom} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Ethnicity column menu" }));
+
+    expect(screen.queryByRole("button", { name: "Edit field" })).not.toBeInTheDocument();
   });
 });

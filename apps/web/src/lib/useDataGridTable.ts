@@ -147,14 +147,6 @@ export function useDataGridTable<
       const order = typeof updater === "function" ? updater(layout.order) : updater;
       onLayoutChange({ ...layout, order });
     },
-    onColumnPinningChange: (updater: Updater<ColumnPinningState>) => {
-      const next = typeof updater === "function" ? updater(columnPinning) : updater;
-      // The base pinned column (e.g. the id column) isn't a user choice to persist — only what it
-      // froze beyond that is.
-      const basePinned = pinning.start ?? [];
-      const pinnedIds = (next.start ?? []).filter((id) => !basePinned.includes(id));
-      onLayoutChange({ ...layout, pinnedIds });
-    },
     onPaginationChange,
     meta,
   };
