@@ -30,6 +30,12 @@ class MappedExecutiveLookupAdapter implements MappedExecutiveLookup {
                 projectId, executiveName);
     }
 
+    /**
+     * {@code CandidateStatus::valueOf} fails loud on a name it does not recognise — unlike
+     * {@code CandidateRepository}'s ranking {@code CASE} and
+     * {@code TriageCompanyService.EXECUTIVE_STATUS_TOKENS}, which mirror the same enum-name spelling as
+     * string literals and would degrade silently instead. A rename should grep for all three regardless.
+     */
     @Override
     public Set<UUID> triageCompanyIdsWithExecutiveStatusIn(UUID projectId, List<String> executiveStatuses) {
         List<CandidateStatus> statuses = executiveStatuses.stream().map(CandidateStatus::valueOf).toList();

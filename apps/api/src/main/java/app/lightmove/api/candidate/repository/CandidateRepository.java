@@ -140,7 +140,12 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
      * declared order exactly, and its stored enum names, per that entity's own {@code @Enumerated(STRING)}.
      * Native rather than JPQL: {@code group by t.id} relies on Postgres's rule that grouping by a
      * primary key lets every other column of that row through ungrouped, which is a Postgres extension
-     * JPQL does not model.
+     * JPQL does not model. The same literal spelling is mirrored in
+     * {@code TriageCompanyService.EXECUTIVE_STATUS_TOKENS} and
+     * {@code MappedExecutiveLookupAdapter#triageCompanyIdsWithExecutiveStatusIn} — {@code @Query} needs
+     * a compile-time constant, so none of the three can reference the enum directly, and a rename has
+     * to update all three by hand. {@code CandidateRepositoryStatusOrderTest} pins this one against the
+     * enum so a forgotten update is a red build rather than a silent mis-rank.
      */
     @Query(
             value = "select t.id from app_lm_project_triage_company t "
