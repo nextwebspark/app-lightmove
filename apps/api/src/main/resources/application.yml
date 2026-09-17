@@ -268,16 +268,34 @@ lightmove:
       extra-disposable-domains: ${EMAIL_EXTRA_DISPOSABLE:}
 
   # Researches a plugin-captured executive (experience, education, skills, photo, employer), off the
-  # capture's request thread. `brightdata` answers from the stored dataset in under a second
-  # (~$0.0025/hit) and falls back to a HarvestAPI live scrape on a miss when that key is present;
-  # `harvestapi` scrapes live every time (~$0.01, seconds). Off by default: every call is billed,
-  # and a fresh clone must run with no vendor account.
+  # capture's request thread. `brightdata` answers from the stored dataset (~$0.0025/hit) and falls
+  # back to a HarvestAPI live scrape on a miss when that key is present; `harvestapi` scrapes live
+  # every time (~$0.01, seconds). Off by default: every call is billed, and a fresh clone must run
+  # with no vendor account.
+  #
+  # The dataset search was ~0.7s when it was written and spent 16 Sep 2026 between 8-25s and dead, so
+  # its read timeout and retry budget are knobs rather than constants — that outage was a rebuild to
+  # change. Zero retries is deliberate: the fallback is the second attempt, and Spring 7.0.8 spends
+  # (1 + max-retries)^2 attempts rather than 1 + max-retries, so a budget of 1 is four whole timeouts
+  # (see BrightDataRetryBudgetTest). brightdata.max-retries is spelled out here for the resilience
+  # block's reason below: @Retryable never sees a record's binding default.
   enrichment:
     provider: ${ENRICHMENT_PROVIDER:off}
     brightdata:
       api-key: ${BRIGHTDATA_API_KEY:}
+      read-timeout: ${BRIGHTDATA_READ_TIMEOUT:15s}
+      max-retries: ${BRIGHTDATA_MAX_RETRIES:0}
     harvestapi:
       api-key: ${HARVESTAPI_API_KEY:}
+      read-timeout: ${HARVESTAPI_READ_TIMEOUT:60s}
+
+    # The candidate drawer's Find email / Find phone buttons, answered by ContactOut. Deliberately not
+    # selected by `provider` above: contact lookup is a separate account with a separate bill, and
+    # turning profile research off must not take the buttons with it. Left empty they are not offered.
+    # Each press spends one credit of that channel's monthly pool; a profile nobody has on record is
+    # free, and a value already held is never asked for twice.
+    contactout:
+      api-key: ${CONTACTOUT_API_KEY:}
 
   # How a paid third-party API is called: timeouts, retry and outbound pacing, shared by every vendor
   # adapter. These are spelled out rather than left to the record's @DefaultValue because @Retryable

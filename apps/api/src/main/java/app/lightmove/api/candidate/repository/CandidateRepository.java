@@ -1,6 +1,8 @@
 package app.lightmove.api.candidate.repository;
 
+import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.CandidateCount;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -38,6 +40,17 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
 
     Optional<Candidate> findByIdAndProjectId(UUID id, UUID projectId);
 
+    /**
+     * The projects list's "Candidates" number, for every mandate on the page at once so the list stays
+     * one query rather than one per row. Grouped, so a mandate with nobody mapped is missing from the
+     * result rather than zero. Which statuses the caller leaves out is the caller's policy.
+     */
+    @Query("select new app.lightmove.api.candidate.model.CandidateCount(c.projectId, count(c)) "
+            + "from Candidate c where c.projectId in :projectIds "
+            + "and c.status not in :excludedStatuses group by c.projectId")
+    List<CandidateCount> countByProjectIdInExcludingStatuses(Collection<UUID> projectIds,
+                                                             Collection<CandidateStatus> excludedStatuses);
+
     boolean existsByIdAndProjectId(UUID id, UUID projectId);
 
     /**
@@ -57,10 +70,15 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
 
     /**
      * How an import recognises someone it has already mapped. Email first: it identifies a person
-     * rather than describing them, and survives two exports spelling the name differently. A list
-     * rather than {@code Optional} because nothing stops two rows carrying one address.
+     * rather than describing them, and survives two exports spelling the name differently. Any of
+     * the addresses the ledger holds for them counts, matched on the key the ledger dedupes by. A
+     * list rather than {@code Optional} because nothing stops two rows carrying one address.
      */
-    List<Candidate> findByProjectIdAndEmailIgnoreCase(UUID projectId, String email);
+    @Query("""
+            select distinct c from Candidate c join c.contacts k
+            where c.projectId = :projectId and k.channel = 'EMAIL' and k.valueKey = :emailKey
+            """)
+    List<Candidate> findByProjectIdAndEmailKey(UUID projectId, String emailKey);
 
     List<Candidate> findByProjectIdAndTriageCompanyIdIsNullAndFullNameIgnoreCase(
             UUID projectId, String fullName);

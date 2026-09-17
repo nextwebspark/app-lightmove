@@ -172,12 +172,13 @@ function TriageStage() {
     [customColumns],
   );
   const [columnVisibility, setColumnVisibility] = useColumnVisibility(
-    // Bumped from "companies" when Source became hidden-by-default. `useColumnVisibility` merges a
-    // stored map *over* the defaults — deliberately, so a column added later takes its declared
-    // default — which means everyone who had opened this grid already had `source: true` written down
-    // and would never have seen the new default. A new namespace resets this grid's remembered layout
-    // once, which is the price of a default that otherwise could not take effect.
-    "companies.v2",
+    // Bumped from "companies" when Source became hidden-by-default, and again to v3 when the Email
+    // and Phone columns arrived hidden. `useColumnVisibility` merges a stored map *over* the
+    // defaults — deliberately, so a column added later takes its declared default — which means
+    // everyone who had opened this grid already had `source: true` written down and would never
+    // have seen the new default. A new namespace resets this grid's remembered layout once, which
+    // is the price of a default that otherwise could not take effect.
+    "companies.v3",
     project.id,
     defaultVisibility,
   );

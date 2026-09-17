@@ -250,8 +250,6 @@ const CANDIDATES = [
   title,
   seniority: "N-1",
   status,
-  email: null,
-  phone: null,
   linkedinUrl: null,
   locationCountry: "United Arab Emirates",
   locationCity: "Dubai",
@@ -272,6 +270,7 @@ const CANDIDATES = [
   customFields: {},
   addedAt: "2026-08-02T09:00:00.000Z",
   enrichedAt: null,
+  contacts: { emails: [], phones: [], emailsLookedUpAt: null, phonesLookedUpAt: null, source: null },
 }));
 
 const POSITION = {
