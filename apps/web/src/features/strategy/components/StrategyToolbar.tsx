@@ -35,6 +35,7 @@ function activeAxisCount(filter: StrategyFilter): number {
 
 export function StrategyToolbar({
   filter,
+  filterPending,
   searches,
   viewerId,
   showFilters,
@@ -56,6 +57,8 @@ export function StrategyToolbar({
   addingAll,
 }: {
   filter: StrategyFilter;
+  /** The stored filter has not landed yet, so the count would state a selection nobody made. */
+  filterPending: boolean;
   searches: SavedSearch[];
   viewerId: string | null;
   showFilters: boolean;
@@ -99,9 +102,13 @@ export function StrategyToolbar({
       >
         <Icon d="M3 4h18l-7 8v6l-4 2v-8L3 4Z" size={14} className="flex-none" />
         {showFilters ? "Hide Filters" : "Show Filters"}
-        <span className="rounded-[4px] bg-sky-dim px-[5px] py-[2px] font-sans text-[10px] font-bold text-sky">
-          {activeAxisCount(filter)}
-        </span>
+        {filterPending ? (
+          <span className="h-[15px] w-[15px] animate-pulse rounded-[4px] bg-sky-dim" />
+        ) : (
+          <span className="rounded-[4px] bg-sky-dim px-[5px] py-[2px] font-sans text-[10px] font-bold text-sky">
+            {activeAxisCount(filter)}
+          </span>
+        )}
       </button>
 
       {/* The only filled CTA in the toolbar, and the mockup's gradient is the whole point of it —
