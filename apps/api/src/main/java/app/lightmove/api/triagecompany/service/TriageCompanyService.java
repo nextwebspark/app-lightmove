@@ -38,6 +38,7 @@ import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -48,6 +49,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -105,12 +107,14 @@ public class TriageCompanyService {
     private final ApplicationEventPublisher events;
     private final ProjectStreamPublisher stream;
     private final CompanyListSettings listConfig;
+    private final MappedExecutiveLookup executives;
 
     public TriageCompanyService(TriageCompanyRepository triaged, TriageCompanyWriter writer,
                                 ProjectRepository projects, StrategyService strategy,
                                 CustomColumnService customColumns, AuditService audit,
                                 ApolloCompanyQueryService market, ApplicationEventPublisher events,
-                                ProjectStreamPublisher stream, LightMoveProperties properties) {
+                                ProjectStreamPublisher stream, LightMoveProperties properties,
+                                MappedExecutiveLookup executives) {
         this.triaged = triaged;
         this.writer = writer;
         this.projects = projects;
@@ -121,6 +125,7 @@ public class TriageCompanyService {
         this.events = events;
         this.stream = stream;
         this.listConfig = properties.company().list();
+        this.executives = executives;
     }
 
     /** One stage, with all three counts: the stage switcher is always visible, so a badge cannot lag. */
@@ -156,47 +161,70 @@ public class TriageCompanyService {
     /**
      * The ordinary path: the server's own ORDER BY, over whichever of the grid's three header filters —
      * company name, executive name, executive status, any combination or none — the caller supplied.
+     * The executive-based two are resolved to a company id set through {@link #executives} before this
+     * ever reaches the repository, which is why {@code triagecompany}'s own queries need nothing more
+     * than that set and the plain company-name filter they already had.
      */
     private Page<TriageCompany> findWithFilters(UUID projectId, TriageCompanyStatus status,
                                                 String companyName, String executiveName,
                                                 List<String> executiveStatuses,
                                                 PageRequest pageRequest) {
-        if (!executiveStatuses.isEmpty()) {
-            return triaged.findByProjectIdAndStatusAndFiltersAndExecutiveStatuses(
-                    projectId, status, companyName, executiveName, executiveStatuses, pageRequest);
+        if (executiveName == null && executiveStatuses.isEmpty()) {
+            return companyName == null
+                    ? triaged.findByProjectIdAndStatus(projectId, status, pageRequest)
+                    : triaged.findByProjectIdAndStatusAndCompanyNameContainingIgnoreCase(
+                            projectId, status, companyName, pageRequest);
         }
-        if (executiveName != null) {
-            return triaged.findByProjectIdAndStatusAndFilters(
-                    projectId, status, companyName, executiveName, pageRequest);
+        Set<UUID> matchingIds = matchingExecutiveIds(projectId, executiveName, executiveStatuses);
+        if (matchingIds.isEmpty()) {
+            return Page.empty(pageRequest);
         }
-        return companyName == null
-                ? triaged.findByProjectIdAndStatus(projectId, status, pageRequest)
-                : triaged.findByProjectIdAndStatusAndCompanyNameContainingIgnoreCase(
-                        projectId, status, companyName, pageRequest);
+        return triaged.findByProjectIdAndStatusAndIdInAndCompanyNameFilter(
+                projectId, status, matchingIds, companyName, pageRequest);
     }
 
     /**
-     * The one sort {@link #resolveSort} cannot express — see
-     * {@link TriageCompanyRepository#findByProjectIdAndStatusOrderByExecutiveStatusRankAsc}. No
-     * {@code Sort} on the {@code Pageable}: the ordering is baked into the query itself.
+     * Companies with a mapped executive answering the Executive-name filter, the Status checkbox
+     * filter, or — when both are supplied — their intersection: a company is kept only by an executive
+     * satisfying both at once is not what two independent header filters mean, so each is resolved on
+     * its own and the two sets are narrowed together rather than asking either lookup to know about
+     * the other.
+     */
+    private Set<UUID> matchingExecutiveIds(UUID projectId, String executiveName, List<String> executiveStatuses) {
+        Set<UUID> byName = executiveName == null
+                ? null : executives.triageCompanyIdsMatchingExecutiveName(projectId, executiveName);
+        Set<UUID> byStatus = executiveStatuses.isEmpty()
+                ? null : executives.triageCompanyIdsWithExecutiveStatusIn(projectId, executiveStatuses);
+        if (byName == null) {
+            return byStatus;
+        }
+        if (byStatus == null) {
+            return byName;
+        }
+        Set<UUID> intersection = new HashSet<>(byName);
+        intersection.retainAll(byStatus);
+        return intersection;
+    }
+
+    /**
+     * The one sort {@link #resolveSort} cannot express — see {@link MappedExecutiveLookup}. No
+     * {@code Sort} on the {@code Pageable}: the ordering is baked into the query {@link #executives}
+     * runs on the other side of the boundary, which is also why this asks for ids and re-fetches the
+     * rows rather than asking {@code triaged} to rank its own page — that data lives in {@code candidate}.
      */
     private Page<TriageCompany> findOrderedByExecutiveStatus(UUID projectId, TriageCompanyStatus status,
                                                               String companyName, String executiveName,
                                                               List<String> executiveStatuses,
                                                               SortDirection direction, PageRequest pageRequest) {
-        boolean asc = direction == SortDirection.ASC;
-        if (!executiveStatuses.isEmpty()) {
-            return asc
-                    ? triaged.findByProjectIdAndStatusOrderByExecutiveStatusRankAscAndExecutiveStatuses(
-                            projectId, status.name(), companyName, executiveName, executiveStatuses, pageRequest)
-                    : triaged.findByProjectIdAndStatusOrderByExecutiveStatusRankDescAndExecutiveStatuses(
-                            projectId, status.name(), companyName, executiveName, executiveStatuses, pageRequest);
+        Page<UUID> ranked = executives.triageCompanyIdsRankedByExecutiveStatus(projectId, status,
+                companyName, executiveName, executiveStatuses, direction == SortDirection.ASC, pageRequest);
+        if (ranked.isEmpty()) {
+            return new PageImpl<>(List.of(), pageRequest, ranked.getTotalElements());
         }
-        return asc
-                ? triaged.findByProjectIdAndStatusOrderByExecutiveStatusRankAsc(
-                        projectId, status.name(), companyName, executiveName, pageRequest)
-                : triaged.findByProjectIdAndStatusOrderByExecutiveStatusRankDesc(
-                        projectId, status.name(), companyName, executiveName, pageRequest);
+        Map<UUID, TriageCompany> byId = triaged.findAllById(ranked.getContent()).stream()
+                .collect(Collectors.toMap(TriageCompany::getId, company -> company));
+        List<TriageCompany> ordered = ranked.getContent().stream().map(byId::get).toList();
+        return new PageImpl<>(ordered, pageRequest, ranked.getTotalElements());
     }
 
     /**
