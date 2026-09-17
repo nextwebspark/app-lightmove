@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import { useForm } from "react-hook-form";
+import { FormProvider, useForm } from "react-hook-form";
 import { Button, FormError, useToast } from "../../../components/ui";
 import { DrawerCloseButton } from "../../../components/ui/Drawer";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
@@ -20,6 +20,7 @@ import {
   BackgroundFields,
   CareerFields,
   CompensationFields,
+  ContactEntriesFields,
   ContactFields,
   IdentityFields,
   NoteFields,
@@ -102,6 +103,7 @@ export function AddCandidateForm({
         </p>
       </div>
 
+      <FormProvider {...form}>
       <form
         onSubmit={form.handleSubmit((parsed) => {
           setSubmitError(null);
@@ -125,7 +127,21 @@ export function AddCandidateForm({
           </Section>
 
           <Section title="Contact">
-            <ContactFields register={register} errors={formState.errors} />
+            <div className="mb-4 space-y-4">
+              <div>
+                <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+                  Email
+                </span>
+                <ContactEntriesFields channel="email" />
+              </div>
+              <div>
+                <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+                  Phone
+                </span>
+                <ContactEntriesFields channel="phone" />
+              </div>
+            </div>
+            <ContactFields />
           </Section>
 
           <Section title="Background">
@@ -166,6 +182,7 @@ export function AddCandidateForm({
           </Button>
         </div>
       </form>
+      </FormProvider>
     </>
   );
 }

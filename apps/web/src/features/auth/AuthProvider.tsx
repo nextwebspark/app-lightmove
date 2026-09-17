@@ -10,6 +10,7 @@ import {
 } from "react";
 import { onSessionExpired, restoreSession, setAccessToken } from "../../lib/apiClient";
 import * as authApi from "./api/authApi";
+import { isReturningSignInPopup } from "./oauthPopup";
 import type { User } from "./api/types";
 
 /**
@@ -75,8 +76,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * The access token died with the page; the httpOnly refresh cookie did not. Exchanging it here is
    * what makes a hard refresh keep you signed in — the entire reason the token is allowed to be
    * memory-only in the first place.
+   *
+   * <p>Never inside a sign-in popup. The popup closes the moment it reports back, cancelling a refresh
+   * the server has already rotated, so the opener's own refresh presented the spent token, read as
+   * reuse, and revoked the session it had just signed in. Read at render: the callback page consumes
+   * the handshake in its own effect, which runs before this one.
    */
+  const [isSignInPopup] = useState(isReturningSignInPopup);
+
   useEffect(() => {
+    if (isSignInPopup) {
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     void (async () => {
@@ -102,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isSignInPopup]);
 
   /**
    * The apiClient discovers an expired session on a background request, long after any component has

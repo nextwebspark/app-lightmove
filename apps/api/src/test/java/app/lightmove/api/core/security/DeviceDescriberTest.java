@@ -81,13 +81,13 @@ class DeviceDescriberTest {
                         + "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
         assertThat(described.kind()).isEqualTo(DeviceKind.EXTENSION);
-        assertThat(described.label()).isEqualTo("LightMove Capture (browser extension)");
+        assertThat(described.label()).isEqualTo("Uncava Capture (browser extension)");
     }
 
     @Test
     @DisplayName("a web session claiming the extension's label is still a browser")
     void theExtensionsLabelCannotBeClaimed() {
-        assertThat(describer.describe(SessionClient.WEB_APP, "LightMove Capture (browser extension)").kind())
+        assertThat(describer.describe(SessionClient.WEB_APP, "Uncava Capture (browser extension)").kind())
                 .isNotEqualTo(DeviceKind.EXTENSION);
     }
 }

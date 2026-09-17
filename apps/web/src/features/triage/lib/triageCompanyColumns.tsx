@@ -9,6 +9,7 @@ import {
   type ColumnVisibilityState,
 } from "@tanstack/react-table";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { NetworkMark } from "../../../components/ui/NetworkMark";
 import { CompanyLink } from "../../../components/ui/CompanyLink";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import {
@@ -233,15 +234,17 @@ const BUILT_IN_COLUMNS = helper.columns([
         <span className="flex justify-start gap-1">
           <CompanyLink
             url={company.website}
-            icon={ICONS.globe}
+            icon={<Icon d={ICONS.globe} size={13} />}
             label="website"
             companyName={company.companyName}
+            reserve
           />
           <CompanyLink
             url={company.companyLinkedinUrl}
-            icon={ICONS.linkedin}
+            icon={<NetworkMark network="linkedin" size={14} />}
             label="LinkedIn"
             companyName={company.companyName}
+            reserve
           />
         </span>
       );
@@ -304,6 +307,22 @@ const BUILT_IN_COLUMNS = helper.columns([
     enableSorting: false,
     meta: { share: 14, min: 130 },
     cell: (info) => <DataGridCell value={info.getValue()} />,
+  }),
+
+  helper.accessor((row) => row.candidate?.contacts.emails.map((entry) => entry.address) ?? [], {
+    id: "executiveEmails",
+    header: "Email",
+    enableSorting: false,
+    meta: { share: 12, min: 170 },
+    cell: (info) => <ContactListCell values={info.getValue()} />,
+  }),
+
+  helper.accessor((row) => row.candidate?.contacts.phones.map((entry) => entry.number) ?? [], {
+    id: "executivePhones",
+    header: "Phone",
+    enableSorting: false,
+    meta: { share: 10, min: 150 },
+    cell: (info) => <ContactListCell values={info.getValue()} />,
   }),
 
   helper.accessor((row) => row.candidate?.status ?? null, {
@@ -469,7 +488,28 @@ export const DEFAULT_TRIAGE_COLUMN_VISIBILITY: ColumnVisibilityState = {
   founded: false,
   description: false,
   source: false,
+  executiveEmails: false,
+  executivePhones: false,
 };
+
+/**
+ * Every value the person holds, in a row one line tall: the first in the cell, the rest as a
+ * count, and all of them in the tooltip. A cell that grew a line per address would make the grid
+ * a different height on every row.
+ */
+function ContactListCell({ values }: { values: string[] }) {
+  if (values.length === 0) return <DataGridCell value={null} />;
+  return (
+    <span className="flex min-w-0 items-center gap-1.5" title={values.join("\n")}>
+      <TruncatedText value={values[0]} className="font-sans text-[13px] text-text2" />
+      {values.length > 1 && (
+        <span className="flex-none rounded-[4px] bg-panel2 px-1.5 py-px font-mono text-[9.5px] font-semibold text-text3">
+          +{values.length - 1}
+        </span>
+      )}
+    </span>
+  );
+}
 
 /**
  * A scrolled row without its name is a line of anonymous figures, so the name travels with it. v9

@@ -227,16 +227,24 @@ lightmove:
     # injection-phrases:
     #   - ignore previous instructions
     rate-limit:
-      # The import's column mapping is metered against shortlist-requests-per-minute, on a meter of
-      # its own: one deliberate click either way, but a large import must not eat the shortlist.
+      # Every meter but shortlist and embed (the import's column mapping, each extraction step) shares
+      # default-requests-per-minute: one deliberate click either way, but each still its own budget so
+      # none of them can eat another's calls.
+      #
+      # "Read the whole document" fans out all five extraction meters at once, so one click spends a
+      # fifth of this budget per section and the shared 10/min is two full one-click reads per user
+      # per minute. Deliberate, not an oversight: no evidence 10/min is wrong, and a dedicated
+      # position-extract setting can be split out later if it ever needs to move independently of the
+      # other meters riding on this default.
       enabled: ${LLM_RATE_LIMIT_ENABLED:true}
       shortlist-requests-per-minute: ${LLM_SHORTLIST_REQUESTS_PER_MINUTE:10}
       embed-requests-per-minute: ${LLM_EMBED_REQUESTS_PER_MINUTE:20}
+      default-requests-per-minute: ${LLM_DEFAULT_REQUESTS_PER_MINUTE:10}
 
   email:
     provider: ${EMAIL_PROVIDER:resend}
-    from-name: LightMove
-    from-address: ${EMAIL_FROM:noreply@lightmove.ai}
+    from-name: Uncava
+    from-address: ${EMAIL_FROM:noreply@uncava.com}
     resend:
       api-key: ${RESEND_API_KEY:}
     validation:
@@ -260,16 +268,34 @@ lightmove:
       extra-disposable-domains: ${EMAIL_EXTRA_DISPOSABLE:}
 
   # Researches a plugin-captured executive (experience, education, skills, photo, employer), off the
-  # capture's request thread. `brightdata` answers from the stored dataset in under a second
-  # (~$0.0025/hit) and falls back to a HarvestAPI live scrape on a miss when that key is present;
-  # `harvestapi` scrapes live every time (~$0.01, seconds). Off by default: every call is billed,
-  # and a fresh clone must run with no vendor account.
+  # capture's request thread. `brightdata` answers from the stored dataset (~$0.0025/hit) and falls
+  # back to a HarvestAPI live scrape on a miss when that key is present; `harvestapi` scrapes live
+  # every time (~$0.01, seconds). Off by default: every call is billed, and a fresh clone must run
+  # with no vendor account.
+  #
+  # The dataset search was ~0.7s when it was written and spent 16 Sep 2026 between 8-25s and dead, so
+  # its read timeout and retry budget are knobs rather than constants — that outage was a rebuild to
+  # change. Zero retries is deliberate: the fallback is the second attempt, and Spring 7.0.8 spends
+  # (1 + max-retries)^2 attempts rather than 1 + max-retries, so a budget of 1 is four whole timeouts
+  # (see BrightDataRetryBudgetTest). brightdata.max-retries is spelled out here for the resilience
+  # block's reason below: @Retryable never sees a record's binding default.
   enrichment:
     provider: ${ENRICHMENT_PROVIDER:off}
     brightdata:
       api-key: ${BRIGHTDATA_API_KEY:}
+      read-timeout: ${BRIGHTDATA_READ_TIMEOUT:15s}
+      max-retries: ${BRIGHTDATA_MAX_RETRIES:0}
     harvestapi:
       api-key: ${HARVESTAPI_API_KEY:}
+      read-timeout: ${HARVESTAPI_READ_TIMEOUT:60s}
+
+    # The candidate drawer's Find email / Find phone buttons, answered by ContactOut. Deliberately not
+    # selected by `provider` above: contact lookup is a separate account with a separate bill, and
+    # turning profile research off must not take the buttons with it. Left empty they are not offered.
+    # Each press spends one credit of that channel's monthly pool; a profile nobody has on record is
+    # free, and a value already held is never asked for twice.
+    contactout:
+      api-key: ${CONTACTOUT_API_KEY:}
 
   # How a paid third-party API is called: timeouts, retry and outbound pacing, shared by every vendor
   # adapter. These are spelled out rather than left to the record's @DefaultValue because @Retryable
@@ -335,6 +361,21 @@ lightmove:
         - application/msword
         - application/vnd.openxmlformats-officedocument.wordprocessingml.document
         - text/plain
+    extraction:
+      # ON. Reading the attached document into step-one proposals is billed model time behind
+      # PROJECT_EDIT, degrading to a heuristic reading with no Vertex credentials at all — off leaves
+      # the upload/download path untouched and turns "Read from document" off alone.
+      enabled: ${POSITION_EXTRACTION_ENABLED:true}
+      # Refused whole rather than read in part — bounds the model's per-call cost and a decompression
+      # bomb alike. Applied to the extracted *text*, not the upload's byte size — a small,
+      # well-compressed file can still decompress into far more text than this.
+      max-characters: ${POSITION_EXTRACTION_MAX_CHARACTERS:40000}
+      max-pages: ${POSITION_EXTRACTION_MAX_PAGES:60}
+      # ON. The document's client identity and contact details are not the model's business — see
+      # PositionDocumentRedactor. Turn off only knowingly, the same trade send-sample-values makes for
+      # spreadsheet imports.
+      redact-known-company-names: ${POSITION_EXTRACTION_REDACT_CLIENT_NAME:true}
+      redact-contact-details: ${POSITION_EXTRACTION_REDACT_CONTACT_DETAILS:true}
 
   custom-column:
     # The ceiling on the extra columns one mandate may add to its Companies grid, counted across the

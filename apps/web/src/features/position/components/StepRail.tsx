@@ -22,6 +22,7 @@ export function StepRail({
   onEditPosition,
   editing,
   publishing,
+  proposalCounts,
 }: {
   position: Position;
   currentStep: StepKey;
@@ -35,6 +36,10 @@ export function StepRail({
   /** Whether a published brief has been opened for changes — see ReviewStep's `canEdit`. */
   editing: boolean;
   publishing: boolean;
+  /** Unaccepted proposal count per step, from "Read the whole document" — absent or zero renders no
+   * badge. Counts only what is still unaccepted: each step's own extraction slot already drops a row
+   * the moment it is accepted or dismissed, so the count needs no separate tracking of its own. */
+  proposalCounts?: Partial<Record<StepKey, number>>;
 }) {
   const published = Boolean(position.publication.publishedAt);
   // A published brief nobody has opened for changes is being read, not edited — the step in view is
@@ -78,6 +83,7 @@ export function StepRail({
           const stepDone = done[index];
           const current = step.key === currentStep;
           const label = current && !readingBack ? "Editing" : stepDone ? "✓" : "";
+          const proposalCount = proposalCounts?.[step.key] ?? 0;
           return (
             <li key={step.key}>
               <button
@@ -102,6 +108,11 @@ export function StepRail({
                   >
                     {index + 1}. {step.name}
                   </span>
+                  {proposalCount > 0 && (
+                    <span className="rounded-full border border-sky/60 bg-sky-dim px-1.5 py-px font-mono text-[10px] font-semibold text-sky">
+                      {proposalCount} suggestion{proposalCount === 1 ? "" : "s"}
+                    </span>
+                  )}
                   <span
                     className={cn(
                       "ms-auto whitespace-nowrap font-mono text-[10.5px] font-semibold",

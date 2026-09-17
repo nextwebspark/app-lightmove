@@ -15,7 +15,7 @@ function deps(tabs: { id?: number; url?: string }[] = []) {
   };
 }
 
-describe("where LightMove Capture offers itself", () => {
+describe("where UNCAVA Capture offers itself", () => {
   it("shows the panel and lights the icon on a LinkedIn page", async () => {
     const chrome = deps();
 
@@ -25,7 +25,7 @@ describe("where LightMove Capture offers itself", () => {
     // icon lights up, and clicking it opens no panel. That shipped once.
     expect(chrome.setPanelOptions).toHaveBeenCalledWith({ tabId: 1, enabled: true, path: "popup.html" });
     expect(chrome.enableAction).toHaveBeenCalledWith(1);
-    expect(chrome.setActionTitle).toHaveBeenCalledWith({ tabId: 1, title: "LightMove Capture" });
+    expect(chrome.setActionTitle).toHaveBeenCalledWith({ tabId: 1, title: "UNCAVA Capture" });
   });
 
   it("hides the panel and greys the icon everywhere else", async () => {
@@ -38,7 +38,7 @@ describe("where LightMove Capture offers itself", () => {
     // A greyed icon whose click does nothing needs to say why on hover, or it reads as broken.
     expect(chrome.setActionTitle).toHaveBeenCalledWith({
       tabId: 2,
-      title: "LightMove Capture — open a LinkedIn profile or company page",
+      title: "UNCAVA Capture — open a LinkedIn profile or company page",
     });
   });
 

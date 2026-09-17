@@ -8,25 +8,34 @@ import { messageFor } from "../../../lib/errorCodes";
 import { useAutosave } from "../../../lib/useAutosave";
 import * as projectsApi from "../../projects/api/projectsApi";
 import * as positionApi from "../api/positionApi";
+import type { ExtractionSectionKey } from "../api/positionApi";
 import type {
+  Benefit,
+  BenefitFrequency,
   Compensation,
   Competency,
   Criterion,
   MandateContext,
   Position,
   PositionDetails,
+  PositionExtraction,
   PositionTemplate,
+  ProposedField,
   ReportingStructure,
+  StrategicPriority,
 } from "../api/types";
 import { StepNavigation } from "../components/StepNavigation";
 import type { CompetencyPanelKey } from "../components/steps/AssessmentStep";
 import {
+  competencyFrom,
   forWire,
   identify,
   moveRow,
+  PACK_SEPARATOR,
   toggle,
   type IdentifiedCompetency,
 } from "../lib/competencyRows";
+import { appendDirectReport, applyReportsToTitle, MAX_ORG_CHART_SEATS, type ChartMergeBlock } from "../lib/orgChart";
 import { StepRail } from "../components/StepRail";
 import { AssessmentStep } from "../components/steps/AssessmentStep";
 import { CompensationStep } from "../components/steps/CompensationStep";
@@ -34,7 +43,29 @@ import { MandateContextStep, MandateReasonField } from "../components/steps/Mand
 import { PositionDetailsStep } from "../components/steps/PositionDetailsStep";
 import { ReportingStructureStep } from "../components/steps/ReportingStructureStep";
 import { ReviewStep } from "../components/steps/ReviewStep";
+import { EMPLOYMENT_TYPE_LABELS } from "../lib/labels";
 import { POSITION_STEPS, stepIndexOf, type StepKey } from "../lib/steps";
+import { SENIORITY_TIERS } from "../../../lib/seniority";
+
+const EMPLOYMENT_TYPES: readonly string[] = Object.keys(EMPLOYMENT_TYPE_LABELS);
+
+/** Mirrors `PutCriteriaRequest`'s and `PutCompetenciesRequest`'s own per-brief ceilings. */
+const CRITERIA_MAX_COUNT = 30;
+const COMPETENCY_MAX_COUNT_PER_PANEL = 10;
+
+interface AssessmentAccumulator {
+  criteria: Criterion[];
+  technical: IdentifiedCompetency[];
+  behavioural: IdentifiedCompetency[];
+}
+
+function isEmploymentType(value: string): value is NonNullable<PositionDetails["employmentType"]> {
+  return EMPLOYMENT_TYPES.includes(value);
+}
+
+function isSeniority(value: string): value is NonNullable<PositionDetails["seniority"]> {
+  return (SENIORITY_TIERS as readonly string[]).includes(value);
+}
 
 /** The Position tab: loads the brief, then hands the wizard a snapshot to draft against. */
 export function PositionPage() {
@@ -99,6 +130,20 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   // Locks live here rather than in the panel: step panels unmount when you visit another step, which
   // is exactly when somebody would have left one set.
   const [lockedCompetencies, setLockedCompetencies] = useState<ReadonlySet<string>>(new Set());
+  // "Read from document"'s proposals. Local state, never the query cache: a proposal is a transient
+  // read, not a fact about the mandate, and nothing here is written until a row is accepted.
+  // One slot per step, not one shared slot: a reading on step two must survive visiting step four
+  // and back, the same reason contextSave/compensationSave are already separate autosave channels.
+  const [detailsExtraction, setDetailsExtraction] = useState<PositionExtraction | null>(null);
+  const [contextExtraction, setContextExtraction] = useState<PositionExtraction | null>(null);
+  const [reportingExtraction, setReportingExtraction] = useState<PositionExtraction | null>(null);
+  const [compensationExtraction, setCompensationExtraction] = useState<PositionExtraction | null>(null);
+  const [assessmentExtraction, setAssessmentExtraction] = useState<PositionExtraction | null>(null);
+  // Which section's own slot in the last "read the whole document" fan-out failed, and why —
+  // extractAll bypasses the five mutations below (it calls positionApi.extractX directly), so their
+  // own isError/error never reflect a fan-out failure; only a section's own retry click does.
+  const [extractionFailures, setExtractionFailures] =
+    useState<Partial<Record<ExtractionSectionKey, unknown>>>({});
 
   // The picker's options. A failed read leaves the type-ahead with nothing to offer, which is the
   // right degradation: the title is free text and stays typeable.
@@ -225,6 +270,16 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       detailsSave.schedule(titled);
       void detailsSave.flush();
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
+      // A template redraft touches fields across every step, so a proposal still open anywhere
+      // could now point at a value the redraft already replaced. Cleared rather than reconciled —
+      // and re-read, since the brief just changed under whatever was already proposed.
+      setDetailsExtraction(null);
+      setContextExtraction(null);
+      setReportingExtraction(null);
+      setCompensationExtraction(null);
+      setAssessmentExtraction(null);
+      setExtractionFailures({});
+      if (brief.document) extractAll.mutate();
       toast(`Brief drafted from the ${template.title} template.`);
     },
     onError: (error) => toast(messageFor(error)),
@@ -234,21 +289,32 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     setCriteria(next);
     criteriaSave.schedule(next);
   };
+  /**
+   * The one place both competency panels are ever written, so two panels can be updated in the same
+   * handler without either write reading the other's stale, pre-update value from this closure — the
+   * hazard a `setTechnical` and a `setBehavioural` fired from two separate calls run straight into.
+   */
+  const changeCompetencyPanels = (
+    nextTechnical: IdentifiedCompetency[],
+    nextBehavioural: IdentifiedCompetency[],
+    immediate = false,
+  ) => {
+    setTechnical(nextTechnical);
+    setBehavioural(nextBehavioural);
+    competenciesSave.schedule({
+      technical: forWire(nextTechnical),
+      behavioural: forWire(nextBehavioural),
+    });
+    if (immediate) void competenciesSave.flush();
+  };
   const changePanel =
     (panel: CompetencyPanelKey, immediate = false) =>
-    (rows: IdentifiedCompetency[]) => {
-      const next = {
-        technical: panel === "technical" ? rows : technical,
-        behavioural: panel === "behavioural" ? rows : behavioural,
-      };
-      setTechnical(next.technical);
-      setBehavioural(next.behavioural);
-      competenciesSave.schedule({
-        technical: forWire(next.technical),
-        behavioural: forWire(next.behavioural),
-      });
-      if (immediate) void competenciesSave.flush();
-    };
+    (rows: IdentifiedCompetency[]) =>
+      changeCompetencyPanels(
+        panel === "technical" ? rows : technical,
+        panel === "behavioural" ? rows : behavioural,
+        immediate,
+      );
 
   /** Where a published brief leads: the mandate's own market, which is the next thing to be done. */
   const goToStrategy = () => navigate(`/projects/${projectId}/strategy`);
@@ -310,12 +376,30 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
 
   const attachDocument = useMutation({
     mutationFn: (file: File) => positionApi.attachDocument(projectId, file),
-    onSuccess: (saved) => queryClient.setQueryData(key, saved),
+    // A proposal against a document that has just been replaced is confusing, so it does not survive
+    // on any step.
+    onSuccess: (saved) => {
+      queryClient.setQueryData(key, saved);
+      setDetailsExtraction(null);
+      setContextExtraction(null);
+      setReportingExtraction(null);
+      setCompensationExtraction(null);
+      setAssessmentExtraction(null);
+      setExtractionFailures({});
+    },
     onError: (error) => toast(messageFor(error)),
   });
   const removeDocument = useMutation({
     mutationFn: () => positionApi.removeDocument(projectId),
-    onSuccess: (saved) => queryClient.setQueryData(key, saved),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(key, saved);
+      setDetailsExtraction(null);
+      setContextExtraction(null);
+      setReportingExtraction(null);
+      setCompensationExtraction(null);
+      setAssessmentExtraction(null);
+      setExtractionFailures({});
+    },
     onError: (error) => toast(messageFor(error)),
   });
   const downloadDocument = useMutation({
@@ -323,6 +407,488 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       positionApi.saveDocument(projectId, position.document?.fileName ?? "position-description"),
     onError: (error) => toast(messageFor(error)),
   });
+  /** Clears a section's own recorded fan-out failure once its own retry succeeds. */
+  const clearedFailure = (section: ExtractionSectionKey) =>
+    setExtractionFailures((current) => {
+      if (!(section in current)) return current;
+      const { [section]: _removed, ...rest } = current;
+      return rest;
+    });
+
+  const extractContext = useMutation({
+    mutationFn: () => positionApi.extractContext(projectId),
+    onSuccess: (data) => {
+      setContextExtraction(data);
+      clearedFailure("context");
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+  const extractReporting = useMutation({
+    mutationFn: () => positionApi.extractReporting(projectId),
+    onSuccess: (data) => {
+      setReportingExtraction(data);
+      clearedFailure("reporting");
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+  const extractCompensation = useMutation({
+    mutationFn: () => positionApi.extractCompensation(projectId),
+    onSuccess: (data) => {
+      setCompensationExtraction(data);
+      clearedFailure("compensation");
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+  const extractAssessment = useMutation({
+    mutationFn: () => positionApi.extractAssessment(projectId),
+    onSuccess: (data) => {
+      setAssessmentExtraction(data);
+      clearedFailure("assessment");
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  const extractionSetters: Record<ExtractionSectionKey, (data: PositionExtraction) => void> = {
+    details: setDetailsExtraction,
+    context: setContextExtraction,
+    reporting: setReportingExtraction,
+    compensation: setCompensationExtraction,
+    assessment: setAssessmentExtraction,
+  };
+
+  // The five endpoints, called directly through the namespaced `positionApi` import so each one
+  // stays independently mockable in tests — the same seam every other mutation below already goes
+  // through, rather than a positionApi-level helper that would close over the real implementations
+  // regardless of what a test replaces the named exports with.
+  const extractionSections: { key: ExtractionSectionKey; run: () => Promise<PositionExtraction> }[] = [
+    { key: "details", run: () => positionApi.extractDetails(projectId) },
+    { key: "context", run: () => positionApi.extractContext(projectId) },
+    { key: "reporting", run: () => positionApi.extractReporting(projectId) },
+    { key: "compensation", run: () => positionApi.extractCompensation(projectId) },
+    { key: "assessment", run: () => positionApi.extractAssessment(projectId) },
+  ];
+
+  /**
+   * "Read the whole document": fans out all five section reads and settles them independently
+   * (`Promise.allSettled`, not `Promise.all`) so one section's own failure never clears — or blocks
+   * rendering — the other four. A fresh run replaces every section's proposals and failures rather
+   * than merging with whatever a previous run left.
+   */
+  const extractAll = useMutation({
+    mutationFn: async () => {
+      const settled = await Promise.allSettled(extractionSections.map((section) => section.run()));
+      return settled.map((result, index) => ({ section: extractionSections[index].key, result }));
+    },
+    onSuccess: (results) => {
+      const failures: Partial<Record<ExtractionSectionKey, unknown>> = {};
+      for (const { section, result } of results) {
+        if (result.status === "fulfilled") {
+          extractionSetters[section](result.value);
+        } else {
+          failures[section] = result.reason;
+        }
+      }
+      setExtractionFailures(failures);
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  /** Removed by object identity, never by index — a row's identity must not shift under a disclosure
+   * left open while another row is accepted or dismissed beside it. */
+  const removeDetailsProposal = (field: ProposedField) =>
+    setDetailsExtraction((current) =>
+      current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
+    );
+
+  /** Null for a fieldKey this step doesn't have a slot for — the caller must not treat that as "saved". */
+  const patchForDetails = (field: ProposedField, value: string): Partial<PositionDetails> | null => {
+    switch (field.fieldKey) {
+      case "roleTitle":
+        return { roleTitle: value };
+      case "department":
+        return { department: value || null };
+      case "location":
+        return { location: value || null };
+      case "employmentType":
+        return isEmploymentType(value) ? { employmentType: value } : null;
+      case "seniority":
+        return isSeniority(value) ? { seniority: value } : null;
+      case "narrative":
+        return { narrative: value || null };
+      case "responsibility":
+        return { responsibilities: [...details.responsibilities, value] };
+      default:
+        return null;
+    }
+  };
+
+  const acceptDetailsProposal = (field: ProposedField, value: string) => {
+    const patch = patchForDetails(field, value);
+    if (!patch) return;
+    // Renaming the mandate is a decision, like every other immediate-flagged edit in this file — every
+    // other field stays on the ordinary debounce a typed edit would get.
+    changeDetails(patch, field.fieldKey === "roleTitle");
+    removeDetailsProposal(field);
+  };
+
+  /**
+   * One combined patch rather than one `changeDetails` call per field: `changeDetails` reads `details`
+   * from this closure rather than a functional updater, so several calls fired synchronously in the
+   * same handler would each start from the same stale snapshot and the later ones would silently
+   * discard the earlier ones' edits.
+   *
+   * `edits` is the panel's own per-row corrections, keyed by field id — reading `field.value` alone
+   * here would silently drop everything a user had typed before pressing Accept all.
+   */
+  const acceptAllDetailsProposals = (edits: Record<number, string>) => {
+    if (!detailsExtraction) return;
+    const valueOf = (field: ProposedField) => edits[field.id] ?? field.value;
+    const responsibilities = detailsExtraction.fields
+        .filter((field) => field.fieldKey === "responsibility")
+        .map(valueOf);
+    const combined = detailsExtraction.fields
+        .filter((field) => field.fieldKey !== "responsibility")
+        .reduce<Partial<PositionDetails>>((patch, field) => {
+          const fieldPatch = patchForDetails(field, valueOf(field));
+          return fieldPatch ? { ...patch, ...fieldPatch } : patch;
+        }, {});
+    changeDetails(
+      { ...combined, responsibilities: [...details.responsibilities, ...responsibilities] },
+      true,
+    );
+    setDetailsExtraction(null);
+  };
+
+  const removeContextProposal = (field: ProposedField) =>
+    setContextExtraction((current) =>
+      current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
+    );
+
+  /** A name that case-insensitively matches one already on the brief is merged in place, never appended. */
+  const mergePriorities = (existing: StrategicPriority[], names: string[]): StrategicPriority[] => {
+    const merged = [...existing];
+    for (const name of names) {
+      const alreadyPresent = merged.some(
+        (priority) => priority.name.toLowerCase() === name.toLowerCase(),
+      );
+      if (!alreadyPresent) merged.push({ name, selected: true });
+    }
+    return merged;
+  };
+
+  const patchForContext = (field: ProposedField, value: string): Partial<MandateContext> => {
+    switch (field.fieldKey) {
+      case "mandateReason":
+        return { mandateReason: value as MandateContext["mandateReason"] };
+      case "businessDriver":
+        return { businessDriver: value || null };
+      case "strategicPriority":
+        return { strategicPriorities: mergePriorities(context.strategicPriorities, [value]) };
+      default:
+        return {};
+    }
+  };
+
+  const acceptContextProposal = (field: ProposedField, value: string) => {
+    changeContext(patchForContext(field, value));
+    removeContextProposal(field);
+  };
+
+  const acceptAllContextProposals = () => {
+    if (!contextExtraction) return;
+    const priorityNames = contextExtraction.fields
+        .filter((field) => field.fieldKey === "strategicPriority")
+        .map((field) => field.value);
+    const combined = contextExtraction.fields
+        .filter((field) => field.fieldKey !== "strategicPriority")
+        .reduce<Partial<MandateContext>>(
+          (patch, field) => ({ ...patch, ...patchForContext(field, field.value) }),
+          {},
+        );
+    changeContext(
+      { ...combined, strategicPriorities: mergePriorities(context.strategicPriorities, priorityNames) },
+      true,
+    );
+    setContextExtraction(null);
+  };
+
+  const removeCompensationProposal = (field: ProposedField) =>
+    setCompensationExtraction((current) =>
+      current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
+    );
+
+  /**
+   * A proposed benefit's `value` is `"<name>"`, or `"<name> — <frequency>"` when the document's own
+   * wording gave the proposer a frequency it could resolve — see `PositionCompensationProposer`. The
+   * amount is never proposed, so it always lands `null`, exactly like a manually added benefit row.
+   *
+   * Anchored to the end of the string and to the two literal tokens the backend ever appends, so a
+   * benefit name that itself contains " — " in the middle is never mistaken for the appended suffix —
+   * only an exact, backend-appended trailing " — monthly"/" — yearly" is split off.
+   */
+  const benefitFrom = (value: string): Benefit => {
+    const suffix = value.match(new RegExp(`^(.*)${PACK_SEPARATOR}(monthly|yearly)$`, "i"));
+    if (!suffix) {
+      return { name: value, amount: null, frequency: "MONTHLY" };
+    }
+    const frequency: BenefitFrequency = suffix[2].toUpperCase() === "YEARLY" ? "YEARLY" : "MONTHLY";
+    return { name: suffix[1], amount: null, frequency };
+  };
+
+  const patchForCompensation = (field: ProposedField, value: string): Partial<Compensation> => {
+    switch (field.fieldKey) {
+      case "currency":
+        return { currency: value };
+      case "salaryMin":
+        return { salaryMin: Number(value) };
+      case "salaryMax":
+        return { salaryMax: Number(value) };
+      case "baseSalaryMode":
+        return { baseSalaryMode: value as Compensation["baseSalaryMode"] };
+      case "bonusValue":
+        return { bonusValue: Number(value) };
+      case "bonusBasis":
+        return { bonusBasis: value as Compensation["bonusBasis"] };
+      case "incentiveType":
+        return { incentiveType: value as Compensation["incentiveType"] };
+      case "incentiveAmount":
+        return { incentiveAmount: Number(value) };
+      case "incentiveVesting":
+        return { incentiveVesting: value || null };
+      case "benefit":
+        return { benefits: [...compensation.benefits, benefitFrom(value)] };
+      default:
+        return {};
+    }
+  };
+
+  const acceptCompensationProposal = (field: ProposedField, value: string) => {
+    changeCompensation(patchForCompensation(field, value));
+    removeCompensationProposal(field);
+  };
+
+  const acceptAllCompensationProposals = () => {
+    if (!compensationExtraction) return;
+    const benefits = compensationExtraction.fields
+        .filter((field) => field.fieldKey === "benefit")
+        .map((field) => benefitFrom(field.value));
+    const combined = compensationExtraction.fields
+        .filter((field) => field.fieldKey !== "benefit")
+        .reduce<Partial<Compensation>>(
+          (patch, field) => ({ ...patch, ...patchForCompensation(field, field.value) }),
+          {},
+        );
+    changeCompensation(
+      { ...combined, benefits: [...compensation.benefits, ...benefits] },
+      true,
+    );
+    setCompensationExtraction(null);
+  };
+
+  const removeAssessmentProposal = (field: ProposedField) =>
+    setAssessmentExtraction((current) =>
+      current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
+    );
+
+  /**
+   * Folds one proposed field into an assessment accumulator — the one place the fieldKey → state-slot
+   * mapping lives, so `acceptAssessmentProposal` and `acceptAllAssessmentProposals` read it the same
+   * way instead of each keeping their own copy. Returns `acc` unchanged, rather than over-filling it,
+   * once a group is already at `PutCriteriaRequest`'s/`PutCompetenciesRequest`'s own per-brief ceiling
+   * — those ceilings are per brief, not per proposal, so a brief already near one can still not take
+   * everything an "Accept all" offers.
+   *
+   * A criterion built from an accepted proposal is written `fromBrief: false`, exactly like one typed
+   * by hand into `CriteriaCard` — never `true`. `fromBrief` marks a row a template redraft is free to
+   * delete and replace (`PositionTemplateApplier.draftedCriteria`); a criterion a person read out of
+   * the client's own document and accepted is not the template's to discard on the next re-apply.
+   */
+  const patchForAssessment = (
+    field: ProposedField,
+    value: string,
+    acc: AssessmentAccumulator,
+  ): AssessmentAccumulator => {
+    switch (field.fieldKey) {
+      case "requiredCriterion":
+        return acc.criteria.length >= CRITERIA_MAX_COUNT
+          ? acc
+          : { ...acc, criteria: [...acc.criteria, { text: value, mode: "REQUIRED", fromBrief: false }] };
+      case "preferredCriterion":
+        return acc.criteria.length >= CRITERIA_MAX_COUNT
+          ? acc
+          : { ...acc, criteria: [...acc.criteria, { text: value, mode: "PREFERRED", fromBrief: false }] };
+      case "technicalCompetency":
+        return acc.technical.length >= COMPETENCY_MAX_COUNT_PER_PANEL
+          ? acc
+          : { ...acc, technical: [...acc.technical, { ...competencyFrom(value), id: crypto.randomUUID() }] };
+      case "behaviouralCompetency":
+        return acc.behavioural.length >= COMPETENCY_MAX_COUNT_PER_PANEL
+          ? acc
+          : { ...acc, behavioural: [...acc.behavioural, { ...competencyFrom(value), id: crypto.randomUUID() }] };
+      default:
+        return acc;
+    }
+  };
+
+  /** Writes whichever of `after`'s three slots actually changed from `before`, in one combined write
+   *  per channel — `changeCriteria`/`changeCompetencyPanels` read their current arrays from this
+   *  closure rather than a functional updater, so this must be the only call each makes. */
+  const writeAssessmentAccumulator = (before: AssessmentAccumulator, after: AssessmentAccumulator) => {
+    if (after.criteria !== before.criteria) changeCriteria(after.criteria);
+    if (after.technical !== before.technical || after.behavioural !== before.behavioural) {
+      changeCompetencyPanels(after.technical, after.behavioural, true);
+    }
+  };
+
+  const acceptAssessmentProposal = (field: ProposedField, value: string) => {
+    const before: AssessmentAccumulator = { criteria, technical, behavioural };
+    const after = patchForAssessment(field, value, before);
+    if (after === before) {
+      toast("This brief is already at its limit for that — remove something first.");
+      return;
+    }
+    writeAssessmentAccumulator(before, after);
+    removeAssessmentProposal(field);
+  };
+
+  const dismissAssessmentProposal = (field: ProposedField) => removeAssessmentProposal(field);
+
+  const acceptAllAssessmentProposals = (edits: Record<number, string>) => {
+    if (!assessmentExtraction) return;
+    const valueOf = (field: ProposedField) => edits[field.id] ?? field.value;
+    const before: AssessmentAccumulator = { criteria, technical, behavioural };
+    const after = assessmentExtraction.fields.reduce(
+      (acc, field) => patchForAssessment(field, valueOf(field), acc),
+      before,
+    );
+    writeAssessmentAccumulator(before, after);
+    const added =
+      (after.criteria.length - before.criteria.length) +
+      (after.technical.length - before.technical.length) +
+      (after.behavioural.length - before.behavioural.length);
+    if (added < assessmentExtraction.fields.length) {
+      toast(
+        `${assessmentExtraction.fields.length - added} of ${assessmentExtraction.fields.length} ` +
+          "proposals could not be added — the brief is already at its limit.",
+      );
+    }
+    setAssessmentExtraction(null);
+  };
+
+  const removeReportingProposal = (field: ProposedField) =>
+    setReportingExtraction((current) =>
+      current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
+    );
+
+  /** Why a chart-merging case in {@link patchForReporting} below declined to apply, in words a toast can use. */
+  const chartBlockMessage = (blocked: ChartMergeBlock): string => {
+    switch (blocked) {
+      case "full":
+        return `That chart is already at the ${MAX_ORG_CHART_SEATS}-seat limit.`;
+      case "duplicate":
+        return "That title is already a direct report on this chart.";
+      case "noMandateSeat":
+        return "This mandate has no seat on its chart yet.";
+    }
+  };
+
+  /**
+   * Unlike every other step's proposals, a "reportsToTitle" or "directReportTitle" proposal does not
+   * become a flat field — it is folded into the existing org chart (renaming or minting the manager,
+   * appending a direct report), never a chart of its own. See `orgChart.ts`'s
+   * `applyReportsToTitle`/`appendDirectReport` and the class doc on `PositionReportingProposer` for why.
+   *
+   * `null` for a fieldKey this step doesn't have a slot for — the caller must not treat that as
+   * "saved", the same convention `patchForDetails` uses. `blocked` is reported separately from that:
+   * a chart-merge helper declining to apply is a real outcome with something to tell the user, not the
+   * same "nothing to do" as an unrecognised key.
+   */
+  const patchForReporting = (
+    field: ProposedField,
+    value: string,
+  ): { patch: Partial<ReportingStructure>; blocked: ChartMergeBlock | null } | null => {
+    switch (field.fieldKey) {
+      case "reportsToTitle": {
+        const result = applyReportsToTitle(reporting.orgChart, value);
+        return { patch: { orgChart: result.chart }, blocked: result.blocked };
+      }
+      case "directReportTitle": {
+        const result = appendDirectReport(reporting.orgChart, value);
+        return { patch: { orgChart: result.chart }, blocked: result.blocked };
+      }
+      case "teamSize":
+        return { patch: { teamSize: value }, blocked: null };
+      case "noticeValue":
+        return { patch: { noticeValue: Number(value) }, blocked: null };
+      case "noticeUnit":
+        return { patch: { noticeUnit: value as ReportingStructure["noticeUnit"] }, blocked: null };
+      default:
+        return null;
+    }
+  };
+
+  const acceptReportingProposal = (field: ProposedField, value: string) => {
+    const result = patchForReporting(field, value);
+    if (!result) return;
+    if (result.blocked) {
+      toast(chartBlockMessage(result.blocked));
+      return;
+    }
+    changeReporting(result.patch, true);
+    removeReportingProposal(field);
+  };
+
+  const dismissReportingProposal = (field: ProposedField) => removeReportingProposal(field);
+
+  /**
+   * Threads one evolving chart through every accepted proposal in turn — reports-to first, then each
+   * direct report in order — rather than starting each from the same `reporting.orgChart` snapshot the
+   * way `acceptAllCompensationProposals` folds its flat fields: two direct-report accepts applied
+   * independently would each append onto the chart this render started with and the second would
+   * silently discard the first.
+   */
+  const acceptAllReportingProposals = () => {
+    if (!reportingExtraction) return;
+    let orgChart = reporting.orgChart;
+    let blockedCount = 0;
+
+    const reportsTo = reportingExtraction.fields.find((field) => field.fieldKey === "reportsToTitle");
+    if (reportsTo) {
+      const result = applyReportsToTitle(orgChart, reportsTo.value);
+      if (result.blocked) blockedCount++;
+      orgChart = result.chart;
+    }
+    for (const field of reportingExtraction.fields) {
+      if (field.fieldKey !== "directReportTitle") continue;
+      const result = appendDirectReport(orgChart, field.value);
+      // A duplicate is specific to this one proposal — later ones may still have headroom — but a
+      // full chart blocks every proposal after it, so only that reason stops the loop.
+      if (result.blocked === "full") {
+        blockedCount++;
+        break;
+      }
+      if (result.blocked === "duplicate") {
+        blockedCount++;
+        continue;
+      }
+      orgChart = result.chart;
+    }
+
+    const patch: Partial<ReportingStructure> = { orgChart };
+    for (const field of reportingExtraction.fields) {
+      if (field.fieldKey === "teamSize") patch.teamSize = field.value;
+      if (field.fieldKey === "noticeValue") patch.noticeValue = Number(field.value);
+      if (field.fieldKey === "noticeUnit") patch.noticeUnit = field.value as ReportingStructure["noticeUnit"];
+    }
+    changeReporting(patch, true);
+    setReportingExtraction(null);
+    if (blockedCount > 0) {
+      toast(
+        `${blockedCount} of the proposed reporting changes could not be applied — the chart reached ` +
+          `its ${MAX_ORG_CHART_SEATS}-seat limit or already held that report.`,
+      );
+    }
+  };
 
   const flushEverything = () => Promise.allSettled(channels.map((channel) => channel.flush()));
 
@@ -346,6 +912,16 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     },
   };
   const step = POSITION_STEPS[stepIndexOf(currentStep)];
+
+  // Badge counts for the rail: each slot already drops a row the moment it is accepted or
+  // dismissed, so its length is already "how many are still unaccepted" with no extra bookkeeping.
+  const proposalCounts: Partial<Record<StepKey, number>> = {
+    details: detailsExtraction?.fields.length,
+    context: contextExtraction?.fields.length,
+    reporting: reportingExtraction?.fields.length,
+    compensation: compensationExtraction?.fields.length,
+    assessment: assessmentExtraction?.fields.length,
+  };
 
   return (
     <div className="animate-fade-up">
@@ -402,26 +978,65 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               templates={templates}
               applyingTemplate={applyTemplate.isPending}
               uploading={attachDocument.isPending || removeDocument.isPending}
+              extraction={detailsExtraction}
+              extracting={extractAll.isPending}
+              extractionError={extractionFailures.details}
               onDownload={() => downloadDocument.mutate()}
               onChange={changeDetails}
               onPickTemplate={(template) => applyTemplate.mutate(template)}
               onAttachDocument={(file) => attachDocument.mutate(file)}
               onRemoveDocument={() => removeDocument.mutate()}
+              onExtract={() => extractAll.mutate()}
+              onAcceptProposal={acceptDetailsProposal}
+              onDismissProposal={removeDetailsProposal}
+              onAcceptAllProposals={acceptAllDetailsProposals}
+              onApplySuggestedTemplate={(template) => applyTemplate.mutate(template)}
+              applyingSuggestedTemplate={applyTemplate.isPending}
             />
           )}
           {currentStep === "context" && (
-            <MandateContextStep context={context} onChange={changeContext} />
+            <MandateContextStep
+              context={context}
+              document={drafted.document}
+              extraction={contextExtraction}
+              extracting={extractContext.isPending}
+              extractionError={extractionFailures.context}
+              onChange={changeContext}
+              onExtract={() => extractContext.mutate()}
+              onAcceptProposal={acceptContextProposal}
+              onDismissProposal={removeContextProposal}
+              onAcceptAllProposals={acceptAllContextProposals}
+            />
           )}
           {currentStep === "reporting" && (
             <ReportingStructureStep
               roleTitle={details.roleTitle}
               seniority={details.seniority}
               reporting={reporting}
+              document={drafted.document}
+              extraction={reportingExtraction}
+              extracting={extractReporting.isPending}
+              extractionError={extractionFailures.reporting}
               onChange={changeReporting}
+              onExtract={() => extractReporting.mutate()}
+              onAcceptProposal={acceptReportingProposal}
+              onDismissProposal={dismissReportingProposal}
+              onAcceptAllProposals={acceptAllReportingProposals}
             />
           )}
           {currentStep === "compensation" && (
-            <CompensationStep compensation={compensation} onChange={changeCompensation} />
+            <CompensationStep
+              compensation={compensation}
+              document={drafted.document}
+              extraction={compensationExtraction}
+              extracting={extractCompensation.isPending}
+              extractionError={extractionFailures.compensation}
+              onChange={changeCompensation}
+              onExtract={() => extractCompensation.mutate()}
+              onAcceptProposal={acceptCompensationProposal}
+              onDismissProposal={removeCompensationProposal}
+              onAcceptAllProposals={acceptAllCompensationProposals}
+            />
           )}
           {currentStep === "assessment" && (
             <AssessmentStep
@@ -429,10 +1044,18 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
               technical={technical}
               behavioural={behavioural}
               locked={lockedCompetencies}
+              document={drafted.document}
+              extraction={assessmentExtraction}
+              extracting={extractAssessment.isPending}
+              extractionError={extractionFailures.assessment}
               onCriteria={changeCriteria}
               onPanel={changePanel}
               onToggleLock={(id) => setLockedCompetencies((current) => toggle(current, id))}
               onReorder={reorderPanel}
+              onExtract={() => extractAssessment.mutate()}
+              onAcceptProposal={acceptAssessmentProposal}
+              onDismissProposal={dismissAssessmentProposal}
+              onAcceptAllProposals={acceptAllAssessmentProposals}
             />
           )}
           {currentStep === "review" && (
@@ -465,6 +1088,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
           onEditPosition={editPosition}
           editing={editingPublished}
           publishing={publish.isPending}
+          proposalCounts={proposalCounts}
         />
       </div>
     </div>

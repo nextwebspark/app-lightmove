@@ -171,7 +171,7 @@ check_status P8.1 "invitation preview is readable anonymously" 200
 check P8.2 "preview names the workspace" "$WORKSPACE_NAME" "$(json '.workspaceName')"
 check P8.3 "preview echoes the invited address" "$COLLEAGUE_EMAIL" "$(json '.email')"
 
-VERIFY_MAILS_BEFORE=$(email_count "Confirm your LightMove email")
+VERIFY_MAILS_BEFORE=$(email_count "Confirm your Uncava email")
 post_json /onboarding/accept-invitation-signup \
   "$(jq -nc --arg t "$COLLEAGUE_TOKEN_RAW" --arg p "$PASSWORD" \
      '{token:$t, fullName:"Colin Colleague", password:$p}')" -c "$(jar colleague)"
@@ -181,7 +181,7 @@ check P8.6 "invitee lands in the workspace immediately" "$WORKSPACE_NAME" "$(jso
 check P8.7 "invitee holds the invited MEMBER role" "MEMBER" "$(json '.user.workspace.roles[0]')"
 check P8.8 "membership is ACTIVE" "ACTIVE" \
   "$(sql "SELECT m.status FROM app_lm_workspace_member m JOIN app_lm_user u ON u.id = m.user_id WHERE u.email = '$COLLEAGUE_EMAIL'")"
-check P8.9 "no verification email was sent to the invitee" "$VERIFY_MAILS_BEFORE" "$(email_count "Confirm your LightMove email")"
+check P8.9 "no verification email was sent to the invitee" "$VERIFY_MAILS_BEFORE" "$(email_count "Confirm your Uncava email")"
 
 section "P9  an invitee who already has an account redeems token-lessly"
 

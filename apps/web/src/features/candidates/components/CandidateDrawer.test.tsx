@@ -4,6 +4,8 @@ import { useState } from "react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
+import { ApiRequestError } from "../../../lib/apiClient";
+import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import * as candidatesApi from "../api/candidatesApi";
 import type { Candidate } from "../api/types";
 import { CandidateDrawer } from "./CandidateDrawer";
@@ -15,6 +17,14 @@ vi.mock("../api/candidatesApi", async (importOriginal) => ({
   changeCandidateStatus: vi.fn(),
 }));
 
+vi.mock("../../contactlookup/api/contactLookupApi", async (importOriginal) => ({
+  // Keys are real; only the calls are mocked.
+  ...(await importOriginal<typeof contactLookupApi>()),
+  getContactLookupConfig: vi.fn(),
+  findEmail: vi.fn(),
+  findPhone: vi.fn(),
+}));
+
 const yasmin: Candidate = {
   id: "c1",
   triageCompanyId: "co1",
@@ -23,8 +33,6 @@ const yasmin: Candidate = {
   title: "VP Finance",
   seniority: "N-1",
   status: "interested",
-  email: "yasmin@example.com",
-  phone: null,
   linkedinUrl: null,
   locationCountry: "UAE",
   locationCity: "Dubai",
@@ -50,6 +58,22 @@ const yasmin: Candidate = {
   customFields: {},
   addedAt: "2026-08-02T09:00:00Z",
   enrichedAt: null,
+  contacts: {
+    emails: [
+      {
+        address: "yasmin@example.com",
+        kind: null,
+        verified: false,
+        status: null,
+        source: "manual",
+        foundAt: "2026-08-02T09:00:00Z",
+      },
+    ],
+    phones: [],
+    emailsLookedUpAt: null,
+    phonesLookedUpAt: null,
+    source: null,
+  },
 };
 
 const renderDrawer = (
@@ -424,8 +448,11 @@ describe("CandidateDrawer", () => {
       company: null,
     });
 
-    // Folded sections are hidden from the accessibility tree; `hidden` looks inside them too.
-    expect(screen.queryByRole("link", { hidden: true })).not.toBeInTheDocument();
+    // Folded sections are hidden from the accessibility tree; `hidden` looks inside them too. The
+    // mailto: link on the address is the only link the panel may draw.
+    expect(
+      screen.getAllByRole("link", { hidden: true }).map((link) => link.getAttribute("href")),
+    ).toEqual(["mailto:yasmin@example.com"]);
     expect(screen.queryByText("javascript:alert(1)")).not.toBeInTheDocument();
   });
 
@@ -492,5 +519,96 @@ describe("CandidateDrawer", () => {
     await userEvent.click(screen.getByRole("button", { name: /^Cancel$/i }));
     expect(screen.queryByLabelText(/Profile summary/i)).not.toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The Contact section's two Find buttons. What matters: they exist only where a provider is
+   * configured, and a channel already asked offers no second purchase.
+   */
+  describe("contact lookup", () => {
+    const withContacts = (contacts: Partial<Candidate["contacts"]>): Candidate => ({
+      ...yasmin,
+      contacts: { ...yasmin.contacts, ...contacts },
+    });
+
+    beforeEach(() => {
+      // The fold is remembered per viewer and Contact starts closed, so open it before rendering.
+      localStorage.setItem(
+        "lm.candidate-profile.sections",
+        JSON.stringify({
+          summary: true,
+          experience: true,
+          education: false,
+          compensation: true,
+          background: false,
+          contact: true,
+          columns: false,
+          note: false,
+        }),
+      );
+      vi.mocked(contactLookupApi.getContactLookupConfig).mockResolvedValue({ enabled: true });
+    });
+
+    it("offers no buttons where the deployment has no contact provider", async () => {
+      vi.mocked(contactLookupApi.getContactLookupConfig).mockResolvedValue({ enabled: false });
+      renderDrawer({ candidate: yasmin, company: null });
+
+      expect(await screen.findByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Find email/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Find phone/i })).not.toBeInTheDocument();
+    });
+
+    it("fills the phone row from what the lookup answered", async () => {
+      vi.mocked(contactLookupApi.findPhone).mockResolvedValue({
+        outcome: "found",
+        candidate: withContacts({
+          phones: [{ number: "+12065550100", kind: null, verified: false, status: null, source: "contactout", foundAt: "2026-09-16T09:00:00Z" }],
+          phonesLookedUpAt: "2026-09-16T09:00:00Z",
+          source: "contactout",
+        }),
+      });
+      renderDrawer({ candidate: { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin" }, company: null }, LiveDrawer);
+
+      await userEvent.click(await screen.findByRole("button", { name: /Find phone/i }));
+
+      await waitFor(() => expect(contactLookupApi.findPhone).toHaveBeenCalledWith("p1", "c1"));
+      expect(await screen.findByRole("link", { name: "+12065550100" })).toHaveAttribute("href", "tel:+12065550100");
+    });
+
+    it("does not offer a second purchase on a channel the provider had nothing for", async () => {
+      renderDrawer({
+        candidate: {
+          ...withContacts({ emails: [], emailsLookedUpAt: "2026-09-16T09:00:00Z", source: "contactout" }),
+          linkedinUrl: "https://linkedin.com/in/yasmin",
+        },
+        company: null,
+      });
+
+      expect(await screen.findByText(/No email on record/i)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Find email/i })).not.toBeInTheDocument();
+      // The other channel is untouched by that: they bill separately.
+      expect(await screen.findByRole("button", { name: /Find phone/i })).toBeInTheDocument();
+    });
+
+    it("says so when the account is out of credits, and leaves the button pressable", async () => {
+      vi.mocked(contactLookupApi.findEmail).mockRejectedValue(
+        new ApiRequestError({
+          code: "CONTACT_LOOKUP_NO_CREDITS",
+          detail: "no credits",
+          status: 409,
+          correlationId: "x",
+        }),
+      );
+      renderDrawer({
+        candidate: { ...yasmin, contacts: { ...yasmin.contacts, emails: [] },
+          linkedinUrl: "https://linkedin.com/in/yasmin" },
+        company: null,
+      });
+
+      await userEvent.click(await screen.findByRole("button", { name: /Find email/i }));
+
+      expect(await screen.findByText(/No contact lookup credits left/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Find email/i })).toBeEnabled();
+    });
   });
 });

@@ -7,7 +7,10 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
-/** The project as the HTTP contract returns it. Pipeline counts are 0 until pipeline tables exist. */
+/**
+ * The project as the HTTP contract returns it. {@code companies} is the mandate's live universe —
+ * every triaged company it has not declined — and {@code candidates} every executive it has mapped.
+ */
 public record ProjectResponse(
         UUID id,
         UUID clientId,
@@ -19,7 +22,7 @@ public record ProjectResponse(
         LocalDate targetDate,
         List<TeamMemberResponse> team,
         List<AttachedRepresentativeResponse> representatives,
-        int companies,
-        int candidates,
+        long companies,
+        long candidates,
         Instant createdAt
 ) {}

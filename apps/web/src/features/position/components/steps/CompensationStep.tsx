@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { Input, Select } from "../../../../components/ui";
 import { formatNumber } from "../../../../lib/format";
-import type { Benefit, Compensation } from "../../api/types";
+import type {
+  Benefit,
+  Compensation,
+  PositionDocument,
+  PositionExtraction,
+  ProposedField,
+} from "../../api/types";
 import { bandReadings, packageMix, packageTotal } from "../../lib/compensation";
 import { BENEFIT_PRESETS } from "../../lib/benefits";
 import {
@@ -11,6 +17,7 @@ import {
   CURRENCIES,
   INCENTIVE_TYPE_LABELS,
 } from "../../lib/labels";
+import { StepExtraction } from "../StepExtraction";
 import {
   AddRowButton,
   ColumnLabel,
@@ -25,10 +32,26 @@ import {
 /** Step four: what the seat pays, and what that adds up to over a year. */
 export function CompensationStep({
   compensation,
+  document,
+  extraction,
+  extracting,
+  extractionError,
   onChange,
+  onExtract,
+  onAcceptProposal,
+  onDismissProposal,
+  onAcceptAllProposals,
 }: {
   compensation: Compensation;
+  document: PositionDocument | null;
+  extraction: PositionExtraction | null;
+  extracting: boolean;
+  extractionError?: unknown;
   onChange: (patch: Partial<Compensation>, immediate?: boolean) => void;
+  onExtract: () => void;
+  onAcceptProposal: (field: ProposedField, value: string) => void;
+  onDismissProposal: (field: ProposedField) => void;
+  onAcceptAllProposals: () => void;
 }) {
   const [draft, setDraft] = useState<Benefit>({ name: "", amount: null, frequency: "MONTHLY" });
   const total = packageTotal(compensation);
@@ -51,6 +74,17 @@ export function CompensationStep({
 
   return (
     <div className="flex flex-col gap-5">
+      <StepExtraction
+        positionDocument={document}
+        extraction={extraction}
+        extracting={extracting}
+        error={extractionError}
+        onExtract={onExtract}
+        onAcceptProposal={onAcceptProposal}
+        onDismissProposal={onDismissProposal}
+        onAcceptAllProposals={onAcceptAllProposals}
+      />
+
       <div>
         <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.02em] text-text2">
           Base salary

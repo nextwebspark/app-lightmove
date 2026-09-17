@@ -10,7 +10,6 @@ import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.core.resilience.service.VendorRetryPredicate;
 import app.lightmove.api.enrichment.common.service.BrightDataSearch;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
-import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -20,15 +19,13 @@ import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.annotation.JsonNaming;
 
 /**
- * Answers from the record Bright Data's LinkedIn company dataset already holds — the same sub-second
- * indexed lookup the person enrichment uses, against the companies dataset, whose slug field is
- * {@code id} (verified live; {@code linkedin_id} errors and {@code company_id} is LinkedIn's numeric
- * id).
+ * Answers from the record Bright Data's LinkedIn company dataset already holds — the same indexed
+ * lookup the person enrichment uses, against the companies dataset, whose slug field is {@code id}
+ * (verified live; {@code linkedin_id} errors and {@code company_id} is LinkedIn's numeric id). It
+ * shares the people lookup's timeout and retry budget because it shares the endpoint that got slow.
  */
 @Slf4j
 public class BrightDataCompanyEnricher implements LinkedInCompanyEnricher {
-
-    public static final Duration READ_TIMEOUT = Duration.ofSeconds(15);
 
     private static final String VENDOR = "brightdata";
 
@@ -42,13 +39,13 @@ public class BrightDataCompanyEnricher implements LinkedInCompanyEnricher {
         this.guard = guard;
         this.datasetId = config.companyDatasetId();
         this.client = clientFactory.create(VendorClientSpec.bearer(VENDOR, config.baseUrl(),
-                config.apiKey(), READ_TIMEOUT, config.requestsPerSecond()), builder, rateLimiter);
+                config.apiKey(), config.readTimeout(), config.requestsPerSecond()), builder, rateLimiter);
     }
 
     @Override
     @Retryable(
             predicate = VendorRetryPredicate.class,
-            maxRetriesString = "${lightmove.resilience.max-retries}",
+            maxRetriesString = "${lightmove.enrichment.brightdata.max-retries}",
             delayString = "${lightmove.resilience.retry-delay}",
             jitterString = "${lightmove.resilience.retry-jitter}",
             multiplierString = "${lightmove.resilience.retry-multiplier}",

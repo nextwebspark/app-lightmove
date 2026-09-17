@@ -2,6 +2,7 @@ package app.lightmove.api.dataimport.service;
 
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
+import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
@@ -310,7 +311,8 @@ public class ProjectImportService {
         }
         CandidateResponse held = existing.get();
         candidates.replace(userId, workspaceId, projectId, held.id(),
-                candidateRequestFor(held, triageCompanyId, companyName, personName, fields), httpRequest);
+                candidateRequestFor(held, triageCompanyId, companyName, personName, fields),
+                ContactSource.CSV, httpRequest);
         tally.candidateUpdated();
     }
 
@@ -373,10 +375,12 @@ public class ProjectImportService {
                 // and overwriting this mandate's own decision with it would undo a researcher's work.
                 held == null ? null : held.status(),
                 firstOf(RowValues.text(companyName, 200), held == null ? null : held.companyName()),
-                firstOf(RowValues.text(fields.field(ImportTargetField.CANDIDATE_EMAIL), 320),
-                        held == null ? null : held.email()),
-                firstOf(RowValues.text(fields.field(ImportTargetField.CANDIDATE_PHONE), 50),
-                        held == null ? null : held.phone()),
+                // A cell's address or number joins the person's ledger; what they already hold is
+                // never re-sent, because the ledger keeps it regardless.
+                RowValues.text(fields.field(ImportTargetField.CANDIDATE_EMAIL), 320),
+                RowValues.text(fields.field(ImportTargetField.CANDIDATE_PHONE), 50),
+                null,
+                null,
                 firstOf(RowValues.text(fields.field(ImportTargetField.CANDIDATE_LINKEDIN), 500),
                         held == null ? null : held.linkedinUrl()),
                 firstOf(RowValues.text(fields.field(ImportTargetField.CANDIDATE_COUNTRY), 100),

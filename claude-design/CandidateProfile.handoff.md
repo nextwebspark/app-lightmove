@@ -89,13 +89,71 @@ Rules, all of them implemented:
 | Experience | Career history rows: Company, Title, Period; add / remove |
 | Compensation | Currency (picker), Notice period, Base, Bonus, Allowances, Long-term incentive |
 | Background | Nationality, Years of experience, Languages (comma separated) |
-| Contact | Email, Phone, LinkedIn |
+| Contact | Every email and phone (value, kind, verified), LinkedIn — edited in place, see below |
 | Your columns | The mandate's own person columns |
 | Note | Always editable; saves alone |
 
 Not editable here: **Status** (the live select in the header — its own write, so a form open for
 five minutes cannot undo a pill flicked since), **Education** and **Skills** (enrichment's alone —
 no screen writes them, so an empty section would nag about something nobody here can supply).
+
+## Contact, specifically — a deliberate departure from this doc
+
+The anatomy above gives Contact a pencil and nothing else. It now also carries **Find email** and
+**Find phone**, which look the person's contacts up through ContactOut. This is a departure from the
+position the rest of this doc takes — that enrichment has no trigger on any screen — and it is
+deliberate: a phone number is the one fact a researcher cannot supply from what they already know,
+and a lookup that costs money has to be somebody's decision rather than a thing that happens on capture.
+
+The section is **one row per channel** — email, phone, LinkedIn — not tiles:
+
+```
+│ ⌄ CONTACT                                                    ✎  │
+│  ✉  EMAIL                                                       │
+│       hakan@alacpartners.com   WORK  VERIFIED               ⧉  │  ← green pill: ContactOut verified it
+│       hakanalac@gmail.com      PERSONAL                     ⧉  │
+│       hakan@alacep.com         PERSONAL                     ⧉  │
+│  ☎  PHONE                                                       │
+│     +61 421 904 554                                          ⧉  │
+│  in LINKEDIN                                                    │
+│     linkedin.com/in/hakan-alac                               ↗  │
+```
+
+- **Every value the mandate knows is listed**, whatever door it came through — typed, imported,
+  captured, or found. The ledger behind it is `app_lm_candidate_contact`; the row's own address is
+  one line among the others and carries **no primary flag**. Changing it is still the pencil's job.
+- **Pills say only what ContactOut said.** `WORK` and `PERSONAL` come from its own lists; an address
+  it listed without saying, and anything a person typed, gets no kind pill. A green `VERIFIED` pill
+  after the kind appears only where the provider vouched for a work address. No tick, no icon: the
+  pill is the whole mark, in the same vocabulary as the two beside it. Phones carry no kind at all: no provider says mobile or desk, so the screen does not.
+- **No provenance labels on the rows.** Who typed, found, retagged or vouched for a value is the
+  audit trail's to answer; a "via ContactOut" beside a value a person has since edited would be wrong
+  the moment they saved. The ledger still records the door and the verified status, for the audit
+  and the API, but the screen does not print them.
+- **A spent channel that found nothing reads `No phone on record`, with no button.** Not a disabled
+  button and not an enabled one: the provider charges the same to say "nothing" a second time, so the
+  answer is shown instead of re-sold.
+- **The Find button sits on the row it acts on**, bordered, with a `Spends 1 credit` caption and a
+  tooltip. Beside a value a person already supplied it reads `Find more` — the lookup adds what the
+  provider holds and never overwrites what was typed. Without a LinkedIn URL it is disabled and says
+  why. While it runs the values stay on screen; nothing is swapped for a skeleton.
+- **Every address is a `mailto:` link and every number a `tel:` link**, with a copy button at the end
+  of the line.
+- **The pencil edits the same rows in place.** Every line becomes an input, a kind select (— / Work /
+  Personal), a `Verified` toggle and a remove; `+ Add email` / `+ Add phone` append lines; LinkedIn is
+  an input, or a locked line with "Captured from this profile page — not editable" for a person the
+  plugin captured. Save writes both channels at once (`PUT …/contacts`) and the link only if it
+  changed; Cancel and Esc discard. Read mode has no editing affordance, so a stray click changes
+  nothing. A verified mark a person sets is stored as "Verified by researcher" (ContactOut's own is
+  "Verified") for the audit and the API; the pill reads `VERIFIED` either way. The Add form uses the
+  same line editor, so adding a person by hand and correcting one later look identical.
+- **No single email or phone anywhere.** V55 dropped the row's columns; the grid's Email and Phone
+  columns (hidden by default) list every value with a `+N` count.
+
+The buttons render only where a ContactOut account is configured (`GET /contact-lookup/config`), and
+only for someone who may write — a client representative reads the mandate and does not spend its
+credits. A missing LinkedIn profile is the one refusal shown inline, under the channel; every other
+failure toasts.
 
 ## Compensation, specifically
 - **Currency is a pick, not a text field**: the GCC six then USD, GBP, EUR (`lib/currencies.ts`).
