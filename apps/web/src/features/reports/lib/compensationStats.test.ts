@@ -54,6 +54,27 @@ describe("compensationStats", () => {
     expect(stats.disclosures).toHaveLength(16);
   });
 
+  it("answers a usable axis and no figures when nobody has disclosed and there is no band", () => {
+    const stats = compensationStats(
+      { ...remuneration, disclosures: [], packageBand: null },
+      { measure: "package", ...everyone },
+    );
+
+    expect(stats.disclosures).toHaveLength(0);
+    expect(stats.median).toBe(0);
+    expect(stats.isReliable).toBe(false);
+    expect(stats.ceilingPercentile).toBeNull();
+    // Finite and non-degenerate, so a chart drawn over it never divides by zero.
+    expect([stats.axisLow, stats.axisHigh]).toEqual([0, 1]);
+  });
+
+  it("draws the axis from the band alone while nobody has disclosed", () => {
+    const stats = compensationStats({ ...remuneration, disclosures: [] }, { measure: "package", ...everyone });
+
+    expect(stats.axisLow).toBeLessThan(780_000);
+    expect(stats.axisHigh).toBeGreaterThan(1_100_000);
+  });
+
   it("keeps the axis around both the band and the points", () => {
     const stats = compensationStats(remuneration, { measure: "package", ...everyone });
 

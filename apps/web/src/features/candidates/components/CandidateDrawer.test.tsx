@@ -272,6 +272,23 @@ describe("CandidateDrawer", () => {
     expect(within(currency).getByRole("option", { name: "Not set" })).toBeInTheDocument();
   });
 
+  it("records a gender only where one is picked, and reads an unrecorded one as nothing", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue({ ...yasmin, gender: "male" });
+    renderDrawer({ candidate: { ...yasmin, gender: null }, company: null });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit background/i }));
+    const gender = screen.getByLabelText(/^Gender/i);
+    // Not recorded is the absence of a value, never a fourth gender.
+    expect(gender).toHaveValue("");
+    expect(within(gender).getByRole("option", { name: "Not recorded" })).toBeInTheDocument();
+
+    await userEvent.selectOptions(gender, "Male");
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].gender).toBe("male");
+  });
+
   it("offers nationality as the nine groups, and saves the one picked", async () => {
     vi.mocked(candidatesApi.updateCandidate).mockResolvedValue({ ...yasmin, nationality: "Emirati" });
     renderDrawer({ candidate: { ...yasmin, nationality: null }, company: null });
