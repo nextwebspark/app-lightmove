@@ -219,6 +219,59 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     expect(screen.getByText("1 - 1 of 1")).toBeInTheDocument();
   });
 
+  it("asks for the companies and the counts without waiting for the stored filter", async () => {
+    // Two of the four round trips a load costs were gated on a render rather than on a dependency.
+    // The server resolves the mandate's scope from the strategy row it loads and deliberately never
+    // reads a client-supplied one, so the grid never needed the filter in hand to ask for a page.
+    let release!: (strategy: Strategy) => void;
+    vi.mocked(strategyApi.getStrategy).mockReturnValue(
+      new Promise<Strategy>((resolve) => {
+        release = resolve;
+      }),
+    );
+    renderPage();
+
+    await waitFor(() => expect(strategyApi.getCompanies).toHaveBeenCalled());
+    expect(companiesApi.getFacets).toHaveBeenCalled();
+    expect(await screen.findByText("ACWA Power")).toBeInTheDocument();
+
+    // The rail is the one thing that waits: drawn over a filter nobody has selected yet it would
+    // read as an untouched mandate and then fill with chips.
+    expect(screen.queryByRole("region", { name: "Filters" })).not.toBeInTheDocument();
+
+    release(strategyOf({ ...EMPTY_FILTER, countries: ["Qatar"] }));
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    expect(within(filters).getByRole("button", { name: /Qatar/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("keeps the page and the ticks made while the stored filter was still in flight", async () => {
+    // Adopting the stored filter is not a change to what is being asked — the server has been
+    // scoping the results by it all along — so it must not throw the reader back to page one or
+    // drop what they ticked there.
+    let release!: (strategy: Strategy) => void;
+    vi.mocked(strategyApi.getStrategy).mockReturnValue(
+      new Promise<Strategy>((resolve) => {
+        release = resolve;
+      }),
+    );
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf({ totalCount: 200 }));
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Next page" }));
+    await waitFor(() => expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![1]).toBe(1));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select ACWA Power" }));
+    await screen.findByRole("region", { name: "1 company selected" });
+
+    release(strategyOf());
+    await screen.findByRole("region", { name: "Filters" });
+
+    expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![1]).toBe(1);
+    expect(screen.getByRole("region", { name: "1 company selected" })).toBeInTheDocument();
+  });
+
   it("says the counts were refused rather than pulsing at a client representative forever", async () => {
     // A project CLIENT seat holds WORK_VIEW, so the mandate and its results load, but /companies/facets
     // is gated PROJECT_BROWSE and 403s. Rendering the loading skeleton for that left the rail pulsing
@@ -594,7 +647,10 @@ describe("StrategyPage — the filter sidebar and its results", () => {
 
   it("counts the axes that carry a selection, not the chips", async () => {
     renderPage();
-    const filtersButton = await screen.findByRole("button", { name: /Show Filters|Hide Filters/ });
+    // Awaiting the rail, not just the button: the button draws before /strategy lands and the badge
+    // states a count only once there is a filter behind it.
+    await screen.findByRole("region", { name: "Filters" });
+    const filtersButton = screen.getByRole("button", { name: /Show Filters|Hide Filters/ });
     expect(within(filtersButton).getByText("0")).toBeInTheDocument();
 
     await userEvent.click(await screen.findByRole("button", { name: /Qatar/ }));

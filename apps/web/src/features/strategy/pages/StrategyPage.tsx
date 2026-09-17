@@ -1,9 +1,9 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { RowSelectionState } from "@tanstack/react-table";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
-import { FullscreenButton, Spinner } from "../../../components/ui";
+import { FullscreenButton } from "../../../components/ui";
 import { useToast } from "../../../components/ui/Toast";
 import { useAuth } from "../../auth/AuthProvider";
 import { cn } from "../../../lib/cn";
@@ -43,27 +43,20 @@ const DEFAULT_SORT: CompanySort = { field: "employees", direction: "desc" };
 /** A stable empty selection, so "nothing ticked" is one identity rather than a new object per render. */
 const NOTHING_SELECTED: RowSelectionState = {};
 
+/** What the rail draws until the mandate's stored filter lands. Selects the whole universe. */
+const NO_FILTER: StrategyFilter = {
+  industries: [],
+  keywords: [],
+  marketSegments: [],
+  countries: [],
+  employeeBands: [],
+  revenueBands: [],
+  employeeRange: null,
+  revenueRange: null,
+};
+
 export function StrategyPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
-  const strategy = useQuery({
-    queryKey: strategyApi.STRATEGY_KEY(project.id),
-    queryFn: () => strategyApi.getStrategy(project.id),
-  });
-
-  if (strategy.isError) {
-    return (
-      <div className="p-10 text-center font-mono text-[13px] text-text3">
-        This mandate&rsquo;s search could not be loaded.
-      </div>
-    );
-  }
-  if (!strategy.data) {
-    return (
-      <div className="grid place-items-center p-16">
-        <Spinner />
-      </div>
-    );
-  }
   // Keyed on the project so switching mandates remounts with that mandate's filter rather than
   // carrying the last one's draft across.
   return <StrategyEditor key={project.id} />;
@@ -97,7 +90,7 @@ function StrategyEditor() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const [filter, setFilter] = useState<StrategyFilter>(() => strategy.data!.filter);
+  const [filter, setFilter] = useState<StrategyFilter>(() => strategy.data?.filter ?? NO_FILTER);
   const [showFilters, setShowFilters] = useState(hasRoomForRails);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -113,15 +106,52 @@ function StrategyEditor() {
   const [layout, setLayout] = useGridLayout("strategy", COMPANY_LAYOUT_COLUMNS);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
 
+  /*
+   * The grid's own `rowSelectionFeature` state, held here rather than inside the table because the
+   * bulk bar acts on it and outlives any one page of results. Keyed by `apolloAccountId` — the
+   * table's `getRowId` — and the feature deletes a key rather than storing `false`, so the keys are
+   * exactly what is ticked.
+   */
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>(NOTHING_SELECTED);
+  const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection]);
+  const clearSelection = useCallback(() => setRowSelection(NOTHING_SELECTED), []);
+
   // A keystroke should narrow the list, not fire a request per character.
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query), 300);
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Any change to what is being asked returns to the first page. Staying on page 4 of a filter that
-  // now matches two companies shows an empty table over a non-empty result.
-  useEffect(() => setPage(0), [filter, debouncedQuery, sort]);
+  /*
+   * The stored filter, adopted the once — never on every change to `strategy.data`. Between a chip
+   * click and its autosave the draft on screen is ahead of the server, and re-adopting the response
+   * to that write would put back what was clicked in the meantime. Nothing can edit the filter before
+   * it lands: the rail is the only surface that writes it, and the rail is what waits.
+   */
+  const hasAdoptedStoredFilter = useRef(strategy.data !== undefined);
+  useEffect(() => {
+    if (hasAdoptedStoredFilter.current || !strategy.data) return;
+    hasAdoptedStoredFilter.current = true;
+    setFilter(strategy.data.filter);
+  }, [strategy.data]);
+
+  /*
+   * Any change to what is being asked returns to the first page and drops the selection: page 4 of a
+   * filter that now matches two companies is an empty table over a non-empty result, and a tick made
+   * under the last scope would act on companies this one no longer contains and the user can no
+   * longer see. A tick does survive a page turn — picking twelve companies across three pages is the
+   * case the bulk bar exists for — so this fires on the scope, never on the page.
+   *
+   * <p>Adopting the stored filter is deliberately not such a change, which is why this no longer
+   * keys off `filter`: the server has been scoping the results by that filter all along, so its
+   * arrival must not stomp a page turned, or a row ticked, while /strategy was still in flight.
+   */
+  const resetScope = useCallback(() => {
+    setPage(0);
+    clearSelection();
+  }, [clearSelection]);
+
+  useEffect(() => resetScope(), [debouncedQuery, sort, resetScope]);
 
   const refreshScopedReads = async () => {
     const scopedKeys = [
@@ -150,6 +180,7 @@ function StrategyEditor() {
   const applyFilter = (next: StrategyFilter) => {
     setFilter(next);
     autosave.schedule(next);
+    resetScope();
   };
 
   const companies = useQuery({
@@ -159,21 +190,6 @@ function StrategyEditor() {
     // Paging without blanking the table, which would make every page turn look like a reload.
     placeholderData: keepPreviousData,
   });
-
-  /*
-   * The grid's own `rowSelectionFeature` state, held here rather than inside the table because the
-   * bulk bar acts on it and outlives any one page of results. Keyed by `apolloAccountId` — the
-   * table's `getRowId` — and the feature deletes a key rather than storing `false`, so the keys are
-   * exactly what is ticked.
-   */
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>(NOTHING_SELECTED);
-  const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection]);
-  const clearSelection = useCallback(() => setRowSelection(NOTHING_SELECTED), []);
-
-  // A tick survives a page turn — picking twelve companies across three pages is the case the bulk
-  // bar exists for — but not a change to what is being asked. A selection made under the last filter
-  // would act on companies this scope no longer contains and the user can no longer see.
-  useEffect(() => clearSelection(), [filter, debouncedQuery, sort, clearSelection]);
 
   const saveSearch = useMutation({
     // Flush first, for the same reason "Add all" does: the request carries only a name and the server
@@ -340,6 +356,14 @@ function StrategyEditor() {
     onError: (error) => toast(messageFor(error)),
   });
 
+  if (strategy.isError) {
+    return (
+      <div className="p-10 text-center font-mono text-[13px] text-text3">
+        This mandate&rsquo;s search could not be loaded.
+      </div>
+    );
+  }
+
   const data = strategy.data;
 
   return (
@@ -349,6 +373,7 @@ function StrategyEditor() {
     <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
       <StrategyToolbar
         filter={filter}
+        filterPending={!data}
         searches={data?.searches ?? []}
         viewerId={user?.id ?? null}
         showFilters={showFilters}
@@ -371,23 +396,26 @@ function StrategyEditor() {
       />
 
       <div className="flex min-h-0 flex-1">
-        {showFilters && (
-          <>
-            <div
-              className="fixed inset-0 z-[90] bg-[rgba(15,20,30,0.4)] lg:hidden"
-              onClick={() => setShowFilters(false)}
-            />
-            <FilterSidebar
-              facets={facets.data}
-              facetsError={facets.isError}
-              filter={filter}
-              offLimits={data?.offLimits ?? []}
-              onChange={applyFilter}
-              onOffLimitsChange={(ids) => offLimitsWrite.mutate(ids)}
-              onClose={() => setShowFilters(false)}
-            />
-          </>
-        )}
+        {showFilters &&
+          (data ? (
+            <>
+              <div
+                className="fixed inset-0 z-[90] bg-[rgba(15,20,30,0.4)] lg:hidden"
+                onClick={() => setShowFilters(false)}
+              />
+              <FilterSidebar
+                facets={facets.data}
+                facetsError={facets.isError}
+                filter={filter}
+                offLimits={data.offLimits}
+                onChange={applyFilter}
+                onOffLimitsChange={(ids) => offLimitsWrite.mutate(ids)}
+                onClose={() => setShowFilters(false)}
+              />
+            </>
+          ) : (
+            <FilterRailPlaceholder />
+          ))}
 
         <div className="flex min-w-0 flex-1 flex-col gap-3 p-2">
           {/* The bar floats over the grid rather than over the viewport, so it centres on the table
@@ -453,5 +481,20 @@ function StrategyEditor() {
         barring={barCompany.isPending}
       />
     </div>
+  );
+}
+
+/**
+ * The rail's footprint while the stored filter is still in flight. The grid no longer waits on
+ * /strategy — the server scopes the results from the stored filter itself — but the rail does: drawn
+ * over an empty filter it would read as a mandate that has selected nothing, and then fill with
+ * chips. Nothing below `lg`, where the rail overlays the results rather than sitting beside them.
+ */
+function FilterRailPlaceholder() {
+  return (
+    <div
+      aria-hidden="true"
+      className="hidden animate-pulse border-e border-line-soft bg-panel lg:block lg:w-[19%] lg:min-w-[264px] lg:max-w-[312px] lg:shrink-0"
+    />
   );
 }
