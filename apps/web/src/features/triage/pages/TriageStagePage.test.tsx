@@ -960,6 +960,25 @@ describe("TriageStagePage", () => {
     expect(screen.queryByRole("dialog", { name: /^ACWA Power$/ })).not.toBeInTheDocument();
   });
 
+  it("disables the company panel's own No executive found button while its write is in flight", async () => {
+    let resolveMarkNoExecutiveFound: ((value: TriageCompany) => void) | undefined;
+    vi.mocked(triageApi.updateTriageCompany).mockImplementation(
+      () => new Promise((resolve) => { resolveMarkNoExecutiveFound = resolve; }),
+    );
+    renderStage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Open ACWA Power/i }));
+    const panel = await screen.findByRole("dialog", { name: /ACWA Power/i });
+    const markButton = within(panel).getByRole("button", { name: /^No executive found$/i });
+    expect(markButton).not.toBeDisabled();
+
+    await userEvent.click(markButton);
+    expect(markButton).toBeDisabled();
+
+    resolveMarkNoExecutiveFound?.({ ...acwa, noExecutiveFound: true });
+    await waitFor(() => expect(markButton).not.toBeDisabled());
+  });
+
   it("offers no Edit on a company taken from the market, but still takes a note", async () => {
     vi.mocked(triageApi.updateTriageCompany).mockResolvedValue(acwa);
     renderStage();

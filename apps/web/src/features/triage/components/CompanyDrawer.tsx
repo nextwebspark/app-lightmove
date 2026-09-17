@@ -53,6 +53,7 @@ export function CompanyDrawer({
   onDelete,
   onAddExecutive,
   onMarkNoExecutiveFound,
+  markingNoExecutiveFound = false,
 }: {
   open: boolean;
   projectId: string;
@@ -71,6 +72,9 @@ export function CompanyDrawer({
   onAddExecutive: (company: TriageCompany) => void;
   /** Flags the company as researched-and-nobody-suitable, from the panel already open on it. */
   onMarkNoExecutiveFound: (company: TriageCompany) => void;
+  /** Whether that write is already in flight for this company, so a second click while it settles
+   *  cannot fire a second one — the same guard the grid's own cell keeps on its own button. */
+  markingNoExecutiveFound?: boolean;
 }) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
@@ -172,6 +176,7 @@ export function CompanyDrawer({
                 <Button
                   type="button"
                   variant="secondary"
+                  disabled={markingNoExecutiveFound}
                   onClick={() => onMarkNoExecutiveFound(company)}
                 >
                   No executive found

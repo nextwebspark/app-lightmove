@@ -41,6 +41,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -223,7 +224,14 @@ public class TriageCompanyService {
         }
         Map<UUID, TriageCompany> byId = triaged.findAllById(ranked.getContent()).stream()
                 .collect(Collectors.toMap(TriageCompany::getId, company -> company));
-        List<TriageCompany> ordered = ranked.getContent().stream().map(byId::get).toList();
+        // A ranked id can vanish between the two reads — another request deleted or moved it out of
+        // this stage after the rank query saw it and before this one did. Dropped rather than left as
+        // a null `toDto` would throw on: a row that no longer qualifies is exactly what a stale read
+        // should leave out, not a 500 for whoever happened to page at the wrong moment.
+        List<TriageCompany> ordered = ranked.getContent().stream()
+                .map(byId::get)
+                .filter(Objects::nonNull)
+                .toList();
         return new PageImpl<>(ordered, pageRequest, ranked.getTotalElements());
     }
 

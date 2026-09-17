@@ -700,6 +700,7 @@ function TriageStage() {
           markBusy(company.id);
           markNoExecutiveFound.mutate(company);
         }}
+        markingNoExecutiveFound={!!openCompany?.company && busyIds.has(openCompany.company.id)}
       />
 
       <CandidateDrawer
