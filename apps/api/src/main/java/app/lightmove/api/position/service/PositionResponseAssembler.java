@@ -89,7 +89,7 @@ class PositionResponseAssembler {
                 position.getNoticeUnit());
     }
 
-    private CompensationDto compensationOf(Position position) {
+    CompensationDto compensationOf(Position position) {
         return new CompensationDto(
                 position.getCurrency(),
                 position.getSalaryMin(),

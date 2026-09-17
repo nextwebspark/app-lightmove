@@ -24,6 +24,8 @@ public record CandidateResponse(
         String locationCountry,
         String locationCity,
         String nationality,
+        /** A {@code Gender} wire token, or null where nobody recorded it — never inferred. */
+        String gender,
         Integer yearsExperience,
         String summary,
         String note,

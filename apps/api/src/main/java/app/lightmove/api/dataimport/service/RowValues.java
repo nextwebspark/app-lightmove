@@ -1,5 +1,6 @@
 package app.lightmove.api.dataimport.service;
 
+import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.common.constant.Seniority;
 import java.util.Locale;
 import java.util.Map;
@@ -98,6 +99,34 @@ final class RowValues {
         }
         return null;
     }
+
+    /**
+     * A gender as the candidate API spells it, from however the file spelled it.
+     *
+     * <p>A spelling nobody listed answers null rather than {@code other}: a cell the importer could
+     * not read is not somebody stating a gender, and the report counts the two apart.
+     */
+    static String gender(String value) {
+        String trimmed = text(value);
+        if (trimmed == null) {
+            return null;
+        }
+        return GENDER_SPELLINGS.get(trimmed.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", ""));
+    }
+
+    private static final Map<String, String> GENDER_SPELLINGS = Map.ofEntries(
+            Map.entry("f", Gender.FEMALE.value()),
+            Map.entry("female", Gender.FEMALE.value()),
+            Map.entry("woman", Gender.FEMALE.value()),
+            Map.entry("w", Gender.FEMALE.value()),
+            Map.entry("m", Gender.MALE.value()),
+            Map.entry("male", Gender.MALE.value()),
+            Map.entry("man", Gender.MALE.value()),
+            Map.entry("o", Gender.OTHER.value()),
+            Map.entry("other", Gender.OTHER.value()),
+            Map.entry("nonbinary", Gender.OTHER.value()),
+            Map.entry("nb", Gender.OTHER.value()),
+            Map.entry("x", Gender.OTHER.value()));
 
     private static final Map<String, String> SENIORITY_SPELLINGS = Map.ofEntries(
             Map.entry("board", Seniority.BOARD.value()),

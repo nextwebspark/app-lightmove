@@ -19,4 +19,9 @@ public class LogGeocoder implements Geocoder {
         log.debug("Geocoding is off; {} stays unlocated", country);
         return Optional.empty();
     }
+
+    @Override
+    public boolean isEnabled() {
+        return false;
+    }
 }

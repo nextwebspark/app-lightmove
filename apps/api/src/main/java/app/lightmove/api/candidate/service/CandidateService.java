@@ -6,6 +6,7 @@ import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.ContactKind;
 import app.lightmove.api.candidate.constant.ContactSource;
+import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.candidate.dto.CandidateCareerEntryDto;
 import app.lightmove.api.candidate.dto.CandidateCompensationDto;
 import app.lightmove.api.candidate.dto.CandidateContactsDto;
@@ -577,7 +578,8 @@ public class CandidateService {
                 entriesOf(ContactChannel.EMAIL, request.emails(), request.email()),
                 entriesOf(ContactChannel.PHONE, request.phones(), request.phone()),
                 request.linkedinUrl(), request.locationCountry(),
-                request.locationCity(), request.nationality(), request.yearsExperience(),
+                request.locationCity(), request.nationality(), resolveGender(request.gender()),
+                request.yearsExperience(),
                 request.summary(), request.note(), compensationOf(request.compensation()),
                 profileOf(request), request.sourceUrl());
 
@@ -687,6 +689,18 @@ public class CandidateService {
         return seniority;
     }
 
+    /** Null when nobody recorded it. Absent is not {@code OTHER}, and the report counts them apart. */
+    private static Gender resolveGender(String token) {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        Gender gender = Gender.fromValue(token);
+        if (gender == null) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown gender: " + token);
+        }
+        return gender;
+    }
+
     private static CandidateSource resolveSource(String token) {
         if (token == null || token.isBlank()) {
             return CandidateSource.MANUAL;
@@ -717,6 +731,7 @@ public class CandidateService {
                 candidate.getLocationCountry(),
                 candidate.getLocationCity(),
                 candidate.getNationality(),
+                candidate.getGender() == null ? null : candidate.getGender().value(),
                 candidate.getYearsExperience(),
                 candidate.getSummary(),
                 candidate.getNote(),

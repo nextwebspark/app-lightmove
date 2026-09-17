@@ -8,6 +8,7 @@ import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ClientRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -37,6 +38,16 @@ class PositionBriefLoader {
                 .orElseGet(() -> draft(workspaceId, project.getId(), project.getPositionTitle(),
                         hqCountryOf(project.getClientId(), workspaceId)));
         return new PositionBrief(project, position);
+    }
+
+    /**
+     * The brief as it stands, for a reader that must not write: a mandate nobody has drafted one for
+     * answers empty rather than being drafted on the way past. Scoped like {@link #require}.
+     */
+    Optional<Position> find(UUID workspaceId, UUID projectId) {
+        Project project = projects.findByIdAndWorkspaceId(projectId, workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        return positions.findByProjectId(project.getId());
     }
 
     /**

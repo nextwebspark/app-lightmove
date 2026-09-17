@@ -59,7 +59,7 @@ class CandidateEnrichmentTest {
     void researchNeverOverwritesTheResearcher() {
         CandidateDetails typed = new CandidateDetails("Sample Person", "CFO, as we met them",
                 null, CandidateStatus.IDENTIFIED, "The Firm They Told Us", null,
-                null, null, "UAE", "Abu Dhabi", null, null, "Our own read of them.", null,
+                null, null, "UAE", "Abu Dhabi", null, null, null, "Our own read of them.", null,
                 CandidateCompensation.unknown(),
                 new CandidateProfile(
                         List.of(new CandidateCareerEntry("The Firm They Told Us", "CFO", "2019 –")),
@@ -135,7 +135,7 @@ class CandidateEnrichmentTest {
                                             List<String> languages) {
         return new CandidateDetails(fullName, title, null, CandidateStatus.IDENTIFIED, employerName,
                 null, null, "https://www.linkedin.com/in/sample-profile", null, null, null, null,
-                summary, null, CandidateCompensation.unknown(),
+                null, summary, null, CandidateCompensation.unknown(),
                 new CandidateProfile(career, languages, null, null, null), null);
     }
 }
