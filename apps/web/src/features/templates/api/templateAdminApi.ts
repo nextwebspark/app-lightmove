@@ -67,8 +67,10 @@ export function setTemplateHidden(code: string, hidden: boolean): Promise<Templa
   });
 }
 
-/** Workspace only: resets the firm's copy to the library's template, or deletes one the firm wrote. */
-/** Carries the version the editor opened, so a reset never discards an edit it did not see. */
+/**
+ * Workspace only: resets the firm's copy to the library's template, or deletes one the firm wrote.
+ * Carries the version the editor opened, so neither discards an edit it did not see.
+ */
 export function removeTemplate(code: string, version: number): Promise<void> {
   return request<void>(`${templateUrl("workspace", code)}?version=${version}`, { method: "DELETE" });
 }

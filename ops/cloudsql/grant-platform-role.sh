@@ -15,6 +15,9 @@
 #
 # On Cloud SQL it connects as the table's owner: lm_app until harden.sql reassigns the table, postgres
 # after. Set DB_GRANTOR accordingly.
+#
+# The audit row names the person who ran this, not the database role every operator shares: gcloud's
+# active account where there is one, else the shell user and host. Override with LM_OPERATOR.
 set -euo pipefail
 
 CONNECTION="${CLOUD_SQL_CONNECTION_NAME:-hak-talent-mapping:us-central1:bright-gcc}"
@@ -25,6 +28,20 @@ PG_CONTAINER="${PG_CONTAINER:-lm-dev-pg}"
 ROLE="SUPER_ADMIN"
 
 LOCAL_CONFIG="apps/api/src/main/resources/application-local.yml"
+
+operator_identity() {
+    if [[ -n "${LM_OPERATOR:-}" ]]; then
+        echo "$LM_OPERATOR"
+        return
+    fi
+    local account=""
+    command -v gcloud >/dev/null && account="$(gcloud config get-value account 2>/dev/null || true)"
+    if [[ -n "$account" && "$account" != "(unset)" ]]; then
+        echo "$account"
+    else
+        echo "$(whoami)@$(hostname -s)"
+    fi
+}
 
 EMAIL="${1:-}"
 [[ -n "$EMAIL" ]] || { echo "Usage: $0 <lightmove-account-email> [--revoke] [--local]"; exit 1; }
@@ -40,12 +57,14 @@ for arg in "$@"; do
     esac
 done
 
+OPERATOR="$(operator_identity)"
+
 repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
 SQL="$repo_root/ops/cloudsql/grant-platform-role.sql"
 
 if [[ "$TARGET" == "local" ]]; then
     docker exec -i "$PG_CONTAINER" psql -U lm_app -d lightmove --quiet \
-        -v email="$EMAIL" -v role="$ROLE" -v mode="$MODE" < "$SQL"
+        -v email="$EMAIL" -v role="$ROLE" -v mode="$MODE" -v operator="$OPERATOR" < "$SQL"
     exit 0
 fi
 
@@ -79,4 +98,5 @@ psql "host=127.0.0.1 port=$PORT dbname=$DATABASE user=$GRANTOR" \
     -v email="$EMAIL" \
     -v role="$ROLE" \
     -v mode="$MODE" \
+    -v operator="$OPERATOR" \
     -f "$SQL"

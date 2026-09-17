@@ -2,8 +2,8 @@ package app.lightmove.api.position.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.PositionExtractionSettings;
-import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
 import app.lightmove.api.core.llm.service.TextPseudonymiser;
+import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
 import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.repository.ClientRepository;
 import java.util.ArrayList;

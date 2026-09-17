@@ -1,23 +1,29 @@
 -- Grants or revokes a LightMove platform role (V57) for one existing account. Driven by
--- grant-platform-role.sh, which passes :email, :role (SUPER_ADMIN) and :mode ('grant' or 'revoke').
+-- grant-platform-role.sh, which passes :email, :role (SUPER_ADMIN), :mode ('grant' or 'revoke') and
+-- :operator, the person running it.
 --
 -- Deliberately not something the application can do: a platform role reaches every workspace's shared
 -- library, and an app that could mint one would hand that to whoever compromised it. This file runs as
 -- the table's owner — lm_app today, postgres once harden.sql has reassigned it.
 --
--- Each change is written to the audit trail by hand, since no request carries it.
+-- Each change is written to the audit trail by hand, since no request carries it. It names the operator
+-- rather than session_user: every operator connects as the same table owner, so the database role
+-- cannot answer who granted one of the few privileges that reaches every workspace. The role is kept
+-- beside it, because who connected is still worth knowing.
 
 \set ON_ERROR_STOP on
 
 SELECT set_config('lightmove.email', :'email', false);
 SELECT set_config('lightmove.role', :'role', false);
 SELECT set_config('lightmove.mode', :'mode', false);
+SELECT set_config('lightmove.operator', :'operator', false);
 
 DO $$
 DECLARE
     target_email text := lower(current_setting('lightmove.email'));
     role_name    text := current_setting('lightmove.role');
     granting     boolean := current_setting('lightmove.mode') = 'grant';
+    operator     text := current_setting('lightmove.operator');
     target_user  uuid;
     target_role  uuid;
     changed      integer;
@@ -50,7 +56,7 @@ BEGIN
     INSERT INTO app_lm_audit_event (event_type, outcome, target_type, target_id, metadata)
     VALUES (CASE WHEN granting THEN 'PLATFORM_ROLE_GRANTED' ELSE 'PLATFORM_ROLE_REVOKED' END,
             'SUCCESS', 'user', target_user::text,
-            jsonb_build_object('role', role_name, 'by', session_user));
+            jsonb_build_object('role', role_name, 'by', operator, 'db_role', session_user));
 
     RAISE NOTICE '% % %.', CASE WHEN granting THEN 'Granted' ELSE 'Revoked' END, role_name, target_email;
 END;

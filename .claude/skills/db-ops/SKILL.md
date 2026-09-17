@@ -36,6 +36,9 @@ A LightMove **super admin** (V57's platform role) is made the same way, by
 must already exist; the change lands on the user's next request. It connects as the table's owner —
 `lm_app` until `harden.sql` reassigns `app_lm_user_platform_role` to `postgres`, then set
 `DB_GRANTOR=postgres` — and writes the grant to the audit trail itself, since no request carries it.
+That row names the **operator**, not `session_user`: every operator connects as the same table owner, so
+the database role cannot say who granted a privilege that reaches every workspace. It is gcloud's active
+account where there is one, else the shell user and host, and `LM_OPERATOR` overrides both.
 `--local` targets `npm run dev`'s container instead of Cloud SQL.
 
 ## The company universe is ETL-owned, and the application only reads it
