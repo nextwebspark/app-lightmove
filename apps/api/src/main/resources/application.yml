@@ -155,6 +155,23 @@ server:
   error:
     include-message: never    # Error bodies are built in GlobalExceptionHandler, not leaked by the container.
   forward-headers-strategy: native
+  # Cloud Run passes the container's bytes through untouched — it does not gzip on our behalf — so
+  # without this every response leaves raw, the SPA entry chunk and /companies/facets worst of all.
+  compression:
+    enabled: true
+    # An allowlist, not a denylist, and that is load-bearing: text/event-stream is absent, so Tomcat
+    # never buffers a ProjectStreamController emitter waiting for a block to compress. RFC 9457 error
+    # bodies (application/problem+json) fall outside it too — Tomcat matches the type exactly.
+    mime-types: application/json,application/javascript,text/html,text/css,text/plain,image/svg+xml
+    # Below this, the CPU and the Content-Encoding header cost more than the saving.
+    min-response-size: 1024
+    # Deliberately blanket, /api/v1/auth/** included. BREACH needs three things in ONE response:
+    # compression, a secret, and attacker-chosen text reflected back. The third leg is missing
+    # everywhere it would matter — /auth/refresh answers a cookie with an access token and the
+    # caller's own profile, echoing nothing the request supplied, and the vague uniform auth errors
+    # carry no secret to steal (and are problem+json, so uncompressed regardless). Excluding those
+    # paths would also cost more than it reads: Spring Boot filters compression by mime type only,
+    # so a path exclusion means a hand-written filter standing in front of the auth chain forever.
 
 lightmove:
   auth:
