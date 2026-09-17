@@ -24,14 +24,6 @@ final class Tally<K> {
         return counts.getOrDefault(key, 0);
     }
 
-    int total() {
-        return counts.values().stream().mapToInt(Integer::intValue).sum();
-    }
-
-    boolean isEmpty() {
-        return counts.isEmpty();
-    }
-
     /** The {@code limit} most-counted keys, in rank order. */
     List<K> top(int limit) {
         List<Map.Entry<K, Integer>> ranked = new ArrayList<>(counts.entrySet());
@@ -42,5 +34,9 @@ final class Tally<K> {
     /** How much of the total sits outside the keys kept. */
     int outside(Collection<K> kept) {
         return total() - kept.stream().mapToInt(this::of).sum();
+    }
+
+    private int total() {
+        return counts.values().stream().mapToInt(Integer::intValue).sum();
     }
 }

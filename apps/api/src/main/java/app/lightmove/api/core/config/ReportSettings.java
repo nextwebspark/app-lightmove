@@ -15,6 +15,6 @@ public record ReportSettings(
         @DefaultValue("5000") int maxCandidates,
         @DefaultValue("6") int maxSectors,
         @DefaultValue("8") int maxHubs,
-        @DefaultValue("8") int maxNationalities,
+        @DefaultValue("9") int maxNationalities,
         @DefaultValue("12") int maxExecutivesPerSlice
 ) {}

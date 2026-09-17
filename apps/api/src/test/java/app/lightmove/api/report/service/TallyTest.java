@@ -19,7 +19,7 @@ class TallyTest {
 
         assertThat(leading).containsExactly("fmcg", "retail");
         assertThat(tally.outside(leading)).isEqualTo(2);
-        assertThat(tally.total()).isEqualTo(7);
+        assertThat(tally.outside(List.of())).isEqualTo(7);
         assertThat(tally.of("agri")).isEqualTo(1);
         assertThat(tally.of("nothing")).isZero();
     }
@@ -29,7 +29,6 @@ class TallyTest {
     void emptyTally() {
         Tally<String> tally = new Tally<>();
 
-        assertThat(tally.isEmpty()).isTrue();
         assertThat(tally.top(3)).isEmpty();
         assertThat(tally.outside(List.of())).isZero();
     }

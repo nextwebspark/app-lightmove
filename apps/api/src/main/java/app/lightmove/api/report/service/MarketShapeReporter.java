@@ -155,7 +155,7 @@ class MarketShapeReporter {
                 .toList();
         int interested = (int) here.stream().filter(row -> row.status() == CandidateStatus.INTERESTED).count();
         int gccNationals = (int) here.stream()
-                .filter(row -> NationalityCatalog.isGcc(NationalityCatalog.demonymOf(row.executive().nationality())))
+                .filter(row -> NationalityCatalog.isGcc(NationalityCatalog.groupOf(row.executive().nationality())))
                 .count();
         int female = (int) here.stream().filter(row -> row.gender() == Gender.FEMALE).count();
         int recordedGender = (int) here.stream().filter(row -> row.gender() != null).count();

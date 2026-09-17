@@ -6,6 +6,7 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.ReportSettings;
 import app.lightmove.api.report.dto.DiversityDto;
 import app.lightmove.api.report.dto.GenderLevelRowDto;
+import app.lightmove.api.report.dto.GenderSplitDto;
 import app.lightmove.api.report.dto.LevelCountDto;
 import app.lightmove.api.report.dto.NationalityRowDto;
 import app.lightmove.api.report.model.ExecutiveRow;
@@ -37,28 +38,29 @@ class DiversityReporter {
         List<NationalExecutive> nationals = new ArrayList<>();
         int unknown = 0;
         for (ExecutiveRow row : sources.executives()) {
-            String demonym = NationalityCatalog.demonymOf(row.executive().nationality());
-            if (demonym == null) {
+            String group = NationalityCatalog.groupOf(row.executive().nationality());
+            if (group == null) {
                 unknown++;
             } else {
-                nationals.add(new NationalExecutive(row, demonym));
+                nationals.add(new NationalExecutive(row, group));
             }
         }
 
         Tally<String> byNationality = new Tally<>();
-        nationals.forEach(national -> byNationality.add(national.demonym()));
+        nationals.forEach(national -> byNationality.add(national.group()));
         List<String> leading = byNationality.top(caps.maxNationalities());
         List<NationalityRowDto> rows = new ArrayList<>();
-        for (String demonym : leading) {
-            rows.add(row(demonym, NationalityCatalog.isGcc(demonym), nationals, demonym::equals));
+        for (String group : leading) {
+            rows.add(row(group, NationalityCatalog.isGcc(group), nationals, group::equals));
         }
         if (byNationality.outside(leading) > 0) {
-            rows.add(row(MarketShapeReporter.OTHER, false, nationals, demonym -> !leading.contains(demonym)));
+            rows.add(row(MarketShapeReporter.OTHER, false, nationals, group -> !leading.contains(group)));
         }
 
-        long gccNationals = nationals.stream().filter(national -> NationalityCatalog.isGcc(national.demonym())).count();
+        long gccNationals = nationals.stream().filter(national -> NationalityCatalog.isGcc(national.group())).count();
         return new DiversityDto(MarketShapeReporter.levelTokens(), rows, unknown, gccNationals,
-                genderByLevel(sources.executives()), genderUnrecorded(sources.executives()));
+                genderByLevel(sources.executives()), genderWithoutLevel(sources.executives()),
+                genderUnrecorded(sources.executives()));
     }
 
     /**
@@ -77,6 +79,13 @@ class DiversityReporter {
                 .toList();
     }
 
+    /** Recorded genders on rows with no seniority, which no level's split can hold. */
+    private static GenderSplitDto genderWithoutLevel(List<ExecutiveRow> executives) {
+        List<ExecutiveRow> unplaced = executives.stream().filter(row -> row.seniority() == null).toList();
+        return new GenderSplitDto(count(unplaced, Gender.FEMALE), count(unplaced, Gender.MALE),
+                count(unplaced, Gender.OTHER));
+    }
+
     private static int count(List<ExecutiveRow> executives, Gender gender) {
         return (int) executives.stream().filter(row -> row.gender() == gender).count();
     }
@@ -89,7 +98,7 @@ class DiversityReporter {
     private static NationalityRowDto row(String label, boolean gcc, List<NationalExecutive> nationals,
                                          Predicate<String> belongs) {
         List<ExecutiveRow> members = nationals.stream()
-                .filter(national -> belongs.test(national.demonym()))
+                .filter(national -> belongs.test(national.group()))
                 .map(NationalExecutive::row)
                 .toList();
         List<LevelCountDto> byLevel = Arrays.stream(Seniority.values())
@@ -100,5 +109,5 @@ class DiversityReporter {
         return new NationalityRowDto(label, gcc, byLevel, unclassified, members.size());
     }
 
-    private record NationalExecutive(ExecutiveRow row, String demonym) {}
+    private record NationalExecutive(ExecutiveRow row, String group) {}
 }

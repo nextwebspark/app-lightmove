@@ -10,9 +10,14 @@ import java.util.List;
  * gender from a name would be stating a guess as a finding, and a mandate nobody has recorded reads
  * as unmeasured rather than as a pool of one gender.
  *
+ * <p>{@code genderWithoutLevel} is the recorded genders of executives with no seniority on file.
+ * A captured executive arrives without a level, so without it a gender recorded on one was counted
+ * nowhere: not in a level's split, and not as unrecorded either.
+ *
  * <p>{@code nationalities} is the leading groups plus "Other"; {@code unknownNationality} is
  * everyone with none on file.
  */
 public record DiversityDto(List<String> levels, List<NationalityRowDto> nationalities,
                            int unknownNationality, long gccNationals,
-                           List<GenderLevelRowDto> genderByLevel, int genderUnrecorded) {}
+                           List<GenderLevelRowDto> genderByLevel, GenderSplitDto genderWithoutLevel,
+                           int genderUnrecorded) {}

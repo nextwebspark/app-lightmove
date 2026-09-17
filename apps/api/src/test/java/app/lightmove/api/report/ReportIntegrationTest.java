@@ -59,7 +59,8 @@ class ReportIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.diversity.nationalities").isEmpty())
                 .andExpect(jsonPath("$.diversity.genderUnrecorded").value(0))
                 .andExpect(jsonPath("$.diversity.genderByLevel[4].level").value("N-3"))
-                .andExpect(jsonPath("$.diversity.genderByLevel[0].female").value(0));
+                .andExpect(jsonPath("$.diversity.genderByLevel[0].female").value(0))
+                .andExpect(jsonPath("$.diversity.genderWithoutLevel.female").value(0));
     }
 
     @Test
@@ -145,7 +146,7 @@ class ReportIntegrationTest extends FlowTestSupport {
         JsonNode diversity = report.get("diversity");
         assertThat(diversity.get("nationalities")).hasSize(3);
         assertThat(nationality(diversity, "Saudi").get("gcc").asBoolean()).isTrue();
-        assertThat(nationality(diversity, "Egyptian").get("gcc").asBoolean()).isFalse();
+        assertThat(nationality(diversity, "Arab expat, non-GCC").get("gcc").asBoolean()).isFalse();
         assertThat(nationality(diversity, "Emirati").get("unclassified").asInt()).isEqualTo(1);
         assertThat(diversity.get("gccNationals").asInt()).isEqualTo(2);
         assertThat(diversity.get("unknownNationality").asInt()).isZero();
@@ -154,6 +155,23 @@ class ReportIntegrationTest extends FlowTestSupport {
         assertThat(level(diversity, "C-Suite").get("male").asInt()).isZero();
         assertThat(level(diversity, "N-1").get("male").asInt()).isEqualTo(1);
         assertThat(diversity.get("genderUnrecorded").asInt()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a gender recorded on an executive with no seniority is still counted, apart from the levels")
+    void genderWithoutALevelIsCounted() throws Exception {
+        Fixture f = fixture("Report Unlevelled Firm");
+        candidate(f.admin, f.projectId, """
+                {"fullName":"Huda Al-Mansoori","employerName":"Somewhere Untriaged","gender":"female"}""");
+        candidate(f.admin, f.projectId, """
+                {"fullName":"Karim Aziz","employerName":"Somewhere Untriaged"}""");
+
+        mvc.perform(get(reportUrl(f.projectId)).header("Authorization", "Bearer " + f.admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.diversity.genderWithoutLevel.female").value(1))
+                .andExpect(jsonPath("$.diversity.genderWithoutLevel.male").value(0))
+                .andExpect(jsonPath("$.diversity.genderUnrecorded").value(1))
+                .andExpect(jsonPath("$.diversity.genderByLevel[1].female").value(0));
     }
 
     // ── fixture ──────────────────────────────────────────────────────────────
