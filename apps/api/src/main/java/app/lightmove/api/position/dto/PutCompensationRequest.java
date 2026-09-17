@@ -1,8 +1,8 @@
 package app.lightmove.api.position.dto;
 
-import app.lightmove.api.position.constant.BaseSalaryMode;
-import app.lightmove.api.position.constant.BonusBasis;
-import app.lightmove.api.position.constant.IncentiveType;
+import app.lightmove.api.common.constant.BaseSalaryMode;
+import app.lightmove.api.common.constant.BonusBasis;
+import app.lightmove.api.common.constant.IncentiveType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;

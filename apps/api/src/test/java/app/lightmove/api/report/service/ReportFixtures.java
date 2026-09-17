@@ -4,9 +4,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import app.lightmove.api.candidate.dto.CandidateResponse;
+import app.lightmove.api.common.constant.BaseSalaryMode;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.ReportSettings;
-import app.lightmove.api.position.constant.BaseSalaryMode;
 import app.lightmove.api.position.dto.CompensationDto;
 import app.lightmove.api.report.model.ExecutiveRow;
 import app.lightmove.api.report.model.ReportSources;

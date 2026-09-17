@@ -8,6 +8,9 @@
 
 export type WorkspaceRole = "ADMIN" | "MEMBER" | "CLIENT";
 
+/** Mirrors the API's `PlatformAction`: what a user may do outside any workspace. */
+export type PlatformAction = "TEMPLATE_LIBRARY_MANAGE";
+
 export interface WorkspaceSummary {
   id: string;
   name: string;
@@ -52,6 +55,12 @@ export interface User {
    * sessionStorage, but this survives everywhere the session does. Null once placed.
    */
   pendingInvitation: PendingInvitation | null;
+
+  /**
+   * Empty for everyone but LightMove staff. Shows the Platform settings group and nothing more — the
+   * server re-reads the grant on every platform call.
+   */
+  platformActions: PlatformAction[];
 }
 
 /** What the invitee is told about their outstanding invitation. Deliberately token-free. */

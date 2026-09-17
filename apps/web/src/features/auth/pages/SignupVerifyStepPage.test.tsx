@@ -33,6 +33,7 @@ const userAt = (emailVerified: boolean): User => ({
   hasPassword: true,
   timezone: "Asia/Dubai",
   locale: "en",
+  platformActions: [],
   pendingInvitation: null,
   workspace: null,
 });

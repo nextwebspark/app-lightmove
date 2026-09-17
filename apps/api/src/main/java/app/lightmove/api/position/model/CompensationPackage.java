@@ -1,8 +1,8 @@
 package app.lightmove.api.position.model;
 
-import app.lightmove.api.position.constant.BaseSalaryMode;
-import app.lightmove.api.position.constant.BonusBasis;
-import app.lightmove.api.position.constant.IncentiveType;
+import app.lightmove.api.common.constant.BaseSalaryMode;
+import app.lightmove.api.common.constant.BonusBasis;
+import app.lightmove.api.common.constant.IncentiveType;
 import java.math.BigDecimal;
 import java.util.List;
 

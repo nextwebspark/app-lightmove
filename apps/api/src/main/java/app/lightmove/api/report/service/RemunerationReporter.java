@@ -2,9 +2,9 @@ package app.lightmove.api.report.service;
 
 import app.lightmove.api.candidate.dto.CandidateCompensationDto;
 import app.lightmove.api.candidate.dto.CandidateResponse;
+import app.lightmove.api.common.constant.BaseSalaryMode;
+import app.lightmove.api.common.constant.BonusBasis;
 import app.lightmove.api.common.location.service.Countries;
-import app.lightmove.api.position.constant.BaseSalaryMode;
-import app.lightmove.api.position.constant.BonusBasis;
 import app.lightmove.api.position.dto.CompensationDto;
 import app.lightmove.api.report.dto.CompensationBandDto;
 import app.lightmove.api.report.dto.DisclosureDto;

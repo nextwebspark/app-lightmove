@@ -1,17 +1,19 @@
 package app.lightmove.api.position.service;
 
-import app.lightmove.api.position.constant.CriterionMode;
+import app.lightmove.api.common.constant.BenefitFrequency;
+import app.lightmove.api.common.constant.CriterionMode;
 import app.lightmove.api.position.model.CompensationPackage;
 import app.lightmove.api.position.model.MandateContext;
 import app.lightmove.api.position.model.Position;
+import app.lightmove.api.position.model.PositionBenefit;
 import app.lightmove.api.position.model.PositionCompetency;
 import app.lightmove.api.position.model.PositionCriterion;
 import app.lightmove.api.position.model.PositionDetails;
 import app.lightmove.api.position.model.PositionOrgNode;
 import app.lightmove.api.position.model.PositionPriority;
-import app.lightmove.api.position.model.PositionTemplate;
-import app.lightmove.api.position.model.PositionTemplateBody;
 import app.lightmove.api.position.model.ReportingStructure;
+import app.lightmove.api.positiontemplate.model.PositionTemplate;
+import app.lightmove.api.positiontemplate.model.PositionTemplateBody;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -57,13 +59,21 @@ final class PositionTemplateApplier {
         position.applyCompensation(new CompensationPackage(
                 body.currency(), position.getSalaryMin(), position.getSalaryMax(), body.baseSalaryMode(),
                 body.bonusValue(), body.bonusBasis(), body.incentiveType(),
-                position.getIncentiveAmount(), body.incentiveVesting(), body.briefBenefits()));
+                position.getIncentiveAmount(), body.incentiveVesting(), draftedBenefits(body)));
 
         position.replaceCriteria(draftedCriteria(position, body));
         position.replaceCompetencies(body.competencies().stream()
                 .map(competency -> PositionCompetency.of(competency.panel(), competency.name(),
                         competency.description(), competency.weight()))
                 .toList());
+    }
+
+    /** The benefit lines as the brief stores them — the amount is the mandate's to fill in. */
+    private static List<PositionBenefit> draftedBenefits(PositionTemplateBody body) {
+        return body.benefits().stream()
+                .map(benefit -> PositionBenefit.of(benefit.name(), null,
+                        benefit.frequency() == null ? BenefitFrequency.MONTHLY : benefit.frequency()))
+                .toList();
     }
 
     /**

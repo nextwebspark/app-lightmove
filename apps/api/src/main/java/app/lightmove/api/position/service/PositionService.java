@@ -1,10 +1,10 @@
 package app.lightmove.api.position.service;
 
+import app.lightmove.api.common.constant.CompetencyPanel;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.position.constant.CompetencyPanel;
 import app.lightmove.api.position.dto.CompensationDto;
 import app.lightmove.api.position.dto.PositionResponse;
 import app.lightmove.api.position.dto.PutCompensationRequest;
@@ -23,8 +23,9 @@ import app.lightmove.api.position.model.PositionCriterion;
 import app.lightmove.api.position.model.PositionDetails;
 import app.lightmove.api.position.model.PositionOrgNode;
 import app.lightmove.api.position.model.PositionPriority;
-import app.lightmove.api.position.model.PositionTemplate;
 import app.lightmove.api.position.model.ReportingStructure;
+import app.lightmove.api.positiontemplate.model.PositionTemplate;
+import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Locale;

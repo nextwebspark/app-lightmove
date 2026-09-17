@@ -1,6 +1,6 @@
 package app.lightmove.api.position.model;
 
-import app.lightmove.api.position.constant.BenefitFrequency;
+import app.lightmove.api.common.constant.BenefitFrequency;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.EnumType;
