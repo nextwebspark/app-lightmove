@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -147,6 +148,38 @@ class CompanyFacetIntegrationTest extends FlowTestSupport {
                 .andReturn();
 
         assertThat(bandCount(result, "marketSegments", "E-commerce")).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("each segment is counted against its own column, not its neighbour's")
+    void eachSegmentIsCountedAgainstItsOwnColumn() throws Exception {
+        String admin = adminOf("Facet Segment Column Firm");
+        // Each company carries its own segment's keyword and every earlier one's, so the eleven counts
+        // descend 11..1 and no two are alike. The counts arrive as eleven columns of a single row now,
+        // and a column read against the wrong segment's name is the one failure a fixture with equal
+        // counts could not see.
+        List<String> keywords = List.of("b2b", "b2c", "b2b2c", "e-commerce", "fintech", "d2c",
+                "non-profit", "saas", "consulting", "services", "retail");
+        for (int index = 0; index < keywords.size(); index++) {
+            universe.company("seg" + index, "Segment Co " + index).employees(10)
+                    .keywords(keywords.subList(0, index + 1).toArray(String[]::new))
+                    .insert();
+        }
+        // A company in no segment at all must not land in the first column.
+        universe.company("none", "Unsegmented").employees(10).insert();
+
+        MvcResult result = mvc.perform(get("/api/v1/companies/facets")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        List<String> segments = List.of("B2B", "B2C", "B2B2C", "E-commerce", "Fintech", "D2C",
+                "Non-Profit", "SaaS", "Consulting", "Services", "Retail");
+        for (int index = 0; index < segments.size(); index++) {
+            assertThat(bandCount(result, "marketSegments", segments.get(index)))
+                    .as(segments.get(index))
+                    .isEqualTo(segments.size() - index);
+        }
     }
 
     @Test
