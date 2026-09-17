@@ -6,6 +6,7 @@ import app.lightmove.api.triagecompany.model.TriageCompanyCount;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,6 +27,28 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
     /** The grid's search box. Substring rather than prefix: "emirates" should find "Bank of Emirates". */
     Page<TriageCompany> findByProjectIdAndStatusAndCompanyNameContainingIgnoreCase(
             UUID projectId, TriageCompanyStatus status, String companyName, Pageable pageable);
+
+    /**
+     * The Companies grid's Executive-name or Status-checkbox filter, either or both — narrowed to a
+     * caller-supplied set of company ids rather than a join or an {@code exists} against
+     * {@code Candidate}: {@code triagecompany} does not know about candidates, by the same rule
+     * {@link app.lightmove.api.candidate.model.Candidate} states from its own side, so the id set is
+     * computed on the other side of that boundary, through {@code MappedExecutiveLookup}, and handed
+     * in here already resolved.
+     *
+     * <p>{@code matchingIds} is never empty: the caller short-circuits to an empty page itself once an
+     * empty set proves no company can qualify, rather than asking Postgres to evaluate {@code in ()}.
+     * {@code companyName} may still be blank, which {@code is null or} treats as "no opinion" the same
+     * way the plain listing below does.
+     */
+    @Query("select t from TriageCompany t "
+            + "where t.projectId = :projectId and t.status = :status and t.id in :matchingIds "
+            + "and (:companyName is null or lower(t.companyName) like lower("
+            + "  concat('%', cast(:companyName as string), '%')))")
+    Page<TriageCompany> findByProjectIdAndStatusAndIdInAndCompanyNameFilter(
+            @Param("projectId") UUID projectId, @Param("status") TriageCompanyStatus status,
+            @Param("matchingIds") Set<UUID> matchingIds, @Param("companyName") String companyName,
+            Pageable pageable);
 
     Optional<TriageCompany> findByIdAndProjectId(UUID id, UUID projectId);
 

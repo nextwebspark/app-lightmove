@@ -2,7 +2,9 @@ package app.lightmove.api.candidate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.ApolloUniverse;
@@ -142,6 +144,44 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("research mapping someone at an already-held company clears its no-executive-found flag too")
+    void researchMappingClearsNoExecutiveFoundOnAnAlreadyHeldCompany() throws Exception {
+        String projectId = mandate("Already Flagged Employer Firm");
+        universe.company("a42", "Al Rawabi Dairy").industry("food & beverages")
+                .country("United Arab Emirates").city("Dubai").employees(1200)
+                .linkedin("http://www.linkedin.com/company/alrawabi").insert();
+        enricher.answerWith(RESEARCH);
+
+        // The mandate already holds this company, having looked and found nobody there — exactly the
+        // state `requireCompanyOfProject` clears on a hand-typed mapping. This path is a *researched*
+        // one instead: the enrichment worker resolves the employer through `captureFromResearch`, not
+        // through `requireCompanyOfProject`, so the two mapping doors must clear it independently.
+        String triageCompanyId = body(mvc.perform(post(triageUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountId":"a42"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        mvc.perform(patch(triageUrl(projectId) + "/" + triageCompanyId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"noExecutiveFound":true}"""))
+                .andExpect(jsonPath("$.noExecutiveFound").value(true));
+
+        capture(projectId, "Sample Person", "sample-profile");
+
+        // The same row: research resolved to the company already held, not a second one.
+        JsonNode researched = firstCandidateOf(projectId);
+        assertThat(researched.get("triageCompanyId").asText()).isEqualTo(triageCompanyId);
+        mvc.perform(get(triageUrl(projectId) + "?status=inUniverse")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(jsonPath("$.companies[0].id").value(triageCompanyId))
+                .andExpect(jsonPath("$.companies[0].noExecutiveFound").value(false));
+    }
+
+    @Test
     @DisplayName("a second capture at the same employer reuses the company row")
     void aSecondCaptureReusesTheEmployerRow() throws Exception {
         String projectId = mandate("Shared Employer Firm");
@@ -249,6 +289,10 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
 
     private static String candidatesUrl(String projectId) {
         return "/api/v1/projects/" + projectId + "/candidates";
+    }
+
+    private static String triageUrl(String projectId) {
+        return "/api/v1/projects/" + projectId + "/triage";
     }
 
     private String mandate(String firmName) throws Exception {

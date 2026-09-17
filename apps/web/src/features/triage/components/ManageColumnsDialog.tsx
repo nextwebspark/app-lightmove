@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Input, Select } from "../../../components/ui";
 import { Modal } from "../../../components/ui/Modal";
@@ -46,11 +46,15 @@ export function ManageColumnsDialog({
   projectId,
   columns,
   onClose,
+  initialRenameId,
 }: {
   open: boolean;
   projectId: string;
   columns: readonly CustomColumn[];
   onClose: () => void;
+  /** Opens already renaming this column — the header menu's "Edit field", landing here rather than a
+   *  second, smaller editor because rename/hide/remove/reorder are one mental model, not four. */
+  initialRenameId?: string;
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -58,6 +62,15 @@ export function ManageColumnsDialog({
   const [newTarget, setNewTarget] = useState<CustomColumnTarget>("candidate");
   const [newType, setNewType] = useState<CustomColumnType>("text");
   const [renaming, setRenaming] = useState<{ id: string; label: string } | null>(null);
+
+  useEffect(() => {
+    if (!open || !initialRenameId) return;
+    const column = columns.find((entry) => entry.id === initialRenameId);
+    if (column) setRenaming({ id: column.id, label: column.label });
+    // Only the transition to open matters — `columns` changing under an already-open dialog must not
+    // yank the rename field back to this one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialRenameId]);
 
   const refresh = () =>
     void queryClient.invalidateQueries({
