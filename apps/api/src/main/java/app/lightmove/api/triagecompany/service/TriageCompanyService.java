@@ -87,7 +87,11 @@ public class TriageCompanyService {
      * stores them under. Duplicated here rather than reusing {@code candidate}'s own
      * {@code CandidateStatus} enum — the same reason the rank query below embeds its own {@code CASE}
      * literals instead of importing it: {@code triagecompany} does not depend on {@code candidate}, by
-     * the rule {@code candidate} itself states from the other side.
+     * the rule {@code candidate} itself states from the other side. The same spelling is mirrored again
+     * in {@code CandidateRepository}'s ranking {@code CASE} and in
+     * {@code MappedExecutiveLookupAdapter#triageCompanyIdsWithExecutiveStatusIn} — a rename should grep
+     * for all three; {@code CandidateRepositoryStatusOrderTest} guards the one of those three that would
+     * otherwise degrade silently.
      */
     private static final Map<String, String> EXECUTIVE_STATUS_TOKENS = Map.of(
             "identified", "IDENTIFIED",
@@ -285,16 +289,20 @@ public class TriageCompanyService {
     /**
      * One of this mandate's own company rows — the seam {@code candidate} maps an executive through.
      * It adds that the company belongs to <i>that</i> project, so a candidate cannot be filed against
-     * another mandate's company by id, and it clears {@code noExecutiveFound} as part of that
-     * resolution: an executive being mapped here is exactly the event that disproves the flag, so
-     * "nobody here fits" cannot outlive it. Runs inside the candidate write this backs — a validation
-     * failure afterward (a duplicate name, a held profile) rolls the clear back with everything else.
+     * another mandate's company by id. {@code newMapping} clears {@code noExecutiveFound} as part of
+     * that resolution when true: an executive being newly mapped here is exactly the event that
+     * disproves the flag, but an unrelated edit of someone already mapped to this company (a title, a
+     * status) merely names it again and must not silently revive a company the mandate already ruled
+     * out. Runs inside the candidate write this backs — a validation failure afterward (a duplicate
+     * name, a held profile) rolls the clear back with everything else.
      */
     @Transactional
-    public TriageCompanyResponse requireCompanyOfProject(UUID projectId, UUID triageCompanyId) {
+    public TriageCompanyResponse requireCompanyOfProject(UUID projectId, UUID triageCompanyId, boolean newMapping) {
         TriageCompany company = triaged.findByIdAndProjectId(triageCompanyId, projectId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-        company.unflagNoExecutiveFound();
+        if (newMapping) {
+            company.unflagNoExecutiveFound();
+        }
         return toDto(company);
     }
 

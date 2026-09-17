@@ -396,6 +396,38 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("editing an already-mapped executive's own fields leaves the company's flag alone")
+    void unrelatedEditDoesNotReviveNoExecutiveFound() throws Exception {
+        String projectId = mandate("Unrelated Edit Firm");
+        String companyId = captureCompany(projectId, "Al Rawabi Dairy");
+        String candidateId = mapTo(projectId, companyId, "Yasmin El-Sayed");
+
+        mvc.perform(patch("/api/v1/projects/" + projectId + "/triage/" + companyId)
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"noExecutiveFound":true}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.noExecutiveFound").value(true));
+
+        // Same company, same candidate: this only changes the title, not who is mapped where.
+        mvc.perform(put(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"triageCompanyId":"%s","fullName":"Yasmin El-Sayed","title":"CFO"}
+                                """.formatted(companyId)))
+                .andExpect(status().isOk());
+
+        JsonNode company = body(mvc.perform(get("/api/v1/projects/" + projectId + "/triage")
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isOk())
+                .andReturn()).get("companies").get(0);
+        assertThat(company.get("id").asText()).isEqualTo(companyId);
+        assertThat(company.get("noExecutiveFound").asBoolean()).isTrue();
+    }
+
+    @Test
     @DisplayName("removing a company from the mandate unmaps its people rather than deleting them")
     void removingACompanyLeavesItsPeopleUnmapped() throws Exception {
         String projectId = mandate("Company Removal Firm");

@@ -208,7 +208,7 @@ public class CandidateService {
                                  SaveCandidateRequest request, HttpServletRequest httpRequest) {
         requireProject(projectId, workspaceId);
         CandidateSource source = resolveSource(request.source());
-        CandidateDetails details = detailsOf(projectId, request);
+        CandidateDetails details = detailsOf(projectId, request, null);
 
         refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
@@ -257,7 +257,7 @@ public class CandidateService {
         Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
 
-        CandidateDetails details = detailsOf(projectId, request);
+        CandidateDetails details = detailsOf(projectId, request, candidate.getTriageCompanyId());
         refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), candidateId);
         refuseHeldProfile(projectId, details.linkedinUrl(), candidateId);
         refuseRetypedCapturedProfile(candidate, details.linkedinUrl());
@@ -577,10 +577,13 @@ public class CandidateService {
     /**
      * Where a candidate sits. A named company is resolved through {@code triagecompany}'s public seam,
      * which proves it belongs to this mandate — so one cannot be filed against another project's — and
-     * clears that company's {@code noExecutiveFound} flag as a side effect of the same resolution,
-     * since mapping someone here is exactly the event that disproves it.
+     * clears that company's {@code noExecutiveFound} flag as a side effect of the resolution, but only
+     * when {@code previousTriageCompanyId} shows this call is newly making that mapping: an executive
+     * being mapped here is what disproves the flag, but a save that merely still names the company they
+     * were already mapped to is an unrelated edit and must not revive it.
      */
-    private CandidateDetails detailsOf(UUID projectId, SaveCandidateRequest request) {
+    private CandidateDetails detailsOf(UUID projectId, SaveCandidateRequest request,
+                                       UUID previousTriageCompanyId) {
         CandidateDetails details = new CandidateDetails(
                 request.fullName(), request.title(), resolveSeniority(request.seniority()),
                 resolveStatus(request.status()), request.employerName(),
@@ -594,8 +597,9 @@ public class CandidateService {
         if (request.triageCompanyId() == null) {
             return details;
         }
+        boolean newMapping = !request.triageCompanyId().equals(previousTriageCompanyId);
         TriageCompanyResponse company =
-                triage.requireCompanyOfProject(projectId, request.triageCompanyId());
+                triage.requireCompanyOfProject(projectId, request.triageCompanyId(), newMapping);
         return details.employedAt(company.companyName());
     }
 
