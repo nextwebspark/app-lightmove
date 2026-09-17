@@ -438,15 +438,20 @@ function TriageStage() {
     );
   }, [polledLocations, queryClient, project.id, stage.status]);
 
-  const rows = useMemo(
-    () =>
-      toTriageRows(
-        companies.data?.companies ?? [],
-        mappedPeople.data?.candidates ?? [],
-        unmappedPeople.data?.candidates ?? [],
-      ),
-    [companies.data, mappedPeople.data, unmappedPeople.data],
-  );
+  const rows = useMemo(() => {
+    // The server's Status filter is company-level (EXISTS: does this company have a matching
+    // executive at all), so a page can carry a company for one matching person among several. The
+    // grid's own rows are people, not companies, so a ticked status also narrows which of a kept
+    // company's executives get a line — otherwise ticking "Contacted" would still show its "Engaged"
+    // colleague on the row beneath.
+    const people =
+      executiveStatuses.length === 0
+        ? (mappedPeople.data?.candidates ?? [])
+        : (mappedPeople.data?.candidates ?? []).filter((candidate) =>
+            executiveStatuses.includes(candidate.status),
+          );
+    return toTriageRows(companies.data?.companies ?? [], people, unmappedPeople.data?.candidates ?? []);
+  }, [companies.data, mappedPeople.data, unmappedPeople.data, executiveStatuses]);
 
   /**
    * What the two people reads could not fit. Both are capped by the server, and a mapping that ran

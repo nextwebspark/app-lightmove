@@ -355,6 +355,31 @@ describe("TriageStagePage", () => {
     expect(screen.getByRole("checkbox", { name: "Interested" })).toBeChecked();
   });
 
+  it("ticking a status hides a kept company's other executives, not just the ones with no match at all", async () => {
+    // The server's own filter is company-level (EXISTS: does ACWA have *a* Contacted executive), so
+    // the company stays on the page for Omar alone — the grid must not then also draw Yasmin's row
+    // just because she happens to work there too.
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(
+        scope.unmapped
+          ? []
+          : [yasmin, { ...yasmin, id: "c2", fullName: "Omar Haddad", status: "contacted" }],
+      ),
+    );
+    renderStage();
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+    expect(await screen.findByText("Yasmin El-Sayed")).toBeInTheDocument();
+    expect(screen.getByText("Omar Haddad")).toBeInTheDocument();
+
+    await userEvent.click(within(grid).getByRole("button", { name: "Status column menu" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Contacted" }));
+
+    await waitFor(() => expect(screen.queryByText("Yasmin El-Sayed")).not.toBeInTheDocument());
+    expect(screen.getByText("Omar Haddad")).toBeInTheDocument();
+    // Omar's row is the company's only remaining line, not a second one alongside Yasmin's.
+    expect(screen.getAllByText("ACWA Power")).toHaveLength(1);
+  });
+
   it("offers no Status checkbox at all when the grid holds at most one status", async () => {
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
       peopleOf(scope.unmapped ? [] : [yasmin]),
