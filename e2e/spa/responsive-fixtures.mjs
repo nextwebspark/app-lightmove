@@ -197,7 +197,7 @@ const REPORT = {
       (weekEnding, i) => ({ weekEnding, identified: [3, 7, 8, 6, 7, 5, 3, 2][i] }),
     ),
     daily: Array.from({ length: 50 }, (_, i) => (i % 7 < 5 ? 1 : 0)),
-    daysSinceLastCompany: 4,
+    daysSinceLastExecutive: 4,
   },
   market: {
     sectors: ["Oil & Energy", "Industrial Manufacturing", "Logistics"],
