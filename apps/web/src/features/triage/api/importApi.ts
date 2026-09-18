@@ -1,4 +1,5 @@
 import { request, requestBlob } from "../../../lib/apiClient";
+import { saveBlob } from "../../../lib/download";
 import type { ImportPreview, ImportSummary, ProposedColumnMapping } from "./importTypes";
 
 /**
@@ -12,24 +13,9 @@ import type { ImportPreview, ImportSummary, ProposedColumnMapping } from "./impo
 /**
  * Downloads the blank template and saves it. Optional — the import maps whatever headers arrive — but
  * a file built from it needs no assistant call, because every header in it is one we already know.
- *
- * A fetch and an object URL rather than an href: the bytes need the bearer token, the same reason
- * `positionApi.saveDocument` does it this way.
  */
 export async function saveTemplate(projectId: string): Promise<void> {
-  const blob = await requestBlob(`/projects/${projectId}/import/template`);
-  const url = URL.createObjectURL(blob);
-  try {
-    const link = window.document.createElement("a");
-    link.href = url;
-    link.download = "uncava-import-template.csv";
-    // Appended before the click: Firefox starts no download from an anchor outside the document.
-    window.document.body.append(link);
-    link.click();
-    link.remove();
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  saveBlob(await requestBlob(`/projects/${projectId}/import/template`), "uncava-import-template.csv");
 }
 
 /** Reads the file and answers with a mapping to confirm. Writes nothing. */

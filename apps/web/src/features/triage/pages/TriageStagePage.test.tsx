@@ -14,6 +14,7 @@ import * as companiesApi from "../../strategy/api/companiesApi";
 import * as talentMapApi from "../../talentmap/api/talentMapApi";
 import type { TalentMapPage } from "../../talentmap/api/types";
 import type { CompanyResult, Facets } from "../../strategy/api/types";
+import * as exportApi from "../api/exportApi";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompaniesPage, TriageCompany } from "../api/types";
 import { stubFullscreenApi } from "../../../test/fullscreen";
@@ -34,6 +35,10 @@ vi.mock("../../customcolumns/api/customColumnsApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
   ...(await importOriginal<typeof customColumnsApi>()),
   getCustomColumns: vi.fn(),
+}));
+vi.mock("../api/exportApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../api/exportApi")>()),
+  saveCompaniesCsv: vi.fn(),
 }));
 vi.mock("../api/importApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/importApi")>()),
@@ -97,7 +102,7 @@ vi.mock("../../../lib/apiClient", async (importOriginal) => ({
 
 const streamListeners: ((event: { name: string; data: string }) => void)[] = [];
 
-const { restoreSession } = await import("../../../lib/apiClient");
+const { ApiRequestError, restoreSession } = await import("../../../lib/apiClient");
 
 const lead = {
   id: "u1",
@@ -131,6 +136,7 @@ const representative = {
 
 const project = {
   id: "p1",
+  clientName: "Acme Corp",
   positionTitle: "CFO",
   team: [
     { memberId: "m1", userId: "u1", fullName: "Alok Kumar", avatarUrl: null,
@@ -311,6 +317,7 @@ describe("TriageStagePage", () => {
     vi.mocked(companiesApi.searchCompanies).mockResolvedValue({ companies: [] });
     vi.mocked(companiesApi.getCompany).mockResolvedValue(marketAcwa);
     vi.mocked(customColumnsApi.getCustomColumns).mockResolvedValue({ columns: [] });
+    vi.mocked(exportApi.saveCompaniesCsv).mockResolvedValue(undefined);
     vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue({ enabled: false, publicToken: null });
     vi.mocked(talentMapApi.getTalentMap).mockResolvedValue(mapPageOf());
     streamListeners.length = 0;
@@ -561,6 +568,47 @@ describe("TriageStagePage", () => {
       expect(screen.queryByRole("button", { name: /Shortlist: ACWA Power/i })).not.toBeInTheDocument(),
     );
     expect(screen.queryByRole("button", { name: /Add company/i })).not.toBeInTheDocument();
+  });
+
+  it("exports the stage on screen, narrowed by whatever the search box holds", async () => {
+    renderStage("shortlisted");
+
+    await screen.findByText("ACWA Power");
+    await userEvent.type(screen.getByRole("textbox", { name: /Search companies/i }), "acwa");
+    // The grid searches on a 300ms debounce; the export carries the same term, so the press has to
+    // come after the grid itself has caught up.
+    await waitFor(() =>
+      expect(vi.mocked(triageApi.getTriageCompanies).mock.calls.at(-1)?.[4]).toBe("acwa"));
+    await userEvent.click(screen.getByRole("button", { name: /^Export$/i }));
+
+    // The stage and the search travel; the page the grid happens to be showing does not, because the
+    // file is the whole stage rather than one page of it.
+    await waitFor(() =>
+      expect(exportApi.saveCompaniesCsv).toHaveBeenCalledWith(
+        "p1", "shortlisted", "acwa", ["Acme Corp", "CFO", "Shortlisted"]),
+    );
+  });
+
+  it("offers the export to a client representative, who may read this grid", async () => {
+    const authApi = await import("../../auth/api/authApi");
+    vi.mocked(authApi.me).mockResolvedValue(representative);
+    renderStage();
+
+    await screen.findByText("ACWA Power");
+    // WORK_VIEW on the server, so the button is outside the write gate the other four sit behind.
+    expect(screen.getByRole("button", { name: /^Export$/i })).toBeInTheDocument();
+  });
+
+  it("says so rather than throwing when the export is refused", async () => {
+    vi.mocked(exportApi.saveCompaniesCsv).mockRejectedValue(
+      new ApiRequestError({
+        code: "VALIDATION_FAILED", detail: "too large", status: 400, correlationId: "c1" }));
+    renderStage();
+
+    await screen.findByText("ACWA Power");
+    await userEvent.click(screen.getByRole("button", { name: /^Export$/i }));
+
+    expect(await screen.findByRole("status")).toBeInTheDocument();
   });
 
   it("redirects an unknown stage instead of rendering an empty grid for it", async () => {

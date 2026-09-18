@@ -27,6 +27,7 @@ import * as talentMapApi from "../../talentmap/api/talentMapApi";
 import type * as talentMapTypes from "../../talentmap/api/types";
 import { TalentMapView } from "../../talentmap/components/TalentMapView";
 import { useTalentMapPreferences } from "../../talentmap/lib/useTalentMapPreferences";
+import * as exportApi from "../api/exportApi";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
 import { CompanyDrawer } from "../components/CompanyDrawer";
@@ -402,6 +403,14 @@ function TriageStage() {
     onSettled: () => setBusyId(null),
   });
 
+  const exportCsv = useMutation({
+    // The debounced term, not the keystroke: the file is what the grid is showing, and for 300ms
+    // after a keypress those are two different things.
+    mutationFn: () => exportApi.saveCompaniesCsv(project.id, stage.status, debouncedQuery,
+      [project.clientName, project.positionTitle, stage.label]),
+    onError: (error) => toast(messageFor(error)),
+  });
+
   const removeCandidate = useMutation({
     mutationFn: (candidate: Candidate) =>
       candidatesApi.deleteCandidate(project.id, candidate.id),
@@ -435,6 +444,8 @@ function TriageStage() {
         onAddCompany={() => setOpenCompany({ company: null })}
         onAddExecutive={() => setProfile({ candidate: null, company: null })}
         onImport={() => setImporting(true)}
+        onExport={() => exportCsv.mutate()}
+        exporting={exportCsv.isPending}
         onManageColumns={() => setManagingColumns(true)}
         canWrite={canWrite}
         canImport={stage.status === "inUniverse"}
