@@ -73,6 +73,16 @@ class SpreadsheetReaderTest {
     }
 
     @Test
+    @DisplayName("undoes the guard on a leading tab too, which is how the naive check is bypassed")
+    void stripsTheFormulaGuardAheadOfWhitespace() {
+        // Our exporter guards a leading tab or CR as well as =+-@, so the reader has to undo the
+        // same set or a cell that left as "\tfoo" comes back with an apostrophe welded on.
+        ParsedSheet sheet = reader.read(csv("Company,Note\nACWA Power,\"'\t=1+1\"\n"));
+
+        assertThat(sheet.rows().getFirst()).containsExactly("ACWA Power", "\t=1+1");
+    }
+
+    @Test
     @DisplayName("leaves an apostrophe that is somebody's data alone")
     void keepsAnOrdinaryApostrophe() {
         ParsedSheet sheet = reader.read(csv("""

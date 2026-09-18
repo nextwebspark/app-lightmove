@@ -47,8 +47,12 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class SpreadsheetReader {
 
-    /** The characters a spreadsheet would read as the start of a formula. */
-    private static final String FORMULA_STARTERS = "=+-@";
+    /**
+     * The characters a spreadsheet would read as the start of a formula. Must stay in step with
+     * {@code CompaniesCsvWriter}'s set of the same name: our own export guards every one of these,
+     * and a character guarded there but not undone here comes back with the apostrophe still on it.
+     */
+    private static final String FORMULA_STARTERS = "=+-@\t\r";
 
     /** ZIP local-file header — every .xlsx is a zip, and .xls is the older OLE2 compound file. */
     private static final byte[] XLSX_SIGNATURE = {0x50, 0x4B, 0x03, 0x04};

@@ -24,6 +24,10 @@ public class CompaniesCsvWriter {
      * reading {@code =HYPERLINK("http://…")} would run on the machine of whoever opened the file. A
      * leading apostrophe makes the cell text, and it is also what stops a phone number beginning
      * {@code +966} from being read as arithmetic and shown as {@code #NAME?}.
+     *
+     * <p>The tab and CR are here because a leading whitespace character is how the naive
+     * {@code startsWith("=")} check is bypassed. {@code SpreadsheetReader} undoes exactly this set,
+     * so the round trip back through our own importer is lossless; the two must move together.
      */
     private static final String FORMULA_STARTERS = "=+-@\t\r";
 
